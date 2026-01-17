@@ -214,9 +214,12 @@ public partial class FloatingWidgetViewModel : ObservableObject
         }
     }
 
-    // Metadata for Aliases
+    // Metadata for Aliases and Priority
     private Dictionary<string, string> _scriptAliases = new();
+    private List<string> _scriptPriorityList = new(); // Stores order of keys in JSON
     private string _metadataPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+
+    [ObservableProperty] private string _customScriptsPath = "";
 
     private void LoadMetadata()
     {
@@ -225,29 +228,72 @@ public partial class FloatingWidgetViewModel : ObservableObject
             if (File.Exists(_metadataPath))
             {
                 var json = File.ReadAllText(_metadataPath);
+                
+                // 1. Load Dictionary for Display Names
                 _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+
+                // 2. Load Keys List for Order Priority
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                _scriptPriorityList = doc.RootElement.EnumerateObject().Select(p => p.Name).ToList();
             }
         }
-        catch { _scriptAliases = new(); }
+        catch 
+        { 
+            _scriptAliases = new(); 
+            _scriptPriorityList = new();
+        }
     }
     
-    private void LoadScripts()
+    private async void LoadScripts()
     {
-        // 1. Master/Python (.py, .pyw)
-        var masterPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Master");
-        if (!Directory.Exists(masterPath)) Directory.CreateDirectory(masterPath);
-        
-        var pyFiles = Directory.GetFiles(masterPath, "*.*")
-            .Where(f => f.EndsWith(".py") || f.EndsWith(".pyw"));
+        // Ensure settings are loaded first (specifically path)
+        if (_database != null)
+        {
+             var customScripts = await _database.GetAsync<string>("Configs.System.ScriptsPath");
+             if (!string.IsNullOrEmpty(customScripts) && Directory.Exists(customScripts))
+             {
+                 CustomScriptsPath = customScripts;
+             }
+        }
+
+        LoadMetadata();
+
+        var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
+        // Override with Custom Path if set
+        if (!string.IsNullOrEmpty(CustomScriptsPath) && Directory.Exists(CustomScriptsPath))
+        {
+            baseDir = CustomScriptsPath;
+        }
+
+        // 1. Master/Python (.py only) - Matches BatchViewModel
+        var masterPath = Path.Combine(baseDir, "Master");
+        IEnumerable<string> pyFiles = new List<string>();
+
+        if (Directory.Exists(masterPath))
+        {
+             pyFiles = Directory.GetFiles(masterPath, "*.*")
+                .Where(f => f.EndsWith(".py")); // Removed .pyw from Master
+        }
 
         UpdateCollection(MasterItems, pyFiles, "IconPython", "Master");
 
-        // 2. Action/JSX (.jsx)
-        var actionPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action");
-        if (!Directory.Exists(actionPath)) Directory.CreateDirectory(actionPath);
+        // 2. Action/JSX (.jsx) AND .pyw (Root Scripts) - Matches BatchViewModel
+        var actionFilesList = new List<string>();
         
-        var jsxFiles = Directory.GetFiles(actionPath, "*.jsx");
-        UpdateCollection(ActionItems, jsxFiles, "IconBolt", "Action");
+        // A. Load JSX from Action folder
+        var actionPath = Path.Combine(baseDir, "Action");
+        if (Directory.Exists(actionPath))
+        {
+            actionFilesList.AddRange(Directory.GetFiles(actionPath, "*.jsx"));
+        }
+
+        // B. Load PYW from Root Scripts folder
+        if (Directory.Exists(baseDir))
+        {
+             actionFilesList.AddRange(Directory.GetFiles(baseDir, "*.pyw"));
+        }
+
+        UpdateCollection(ActionItems, actionFilesList, "IconBolt", "Action");
     }
     
     private void UpdateCollection(ObservableCollection<FloatingItem> collection, IEnumerable<string> files, string icon, string cat)
@@ -282,43 +328,38 @@ public partial class FloatingWidgetViewModel : ObservableObject
             }
         }
         
-        // Apply Saved Order
-        // Since we cannot async await here easily, we rely on a fire-and-forget sort or load order beforehand.
-        // Better: Load order in background and re-sort.
-        _ = ApplySavedOrder(collection, cat);
+        // Apply Priority Sort (Matches Batch View)
+        ApplyPrioritySort(collection);
     }
     
-    private async Task ApplySavedOrder(ObservableCollection<FloatingItem> collection, string category)
+    private void ApplyPrioritySort(ObservableCollection<FloatingItem> collection)
     {
-        if (_database == null) return;
-        
-        var savedOrderJson = await _database.GetAsync<string>($"Configs.Widget.Order.{category}");
-        if (string.IsNullOrEmpty(savedOrderJson)) return;
-        
-        try
+        // Sort collection based on _scriptPriorityList (filenames) then Alphabetical
+        // Matches BatchViewModel logic:
+        // var index = _scriptPriorityList.IndexOf(key);
+        // return index == -1 ? int.MaxValue : index;
+            
+        var sorted = collection.OrderBy(item => 
         {
-            var savedOrder = System.Text.Json.JsonSerializer.Deserialize<List<string>>(savedOrderJson) ?? new List<string>();
+            var key = Path.GetFileName(item.FilePath);
+            var idx = _scriptPriorityList.IndexOf(key);
+            return idx == -1 ? int.MaxValue : idx;
+        }).ThenBy(item => item.Name).ToList();
             
-            // Sort collection based on savedOrder (filenames)
-            var sorted = collection.OrderBy(item => 
-            {
-                var fname = Path.GetFileName(item.FilePath);
-                var idx = savedOrder.IndexOf(fname);
-                return idx == -1 ? int.MaxValue : idx;
-            }).ToList();
-            
-            // Re-populate if order changed
-            for(int i=0; i<sorted.Count; i++)
-            {
-                int oldIdx = collection.IndexOf(sorted[i]);
-                if (oldIdx != i) collection.Move(oldIdx, i);
-            }
+        // Re-populate if order changed
+        for(int i=0; i<sorted.Count; i++)
+        {
+            int oldIdx = collection.IndexOf(sorted[i]);
+            if (oldIdx != i) collection.Move(oldIdx, i);
         }
-        catch { /* ignore sort errors */ }
     }
     
     public void ReorderItem(FloatingItem source, FloatingItem target, bool insertAfter)
     {
+        // Disabled Manual Reordering to enforce Sync with Batch View Priority List
+        return; 
+        
+        /* 
         // determine collection from category
         var collection = GetCollectionByCategory(source.Category);
         if (collection == null || !collection.Contains(target)) return;
@@ -337,6 +378,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
         
         // Save
         _ = SaveOrder(collection, source.Category);
+        */
     }
     
     private ObservableCollection<FloatingItem>? GetCollectionByCategory(string cat)
@@ -347,14 +389,10 @@ public partial class FloatingWidgetViewModel : ObservableObject
         return null;
     }
     
-    private async Task SaveOrder(ObservableCollection<FloatingItem> collection, string category)
+    private Task SaveOrder(ObservableCollection<FloatingItem> collection, string category)
     {
-        if (_database == null) return;
-        
-        var order = collection.Select(i => Path.GetFileName(i.FilePath)).ToList();
-        var json = System.Text.Json.JsonSerializer.Serialize(order);
-        
-        await _database.SetAsync($"Configs.Widget.Order.{category}", json);
+        // Disabled
+        return Task.CompletedTask;
     }
     
     private Views.PixelcutWindow? _pixelcutWindow;
