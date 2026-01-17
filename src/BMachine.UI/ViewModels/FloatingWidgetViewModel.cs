@@ -356,10 +356,6 @@ public partial class FloatingWidgetViewModel : ObservableObject
     
     public void ReorderItem(FloatingItem source, FloatingItem target, bool insertAfter)
     {
-        // Disabled Manual Reordering to enforce Sync with Batch View Priority List
-        return; 
-        
-        /* 
         // determine collection from category
         var collection = GetCollectionByCategory(source.Category);
         if (collection == null || !collection.Contains(target)) return;
@@ -367,18 +363,28 @@ public partial class FloatingWidgetViewModel : ObservableObject
         int oldIndex = collection.IndexOf(source);
         int newIndex = collection.IndexOf(target);
         
-        if (insertAfter && oldIndex > newIndex) newIndex++;
-        if (!insertAfter && oldIndex < newIndex) newIndex--;
+        if (insertAfter)
+        {
+            if (newIndex < collection.Count - 1) newIndex++; // Insert after target
+        }
+        else
+        {
+             // Insert before target, newIndex is correct
+        }
         
-        // Safety check
+        // Adjust index if moving down
+        if (oldIndex < newIndex && insertAfter) newIndex--; 
+        
+        // Safety clamps
         if (newIndex < 0) newIndex = 0;
         if (newIndex >= collection.Count) newIndex = collection.Count - 1;
         
+        if (oldIndex == newIndex) return;
+
         collection.Move(oldIndex, newIndex);
         
-        // Save
-        _ = SaveOrder(collection, source.Category);
-        */
+        // Save Global Order
+        _ = SavePriorityToMetadata();
     }
     
     private ObservableCollection<FloatingItem>? GetCollectionByCategory(string cat)
@@ -389,10 +395,60 @@ public partial class FloatingWidgetViewModel : ObservableObject
         return null;
     }
     
-    private Task SaveOrder(ObservableCollection<FloatingItem> collection, string category)
+    private async Task SavePriorityToMetadata()
     {
-        // Disabled
-        return Task.CompletedTask;
+        try 
+        {
+            // Reconstruct the Dictionary in the new order
+            // Priority: Master Items -> Action Items -> Others (hidden ones preserved)
+            var newOrder = new Dictionary<string, string>();
+            
+            // 1. Master Scripts
+            foreach (var item in MasterItems)
+            {
+                var fname = Path.GetFileName(item.FilePath);
+                // Use existing alias if known, otherwise DisplayName
+                var alias = _scriptAliases.ContainsKey(fname) ? _scriptAliases[fname] : item.Name;
+                newOrder[fname] = alias;
+            }
+            
+            // 2. Action Scripts
+            foreach (var item in ActionItems)
+            {
+                var fname = Path.GetFileName(item.FilePath);
+                var alias = _scriptAliases.ContainsKey(fname) ? _scriptAliases[fname] : item.Name;
+                newOrder[fname] = alias;
+            }
+            
+            // 3. Preserve any other scripts in the file (hidden/unloaded) that are not yet added
+            foreach (var kvp in _scriptAliases)
+            {
+                if (!newOrder.ContainsKey(kvp.Key))
+                {
+                    newOrder[kvp.Key] = kvp.Value;
+                }
+            }
+            
+            // Update internal cache
+            _scriptAliases = newOrder;
+            _scriptPriorityList = newOrder.Keys.ToList();
+            
+            // Save to JSON
+            // Using JsonSerializer checks insertion order for properties mostly, 
+            // but for Dictionary it's implementation dependent. 
+            // However, reconstructing a new Dict usually preserves insertion order in simple serialization.
+            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+            var json = System.Text.Json.JsonSerializer.Serialize(newOrder, options);
+            
+            await File.WriteAllTextAsync(_metadataPath, json);
+            
+            // Notify Batch View to reload
+            WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.ScriptOrderChangedMessage());
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error saving scripts metadata: {ex.Message}");
+        }
     }
     
     private Views.PixelcutWindow? _pixelcutWindow;

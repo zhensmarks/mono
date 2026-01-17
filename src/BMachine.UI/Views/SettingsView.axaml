@@ -82,13 +82,13 @@
                         </StackPanel>
                     </ListBoxItem>
 
-                    <!-- New Script Manager Item -->
-                    <ListBoxItem>
+                    <!-- Script Manager Item (HIDDEN - config via scripts.json) -->
+                    <!-- <ListBoxItem>
                         <StackPanel Orientation="Horizontal" Spacing="15">
                              <PathIcon Data="{StaticResource IconList}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                              <TextBlock Text="Script Manager" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
-                    </ListBoxItem>
+                    </ListBoxItem> -->
                     
                     <!-- Paths Manager Item -->
                     <ListBoxItem>
@@ -640,9 +640,9 @@
              </Grid>
         </Border>
 
-        <!-- Script Manager UI -->
+        <!-- Script Manager UI (HIDDEN - config via scripts.json) -->
         <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
-                IsVisible="{Binding IsScriptsManagerSelected}">
+                IsVisible="False">
             <Grid RowDefinitions="Auto, *, Auto" Margin="30">
                 <StackPanel Grid.Row="0" Spacing="5" Margin="0,0,0,20">
                     <TextBlock Text="Script Manager" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
