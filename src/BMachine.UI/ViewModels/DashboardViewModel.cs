@@ -44,6 +44,21 @@ public partial class DashboardViewModel : ObservableObject
         IsLogPanelOpen = !IsLogPanelOpen;
     }
 
+    // Activity Panel
+    [ObservableProperty] private bool _isActivityPanelOpen;
+
+    [RelayCommand]
+    private void ToggleActivityPanel()
+    {
+        IsActivityPanelOpen = !IsActivityPanelOpen;
+    }
+
+    [RelayCommand]
+    private void CloseActivityPanel()
+    {
+        IsActivityPanelOpen = false;
+    }
+
     // UI Customization
     [ObservableProperty] private double _navButtonWidth = 120;
     [ObservableProperty] private double _navButtonHeight = 40;

@@ -90,6 +90,30 @@
                                          Width="16" Height="16" Stretch="Uniform"/>
                         </ToggleButton>
                         
+                        <!-- Activity Panel Toggle (Bell Icon) -->
+                        <ToggleButton Command="{Binding ToggleActivityPanelCommand}" 
+                                      IsChecked="{Binding IsActivityPanelOpen, Mode=OneWay}"
+                                      Width="32" Height="32" CornerRadius="8" Padding="0"
+                                      ToolTip.Tip="Activity Log" Cursor="Hand">
+                            <ToggleButton.Styles>
+                                <Style Selector="ToggleButton">
+                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                </Style>
+                                <Style Selector="ToggleButton Path">
+                                     <Setter Property="Fill" Value="{DynamicResource TextPrimaryBrush}"/>
+                                </Style>
+                                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                </Style>
+                                <Style Selector="ToggleButton:checked Path">
+                                     <Setter Property="Fill" Value="White"/>
+                                </Style>
+                            </ToggleButton.Styles>
+                            <!-- Bell Icon -->
+                            <shapes:Path Data="M12,22A2,2 0 0,0 14,20H10A2,2 0 0,0 12,22M18,16V11C18,7.93 16.36,5.36 13.5,4.68V4A1.5,1.5 0 0,0 12,2.5A1.5,1.5 0 0,0 10.5,4V4.68C7.63,5.36 6,7.92 6,11V16L4,18V19H20V18L18,16Z" 
+                                         Width="16" Height="16" Stretch="Uniform"/>
+                        </ToggleButton>
+                        
                         <!-- Menu Button (Squircle 32px - Blue) -->
                         <Button Width="32" Height="32" 
                                 Background="{DynamicResource AccentBlueBrush}" 
@@ -279,45 +303,38 @@
             <!-- MAIN CONTENT AREA -->
             <Grid Grid.Row="2" ClipToBounds="True">
                 
-                <!-- DASHBOARD TAB CONTENT (Scrollable) -->
-                <ScrollViewer IsVisible="{Binding IsDashboardTabSelected}" 
-                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                    <Grid Margin="20,0,20,0" x:Name="Part_ContentGrid" ColumnDefinitions="2.5*, 1*" SizeChanged="OnContentGridSizeChanged">
-                        <!-- StatsPanel -->
-                        <Border x:Name="Part_Stats" Grid.Column="0" Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="20" Margin="0,0,10,0" VerticalAlignment="Top" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                            <!-- Viewbox ensures the single-row grid shrinks to fit instead of clipping or wrapping -->
-                            <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
-                                <Grid ColumnDefinitions="*,*,*,*" VerticalAlignment="Center">
-                                    <controls:StatWidget Grid.Column="0" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
-                                                         Color="{Binding StatEditingColor}" ShowIcon="False"
-                                                         AnimationDuration="{Binding StatAnimationDuration}"
-                                                         Command="{Binding OpenEditingListCommand}"/>
-                                                         
-                                    <controls:StatWidget Grid.Column="1" Label="{Binding Language[Stats.Revision]}" Value="{Binding StatRevision}" Percentage="{Binding StatRevisionPercentage}" 
-                                                         Color="{Binding StatRevisionColor}" ShowIcon="False"
-                                                         AnimationDuration="{Binding StatAnimationDuration}"
-                                                         Command="{Binding OpenRevisionListCommand}"/>
-                                                         
-                                    <controls:StatWidget Grid.Column="2" Label="{Binding Language[Stats.Late]}" Value="{Binding StatLate}" Percentage="{Binding StatLatePercentage}" 
-                                                         Color="{Binding StatLateColor}" ShowIcon="False"
-                                                         AnimationDuration="{Binding StatAnimationDuration}"
-                                                         Command="{Binding OpenLateListCommand}"/>
-                                                         
-                                    <controls:StatWidget Grid.Column="3" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
-                                                         Color="{Binding StatPointsColor}" ShowIcon="False"
-                                                         AnimationDuration="{Binding StatAnimationDuration}"/>
-                                </Grid>
-                            </Viewbox>
-                        </Border>
-                        
-                        <!-- Activity Feed -->
-                        <controls:ActivityFeed x:Name="Part_Activity" Grid.Column="1" 
-                                               Activities="{Binding Activities}" 
-                                               Height="{Binding #Part_Stats.Bounds.Height}" 
-                                               VerticalAlignment="Top"
-                                               ClearCommand="{Binding ClearActivitiesCommand}"/>
-                    </Grid>
-                </ScrollViewer>
+                <!-- DASHBOARD TAB CONTENT -->
+                <Grid IsVisible="{Binding IsDashboardTabSelected}" Margin="20,0,20,0">
+                    <!-- StatsPanel - Full Height like Batch -->
+                    <Border x:Name="Part_Stats" Classes="Card" Background="{DynamicResource CardBackgroundBrush}" 
+                            CornerRadius="20" Padding="20"
+                            VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                        <!-- Viewbox ensures the single-row grid shrinks to fit instead of clipping or wrapping -->
+                        <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Center">
+                            <Grid ColumnDefinitions="*,*,*,*" VerticalAlignment="Center">
+                                <controls:StatWidget Grid.Column="0" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
+                                                     Color="{Binding StatEditingColor}" ShowIcon="False"
+                                                     AnimationDuration="{Binding StatAnimationDuration}"
+                                                     Command="{Binding OpenEditingListCommand}"/>
+                                                     
+                                <controls:StatWidget Grid.Column="1" Label="{Binding Language[Stats.Revision]}" Value="{Binding StatRevision}" Percentage="{Binding StatRevisionPercentage}" 
+                                                     Color="{Binding StatRevisionColor}" ShowIcon="False"
+                                                     AnimationDuration="{Binding StatAnimationDuration}"
+                                                     Command="{Binding OpenRevisionListCommand}"/>
+                                                     
+                                <controls:StatWidget Grid.Column="2" Label="{Binding Language[Stats.Late]}" Value="{Binding StatLate}" Percentage="{Binding StatLatePercentage}" 
+                                                     Color="{Binding StatLateColor}" ShowIcon="False"
+                                                     AnimationDuration="{Binding StatAnimationDuration}"
+                                                     Command="{Binding OpenLateListCommand}"/>
+                                                     
+                                <controls:StatWidget Grid.Column="3" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
+                                                     Color="{Binding StatPointsColor}" ShowIcon="False"
+                                                     AnimationDuration="{Binding StatAnimationDuration}"/>
+                            </Grid>
+                        </Viewbox>
+                    </Border>
+                </Grid>
                     
                     <!-- BATCH TAB CONTENT -->
                     <Grid IsVisible="{Binding IsBatchTabSelected}" RowDefinitions="*, Auto" Margin="20,0,20,0">
@@ -634,5 +651,74 @@
         <views:LogPanelSidebar Grid.Column="2" Width="275" 
                                IsVisible="{Binding IsLogPanelOpen}" 
                                VerticalAlignment="Stretch"/>
+
+        <!-- ACTIVITY PANEL (Overlay on right side of main content) -->
+        <Border Grid.Column="0" HorizontalAlignment="Right" Width="320"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,0,0,0"
+                IsVisible="{Binding IsActivityPanelOpen}"
+                BoxShadow="-4 0 20 0 #40000000">
+            <Grid RowDefinitions="Auto, *, Auto" Margin="0">
+                <!-- Header -->
+                <Grid ColumnDefinitions="*, Auto" Margin="20,20,20,15">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="ACTIVITY LOG" FontSize="14" FontWeight="Bold" 
+                                   Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="1"/>
+                        <TextBlock Text="Recent actions" FontSize="11" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding CloseActivityPanelCommand}" 
+                            Content="✕" Background="Transparent" BorderThickness="0" 
+                            FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"
+                            VerticalAlignment="Top"/>
+                </Grid>
+
+                <!-- Activity List -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Activities}" Margin="20,0,20,20">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto, *" Margin="0,0,0,15">
+                                    <!-- Timeline Line -->
+                                    <Border Grid.Column="0" Width="1" Background="{DynamicResource TextSecondaryBrush}" 
+                                            HorizontalAlignment="Center" Margin="0,10,0,-15"
+                                            IsVisible="{Binding !IsLast}" Opacity="0.3"/>
+                                            
+                                    <!-- Dot -->
+                                    <Border Grid.Column="0" Width="8" Height="8" CornerRadius="4" 
+                                            Background="{DynamicResource AccentBlueBrush}" Margin="0,6,12,0"
+                                            VerticalAlignment="Top"/>
+                                            
+                                    <!-- Content -->
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Text="{Binding Title}" 
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" 
+                                                   FontSize="13" FontWeight="SemiBold"
+                                                   TextWrapping="Wrap"/>
+                                                   
+                                        <TextBlock Text="{Binding TimeDisplay}" 
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                   FontSize="11"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Footer: Clear All Button -->
+                <Border Grid.Row="2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Padding="20,15">
+                    <Button Command="{Binding ClearActivitiesCommand}" 
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Background="Transparent" BorderBrush="{DynamicResource AccentRedBrush}" BorderThickness="1"
+                            Foreground="{DynamicResource AccentRedBrush}" CornerRadius="8" Padding="12,8" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
+                            <TextBlock Text="Clear All Activity" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

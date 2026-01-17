@@ -168,47 +168,4 @@ public partial class DashboardView : UserControl
         if (owner != null) win.Show(owner);
         else win.Show();
     }
-
-    private void OnContentGridSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        if (sender is not Grid grid) return;
-
-        // Threshold for Mobile/Stacked View
-        double threshold = 600;
-        bool isMobile = e.NewSize.Width < threshold;
-
-        if (isMobile)
-        {
-            // Stacked Layout (Vertical)
-            grid.ColumnDefinitions = new ColumnDefinitions("*");
-            grid.RowDefinitions = new RowDefinitions("Auto, Auto"); // Stats Top, Activity Bottom
-
-            // Stats Logic
-            Grid.SetColumn(Part_Stats, 0);
-            Grid.SetRow(Part_Stats, 0);
-            Part_Stats.Margin = new Thickness(0, 0, 0, 20); // Bottom margin for spacing
-
-            // Activity Logic
-            Grid.SetColumn(Part_Activity, 0);
-            Grid.SetRow(Part_Activity, 1);
-            Part_Activity.Margin = new Thickness(0);
-        }
-        else
-        {
-            // Desktop Layout (Side by Side)
-            grid.ColumnDefinitions = new ColumnDefinitions("2.5*, 1*");
-            grid.RowDefinitions = new RowDefinitions("*"); // Single Row
-
-            // Stats Logic
-            Grid.SetColumn(Part_Stats, 0);
-            Grid.SetRow(Part_Stats, 0);
-            Part_Stats.Margin = new Thickness(0, 0, 10, 0); // Right margin for spacing
-
-            // Activity Logic
-            Grid.SetColumn(Part_Activity, 1);
-            Grid.SetRow(Part_Activity, 0);
-            Part_Activity.Margin = new Thickness(0);
-        }
-    }
 }
-

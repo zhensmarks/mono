@@ -58,6 +58,7 @@ build/
 # Logs
 *.log
 logs/
+.logs/
 
 # Temp files
 *.tmp

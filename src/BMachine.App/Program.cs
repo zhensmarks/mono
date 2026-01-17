@@ -8,18 +8,24 @@ class Program
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
+    private static readonly string LogFolder = ".logs";
+    private static readonly string DebugLog = System.IO.Path.Combine(LogFolder, "debug.log");
+    
     [STAThread]
     public static void Main(string[] args)
     {
         try 
         {
-            System.IO.File.WriteAllText("debug.log", "App Starting...\n");
+            // Ensure .logs folder exists
+            System.IO.Directory.CreateDirectory(LogFolder);
+            System.IO.File.WriteAllText(DebugLog, $"App Starting... [{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n");
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
         {
-            System.IO.File.AppendAllText("debug.log", "CRASH: " + ex.ToString());
+            System.IO.Directory.CreateDirectory(LogFolder);
+            System.IO.File.AppendAllText(DebugLog, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] CRASH: {ex}\n");
             throw; // Re-throw to ensure process exit code is error
         }
     }

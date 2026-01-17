@@ -617,6 +617,34 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [ObservableProperty] private TrelloItem? _selectedMoveBoard;
     [ObservableProperty] private TrelloItem? _selectedMoveList;
     [ObservableProperty] private bool _isLoadingMoveData;
+    
+    // Batch Move Properties
+    [ObservableProperty] private bool _isBatchMoveMode;
+    [ObservableProperty] private bool _hasSelectedCards;
+    [ObservableProperty] private string _batchStatusMessage = "";
+    
+    [RelayCommand]
+    private void SelectionChanged()
+    {
+        HasSelectedCards = Cards.Any(c => c.IsSelected);
+    }
+    
+    [RelayCommand]
+    private async Task ShowBatchMovePanel()
+    {
+        var selectedCount = Cards.Count(c => c.IsSelected);
+        if (selectedCount == 0) return;
+        
+        IsBatchMoveMode = true;
+        SelectedCard = new TrelloCard { Name = $"{selectedCount} Cards Selected" }; // Dummy card for Header
+        
+        IsCommentPanelOpen = false;
+        IsChecklistPanelOpen = false;
+        IsMovePanelOpen = true;
+        IsAttachmentPanelOpen = false;
+        
+        await LoadMoveBoards();
+    }
 
     partial void OnSelectedMoveBoardChanged(TrelloItem? value)
     {
@@ -629,6 +657,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         if (card == null) return;
         SelectedCard = card;
+        IsBatchMoveMode = false;
         
         IsCommentPanelOpen = false;
         IsChecklistPanelOpen = false;
@@ -828,7 +857,29 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         IsLoadingMoveData = true;
         try
         {
-             await DataMoveCard(SelectedCard, SelectedMoveBoard.Id, SelectedMoveList.Id, $"Moved to {SelectedMoveList.Name}");
+             if (IsBatchMoveMode)
+             {
+                 var selectedCards = Cards.Where(c => c.IsSelected).ToList();
+                 if (!selectedCards.Any()) return;
+                 
+                 int successCount = 0;
+                 int total = selectedCards.Count;
+                 
+                 foreach(var card in selectedCards)
+                 {
+                     StatusMessage = $"Moving {card.Name} ({successCount + 1}/{total})...";
+                     bool success = await DataMoveCard(card, SelectedMoveBoard.Id, SelectedMoveList.Id, "");
+                     if (success) successCount++;
+                 }
+                 
+                 CloseMovePanel();
+                 StatusMessage = $"Moved {successCount} of {total} cards to {SelectedMoveList.Name}";
+                 HasSelectedCards = false; // Reset selection visibility
+             }
+             else
+             {
+                 await DataMoveCard(SelectedCard, SelectedMoveBoard.Id, SelectedMoveList.Id, $"Moved to {SelectedMoveList.Name}");
+             }
         }
         finally
         {

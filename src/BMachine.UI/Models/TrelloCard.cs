@@ -59,6 +59,9 @@ public partial class TrelloCard : ObservableObject
     [ObservableProperty]
     private bool _isManual;
 
+    [ObservableProperty]
+    private bool _isSelected;
+
     // Computed property for UI display
     public string DueDateText => DueDate.HasValue ? DueDate.Value.ToString("dd MMM") : "";
 }
