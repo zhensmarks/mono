@@ -1,0 +1,456 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:models="using:BMachine.UI.Models"
+             xmlns:controls="using:BMachine.UI.Controls"
+             xmlns:views="using:BMachine.UI.Views"
+             x:Class="BMachine.UI.Views.LateCardListView"
+             x:DataType="vm:LateCardListViewModel"
+             Background="{DynamicResource AppBackgroundBrush}">
+    <Grid x:Name="Part_RootGrid" Background="{DynamicResource AppBackgroundBrush}" SizeChanged="OnRootGridSizeChanged">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Main Content -->
+        <Grid x:Name="Part_MainContent" Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Margin="30" Spacing="12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Susulan / Late" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+    
+            <!-- Cards List -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Cards}" Margin="10,0,10,20">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="models:TrelloCard">
+                                <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                           Padding="0" BorderThickness="0" Background="Transparent"
+                                           Margin="0,0,0,15" CornerRadius="12">
+                                <ToggleButton.Styles>
+                                    <Style Selector="ToggleButton:checked /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="Transparent"/> 
+                                    </Style>
+                                    <Style Selector="ToggleButton:pointerover /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                    </Style>
+                                </ToggleButton.Styles>
+                                
+                                <Border ClipToBounds="True" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" 
+                                        BorderThickness="1" BorderBrush="{DynamicResource CardBorderBrush}"
+                                        BoxShadow="0 4 12 0 #80000000">
+                                    <StackPanel>
+                                        <!-- Accent Line (Top) - Customized -->
+                                        <Border Height="4" Background="{Binding $parent[UserControl].DataContext.AccentColor}" HorizontalAlignment="Stretch"/>
+                                        
+                                        <StackPanel Spacing="10" Margin="20">
+                                             <!-- Header Section: ID (if exists) and Name -->
+                                             <StackPanel Spacing="8">
+                                                 <Grid ColumnDefinitions="*, Auto">
+                                                     <!-- ID Badge (Clickable to Copy) -->
+                                                     <Button Grid.Column="0" Classes="Clear" HorizontalAlignment="Left" Padding="0" Background="Transparent"
+                                                             Click="OnIdClick"
+                                                             Tag="{Binding DisplayId}"
+                                                             IsVisible="{Binding HasDisplayId}"
+                                                             Cursor="Hand" ToolTip.Tip="Click to Copy ID">
+                                                         <Border Background="#336699CC" CornerRadius="6" Padding="8,4">
+                                                              <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                  <TextBlock Text="ID:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"/>
+                                                                  <TextBlock Text="{Binding DisplayId}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                              </StackPanel>
+                                                         </Border>
+                                                     </Button>
+
+                                                     <!-- Attachment Button (Right Aligned) -->
+                                                     <Button Grid.Column="1" Classes="Clear" HorizontalAlignment="Right" Padding="0" Background="Transparent"
+                                                             Command="{Binding $parent[ItemsControl].DataContext.ShowAttachmentsCommand}" 
+                                                             CommandParameter="{Binding}"
+                                                             IsVisible="{Binding HasAttachments}"
+                                                             Cursor="Hand" ToolTip.Tip="View Attachments">
+                                                          <Border Background="#33FFB74D" CornerRadius="6" Padding="8,4">
+                                                              <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                  <PathIcon Data="{StaticResource IconPaperclip}" Width="11" Height="11" Foreground="#FFB74D"/>
+                                                                  <TextBlock Text="{Binding AttachmentCount}" FontSize="11" FontWeight="SemiBold" Foreground="#FFB74D"/>
+                                                              </StackPanel>
+                                                          </Border>
+                                                     </Button>
+                                                 </Grid>
+                                                 
+                                                 <!-- Name -->
+                                                 <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="18" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                             </StackPanel>
+                                            
+                                            <!-- Action Buttons (Right Aligned) -->
+                                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,15,0,0">
+                                                <Button Command="{Binding $parent[ItemsControl].DataContext.ShowCommentsCommand}" CommandParameter="{Binding}"
+                                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="6" Padding="12,6" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <PathIcon Data="{StaticResource IconMessageSquare}" Width="12" Height="12"/>
+                                                        <TextBlock Text="Comment" FontSize="12"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Command="{Binding $parent[ItemsControl].DataContext.ShowChecklistsCommand}" CommandParameter="{Binding}"
+                                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="6" Padding="12,6" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <PathIcon Data="{StaticResource IconCheckSquare}" Width="12" Height="12"/>
+                                                        <TextBlock Text="Checklist" FontSize="12"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Command="{Binding $parent[ItemsControl].DataContext.ShowMovePanelCommand}" CommandParameter="{Binding}"
+                                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="6" Padding="12,6" Foreground="{DynamicResource TextSecondaryBrush}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <PathIcon Data="{StaticResource IconArrowRight}" Width="12" Height="12"/>
+                                                        <TextBlock Text="Move" FontSize="12"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </StackPanel>
+    
+                                            <!-- Collapsible Content -->
+                                            <StackPanel IsVisible="{Binding IsExpanded}" Spacing="10" Margin="0,15,0,0">
+                                                <Border Height="1" Background="{DynamicResource TextSecondaryBrush}" Opacity="0.1"/>
+                                                
+                                                <!-- Description -->
+                                                <TextBox Text="{Binding Description}" 
+                                                         IsReadOnly="True" 
+                                                         TextWrapping="Wrap"
+                                                         FontSize="14" 
+                                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                                         Padding="0"
+                                                         Margin="0"
+                                                         MinHeight="0">
+                                                    <TextBox.Styles>
+                                                        <Style Selector="TextBox">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="BorderThickness" Value="0"/>
+                                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                                            <Setter Property="CaretBrush" Value="Transparent"/>
+                                                        </Style>
+                                                        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="BorderThickness" Value="0"/>
+                                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                                        </Style>
+                                                        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="BorderThickness" Value="0"/>
+                                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                                        </Style>
+                                                    </TextBox.Styles>
+                                                </TextBox>
+                                                
+                                                <WrapPanel>
+                                                    <Border IsVisible="{Binding IsOverdue}" Background="Red" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                                            <PathIcon Data="{StaticResource IconAlertCircle}" Width="10" Height="10" Foreground="White" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="OVERDUE" FontSize="10" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding DueDateText}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,15,0"/>
+                                                    <TextBlock Text="{Binding LabelsText}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic"/>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border> 
+                                </ToggleButton>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Side Panel: Comments -->
+        <Border x:Name="Part_CommentPanel" Grid.Column="1" Width="350" Background="{DynamicResource CardBackgroundBrush}" 
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+                IsVisible="{Binding IsCommentPanelOpen}">
+            <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+                    <StackPanel Spacing="5">
+                         <TextBlock Text="Comments" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding CloseCommentsPanelCommand}" Content="✕" 
+                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1">
+                    <StackPanel Spacing="15">
+                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingComments}" Margin="0,20"/>
+                        <TextBlock Text="No comments yet." IsVisible="{Binding !Comments.Count}" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
+                        
+                        <ItemsControl ItemsSource="{Binding Comments}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#10FFFFFF" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                                        <Grid ColumnDefinitions="Auto, *">
+                                            <Border Width="32" Height="32" CornerRadius="16" Background="#3b82f6" Margin="0,0,12,0" VerticalAlignment="Top" ClipToBounds="True">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding MemberCreatorInitials}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                                                </Panel>
+                                            </Border>
+                                            
+                                            <StackPanel Grid.Column="1" Spacing="4">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                    <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Grid Grid.Row="2" ColumnDefinitions="*, Auto" Margin="0,20,0,0">
+                    <TextBox Text="{Binding NewCommentText}" Watermark="Write a comment..." 
+                             Background="#1AFFFFFF" BorderThickness="0" CornerRadius="8" Padding="10"
+                             Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100"/>
+                    <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
+                            Width="40" Height="40" CornerRadius="20" Background="#3b82f6" Cursor="Hand" ToolTip.Tip="Send Comment">
+                        <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Side Panel: Checklist -->
+        <Border x:Name="Part_ChecklistPanel" Grid.Column="1" Width="400" Background="{DynamicResource CardBackgroundBrush}" 
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+                IsVisible="{Binding IsChecklistPanelOpen}">
+            <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+                <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+                    <StackPanel Spacing="5">
+                         <TextBlock Text="Checklists" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}" Content="✕" 
+                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1">
+                    <StackPanel Spacing="20">
+                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingChecklists}" Margin="0,20"/>
+                        <TextBlock Text="No checklists found." IsVisible="{Binding !Checklists.Count}" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
+                        
+                        <ItemsControl ItemsSource="{Binding Checklists}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Spacing="10" Margin="0,0,0,20">
+                                        <Grid ColumnDefinitions="Auto, *, Auto">
+                                            <PathIcon Data="{StaticResource IconCheckSquare}" 
+                                                  Foreground="{DynamicResource TextPrimaryBrush}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            
+                                            <Button Grid.Column="2" 
+                                                    Command="{Binding $parent[UserControl].DataContext.DeleteChecklistCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand" ToolTip.Tip="Delete Checklist">
+                                                <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
+                                            </Button>
+                                        </Grid>
+                                        
+                                        <ItemsControl ItemsSource="{Binding Items}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" 
+                                                              Content="{Binding Name}" Margin="5,2"
+                                                              Command="{Binding $parent[UserControl].DataContext.ToggleCheckItemCommand}"
+                                                              CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+                
+                <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                     <Border Background="#26282C" CornerRadius="8" Padding="15" IsVisible="{Binding IsDuplicateMode}" Margin="0,0,0,10">
+                         <StackPanel Spacing="10">
+                             <TextBlock Text="Duplicate Checklist" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                             <StackPanel Spacing="5">
+                                  <TextBlock Text="New Name:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                  <TextBox Text="{Binding DuplicateChecklistName}" Watermark="#EDITING USER_PROFILE" IsReadOnly="True" Background="#1AFFFFFF"/>
+                             </StackPanel>
+                             <StackPanel Spacing="5">
+                                  <TextBlock Text="Source:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                  <ComboBox ItemsSource="{Binding Checklists}" SelectedItem="{Binding SelectedSourceChecklist}" 
+                                            PlaceholderText="Select source..." HorizontalAlignment="Stretch">
+                                      <ComboBox.ItemTemplate>
+                                          <DataTemplate>
+                                              <TextBlock Text="{Binding Name}"/>
+                                          </DataTemplate>
+                                      </ComboBox.ItemTemplate>
+                                  </ComboBox>
+                             </StackPanel>
+                             <Grid ColumnDefinitions="*, *" Margin="0,5,0,0">
+                                 <Button Grid.Column="0" Content="Cancel" Command="{Binding ToggleDuplicateModeCommand}" 
+                                         Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Left"/>
+                                 <Button Grid.Column="1" Content="Create Copy" Command="{Binding DuplicateChecklistCommand}" 
+                                         Background="{DynamicResource AccentBlueBrush}" Foreground="White" HorizontalAlignment="Right"/>
+                             </Grid>
+                         </StackPanel>
+                     </Border>
+                     <Button Command="{Binding ToggleDuplicateModeCommand}"
+                             IsVisible="{Binding !IsDuplicateMode}"
+                             Classes="Clear" Foreground="{DynamicResource AccentBlueBrush}" HorizontalAlignment="Center" FontSize="12" Cursor="Hand">
+                         <StackPanel Orientation="Horizontal" Spacing="6">
+                             <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
+                             <TextBlock Text="Duplicate Checklist"/>
+                         </StackPanel>
+                     </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Side Panel: Move Card -->
+        <Border x:Name="Part_MovePanel" Grid.Column="1" Width="400" Background="{DynamicResource CardBackgroundBrush}" 
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+                IsVisible="{Binding IsMovePanelOpen}">
+            <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+                <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+                    <StackPanel Spacing="5">
+                         <TextBlock Text="Move Card" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding CloseMovePanelCommand}" Content="✕" 
+                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                </Grid>
+
+                <StackPanel Grid.Row="1" Spacing="20">
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingMoveData}" Margin="0,0,0,10"/>
+                    
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Choose Board" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ComboBox ItemsSource="{Binding AvailableBoards}" SelectedItem="{Binding SelectedMoveBoard}" 
+                                  PlaceholderText="Select target board..." HorizontalAlignment="Stretch"
+                                  IsEnabled="False" Opacity="0.8">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Select List" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ComboBox ItemsSource="{Binding AvailableLists}" SelectedItem="{Binding SelectedMoveList}" 
+                                  PlaceholderText="Select target list..." HorizontalAlignment="Stretch"
+                                  IsEnabled="{Binding SelectedMoveBoard, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    
+                    <Button Command="{Binding MoveCardCommand}" 
+                            HorizontalAlignment="Stretch"
+                            Background="{DynamicResource AccentBlueBrush}" Foreground="White"
+                            Padding="15,10" CornerRadius="8" Margin="0,20,0,0"
+                            IsEnabled="{Binding SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                             <TextBlock Text="Confirm Move" FontWeight="Bold"/>
+                             <PathIcon Data="{StaticResource IconArrowRight}" Foreground="White" Width="12" Height="12"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Side Panel: Attachments -->
+        <Border x:Name="Part_AttachmentPanel" Grid.Column="1" Width="400" Background="{DynamicResource CardBackgroundBrush}" 
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+                IsVisible="{Binding IsAttachmentPanelOpen}">
+            <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+                <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+                    <StackPanel Spacing="5">
+                         <TextBlock Text="Attachments" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding CloseAttachmentPanelCommand}" Content="✕" 
+                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1">
+                    <StackPanel Spacing="20">
+                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingAttachments}" Margin="0,20"/>
+                        <TextBlock Text="No attachments." IsVisible="{Binding !Attachments.Count}" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
+                        
+                        <ItemsControl ItemsSource="{Binding Attachments}">
+                             <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemWidth="160" ItemHeight="160"/>
+                                </ItemsPanelTemplate>
+                             </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="5" Background="#1AFFFFFF" CornerRadius="8" ClipToBounds="True">
+                                        <Grid RowDefinitions="*, Auto">
+                                            <!-- Preview: Clickable to Open -->
+                                            <Button Grid.Row="0" Command="{Binding $parent[UserControl].DataContext.OpenAttachmentCommand}" CommandParameter="{Binding}"
+                                                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0">
+                                                <Panel>
+                                                    <Image Source="{Binding Thumbnail}" IsVisible="{Binding IsImage}" Stretch="UniformToFill"/>
+                                                    <PathIcon IsVisible="{Binding !IsImage}" Data="{StaticResource IconFile}" 
+                                                          Foreground="{DynamicResource TextSecondaryBrush}" Width="48" Height="48" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.5"/>
+                                                </Panel>
+                                            </Button>
+                                            
+                                            <!-- Download Overlay (Top Right) -->
+                                            <Button Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Right" Background="#AA000000" CornerRadius="4" Margin="5" Padding="4"
+                                                    Command="{Binding $parent[UserControl].DataContext.DownloadAttachmentCommand}" CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Download File">
+                                                 <PathIcon Data="{StaticResource IconDownload}" Foreground="White" Width="12" Height="12"/>
+                                            </Button> 
+                                            
+                                            <!-- Download Progress Overlay -->
+                                            <Grid Grid.Row="0" Background="#66000000" IsVisible="{Binding IsDownloading}">
+                                                 <ProgressBar IsIndeterminate="True" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                            </Grid>
+
+                                            <!-- Metadata -->
+                                            <Border Grid.Row="1" Background="#CC000000" Padding="8">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" Foreground="White" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                                                    <TextBlock Text="{Binding Bytes}" Foreground="#BBB" FontSize="9"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
+

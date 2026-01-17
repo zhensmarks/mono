@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>appicon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.1" />
+    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.1">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Semi.Avalonia" Version="11.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BMachine.Core\BMachine.Core.csproj" />
+    <ProjectReference Include="..\BMachine.SDK\BMachine.SDK.csproj" />
+    <ProjectReference Include="..\BMachine.UI\BMachine.UI.csproj" />
+  </ItemGroup>
+
+  <!-- Copy Python Scripts to Output Directory -->
+  <ItemGroup>
+    <None Include="..\..\Scripts\**\*.py" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
+  </ItemGroup>
+
+  <!-- Copy Google Drive Credentials -->
+  <ItemGroup>
+    <None Include="credentials.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('credentials.json')" />
+  </ItemGroup>
+
+  <!-- App Icon as Avalonia Resource -->
+  <ItemGroup>
+    <AvaloniaResource Include="appicon.ico" />
+  </ItemGroup>
+</Project>

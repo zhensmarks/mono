@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:shapes="using:Avalonia.Controls.Shapes"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="400"
+             x:Class="BMachine.UI.Controls.ActivityFeed"
+             x:Name="Root">
+    
+    <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+        <Grid RowDefinitions="Auto, *">
+            <!-- Header -->
+            <Grid ColumnDefinitions="*, Auto" Margin="20,20,20,20">
+                <TextBlock Text="ACTIVITY" 
+                           Foreground="{DynamicResource TextSecondaryBrush}" 
+                           FontSize="12" 
+                           FontWeight="Bold"
+                           LetterSpacing="1"/>
+                           
+                <Button Grid.Column="1" Classes="Clear" Background="Transparent" Padding="5" Cursor="Hand">
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuItem Header="Hapus Aktivitas" Command="{Binding #Root.ClearCommand}">
+                                <MenuItem.Icon>
+                                    <shapes:Path Data="{StaticResource IconTrash}" Width="12" Height="12" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                    <shapes:Path Data="{StaticResource IconMoreHorizontal}" 
+                          Fill="{DynamicResource TextSecondaryBrush}"
+                          Width="16" Height="16"
+                          Stretch="Uniform"/>
+                </Button>
+            </Grid>
+            
+            <!-- Feed List -->
+            <ScrollViewer Grid.Row="1">
+                <ItemsControl ItemsSource="{Binding #Root.Activities}" Margin="20,0,20,20">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="Auto, *" Margin="0,0,0,20">
+                                <!-- Timeline Line -->
+                                <Border Grid.Column="0" Width="1" Background="{DynamicResource TextSecondaryBrush}" 
+                                        HorizontalAlignment="Center" Margin="0,10,0,-20"
+                                        IsVisible="{Binding !IsLast}" Opacity="0.3"/>
+                                        
+                                <!-- Dot -->
+                                <Border Grid.Column="0" Width="8" Height="8" CornerRadius="4" 
+                                        Background="{DynamicResource TextSecondaryBrush}" Margin="0,6,15,0"
+                                        VerticalAlignment="Top" Opacity="0.6"/>
+                                        
+                                <!-- Content -->
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock Text="{Binding Title}" 
+                                               Foreground="{DynamicResource TextPrimaryBrush}" 
+                                               FontSize="13" 
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap"/>
+                                               
+                                    <TextBlock Text="{Binding TimeDisplay}" 
+                                               Foreground="{DynamicResource TextSecondaryBrush}" 
+                                               FontSize="12"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>

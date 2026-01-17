@@ -1,0 +1,73 @@
+Build started 15/01/2026 16:56:27.
+Logging verbosity is set to: Normal.     1>Project "D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj" on node 1 (Restore target(s)).
+     1>_GetAllRestoreProjectPathItems:
+         Determining projects to restore...
+       Restore:
+         X.509 certificate chain validation will use the default trust store selected by .NET for code signing.
+         X.509 certificate chain validation will use the default trust store selected by .NET for timestamping.
+         Assets file has not changed. Skipping assets file writing. Path: D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\obj\project.assets.json
+         Assets file has not changed. Skipping assets file writing. Path: D:\#DATA ABENG\BMachine.v2\src\BMachine.Core\obj\project.assets.json
+         Assets file has not changed. Skipping assets file writing. Path: D:\#DATA ABENG\BMachine.v2\src\BMachine.SDK\obj\project.assets.json
+         Restored D:\#DATA ABENG\BMachine.v2\src\BMachine.SDK\BMachine.SDK.csproj (in 24 ms).
+         Restored D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj (in 24 ms).
+         Restored D:\#DATA ABENG\BMachine.v2\src\BMachine.Core\BMachine.Core.csproj (in 24 ms).
+         
+         NuGet Config files used:
+             C:\Users\bengs\AppData\Roaming\NuGet\NuGet.Config
+         
+         Feeds used:
+             https://api.nuget.org/v3/index.json
+         All projects are up-to-date for restore.
+     1>Done Building Project "D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj" (Restore target(s)).
+   1:7>Project "D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj" on node 2 (default targets).
+   1:7>Project "D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj" (1:7) is building "D:\#DATA ABENG\BMachine.v2\src\BMachine.SDK\BMachine.SDK.csproj" (2:7) on node 2 (default targets).
+     2>GenerateTargetFrameworkMonikerAttribute:
+       Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
+       CoreGenerateAssemblyInfo:
+       Skipping target "CoreGenerateAssemblyInfo" because all output files are up-to-date with respect to the input files.
+       _GenerateSourceLinkFile:
+         Source Link is empty, file 'obj\Debug\net8.0\BMachine.SDK.sourcelink.json' does not exist.
+       CoreCompile:
+       Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
+       GenerateBuildDependencyFile:
+       Skipping target "GenerateBuildDependencyFile" because all output files are up-to-date with respect to the input files.
+       CopyFilesToOutputDirectory:
+         BMachine.SDK -> D:\#DATA ABENG\BMachine.v2\src\BMachine.SDK\bin\Debug\net8.0\BMachine.SDK.dll
+     2>Done Building Project "D:\#DATA ABENG\BMachine.v2\src\BMachine.SDK\BMachine.SDK.csproj" (default targets).
+   1:7>Project "D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj" (1:7) is building "D:\#DATA ABENG\BMachine.v2\src\BMachine.Core\BMachine.Core.csproj" (3:6) on node 1 (default targets).
+     3>GenerateTargetFrameworkMonikerAttribute:
+       Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
+       CoreGenerateAssemblyInfo:
+       Skipping target "CoreGenerateAssemblyInfo" because all output files are up-to-date with respect to the input files.
+       _GenerateSourceLinkFile:
+         Source Link is empty, file 'obj\Debug\net8.0\BMachine.Core.sourcelink.json' does not exist.
+       CoreCompile:
+       Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
+       GenerateBuildDependencyFile:
+       Skipping target "GenerateBuildDependencyFile" because all output files are up-to-date with respect to the input files.
+       CopyFilesToOutputDirectory:
+         BMachine.Core -> D:\#DATA ABENG\BMachine.v2\src\BMachine.Core\bin\Debug\net8.0\BMachine.Core.dll
+     3>Done Building Project "D:\#DATA ABENG\BMachine.v2\src\BMachine.Core\BMachine.Core.csproj" (default targets).
+     1>GenerateAvaloniaResources:
+       Skipping target "GenerateAvaloniaResources" because all output files are up-to-date with respect to the input files.
+       GenerateTargetFrameworkMonikerAttribute:
+       Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
+       CoreGenerateAssemblyInfo:
+       Skipping target "CoreGenerateAssemblyInfo" because all output files are up-to-date with respect to the input files.
+       _GenerateSourceLinkFile:
+         Source Link is empty, file 'obj\Debug\net8.0\BMachine.UI.sourcelink.json' does not exist.
+       CoreCompile:
+       Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
+     1>D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\Views/FolderLockerView.axaml(154,30,154,30): Avalonia error AVLN2000: Unable to resolve suitable regular or attached property ColumnSpacing on type Avalonia.Controls:Avalonia.Controls.Grid Line 154, position 30. [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+     1>Done Building Project "D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj" (default targets) -- FAILED.
+
+Build FAILED.
+
+       "D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj" (default target) (1:7) ->
+       (CompileAvaloniaXaml target) -> 
+         D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\Views/FolderLockerView.axaml(154,30,154,30): Avalonia error AVLN2000: Unable to resolve suitable regular or attached property ColumnSpacing on type Avalonia.Controls:Avalonia.Controls.Grid Line 154, position 30. [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:03.62

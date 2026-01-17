@@ -1,0 +1,133 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <!-- Feather Icons (MIT) - Stroke Based -->
+    <!-- Usage: <Path Data="{StaticResource IconName}" Stroke="Color" StrokeThickness="2" Fill="Transparent" /> -->
+
+    <!-- ICONS -->
+    
+    <!-- Play (Polygon: 5 3 19 12 5 21 5 3) -> Filled usually -->
+    <StreamGeometry x:Key="IconPlay">M5 3 L19 12 L5 21 L5 3 Z</StreamGeometry>
+    <!-- Pause (rects) -->
+    <StreamGeometry x:Key="IconPause">M6 4h4v16H6z M14 4h4v16h-4z</StreamGeometry>
+    <!-- Square (Stop) -->
+    <StreamGeometry x:Key="IconSquare">M3 3h18v18H3z</StreamGeometry>
+    
+    <!-- Trash-2 -->
+    <StreamGeometry x:Key="IconTrash">M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6</StreamGeometry>
+    
+    <!-- Refresh-CW -->
+    <StreamGeometry x:Key="IconRefresh">M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15</StreamGeometry>
+    
+    <!-- Folder -->
+    <StreamGeometry x:Key="IconFolder">M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z</StreamGeometry>
+    
+    <!-- File -->
+    <StreamGeometry x:Key="IconFile">M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M13 2v7h7</StreamGeometry>
+    
+    <!-- File-Image (Image) -->
+    <StreamGeometry x:Key="IconImage">M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M7.5 4.21l4.5 2.6 4.5-2.6m-9 15.58V9.42 M16.5 19.79V9.42 M7.5 4.21l4.5 2.6 4.5-2.6 M3.27 6.96L12 12.01l8.73-5.05 M12 22.08V12.01</StreamGeometry>
+    <!-- Simple Image (Rect + Mountain) -->
+    <StreamGeometry x:Key="IconImageSimple">M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21</StreamGeometry>
+    
+    <!-- Layers (Remove BG symbol) -->
+    <StreamGeometry x:Key="IconLayers">M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5</StreamGeometry>
+    
+    <!-- Upload (Upscale symbol) -->
+    <StreamGeometry x:Key="IconUpload">M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12</StreamGeometry>
+    
+    <!-- Check (Success) -->
+    <StreamGeometry x:Key="IconCheck">M20 6L9 17l-5-5</StreamGeometry>
+    
+    <!-- X (Close/Fail) -->
+    <StreamGeometry x:Key="IconX">M18 6L6 18M6 6l12 12</StreamGeometry>
+    
+    <!-- Settings -->
+    <StreamGeometry x:Key="IconSettings">M12.22 2h-.44a2 2 0 0 1-2-1.2l-.1-.26a2 2 0 0 0-2.2-1.18l-.27.05a2 2 0 0 1-2.14-1.5l-.04-.32a2 2 0 0 0-2.34-1.63l-.28.05a2 2 0 0 1-1.68-.96l-.16-.21a2 2 0 0 0-2.45-.63 2 2 0 0 0-.63 2.45l.21.16a2 2 0 0 1 .96 1.68l-.05.28a2 2 0 0 0 1.63 2.34l.32.04a2 2 0 0 1 1.5 2.14l-.05.27a2 2 0 0 0 1.18 2.2l.26.1a2 2 0 0 1 1.2 2h.44a2 2 0 0 1 2 1.2l.1.26a2 2 0 0 0 2.2 1.18l.27-.05a2 2 0 0 1 2.14 1.5l.04.32a2 2 0 0 0 2.34 1.63l.28-.05a2 2 0 0 1 1.68.96l.16.21a2 2 0 0 0 2.45.63 2 2 0 0 0 .63-2.45l-.21-.16a2 2 0 0 1-.96-1.68l.05-.28a2 2 0 0 0-1.63-2.34l-.32-.04a2 2 0 0 1-1.5-2.14l.05-.27a2 2 0 0 0-1.18-2.2l-.26-.1a2 2 0 0 1-1.2-2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z</StreamGeometry>
+    <StreamGeometry x:Key="IconSettingsSimple">M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 0v0m0-9v0m0 9v0m7.07-7.07l0 0m-9.9 9.9l0 0m9.9-9.9l0 0M4.93 4.93l0 0m14.14 0l0 0m-14.14 14.14l0 0M12 21v0m0-18v0</StreamGeometry>
+    <!-- Simplified Settings (Circle) -->
+    <StreamGeometry x:Key="IconSettingsCircle">M12 3a9 9 0 0 0 0 18 9 9 0 0 0 0-18z M12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6z</StreamGeometry>
+    
+    <!-- Copy (Clipboard) -->
+    <StreamGeometry x:Key="IconCopy">M9 9h6v6H9z M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2</StreamGeometry>
+    
+    <!-- Lock -->
+    <StreamGeometry x:Key="IconLock">M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zm-7-4a4 4 0 0 1 4 4v4H8V7a4 4 0 0 1 4-4z</StreamGeometry>
+    <!-- Unlock -->
+    <StreamGeometry x:Key="IconUnlock">M7 11V7a5 5 0 0 1 10 0v4 M7 11h10v10H7z</StreamGeometry>
+    
+    <!-- Grid (Menu) -->
+    <StreamGeometry x:Key="IconGrid">M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z</StreamGeometry>
+    
+    <!-- Alert Triangle -->
+    <StreamGeometry x:Key="IconAlertTriangle">M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01</StreamGeometry>
+    
+    <!-- Edit (Pen) -->
+    <StreamGeometry x:Key="IconEdit">M12 20h9 M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z</StreamGeometry>
+    
+    <!-- Plus -->
+    <StreamGeometry x:Key="IconPlus">M12 5v14M5 12h14</StreamGeometry>
+    
+    <!-- Cloud / Upload -->
+    <StreamGeometry x:Key="IconCloud">M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z</StreamGeometry>
+    <StreamGeometry x:Key="IconUploadCloud">M16 16l-4-4-4 4 M12 12v9 M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3</StreamGeometry>
+    
+    <!-- Eye -->
+    <StreamGeometry x:Key="IconEye">M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 5c2.76 0 5 2.24 5 5 0 2.76-2.24 5-5 5-2.76 0-5-2.24-5-5 0-2.76 2.24-5 5-5z M12 9c-1.66 0-3 1.34-3 3 0 1.66 1.34 3 3 3 1.66 0 3-1.34 3-3 0-1.66-1.34-3-3-3z</StreamGeometry>
+    <StreamGeometry x:Key="IconEyeOff">M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22</StreamGeometry>
+    
+    <!-- File Text (Log) -->
+    <StreamGeometry x:Key="IconFileText">M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M13 2v7h7 M16 13H8 M16 17H8 M10 9H8</StreamGeometry>
+    
+    <!-- Log-In / Log-Out -->
+    <StreamGeometry x:Key="IconLogIn">M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4 M10 17l5-5-5-5 M15 12H3</StreamGeometry>
+    <StreamGeometry x:Key="IconLogOut">M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9</StreamGeometry>
+
+    <!-- List -->
+    <StreamGeometry x:Key="IconList">M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01</StreamGeometry>
+
+    <!-- Terminal / Code -->
+    <StreamGeometry x:Key="IconTerminal">M4 17l6-6-6-6M12 19h8</StreamGeometry>
+    <StreamGeometry x:Key="IconCode">M16 18l6-6-6-6M8 6l-6 6 6 6</StreamGeometry>
+    <!-- Alias for Orb -->
+    <StreamGeometry x:Key="IconPython">M4 17l6-6-6-6M12 19h8</StreamGeometry> 
+    
+    <!-- Bolt / Zap -->
+    <StreamGeometry x:Key="IconZap">M13 2L3 14h9l-1 8 10-12h-9l1-8z</StreamGeometry>
+    <StreamGeometry x:Key="IconBolt">M13 2L3 14h9l-1 8 10-12h-9l1-8z</StreamGeometry>
+    
+    <!-- Filter -->
+    <StreamGeometry x:Key="IconFilter">M22 3H2l8 9.46V19l4 2v-8.54L22 3z</StreamGeometry>
+    
+    <!-- Paperclip -->
+    <StreamGeometry x:Key="IconPaperclip">M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48</StreamGeometry>
+    
+    <!-- Message Square -->
+    <StreamGeometry x:Key="IconMessageSquare">M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z</StreamGeometry>
+    
+    <!-- Check Square -->
+    <StreamGeometry x:Key="IconCheckSquare">M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11</StreamGeometry>
+    
+    <!-- Arrow Right -->
+    <StreamGeometry x:Key="IconArrowRight">M5 12h14M12 5l7 7-7 7</StreamGeometry>
+    
+    <!-- Arrow Up -->
+    <StreamGeometry x:Key="IconArrowUp">M12 19V5M5 12l7-7 7 7</StreamGeometry>
+    
+    <!-- Arrow Down -->
+    <StreamGeometry x:Key="IconArrowDown">M12 5v14M5 12l7 7 7-7</StreamGeometry>
+    
+    <!-- Send -->
+    <StreamGeometry x:Key="IconSend">M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z</StreamGeometry>
+    
+    <!-- Download -->
+    <StreamGeometry x:Key="IconDownload">M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3</StreamGeometry>
+    
+    <!-- Alert Circle (Overdue) -->
+    <StreamGeometry x:Key="IconAlertCircle">M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M12 8v4 M12 16h.01</StreamGeometry>
+
+    <!-- Extension (Puzzle) -->
+    <StreamGeometry x:Key="IconExtension">M20.5 14.25a2.5 2.5 0 0 0-2.5-2.5 2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 0 2.5-2.5c0-1.5-1.5-2.5-2.5-2.5h-5c-1.5 0-2.5 1.5-2.5 2.5 0 1 1 2.5 2.5 2.5 1 0 2.5 1.5 2.5 2.5 0 1-1.5 2.5-2.5 2.5h-5c-1.5 0-2.5-1.5-2.5-2.5 0-1-1-2.5-2.5-2.5-1 0-2.5-1.5-2.5-2.5 0-1 1.5-2.5 2.5-2.5H19</StreamGeometry>
+
+
+</ResourceDictionary>

@@ -1,0 +1,101 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="using:BMachine.UI.Views"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="BMachine.App.Views.MainWindow"
+        x:DataType="local:MainWindowViewModel"
+        xmlns:local="using:BMachine.App.ViewModels"
+        Title="BMachine v2"
+        Icon="avares://BMachine.App/appicon.ico"
+        Width="1280" Height="800"
+        MinWidth="520"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="40"
+        SystemDecorations="Full"
+        UseLayoutRounding="True"
+        Background="{Binding WindowBackground}">
+
+    <Grid Name="MainRoot" RenderTransformOrigin="0.5,0.5" Classes.animated="{Binding IsAnimationEnabled}">
+        <Grid.Styles>
+            <Style Selector="Grid.animated#MainRoot">
+                <Style.Animations>
+                    <Animation Duration="0:0:2" IterationCount="1" Easing="QuadraticEaseOut">
+                        <KeyFrame Cue="0%">
+                            <Setter Property="Opacity" Value="0.0"/>
+                        </KeyFrame>
+                        <KeyFrame Cue="25%">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </KeyFrame>
+                        <KeyFrame Cue="50%">
+                            <Setter Property="Opacity" Value="1.0"/>
+                        </KeyFrame>
+                        <KeyFrame Cue="100%">
+                            <Setter Property="Opacity" Value="1.0"/>
+                        </KeyFrame>
+                    </Animation>
+                </Style.Animations>
+            </Style>
+        </Grid.Styles>
+
+        <!-- Exit Confirmation Overlay (ZIndex 999) -->
+        <Grid ZIndex="999" IsVisible="{Binding IsExitConfirmOpen}" Background="#CC000000">
+            <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}" 
+                    BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="12" Padding="20" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    BoxShadow="0 8 32 0 #66000000">
+                <StackPanel Spacing="15">
+                    <!-- Warning Icon & Title -->
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconAlertCircle}" Foreground="{DynamicResource AccentRedBrush}" Width="24" Height="24"/>
+                        <TextBlock Text="WARNING" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <TextBlock Text="Are you sure you want to close BMachine?" 
+                               TextAlignment="Center" TextWrapping="Wrap" Opacity="0.8"/>
+                    
+                    <!-- Buttons: Cancel (Safe) vs Exit (Danger) - Vertical Layout -->
+                    <Grid RowDefinitions="Auto,Auto" Margin="0,10,0,0">
+                        <!-- EXIT (Danger - Red) - TOP -->
+                        <Button Grid.Row="0" Command="{Binding ConfirmExitCommand}" 
+                                Content="YES" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Background="{DynamicResource AccentRedBrush}" Foreground="White"
+                                Margin="0,0,0,10" CornerRadius="6" FontWeight="SemiBold" Height="36"/>
+
+                        <!-- CANCEL (Safe - Green) - BOTTOM -->
+                        <Button Grid.Row="1" Command="{Binding CancelExitCommand}" 
+                                Content="NO" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Background="{DynamicResource AccentGreenBrush}" Foreground="White"
+                                Margin="0" CornerRadius="6" FontWeight="SemiBold" Height="36"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Main Content (Fills Window) -->
+        <ContentControl Content="{Binding CurrentView}" Margin="0">
+            <ContentControl.DataTemplates>
+                <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+                    <views:DashboardView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+                    <views:SettingsView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:EditingCardListViewModel}">
+                    <views:EditingCardListView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:RevisionCardListViewModel}">
+                    <views:RevisionCardListView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:LateCardListViewModel}">
+                    <views:LateCardListView/>
+                </DataTemplate>
+            </ContentControl.DataTemplates>
+        </ContentControl>
+    </Grid>
+
+</Window>

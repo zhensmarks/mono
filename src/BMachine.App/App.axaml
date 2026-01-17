@@ -1,0 +1,100 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="BMachine.App.App"
+             RequestedThemeVariant="Dark">
+             <!-- "Default" ThemeVariant follows system theme. "Dark" or "Light" are other available options. -->
+
+    <Application.Styles>
+        <!-- <FluentTheme /> -->
+        <StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" />
+        <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+        
+        <Style Selector="Button.Clear">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Clear:pointerover /template/ ContentPresenter">
+             <Setter Property="Background" Value="#33FFFFFF"/>
+        </Style>
+        <Style Selector="Button.Clear:pressed /template/ ContentPresenter">
+             <Setter Property="Background" Value="#11FFFFFF"/>
+             <Setter Property="RenderTransform" Value="scale(0.95)" />
+        </Style>
+        
+        <!-- Primary Button Style -->
+        <!-- Primary Button Style -->
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                 <ControlTemplate>
+                    <Border Name="PART_Border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}"
+                            BoxShadow="0 4 10 0 #663b82f6"> <!-- Shadow on Border -->
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Primary:pointerover /template/ Border#PART_Border">
+             <Setter Property="Background" Value="#3366CC"/>
+             <Setter Property="BoxShadow" Value="0 6 12 0 #883b82f6"/>
+        </Style>
+        <Style Selector="Button.Primary:pressed /template/ Border#PART_Border">
+             <Setter Property="RenderTransform" Value="scale(0.98)" />
+             <Setter Property="BoxShadow" Value="0 2 5 0 #663b82f6"/>
+        </Style>
+    </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://BMachine.UI/Styles/FeatherIcons.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Card Border Brush (Dynamic) -->
+            <SolidColorBrush x:Key="CardBorderBrush" Color="Transparent"/>
+            
+            <!-- Global Icons (Moved from Themes to be persistent) -->
+            <StreamGeometry x:Key="IconSettings">M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z</StreamGeometry>
+            <StreamGeometry x:Key="IconPalette">M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z</StreamGeometry>
+            <StreamGeometry x:Key="IconUser">M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z</StreamGeometry>
+            <StreamGeometry x:Key="IconExtension">M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z</StreamGeometry>
+            <StreamGeometry x:Key="IconScript">M14.71 6.71l-5 5c-.39.39-.39 1.02 0 1.41l5 5 .71-.71-4.3-4.29h11.88v-1H11.12l4.3-4.29-.71-.71zM4 2v20h2V2H4zm4 0v20h2V2H8z</StreamGeometry>
+            <StreamGeometry x:Key="IconBolt">M7 2v11h3v9l7-12h-4l4-8H7z</StreamGeometry>
+            <StreamGeometry x:Key="IconPython">M16.14 2H7.86C5.18 2 3 4.18 3 6.86v3.28h6.29V8.29h2.86v4.57h-9.2C1.72 13.51 1 14.86 1 16.36v1.28C1 20.32 3.18 22.5 5.86 22.5h8.28c2.68 0 4.86-2.18 4.86-4.86v-3.28h-6.29v1.86h-2.86v-4.57h9.2c1.23-.65 1.95-2 1.95-3.5v-1.28C21 4.18 18.82 2 16.14 2zM9.43 5.43c.79 0 1.43.64 1.43 1.43s-.64 1.43-1.43 1.43-1.43-.64-1.43-1.43.64-1.43 1.43-1.43.64-1.43 1.43-1.43zM14.57 19.14c-.79 0-1.43-.64-1.43-1.43s.64-1.43 1.43-1.43 1.43.64 1.43 1.43-.64 1.43-1.43 1.43zM14.57 19.14c-.79 0-1.43-.64-1.43-1.43s.64-1.43 1.43-1.43 1.43.64 1.43 1.43-.64 1.43-1.43 1.43z</StreamGeometry>
+            
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceInclude x:Key="Light" Source="avares://BMachine.UI/Themes/LightTheme.axaml" />
+                <ResourceInclude x:Key="Dark" Source="avares://BMachine.UI/Themes/DarkTheme.axaml" />
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

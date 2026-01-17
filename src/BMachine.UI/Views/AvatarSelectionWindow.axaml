@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        mc:Ignorable="d" Width="550" Height="348"
+        x:Class="BMachine.UI.Views.AvatarSelectionWindow"
+        x:Name="Root"
+        Title="Select Avatar"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="Transparent">
+
+    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" BorderBrush="#33FFFFFF" BorderThickness="1" ClipToBounds="True">
+        <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+            <!-- Header Removed -->
+            
+            <Grid Grid.Row="1" ColumnDefinitions="*, 200" Margin="0,10,0,10">
+                <!-- Presets Grid -->
+                <ScrollViewer Grid.Column="0">
+                    <ItemsControl ItemsSource="{Binding Presets}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel ItemWidth="70" ItemHeight="70" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Command="{Binding #Root.DataContext.SelectAvatarCommand}" CommandParameter="{Binding}"
+                                        Width="60" Height="60" CornerRadius="30" Padding="0" Margin="5"
+                                        Background="Transparent" BorderThickness="0" Cursor="Hand">
+                                    <Border CornerRadius="30" ClipToBounds="True">
+                                        <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                
+                <!-- Preview & Upload -->
+                <StackPanel Grid.Column="1" Spacing="15" Margin="20,0,0,0" VerticalAlignment="Top">
+                    <TextBlock Text="Preview" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Border Width="120" Height="120" CornerRadius="60" ClipToBounds="True" Background="#1A1A1A">
+                        <Image Source="{Binding PreviewImage}" Stretch="UniformToFill"/>
+                    </Border>
+                    
+                    <Button Command="{Binding UploadPhotoCommand}" Content="Upload Photo" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+            </Grid>
+            
+            <!-- Footer -->
+            <StackPanel Grid.Row="2" Orientation="Vertical" Spacing="5">
+                <TextBlock Text="{Binding DebugStatus}" FontSize="10" Foreground="Red" TextWrapping="Wrap" MaxHeight="60"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Command="{Binding CancelCommand}" Content="Cancel" Classes="Secondary"/>
+                    <Button Command="{Binding ConfirmCommand}" Content="Save" Classes="Primary"/>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

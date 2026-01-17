@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:shapes="using:Avalonia.Controls.Shapes"
+             mc:Ignorable="d" d:DesignWidth="150" d:DesignHeight="180"
+             x:Class="BMachine.UI.Controls.StatWidget"
+             x:Name="Root">
+    
+    <UserControl.Styles>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Styles>
+
+    <Button Classes="Clear" 
+            Command="{Binding #Root.Command}"
+            Padding="0" 
+            BorderThickness="0" 
+            Background="Transparent"
+            Cursor="Hand">
+        <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="15">
+            <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+                
+                <!-- Circular Progress Container -->
+                <Panel Width="80" Height="80">
+                    <!-- Background Ring -->
+                    <shapes:Arc Width="80" Height="80"
+                         StartAngle="0" SweepAngle="360"
+                         Stroke="#33FFFFFF" StrokeThickness="6"/>
+                    
+                    <!-- Progress Ring (Calculated Arc) -->
+                    <!-- Note: For simplicity using Arc directly. in real app might need calculation or value converter -->
+                    <shapes:Arc x:Name="PART_ProgressArc" 
+                         Width="80" Height="80"
+                         StartAngle="-90" 
+                         SweepAngle="{Binding #Root.SweepAngle}"
+                         Stroke="{Binding #Root.Color}" 
+                         StrokeThickness="6"
+                         StrokeLineCap="Round">
+                    </shapes:Arc>
+                         
+                    <!-- Value Text -->
+                    <TextBlock Text="{Binding #Root.Value}"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Margin="0"/>
+                               
+                     <!-- Icon (optional, small top left inside ring?) -->
+                     <shapes:Path Data="{Binding #Root.Icon}"
+                           Width="24" Height="24"
+                           Stretch="Uniform"
+                           Fill="{Binding #Root.Color}"
+                           VerticalAlignment="Top"
+                           HorizontalAlignment="Center"
+                           Margin="0,15,0,0"
+                           IsVisible="{Binding #Root.ShowIcon}"/>
+                </Panel>
+                
+                <TextBlock Text="{Binding #Root.Label}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           TextAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Button>
+</UserControl>

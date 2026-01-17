@@ -1,0 +1,313 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:conv="using:BMachine.UI.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="BMachine.UI.Views.PixelcutView"
+             x:DataType="vm:PixelcutViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Button.action">
+            <Setter Property="Background" Value="#3b82f6"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.action:pointerover">
+            <Setter Property="Background" Value="#2563eb"/>
+        </Style>
+        
+        <Style Selector="Button.danger">
+            <Setter Property="Foreground" Value="#ef4444"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="#ef4444"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        
+        <Style Selector="Button.icon">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        <Style Selector="Button.icon:pointerover">
+            <Setter Property="Background" Value="#1AFFFFFF"/>
+        </Style>
+    </UserControl.Styles>
+    
+    <UserControl.Resources>
+        <conv:BooleanToBrushConverter x:Key="BoolToGreenRedConverter" TrueBrush="#4ade80" FalseBrush="#ef4444"/>
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="*, Auto" Background="{DynamicResource CardBackgroundBrush}">
+
+        <!-- Content -->
+        <Grid Grid.Row="0" Background="Transparent" DragDrop.AllowDrop="True">
+            
+            <!-- Floating Controls (Overlay) -->
+            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,15,15,0" ZIndex="10">
+                 
+                 <!-- Connection Status -->
+                 <Border Background="#22000000" CornerRadius="6" Padding="10,6" Margin="0,0,10,0" VerticalAlignment="Center"
+                         BorderBrush="#22FFFFFF" BorderThickness="1">
+                     <StackPanel Orientation="Horizontal" Spacing="6">
+                         <Ellipse Width="6" Height="6" Fill="{Binding IsVpnActive, Converter={StaticResource BoolToGreenRedConverter}}"/>
+                         <TextBlock Text="{Binding VpnStatus}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
+                     </StackPanel>
+                 </Border>
+
+                 <!-- Log Toggle -->
+                <ToggleButton Command="{Binding ToggleLogPanelCommand}" 
+                              IsChecked="{Binding ShowLogPanel, Mode=TwoWay}"
+                              Theme="{DynamicResource TransparentButtonTheme}" Padding="6">
+                    <Path Data="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M7,7H17V9H7V7M7,11H17V13H7V11M7,15H14V17H7V15Z" 
+                          Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
+                </ToggleButton>
+
+                <!-- Settings Button -->
+                <Button Command="{Binding ShowSettingsCommand}" Theme="{DynamicResource TransparentButtonTheme}" Padding="6">
+                    <PathIcon Data="{StaticResource IconSettings}" Width="18" Height="18"/>
+                </Button>
+            </StackPanel>
+            
+            <!-- Empty State -->
+            <Grid Grid.Column="0" IsVisible="{Binding !HasFiles}" DragDrop.AllowDrop="True" Margin="0,80,0,0">
+                <Border Margin="20" BorderBrush="#33FFFFFF" BorderThickness="2" CornerRadius="12" 
+                         Background="Transparent">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                        <PathIcon Data="{StaticResource IconFolder}" Width="48" Height="48" Opacity="0.5" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Tarik File atau Folder ke Sini" FontSize="18" FontWeight="Medium" HorizontalAlignment="Center"/>
+                        <TextBlock Text="(Mendukung JPG, PNG)" FontSize="14" Opacity="0.6" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- File List -->
+            <ScrollViewer IsVisible="{Binding HasFiles}" Margin="0,80,0,0">
+                <ListBox ItemsSource="{Binding Files}" Margin="10" SelectionMode="Multiple">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0,4"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                            <Setter Property="Template">
+                                <ControlTemplate>
+                                    <ContentPresenter Name="PART_ContentPresenter"
+                                                      Background="{TemplateBinding Background}"
+                                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      Content="{TemplateBinding Content}"
+                                                      Padding="{TemplateBinding Padding}"/>
+                                </ControlTemplate>
+                            </Setter>
+                        </Style>
+                        <!-- Highlight Selected Item -->
+                        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#223B82F6"/>
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="10,8" CornerRadius="10" Background="#15FFFFFF" 
+                                    BorderBrush="#22FFFFFF" BorderThickness="1">
+                                <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
+                                    <!-- Checkbox -->
+                                    <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    
+                                    <!-- File Info -->
+                                    <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                        <!-- File Name -->
+                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" 
+                                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FilePath}"/>
+                                        
+                                        <!-- Progress Bar -->
+                                        <ProgressBar Value="{Binding Progress}" Maximum="100" Height="6" 
+                                                     Background="#15FFFFFF" CornerRadius="3" VerticalAlignment="Center">
+                                            <ProgressBar.Foreground>
+                                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                                    <GradientStop Color="#66D1FF" Offset="0"/>
+                                                    <GradientStop Color="#2BB8FF" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </ProgressBar.Foreground>
+                                        </ProgressBar>
+                                        
+                                        <!-- File Sizes -->
+                                        <StackPanel Orientation="Horizontal" Spacing="8" Opacity="0.7" IsVisible="{Binding !IsFailed}">
+                                            <PathIcon Data="{StaticResource IconImage}" Width="11" Height="11"/>
+                                            <TextBlock Text="{Binding OriginalSizeDisplay}" FontSize="11"/>
+                                            <TextBlock Text="→" FontSize="11" IsVisible="{Binding IsDone}"/>
+                                            <PathIcon Data="{StaticResource IconImage}" Width="11" Height="11" IsVisible="{Binding IsDone}"/>
+                                            <TextBlock Text="{Binding ResultSizeDisplay}" FontSize="11" Foreground="#4CC2FF" IsVisible="{Binding IsDone}"/>
+                                        </StackPanel>
+                                        
+                                        <!-- Inline Error Message -->
+                                        <TextBlock Text="{Binding ErrorMessage}" Foreground="#FF5555" FontSize="11" 
+                                                   IsVisible="{Binding IsFailed}" TextWrapping="Wrap" MaxWidth="300"/>
+                                    </StackPanel>
+                                    
+                                    <!-- Status Badge -->
+                                    <Border Grid.Column="2" CornerRadius="6" Padding="12,6" Background="#22000000" 
+                                            Margin="15,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Status}" Foreground="{Binding StatusColor}" 
+                                                   FontSize="12" FontWeight="Medium" HorizontalAlignment="Center"/>
+                                    </Border>
+                                    
+                                    <!-- Retry Button -->
+                                    <Button Grid.Column="3"
+                                            Command="{Binding DataContext.RetryFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                            CommandParameter="{Binding}"
+                                            Foreground="{DynamicResource AccentBlueBrush}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Margin="10,0,0,0" Padding="8" FontSize="16"
+                                            ToolTip.Tip="Ulangi File Ini">
+                                        <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14"/>
+                                    </Button>
+
+                                    <!-- Remove Button -->
+                                    <Button Grid.Column="4"
+                                            Command="{Binding DataContext.RemoveFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                            CommandParameter="{Binding}"
+                                            Foreground="#FF5555"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Margin="8,0,0,0" Padding="8" FontSize="16">
+                                        <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </ScrollViewer>
+            
+            <!-- Log Side Panel (Overlay/Side) -->
+            <Grid IsVisible="{Binding ShowLogPanel}" HorizontalAlignment="Right" Width="300" Background="#111">
+                <Border BorderBrush="#333" BorderThickness="1,0,0,0">
+                    <Grid RowDefinitions="Auto, *">
+                        <TextBlock Text="Log Proses" FontWeight="SemiBold" Margin="10" Grid.Row="0"/>
+                        <TextBox Grid.Row="1" Text="{Binding LogOutput}" IsReadOnly="True" 
+                                 FontFamily="Consolas" FontSize="11" 
+                                 BorderThickness="0" Background="Transparent" 
+                                 TextWrapping="Wrap" Margin="5"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- Footer Actions -->
+        <Border Grid.Row="2" Padding="18" BorderBrush="#333" BorderThickness="0,1,0,0" Background="Transparent">
+            <DockPanel LastChildFill="False">
+                <!-- Left Buttons -->
+                <StackPanel Orientation="Horizontal" Spacing="12" DockPanel.Dock="Left" Margin="0,0,16,0">
+                     <Button Content="BERSIHKAN" Command="{Binding ClearCommand}" 
+                             Theme="{DynamicResource OutlinedButtonTheme}" 
+                             BorderBrush="#553333" Foreground="#FF5555"
+                             Padding="14,8" CornerRadius="6"/>
+                     
+                     <Button Content="HAPUS TERPILIH" Command="{Binding RemoveSelectedFilesCommand}" 
+                             Theme="{DynamicResource OutlinedButtonTheme}" 
+                             BorderBrush="#553333" Foreground="Orange"
+                             Padding="14,8" CornerRadius="6"/>
+
+
+                </StackPanel>
+
+                <!-- Right Buttons -->
+                <StackPanel Orientation="Horizontal" Spacing="12" DockPanel.Dock="Right" Margin="16,0,0,0">
+                    
+                    <!-- Smart Retry -->
+                    <Button Content="ULANGI (Error/Kecil)" Command="{Binding RetrySmallFilesCommand}" 
+                            IsVisible="{Binding !IsProcessing}" Background="#333" Foreground="LightYellow"
+                            Padding="14,8" CornerRadius="6"
+                            ToolTip.Tip="Ulangi file yang selesai tapi outputnya kecil/error (misal 59B)"/>
+
+                    <!-- Action Buttons -->
+                    <Button Content="HAPUS BACKGROUND" Command="{Binding ProcessRemoveBgCommand}" 
+                            IsVisible="{Binding !IsProcessing}"
+                            Classes="Primary"/>
+                    
+                    <Button Content="UPSCALE" Command="{Binding ProcessUpscaleCommand}" 
+                            IsVisible="{Binding !IsProcessing}"
+                            Classes="Primary"/>
+
+                    <!-- Control Buttons (Visible when processing) -->
+                    <Button Content="JEDA" Command="{Binding PauseCommand}" 
+                            IsVisible="{Binding IsProcessing}"
+                            Padding="14,8" CornerRadius="6" Background="#555"/>
+                    <Button Content="STOP" Command="{Binding StopCommand}" 
+                            IsVisible="{Binding IsProcessing}"
+                            Padding="14,8" CornerRadius="6" FontWeight="Bold">
+                        <Button.Background>
+                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                                <GradientStop Color="#FF5C5C" Offset="0"/>
+                                <GradientStop Color="#E73B3B" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Button.Background>
+                    </Button>
+                    
+                </StackPanel>
+            </DockPanel>
+        </Border>
+        
+        <!-- Completion Notification Overlay -->
+        <Grid Grid.RowSpan="3" IsVisible="{Binding ShowCompletionDialog}" Background="#88000000">
+            <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="12" 
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30" MinWidth="300"
+                    BoxShadow="0 4 20 0 #000000">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="PROSES BERES" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Foreground="White" />
+                    
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="20">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconCheck}" Width="16" Height="16" Foreground="#4ade80"/>
+                            <TextBlock Text="{Binding CompletionSuccessCount, StringFormat='Berhasil: {0}'}" FontSize="16" Foreground="#4CC2FF"/>
+                        </StackPanel>
+                        
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconX}" Width="16" Height="16" Foreground="#ef4444"/>
+                            <TextBlock Text="{Binding CompletionFailureCount, StringFormat='Gagal: {0}'}" FontSize="16" Foreground="#FF5555"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <Button Content="OK" Command="{Binding CloseCompletionDialogCommand}" 
+                            HorizontalAlignment="Center" Width="100" HorizontalContentAlignment="Center"
+                            Padding="10" CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" Foreground="White" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+        
+        <!-- Settings Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" IsVisible="{Binding IsSettingsOpen}">
+            <!-- Background Dimmer (Semi-transparent black) -->
+            <Border Background="#AA000000" />
+            
+            <!-- Settings Modal (Solid Background) -->
+            <Border Width="400" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="#1E1E1E"
+                    CornerRadius="8" BorderBrush="#444" BorderThickness="1" Padding="20"
+                    BoxShadow="0 10 20 0 #55000000">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="Pengaturan" FontSize="18" FontWeight="SemiBold"/>
+                    
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="Alamat Proxy (Opsional)" FontSize="14"/>
+                        <TextBox Text="{Binding ProxyAddress}" Watermark="contoh: http://127.0.0.1:8080" />
+                        <TextBlock Text="Biarkan kosong untuk koneksi langsung." FontSize="12" Opacity="0.6"/>
+                    </StackPanel>
+
+                    <Button Command="{Binding CloseSettingsCommand}" HorizontalAlignment="Right" Content="Simpan &amp; Tutup"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+    </Grid>
+</UserControl>

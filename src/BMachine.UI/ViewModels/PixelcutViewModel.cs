@@ -1,0 +1,511 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using System.Collections.ObjectModel;
+using System.Threading.Tasks;
+using System.Linq;
+using System.IO;
+using System;
+using System.Diagnostics;
+using BMachine.UI.Models;
+using BMachine.SDK;
+
+namespace BMachine.UI.ViewModels;
+
+public partial class PixelcutViewModel : ObservableObject
+{
+    private readonly IDatabase? _database;
+    
+    [ObservableProperty] private ObservableCollection<PixelcutFileItem> _files = new();
+    [ObservableProperty] private bool _hasFiles;
+    [ObservableProperty] private bool _isProcessing;
+    [ObservableProperty] private string _vpnStatus = "Memeriksa...";
+    [ObservableProperty] private bool _isVpnActive;
+    [ObservableProperty] private string _logOutput = "";
+    [ObservableProperty] private bool _showLogPanel;
+    
+    // Settings
+    [ObservableProperty] private string _proxyAddress = "";
+    
+    private bool _stopRequested;
+    private bool _pauseRequested;
+    private System.Timers.Timer? _vpnCheckTimer; // Added timer field
+
+    public PixelcutViewModel(IDatabase? database)
+    {
+        _database = database;
+        CheckVpnStatus();
+        LoadSettings();
+        
+        // Start periodic VPN check (every 3 seconds)
+        _vpnCheckTimer = new System.Timers.Timer(3000);
+        _vpnCheckTimer.Elapsed += (s, e) => 
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => CheckVpnStatus());
+        };
+        _vpnCheckTimer.Start();
+    }
+    
+    private async void LoadSettings()
+    {
+        if (_database != null)
+        {
+            ProxyAddress = await _database.GetAsync<string>("Configs.Pixelcut.Proxy") ?? "";
+        }
+    }
+
+    partial void OnProxyAddressChanged(string value)
+    {
+        CheckVpnStatus();
+    }
+
+    private void CheckVpnStatus()
+    {
+        // 1. Check Manual Proxy
+        if (!string.IsNullOrEmpty(ProxyAddress))
+        {
+            IsVpnActive = true;
+            VpnStatus = "Proxy Manual Aktif";
+            return;
+        }
+
+        try
+        {
+            // 2. Check for VPN by examining network interfaces
+            var interfaces = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
+            
+            // Common VPN interface patterns
+            var vpnKeywords = new[] { "vpn", "tun", "tap", "ppp", "wintun", "wireguard", "openvpn", "avira", "nordvpn", "expressvpn" };
+            
+            foreach (var iface in interfaces)
+            {
+                if (iface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)
+                    continue;
+                    
+                var name = iface.Name.ToLower();
+                var desc = iface.Description.ToLower();
+                
+                // Check if interface name or description contains VPN keywords
+                if (vpnKeywords.Any(kw => name.Contains(kw) || desc.Contains(kw)))
+                {
+                    IsVpnActive = true;
+                    VpnStatus = $"VPN Aktif ({iface.Name})";
+                    return;
+                }
+            }
+            
+            // No VPN detected
+            IsVpnActive = false;
+            VpnStatus = "Koneksi Langsung";
+        }
+        catch
+        {
+            IsVpnActive = false;
+            VpnStatus = "Koneksi Langsung";
+        }
+    }
+
+    [RelayCommand]
+    private void DropFiles(string[] paths)
+    {
+        foreach (var path in paths)
+        {
+            if (File.Exists(path))
+            {
+                var ext = Path.GetExtension(path).ToLower();
+                if (IsSupportedExtension(ext))
+                {
+                    if (!Files.Any(f => f.FilePath == path))
+                    {
+                        Files.Add(new PixelcutFileItem(path));
+                    }
+                }
+            }
+            else if (Directory.Exists(path))
+            {
+                try
+                {
+                    var dirFiles = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories)
+                        .Where(s => IsSupportedExtension(Path.GetExtension(s).ToLower()));
+                                    
+                    foreach(var f in dirFiles)
+                    {
+                         if (!Files.Any(x => x.FilePath == f))
+                        {
+                            var item = new PixelcutFileItem(f);
+                            
+                            // Calculate Relative Path for Display
+                            // If we dragged "FolderA", and found "FolderA/Sub/File.jpg", we want "Sub/File.jpg"?
+                            // User example: Drag "BERSAMA", file is "BERSAMA/KELOMPOK HAMZAH/1.JPG" -> "KELOMPOK HAMZAH/1.JPG"
+                            
+                            // var relativePath = Path.GetRelativePath(path, f);
+                            // item.SetDisplayName(relativePath);
+                            
+                            Files.Add(item);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"Error accessing directory {path}: {ex.Message}");
+                }
+            }
+        }
+        HasFiles = Files.Count > 0;
+    }
+    
+    private bool IsSupportedExtension(string ext)
+    {
+        return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".psd" || ext == ".webp";
+    }
+
+    [RelayCommand]
+    private void RemoveFile(PixelcutFileItem item)
+    {
+        if (Files.Contains(item))
+        {
+            Files.Remove(item);
+        }
+        HasFiles = Files.Count > 0;
+    }
+
+    [RelayCommand]
+    private void Clear()
+    {
+        if (IsProcessing) return;
+        Files.Clear();
+        HasFiles = false;
+        LogOutput = "";
+    }
+
+    [RelayCommand]
+    private async Task ProcessRemoveBg()
+    {
+        await ProcessQueue("remove_bg");
+    }
+
+    [RelayCommand]
+    private async Task ProcessUpscale()
+    {
+        await ProcessQueue("upscale");
+    }
+    
+    [RelayCommand]
+    private void Stop()
+    {
+        _stopRequested = true;
+        AppendLog("Stop diminta...");
+    }
+    
+    [RelayCommand]
+    private void Pause()
+    {
+        _pauseRequested = !_pauseRequested;
+        AppendLog(_pauseRequested ? "Dijeda..." : "Melanjutkan...");
+    }
+
+    [RelayCommand]
+    private void ToggleLog()
+    {
+        ShowLogPanel = !ShowLogPanel;
+    }
+
+    [RelayCommand]
+    private void RemoveSelectedFiles()
+    {
+        var selected = Files.Where(x => x.IsSelected).ToList();
+        foreach (var item in selected)
+        {
+            Files.Remove(item);
+        }
+        HasFiles = Files.Count > 0;
+    }
+
+    [RelayCommand]
+    private async Task RetrySmallFiles()
+    {
+        if (IsProcessing) return;
+
+        // "59 B" is very small, likely an error response or empty file.
+        // We filter for "Selesai" but size is small (e.g. < 1KB or specifically around 59B).
+        // Let's use < 100 bytes to be safe.
+        var smallFiles = Files.Where(x => x.IsDone && x.ResultSize > 0 && x.ResultSize < 100).ToList();
+        
+        if (smallFiles.Count == 0) return;
+
+        AppendLog($"Mengulangi {smallFiles.Count} file dengan ukuran kecil (gagal)...");
+        
+        foreach (var item in smallFiles)
+        {
+            // Reset Status
+            item.Status = "Menunggu";
+            item.IsDone = false;
+            item.IsFailed = false;
+            item.Progress = 0;
+        }
+
+        // Trigger Queue again
+        await ProcessQueue(_lastJobType);
+    }
+
+    [ObservableProperty] private bool _showCompletionDialog;
+    [ObservableProperty] private int _completionSuccessCount;
+    [ObservableProperty] private int _completionFailureCount;
+
+    [RelayCommand]
+    private void CloseCompletionDialog()
+    {
+        ShowCompletionDialog = false;
+    }
+
+    private string _lastJobType = "remove_bg"; // Default
+
+    private async Task ProcessQueue(string job)
+    {
+        if (IsProcessing) return;
+        _lastJobType = job; // Store for Retry
+        IsProcessing = true;
+        _stopRequested = false;
+        _pauseRequested = false;
+        AppendLog($"Memulai proses {job}...");
+
+        int success = 0;
+        int failed = 0;
+
+        foreach (var item in Files)
+        {
+            if (_stopRequested) break;
+            while (_pauseRequested) { await Task.Delay(500); if (_stopRequested) break; }
+            
+            if (item.Status == "Selesai") continue;
+
+            await ProcessItem(item, job);
+
+            if (item.IsDone && !item.IsFailed) success++;
+            else if (item.IsFailed) failed++;
+        }
+
+        IsProcessing = false;
+        AppendLog("Antrian selesai.");
+        
+        // Show Completion Dialog if not stopped manually
+        if (!_stopRequested)
+        {
+            CompletionSuccessCount = success;
+            CompletionFailureCount = failed;
+            ShowCompletionDialog = true;
+        }
+    }
+
+    private async Task ProcessItem(PixelcutFileItem item, string job)
+    {
+        item.Status = "Memproses";
+        item.IsProcessing = true;
+        item.Progress = 0;
+        item.IsFailed = false;
+
+        try
+        {
+            // Call Python Backend
+            await RunPythonWorker(item, job);
+            
+            if (!item.IsFailed)
+            {
+                item.Status = "Selesai";
+                item.IsDone = true;
+                item.Progress = 100;
+                
+                // Check Result Size
+                var resultPath = GetResultPath(item.FilePath, job);
+                if (File.Exists(resultPath))
+                {
+                    item.ResultSize = new FileInfo(resultPath).Length;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            item.Status = "Gagal";
+            item.IsFailed = true;
+            
+            // Extract core error message for inline display
+            var errorMsg = ex.Message;
+            if (errorMsg.Contains("No space left")) item.ErrorMessage = "Disk penuh!";
+            else if (errorMsg.Contains("Permission denied")) item.ErrorMessage = "Akses ditolak!";
+            else if (errorMsg.Contains("exit code")) item.ErrorMessage = "Proses gagal";
+            else item.ErrorMessage = errorMsg.Length > 50 ? errorMsg.Substring(0, 50) + "..." : errorMsg;
+            
+            AppendLog($"Gagal memproses {item.FileName}: {ex.Message}");
+        }
+        finally
+        {
+            item.IsProcessing = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RetryFile(PixelcutFileItem item)
+    {
+        if (IsProcessing) return; // Prevent concurrent single-file retry if queue is running? Or allow parallelism?
+        // Let's allow it but set IsProcessing=true just for safety or manage it locally
+        
+        IsProcessing = true;
+        AppendLog($"Mengulangi {item.FileName} ({_lastJobType})...");
+        await ProcessItem(item, _lastJobType);
+        IsProcessing = false;
+    }
+    
+    private string GetResultPath(string input, string job)
+    {
+        var dir = Path.GetDirectoryName(input) ?? "";
+        var name = Path.GetFileNameWithoutExtension(input);
+        
+        if (job == "upscale") return Path.Combine(dir, $"{name}_up.png");
+        return Path.Combine(dir, $"{name}.png");
+    }
+
+    [RelayCommand]
+    private void ShowSettings()
+    {
+        // Simple toggle for now, or use a dialog service if available.
+        // For MVP, we can toggle visibility of a settings panel overlay in the View
+        IsSettingsOpen = !IsSettingsOpen;
+    }
+
+    [ObservableProperty] private bool _isSettingsOpen;
+
+    [RelayCommand]
+    private void CloseSettings()
+    {
+        IsSettingsOpen = false;
+        // Save Settings
+        if (_database != null)
+        {
+            _database.SetAsync("Configs.Pixelcut.Proxy", ProxyAddress);
+        }
+    }
+
+    private async Task RunPythonWorker(PixelcutFileItem item, string job)
+    {
+        // Use relative path from application directory
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var scriptPath = Path.Combine(baseDir, "Scripts", "Core", "pixelcut_cli.py");
+        
+        if (!File.Exists(scriptPath))
+        {
+            throw new FileNotFoundException($"pixelcut_cli.py not found at {scriptPath}");
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "python",
+            Arguments = $"\"{scriptPath}\" --action {job} --input \"{item.FilePath}\"",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            WorkingDirectory = Path.GetDirectoryName(scriptPath)
+        };
+
+        if (!string.IsNullOrEmpty(ProxyAddress))
+        {
+            startInfo.Arguments += $" --proxy \"{ProxyAddress}\"";
+        }
+
+        var tcs = new TaskCompletionSource<bool>();
+        
+        using var process = new Process();
+        process.StartInfo = startInfo;
+        process.EnableRaisingEvents = true;
+
+        process.OutputDataReceived += (s, e) => 
+        {
+            if (string.IsNullOrEmpty(e.Data)) return;
+
+            // Handle Signals
+            if (e.Data.StartsWith("SIGNAL:"))
+            {
+                // SIGNAL:name:json_data
+                var parts = e.Data.Split(':', 3);
+                if (parts.Length == 3)
+                {
+                    var sigName = parts[1];
+                    var json = parts[2];
+                    
+                    // Update UI on Main Thread
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => 
+                    {
+                        if (sigName == "process")
+                        {
+                            // Parse JSON for status
+                            // {"id":..., "item":..., "data": {"status": "message"}}
+                            try 
+                            {
+                                // Simple string match to avoid JSON parsing overhead for now
+                                // Or parse properly if complex
+                                if (json.Contains("\"status\":"))
+                                {
+                                    // Extract status value roughly or use JsonNode
+                                    // Let's just log it for now as proof of life
+                                    // AppendLog($"[Progress] {json}");
+                                    
+                                    // If status is percentage?
+                                    // The Python sends "100%" or "request to..."
+                                }
+                            }
+                            catch {}
+                        }
+                    });
+                }
+            }
+            else
+            {
+                AppendLog(e.Data);
+            }
+        };
+
+        process.ErrorDataReceived += (s, e) => 
+        {
+             if (!string.IsNullOrEmpty(e.Data))
+             {
+                 AppendLog($"[Error] {e.Data}");
+                 // If error represents failure, we can flag it, but usually exit code tells us.
+             }
+        };
+
+        process.Exited += (s, e) => 
+        {
+            if (process.ExitCode == 0)
+                tcs.TrySetResult(true);
+            else
+                tcs.TrySetException(new Exception($"Process exited with code {process.ExitCode}"));
+        };
+
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        // Wait for exit or cancellation
+        // We could implement CancellationToken here for Stop/Pause
+        while (!process.HasExited)
+        {
+             item.Status = "Berjalan..."; 
+             // Simulated progress for responsiveness since pixelcut.py doesn't emit granular % during download
+             if (item.Progress < 90) item.Progress += 1;
+             
+             await Task.Delay(100); 
+             
+             if (_stopRequested)
+             {
+                 process.Kill();
+                 throw new TaskCanceledException("Pengguna menghentikan proses.");
+             }
+        }
+
+        await tcs.Task;
+    }
+    
+    private void AppendLog(string message)
+    {
+        LogOutput += $"[{DateTime.Now:HH:mm:ss}] {message}\n";
+    }
+}

@@ -1,0 +1,127 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="290" d:DesignHeight="600"
+             x:Class="BMachine.UI.Views.LogPanelSidebar"
+             x:DataType="vm:DashboardViewModel">
+
+    <Border Background="{DynamicResource BackgroundDarkBrush}" 
+            BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0"
+            PointerPressed="OnRootPointerPressed">
+        
+    <Grid RowDefinitions="Auto, Auto, *, Auto">
+            
+            <!-- HEADER (Row 0) -->
+            <Grid Grid.Row="0" Margin="15,15,15,10" ColumnDefinitions="*, Auto">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ClipToBounds="True">
+                    <!-- Terminal Icon -->
+                    <PathIcon Data="{StaticResource IconTerminal}" Width="16" Height="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    
+                    <!-- Title & Status Text (Truncated) -->
+                    <TextBlock Text="{Binding ProcessStatusText}" 
+                               FontWeight="SemiBold" FontSize="14" 
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextTrimming="CharacterEllipsis" MaxWidth="150"
+                               ToolTip.Tip="{Binding ProcessStatusText}"
+                               VerticalAlignment="Center"/>
+                    
+                    <!-- Status Dot (Fixed Duplicate Margin) -->
+                    <Border Width="8" Height="8" CornerRadius="4" 
+                            Background="{Binding StatusColor}"
+                            VerticalAlignment="Top" Margin="4,5,0,0"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <!-- Filter Toggle -->
+                     <ToggleButton Classes="iconBtn" x:Name="FilterToggle" ToolTip.Tip="Filter Logs">
+                          <!-- New Icon: Funnel (Filter) -->
+                          <PathIcon Data="{StaticResource IconFilter}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                     </ToggleButton>
+                    
+                     <!-- Stop Button (Visible only when Processing) -->
+                     <Button Classes="iconBtn" Command="{Binding StopProcessCommand}" 
+                             IsVisible="{Binding IsProcessing}"
+                             ToolTip.Tip="Stop Script">
+                         <PathIcon Data="{StaticResource IconSquare}" Width="14" Height="14" Foreground="#ef4444"/>
+                     </Button>
+
+                     <!-- Copy All -->
+                     <Button Classes="iconBtn" Command="{Binding CopyAllLogsCommand}" ToolTip.Tip="Copy All">
+                         <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                     </Button>
+                     <!-- Clear -->
+                     <Button Classes="iconBtn" Command="{Binding ClearLogCommand}" ToolTip.Tip="Clear Console">
+                         <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                     </Button>
+                    <!-- Close REMOVED -->
+                </StackPanel>
+            </Grid>
+            
+            <!-- FILTER BAR (Row 1) - Visible on Toggle -->
+            <Grid Grid.Row="1" IsVisible="{Binding #FilterToggle.IsChecked}" Margin="15,0,15,10">
+                 <AutoCompleteBox HorizontalAlignment="Stretch"
+                           ItemsSource="{Binding FilterPresets}"
+                           Text="{Binding LogFilterText}"
+                           Watermark="Filter logs..." 
+                           Classes="compact"/>
+            </Grid>
+
+            <!-- SEPARATOR (Row 1 Bottom) -->
+            <Grid Grid.Row="1" VerticalAlignment="Bottom">
+                <Border Height="1" Background="#1AFFFFFF"/>
+                <ProgressBar IsIndeterminate="True" Height="2" VerticalAlignment="Top"
+                             IsVisible="{Binding IsProcessing}"
+                             Background="Transparent" Foreground="{DynamicResource PrimaryBrush}"/>
+            </Grid>
+            
+            <!-- LOG LIST (Row 2) -->
+            <ScrollViewer x:Name="LogScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding LogItems}" Margin="10">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <!-- Message Only -->
+                                <SelectableTextBlock Text="{Binding Message}" 
+                                           Foreground="{Binding Color}" FontSize="12" FontFamily="Consolas, Monospace" 
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            
+            <!-- FOOTER REMOVED -->
+
+        </Grid>
+    </Border>
+
+    <UserControl.Styles>
+        <Style Selector="Button.iconBtn, ToggleButton.iconBtn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter, ToggleButton.iconBtn:pointerover /template/ ContentPresenter">
+             <Setter Property="Background" Value="#1AFFFFFF"/>
+             <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="ToggleButton.iconBtn:checked /template/ ContentPresenter">
+             <Setter Property="Background" Value="#33FFFFFF"/> <!-- Subtle active state -->
+             <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <!-- Compact ComboBox Styling -->
+        <Style Selector="AutoCompleteBox.compact">
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="#2AFFFFFF"/>
+        </Style>
+    </UserControl.Styles>
+</UserControl>

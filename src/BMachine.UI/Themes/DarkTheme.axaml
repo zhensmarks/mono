@@ -1,0 +1,64 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Colors -->
+    <Color x:Key="AppBackground">#121212</Color>
+    <Color x:Key="CardBackground">#1A1C20</Color>
+    <Color x:Key="AccentBlue">#3b82f6</Color>
+    <Color x:Key="AccentOrange">#f97316</Color>
+    <Color x:Key="AccentPurple">#1d4ed8</Color>
+    <Color x:Key="TextPrimary">#FFFFFF</Color>
+    <Color x:Key="TextSecondary">#99FFFFFF</Color>
+    
+    <!-- Brushes -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="{StaticResource AppBackground}"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackground}"/>
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlue}"/>
+    <SolidColorBrush x:Key="AccentOrangeBrush" Color="{StaticResource AccentOrange}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
+    <SolidColorBrush x:Key="SeparatorBrush" Color="#26282C"/>
+    
+    <!-- Geometries (Icons) -->
+    <!-- More Horizontal (...) -->
+    <StreamGeometry x:Key="IconMoreHorizontal">M5 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm7 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm7 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z</StreamGeometry>
+    
+    <!-- Palette (Theme) -->
+    <StreamGeometry x:Key="IconPalette">M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z</StreamGeometry>
+    
+    <!-- Refresh -->
+    <StreamGeometry x:Key="IconRefresh">M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z</StreamGeometry>
+    
+    <!-- Eraser (Remove BG) -->
+    <StreamGeometry x:Key="IconEraser">M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 0 1-5.66 0L2.81 17a4.008 4.008 0 0 1 0-5.66l9.19-9.19c.78-.78 2.05-.78 2.84 0l1.4 1.41zM20.37 8.5 15.5 3.63 14.09 5.04l4.87 4.87 1.41-1.41zM10.93 16 17.5 9.43l-4.87-4.87L6.06 11.12a2.008 2.008 0 0 0 0 2.83L9.5 17.43l1.43-1.43zM10.93 16l1.43 1.43 3.54-3.54 1.43 1.43-3.53 3.54a2.008 2.008 0 0 0 2.83 0l3.53-3.54-1.41-1.41-3.54 3.53-1.43-1.43 3.54-3.53-1.41-1.41-4.98 4.98z</StreamGeometry>
+    
+    <!-- Cloud Upload -->
+    <StreamGeometry x:Key="IconCloudUpload">M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z</StreamGeometry>
+    
+    <!-- Settings (Batch) -->
+    <StreamGeometry x:Key="IconSettings">M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z</StreamGeometry>
+
+    <!-- Bell (Notification) -->
+    <StreamGeometry x:Key="IconBell">M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z</StreamGeometry>
+
+    <!-- Custom Stat Icons -->
+    <StreamGeometry x:Key="IconEditSquare">M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z</StreamGeometry>
+    <StreamGeometry x:Key="IconPencil">M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z</StreamGeometry>
+    <StreamGeometry x:Key="IconClock">M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z</StreamGeometry>
+    <StreamGeometry x:Key="IconCoins">M12 2C7.58 2 4 3.79 4 6s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4zm0 6c-2.42 0-4.63-.56-6.17-1.46C5.08 11.53 8.31 12 12 12s6.92-.47 6.17-1.46C16.63 11.44 14.42 12 12 12zm0 4c-3.69 0-6.92-.47-6.17-1.46C5.08 15.53 8.31 16 12 16s6.92-.47 6.17-1.46C16.63 15.44 14.42 16 12 16zm0 4c-3.69 0-6.92-.47-6.17-1.46C5.08 19.53 8.31 20 12 20s6.92-.47 6.17-1.46C16.63 19.44 14.42 20 12 20z</StreamGeometry>
+
+    <!-- Extension (Puzzle) -->
+    <StreamGeometry x:Key="IconExtension">M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z</StreamGeometry>
+    
+    <!-- Python (Snake/Master) -->
+    <StreamGeometry x:Key="IconPython">M16.14 2H7.86C5.18 2 3 4.18 3 6.86v3.28h6.29V8.29h2.86v4.57h-9.2C1.72 13.51 1 14.86 1 16.36v1.28C1 20.32 3.18 22.5 5.86 22.5h8.28c2.68 0 4.86-2.18 4.86-4.86v-3.28h-6.29v1.86h-2.86v-4.57h9.2c1.23-.65 1.95-2 1.95-3.5v-1.28C21 4.18 18.82 2 16.14 2zM9.43 5.43c.79 0 1.43.64 1.43 1.43s-.64 1.43-1.43 1.43-1.43-.64-1.43-1.43.64-1.43 1.43-1.43zM14.57 19.14c-.79 0-1.43-.64-1.43-1.43s.64-1.43 1.43-1.43 1.43.64 1.43 1.43-.64 1.43-1.43 1.43z</StreamGeometry>
+    
+    <!-- Script (Action/Bolt) -->
+    <StreamGeometry x:Key="IconScript">M14.71 6.71l-5 5c-.39.39-.39 1.02 0 1.41l5 5 .71-.71-4.3-4.29h11.88v-1H11.12l4.3-4.29-.71-.71zM4 2v20h2V2H4zm4 0v20h2V2H8z</StreamGeometry>
+
+    <!-- Bolt (Action alternative) -->
+    <StreamGeometry x:Key="IconBolt">M7 2v11h3v9l7-12h-4l4-8H7z</StreamGeometry>
+
+    <!-- User (Avatar) -->
+    <StreamGeometry x:Key="IconUser">M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z</StreamGeometry>
+
+</ResourceDictionary>

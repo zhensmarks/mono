@@ -1,0 +1,195 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:shapes="using:Avalonia.Controls.Shapes"
+             xmlns:p="using:Avalonia.Controls.Primitives"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="BMachine.UI.Views.FolderLockerView"
+             x:DataType="vm:FolderLockerViewModel"
+             Background="Transparent">
+
+    <Grid DragDrop.AllowDrop="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Header (Removed) -->
+            <RowDefinition Height="*"/>    <!-- Content -->
+        </Grid.RowDefinitions>
+
+        <!-- SETUP MODE -->
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="15"
+                BoxShadow="0 4 20 0 #40000000" IsVisible="{Binding IsSetupMode}"
+                PointerPressed="OnSetupPointerPressed">
+             <ScrollViewer>
+                 <Grid>
+                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" MaxWidth="400">
+                         <!-- Initial Setup -->
+                         <StackPanel Spacing="20" IsVisible="{Binding !IsSetupConfigured}">
+                             <PathIcon Data="{StaticResource IconLock}" Width="48" Height="48" Foreground="{DynamicResource AccentBlueBrush}" HorizontalAlignment="Center"/>
+                             <TextBlock Text="Setup Your Locker" FontWeight="Bold" FontSize="20" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                             <TextBlock Text="Create a password to generate your secure key. You swill need this password and an Authenticator app (Google Auth/Authy) to unlock files later." 
+                                        TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             
+                             <TextBox Text="{Binding SetupPassword}" PasswordChar="•" Watermark="Create Password" />
+                             <TextBox Text="{Binding SetupConfirmPassword}" PasswordChar="•" Watermark="Confirm Password" />
+                             
+                             <Button Command="{Binding GenerateSetupCommand}" Classes="Primary" HorizontalAlignment="Stretch" Content="Generate Security Config"/>
+                             <Button Command="{Binding CancelSetupCommand}" Content="Cancel" Classes="Clear" HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                         </StackPanel>
+
+                         <!-- QR Code Display -->
+                         <StackPanel Spacing="20" IsVisible="{Binding IsSetupConfigured}">
+                             <TextBlock Text="Scan QR Code" FontWeight="Bold" FontSize="20" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                             <TextBlock Text="Scan this with Google Authenticator or Authy. This is your ONLY key to unlock files." 
+                                        TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             
+                             <Border Background="White" CornerRadius="10" Padding="10" HorizontalAlignment="Center">
+                                 <Image Source="{Binding SetupQrCode}" Width="200" Height="200"/>
+                             </Border>
+                             
+                             <Button Command="{Binding CloseSetupCommand}" Classes="Primary" HorizontalAlignment="Stretch" Content="I've Scanned It, Let's Go"/>
+                         </StackPanel>
+
+                         <TextBlock Text="{Binding StatusText}" Foreground="Red" HorizontalAlignment="Center" IsVisible="{Binding !!StatusText}"/>
+                     </StackPanel>
+                </Grid>
+             </ScrollViewer>
+        </Border>
+
+        <!-- NORMAL MODE -->
+        <Grid Grid.Row="1" IsVisible="{Binding !IsSetupMode}" RowDefinitions="*, Auto">
+            
+            <!-- Config Check Override -->
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="15" Grid.RowSpan="2"
+                    IsVisible="{Binding !IsConfigured}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="20">
+                    <PathIcon Data="{StaticResource IconAlertTriangle}" Width="48" Height="48" Foreground="Orange" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Locker Not Configured" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                    <Button Command="{Binding EnterSetupCommand}" Classes="Primary" Content="Start Configuration" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Main Content (Drop Zone OR List) -->
+            <Grid Grid.Row="0" IsVisible="{Binding IsConfigured}">
+                 
+                 <!-- STATE 1: BATCH-STYLE DROP ZONE -->
+                 <Button Command="{Binding BrowseFolderCommand}" 
+                         IsVisible="{Binding !IsFolderSelected}"
+                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                         Background="{DynamicResource CardBackgroundBrush}" 
+                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="2"
+                         MinHeight="200"
+                         CornerRadius="20" Cursor="Hand" Padding="40">
+                         <Button.Styles>
+                             <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                 <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                             </Style>
+                         </Button.Styles>
+                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="15">
+                         <shapes:Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2Z" 
+                                      Width="64" Height="64" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" HorizontalAlignment="Center" Opacity="0.5"/>
+                         <TextBlock Text="DRAG FOLDERS HERE" FontSize="16" FontWeight="Bold" 
+                                    Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                         <TextBlock Text="Drop folder to lock or unlock" FontSize="12" 
+                                    Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.7"/>
+                     </StackPanel>
+                 </Button>
+
+                 <!-- STATE 2: FOLDER INFO & LIST -->
+                 <Border Background="{DynamicResource CardBackgroundBrush}" 
+                         CornerRadius="15" Padding="10"
+                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                         IsVisible="{Binding IsFolderSelected}" VerticalAlignment="Stretch">
+                     <Grid RowDefinitions="Auto, *">
+                         <!-- Header Info (No Icon) -->
+                         <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,10">
+                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                 <TextBlock Text="{Binding FolderName}" FontWeight="Bold" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="{Binding FolderPath}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                             </StackPanel>
+                             <!-- Clear Button -->
+                             <Button Grid.Column="1" Command="{Binding ClearFolderCommand}" Classes="Clear" ToolTip.Tip="Close Folder" Margin="5,0,0,0">
+                                 <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             </Button>
+                         </Grid>
+
+                         <!-- File List -->
+                         <Border Grid.Row="1" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="5">
+                             <ScrollViewer>
+                                 <ItemsControl ItemsSource="{Binding FilePreviewList}">
+                                     <ItemsControl.ItemsPanel>
+                                         <ItemsPanelTemplate>
+                                             <p:UniformGrid Columns="2" HorizontalAlignment="Stretch"/>
+                                         </ItemsPanelTemplate>
+                                     </ItemsControl.ItemsPanel>
+                                     <ItemsControl.ItemTemplate>
+                                         <DataTemplate>
+                                             <Grid ColumnDefinitions="Auto, *" Margin="0,2">
+                                                 <TextBlock Text="{Binding Icon}" Margin="0,0,8,0" FontSize="12" VerticalAlignment="Center"/>
+                                                 <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                             </Grid>
+                                         </DataTemplate>
+                                     </ItemsControl.ItemTemplate>
+                                 </ItemsControl>
+                             </ScrollViewer>
+                         </Border>
+                     </Grid>
+                 </Border>
+            </Grid>
+
+            <!-- FOOTER (Action Bar) -->
+            <Border Grid.Row="1" 
+                    Background="{DynamicResource CardBackgroundBrush}" 
+                    CornerRadius="12,12,0,0" Padding="15,10"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0"
+                    IsVisible="{Binding IsFolderSelected}">
+                <Grid>
+                    <!-- Status / Progress (Moved to Left/Hidden if Center?) -->
+                    <!-- We want buttons CENTERED. Status can be aboslute left, or in a separate grid layer. -->
+                    
+                    <StackPanel Spacing="5" VerticalAlignment="Center" HorizontalAlignment="Left" IsVisible="{Binding IsProcessing}">
+                         <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
+                         <ProgressBar Value="{Binding Progress}" Maximum="100" Height="4" Width="100"/>
+                    </StackPanel>
+
+                    <!-- Buttons (Centered) -->
+                    <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding !IsProcessing}" HorizontalAlignment="Center">
+                         <!-- Setup/Reset in Footer -->
+                         <Button Command="{Binding EnterSetupCommand}" Content="OPTIONS" FontWeight="Bold"
+                                 Background="#1A808080" Foreground="#A0A0A0" BorderBrush="#A0A0A0" BorderThickness="1"
+                                 CornerRadius="4" Padding="15,8"/>
+
+                         <Button Command="{Binding LockFolderCommand}" IsEnabled="{Binding CanLock}" 
+                                 Content="LOCK FOLDER" FontWeight="Bold"
+                                 Background="#1AFF0000" Foreground="#FF4444" BorderBrush="#FF4444" BorderThickness="1"
+                                 CornerRadius="4" Padding="15,8"/>
+                                 
+                         <Button Command="{Binding StartUnlockCommand}" IsEnabled="{Binding CanUnlock}"
+                                 Content="UNLOCK FOLDER" FontWeight="Bold"
+                                 Background="#1A00FF00" Foreground="#00FF00" BorderBrush="#00FF00" BorderThickness="1"
+                                 CornerRadius="4" Padding="15,8"/>
+                    </StackPanel>
+                    
+                    <!-- Cancel Button for Processing -->
+                     <Button Command="{Binding CancelCommand}" Content="CANCEL" IsVisible="{Binding IsProcessing}" Foreground="Red" HorizontalAlignment="Right"/>
+                </Grid>
+            </Border>
+            
+            <!-- Unlock Overlay (Full Height) -->
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="#E6000000" CornerRadius="20" IsVisible="{Binding IsUnlocking}" Margin="-20">
+                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="15" Width="300">
+                     <PathIcon Data="{StaticResource IconUnlock}" Width="40" Height="40" Foreground="{DynamicResource AccentGreenBrush}" HorizontalAlignment="Center"/>
+                     <TextBlock Text="Enter Authenticator Code" FontWeight="Bold" FontSize="16" Foreground="White" HorizontalAlignment="Center"/>
+                     
+                     <TextBox Text="{Binding OtpInput}" Watermark="000 000" HorizontalContentAlignment="Center" FontSize="20" FontWeight="Bold" CornerRadius="8"
+                              Background="#20FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Foreground="White" CaretBrush="White"/>
+                     
+                     <Grid ColumnDefinitions="*, *" Margin="0,10,0,0">
+                         <Button Grid.Column="0" Command="{Binding CancelUnlockCommand}" Content="Cancel" Classes="Clear" Foreground="#BBB" HorizontalAlignment="Center"/>
+                         <Button Grid.Column="1" Command="{Binding ConfirmUnlockCommand}" Content="Unlock" Classes="Primary" HorizontalAlignment="Stretch"/>
+                     </Grid>
+                 </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

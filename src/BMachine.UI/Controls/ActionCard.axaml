@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:shapes="using:Avalonia.Controls.Shapes"
+             mc:Ignorable="d" d:DesignWidth="250" d:DesignHeight="150"
+             x:Class="BMachine.UI.Controls.ActionCard"
+             x:Name="Root">
+    
+    <UserControl.Styles>
+        <Style Selector="Border.Card">
+            <!-- ... -->
+        </Style>
+        <!-- ... -->
+    </UserControl.Styles>
+
+    <Button Classes="Clear" Command="{Binding #Root.Command}" Padding="0" Background="Transparent" BorderThickness="0">
+        <Border Classes="Card" Width="250" Height="140" Padding="20">
+            <StackPanel Spacing="15" VerticalAlignment="Center">
+                <!-- Icon Placeholder -->
+                <shapes:Path Data="{Binding #Root.IconData}" 
+                      Fill="{Binding #Root.AccentColor}"
+                      Width="32" Height="32"
+                      Stretch="Uniform"
+                      HorizontalAlignment="Center"/>
+                
+                <StackPanel Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding #Root.Title}"
+                               Classes="H3"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="Bold"
+                               TextAlignment="Center"
+                               TextWrapping="WrapWithOverflow"
+                               MaxLines="2"
+                               FontSize="14"/>
+                    
+                    <TextBlock Text="{Binding #Root.Description}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               MaxLines="2"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Button>
+</UserControl>
