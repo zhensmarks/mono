@@ -376,14 +376,23 @@ public partial class GdriveViewModel : ObservableObject
         
         AppendLog("Memulai proses upload...");
 
-        foreach (var item in Files.Where(j => j.Status == "Ready" || j.IsFailed))
+        // Live Queue Loop
+        while (!_stopRequested && !token.IsCancellationRequested)
         {
-            if (_stopRequested || token.IsCancellationRequested) break;
-
-            item.Status = "Uploading...";
-            item.Progress = 0;
-            item.IsFailed = false;
-            item.ErrorMessage = null;
+             // Find next item to process
+             // Strategy: Prioritize 'Ready', but also retry 'Failed' if logic allows?
+             // StartUpload logic usually starts fresh. 
+             // Logic in StartUpload was: Files.Where(j => j.Status == "Ready" || j.IsFailed)
+             // So we should pick one.
+             
+             var item = Files.FirstOrDefault(j => j.Status == "Ready" || j.IsFailed);
+             
+             if (item == null) break; // Queue Empty
+             
+             item.Status = "Uploading...";
+             item.Progress = 0;
+             item.IsFailed = false;
+             item.ErrorMessage = null;
 
             try
             {
@@ -407,11 +416,18 @@ public partial class GdriveViewModel : ObservableObject
             }
             catch (Exception e)
             {
-                item.Status = "Gagal";
-                item.IsFailed = true;
-                item.ErrorMessage = e.Message.Length > 50 ? e.Message.Substring(0, 50) + "..." : e.Message;
-                AppendLog($"Gagal upload {item.DisplayPath}: {e.Message}");
-                failed++;
+                if (token.IsCancellationRequested) 
+                {
+                    item.Status = "Ready"; // Reset if cancelled mid-way? Or Failed?
+                }
+                else 
+                {
+                    item.Status = "Gagal";
+                    item.IsFailed = true;
+                    item.ErrorMessage = e.Message.Length > 50 ? e.Message.Substring(0, 50) + "..." : e.Message;
+                    AppendLog($"Gagal upload {item.DisplayPath}: {e.Message}");
+                    failed++;
+                }
             }
         }
 

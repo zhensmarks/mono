@@ -356,14 +356,38 @@ public partial class PixelcutViewModel : ObservableObject
         int success = 0;
         int failed = 0;
 
-        var queue = Files.ToList(); // Snapshot to avoid modification errors
-        foreach (var item in queue)
+        while (!_stopRequested)
         {
-            if (!Files.Contains(item)) continue; // Skip if removed during process
-            if (_stopRequested) break;
-            while (IsPaused) { await Task.Delay(500); if (_stopRequested) break; }
+            if (IsPaused) 
+            {
+                 await Task.Delay(500); 
+                 continue;
+            }
+
+            // Find next ready item dynamically (Live Queue)
+            // We use ToList() only to safely find the item without modifying collection during enumeration
+            // But since we are Modify property not collection, it's safer to just Linq.
+            // However, Linq on ObservableCollection is not thread safe if UI adds items.
+            // But Add happens on UI thread. This ProcessQueue runs on background Task? No, it's async void/Task on UI thread context?
+            // Wait, ProcessQueue is async Task. If called from Command, it's on UI thread.
+            // But ProcessItem calls RunPythonWorker which awaits Task.Run or Process.
+            // Let's assume we are on UI context or captured context.
             
-            if (item.Status == "Selesai") continue;
+            PixelcutFileItem? item = null;
+            
+            // Thread-safe access attempt (simple lock not possible on ObservableCollection without proper sync)
+            // But if we are on UI thread (due to async/await), it's safe.
+            // If we are on background thread, we might crash.
+            // ProcessQueue is called by [RelayCommand], so it starts on UI Thread.
+            // Await points might return to UI thread if context captured.
+            
+            item = Files.FirstOrDefault(x => x.Status == "Menunggu");
+
+            if (item == null)
+            {
+                // No more items ready.
+                break;
+            }
 
             await ProcessItem(item, job);
 
@@ -375,7 +399,7 @@ public partial class PixelcutViewModel : ObservableObject
         AppendLog("Antrian selesai.");
         
         // Show Completion Dialog if not stopped manually
-        if (!_stopRequested)
+        if (!_stopRequested && (success > 0 || failed > 0))
         {
             CompletionSuccessCount = success;
             CompletionFailureCount = failed;

@@ -18,9 +18,9 @@
             
             <Grid>
                 <!-- VIEW 1: MAIN CONTENT (Visible when Settings are CLOSED) -->
-                <Grid IsVisible="{Binding !IsSettingsOpen}">
-                    <!-- Empty State (Drop Zone) -->
-                    <Grid IsVisible="{Binding !HasFiles}" DragDrop.AllowDrop="True" Background="Transparent">
+                <Grid IsVisible="{Binding !IsSettingsOpen}" DragDrop.AllowDrop="True" Background="Transparent">
+                    <!-- Empty State (Drop Zone - Visual Only) -->
+                    <Grid IsVisible="{Binding !HasFiles}">
                         <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
                                  <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
