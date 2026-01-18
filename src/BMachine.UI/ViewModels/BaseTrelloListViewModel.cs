@@ -88,13 +88,22 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     protected async Task ShowComments(TrelloCard card)
     {
         if (card == null) return;
+        
+        CloseAllSidePanels(); // Close others first
+        
         SelectedCard = card;
         IsCommentPanelOpen = true;
-        // Close others
-        IsChecklistPanelOpen = false;
-        IsMovePanelOpen = false;
         
         await LoadComments(card.Id);
+    }
+
+    [RelayCommand]
+    protected virtual void CloseAllSidePanels()
+    {
+        IsCommentPanelOpen = false;
+        IsChecklistPanelOpen = false;
+        IsMovePanelOpen = false;
+        IsAttachmentPanelOpen = false;
     }
 
     [RelayCommand]
@@ -215,10 +224,10 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     protected async Task ShowChecklists(TrelloCard card)
     {
         if (card == null) return;
-        SelectedCard = card;
         
-        IsCommentPanelOpen = false;
-        IsMovePanelOpen = false;
+        CloseAllSidePanels(); // Ensure exclusivity
+        
+        SelectedCard = card;
         IsChecklistPanelOpen = true;
         
         await LoadChecklists(card.Id);
@@ -438,11 +447,10 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     protected async Task ShowAttachments(TrelloCard card)
     {
         if (card == null) return;
-        SelectedCard = card;
         
-        IsCommentPanelOpen = false;
-        IsChecklistPanelOpen = false;
-        IsMovePanelOpen = false;
+        CloseAllSidePanels();
+        
+        SelectedCard = card;
         IsAttachmentPanelOpen = true;
         
         await LoadAttachments(card.Id);
@@ -638,10 +646,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         IsBatchMoveMode = true;
         SelectedCard = new TrelloCard { Name = $"{selectedCount} Cards Selected" }; // Dummy card for Header
         
-        IsCommentPanelOpen = false;
-        IsChecklistPanelOpen = false;
+        CloseAllSidePanels();
         IsMovePanelOpen = true;
-        IsAttachmentPanelOpen = false;
         
         await LoadMoveBoards();
     }
@@ -659,13 +665,13 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         SelectedCard = card;
         IsBatchMoveMode = false;
         
-        IsCommentPanelOpen = false;
-        IsChecklistPanelOpen = false;
-        
+        // AutoMove Logic Check
         bool autoMoved = await AutoMoveCard(card);
         if (autoMoved) return;
 
+        CloseAllSidePanels();
         IsMovePanelOpen = true;
+        
         await LoadMoveBoards();
     }
     
@@ -676,6 +682,52 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         SelectedCard = null;
         AvailableBoards.Clear();
         AvailableLists.Clear();
+    }
+
+
+
+    private async Task<bool> DataMoveCard(TrelloCard card, string boardId, string listId, string successMessage, bool isBatchMode = false)
+    {
+         try
+         {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            
+            // If board/list not provided, use defaults or logic for automove?
+            // Existing logic for DataMoveCard seemed to expect specific targets.
+            
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/cards/{card.Id}?idList={listId}&idBoard={boardId}&key={apiKey}&token={token}";
+            
+            // Handle Automove scenario if parameters are empty (though typically passed explicitly)
+            if (string.IsNullOrEmpty(boardId) || string.IsNullOrEmpty(listId))
+            {
+                // This seems like a legacy path for AutoMove, but let's stick to the core fix
+                // for the force close which happens during explicit Batch Move.
+            }
+
+            var response = await client.PutAsync(url, null);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                if (!string.IsNullOrEmpty(successMessage))
+                    StatusMessage = successMessage;
+
+                Cards.Remove(card); 
+                
+                if (!isBatchMode)
+                    CloseMovePanel();
+
+                await LogActivity("Move", "Card Moved", $"{card.Name} -> {successMessage}");
+                return true;
+            }
+            return false;
+         }
+         catch(Exception ex) 
+         {
+             StatusMessage = $"Error moving card: {ex.Message}";
+             return false;
+         }
     }
 
     private async Task<bool> AutoMoveCard(TrelloCard card)
@@ -822,38 +874,14 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
     }
 
-    private async Task<bool> DataMoveCard(TrelloCard card, string boardId, string listId, string successMessage)
-    {
-         try
-         {
-            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
-            var token = await _database.GetAsync<string>("Trello.Token");
-            
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/cards/{card.Id}?idList={listId}&idBoard={boardId}&key={apiKey}&token={token}";
-            var response = await client.PutAsync(url, null);
-            
-            if (response.IsSuccessStatusCode)
-            {
-                StatusMessage = successMessage;
-                Cards.Remove(card); 
-                CloseMovePanel();
-                await LogActivity("Move", "Card Moved", $"{card.Name} -> {successMessage}");
-                return true;
-            }
-            return false;
-         }
-         catch(Exception ex) 
-         {
-             StatusMessage = $"Error moving card: {ex.Message}";
-             return false;
-         }
-    }
+
 
     [RelayCommand]
     private async Task MoveCard()
     {
-        if (SelectedCard == null || SelectedMoveBoard == null || SelectedMoveList == null) return;
+        if (SelectedCard == null && !IsBatchMoveMode) return;
+        if (SelectedMoveBoard == null || SelectedMoveList == null) return;
+        
         IsLoadingMoveData = true;
         try
         {
@@ -868,18 +896,25 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                  foreach(var card in selectedCards)
                  {
                      StatusMessage = $"Moving {card.Name} ({successCount + 1}/{total})...";
-                     bool success = await DataMoveCard(card, SelectedMoveBoard.Id, SelectedMoveList.Id, "");
+                     // pass isBatchMode = true to prevent panel from closing and data from clearing
+                     bool success = await DataMoveCard(card, SelectedMoveBoard.Id, SelectedMoveList.Id, "", true);
                      if (success) successCount++;
                  }
                  
+                 // Cache name BEFORE closing panel (which clears SelectedMoveList)
+                 var targetListName = SelectedMoveList.Name;
                  CloseMovePanel();
-                 StatusMessage = $"Moved {successCount} of {total} cards to {SelectedMoveList.Name}";
+                 StatusMessage = $"Moved {successCount} of {total} cards to {targetListName}";
                  HasSelectedCards = false; // Reset selection visibility
              }
-             else
+             else if (SelectedCard != null)
              {
-                 await DataMoveCard(SelectedCard, SelectedMoveBoard.Id, SelectedMoveList.Id, $"Moved to {SelectedMoveList.Name}");
+                 await DataMoveCard(SelectedCard, SelectedMoveBoard.Id, SelectedMoveList.Id, $"Moved to {SelectedMoveList.Name}", false);
              }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Batch move failed: {ex.Message}";
         }
         finally
         {

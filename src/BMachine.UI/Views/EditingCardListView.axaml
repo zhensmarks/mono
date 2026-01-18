@@ -10,17 +10,17 @@
     <Grid x:Name="Part_RootGrid" Background="{DynamicResource AppBackgroundBrush}" SizeChanged="OnRootGridSizeChanged">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/> <!-- Side Panel -->
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Main Content (Left) -->
+        <!-- Main Content -->
         <Grid x:Name="Part_MainContent" Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             
-        <!-- Header -->
+            <!-- Header -->
             <StackPanel Grid.Row="0" Margin="30" Spacing="12">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -28,18 +28,18 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Daftar Card Editing" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Editing" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="{Binding StatusMessage}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
                     </StackPanel>
                     
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
-                        <!-- Add Manual Card Button -->
-                         <!-- Add Manual Card Button -->
-                         <Button Command="{Binding OpenAddManualPanelCommand}" 
-                                 Content="TAMBAH CARD MANUAL"
-                                 Background="{DynamicResource AccentBlueBrush}" 
-                                 Foreground="White"
-                                 BorderThickness="0" CornerRadius="8" Padding="15,8" Cursor="Hand"
+                         <!-- Manual Add Button -->
+                         <Button Command="{Binding OpenAddManualPanelCommand}"
+                                 Content="TAMBAH MANUAL"
+                                 Background="Transparent"
+                                 BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
+                                 Foreground="{DynamicResource AccentBlueBrush}"
+                                 CornerRadius="8" Padding="15,8" Cursor="Hand"
                                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                  FontWeight="Bold" FontSize="12"/>
 
@@ -47,42 +47,22 @@
                          <Button Command="{Binding ShowBatchMovePanelCommand}"
                                  Content="MOVE BATCH"
                                  IsVisible="{Binding HasSelectedCards}"
-                                 Background="{DynamicResource AccentColorBrush}"
-                                 Foreground="White"
-                                 BorderThickness="0" CornerRadius="8" Padding="15,8" Cursor="Hand"
+                                 Background="Transparent"
+                                 BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
+                                 Foreground="{DynamicResource AccentBlueBrush}"
+                                 CornerRadius="8" Padding="15,8" Cursor="Hand"
                                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                  FontWeight="Bold" FontSize="12"/>
-
-                        <!-- Buttons Hidden per User Request -->
-                        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="False">
-                            <Button Content="🔄 Refresh" Command="{Binding RefreshCommand}" 
-                                    IsEnabled="{Binding !IsRefreshing}" 
-                                    Background="{DynamicResource CardBackgroundBrush}" 
-                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                    Padding="15,8"
-                                    CornerRadius="8"/>
-                                    
-                            <Button Content="Close" Command="{Binding CloseCommand}" 
-                                    Background="{DynamicResource CardBackgroundBrush}"
-                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                    Padding="15,8"
-                                    CornerRadius="8"/>
-                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </StackPanel>
-    
+            
             <!-- Cards List -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Cards}" Margin="10,0,10,20">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="models:TrelloCard">
-                                <Grid ColumnDefinitions="Auto, *">
-                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                              VerticalAlignment="Top" Margin="0,10,10,0"
-                                              Command="{Binding $parent[UserControl].DataContext.SelectionChangedCommand}"/>
-                                    
-                                    <ToggleButton Grid.Column="1" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                    <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                Padding="0" BorderThickness="0" Background="Transparent"
                                                Margin="0,0,0,15" CornerRadius="12">
@@ -100,34 +80,42 @@
                                         BoxShadow="0 4 12 0 #80000000">
                                     <StackPanel>
                                         <!-- Accent Line (Top) - Customized -->
-                                        <!-- Normal Accent -->
-                                        <Border Height="4" Background="{Binding $parent[UserControl].DataContext.AccentColor}" HorizontalAlignment="Stretch" IsVisible="{Binding !IsManual}"/>
-                                        <!-- Manual Accent (Purple) -->
-                                        <Border Height="4" Background="#8A2BE2" HorizontalAlignment="Stretch" IsVisible="{Binding IsManual}"/>
+                                        <Border Height="4" Background="{Binding $parent[UserControl].DataContext.AccentColor}" HorizontalAlignment="Stretch"/>
                                         
                                         <StackPanel Spacing="10" Margin="20">
                                              <!-- Header Section: ID (if exists) and Name -->
                                              <StackPanel Spacing="8">
                                                  <Grid ColumnDefinitions="*, Auto">
-                                                     <StackPanel Orientation="Horizontal" Spacing="8">
+                                                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                                        <!-- CheckBox for Batch Move -->
+                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  VerticalAlignment="Center"
+                                                                  Command="{Binding $parent[UserControl].DataContext.SelectionChangedCommand}"
+                                                                  ToolTip.Tip="Select for Batch Move"/>
+
                                                          <!-- ID Badge (Clickable to Copy) -->
                                                          <Button Classes="Clear" HorizontalAlignment="Left" Padding="0" Background="Transparent"
-                                                                 Click="OnIdClick"
-                                                                 Tag="{Binding DisplayId}"
-                                                                 IsVisible="{Binding HasDisplayId}"
-                                                                 Cursor="Hand" ToolTip.Tip="Click to Copy ID">
-                                                             <Border Background="#336699CC" CornerRadius="6" Padding="8,4">
-                                                                  <StackPanel Orientation="Horizontal" Spacing="4">
-                                                                      <TextBlock Text="ID:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"/>
-                                                                      <TextBlock Text="{Binding DisplayId}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}"/>
-                                                                  </StackPanel>
-                                                             </Border>
+                                                              Click="OnIdClick"
+                                                              Tag="{Binding DisplayId}"
+                                                              IsVisible="{Binding HasDisplayId}"
+                                                              Cursor="Hand" ToolTip.Tip="Click to Copy ID">
+                                                          <Border Background="#336699CC" CornerRadius="6" Padding="8,4">
+                                                              <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                  <TextBlock Text="ID:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"/>
+                                                                  <TextBlock Text="{Binding DisplayId}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                              </StackPanel>
+                                                          </Border>
                                                          </Button>
                                                          
-                                                         <!-- Manual Badge -->
-                                                         <Border Background="#208A2BE2" CornerRadius="6" Padding="8,4" IsVisible="{Binding IsManual}">
-                                                             <TextBlock Text="🔗 LINKED" FontSize="11" FontWeight="SemiBold" Foreground="#8A2BE2" VerticalAlignment="Center"/>
-                                                         </Border>
+                                                         <!-- Link Text (New) - Visible for Manual Cards primarily, or all -->
+                                                         <TextBlock Text="{Binding Url}" 
+                                                                    Foreground="{DynamicResource AccentBlueBrush}" 
+                                                                    FontSize="11" 
+                                                                    VerticalAlignment="Center" 
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    MaxWidth="200"
+                                                                    IsVisible="{Binding IsManual}"
+                                                                    ToolTip.Tip="{Binding Url}"/>
                                                      </StackPanel>
 
                                                      <!-- Attachment Button (Right Aligned) -->
@@ -150,6 +138,7 @@
                                              </StackPanel>
                                             
                                             <!-- Action Buttons (Right Aligned) -->
+                                            <!-- Action Buttons (Right Aligned) -->
                                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,15,0,0">
                                                 <Button Command="{Binding $parent[ItemsControl].DataContext.ShowCommentsCommand}" CommandParameter="{Binding}"
                                                         Background="#1AFFFFFF" BorderThickness="0" CornerRadius="6" Padding="12,6" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand">
@@ -165,21 +154,19 @@
                                                         <TextBlock Text="Checklist" FontSize="12"/>
                                                     </StackPanel>
                                                 </Button>
-                                                
                                                 <!-- Move Button (Normal) -->
                                                 <Button Command="{Binding $parent[ItemsControl].DataContext.ShowMovePanelCommand}" CommandParameter="{Binding}"
                                                         IsVisible="{Binding !IsManual}"
-                                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="6" Padding="12,6" Foreground="{DynamicResource TextSecondaryBrush}">
+                                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="6" Padding="12,6" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand">
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <PathIcon Data="{StaticResource IconArrowRight}" Width="12" Height="12"/>
                                                         <TextBlock Text="Move" FontSize="12"/>
                                                     </StackPanel>
                                                 </Button>
-                                                
-                                                <!-- Remove Link Button (Manual) -->
+                                                <!-- Unlink Button (Manual) -->
                                                 <Button Command="{Binding $parent[ItemsControl].DataContext.RemoveManualCardCommand}" CommandParameter="{Binding}"
                                                         IsVisible="{Binding IsManual}"
-                                                        Background="#20EF4444" BorderThickness="0" CornerRadius="6" Padding="12,6" Foreground="#EF4444"  ToolTip.Tip="Remove Link (Unpin)">
+                                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="6" Padding="12,6" Foreground="#ef4444" Cursor="Hand">
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12"/>
                                                         <TextBlock Text="Unlink" FontSize="12"/>
@@ -191,7 +178,7 @@
                                             <StackPanel IsVisible="{Binding IsExpanded}" Spacing="10" Margin="0,15,0,0">
                                                 <Border Height="1" Background="{DynamicResource TextSecondaryBrush}" Opacity="0.1"/>
                                                 
-                                                <!-- Description (Selectable) -->
+                                                <!-- Description -->
                                                 <TextBox Text="{Binding Description}" 
                                                          IsReadOnly="True" 
                                                          TextWrapping="Wrap"
@@ -235,57 +222,56 @@
                                     </StackPanel>
                                 </Border> 
                                 </ToggleButton>
-                            </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
             </ScrollViewer>
         </Grid>
-        
-        <!-- Add Manual Card Panel (Sidebar) -->
-        <Border x:Name="Part_AddManualPanel" Grid.Column="1" Width="300" Background="Transparent"
+
+        <!-- Side Panel: Add Manual Card -->
+        <Border x:Name="Part_AddManualPanel" Grid.Column="1" Width="400" Background="{DynamicResource AppBackgroundBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
-                IsVisible="{Binding IsAddManualPanelOpen}"
-                BoxShadow="-4 0 20 0 #40000000">
-            <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+                IsVisible="{Binding IsAddManualPanelOpen}">
+            <Grid RowDefinitions="Auto, *, Auto" Margin="25">
                 <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
-                    <TextBlock Text="Tambah Manual" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}" Content="✕" 
-                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
-                </Grid>
-                
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,20">
-                    <StackPanel Spacing="15">
-                         <TextBlock Text="Paste Trello Link / Card ID:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <TextBox Text="{Binding ManualCardLinkInput}" Watermark="https://trello.com/c/...&#x0a;(Bisa paste banyak link, pisahkan dengan Enter)" 
-                                  AcceptsReturn="True" MinHeight="100" MaxHeight="500" TextWrapping="Wrap" VerticalContentAlignment="Top"/>
-                         
-                         <TextBlock Text="Card akan ditampilkan di list ini secara permanen (tersimpan lokal) sampai Anda menghapusnya." 
-                                    FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Opacity="0.7"/>
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="Add Manual Card" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Paste your Trello links below" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
-                </ScrollViewer>
+                    <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}" Content="✕" 
+                            Background="Transparent" BorderThickness="0" FontSize="18" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                        <TextBox Text="{Binding ManualCardLinkInput}" AcceptsReturn="True" 
+                                 Watermark="https://trello.com/c/..."
+                                 Background="Transparent" BorderThickness="0" 
+                                 Padding="20" FontSize="14"
+                                 TextWrapping="Wrap"
+                                 VerticalContentAlignment="Top"
+                                 VerticalAlignment="Top"
+                                 Height="150"
+                                 SelectionBrush="{DynamicResource AccentBlueBrush}"/>
+                    </Border>
+                </Grid>
 
                 <Button Grid.Row="2" Command="{Binding ConfirmAddManualCardCommand}" 
+                        Content="ADD CARDS"
+                        Background="{DynamicResource AccentBlueBrush}" Foreground="White"
                         IsEnabled="{Binding !IsLoadingManualAdd}"
-                        Classes="Primary" HorizontalAlignment="Stretch" Margin="0"
-                        HorizontalContentAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                        <ProgressBar IsIndeterminate="True" Width="15" Height="15" IsVisible="{Binding IsLoadingManualAdd}"/>
-                        <TextBlock Text="Tambahkan Card" FontWeight="Bold"/>
-                    </StackPanel>
-                </Button>
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        CornerRadius="10" Padding="15,12" Margin="0,25,0,0"
+                        FontWeight="SemiBold" FontSize="14" Cursor="Hand"/>
             </Grid>
         </Border>
 
-
-        <!-- Sidbar Comment Panel -->
-        <Border x:Name="Part_CommentPanel" Grid.Column="1" Width="400" Background="Transparent" 
+        <!-- Side Panel: Comments -->
+        <Border x:Name="Part_CommentPanel" Grid.Column="1" Width="350" Background="{DynamicResource AppBackgroundBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsCommentPanelOpen}">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
-                
-                <!-- Panel Header -->
-                <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20">
                     <StackPanel Spacing="5">
                          <TextBlock Text="Comments" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
@@ -294,7 +280,6 @@
                             Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
                 </Grid>
 
-                <!-- Comments List -->
                 <ScrollViewer Grid.Row="1">
                     <StackPanel Spacing="15">
                         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingComments}" Margin="0,20"/>
@@ -306,15 +291,12 @@
                                 <DataTemplate>
                                     <Border Background="#10FFFFFF" CornerRadius="8" Padding="12" Margin="0,0,0,10">
                                         <Grid ColumnDefinitions="Auto, *">
-                                            <!-- Avatar/Initials -->
                                             <Border Width="32" Height="32" CornerRadius="16" Background="#3b82f6" Margin="0,0,12,0" VerticalAlignment="Top" ClipToBounds="True">
                                                 <Panel>
                                                     <TextBlock Text="{Binding MemberCreatorInitials}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
-                                                    <!-- Use Image if URL is valid (requires Bitmap loader, simplified for now) -->
                                                 </Panel>
                                             </Border>
                                             
-                                            <!-- Content -->
                                             <StackPanel Grid.Column="1" Spacing="4">
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -330,14 +312,12 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- Footer: Add Comment -->
                 <Grid Grid.Row="2" ColumnDefinitions="*, Auto" Margin="0,20,0,0">
                     <TextBox Text="{Binding NewCommentText}" Watermark="Write a comment..." 
                              Background="#1AFFFFFF" BorderThickness="0" CornerRadius="8" Padding="10"
                              Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100"/>
                     <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
-                            Width="40" Height="40" CornerRadius="20" Background="#3b82f6" Cursor="Hand"
-                            ToolTip.Tip="Send Comment">
+                            Width="40" Height="40" CornerRadius="20" Background="#3b82f6" Cursor="Hand" ToolTip.Tip="Send Comment">
                         <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
                     </Button>
                 </Grid>
@@ -345,117 +325,103 @@
         </Border>
 
         <!-- Side Panel: Checklist -->
-        <Border x:Name="Part_ChecklistPanel" Grid.Column="1" Width="400" Background="Transparent" 
-        BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
-        IsVisible="{Binding IsChecklistPanelOpen}">
-    <Grid RowDefinitions="Auto, *, Auto" Margin="20">
-        <!-- Header -->
-        <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
-            <StackPanel Spacing="5">
-                 <TextBlock Text="Checklists" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                 <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
-            </StackPanel>
-            <Button Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}" Content="✕" 
-                    Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
-        </Grid>
+        <Border x:Name="Part_ChecklistPanel" Grid.Column="1" Width="400" Background="{DynamicResource AppBackgroundBrush}" 
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+                IsVisible="{Binding IsChecklistPanelOpen}">
+            <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+                <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+                    <StackPanel Spacing="5">
+                         <TextBlock Text="Checklists" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}" Content="✕" 
+                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                </Grid>
 
-        <!-- Checklists Content -->
-        <!-- Checklists Content -->
-        <ScrollViewer Grid.Row="1">
-            <StackPanel Spacing="20">
-                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingChecklists}" Margin="0,20"/>
-                <TextBlock Text="No checklists found." IsVisible="{Binding !Checklists.Count}" 
-                           Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
+                <ScrollViewer Grid.Row="1">
+                    <StackPanel Spacing="20">
+                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingChecklists}" Margin="0,20"/>
+                        <TextBlock Text="No checklists found." IsVisible="{Binding !Checklists.Count}" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
+                        
+                        <ItemsControl ItemsSource="{Binding Checklists}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Spacing="10" Margin="0,0,0,20">
+                                        <Grid ColumnDefinitions="Auto, *, Auto">
+                                            <PathIcon Data="{StaticResource IconCheckSquare}" 
+                                                  Foreground="{DynamicResource TextPrimaryBrush}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            
+                                            <Button Grid.Column="2" 
+                                                    Command="{Binding $parent[UserControl].DataContext.DeleteChecklistCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand" ToolTip.Tip="Delete Checklist">
+                                                <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
+                                            </Button>
+                                        </Grid>
+                                        
+                                        <ItemsControl ItemsSource="{Binding Items}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" 
+                                                              Content="{Binding Name}" Margin="5,2"
+                                                              Command="{Binding $parent[UserControl].DataContext.ToggleCheckItemCommand}"
+                                                              CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
                 
-                <ItemsControl ItemsSource="{Binding Checklists}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Spacing="10" Margin="0,0,0,20">
-                                <!-- Checklist Name and Delete -->
-                                <Grid ColumnDefinitions="Auto, *, Auto">
-                                    <PathIcon Data="{StaticResource IconCheckSquare}" 
-                                          Foreground="{DynamicResource TextPrimaryBrush}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                    
-                                    <!-- Delete Button -->
-                                    <Button Grid.Column="2" 
-                                            Command="{Binding $parent[UserControl].DataContext.DeleteChecklistCommand}" 
-                                            CommandParameter="{Binding}"
-                                            Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand" ToolTip.Tip="Delete Checklist">
-                                        <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
-                                    </Button>
-                                </Grid>
-                                
-                                <!-- Card List -->
-                                <!-- Checklist Items -->
-                                <ItemsControl ItemsSource="{Binding Items}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" 
-                                                      Content="{Binding Name}" Margin="5,2"
-                                                      Command="{Binding $parent[UserControl].DataContext.ToggleCheckItemCommand}"
-                                                      CommandParameter="{Binding}"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </ScrollViewer>
-        
-        <!-- Footer: Duplicate Tool (Bottom Center/Right) -->
-        <StackPanel Grid.Row="2" Margin="0,10,0,0">
-             <!-- The Tool Panel (Overlay style or Inline) -->
-             <Border Background="#26282C" CornerRadius="8" Padding="15" IsVisible="{Binding IsDuplicateMode}" Margin="0,0,0,10">
-                 <StackPanel Spacing="10">
-                     <TextBlock Text="Duplicate Checklist" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                     
-                     <StackPanel Spacing="5">
-                          <TextBlock Text="New Name:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                          <TextBox Text="{Binding DuplicateChecklistName}" Watermark="#EDITING USER_PROFILE" IsReadOnly="True" Background="#1AFFFFFF"/>
-                     </StackPanel>
-                     
-                     <StackPanel Spacing="5">
-                          <TextBlock Text="Source:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                          <ComboBox ItemsSource="{Binding Checklists}" SelectedItem="{Binding SelectedSourceChecklist}" 
-                                    PlaceholderText="Select source..." HorizontalAlignment="Stretch">
-                              <ComboBox.ItemTemplate>
-                                  <DataTemplate>
-                                      <TextBlock Text="{Binding Name}"/>
-                                  </DataTemplate>
-                              </ComboBox.ItemTemplate>
-                          </ComboBox>
-                     </StackPanel>
-                     
-                     <Grid ColumnDefinitions="*, *" Margin="0,5,0,0">
-                         <Button Grid.Column="0" Content="Cancel" Command="{Binding ToggleDuplicateModeCommand}" 
-                                 Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Left"/>
-                         <Button Grid.Column="1" Content="Create Copy" Command="{Binding DuplicateChecklistCommand}" 
-                                 Classes="Primary" HorizontalAlignment="Right"/>
-                     </Grid>
-                 </StackPanel>
-             </Border>
-
-              <Button Command="{Binding ToggleDuplicateModeCommand}"
-                      IsVisible="{Binding !IsDuplicateMode}"
-                      Classes="Clear" Foreground="{DynamicResource AccentBlueBrush}" HorizontalAlignment="Center" FontSize="12" Cursor="Hand">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                      <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
-                      <TextBlock Text="Duplicate Checklist"/>
-                  </StackPanel>
-              </Button>
-        </StackPanel>
-    </Grid>
-</Border>
+                <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                     <Border Background="#26282C" CornerRadius="8" Padding="15" IsVisible="{Binding IsDuplicateMode}" Margin="0,0,0,10">
+                         <StackPanel Spacing="10">
+                             <TextBlock Text="Duplicate Checklist" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                             <StackPanel Spacing="5">
+                                  <TextBlock Text="New Name:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                  <TextBox Text="{Binding DuplicateChecklistName}" Watermark="#EDITING USER_PROFILE" IsReadOnly="True" Background="#1AFFFFFF"/>
+                             </StackPanel>
+                             <StackPanel Spacing="5">
+                                  <TextBlock Text="Source:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                  <ComboBox ItemsSource="{Binding Checklists}" SelectedItem="{Binding SelectedSourceChecklist}" 
+                                            PlaceholderText="Select source..." HorizontalAlignment="Stretch">
+                                      <ComboBox.ItemTemplate>
+                                          <DataTemplate>
+                                              <TextBlock Text="{Binding Name}"/>
+                                          </DataTemplate>
+                                      </ComboBox.ItemTemplate>
+                                  </ComboBox>
+                             </StackPanel>
+                             <Grid ColumnDefinitions="*, *" Margin="0,5,0,0">
+                                 <Button Grid.Column="0" Content="Cancel" Command="{Binding ToggleDuplicateModeCommand}" 
+                                         Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Left"/>
+                                 <Button Grid.Column="1" Content="Create Copy" Command="{Binding DuplicateChecklistCommand}" 
+                                         Background="{DynamicResource AccentBlueBrush}" Foreground="White" HorizontalAlignment="Right"/>
+                             </Grid>
+                         </StackPanel>
+                     </Border>
+                     <Button Command="{Binding ToggleDuplicateModeCommand}"
+                             IsVisible="{Binding !IsDuplicateMode}"
+                             Classes="Clear" Foreground="{DynamicResource AccentBlueBrush}" HorizontalAlignment="Center" FontSize="12" Cursor="Hand">
+                         <StackPanel Orientation="Horizontal" Spacing="6">
+                             <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
+                             <TextBlock Text="Duplicate Checklist"/>
+                         </StackPanel>
+                     </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <!-- Side Panel: Move Card -->
-        <Border x:Name="Part_MovePanel" Grid.Column="1" Width="400" Background="Transparent" 
+        <Border x:Name="Part_MovePanel" Grid.Column="1" Width="400" Background="{DynamicResource AppBackgroundBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsMovePanelOpen}">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
-                <!-- Header -->
                 <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
                     <StackPanel Spacing="5">
                          <TextBlock Text="Move Card" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -465,11 +431,9 @@
                             Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
                 </Grid>
 
-                <!-- Move Content -->
                 <StackPanel Grid.Row="1" Spacing="20">
                     <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingMoveData}" Margin="0,0,0,10"/>
                     
-                    <!-- Board Selection -->
                     <StackPanel Spacing="8">
                         <TextBlock Text="Choose Board" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <ComboBox ItemsSource="{Binding AvailableBoards}" SelectedItem="{Binding SelectedMoveBoard}" 
@@ -483,7 +447,6 @@
                         </ComboBox>
                     </StackPanel>
                     
-                    <!-- List Selection -->
                     <StackPanel Spacing="8">
                         <TextBlock Text="Select List" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <ComboBox ItemsSource="{Binding AvailableLists}" SelectedItem="{Binding SelectedMoveList}" 
@@ -497,10 +460,10 @@
                         </ComboBox>
                     </StackPanel>
                     
-                    <!-- Move Button -->
                     <Button Command="{Binding MoveCardCommand}" 
                             HorizontalAlignment="Stretch"
-                            Classes="Primary" Margin="0,20,0,0"
+                            Background="{DynamicResource AccentBlueBrush}" Foreground="White"
+                            Padding="15,10" CornerRadius="8" Margin="0,20,0,0"
                             IsEnabled="{Binding SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}">
                         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
                              <TextBlock Text="Confirm Move" FontWeight="Bold"/>
@@ -508,12 +471,11 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
-                
             </Grid>
-     </Border>
+        </Border>
 
         <!-- Side Panel: Attachments -->
-        <Border x:Name="Part_AttachmentPanel" Grid.Column="1" Width="400" Background="Transparent" 
+        <Border x:Name="Part_AttachmentPanel" Grid.Column="1" Width="400" Background="{DynamicResource AppBackgroundBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsAttachmentPanelOpen}">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">

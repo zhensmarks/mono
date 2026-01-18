@@ -27,7 +27,7 @@ public partial class PixelcutViewModel : ObservableObject
     [ObservableProperty] private string _proxyAddress = "";
     
     private bool _stopRequested;
-    private bool _pauseRequested;
+    [ObservableProperty] private bool _isPaused;
     private System.Timers.Timer? _vpnCheckTimer; // Added timer field
 
     public PixelcutViewModel(IDatabase? database)
@@ -105,52 +105,123 @@ public partial class PixelcutViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void DropFiles(string[] paths)
+    private async Task DropFiles(string[] paths)
     {
-        foreach (var path in paths)
+        IsProcessing = true;
+        try
         {
-            if (File.Exists(path))
+            await Task.Run(() =>
             {
-                var ext = Path.GetExtension(path).ToLower();
-                if (IsSupportedExtension(ext))
+                var validPaths = new System.Collections.Generic.List<string>();
+                var searchPattern = new System.Collections.Generic.HashSet<string> { ".jpg", ".jpeg", ".png", ".psd", ".webp" };
+
+                foreach (var path in paths)
                 {
-                    if (!Files.Any(f => f.FilePath == path))
+                    if (File.Exists(path))
                     {
-                        Files.Add(new PixelcutFileItem(path));
+                        var p = CheckSmartPngReplacement(path);
+                        if (p != null) validPaths.Add(p);
                     }
+                    else if (Directory.Exists(path))
+                    {
+                         // Use Safe Walker
+                         validPaths.AddRange(SafeGetFiles(path, searchPattern));
+                    }
+                }
+
+                if (validPaths.Any())
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        foreach (var p in validPaths)
+                        {
+                            try
+                            {
+                                if (!Files.Any(f => f.FilePath == p))
+                                {
+                                    Files.Add(new PixelcutFileItem(p));
+                                }
+                            }
+                            catch { }
+                        }
+                        HasFiles = Files.Count > 0;
+                    });
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+             Avalonia.Threading.Dispatcher.UIThread.Post(() => 
+                AppendLog($"Error processing drop: {ex.Message}"));
+        }
+        finally
+        {
+            IsProcessing = false; 
+        }
+    }
+
+    private System.Collections.Generic.IEnumerable<string> SafeGetFiles(string rootPath, System.Collections.Generic.HashSet<string> extensions)
+    {
+        var result = new System.Collections.Generic.List<string>();
+        var stack = new System.Collections.Generic.Stack<string>();
+        stack.Push(rootPath);
+
+        while (stack.Count > 0)
+        {
+            var dir = stack.Pop();
+            try
+            {
+                // Files
+                foreach (var file in Directory.GetFiles(dir))
+                {
+                    var ext = Path.GetExtension(file).ToLower();
+                    if (extensions.Contains(ext))
+                    {
+                         result.Add(file);
+                    }
+                }
+
+                // Subdirectories
+                foreach (var subDir in Directory.GetDirectories(dir))
+                {
+                    stack.Push(subDir);
                 }
             }
-            else if (Directory.Exists(path))
+            catch (Exception)
             {
-                try
-                {
-                    var dirFiles = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories)
-                        .Where(s => IsSupportedExtension(Path.GetExtension(s).ToLower()));
-                                    
-                    foreach(var f in dirFiles)
-                    {
-                         if (!Files.Any(x => x.FilePath == f))
-                        {
-                            var item = new PixelcutFileItem(f);
-                            
-                            // Calculate Relative Path for Display
-                            // If we dragged "FolderA", and found "FolderA/Sub/File.jpg", we want "Sub/File.jpg"?
-                            // User example: Drag "BERSAMA", file is "BERSAMA/KELOMPOK HAMZAH/1.JPG" -> "KELOMPOK HAMZAH/1.JPG"
-                            
-                            // var relativePath = Path.GetRelativePath(path, f);
-                            // item.SetDisplayName(relativePath);
-                            
-                            Files.Add(item);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AppendLog($"Error accessing directory {path}: {ex.Message}");
-                }
+                // Ignore Access Denied / Path Too Long / etc for this specific folder
+                // Continue with others
             }
         }
-        HasFiles = Files.Count > 0;
+        return result;
+    }
+
+    private string? CheckSmartPngReplacement(string path)
+    {
+        try 
+        {
+             var ext = Path.GetExtension(path).ToLower();
+             if (!IsSupportedExtension(ext)) return null;
+
+             if (ext == ".png")
+             {
+                 var info = new FileInfo(path);
+                 if (info.Length <= 1024)
+                 {
+                     var dir = Path.GetDirectoryName(path);
+                     if (string.IsNullOrEmpty(dir)) return path;
+
+                     var name = Path.GetFileNameWithoutExtension(path);
+                     var jpg = Path.Combine(dir, name + ".jpg");
+                     var jpeg = Path.Combine(dir, name + ".jpeg");
+
+                     if (File.Exists(jpg)) return jpg;
+                     if (File.Exists(jpeg)) return jpeg;
+                 }
+             }
+             return path;
+        }
+        catch { return path; }
     }
     
     private bool IsSupportedExtension(string ext)
@@ -172,9 +243,17 @@ public partial class PixelcutViewModel : ObservableObject
     private void Clear()
     {
         if (IsProcessing) return;
-        Files.Clear();
-        HasFiles = false;
-        LogOutput = "";
+        
+        // Smart Clear: If items are selected, remove them. Else clear all.
+        if (Files.Any(f => f.IsSelected))
+        {
+            RemoveSelectedFiles();
+        }
+        else
+        {
+            Files.Clear();
+            HasFiles = false;
+        }
     }
 
     [RelayCommand]
@@ -199,8 +278,8 @@ public partial class PixelcutViewModel : ObservableObject
     [RelayCommand]
     private void Pause()
     {
-        _pauseRequested = !_pauseRequested;
-        AppendLog(_pauseRequested ? "Dijeda..." : "Melanjutkan...");
+        IsPaused = !IsPaused;
+        AppendLog(IsPaused ? "Dijeda..." : "Melanjutkan...");
     }
 
     [RelayCommand]
@@ -230,17 +309,23 @@ public partial class PixelcutViewModel : ObservableObject
         // Let's use < 100 bytes to be safe.
         var smallFiles = Files.Where(x => x.IsDone && x.ResultSize > 0 && x.ResultSize < 100).ToList();
         
-        if (smallFiles.Count == 0) return;
-
-        AppendLog($"Mengulangi {smallFiles.Count} file dengan ukuran kecil (gagal)...");
+        // OR files that explicitly failed
+        var failedFiles = Files.Where(x => x.IsFailed).ToList();
         
-        foreach (var item in smallFiles)
+        var toRetry = smallFiles.Union(failedFiles).Distinct().ToList();
+
+        if (toRetry.Count == 0) return;
+
+        AppendLog($"Mengulangi {toRetry.Count} file gagal/corrupt...");
+        
+        foreach (var item in toRetry)
         {
             // Reset Status
             item.Status = "Menunggu";
             item.IsDone = false;
             item.IsFailed = false;
             item.Progress = 0;
+            item.ErrorMessage = "";
         }
 
         // Trigger Queue again
@@ -265,16 +350,18 @@ public partial class PixelcutViewModel : ObservableObject
         _lastJobType = job; // Store for Retry
         IsProcessing = true;
         _stopRequested = false;
-        _pauseRequested = false;
+        IsPaused = false;
         AppendLog($"Memulai proses {job}...");
 
         int success = 0;
         int failed = 0;
 
-        foreach (var item in Files)
+        var queue = Files.ToList(); // Snapshot to avoid modification errors
+        foreach (var item in queue)
         {
+            if (!Files.Contains(item)) continue; // Skip if removed during process
             if (_stopRequested) break;
-            while (_pauseRequested) { await Task.Delay(500); if (_stopRequested) break; }
+            while (IsPaused) { await Task.Delay(500); if (_stopRequested) break; }
             
             if (item.Status == "Selesai") continue;
 
@@ -488,11 +575,19 @@ public partial class PixelcutViewModel : ObservableObject
         // We could implement CancellationToken here for Stop/Pause
         while (!process.HasExited)
         {
-             item.Status = "Berjalan..."; 
-             // Simulated progress for responsiveness since pixelcut.py doesn't emit granular % during download
-             if (item.Progress < 90) item.Progress += 1;
-             
-             await Task.Delay(100); 
+             if (IsPaused)
+             {
+                 item.Status = "Dijeda...";
+                 await Task.Delay(500);
+             }
+             else
+             {
+                 item.Status = "Berjalan..."; 
+                 // Simulated progress for responsiveness since pixelcut.py doesn't emit granular % during download
+                 if (item.Progress < 90) item.Progress += 1;
+                 
+                 await Task.Delay(100); 
+             }
              
              if (_stopRequested)
              {

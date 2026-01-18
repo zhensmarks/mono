@@ -14,6 +14,12 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel
          _ = LoadAccentColor();
     }
 
+    protected override void CloseAllSidePanels()
+    {
+        base.CloseAllSidePanels();
+        IsAddManualPanelOpen = false;
+    }
+
     protected override string ColorSettingKey => "Settings.Color.Editing";
     
     // Design-time constructor
@@ -115,6 +121,7 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel
     [RelayCommand]
     private void OpenAddManualPanel()
     {
+        CloseAllSidePanels(); // Close check/move/comments/attachments
         IsAddManualPanelOpen = true;
         ManualCardLinkInput = "";
     }

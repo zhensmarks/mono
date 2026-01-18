@@ -45,6 +45,26 @@ public partial class FloatingWidgetView : Window
         this.Opened += OnOpened;
         this.DataContextChanged += OnDataContextChanged;
         
+        // Monitor Visibility Changes using PropertyChanged event (Safe ref)
+        this.PropertyChanged += (s, e) => 
+        {
+            if (e.Property == IsVisibleProperty && (bool)e.NewValue == true)
+            {
+                 var vm = DataContext as FloatingWidgetViewModel;
+                 if (vm != null)
+                 {
+                     Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
+                     {
+                         var savedPos = await vm.GetSavedPosition();
+                         if (savedPos != null)
+                         {
+                             this.Position = new PixelPoint(savedPos.Value.X, savedPos.Value.Y);
+                         }
+                     });
+                 }
+            }
+        };
+        
         // Window Properties
         this.SystemDecorations = SystemDecorations.None;
         this.Background = Brushes.Transparent;
@@ -350,9 +370,10 @@ public partial class FloatingWidgetView : Window
             };
 
             // 1. Navigation Column (Left) - Distributed Layout
+            // 1. Navigation Column (Left) - Distributed Layout
             var navGrid = new Grid
             {
-                RowDefinitions = new RowDefinitions("*, *, *"), // Distribute Top, Middle, Bottom
+                RowDefinitions = new RowDefinitions("*, *"), // Distribute Top, Bottom (Removed 3rd row)
                 VerticalAlignment = VerticalAlignment.Stretch,
                 Margin = new Thickness(0)
             };
@@ -365,10 +386,8 @@ public partial class FloatingWidgetView : Window
             var btn2 = CreateNavButton(vm.ToggleActionCommand, "IconBolt", vm.ShowActionMenu, vm);
             Grid.SetRow(btn2, 1);
             navGrid.Children.Add(btn2);
-
-            var btn3 = CreateNavButton(vm.ToggleOthersCommand, "IconExtension", vm.ShowOthersMenu, vm);
-            Grid.SetRow(btn3, 2);
-            navGrid.Children.Add(btn3);
+            
+            // Removed btn3 (Others/GDrive)
             
             Grid.SetColumn(navGrid, 0);
             mainGrid.Children.Add(navGrid);

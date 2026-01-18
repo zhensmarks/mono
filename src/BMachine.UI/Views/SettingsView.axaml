@@ -11,7 +11,7 @@
         <!-- Local override removed to use Global App.axaml Style -->
     </UserControl.Styles>
     
-    <Grid x:Name="Part_RootGrid" RowDefinitions="Auto, *" ColumnDefinitions="300, *" Margin="30" SizeChanged="OnRootGridSizeChanged">
+    <Grid x:Name="Part_RootGrid" RowDefinitions="Auto, *" ColumnDefinitions="300, *" Margin="30" SizeChanged="OnRootGridSizeChanged" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
         
         <!-- Header (Compact like Dashboard) -->
         <!-- Header (Compact like Dashboard) -->

@@ -144,13 +144,19 @@ public partial class DashboardViewModel : ObservableObject
     
     [ObservableProperty]
     private FolderLockerViewModel _folderLockerVM; // Add this logic
+    
+    // Pixelcut ViewModel
+    [ObservableProperty]
+    private PixelcutViewModel _pixelcutVM;
 
     // Navigation Tab Selection
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDashboardTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsBatchTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsLockerTabSelected))]
-    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker
+    [NotifyPropertyChangedFor(nameof(IsPixelcutTabSelected))]
+    [NotifyPropertyChangedFor(nameof(IsGdriveTabSelected))]
+    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive
 
     public bool IsDashboardTabSelected 
     { 
@@ -169,6 +175,22 @@ public partial class DashboardViewModel : ObservableObject
         get => SelectedTabIndex == 2; 
         set { if (value) SelectedTabIndex = 2; } 
     }
+
+    public bool IsPixelcutTabSelected 
+    { 
+        get => SelectedTabIndex == 3; 
+        set { if (value) SelectedTabIndex = 3; } 
+    }
+
+    public bool IsGdriveTabSelected 
+    { 
+        get => SelectedTabIndex == 4; 
+        set { if (value) SelectedTabIndex = 4; } 
+    }
+    
+    // Gdrive ViewModel
+    [ObservableProperty]
+    private GdriveViewModel _gdriveVM;
 
     // Batch Master ViewModel
     [ObservableProperty]
@@ -264,6 +286,9 @@ public partial class DashboardViewModel : ObservableObject
         // Initialize Child ViewModels
         _folderLockerVM = new FolderLockerViewModel();
         _batchVM = new BatchViewModel(database, logService);
+        _batchVM = new BatchViewModel(database, logService);
+        _pixelcutVM = new PixelcutViewModel(database);
+        _gdriveVM = new GdriveViewModel(database);
         
         LoadDataCommand.Execute(null);
     }

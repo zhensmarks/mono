@@ -12,6 +12,7 @@ public partial class GdriveFileItem : ObservableObject
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private bool _isFailed;
     [ObservableProperty] private bool _isDone;
+    [ObservableProperty] private bool _isSelected;
 
     public long FileSize { get; private set; }
     public string FileSizeDisplay => FormatSize(FileSize);
@@ -37,5 +38,19 @@ public partial class GdriveFileItem : ObservableObject
             len = len / 1024;
         }
         return $"{len:0.##} {sizes[order]}";
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is GdriveFileItem other)
+        {
+            return FilePath == other.FilePath;
+        }
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        return FilePath.GetHashCode();
     }
 }

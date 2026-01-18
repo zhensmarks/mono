@@ -51,12 +51,9 @@
                     <ItemsControl ItemsSource="{Binding Cards}" Margin="10,0,10,20">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="models:TrelloCard">
-                                <Grid ColumnDefinitions="Auto, *">
-                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                              VerticalAlignment="Top" Margin="0,10,10,0"
-                                              Command="{Binding $parent[UserControl].DataContext.SelectionChangedCommand}"/>
 
-                                    <ToggleButton Grid.Column="1" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+
+                                    <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                Padding="0" BorderThickness="0" Background="Transparent"
                                                Margin="0,0,0,15" CornerRadius="12">
@@ -78,19 +75,28 @@
                                         
                                         <StackPanel Spacing="10" Margin="20">
                                                  <Grid ColumnDefinitions="*, Auto">
-                                                     <!-- ID Badge (Clickable to Copy) -->
-                                                     <Button Grid.Column="0" Classes="Clear" HorizontalAlignment="Left" Padding="0" Background="Transparent"
-                                                             Click="OnIdClick"
-                                                             Tag="{Binding DisplayId}"
-                                                             IsVisible="{Binding HasDisplayId}"
-                                                             Cursor="Hand" ToolTip.Tip="Click to Copy ID">
+                                                     <!-- CheckBox \u0026 ID Group -->
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+                                                    
+                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  VerticalAlignment="Center"
+                                                                  Command="{Binding $parent[UserControl].DataContext.SelectionChangedCommand}"
+                                                                  ToolTip.Tip="Select for Batch Move"/>
+
+                                                        <!-- ID Badge -->
+                                                        <Button Classes="Clear" Padding="0" Background="Transparent"
+                                                              Click="OnIdClick"
+                                                              Tag="{Binding DisplayId}"
+                                                              IsVisible="{Binding HasDisplayId}"
+                                                              Cursor="Hand" ToolTip.Tip="Click to Copy ID">
                                                          <Border Background="#336699CC" CornerRadius="6" Padding="8,4">
                                                               <StackPanel Orientation="Horizontal" Spacing="4">
                                                                   <TextBlock Text="ID:" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"/>
                                                                   <TextBlock Text="{Binding DisplayId}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                               </StackPanel>
                                                          </Border>
-                                                     </Button>
+                                                        </Button>
+                                                    </StackPanel>
 
                                                      <!-- Attachment Button (Right Aligned) -->
                                                      <Button Grid.Column="1" Classes="Clear" HorizontalAlignment="Right" Padding="0" Background="Transparent"
@@ -183,7 +189,7 @@
                                     </StackPanel>
                                 </Border> 
                                     </ToggleButton>
-                                </Grid>
+    
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -456,8 +462,10 @@
                                                     <TextBlock Text="{Binding Bytes}" Foreground="#BBB" FontSize="9"/>
                                                 </StackPanel>
                                             </Border>
-                                        </Grid>
+
+                                    </Grid>
                                     </Border>
+
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

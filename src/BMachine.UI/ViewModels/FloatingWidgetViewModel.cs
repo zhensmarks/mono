@@ -463,30 +463,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
         var files = Directory.GetFiles(othersPath);
         UpdateCollection(OtherItems, files, "IconExtension", "Others");
 
-        // Manually Add Pixelcut Extension if not present (Pseudo-file item)
-        var pixelcutItem = OtherItems.FirstOrDefault(i => i.FilePath == "INTERNAL_PIXELCUT_EXTENSION");
-        
-        // Get custom name from metadata if renamed
-        var displayName = _scriptAliases.ContainsKey("INTERNAL_PIXELCUT_EXTENSION") 
-            ? _scriptAliases["INTERNAL_PIXELCUT_EXTENSION"] 
-            : "Pixelcut Extension";
 
-        if (pixelcutItem == null)
-        {
-            OtherItems.Add(new FloatingItem 
-            { 
-                Name = displayName,
-                FilePath = "INTERNAL_PIXELCUT_EXTENSION", // Special ID
-                Icon = "IconExtension",
-                Category = "Others",
-                ActionCommand = new RelayCommand(() => ExecuteFile("INTERNAL_PIXELCUT_EXTENSION"))
-            });
-        }
-        else
-        {
-            // Update name if changed
-            if (pixelcutItem.Name != displayName) pixelcutItem.Name = displayName;
-        }
 
         // Manually Add GDrive Extension if not present
         var gdriveItem = OtherItems.FirstOrDefault(i => i.FilePath == "INTERNAL_GDRIVE_EXTENSION");
@@ -520,21 +497,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         try 
         {
-            if (path == "INTERNAL_PIXELCUT_EXTENSION")
-            {
-                if (_pixelcutWindow == null || !_pixelcutWindow.IsVisible)
-                {
-                    _pixelcutWindow = new Views.PixelcutWindow();
-                    _pixelcutWindow.DataContext = new PixelcutViewModel(_database);
-                    _pixelcutWindow.Closed += (s, e) => _pixelcutWindow = null;
-                    _pixelcutWindow.Show();
-                }
-                else
-                {
-                    _pixelcutWindow.Activate();
-                }
-            }
-            else if (path == "INTERNAL_GDRIVE_EXTENSION")
+            if (path == "INTERNAL_GDRIVE_EXTENSION")
             {
                 if (_gdriveWindow == null || !_gdriveWindow.IsVisible)
                 {

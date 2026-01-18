@@ -59,7 +59,7 @@ public partial class GdriveViewModel : ObservableObject
         }
     }
 
-    private async Task SaveSettings()
+    private async Task PersistSettings()
     {
         if (_database != null)
         {
@@ -102,37 +102,121 @@ public partial class GdriveViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void DropFiles(string[] paths)
+    private async Task DropFiles(string[] paths)
     {
-        foreach (var path in paths)
+        IsProcessing = true;
+        try
         {
-            if (File.Exists(path))
+            await Task.Run(() =>
             {
-                var ext = Path.GetExtension(path).ToLower();
-                if (IsSupportedExtension(ext))
+                var validFiles = new System.Collections.Generic.List<string>();
+                var searchPattern = new System.Collections.Generic.HashSet<string> { ".jpg", ".jpeg", ".png", ".psd", ".webp", ".zip", ".rar", ".7z", ".txt" };
+
+                foreach (var path in paths)
                 {
-                    var relativePath = GetRelativePathFromBase(path);
-                    AddFileJob(path, relativePath);
-                }
-            }
-            else if (Directory.Exists(path))
-            {
-                try
-                {
-                    var allFiles = GetSupportedFiles(path);
-                    foreach (var f in allFiles)
+                    if (File.Exists(path))
                     {
-                        var relativePath = GetRelativePathFromBase(f);
-                        AddFileJob(f, relativePath);
+                        var ext = Path.GetExtension(path).ToLower();
+                        if (searchPattern.Contains(ext))
+                        {
+                            validFiles.Add(path);
+                        }
+                    }
+                    else if (Directory.Exists(path))
+                    {
+                         validFiles.AddRange(SafeGetFiles(path, searchPattern));
                     }
                 }
-                catch (Exception ex)
+
+                if (validFiles.Any())
                 {
-                    AppendLog($"Error accessing directory {path}: {ex.Message}");
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        foreach (var f in validFiles)
+                        {
+                             var smartPath = GetSmartDisplayPath(f);
+                             AddFileJob(f, smartPath);
+                        }
+                        HasFiles = Files.Count > 0;
+                    });
                 }
+            });
+        }
+        catch (Exception ex)
+        {
+             Avalonia.Threading.Dispatcher.UIThread.Post(() => 
+                AppendLog($"Error processing drop: {ex.Message}"));
+        }
+        finally
+        {
+             IsProcessing = false;
+        }
+    }
+
+    private string GetSmartDisplayPath(string fullPath)
+    {
+        try
+        {
+            var parts = fullPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            // ... (Same Month detection logic) ...
+            
+            // Reuse logic? Or copy. Let's keep it simple and shared or duplicated for safety.
+            // Actually, we can just extract the Month Detection logic.
+            
+            int foundIndex = FindMonthIndex(parts);
+
+            if (foundIndex != -1)
+            {
+                var monthPart = parts[foundIndex];
+                var fileName = parts[parts.Length - 1];
+                
+                if (foundIndex == parts.Length - 2)
+                    return Path.Combine(monthPart, fileName);
+                
+                if (foundIndex < parts.Length - 2)
+                    return Path.Combine(monthPart, "...", fileName);
+                    
+                return string.Join(Path.DirectorySeparatorChar, parts.Skip(foundIndex));
             }
         }
-        HasFiles = Files.Count > 0;
+        catch { }
+
+        return GetRelativePathFromBase(fullPath);
+    }
+    
+    private string GetUploadEffectivePath(string fullPath)
+    {
+        // This method returns the path structure we want on GDrive (Full Relative from Month)
+        try 
+        {
+            var parts = fullPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            int foundIndex = FindMonthIndex(parts);
+            
+            if (foundIndex != -1)
+            {
+                // Returns: Month/Sub1/Sub2/File.ext
+                return string.Join(Path.DirectorySeparatorChar, parts.Skip(foundIndex));
+            }
+        }
+        catch {}
+        
+        // Fallback: Relative to Base or just Filename
+        return GetRelativePathFromBase(fullPath); 
+    }
+
+    private int FindMonthIndex(string[] parts)
+    {
+        var months = new[] { 
+            "JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", 
+            "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER",
+            "JANUARY", "FEBRUARY", "MARCH", "MAY", "JUNE", "JULY", "AUGUST", "OCTOBER", "DECEMBER"
+        };
+        
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (months.Any(m => parts[i].ToUpper().Contains(m))) return i;
+        }
+        return -1;
     }
 
     private string GetRelativePathFromBase(string fullPath)
@@ -185,9 +269,28 @@ public partial class GdriveViewModel : ObservableObject
     private void Clear()
     {
         if (IsProcessing) return;
-        Files.Clear();
-        HasFiles = false;
-        LogOutput = "";
+        
+        // Smart Clear: If items are selected, remove them. Else clear all.
+        if (Files.Any(f => f.IsSelected))
+        {
+            RemoveSelectedFiles();
+        }
+        else
+        {
+            Files.Clear();
+            HasFiles = false;
+            LogOutput = "";
+        }
+    }
+
+    private void RemoveSelectedFiles()
+    {
+        var selected = Files.Where(x => x.IsSelected).ToList();
+        foreach (var item in selected)
+        {
+            Files.Remove(item);
+        }
+        HasFiles = Files.Count > 0;
     }
 
     [RelayCommand]
@@ -203,9 +306,9 @@ public partial class GdriveViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task SaveSettingsCommand()
+    private async Task SaveSettings()
     {
-        await SaveSettings();
+        await PersistSettings();
         IsSettingsOpen = false;
         AppendLog("Pengaturan disimpan.");
     }
@@ -285,7 +388,9 @@ public partial class GdriveViewModel : ObservableObject
             try
             {
                 // Calculate relative path for GDrive folder structure
-                var relativePath = Path.GetDirectoryName(item.DisplayPath);
+                // CRITICAL FIX: Use GetUploadEffectivePath (Full) not DisplayPath (Ellipsis)
+                var effectivePath = GetUploadEffectivePath(item.FilePath);
+                var relativePath = Path.GetDirectoryName(effectivePath);
                 var relativeParts = relativePath?.Split(Path.DirectorySeparatorChar).ToList() ?? new List<string>();
                 
                 var parentId = await _gdriveService.EnsurePathAsync(DriveFolderId, relativeParts);
@@ -348,7 +453,9 @@ public partial class GdriveViewModel : ObservableObject
 
         try
         {
-            var relativePath = Path.GetDirectoryName(item.DisplayPath);
+            // CRITICAL FIX: Use GetUploadEffectivePath
+            var effectivePath = GetUploadEffectivePath(item.FilePath);
+            var relativePath = Path.GetDirectoryName(effectivePath);
             var relativeParts = relativePath?.Split(Path.DirectorySeparatorChar).ToList() ?? new List<string>();
             
             var parentId = await _gdriveService.EnsurePathAsync(DriveFolderId, relativeParts);
@@ -370,5 +477,39 @@ public partial class GdriveViewModel : ObservableObject
         }
         
         IsProcessing = false;
+    }
+    private System.Collections.Generic.IEnumerable<string> SafeGetFiles(string rootPath, System.Collections.Generic.HashSet<string> extensions)
+    {
+        var result = new System.Collections.Generic.List<string>();
+        var stack = new System.Collections.Generic.Stack<string>();
+        stack.Push(rootPath);
+
+        while (stack.Count > 0)
+        {
+            var dir = stack.Pop();
+            try
+            {
+                // Files
+                foreach (var file in Directory.GetFiles(dir))
+                {
+                    var ext = Path.GetExtension(file).ToLower();
+                    if (extensions.Contains(ext))
+                    {
+                         result.Add(file);
+                    }
+                }
+
+                // Subdirectories
+                foreach (var subDir in Directory.GetDirectories(dir))
+                {
+                    stack.Push(subDir);
+                }
+            }
+            catch (Exception)
+            {
+                // Ignore Access Denied / Path Too Long / etc for this specific folder
+            }
+        }
+        return result;
     }
 }

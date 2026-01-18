@@ -64,4 +64,6 @@ public partial class TrelloCard : ObservableObject
 
     // Computed property for UI display
     public string DueDateText => DueDate.HasValue ? DueDate.Value.ToString("dd MMM") : "";
+
+    public string Url => !string.IsNullOrEmpty(Id) ? $"https://trello.com/c/{Id}" : "";
 }

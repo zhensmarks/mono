@@ -22,10 +22,19 @@
     </UserControl.Styles>
 
     
-    <Grid ColumnDefinitions="*, 4, Auto">
+    <Grid ColumnDefinitions="Auto, 4, *">
         
+        <!-- LOG PANEL (Sidebar Column - NOW LEFT) -->
+        <views:LogPanelSidebar Grid.Column="0" Width="275" 
+                               IsVisible="{Binding IsLogPanelOpen}" 
+                               VerticalAlignment="Stretch"/>
+
+        <!-- GRID SPLITTER -->
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="Transparent" 
+                      ResizeDirection="Columns" IsVisible="{Binding IsLogPanelOpen}"/>
+
         <!-- MAIN DASHBOARD AREA (Header + Content) -->
-        <Grid Grid.Column="0" RowDefinitions="Auto, Auto, *" MinWidth="479">
+        <Grid Grid.Column="2" RowDefinitions="Auto, Auto, *" MinWidth="479">
             <!-- HEADER -->
             <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="20,20,20,10">
                 <!-- Greeting -->
@@ -52,18 +61,9 @@
                                         <!-- Actions Group -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         
-                        <!-- Pixelcut Button -->
-                        <Button Click="OnPixelcutClick" Width="32" Height="32" CornerRadius="8"
-                                Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Pixelcut Batch">
-                            <shapes:Path Data="M21,19V5C21,3.89 20.1,3 19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19M8.5,13.5L11,16.5L14.5,12L19,18H5" 
-                                         Width="16" Height="16" Fill="White" Stretch="Uniform"/>
-                        </Button>
 
-                        <!-- GDrive Button -->
-                        <Button Click="OnGdriveClick" Width="32" Height="32" CornerRadius="8"
-                                Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Google Drive">
-                             <PathIcon Data="{StaticResource IconCloud}" Width="16" Height="16" Foreground="White"/>
-                        </Button>
+
+                        <!-- GDrive Button Removed -->
                         
 
 
@@ -126,38 +126,48 @@
                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </ToggleButton>
                         
-                        <!-- Menu Button (Squircle 32px - Blue) -->
-                        <Button Width="32" Height="32" 
-                                Background="{DynamicResource AccentBlueBrush}" 
-                                CornerRadius="8" Padding="0" BorderThickness="0" Cursor="Hand"
-                                ToolTip.Tip="Menu">
-                             <Button.Flyout>
-                                 <Flyout Placement="Bottom" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                     <Border Background="{DynamicResource AccentBlueBrush}" CornerRadius="8" Padding="0,4" BoxShadow="0 4 12 0 #44000000">
-                                         <StackPanel Orientation="Vertical" Spacing="0" Width="32">
-                                             
-                                              <!-- Log Panel Toggle (Previously Header) -->
-                                             <ToggleButton Command="{Binding ToggleLogPanelCommand}" 
-                                                           IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
-                                                           Width="32" Height="32" CornerRadius="8" Padding="0" 
-                                                           Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip.Tip="Log Panel"
-                                                           HorizontalContentAlignment="Center" VerticalContentAlignment="Center" HorizontalAlignment="Center">
-                                                  <shapes:Path Data="M20,19V7H4V19H20M20,3A2,2 0 0,1 22,5V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V5C2,3.89 2.9,3 4,3H20M13,17V15H18V17H13M9.58,13L5.57,9H8.4L11.7,12.3C12.09,12.69 12.09,13.33 11.7,13.72L8.42,17H5.59L9.58,13Z" 
-                                                               Width="14" Height="14" Fill="White" Stretch="Uniform"/>
-                                             </ToggleButton>
-                                             
-                                             <!-- Settings Button (Top) -->
-                                             <Button Click="OnSettingsClick" Width="32" Height="32" CornerRadius="8" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip.Tip="Pengaturan"
-                                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center" HorizontalAlignment="Center">
-                                                 <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="White"/>
-                                             </Button>
-                                         </StackPanel>
-                                     </Border>
-                                 </Flyout>
-                             </Button.Flyout>
-                             <!-- Trigger Icon -->
-                             <shapes:Path Data="M4,4H8V8H4V4M10,4H14V8H10V4M16,4H20V8H16V4M4,10H8V14H4V10M10,10H14V14H10V10M16,10H20V14H16V10M4,16H8V20H4V16M10,16H14V20H10V16M16,16H20V20H16V16Z" 
-                                          Width="14" Height="14" Fill="White" Stretch="Uniform"/>
+                        <!-- Log Panel Toggle (Clipboard/Note Icon) -->
+                        <ToggleButton Command="{Binding ToggleLogPanelCommand}" 
+                                      IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
+                                      Width="32" Height="32" CornerRadius="8" Padding="0"
+                                      ToolTip.Tip="Log Panel" Cursor="Hand">
+                            <ToggleButton.Styles>
+                                <Style Selector="ToggleButton">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                </Style>
+                                <Style Selector="ToggleButton Path">
+                                     <Setter Property="Fill" Value="{DynamicResource TextPrimaryBrush}"/>
+                                </Style>
+                                <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                </Style>
+                                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                </Style>
+                                <Style Selector="ToggleButton:checked Path">
+                                     <Setter Property="Fill" Value="White"/>
+                                </Style>
+                            </ToggleButton.Styles>
+                            <!-- Clipboard/Note Icon -->
+                            <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
+                                         Width="16" Height="16" Stretch="Uniform"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </ToggleButton>
+
+                        <!-- Settings Button (Solid Blue) -->
+                        <Button Click="OnSettingsClick" 
+                                Width="32" Height="32" CornerRadius="8" Padding="0" 
+                                Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Cursor="Hand" 
+                                ToolTip.Tip="Settings">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="#3b82f6"/> <!-- Lighter Blue on Hover -->
+                                    <Setter Property="Opacity" Value="0.9"/>
+                                </Style>
+                            </Button.Styles>
+                            <shapes:Path Data="{StaticResource IconSettings}" 
+                                         Width="16" Height="16" Stretch="Uniform"
+                                         Fill="White"/>
                         </Button>
                         
     
@@ -171,7 +181,7 @@
                     CornerRadius="12" Padding="4" Margin="20,0,20,2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal" Spacing="0">
                     
-                    <!-- Locker Tab -->
+                    <!-- Locker Tab (Leftmost) -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}"
                                  Padding="0" 
                                  Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
@@ -217,7 +227,53 @@
                         </RadioButton.Styles>
                     </RadioButton>
 
-                    <!-- Dashboard Tab -->
+                    <!-- Batch Tab (2nd) -->
+                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}"
+                                 Padding="0" 
+                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 Foreground="White" FontWeight="Bold"
+                                 Opacity="0.6"
+                                 Cursor="Hand"
+                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                        <PathIcon Data="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"
+                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
+                        <RadioButton.Template>
+                            <ControlTemplate>
+                                <Border Background="{TemplateBinding Background}" 
+                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter Content="{TemplateBinding Content}" 
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </RadioButton.Template>
+                         <RadioButton.Styles>
+                            <Style Selector="RadioButton">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Transitions">
+                                    <Transitions>
+                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                    </Transitions>
+                                </Setter>
+                            </Style>
+                            <Style Selector="RadioButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Opacity" Value="1.0"/>
+                            </Style>
+                             <Style Selector="RadioButton:pointerover">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Opacity" Value="0.9"/>
+                            </Style>
+                             <Style Selector="RadioButton:checked:pointerover">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Opacity" Value="1.0"/>
+                            </Style>
+                        </RadioButton.Styles>
+                    </RadioButton>
+
+                    <!-- Dashboard Tab (3rd/Center) -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}"
                                  Padding="0" 
                                  Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
@@ -263,15 +319,16 @@
                         </RadioButton.Styles>
                     </RadioButton>
 
-                    <!-- Batch Tab -->
-                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}"
+                    <!-- Pixelcut Tab (Right) -->
+                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsPixelcutTabSelected}"
                                  Padding="0" 
                                  Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
                                  Foreground="White" FontWeight="Bold"
                                  Opacity="0.6"
                                  Cursor="Hand"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                        <PathIcon Data="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"
+                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                 ToolTip.Tip="Pixelcut Batch">
+                        <PathIcon Data="M20,6 L18.59,4.59 L14.73,8.45 L13.32,7.04 L17.18,3.18 L15.76,1.76 L13.64,3.88 C13.06,3.33 12.29,3 11.5,3 C9.57,3 8,4.57 8,6.5 C8,7.29 8.27,8.03 8.74,8.63 L6,11.37 C5.53,10.9 5.25,10.27 5.25,9.58 C5.25,8.13 6.42,6.96 7.88,6.96 C8.4,6.96 8.82,6.54 8.82,6.02 C8.82,5.5 8.4,5.08 7.88,5.08 C5.39,5.08 3.37,7.1 3.37,9.58 C3.37,10.79 3.86,11.9 4.66,12.71 L2.25,15.12 L3.66,16.54 L7.52,12.68 L8.93,14.09 L5.07,17.95 L6.49,19.36 L9.29,16.56 C10.1,17.37 11.21,17.86 12.42,17.86 C14.91,17.86 16.92,15.84 16.92,13.36 C16.92,12.83 16.5,12.41 15.98,12.41 C15.46,12.41 15.04,12.83 15.04,13.36 C15.04,14.81 13.86,15.98 12.42,15.98 C11.72,15.98 11.09,15.7 10.63,15.22 L13.37,12.48 C13.97,12.95 14.71,13.23 15.5,13.23 C17.43,13.23 19,11.66 19,9.73 C19,8.94 18.73,8.2 18.26,7.6 L20.38,5.48 L20.4,5.5 L20,6 M11.5,4.88 C12.4,4.88 13.12,5.6 13.12,6.5 C13.12,7.4 12.4,8.12 11.5,8.12 C10.6,8.12 9.88,7.4 9.88,6.5 C9.88,5.6 10.6,4.88 11.5,4.88 M15.5,11.35 C14.6,11.35 13.88,10.63 13.88,9.73 C13.88,8.83 14.6,8.11 15.5,8.11 C16.4,8.11 17.12,8.83 17.12,9.73 C17.12,10.63 16.4,11.35 15.5,11.35" 
                                   Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
                             <ControlTemplate>
@@ -305,6 +362,37 @@
                              <Style Selector="RadioButton:checked:pointerover">
                                 <Setter Property="Foreground" Value="White"/>
                                 <Setter Property="Opacity" Value="1.0"/>
+                            </Style>
+                        </RadioButton.Styles>
+                    </RadioButton>
+
+                    <!-- Placeholder 2 (Right) -->
+                                         <!-- GDrive Tab (5th) -->
+                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
+                                 Padding="0" 
+                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 Foreground="White" FontWeight="Bold"
+                                 Opacity="0.6"
+                                 Cursor="Hand"
+                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                        <!-- Cloud Icon -->
+                        <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"
+                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
+                        <RadioButton.Template>
+                            <ControlTemplate>
+                                <Border Background="Transparent" 
+                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}">
+                                    <ContentPresenter Content="{TemplateBinding Content}" 
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </RadioButton.Template>
+                        <RadioButton.Styles>
+                            <Style Selector="RadioButton:checked /template/ Border#Indicator">
+                                <Setter Property="Opacity" Value="1"/>
+                            </Style>
+                            <Style Selector="RadioButton:checked">
+                                <Setter Property="Opacity" Value="1"/>
                             </Style>
                         </RadioButton.Styles>
                     </RadioButton>
@@ -649,23 +737,23 @@
                     <views:FolderLockerView DataContext="{Binding FolderLockerVM}" 
                                             IsVisible="{Binding DataContext.IsLockerTabSelected, ElementName=Root}" 
                                             Margin="20,0,20,0"/>
+                                            
+                    <!-- PIXELCUT TAB CONTENT -->
+                    <views:CompactPixelcutView DataContext="{Binding PixelcutVM}"
+                                               IsVisible="{Binding DataContext.IsPixelcutTabSelected, ElementName=Root}"
+                                               Margin="0,0,0,0"/>
+
+                    <!-- GDRIVE TAB CONTENT -->
+                    <views:CompactGdriveView DataContext="{Binding GdriveVM}"
+                                             IsVisible="{Binding DataContext.IsGdriveTabSelected, ElementName=Root}"
+                                             Margin="0,0,0,0"/>
             </Grid>
         </Grid>
         
-        <!-- LOG PANEL (Sidebar Column) -->
-        <!-- Placed in Column 1 of the Root Grid, occupying full height (Row Span indefinite) -->
-        <!-- GRID SPLITTER -->
-        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="Transparent" 
-                      ResizeDirection="Columns" IsVisible="{Binding IsLogPanelOpen}"/>
 
-        <!-- LOG PANEL (Sidebar Column) -->
-        <!-- Placed in Column 2 of the Root Grid, occupying full height (Row Span indefinite) -->
-        <views:LogPanelSidebar Grid.Column="2" Width="275" 
-                               IsVisible="{Binding IsLogPanelOpen}" 
-                               VerticalAlignment="Stretch"/>
 
         <!-- ACTIVITY PANEL (Overlay on right side of main content) -->
-        <Border Grid.Column="0" HorizontalAlignment="Right" Width="320"
+        <Border Grid.Column="2" HorizontalAlignment="Right" Width="320"
                 Background="{DynamicResource CardBackgroundBrush}"
                 BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsActivityPanelOpen}"

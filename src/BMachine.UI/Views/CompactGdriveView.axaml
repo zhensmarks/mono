@@ -1,0 +1,215 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             x:Class="BMachine.UI.Views.CompactGdriveView"
+             x:DataType="vm:GdriveViewModel">
+
+    <UserControl.Resources>
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="*, Auto" Margin="20,0,20,0">
+        <!-- Main Content Area -->
+        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="20" Padding="0" ClipToBounds="True"
+                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            
+            <Grid>
+                <!-- VIEW 1: MAIN CONTENT (Visible when Settings are CLOSED) -->
+                <Grid IsVisible="{Binding !IsSettingsOpen}">
+                    <!-- Empty State (Drop Zone) -->
+                    <Grid IsVisible="{Binding !HasFiles}" DragDrop.AllowDrop="True" Background="Transparent">
+                        <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
+                                 <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
+                                         HorizontalAlignment="Center" Width="80" Height="64">
+                                     <!-- Cloud Upload Icon -->
+                                     <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" 
+                                               Width="32" Height="32" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 </Border>
+                                <TextBlock Text="Drop Files to Upload (GDrive)" FontSize="15" FontWeight="SemiBold" 
+                                           Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- File List (Compact) -->
+                    <ListBox x:Name="FileListBox" IsVisible="{Binding HasFiles}" ItemsSource="{Binding Files}" Background="Transparent" 
+                             SelectionMode="Multiple"
+                             Margin="10" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.Styles>
+                            <!-- Transparent Item Container -->
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="0,0,0,8"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Template">
+                                    <ControlTemplate>
+                                        <ContentPresenter Background="{TemplateBinding Background}"
+                                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                                          BorderThickness="{TemplateBinding BorderThickness}"
+                                                          CornerRadius="{TemplateBinding CornerRadius}"
+                                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                          Content="{TemplateBinding Content}"
+                                                          Padding="{TemplateBinding Padding}"
+                                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                    </ControlTemplate>
+                                </Setter>
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="12,12" CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}"
+                                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                        Margin="2"
+                                        Cursor="Hand">
+                                    <Grid RowDefinitions="Auto, Auto">
+                                        <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,8">
+                                            <!-- Checkbox (New) -->
+                                            <CheckBox IsChecked="{Binding IsSelected}" IsHitTestVisible="False" 
+                                                      VerticalAlignment="Center" Margin="0,0,12,0" MinHeight="0" Padding="0"/>
+                                            
+                                            <!-- Name -->
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplayPath}" FontWeight="SemiBold" FontSize="13" 
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                            
+                                            <!-- Action (Remove) -->
+                                            <Button Grid.Column="2" Command="{Binding DataContext.RemoveFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                                    CommandParameter="{Binding}"
+                                                    Width="24" Height="24" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                    ToolTip.Tip="Remove File">
+                                                <PathIcon Data="M18 6L6 18M6 6l12 12" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Button>
+                                        </Grid>
+                                        
+                                        <!-- Row 1: Status & Progress (Stacked) -->
+                                        <StackPanel Grid.Row="1" Spacing="4" Margin="28,4,0,0"> <!-- Indent to align with text -->
+                                             <!-- Status Text -->
+                                            <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding Status}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !IsFailed}"/>
+                                                <TextBlock Text="{Binding ErrorMessage}" FontSize="11" FontWeight="Medium" Foreground="#EF4444" IsVisible="{Binding IsFailed}" TextTrimming="CharacterEllipsis" MaxWidth="200"/>
+                                                <TextBlock Text="{Binding FileSizeDisplay}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7" Margin="5,0,0,0"/>
+                                            </StackPanel>
+                                            
+                                            <!-- Progress Bar -->
+                                            <ProgressBar Height="4" Margin="0" HorizontalAlignment="Stretch"
+                                                         Value="{Binding Progress}" Maximum="100" IsVisible="{Binding IsProcessing}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+
+                <!-- VIEW 2: SETTINGS (Visible when Settings OPEN) -->
+                 <Grid IsVisible="{Binding IsSettingsOpen}" Background="{DynamicResource CardBackgroundBrush}">
+                    <Grid RowDefinitions="Auto, *" Margin="20">
+                        <TextBlock Text="GDrive Settings" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Grid.Row="0" Margin="0,0,0,20"/>
+                        
+                        <!-- ScrollViewer Wrapper -->
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="20" Margin="0,0,10,0"> <!-- Right Margin for Scrollbar -->
+                                 
+                                 <!-- Login Section -->
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Google Account" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="15">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="{Binding UserEmail}" VerticalAlignment="Center" FontWeight="Medium" FontSize="14"/>
+                                                <TextBlock Text="Status: Connected" FontSize="12" Foreground="#4ade80" IsVisible="{Binding IsLoggedIn}"/>
+                                                <TextBlock Text="Status: Not Connected" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !IsLoggedIn}"/>
+                                            </StackPanel>
+                                            
+                                            <Button Grid.Column="1" Command="{Binding LoginCommand}" Content="Login" IsVisible="{Binding !IsLoggedIn}" Classes="accent"/>
+                                            <Button Grid.Column="1" Command="{Binding LogoutCommand}" Content="Logout" IsVisible="{Binding IsLoggedIn}" Background="#EF4444" Foreground="White" CornerRadius="6"/>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+    
+                                 <!-- Configs -->
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Target Folder ID" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBox Text="{Binding DriveFolderId}" Watermark="Paste Folder ID here (e.g. 1A2b3C...)" Height="40" VerticalContentAlignment="Center"/>
+                                    <TextBlock Text="Files will be uploaded to this Google Drive folder." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                                
+                                <!-- Base Local Folder (Config) -->
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Base Local Folder" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <Grid ColumnDefinitions="*, Auto, Auto" Margin="0,0,0,0">
+                                        <TextBox Text="{Binding BaseFolderPath}" IsReadOnly="True" Watermark="Auto (or select folder)" Margin="0,0,10,0" Height="40" VerticalContentAlignment="Center" Grid.Column="0"/>
+                                        <Button Grid.Column="1" Command="{Binding SelectBaseFolderCommand}" Content="..." Margin="0,0,10,0" Height="40" Width="40" HorizontalContentAlignment="Center"/>
+                                        <Button Grid.Column="2" Command="{Binding ClearBaseFolderCommand}" Content="X" Height="40" Width="40" HorizontalContentAlignment="Center"/>
+                                    </Grid>
+                                    <TextBlock Text="Optional: Set root folder for uploads." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+    
+                                <Button Command="{Binding SaveSettingsCommand}" Content="Save &amp; Close" 
+                                        HorizontalAlignment="Right" Classes="accent" Margin="0,20,0,20" Width="120"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                    
+                    <!-- Close Button (Top Right) -->
+                    <Button Command="{Binding SaveSettingsCommand}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="20" Background="Transparent" BorderThickness="0" Padding="8">
+                        <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Footer / Controls -->
+        <Border Grid.Row="1" Margin="0,10,0,0" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="12" Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                
+                <!-- Left: Utils -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                     <!-- Login Status Indicator (Transparent) -->
+                      <Border Background="Transparent" CornerRadius="4" Padding="8,4" ToolTip.Tip="{Binding UserEmail}" VerticalAlignment="Center">
+                          <Panel Width="6" Height="6">
+                              <Border CornerRadius="3" Background="#4ade80" IsVisible="{Binding IsLoggedIn}"/>
+                              <Border CornerRadius="3" Background="#ef4444" IsVisible="{Binding !IsLoggedIn}"/>
+                          </Panel>
+                      </Border>
+                      
+                     <!-- Clear Button -->
+                     <Button Command="{Binding ClearCommand}" ToolTip.Tip="Clear All" Background="Transparent" BorderThickness="0" Padding="4">
+                         <PathIcon Data="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" Width="14" Height="14" Foreground="#EF4444"/>
+                     </Button>
+                     
+                     <!-- Settings -->
+                     <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" Background="Transparent" BorderThickness="0" Padding="4">
+                         <PathIcon Data="M12.22 2h-.44a2 2 0 0 1-2-1.2l-.1-.26a2 2 0 0 0-2.2-1.18l-.27.05a2 2 0 0 1-2.14-1.5l-.04-.32a2 2 0 0 0-2.34-1.63l-.28.05a2 2 0 0 1-1.68-.96l-.16-.21a2 2 0 0 0-2.45-.63 2 2 0 0 0-.63 2.45l.21.16a2 2 0 0 1 .96 1.68l-.05.28a2 2 0 0 0 1.63 2.34l.32.04a2 2 0 0 1 1.5 2.14l-.05.27a2 2 0 0 0 1.18 2.2l.26.1a2 2 0 0 1 1.2 2h.44a2 2 0 0 1 2 1.2l.1.26a2 2 0 0 0 2.2 1.18l.27-.05a2 2 0 0 1 2.14 1.5l.04.32a2 2 0 0 0 2.34 1.63l.28-.05a2 2 0 0 1 1.68.96l.16.21a2 2 0 0 0 2.45.63 2 2 0 0 0 .63-2.45l-.21-.16a2 2 0 0 1-.96-1.68l.05-.28a2 2 0 0 0-1.63-2.34l-.32-.04a2 2 0 0 1-1.5-2.14l.05-.27a2 2 0 0 0-1.18-2.2l-.26-.1a2 2 0 0 1-1.2-2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                     </Button>
+                </StackPanel>
+
+                <!-- Right: Actions -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    
+                    <!-- Upload -->
+                    <Button Command="{Binding StartUploadCommand}" IsVisible="{Binding !IsProcessing}"
+                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="8" Padding="15,8" BorderThickness="0">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" Width="14" Height="14"/>
+                            <TextBlock Text="Upload" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                     <Button Command="{Binding StopCommand}" IsVisible="{Binding IsProcessing}"
+                            Background="#EF4444" Foreground="White" CornerRadius="8" Padding="15,8" BorderThickness="0">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="M3 3h18v18H3z" Width="12" Height="12"/>
+                            <TextBlock Text="STOP" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

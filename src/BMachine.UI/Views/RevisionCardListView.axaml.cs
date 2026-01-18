@@ -95,7 +95,7 @@ public partial class RevisionCardListView : UserControl
         
         if (isMobile)
         {
-            grid.ColumnDefinitions = new ColumnDefinitions("*");
+            grid.ColumnDefinitions = ColumnDefinitions.Parse("*");
             UpdatePanelForMobile(commentPanel);
             UpdatePanelForMobile(checklistPanel);
             UpdatePanelForMobile(movePanel);
@@ -103,7 +103,7 @@ public partial class RevisionCardListView : UserControl
         }
         else
         {
-            grid.ColumnDefinitions = new ColumnDefinitions("*, Auto");
+            grid.ColumnDefinitions = ColumnDefinitions.Parse("*, Auto");
             UpdatePanelForDesktop(commentPanel);
             UpdatePanelForDesktop(checklistPanel);
             UpdatePanelForDesktop(movePanel);
