@@ -48,6 +48,9 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel
         _timer.Start();
     }
 
+    // Cache manual cards to prevent flickering if fetch fails momentarily
+    private List<TrelloCard>? _cachedManualCards;
+
     [RelayCommand]
     private async Task Refresh()
     {
@@ -78,6 +81,10 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel
             // 2. Fetch Manual Cards
             var manualIds = await _database.GetAsync<List<string>>("ManualCards.Editing") ?? new List<string>();
             var manualCards = new List<TrelloCard>();
+            
+            // Optimization: If we have cached cards, check if we really need to re-fetch all?
+            // For now, always try fetch, but fallback to cache if fetch fails for specific ID?
+            
             foreach (var mid in manualIds)
             {
                 var mc = await FetchSingleCard(mid, apiKey, token);
@@ -86,7 +93,20 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel
                     mc.IsManual = true;
                     manualCards.Add(mc);
                 }
+                else
+                {
+                    // Fetch failed (maybe deleted or network error).
+                    // If network error, we might want to keep the old one?
+                    // For now, if we have a cached version, use it but mark as 'Offline'?
+                    if (_cachedManualCards != null)
+                    {
+                        var old = _cachedManualCards.FirstOrDefault(x => x.Id == mid);
+                        if (old != null) manualCards.Add(old); // Keep existing
+                    }
+                }
             }
+            
+            _cachedManualCards = manualCards;
 
             // 3. Merge
             var allCards = new List<TrelloCard>();

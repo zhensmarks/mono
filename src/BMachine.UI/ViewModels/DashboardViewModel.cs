@@ -60,7 +60,7 @@ public partial class DashboardViewModel : ObservableObject
     }
 
     // UI Customization
-    [ObservableProperty] private double _navButtonWidth = 120;
+    [ObservableProperty] private double _navButtonWidth = 40; // Reduced to 40 (icon width only)
     [ObservableProperty] private double _navButtonHeight = 40;
     
     [ObservableProperty] 
@@ -80,7 +80,12 @@ public partial class DashboardViewModel : ObservableObject
     {
         if (_database == null) return;
         var w = await _database.GetAsync<string>("Dashboard.Nav.Width");
-        if (double.TryParse(w, out double dW)) NavButtonWidth = dW;
+        
+        if (double.TryParse(w, out double dW)) 
+        {
+            // Migration: Force old defaults to new compact size (40)
+            NavButtonWidth = dW > 45 ? 40 : dW;
+        }
 
         var h = await _database.GetAsync<string>("Dashboard.Nav.Height");
         if (double.TryParse(h, out double dH)) NavButtonHeight = dH;
@@ -889,55 +894,78 @@ public partial class DashboardViewModel : ObservableObject
             var sheetCol = await _database.GetAsync<string>("Google.SheetColumn");
             var sheetRow = await _database.GetAsync<string>("Google.SheetRow");
             
+            // DEBUG: Print config status once (or on error)
+            // Console.WriteLine($"[GSheet Config] Path: {credsPath}, ID: {sheetId}, Range: {sheetName}!{sheetCol}{sheetRow}");
+
             if (!string.IsNullOrEmpty(credsPath) && 
                 !string.IsNullOrEmpty(sheetId) && 
                 !string.IsNullOrEmpty(sheetName) &&
                 !string.IsNullOrEmpty(sheetCol) &&
-                !string.IsNullOrEmpty(sheetRow) &&
-                System.IO.File.Exists(credsPath))
+                !string.IsNullOrEmpty(sheetRow))
             {
-                // Initialize Google Sheets Service
-                // Note: File.OpenRead might lock, but FromFile handles it usually.
-                GoogleCredential credential;
-                using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+                if (!System.IO.File.Exists(credsPath))
                 {
-                    credential = GoogleCredential.FromStream(stream)
-                        .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
+                    _logService?.AddLog($"[GSheet Error] File kredensial tidak ditemukan di: {credsPath}");
+                    StatPoints = "ErrFile";
                 }
-                
-                using var service = new SheetsService(new BaseClientService.Initializer()
+                else
                 {
-                    HttpClientInitializer = credential,
-                    ApplicationName = "BMachine"
-                });
-                
-                var range = $"{sheetName}!{sheetCol}{sheetRow}";
-                var request = service.Spreadsheets.Values.Get(sheetId, range);
-                var response = await request.ExecuteAsync();
-                
-                if (response.Values != null && response.Values.Count > 0 && response.Values[0].Count > 0)
-                {
-                    var valStr = response.Values[0][0]?.ToString() ?? "0";
-                    StatPoints = valStr;
-                    
-                    if (double.TryParse(valStr, out double val))
+                    try
                     {
-                         StatPointsPercentage = Math.Min(val / MAX_POINTS, 1.0);
+                        // Initialize Google Sheets Service
+                        GoogleCredential credential;
+                        using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+                        {
+                            credential = GoogleCredential.FromStream(stream)
+                                .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
+                        }
+                        
+                        using (var service = new SheetsService(new BaseClientService.Initializer()
+                        {
+                            HttpClientInitializer = credential,
+                            ApplicationName = "BMachine"
+                        }))
+                        {
+                            var range = $"{sheetName}!{sheetCol}{sheetRow}";
+                            // _logService?.AddLog($"[GSheet Info] Mengambil data dari: {range}");
+                            
+                            var request = service.Spreadsheets.Values.Get(sheetId, range);
+                            var response = await request.ExecuteAsync();
+                            
+                            if (response.Values != null && response.Values.Count > 0 && response.Values[0].Count > 0)
+                            {
+                                var valStr = response.Values[0][0]?.ToString() ?? "0";
+                                StatPoints = valStr;
+                                
+                                if (double.TryParse(valStr, out double val))
+                                {
+                                     StatPointsPercentage = Math.Min(val / MAX_POINTS, 1.0);
+                                }
+                            }
+                            else
+                            {
+                                 _logService?.AddLog($"[GSheet Warning] Data tidak ditemukan di range: {range}");
+                                 StatPoints = "0";
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                         _logService?.AddLog($"[GSheet Exception] {ex.Message}");
+                         StatPoints = "ErrAPI";
                     }
                 }
             }
             else
             {
-                 // StatPoints = "0"; // Keep previous value or don't reset if just config missing?
-                 // If config is missing, maybe reset to 0 to show it's not working.
+                 // Config missing debug
+                 // _logService?.AddLog($"[GSheet Config] Konfigurasi belum lengkap. Path: {credsPath}, ID: {sheetId}");
                  if (string.IsNullOrEmpty(StatPoints) || StatPoints == "0") StatPoints = "0";
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Google Sync Error: {ex.Message}");
-            // Don't overwrite value with "Err" on transient failures.
-            // If it fails, we just keep the old value.
+            _logService?.AddLog($"[GSheet System Error] {ex.Message}");
         }
     }
 

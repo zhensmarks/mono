@@ -235,7 +235,7 @@
                                  Opacity="0.6"
                                  Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                        <PathIcon Data="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"
+                         <PathIcon Data="M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z"
                                   Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
                             <ControlTemplate>
@@ -380,19 +380,36 @@
                                   Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
                             <ControlTemplate>
-                                <Border Background="Transparent" 
-                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}">
+                                <Border Background="{TemplateBinding Background}" 
+                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}"
+                                        Padding="{TemplateBinding Padding}">
                                     <ContentPresenter Content="{TemplateBinding Content}" 
                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                             </ControlTemplate>
                         </RadioButton.Template>
                         <RadioButton.Styles>
-                            <Style Selector="RadioButton:checked /template/ Border#Indicator">
-                                <Setter Property="Opacity" Value="1"/>
+                            <Style Selector="RadioButton">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Transitions">
+                                    <Transitions>
+                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                    </Transitions>
+                                </Setter>
                             </Style>
                             <Style Selector="RadioButton:checked">
-                                <Setter Property="Opacity" Value="1"/>
+                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Opacity" Value="1.0"/>
+                            </Style>
+                             <Style Selector="RadioButton:pointerover">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Opacity" Value="0.9"/>
+                            </Style>
+                             <Style Selector="RadioButton:checked:pointerover">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Opacity" Value="1.0"/>
                             </Style>
                         </RadioButton.Styles>
                     </RadioButton>
