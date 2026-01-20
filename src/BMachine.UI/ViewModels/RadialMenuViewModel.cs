@@ -85,10 +85,10 @@ public partial class RadialMenuViewModel : ObservableObject
     {
         if (ActionItems.Count == 0) return;
 
-        // Visual Tweak: Glass Plate Layout
-        double radius = 75; // Fits inside 240px circle
-        double centerX = 150; 
-        double centerY = 150;
+        // Visual Tweak: Glass Plate Layout (Compact 200x200)
+        double radius = 60; // Fits inside 160px circle (Plate Radius 80, Button Radius 16 -> 80-16 = 64 max) -> 60 is safe
+        double centerX = 100; 
+        double centerY = 100;
 
         double step = 360.0 / ActionItems.Count;
         double startAngle = -90; 
@@ -98,9 +98,9 @@ public partial class RadialMenuViewModel : ObservableObject
             double angleDeg = startAngle + (i * step);
             double angleRad = angleDeg * (Math.PI / 180.0);
 
-            // -27 offset to center the 54x54 button
-            ActionItems[i].X = centerX + radius * Math.Cos(angleRad) - 27; 
-            ActionItems[i].Y = centerY + radius * Math.Sin(angleRad) - 27;
+            // -16 offset to center the 32x32 button
+            ActionItems[i].X = centerX + radius * Math.Cos(angleRad) - 16; 
+            ActionItems[i].Y = centerY + radius * Math.Sin(angleRad) - 16;
             
             // Normalize angle for Highlight Logic (0 = North, 90 = East)
             // Layout is -90 (North), so +90 makes it 0.
@@ -113,8 +113,6 @@ public partial class RadialMenuViewModel : ObservableObject
     }
 
     // ...
-
-
 
     private Dictionary<string, ScriptConfig> _scriptAliases = new();
 
@@ -208,8 +206,8 @@ public partial class RadialMenuViewModel : ObservableObject
         double dist = Math.Sqrt(dx * dx + dy * dy);
 
         // 3. Check Deadzone (Center) & Outer Limit
-        //    Ring Range: 35px to 170px (Adjusted for 300px window)
-        if (dist < 25 || dist > 140)
+        //    Compact: Center Zone Radius 20, Outer Limit 100
+        if (dist < 20 || dist > 100)
         {
              HighlightItem(null);
              CenterText = ""; // Clear text

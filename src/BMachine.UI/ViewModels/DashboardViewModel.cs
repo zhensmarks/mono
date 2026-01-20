@@ -926,6 +926,7 @@ public partial class DashboardViewModel : ObservableObject
                             ApplicationName = "BMachine"
                         }))
                         {
+                            service.HttpClient.Timeout = TimeSpan.FromMinutes(3);
                             var range = $"{sheetName}!{sheetCol}{sheetRow}";
                             // _logService?.AddLog($"[GSheet Info] Mengambil data dari: {range}");
                             

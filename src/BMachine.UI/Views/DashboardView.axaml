@@ -22,7 +22,7 @@
     </UserControl.Styles>
 
     
-    <Grid ColumnDefinitions="*, 4, Auto">
+    <Grid ColumnDefinitions="*, 0, Auto">
         
         <!-- MAIN DASHBOARD AREA (Content - NOW LEFT) -->
         <Grid Grid.Column="0" RowDefinitions="Auto, Auto, *" MinWidth="479">
@@ -424,21 +424,10 @@
                                                             CommandParameter="{Binding}"
                                                             Width="32" Height="32" Padding="0" CornerRadius="8" Cursor="Hand"
                                                             Background="#2A2A2A" BorderThickness="0"
-                                                            ToolTip.Tip="{Binding Name}"
-                                                            ToolTip.Placement="Top">
+                                                            ToolTip.Tip="{Binding Name}">
                                                         <Button.Styles>
                                                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                                                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                                            </Style>
-                                                            <!-- Compact ToolTip Style -->
-                                                            <Style Selector="ToolTip">
-                                                                <Setter Property="Background" Value="#1A1A1A"/>
-                                                                <Setter Property="Foreground" Value="White"/>
-                                                                <Setter Property="Padding" Value="8,4"/>
-                                                                <Setter Property="CornerRadius" Value="6"/>
-                                                                <Setter Property="FontSize" Value="10"/>
-                                                                <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
-                                                                <Setter Property="BorderThickness" Value="1"/>
                                                             </Style>
                                                         </Button.Styles>
                                                         <Panel>
@@ -496,12 +485,12 @@
         </Grid>
     </Grid>
 
-    <!-- GRID SPLITTER (NOW RIGHT) -->
-    <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="Transparent" 
-                  ResizeDirection="Columns" IsVisible="{Binding IsLogPanelOpen}"/>
+    <!-- GRID SPLITTER (DISABLED) -->
+    <GridSplitter Grid.Column="1" Width="0" HorizontalAlignment="Stretch" Background="Transparent" 
+                  ResizeDirection="Columns" IsVisible="False"/>
 
     <!-- LOG PANEL (NOW RIGHT) -->
-    <views:LogPanelSidebar Grid.Column="2" MinWidth="275"
+    <views:LogPanelSidebar Grid.Column="2" Width="279"
                            IsVisible="{Binding IsLogPanelOpen}" 
                            VerticalAlignment="Stretch"/>
 </Grid>

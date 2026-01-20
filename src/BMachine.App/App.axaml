@@ -71,6 +71,19 @@
              <Setter Property="RenderTransform" Value="scale(0.98)" />
              <Setter Property="BoxShadow" Value="0 2 5 0 #663b82f6"/>
         </Style>
+
+        <!-- Global Compact ToolTip Style -->
+        <Style Selector="ToolTip">
+            <Setter Property="Background" Value="#1A1A1A"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Placement" Value="Top"/>
+            <Setter Property="VerticalOffset" Value="0"/>
+        </Style>
     </Application.Styles>
 
     <Application.Resources>

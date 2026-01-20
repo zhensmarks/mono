@@ -1,9 +1,74 @@
 {
-"replace.jsx": "REP",
-  "replace_pas.jsx": "RPP",
-  "sep_jpg_psd.jsx": "JPG",
-  "psdbucin.pyw": "BUC",
-  "sep_png_psd.jsx": "PNG",
-  "sepPP.jsx": "S-PP",
-  "psdbucin_advanced_v2.pyw": "BUC2",
+  "replace.jsx": {
+    "Name": "REPLACE",
+    "Code": "REP",
+    "IconKey": "IconSkull",
+    "Order": 0
+  },
+  "replace_pas.jsx": {
+    "Name": "REPLACE PAS FOTO",
+    "Code": "RPAS",
+    "IconKey": "IconRefresh",
+    "Order": 2
+  },
+  "sepPP.jsx": {
+    "Name": "SEP-PASPOT",
+    "Code": "SPP",
+    "IconKey": "IconMenu",
+    "Order": 4
+  },
+  "sep_jpg_psd.jsx": {
+    "Name": "JPG | PSD",
+    "Code": "JPG",
+    "IconKey": "IconSave",
+    "Order": 1
+  },
+  "sep_png_psd.jsx": {
+    "Name": "PNG | PSD",
+    "Code": "PNG",
+    "IconKey": "IconUser",
+    "Order": 3
+  },
+  "manasik.py": {
+    "Name": "MANASIK",
+    "Code": "",
+    "IconKey": "IconGhost",
+    "Order": 1
+  },
+  "pasfoto.py": {
+    "Name": "PAS FOTO",
+    "Code": "",
+    "IconKey": "IconGhost",
+    "Order": 2
+  },
+  "psdbucin.pyw": {
+    "Name": "BUCIN NORMAL",
+    "Code": "BUC1",
+    "IconKey": "IconLink",
+    "Order": 5
+  },
+  "psdbucin_advanced_v2.pyw": {
+    "Name": "BULOL",
+    "Code": "BUC2",
+    "IconKey": "IconBox",
+    "Order": 6
+  },
+  "wisuda.py": {
+    "Name": "WISUDA",
+    "Code": "",
+    "IconKey": "IconGhost",
+    "Order": 3
+  },
+  "profesi_kelas.py": {
+    "Name": "P-KELAS",
+    "Code": "",
+    "IconKey": "IconGhost",
+    "Order": 4
+  },
+  "profesi_flat.py": {
+    "Name": "PROFESI",
+    "Code": "",
+    "IconKey": "IconGhost",
+    "Order": 0
+  }
 }

@@ -28,7 +28,7 @@ public partial class LogPanelSidebar : UserControl
             {
                  var scroll = this.FindControl<ScrollViewer>("LogScrollViewer");
                  scroll?.ScrollToEnd();
-            });
+            }, DispatcherPriority.Background);
         }
     }
 
@@ -158,7 +158,7 @@ public partial class LogPanelSidebar : UserControl
                      // Auto Scroll
                      var scroll = this.FindControl<ScrollViewer>("LogScrollViewer");
                      scroll?.ScrollToEnd();
-                });
+                }, DispatcherPriority.Background);
             }
         }
         catch (Exception ex)

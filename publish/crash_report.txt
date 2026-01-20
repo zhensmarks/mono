@@ -1,0 +1,46 @@
+[2026-01-20 15:41:54] MAIN LOOP CRASH:
+System.TimeoutException: Timeout opening clipboard.
+   at Avalonia.Win32.ClipboardImpl.OpenClipboard()
+   at Avalonia.Win32.ClipboardImpl.SetTextAsync(String text)
+   at BMachine.UI.ViewModels.BatchFileItem.CopyPath() in D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\BatchViewModel.cs:line 957
+   at BMachine.UI.ViewModels.BatchFileItem.<.ctor>b__11_0() in D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\BatchViewModel.cs:line 946
+   at System.Threading.Tasks.Task.<>c.<ThrowAsync>b__128_0(Object state)
+   at Avalonia.Threading.SendOrPostCallbackDispatcherOperation.InvokeCore()
+   at Avalonia.Threading.DispatcherOperation.Execute()
+   at Avalonia.Threading.Dispatcher.ExecuteJob(DispatcherOperation job)
+   at Avalonia.Threading.Dispatcher.ExecuteJobsCore(Boolean fromExplicitBackgroundProcessingCallback)
+   at Avalonia.Threading.Dispatcher.Signaled()
+   at Avalonia.Win32.Win32Platform.WndProc(IntPtr hWnd, UInt32 msg, IntPtr wParam, IntPtr lParam)
+   at Avalonia.Win32.Interop.UnmanagedMethods.DispatchMessage(MSG& lpmsg)
+   at Avalonia.Win32.Win32DispatcherImpl.RunLoop(CancellationToken cancellationToken)
+   at Avalonia.Threading.DispatcherFrame.Run(IControlledDispatcherImpl impl)
+   at Avalonia.Threading.Dispatcher.PushFrame(DispatcherFrame frame)
+   at Avalonia.Threading.Dispatcher.MainLoop(CancellationToken cancellationToken)
+   at Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime.StartCore(String[] args)
+   at Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime.Start(String[] args)
+   at Avalonia.ClassicDesktopStyleApplicationLifetimeExtensions.StartWithClassicDesktopLifetime(AppBuilder builder, String[] args, Action`1 lifetimeBuilder)
+   at BMachine.App.Program.Main(String[] args) in D:\#DATA ABENG\BMachine.v2\src\BMachine.App\Program.cs:line 35
+
+[2026-01-20 15:41:55] FATAL UNHANDLED EXCEPTION:
+System.TimeoutException: Timeout opening clipboard.
+   at Avalonia.Win32.ClipboardImpl.OpenClipboard()
+   at Avalonia.Win32.ClipboardImpl.SetTextAsync(String text)
+   at BMachine.UI.ViewModels.BatchFileItem.CopyPath() in D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\BatchViewModel.cs:line 957
+   at BMachine.UI.ViewModels.BatchFileItem.<.ctor>b__11_0() in D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\BatchViewModel.cs:line 946
+   at System.Threading.Tasks.Task.<>c.<ThrowAsync>b__128_0(Object state)
+   at Avalonia.Threading.SendOrPostCallbackDispatcherOperation.InvokeCore()
+   at Avalonia.Threading.DispatcherOperation.Execute()
+   at Avalonia.Threading.Dispatcher.ExecuteJob(DispatcherOperation job)
+   at Avalonia.Threading.Dispatcher.ExecuteJobsCore(Boolean fromExplicitBackgroundProcessingCallback)
+   at Avalonia.Threading.Dispatcher.Signaled()
+   at Avalonia.Win32.Win32Platform.WndProc(IntPtr hWnd, UInt32 msg, IntPtr wParam, IntPtr lParam)
+   at Avalonia.Win32.Interop.UnmanagedMethods.DispatchMessage(MSG& lpmsg)
+   at Avalonia.Win32.Win32DispatcherImpl.RunLoop(CancellationToken cancellationToken)
+   at Avalonia.Threading.DispatcherFrame.Run(IControlledDispatcherImpl impl)
+   at Avalonia.Threading.Dispatcher.PushFrame(DispatcherFrame frame)
+   at Avalonia.Threading.Dispatcher.MainLoop(CancellationToken cancellationToken)
+   at Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime.StartCore(String[] args)
+   at Avalonia.Controls.ApplicationLifetimes.ClassicDesktopStyleApplicationLifetime.Start(String[] args)
+   at Avalonia.ClassicDesktopStyleApplicationLifetimeExtensions.StartWithClassicDesktopLifetime(AppBuilder builder, String[] args, Action`1 lifetimeBuilder)
+   at BMachine.App.Program.Main(String[] args) in D:\#DATA ABENG\BMachine.v2\src\BMachine.App\Program.cs:line 35
+
