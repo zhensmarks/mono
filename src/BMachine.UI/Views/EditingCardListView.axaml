@@ -315,7 +315,11 @@
                 <Grid Grid.Row="2" ColumnDefinitions="*, Auto" Margin="0,20,0,0">
                     <TextBox Text="{Binding NewCommentText}" Watermark="Write a comment..." 
                              Background="#1AFFFFFF" BorderThickness="0" CornerRadius="8" Padding="10"
-                             Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100"/>
+                             Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100">
+                        <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
+                        </TextBox.KeyBindings>
+                    </TextBox>
                     <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
                             Width="40" Height="40" CornerRadius="20" Background="#3b82f6" Cursor="Hand" ToolTip.Tip="Send Comment">
                         <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>

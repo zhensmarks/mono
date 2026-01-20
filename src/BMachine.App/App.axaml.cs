@@ -3,16 +3,25 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using BMachine.UI.Views;
 using BMachine.UI.ViewModels;
+using BMachine.UI.Services;
 using BMachine.Core.Database;
+using BMachine.UI.Messages;
 using CommunityToolkit.Mvvm.Messaging;
-using System; // Added for Exception and Console
+using System; 
 
 namespace BMachine.App;
 
-public partial class App : Application, CommunityToolkit.Mvvm.Messaging.IRecipient<BMachine.UI.Messages.ShutdownMessage>
+public partial class App : Application, 
+    IRecipient<ShutdownMessage>,
+    IRecipient<SetRecordingModeMessage>,
+    IRecipient<UpdateTriggerConfigMessage>
 {
     private Avalonia.Controls.Window? _mainWindow;
-    private FloatingWidgetView? _floatingWidget;
+    private GlobalInputHookService? _inputHook;
+    private RadialMenuWindow? _radialMenuWindow;
+
+    private DatabaseService? _db;
+    private ProcessLogService? _logService;
 
     public override void Initialize()
     {
@@ -26,12 +35,12 @@ public partial class App : Application, CommunityToolkit.Mvvm.Messaging.IRecipie
             try 
             {
                 // 1. Create Shared Services
-                var db = new DatabaseService();
-                var logService = new BMachine.UI.Services.ProcessLogService(); 
+                _db = new DatabaseService();
+                _logService = new ProcessLogService(); 
 
                 // 2. Initialize MainWindow with Shared Services
                 var mainWindow = new BMachine.App.Views.MainWindow();
-                mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(db, logService);
+                mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(_db, _logService);
                 desktop.MainWindow = mainWindow;
                 _mainWindow = mainWindow;
                 desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
@@ -39,7 +48,7 @@ public partial class App : Application, CommunityToolkit.Mvvm.Messaging.IRecipie
                 // 3. Initialize Theme
                 try
                 {
-                    var themeService = new BMachine.UI.Services.ThemeService(db);
+                    var themeService = new ThemeService(_db);
                     themeService.InitializeAsync().Wait(); 
                 }
                 catch (Exception ex)
@@ -47,10 +56,22 @@ public partial class App : Application, CommunityToolkit.Mvvm.Messaging.IRecipie
                     Console.WriteLine($"Error initializing theme: {ex.Message}");
                 }
 
-                // 4. Initialize Floating Widget with Shared Services
-                _floatingWidget = new FloatingWidgetView();
-                _floatingWidget.DataContext = new FloatingWidgetViewModel(db, HandleFloatingAction, logService);
-                _floatingWidget.Show();
+                // 4. Initialize Radial Menu Hook
+                try
+                {
+                    _inputHook = new GlobalInputHookService();
+                    _inputHook.OnTriggerDown += OnRadialTrigger;
+                    _inputHook.OnTriggerUp += OnRadialRelease;
+                    _inputHook.OnMouseMove += OnRadialMove;
+                    _inputHook.OnRecorded += OnShortcutRecorded;
+                    
+                    // Load saved config if exists (TODO: Load from DB)
+                    // For now default is Shift+MiddleMouse
+                }
+                catch(Exception ex)
+                {
+                    _logService.AddLog($"[Hook Error] Failed to init global hook: {ex.Message}");
+                }
             }
             catch (Exception ex)
             {
@@ -58,40 +79,122 @@ public partial class App : Application, CommunityToolkit.Mvvm.Messaging.IRecipie
             }
 
             
-            desktop.Exit += (s, e) => _floatingWidget?.Close();
+            desktop.Exit += (s, e) => 
+            {
+                _radialMenuWindow?.Close();
+                _inputHook?.Dispose();
+            };
             
             // Register as Recipient
-            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.RegisterAll(this);
+            WeakReferenceMessenger.Default.RegisterAll(this);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
     
-    public void Receive(BMachine.UI.Messages.ShutdownMessage message)
+    private void OnShortcutRecorded(BMachine.UI.Models.TriggerConfig config)
     {
-        _floatingWidget?.Close();
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.Shutdown();
+         // Forward to UI
+         WeakReferenceMessenger.Default.Send(new TriggerRecordedMessage(config));
+         
+         // Auto-disable recording
+         if (_inputHook != null) _inputHook.IsRecording = false;
+         WeakReferenceMessenger.Default.Send(new SetRecordingModeMessage(false));
     }
     
-    private void HandleFloatingAction(string action)
+    public void Receive(SetRecordingModeMessage message)
     {
-        if (action == "Home")
+        if (_inputHook != null)
         {
-            if (_mainWindow != null)
+            _inputHook.IsRecording = message.Value;
+        }
+    }
+
+    public void Receive(UpdateTriggerConfigMessage message)
+    {
+        if (_inputHook != null)
+        {
+            _inputHook.UpdateConfig(message.Value);
+        }
+    }
+    
+    private void OnRadialTrigger(Point screenPos)
+    {
+        Console.WriteLine($"[App] OnRadialTrigger called at {screenPos}");
+        
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try 
             {
-                _mainWindow.Show();
-                _mainWindow.Activate();
-                if (_mainWindow.WindowState == Avalonia.Controls.WindowState.Minimized)
-                    _mainWindow.WindowState = Avalonia.Controls.WindowState.Normal;
+                if (_radialMenuWindow == null)
+                {
+                    Console.WriteLine("[App] creating new RadialMenuWindow");
+                    _radialMenuWindow = new RadialMenuWindow();
+                    var vm = new RadialMenuViewModel(_db, _logService);
+                    vm.RequestClose += () => _radialMenuWindow?.Hide();
+                    _radialMenuWindow.DataContext = vm;
+                    _radialMenuWindow.Closed += (s,e) => _radialMenuWindow = null;
+                }
+                else
+                {
+                     Console.WriteLine("[App] Reusing existing RadialMenuWindow");
+                }
+    
+                // Reposition
+                double w = _radialMenuWindow.Width;
+                double h = _radialMenuWindow.Height;
+                if (double.IsNaN(w)) w = 300; 
+                if (double.IsNaN(h)) h = 300;
+    
+                Console.WriteLine($"[App] Positioning at {screenPos.X - w/2}, {screenPos.Y - h/2}");
+                _radialMenuWindow.Position = new PixelPoint((int)(screenPos.X - w/2), (int)(screenPos.Y - h/2));
+                _radialMenuWindow.Show();
+                _radialMenuWindow.Activate(); // Focus
+                
+                if (_radialMenuWindow.DataContext is RadialMenuViewModel vmRef)
+                {
+                    vmRef.IsVisible = true;
+                    vmRef.ReloadScripts(); 
+                }
             }
-        }
-        else if (action == "UploadGDrive")
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[App] Error showing radial menu: {ex}");
+            }
+        });
+    }
+
+    private void OnRadialRelease(Point screenPos)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
-             Console.WriteLine("Launching Upload GDrive Window...");
-        }
-        else if (action == "Pixelcut")
+            if (_radialMenuWindow != null && _radialMenuWindow.IsVisible && _radialMenuWindow.DataContext is RadialMenuViewModel vm)
+            {
+                vm.ExecuteHighlighted();
+                // Window hiding is handled by vm.RequestClose -> _radialMenuWindow.Hide()
+            }
+        });
+    }
+
+    private void OnRadialMove(Point screenPos)
+    {
+         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
-             Console.WriteLine("Launching Pixelcut Window...");
-        }
+            if (_radialMenuWindow != null && _radialMenuWindow.IsVisible && _radialMenuWindow.DataContext is RadialMenuViewModel vm)
+            {
+                // Calculate position relative to window top-left
+                // Window Position is Top-Left of window in Screen Coords.
+                var winPos = _radialMenuWindow.Position;
+                Point relPos = new Point(screenPos.X - winPos.X, screenPos.Y - winPos.Y);
+                vm.UpdateHighlight(relPos, _radialMenuWindow.Bounds.Size);
+            }
+        });
+    }
+
+    public void Receive(ShutdownMessage message)
+    {
+        _radialMenuWindow?.Close();
+        _inputHook?.Dispose();
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.Shutdown();
     }
 }

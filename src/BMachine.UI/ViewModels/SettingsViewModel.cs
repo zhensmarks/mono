@@ -12,6 +12,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using System.IO;
 using QRCoder;
 using BMachine.UI.Messages;
+using BMachine.UI.Models;
 
 namespace BMachine.UI.ViewModels;
 
@@ -521,6 +522,13 @@ public partial class SettingsViewModel : ObservableObject
         _ = LoadNavSettings();
         LoadExtensions();
         LoadAllScripts();
+        
+        // Shortcut
+        WeakReferenceMessenger.Default.Register<TriggerRecordedMessage>(this, (r, m) =>
+        {
+             if (r is SettingsViewModel vm) vm.OnShortcutRecorded(m);
+        });
+        LoadShortcutConfig();
     }
 
     private void InitializeSheetOptions()
@@ -1389,6 +1397,9 @@ public partial class SettingsViewModel : ObservableObject
             
             // Notify Theme Change
              CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new ThemeSettingsChangedMessage(DarkBackgroundColor, LightBackgroundColor));
+             
+             // Notify Profile Change
+             CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new ProfileUpdatedMessage(UserName, AvatarSource));
             
             // --- Save Widget Colors ---
             await _database.SetAsync("Settings.Color.Editing", GetColorHex(EditingColor, CustomEditingColor));
@@ -1439,7 +1450,9 @@ public partial class SettingsViewModel : ObservableObject
     public Func<Task<string?>>? PickScriptFileFunc { get; set; }
 
     // Metadata for Aliases
-    private Dictionary<string, string> _scriptAliases = new();
+
+
+    private Dictionary<string, ScriptConfig> _scriptAliases = new();
     private string _metadataPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
 
     private void LoadMetadata()
@@ -1449,7 +1462,30 @@ public partial class SettingsViewModel : ObservableObject
             if (File.Exists(_metadataPath))
             {
                 var json = File.ReadAllText(_metadataPath);
-                _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+                
+                // Try Parse New Format
+                try 
+                {
+                    _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ScriptConfig>>(json) ?? new();
+                }
+                catch
+                {
+                    // Fallback: Migration from Old Format (Dictionary<string, string>)
+                    var oldAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                    _scriptAliases = new Dictionary<string, ScriptConfig>();
+                    if (oldAliases != null)
+                    {
+                        foreach(var kvp in oldAliases)
+                        {
+                            _scriptAliases[kvp.Key] = new ScriptConfig 
+                            { 
+                                Name = kvp.Value, 
+                                Code = kvp.Value.Length <= 4 ? kvp.Value.ToUpper() : kvp.Value.Substring(0, Math.Min(3, kvp.Value.Length)).ToUpper()
+                            };
+                        }
+                        SaveMetadata(); // Save immmediately in new format
+                    }
+                }
             }
         }
         catch { _scriptAliases = new(); }
@@ -1459,12 +1495,12 @@ public partial class SettingsViewModel : ObservableObject
     {
         try
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(_scriptAliases);
+            var json = System.Text.Json.JsonSerializer.Serialize(_scriptAliases, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_metadataPath, json);
             
             // Notify Floating Widget to Refresh (Use Messenger or just rely on file)
-            // Ideally we should signal FloatingWidgetViewModel to reload.
             WeakReferenceMessenger.Default.Send(new RefreshScriptsMessage());
+            WeakReferenceMessenger.Default.Send(new ScriptOrderChangedMessage());
         }
         catch { }
     }
@@ -1473,60 +1509,77 @@ public partial class SettingsViewModel : ObservableObject
     {
         LoadMetadata();
         LoadScriptsFor(MasterScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Master"), "*.py;*.pyw");
-        LoadScriptsFor(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action"), "*.jsx");
+        
+        // Action Scripts: Load .jsx and .pyw from "Scripts/Action"
+        LoadScriptsFor(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action"), "*.jsx;*.pyw");
+        
+        // Action Scripts: ALSO Load .pyw from "Scripts/" (Root) as RadialMenu supports this
+        // We use a helper to Append instead of Clear for this second call
+        LoadScriptsFor(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts"), "*.pyw", append: true);
+
         LoadScriptsFor(OtherScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Others"), "*.*");
         
         // Add Pixelcut Extension as internal entry
-        var displayName = _scriptAliases.ContainsKey("INTERNAL_PIXELCUT_EXTENSION") 
+        var pixelcutConfig = _scriptAliases.ContainsKey("INTERNAL_PIXELCUT_EXTENSION") 
             ? _scriptAliases["INTERNAL_PIXELCUT_EXTENSION"] 
-            : "Pixelcut Extension";
+            : new ScriptConfig { Name = "Pixelcut Extension", Code = "PXL" };
             
         var pixelcutItem = new ScriptItem
         {
-            Name = displayName,
+            Name = pixelcutConfig.Name,
+            ShortCode = pixelcutConfig.Code,
             OriginalName = "INTERNAL_PIXELCUT_EXTENSION",
             FullPath = "INTERNAL_PIXELCUT_EXTENSION",
             Type = "EXT"
         };
-        pixelcutItem.OnSaveRequested += (s, newName) =>
+        pixelcutItem.OnSaveRequested += (newName, newCode, newIcon) =>
         {
             if (!string.IsNullOrWhiteSpace(newName))
             {
-                _scriptAliases["INTERNAL_PIXELCUT_EXTENSION"] = newName;
+                _scriptAliases["INTERNAL_PIXELCUT_EXTENSION"] = new ScriptConfig { Name = newName, Code = newCode, IconKey = newIcon };
                 pixelcutItem.Name = newName;
+                pixelcutItem.ShortCode = newCode;
+                pixelcutItem.IconKey = newIcon;
                 SaveMetadata();
             }
         };
         OtherScripts.Insert(0, pixelcutItem); // Add at top (Pixelcut)
 
         // Add GDrive Extension as internal entry
-        var gdriveName = _scriptAliases.ContainsKey("INTERNAL_GDRIVE_EXTENSION") 
+        var gdriveConfig = _scriptAliases.ContainsKey("INTERNAL_GDRIVE_EXTENSION") 
             ? _scriptAliases["INTERNAL_GDRIVE_EXTENSION"] 
-            : "GDrive Uploader";
+            : new ScriptConfig { Name = "GDrive Uploader", Code = "GDR" };
             
         var gdriveItem = new ScriptItem
         {
-            Name = gdriveName,
+            Name = gdriveConfig.Name,
+            ShortCode = gdriveConfig.Code,
             OriginalName = "INTERNAL_GDRIVE_EXTENSION",
             FullPath = "INTERNAL_GDRIVE_EXTENSION",
             Type = "EXT"
         };
-        gdriveItem.OnSaveRequested += (s, newName) =>
+        gdriveItem.OnSaveRequested += (newName, newCode, newIcon) =>
         {
             if (!string.IsNullOrWhiteSpace(newName))
             {
-                _scriptAliases["INTERNAL_GDRIVE_EXTENSION"] = newName;
+                _scriptAliases["INTERNAL_GDRIVE_EXTENSION"] = new ScriptConfig { Name = newName, Code = newCode, IconKey = newIcon };
                 gdriveItem.Name = newName;
+                gdriveItem.ShortCode = newCode;
+                gdriveItem.IconKey = newIcon;
                 SaveMetadata();
             }
         };
         OtherScripts.Insert(1, gdriveItem); // Add after Pixelcut
     }
 
-    private void LoadScriptsFor(ObservableCollection<ScriptItem> collection, string path, string pattern)
+
+
+    private void LoadScriptsFor(ObservableCollection<ScriptItem> collection, string path, string pattern, bool append = false)
     {
-        collection.Clear();
+        if (!append) collection.Clear();
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+        
+        var tempList = new List<(ScriptItem Item, int Order)>();
         
         var patterns = pattern.Split(';');
         foreach(var p in patterns)
@@ -1535,30 +1588,94 @@ public partial class SettingsViewModel : ObservableObject
             foreach (var f in files)
             {
                 var filename = Path.GetFileName(f);
-                var display = _scriptAliases.ContainsKey(filename) ? _scriptAliases[filename] : Path.GetFileNameWithoutExtension(filename);
+                var config = _scriptAliases.ContainsKey(filename) 
+                    ? _scriptAliases[filename] 
+                    : new ScriptConfig { Name = Path.GetFileNameWithoutExtension(filename), Code = "", Order = 9999 }; // Default to end
                 
                 var item = new ScriptItem 
                 { 
-                    Name = display, // Display Name
+                    Name = config.Name,
+                    ShortCode = config.Code,
+                    IconKey = config.IconKey, // Load Icon
                     OriginalName = filename,
                     FullPath = f,
-                    Type = Path.GetExtension(f).TrimStart('.').ToUpper()
+                    Type = Path.GetExtension(f).TrimStart('.').ToUpper(),
+                    PickIconFunc = PickIconAsync // Assign Picker
                 };
                 
                 // Attach Save Handler
-                item.OnSaveRequested += (s, newName) => 
+                item.OnSaveRequested += (newName, newCode, newIcon) => 
                 {
                     if (!string.IsNullOrWhiteSpace(newName))
                     {
-                        _scriptAliases[item.OriginalName] = newName;
+                        var currentOrder = _scriptAliases.ContainsKey(item.OriginalName) ? _scriptAliases[item.OriginalName].Order : 0;
+                        var newConfig = new ScriptConfig { 
+                            Name = newName, 
+                            Code = newCode, 
+                            IconKey = newIcon,
+                            Order = currentOrder 
+                        };
+                        _scriptAliases[item.OriginalName] = newConfig;
+                        
                         item.Name = newName;
+                        item.ShortCode = newCode;
+                        item.IconKey = newIcon;
                         SaveMetadata();
                     }
                 };
                 
-                collection.Add(item);
+                tempList.Add((item, config.Order));
             }
         }
+
+        // Sort by Order, then Name
+        var sortedList = tempList.OrderBy(x => x.Order).ThenBy(x => x.Item.Name).ToList();
+
+        foreach(var item in sortedList)
+        {
+            collection.Add(item.Item);
+        }
+    }
+
+    private async Task<string?> PickIconAsync()
+    {
+        var topLevel = TopLevel.GetTopLevel(
+             Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+             ? desktop.MainWindow : null);
+             
+        if (topLevel == null) return null;
+
+        var picker = new BMachine.UI.Views.IconPickerWindow();
+        var result = await picker.ShowDialog<string?>(topLevel as Window);
+        
+        return result;
+    }
+
+    public void MoveScript(ScriptItem item, int newIndex, bool isMaster)
+    {
+        var collection = isMaster ? MasterScripts : ActionScripts;
+        var oldIndex = collection.IndexOf(item);
+        
+        if (oldIndex < 0 || oldIndex == newIndex) return;
+
+        collection.Move(oldIndex, newIndex);
+
+        // Update Orders for ALL items in this collection
+        for (int i = 0; i < collection.Count; i++)
+        {
+            var script = collection[i];
+            
+            // Get existing or create new config
+            var config = _scriptAliases.ContainsKey(script.OriginalName) ? _scriptAliases[script.OriginalName] : new ScriptConfig();
+            config.Name = script.Name; // Ensure sync
+            config.Code = script.ShortCode; // Ensure sync
+            config.IconKey = script.IconKey; // Ensure sync
+            config.Order = i; // 0-based index is the new order
+
+            _scriptAliases[script.OriginalName] = config;
+        }
+
+        SaveMetadata();
     }
 
     [RelayCommand]
@@ -1679,29 +1796,34 @@ public partial class SettingsViewModel : ObservableObject
             {
                 var json = File.ReadAllText(path);
                 
-                // Load Dictionary
-                var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
-                
+                 // Load Dictionary (New Format)
+                Dictionary<string, ScriptConfig> dict;
+                try 
+                {
+                     dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ScriptConfig>>(json) ?? new();
+                }
+                catch
+                {
+                     dict = new(); // Should have been migrated by LoadMetadata, but safe fallback
+                }
+
                 // Load Raw Order
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 var orderedKeys = doc.RootElement.EnumerateObject().Select(p => p.Name).ToList();
                 
                 foreach(var key in orderedKeys)
                 {
+                    var config = dict.ContainsKey(key) ? dict[key] : new ScriptConfig { Name = key, Code = "" };
                     var item = new ScriptOrderItem 
                     { 
                         Key = key, 
-                        DisplayName = dict.ContainsKey(key) ? dict[key] : key 
+                        DisplayName = config.Name 
                     };
                     
                     if (IsMaster(key)) masterList.Add(item);
-                    else actionList.Add(item); // Default to Action if not Master (or check IsAction)
+                    else actionList.Add(item); 
                 }
             }
-            
-            // Also add any files NOT in json yet? 
-            // For now, load purely from json + existing files could be merged, but let's stick to json structure 
-            // because BatchViewModel handles leftovers.
             
             MasterScriptOrderList = new ObservableCollection<ScriptOrderItem>(masterList);
             ActionScriptOrderList = new ObservableCollection<ScriptOrderItem>(actionList);
@@ -1762,15 +1884,37 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
-            var dict = new Dictionary<string, string>();
             
-            // Reconstruct Dictionary: Master First, then Action
-            foreach(var item in MasterScriptOrderList) dict[item.Key] = item.DisplayName;
-            foreach(var item in ActionScriptOrderList) dict[item.Key] = item.DisplayName;
+            // Reconstruct Dictionary while preserving order
+            // We need to merge Master and Action lists, AND preserve any existing config (ShortCodes)
+            // But _scriptAliases holds the truth for ShortCodes.
+            
+            var newDict = new Dictionary<string, ScriptConfig>();
+            
+             // Helper to get existing config or create default
+            ScriptConfig GetConfig(string key, string displayName)
+            {
+                if (_scriptAliases.ContainsKey(key))
+                {
+                    var existing = _scriptAliases[key];
+                    existing.Name = displayName; // Update name from order list if changed (though they should sync)
+                    return existing;
+                }
+                return new ScriptConfig { Name = displayName, Code = "" };
+            }
+
+            foreach(var item in MasterScriptOrderList) 
+                newDict[item.Key] = GetConfig(item.Key, item.DisplayName);
+                
+            foreach(var item in ActionScriptOrderList) 
+                newDict[item.Key] = GetConfig(item.Key, item.DisplayName);
             
             var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
-            var json = System.Text.Json.JsonSerializer.Serialize(dict, options);
+            var json = System.Text.Json.JsonSerializer.Serialize(newDict, options);
             File.WriteAllText(path, json);
+            
+            // Update local memory cache
+            _scriptAliases = newDict;
             
             WeakReferenceMessenger.Default.Send(new Messages.ScriptOrderChangedMessage());
         }
@@ -1796,19 +1940,107 @@ public partial class SettingsViewModel : ObservableObject
         ActionScriptOrderList.Move(oldIndex, newIndex);
         SaveScriptOrder();
     }
+
+    // --- Customizable Shortcut ---
+    [ObservableProperty]
+    private TriggerConfig _currentShortcut = new TriggerConfig(); // Default Shift+Middle
+
+    [ObservableProperty]
+    private bool _isRecordingShortcut;
+
+    [RelayCommand]
+    private void StartRecordingShortcut()
+    {
+        IsRecordingShortcut = true;
+        WeakReferenceMessenger.Default.Send(new SetRecordingModeMessage(true));
+    }
+
+    [RelayCommand]
+    private void CancelRecordingShortcut()
+    {
+        IsRecordingShortcut = false;
+        WeakReferenceMessenger.Default.Send(new SetRecordingModeMessage(false));
+    }
+
+    public void OnShortcutRecorded(TriggerRecordedMessage msg)
+    {
+        CurrentShortcut = msg.Value;
+        IsRecordingShortcut = false;
+        SaveShortcutConfig();
+    }
+    
+    private void SaveShortcutConfig()
+    {
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(CurrentShortcut);
+            _database?.SetAsync("ShortcutConfig", json);
+            WeakReferenceMessenger.Default.Send(new UpdateTriggerConfigMessage(CurrentShortcut));
+        }
+        catch {}
+    }
+    
+    private async void LoadShortcutConfig()
+    {
+        try
+        {
+            var json = await _database.GetAsync<string>("ShortcutConfig");
+            if (!string.IsNullOrEmpty(json))
+            {
+                var config = System.Text.Json.JsonSerializer.Deserialize<TriggerConfig>(json);
+                if (config != null)
+                {
+                    CurrentShortcut = config;
+                    WeakReferenceMessenger.Default.Send(new UpdateTriggerConfigMessage(CurrentShortcut));
+                }
+            }
+        }
+        catch {}
+    }
 }
 public partial class ScriptItem : ObservableObject
 {
     [ObservableProperty] private string _name = ""; // Display Name
+    [ObservableProperty] private string _shortCode = ""; // Short Code (NEW)
+    [ObservableProperty] private string _iconKey = ""; // Icon Key (NEW)
     [ObservableProperty] private string _originalName = ""; // Real Filename
     [ObservableProperty] private string _fullPath = "";
     [ObservableProperty] private string _type = "";
     
+    // External Picker Function
+    public Func<Task<string?>>? PickIconFunc { get; set; }
+    
     // Editing Logic
     [ObservableProperty] private bool _isEditing;
     [ObservableProperty] private string _editName = "";
+    [ObservableProperty] private string _editShortCode = "";
+    [ObservableProperty] private string _editIconKey = "";
     
-    public event EventHandler<string>? OnSaveRequested;
+    // Action: (Name, Code, IconKey)
+    public event Action<string, string, string>? OnSaveRequested;
+
+    public StreamGeometry? IconGeometry 
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(IconKey) && Application.Current!.TryGetResource(IconKey, null, out var res) && res is StreamGeometry geom)
+                return geom;
+            return null; 
+        }
+    }
+    
+    public StreamGeometry? EditIconGeometry 
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(EditIconKey) && Application.Current!.TryGetResource(EditIconKey, null, out var res) && res is StreamGeometry geom)
+                return geom;
+            return null;
+        }
+    }
+
+    partial void OnIconKeyChanged(string value) => OnPropertyChanged(nameof(IconGeometry));
+    partial void OnEditIconKeyChanged(string value) => OnPropertyChanged(nameof(EditIconGeometry));
 
     [RelayCommand]
     private void ToggleEdit()
@@ -1822,14 +2054,29 @@ public partial class ScriptItem : ObservableObject
         {
             // Start
             EditName = Name;
+            EditShortCode = ShortCode;
+            EditIconKey = IconKey;
             IsEditing = true;
+        }
+    }
+    
+    [RelayCommand]
+    private async Task PickIcon()
+    {
+        if (PickIconFunc != null)
+        {
+            var key = await PickIconFunc();
+            if (key != null) // If null (cancel), do nothing
+            {
+                EditIconKey = key; // Empty string clears it
+            }
         }
     }
     
     [RelayCommand]
     private void SaveRename()
     {
-        OnSaveRequested?.Invoke(this, EditName);
+        OnSaveRequested?.Invoke(EditName, EditShortCode, EditIconKey);
         IsEditing = false;
     }
 }

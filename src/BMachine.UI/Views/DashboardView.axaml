@@ -22,23 +22,13 @@
     </UserControl.Styles>
 
     
-    <Grid ColumnDefinitions="Auto, 4, *">
+    <Grid ColumnDefinitions="*, 4, Auto">
         
-        <!-- LOG PANEL (Sidebar Column - NOW LEFT) -->
-        <views:LogPanelSidebar Grid.Column="0" Width="275" 
-                               IsVisible="{Binding IsLogPanelOpen}" 
-                               VerticalAlignment="Stretch"/>
-
-        <!-- GRID SPLITTER -->
-        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="Transparent" 
-                      ResizeDirection="Columns" IsVisible="{Binding IsLogPanelOpen}"/>
-
-        <!-- MAIN DASHBOARD AREA (Header + Content) -->
-        <Grid Grid.Column="2" RowDefinitions="Auto, Auto, *" MinWidth="479">
+        <!-- MAIN DASHBOARD AREA (Content - NOW LEFT) -->
+        <Grid Grid.Column="0" RowDefinitions="Auto, Auto, *" MinWidth="479">
             <!-- HEADER -->
             <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="20,20,20,10">
-                <!-- Greeting -->
-                <!-- Profile (Moved to Left) -->
+                <!-- Profile -->
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                      <Border Width="38" Height="38" CornerRadius="19" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                          <Panel>
@@ -54,63 +44,25 @@
                      </StackPanel>
                 </StackPanel>
                 
-                <!-- User Profile & Actions -->
+                <!-- Actions -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
-
-                    
-                                        <!-- Actions Group -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        
-
-
-                        <!-- GDrive Button Removed -->
-                        
-
-
-                        <!-- Smart Orb Toggle -->
-                         <ToggleButton IsChecked="{Binding IsFloatingWidgetVisible}" 
-                                      Width="32" Height="32" CornerRadius="8"
-                                      ToolTip.Tip="Toggle Smart Orb"
-                                      Cursor="Hand" Padding="0">
-                            <ToggleButton.Styles>
-                                <Style Selector="ToggleButton">
-                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                                </Style>
-                                <Style Selector="ToggleButton Path">
-                                     <Setter Property="Fill" Value="{DynamicResource TextPrimaryBrush}"/>
-                                </Style>
-                                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                </Style>
-                                <Style Selector="ToggleButton:checked Path">
-                                     <Setter Property="Fill" Value="White"/>
-                                </Style>
-                            </ToggleButton.Styles>
-                            <shapes:Path Data="M12,2A10,10 0 1,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 1,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 1,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 1,1 8,12A4,4 0 0,1 12,8Z" 
-                                         Width="16" Height="16" Stretch="Uniform"/>
-                        </ToggleButton>
-                        
-                        <!-- Activity Panel Toggle (Bell Icon) -->
+                        <!-- Activity Panel Toggle -->
                         <ToggleButton Command="{Binding ToggleActivityPanelCommand}" 
                                       IsChecked="{Binding IsActivityPanelOpen, Mode=OneWay}"
                                       Width="32" Height="32" CornerRadius="8" Padding="0"
                                       ToolTip.Tip="Activity Log" Cursor="Hand">
                             <ToggleButton.Styles>
-                                <!-- Default State (Blue) -->
                                 <Style Selector="ToggleButton">
                                     <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
                                 </Style>
                                 <Style Selector="ToggleButton Path">
                                      <Setter Property="Fill" Value="White"/>
                                 </Style>
-                                
-                                <!-- Hover State -->
                                 <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                                     <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
                                     <Setter Property="Opacity" Value="0.9"/>
                                 </Style>
-
-                                <!-- Checked State (Blue) -->
                                 <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
                                     <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
                                     <Setter Property="Opacity" Value="0.8"/>
@@ -119,14 +71,11 @@
                                      <Setter Property="Fill" Value="White"/>
                                 </Style>
                             </ToggleButton.Styles>
-                            
-                            <!-- History Icon (Clock with counter-clockwise arrow) explicit center -->
                             <shapes:Path Data="M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.28,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3Z" 
-                                         Width="16" Height="16" Stretch="Uniform"
-                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                         Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </ToggleButton>
                         
-                        <!-- Log Panel Toggle (Clipboard/Note Icon) -->
+                        <!-- Log Panel Toggle -->
                         <ToggleButton Command="{Binding ToggleLogPanelCommand}" 
                                       IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
                                       Width="32" Height="32" CornerRadius="8" Padding="0"
@@ -148,60 +97,40 @@
                                      <Setter Property="Fill" Value="White"/>
                                 </Style>
                             </ToggleButton.Styles>
-                            <!-- Clipboard/Note Icon -->
                             <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
-                                         Width="16" Height="16" Stretch="Uniform"
-                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                         Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </ToggleButton>
 
-                        <!-- Settings Button (Solid Blue) -->
+                        <!-- Settings Button -->
                         <Button Click="OnSettingsClick" 
                                 Width="32" Height="32" CornerRadius="8" Padding="0" 
                                 Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Cursor="Hand" 
                                 ToolTip.Tip="Settings">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="#3b82f6"/> <!-- Lighter Blue on Hover -->
-                                    <Setter Property="Opacity" Value="0.9"/>
-                                </Style>
-                            </Button.Styles>
-                            <shapes:Path Data="{StaticResource IconSettings}" 
-                                         Width="16" Height="16" Stretch="Uniform"
-                                         Fill="White"/>
+                            <shapes:Path Data="{StaticResource IconSettings}" Width="16" Height="16" Stretch="Uniform" Fill="White"/>
                         </Button>
-                        
-    
                     </StackPanel>
                 </StackPanel>
             </Grid>
             
             <!-- NAVIGATION BAR -->
-            <!-- Rounded Box Container (Segmented Control Container) -->
             <Border Grid.Row="1" HorizontalAlignment="Center" Background="{DynamicResource CardBackgroundBrush}" 
                     CornerRadius="12" Padding="4" Margin="20,0,20,2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal" Spacing="0">
-                    
-                    <!-- Locker Tab (Leftmost) -->
+                    <!-- Locker Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}"
-                                 Padding="0" 
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold"
-                                 Opacity="0.6"
-                                 Cursor="Hand"
+                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
                         <PathIcon Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8H17V6A5,5 0 0,0 12,1H12A5,5 0 0,0 7,6V8H6A2,2 0 0,0 4,10V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V10A2,2 0 0,0 18,8M12,13A2,2 0 0,1 10,15A2,2 0 0,1 12,17A2,2 0 0,1 14,15A2,2 0 0,1 12,13M12,1A5,5 0 0,1 17,6V8H7V6A5,5 0 0,1 12,1Z"
                                   Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
                             <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" 
-                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}"
-                                        Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" 
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                             </ControlTemplate>
                         </RadioButton.Template>
-                         <RadioButton.Styles>
+                        <RadioButton.Styles>
                             <Style Selector="RadioButton">
                                 <Setter Property="Background" Value="Transparent"/>
                                 <Setter Property="Transitions">
@@ -216,38 +145,23 @@
                                 <Setter Property="Foreground" Value="White"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
-                             <Style Selector="RadioButton:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="0.9"/>
-                            </Style>
-                             <Style Selector="RadioButton:checked:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
                         </RadioButton.Styles>
                     </RadioButton>
 
-                    <!-- Batch Tab (2nd) -->
+                    <!-- Batch Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}"
-                                 Padding="0" 
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold"
-                                 Opacity="0.6"
-                                 Cursor="Hand"
+                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                         <PathIcon Data="M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z"
-                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
+                         <PathIcon Data="M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
                             <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" 
-                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}"
-                                        Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" 
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                             </ControlTemplate>
                         </RadioButton.Template>
-                         <RadioButton.Styles>
+                        <RadioButton.Styles>
                             <Style Selector="RadioButton">
                                 <Setter Property="Background" Value="Transparent"/>
                                 <Setter Property="Transitions">
@@ -262,34 +176,19 @@
                                 <Setter Property="Foreground" Value="White"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
-                             <Style Selector="RadioButton:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="0.9"/>
-                            </Style>
-                             <Style Selector="RadioButton:checked:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
                         </RadioButton.Styles>
                     </RadioButton>
 
-                    <!-- Dashboard Tab (3rd/Center) -->
+                    <!-- Dashboard Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}"
-                                 Padding="0" 
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold"
-                                 Opacity="0.6"
-                                 Cursor="Hand"
+                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                        <PathIcon Data="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"
-                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
+                        <PathIcon Data="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
                             <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" 
-                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}"
-                                        Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" 
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                             </ControlTemplate>
                         </RadioButton.Template>
@@ -308,83 +207,19 @@
                                 <Setter Property="Foreground" Value="White"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
-                            <Style Selector="RadioButton:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="0.9"/>
-                            </Style>
-                             <Style Selector="RadioButton:checked:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
                         </RadioButton.Styles>
                     </RadioButton>
 
-                    <!-- Pixelcut Tab (Right) -->
+                    <!-- Pixelcut Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsPixelcutTabSelected}"
-                                 Padding="0" 
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold"
-                                 Opacity="0.6"
-                                 Cursor="Hand"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                                 ToolTip.Tip="Pixelcut Batch">
-                        <PathIcon Data="M20,6 L18.59,4.59 L14.73,8.45 L13.32,7.04 L17.18,3.18 L15.76,1.76 L13.64,3.88 C13.06,3.33 12.29,3 11.5,3 C9.57,3 8,4.57 8,6.5 C8,7.29 8.27,8.03 8.74,8.63 L6,11.37 C5.53,10.9 5.25,10.27 5.25,9.58 C5.25,8.13 6.42,6.96 7.88,6.96 C8.4,6.96 8.82,6.54 8.82,6.02 C8.82,5.5 8.4,5.08 7.88,5.08 C5.39,5.08 3.37,7.1 3.37,9.58 C3.37,10.79 3.86,11.9 4.66,12.71 L2.25,15.12 L3.66,16.54 L7.52,12.68 L8.93,14.09 L5.07,17.95 L6.49,19.36 L9.29,16.56 C10.1,17.37 11.21,17.86 12.42,17.86 C14.91,17.86 16.92,15.84 16.92,13.36 C16.92,12.83 16.5,12.41 15.98,12.41 C15.46,12.41 15.04,12.83 15.04,13.36 C15.04,14.81 13.86,15.98 12.42,15.98 C11.72,15.98 11.09,15.7 10.63,15.22 L13.37,12.48 C13.97,12.95 14.71,13.23 15.5,13.23 C17.43,13.23 19,11.66 19,9.73 C19,8.94 18.73,8.2 18.26,7.6 L20.38,5.48 L20.4,5.5 L20,6 M11.5,4.88 C12.4,4.88 13.12,5.6 13.12,6.5 C13.12,7.4 12.4,8.12 11.5,8.12 C10.6,8.12 9.88,7.4 9.88,6.5 C9.88,5.6 10.6,4.88 11.5,4.88 M15.5,11.35 C14.6,11.35 13.88,10.63 13.88,9.73 C13.88,8.83 14.6,8.11 15.5,8.11 C16.4,8.11 17.12,8.83 17.12,9.73 C17.12,10.63 16.4,11.35 15.5,11.35" 
-                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
-                        <RadioButton.Template>
-                            <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" 
-                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}"
-                                        Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" 
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </RadioButton.Template>
-                         <RadioButton.Styles>
-                            <Style Selector="RadioButton">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="RadioButton:checked">
-                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                             <Style Selector="RadioButton:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="0.9"/>
-                            </Style>
-                             <Style Selector="RadioButton:checked:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                        </RadioButton.Styles>
-                    </RadioButton>
-
-                    <!-- Placeholder 2 (Right) -->
-                                         <!-- GDrive Tab (5th) -->
-                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
-                                 Padding="0" 
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold"
-                                 Opacity="0.6"
-                                 Cursor="Hand"
+                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                        <!-- Cloud Icon -->
-                        <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"
-                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
+                        <PathIcon Data="M20,6 L18.59,4.59 L14.73,8.45 L13.32,7.04 L17.18,3.18 L15.76,1.76 L13.64,3.88 C13.06,3.33 12.29,3 11.5,3 C9.57,3 8,4.57 8,6.5 C8,7.29 8.27,8.03 8.74,8.63 L6,11.37 C5.53,10.9 5.25,10.27 5.25,9.58 C5.25,8.13 6.42,6.96 7.88,6.96 C8.4,6.96 8.82,6.54 8.82,6.02 C8.82,5.5 8.4,5.08 7.88,5.08 C5.39,5.08 3.37,7.1 3.37,9.58 C3.37,10.79 3.86,11.9 4.66,12.71 L2.25,15.12 L3.66,16.54 L7.52,12.68 L8.93,14.09 L5.07,17.95 L6.49,19.36 L9.29,16.56 C10.1,17.37 11.21,17.86 12.42,17.86 C14.91,17.86 16.92,15.84 16.92,13.36 C16.92,12.83 16.5,12.41 15.98,12.41 C15.46,12.41 15.04,12.83 15.04,13.36 C15.04,14.81 13.86,15.98 12.42,15.98 C11.72,15.98 11.09,15.7 10.63,15.22 L13.37,12.48 C13.97,12.95 14.71,13.23 15.5,13.23 C17.43,13.23 19,11.66 19,9.73 C19,8.94 18.73,8.2 18.26,7.6 L20.38,5.48 L20.4,5.5 L20,6 M11.5,4.88 C12.4,4.88 13.12,5.6 13.12,6.5 C13.12,7.4 12.4,8.12 11.5,8.12 C10.6,8.12 9.88,7.4 9.88,6.5 C9.88,5.6 10.6,4.88 11.5,4.88 M15.5,11.35 C14.6,11.35 13.88,10.63 13.88,9.73 C13.88,8.83 14.6,8.11 15.5,8.11 C16.4,8.11 17.12,8.83 17.12,9.73 C17.12,10.63 16.4,11.35 15.5,11.35" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
                             <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" 
-                                        CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}"
-                                        Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" 
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                             </ControlTemplate>
                         </RadioButton.Template>
@@ -400,20 +235,42 @@
                             </Style>
                             <Style Selector="RadioButton:checked">
                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                             <Style Selector="RadioButton:pointerover">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Opacity" Value="0.9"/>
-                            </Style>
-                             <Style Selector="RadioButton:checked:pointerover">
                                 <Setter Property="Foreground" Value="White"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
                         </RadioButton.Styles>
                     </RadioButton>
                     
+                    <!-- GDrive Tab -->
+                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
+                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
+                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                        <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
+                        <RadioButton.Template>
+                            <ControlTemplate>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </RadioButton.Template>
+                        <RadioButton.Styles>
+                            <Style Selector="RadioButton">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Transitions">
+                                    <Transitions>
+                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                    </Transitions>
+                                </Setter>
+                            </Style>
+                            <Style Selector="RadioButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Opacity" Value="1.0"/>
+                            </Style>
+                        </RadioButton.Styles>
+                    </RadioButton>
                 </StackPanel>
             </Border>
             
@@ -422,420 +279,230 @@
                 
                 <!-- DASHBOARD TAB CONTENT -->
                 <Grid IsVisible="{Binding IsDashboardTabSelected}" Margin="20,0,20,0">
-                    <!-- StatsPanel - Full Height like Batch -->
+                    <!-- StatsPanel -->
                     <Border x:Name="Part_Stats" Classes="Card" Background="{DynamicResource CardBackgroundBrush}" 
                             CornerRadius="20" Padding="20"
                             VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                             BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                        <!-- Viewbox ensures the single-row grid shrinks to fit instead of clipping or wrapping -->
                         <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Center">
                             <Grid ColumnDefinitions="*,*,*,*" VerticalAlignment="Center">
                                 <controls:StatWidget Grid.Column="0" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
-                                                     Color="{Binding StatEditingColor}" ShowIcon="False"
-                                                     AnimationDuration="{Binding StatAnimationDuration}"
-                                                     Command="{Binding OpenEditingListCommand}"/>
-                                                     
+                                                     Color="{Binding StatEditingColor}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" Command="{Binding OpenEditingListCommand}"/>
                                 <controls:StatWidget Grid.Column="1" Label="{Binding Language[Stats.Revision]}" Value="{Binding StatRevision}" Percentage="{Binding StatRevisionPercentage}" 
-                                                     Color="{Binding StatRevisionColor}" ShowIcon="False"
-                                                     AnimationDuration="{Binding StatAnimationDuration}"
-                                                     Command="{Binding OpenRevisionListCommand}"/>
-                                                     
+                                                     Color="{Binding StatRevisionColor}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" Command="{Binding OpenRevisionListCommand}"/>
                                 <controls:StatWidget Grid.Column="2" Label="{Binding Language[Stats.Late]}" Value="{Binding StatLate}" Percentage="{Binding StatLatePercentage}" 
-                                                     Color="{Binding StatLateColor}" ShowIcon="False"
-                                                     AnimationDuration="{Binding StatAnimationDuration}"
-                                                     Command="{Binding OpenLateListCommand}"/>
-                                                     
+                                                     Color="{Binding StatLateColor}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" Command="{Binding OpenLateListCommand}"/>
                                 <controls:StatWidget Grid.Column="3" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
-                                                     Color="{Binding StatPointsColor}" ShowIcon="False"
-                                                     AnimationDuration="{Binding StatAnimationDuration}"/>
+                                                     Color="{Binding StatPointsColor}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}"/>
                             </Grid>
                         </Viewbox>
                     </Border>
                 </Grid>
                     
-                    <!-- BATCH TAB CONTENT -->
-                    <Grid IsVisible="{Binding IsBatchTabSelected}" RowDefinitions="*, Auto" Margin="20,0,20,0">
-                        
-                        <!-- DROP ZONE (Visible when no folders) -->
-                        <Border Grid.Row="0" x:Name="BatchDropZone"
-                                IsVisible="{Binding BatchVM.ShowDropZone}"
-                                Background="{DynamicResource CardBackgroundBrush}" 
-                                CornerRadius="20" Padding="40"
-                                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="2"
-                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                MinHeight="200"
-                                DragDrop.AllowDrop="True">
-                            <StackPanel Spacing="15" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <shapes:Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2Z" 
-                                             Width="64" Height="64" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" HorizontalAlignment="Center" Opacity="0.5"/>
-                                <TextBlock Text="DRAG FOLDERS HERE" FontSize="16" FontWeight="Bold" 
-                                           Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Drop source folders to begin batch processing" FontSize="12" 
-                                           Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.7"/>
-                            </StackPanel>
-                        </Border>
-                        
-                        <!-- EXPLORER VIEW (Visible when folders exist) -->
-                        <Grid Grid.Row="0" ColumnDefinitions="*,*" 
-                              IsVisible="{Binding BatchVM.HasFolders}">
-                            
-                            <!-- SOURCE PANEL (Fieldset Style) -->
-                            <Grid Grid.Column="0" Margin="0,0,5,0">
-                                <Border Background="{DynamicResource CardBackgroundBrush}" 
-                                        CornerRadius="20" Padding="15,10,15,15" Margin="0,8,0,0"
-                                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                        <ItemsControl ItemsSource="{Binding BatchVM.SourceFolders}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <StackPanel Margin="0,0,0,8">
-                                                        <Grid ColumnDefinitions="*">
-                                                            <!-- Folder Path (Clickable to Toggle) -->
-                                                            <Button Grid.Column="0" Command="{Binding ToggleExpandedCommand, FallbackValue={x:Null}}" 
-                                                                    Background="Transparent" BorderThickness="0" Padding="0"
-                                                                    HorizontalAlignment="Left" Cursor="Hand"
-                                                                    MinHeight="0" VerticalAlignment="Top">
-                                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                    <!-- Folder Icon/Name Only (No Checkbox) -->
-                                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" 
-                                                                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center"/>
-                                                                </StackPanel>
-                                                            </Button>
-                                                        </Grid>
-                                                        
-                                                        <!-- Files List with Tree Line -->
-                                                        <Border Margin="2,2,0,0" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="4,0,0,0"
-                                                                IsVisible="{Binding IsExpanded}">
-                                                            <ItemsControl ItemsSource="{Binding SourceFiles}">
-                                                                <ItemsControl.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <Button Command="{Binding CopyPathCommand}" 
-                                                                                Background="Transparent" BorderThickness="0" Padding="0,2" MinHeight="0"
-                                                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                                                Cursor="Hand" ToolTip.Tip="{Binding FullPath}">
-                                                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                                <CheckBox IsChecked="{Binding IsSelected}" MinHeight="0" Padding="0"/>
-                                                                                <TextBlock Text="{Binding FileName}" FontSize="11" 
-                                                                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                                                            </StackPanel>
-                                                                        </Button>
-                                                                    </DataTemplate>
-                                                                </ItemsControl.ItemTemplate>
-                                                            </ItemsControl>
-                                                        </Border>
-                                                    </StackPanel>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-                                </Border>
-                                <!-- Fieldset Label Overlap -->
-                                <Border VerticalAlignment="Top" HorizontalAlignment="Left" Margin="20,0,0,0" 
-                                        Background="{DynamicResource CardBackgroundBrush}" Padding="6,0" CornerRadius="4">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <!-- Checkbox removed by user request -->
-                                        <TextBlock Text="PILIHAN" FontWeight="Bold" FontSize="10" 
-                                                   Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                            
-                            <!-- OUTPUT PANEL (Fieldset Style) -->
-                            <Grid Grid.Column="1" Margin="5,0,0,0">
-                                <Border Background="{DynamicResource CardBackgroundBrush}" 
-                                        CornerRadius="20" Padding="15,10,15,15" Margin="0,8,0,0"
-                                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                        <ItemsControl ItemsSource="{Binding BatchVM.SourceFolders}"> <!-- Note: Using SourceFolders for layout demo, should bind correctly -->
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <StackPanel Margin="0,0,0,15">
-                                                        <!-- Output Path -->
-                                                        <StackPanel Orientation="Horizontal" Spacing="8" ToolTip.Tip="{Binding OutputPath}">
-                                                            <TextBlock Text="{Binding OutputHeader}" FontWeight="SemiBold" 
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11"/>
-                                                            <TextBlock Text="(pending)" FontSize="11" 
-                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                       IsVisible="{Binding !OutputExists}"/>
-                                                        </StackPanel>
-                                                        <!-- Output Files List -->
-                                                        <ItemsControl ItemsSource="{Binding OutputFiles}" Margin="6,5,0,0"
-                                                                      IsVisible="{Binding OutputExists}">
+                <!-- BATCH TAB CONTENT (REDESIGNED) -->
+                <Grid IsVisible="{Binding IsBatchTabSelected}" RowDefinitions="*, Auto" Margin="20,0,20,0">
+                    
+                    <!-- DROP ZONE (Visible when no folders) -->
+                    <Border Grid.Row="0" x:Name="BatchDropZone"
+                            IsVisible="{Binding BatchVM.ShowDropZone}"
+                            Background="{DynamicResource CardBackgroundBrush}" 
+                            CornerRadius="20" Padding="40"
+                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="2"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            MinHeight="200"
+                            DragDrop.AllowDrop="True">
+                        <StackPanel Spacing="15" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <shapes:Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2Z" 
+                                         Width="64" Height="64" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" HorizontalAlignment="Center" Opacity="0.5"/>
+                            <TextBlock Text="DRAG FOLDERS HERE" FontSize="16" FontWeight="Bold" 
+                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Drop source folders to begin batch processing" FontSize="12" 
+                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.7"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- EXPLORER VIEW (Visible when folders exist) -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,*" IsVisible="{Binding BatchVM.HasFolders}">
+                        <!-- SOURCE PANEL -->
+                        <Grid Grid.Column="0" Margin="0,0,5,0">
+                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="15,10,15,15" Margin="0,8,0,0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding BatchVM.SourceFolders}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,0,0,8">
+                                                    <Grid ColumnDefinitions="*">
+                                                        <Button Grid.Column="0" Command="{Binding ToggleExpandedCommand, FallbackValue={x:Null}}" 
+                                                                Background="Transparent" BorderThickness="0" Padding="0" HorizontalAlignment="Left" Cursor="Hand" MinHeight="0" VerticalAlignment="Top">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </Grid>
+                                                    <Border Margin="2,2,0,0" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="4,0,0,0" IsVisible="{Binding IsExpanded}">
+                                                        <ItemsControl ItemsSource="{Binding SourceFiles}">
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate>
-                                                                        <Button Command="{Binding CopyPathCommand}" 
-                                                                                Background="Transparent" BorderThickness="0" Padding="0,2" MinHeight="0"
-                                                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                                                Cursor="Hand" ToolTip.Tip="{Binding FullPath}">
-                                                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                                <CheckBox IsChecked="{Binding IsSelected}" MinHeight="0" Padding="0"/>
-                                                                                <TextBlock Text="{Binding FileName}" FontSize="11" 
-                                                                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                                                            </StackPanel>
-                                                                        </Button>
+                                                                    <Button Command="{Binding CopyPathCommand}" Background="Transparent" BorderThickness="0" Padding="0,2" MinHeight="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" ToolTip.Tip="{Binding FullPath}">
+                                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                            <CheckBox IsChecked="{Binding IsSelected}" MinHeight="0" Padding="0"/>
+                                                                            <TextBlock Text="{Binding FileName}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                                                        </StackPanel>
+                                                                    </Button>
                                                                 </DataTemplate>
                                                             </ItemsControl.ItemTemplate>
                                                         </ItemsControl>
+                                                    </Border>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                            <Border VerticalAlignment="Top" HorizontalAlignment="Left" Margin="20,0,0,0" Background="{DynamicResource CardBackgroundBrush}" Padding="6,0" CornerRadius="4">
+                                <TextBlock Text="PILIHAN" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                        
+                        <!-- OUTPUT PANEL -->
+                        <Grid Grid.Column="1" Margin="5,0,0,0">
+                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="15,10,15,15" Margin="0,8,0,0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding BatchVM.SourceFolders}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,0,0,15">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" ToolTip.Tip="{Binding OutputPath}">
+                                                        <TextBlock Text="{Binding OutputHeader}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11"/>
+                                                        <TextBlock Text="(pending)" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !OutputExists}"/>
                                                     </StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding OutputFiles}" Margin="6,5,0,0" IsVisible="{Binding OutputExists}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                    <Button Command="{Binding CopyPathCommand}" Background="Transparent" BorderThickness="0" Padding="0,2" MinHeight="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" ToolTip.Tip="{Binding FullPath}">
+                                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                            <CheckBox IsChecked="{Binding IsSelected}" MinHeight="0" Padding="0"/>
+                                                                            <TextBlock Text="{Binding FileName}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                                                        </StackPanel>
+                                                                    </Button>
+                                                                </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                            <Border VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,20,0" Background="{DynamicResource CardBackgroundBrush}" Padding="6,0" CornerRadius="4">
+                                <TextBlock Text="OUTPUT LOKAL" FontWeight="Bold" FontSize="10" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                    
+                    <!-- NEW FOOTER LAYOUT (REDESIGNED) -->
+                    <Border Grid.Row="1" Margin="0,10,0,0" 
+                            Background="{DynamicResource CardBackgroundBrush}" 
+                            CornerRadius="12,12,0,0" Padding="15,10"
+                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0"
+                            IsVisible="{Binding BatchVM.HasFolders}">
+                            <Grid ColumnDefinitions="*, Auto">
+                                <!-- Horizontal Scrollable Master Buttons -->
+                                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,10,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        
+                                        <!-- Master ItemsControl -->
+                                        <ItemsControl ItemsSource="{Binding BatchVM.MasterScriptOrderList}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="8"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
+                                                            CommandParameter="{Binding}"
+                                                            Width="32" Height="32" Padding="0" CornerRadius="8" Cursor="Hand"
+                                                            Background="#2A2A2A" BorderThickness="0"
+                                                            ToolTip.Tip="{Binding Name}"
+                                                            ToolTip.Placement="Top">
+                                                        <Button.Styles>
+                                                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                                            </Style>
+                                                            <!-- Compact ToolTip Style -->
+                                                            <Style Selector="ToolTip">
+                                                                <Setter Property="Background" Value="#1A1A1A"/>
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                                <Setter Property="Padding" Value="8,4"/>
+                                                                <Setter Property="CornerRadius" Value="6"/>
+                                                                <Setter Property="FontSize" Value="10"/>
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+                                                                <Setter Property="BorderThickness" Value="1"/>
+                                                            </Style>
+                                                        </Button.Styles>
+                                                        <Panel>
+                                                            <!-- Icon -->
+                                                            <PathIcon Data="{Binding IconGeometry}" Width="16" Height="16" Foreground="White"
+                                                                      HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                            <!-- Failover Generic Icon if null -->
+                                                            <PathIcon Data="{StaticResource IconScript}" Width="16" Height="16" Foreground="White"
+                                                                      HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                        </Panel>
+                                                    </Button>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                    </ScrollViewer>
-                                </Border>
-                                <!-- Fieldset Label Overlap -->
-                                <Border VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,20,0" 
-                                        Background="{DynamicResource CardBackgroundBrush}" Padding="6,0" CornerRadius="4">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <!-- Checkbox removed by user request -->
-                                        <TextBlock Text="OUTPUT LOKAL" FontWeight="Bold" FontSize="10" 
-                                                   Foreground="#FFFFFF" VerticalAlignment="Center"/>
                                     </StackPanel>
-                                </Border>
+                                </ScrollViewer>
+                                
+                                <!-- Utility Buttons (Right) -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                    <!-- Scripts Path Button -->
+                                    <Button Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
+                                            Width="32" Height="32" Padding="0"
+                                            Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                            CornerRadius="4" ToolTip.Tip="Set Scripts Folder">
+                                        <shapes:Path Data="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" 
+                                                     Width="14" Height="14" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
+                                    </Button>
+                                    
+                                    <!-- Clear Button -->
+                                    <Button Command="{Binding BatchVM.ClearCommand}" 
+                                            Width="32" Height="32" Padding="0"
+                                            Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                            CornerRadius="4" ToolTip.Tip="Clear All">
+                                        <PathIcon Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="{DynamicResource AccentRedBrush}"/>
+                                    </Button>
+                                </StackPanel>
                             </Grid>
-                        </Grid>
-                        
-                        <!-- FOOTER -->
-                        <Border Grid.Row="1" Margin="0,10,0,0" 
-                                Background="{DynamicResource CardBackgroundBrush}" 
-                                CornerRadius="12,12,0,0" Padding="15,10"
-                                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0"
-                                IsVisible="{Binding BatchVM.HasFolders}">
-                                <!-- RESPONSIVE FOOTER PANEL -->
-                                <Panel>
-                                    <!-- Narrow Layout (Log Panel Open) -->
-                                    <Grid x:Name="NarrowFooter" ColumnDefinitions="*, Auto" Margin="0"
-                                          IsVisible="{Binding DataContext.IsLogPanelOpen, ElementName=Root}">
-                                        
-                                        <!-- Master Group -->
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" Margin="0,0,10,0" VerticalAlignment="Center">
-                                            <StackPanel Spacing="2">
-                                                <TextBlock Text="MASTER" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <ComboBox ItemsSource="{Binding BatchVM.MasterScriptOptions}"
-                                                          SelectedValue="{Binding BatchVM.SelectedMasterScript}"
-                                                          DisplayMemberBinding="{Binding Name}"
-                                                          SelectedValueBinding="{Binding Path}"
-                                                          Width="150" Height="32"
-                                                          PlaceholderText="Select Script..."
-                                                          ToolTip.Tip="Select Python Script"/>
-                                            </StackPanel>
-                                            <Button Command="{Binding BatchVM.ExecuteMasterCommand}"
-                                                    Background="{DynamicResource AccentGreenBrush}" Foreground="White"
-                                                    CornerRadius="4" Width="40" Height="32" VerticalAlignment="Bottom"
-                                                    ToolTip.Tip="Run Master">
-                                                <shapes:Path Data="M8,5.14V19.14L19,12.14L8,5.14Z" 
-                                                             Fill="White" Stretch="Uniform" Width="14" Height="14" Margin="2,0,0,0"/>
-                                            </Button>
-
-                                            <!-- Browse Template Button (Hidden as Auto-Path is implemented) -->
-                                            <Button Command="{Binding BatchVM.BrowseMasterTemplateCommand}" 
-                                                    IsVisible="False"
-                                                    Width="32" Height="32" Padding="0" VerticalAlignment="Bottom"
-                                                    Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                                    CornerRadius="4" ToolTip.Tip="{Binding BatchVM.MasterTemplatePath, StringFormat='Template: {0}'}">
-                                                <shapes:Path Data="M19,20H5C3.89,20 3,19.1 3,18V6C3,4.89 3.89,4 5,4H9L11,6H19C20.1,6 21,6.89 21,8V18C21,19.1 20.1,20 19,20Z" 
-                                                             Fill="{DynamicResource TextSecondaryBrush}" Width="16" Height="16" Stretch="Uniform"/>
-                                            </Button>
-                                            
-                                            <!-- Action Group -->
-                                            <StackPanel Orientation="Horizontal" Spacing="5" Margin="20,0,0,0" VerticalAlignment="Center">
-                                                <StackPanel Spacing="2">
-                                                    <TextBlock Text="ACTION" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <ComboBox ItemsSource="{Binding BatchVM.ActionScriptOptions}"
-                                                              SelectedValue="{Binding BatchVM.SelectedActionScript}"
-                                                              DisplayMemberBinding="{Binding Name}"
-                                                              SelectedValueBinding="{Binding Path}"
-                                                              Width="150" Height="32"
-                                                              PlaceholderText="Select Action..."
-                                                              ToolTip.Tip="Select JSX Action"/>
-                                                </StackPanel>
-                                                <Button Command="{Binding BatchVM.ExecuteActionCommand}"
-                                                        Background="{DynamicResource AccentGreenBrush}" Foreground="White"
-                                                        CornerRadius="4" Width="40" Height="32" VerticalAlignment="Bottom"
-                                                        ToolTip.Tip="Run Action">
-                                                    <PathIcon Data="{StaticResource IconPlay}" Width="14" Height="14" Foreground="White" Margin="2,0,0,0"/>
-                                                </Button>
-                                            </StackPanel>
-                                        </StackPanel>
-                                        
-                                        <!-- Refresh and Clear Buttons (Icons Only) -->
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Bottom" Margin="10,0,0,0">
-                                            <!-- Scripts Path Button -->
-                                            <Button Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
-                                                    Width="32" Height="32" Padding="0"
-                                                    Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                                    CornerRadius="4" ToolTip.Tip="Set Scripts Folder">
-                                                <shapes:Path Data="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" 
-                                                             Width="14" Height="14" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
-                                            </Button>
-                                            
-                                            <!-- Clear Button -->
-                                            <Button Command="{Binding BatchVM.ClearCommand}" 
-                                                    Width="32" Height="32" Padding="0"
-                                                    Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                                    CornerRadius="4" ToolTip.Tip="Clear All">
-                                                <PathIcon Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="{DynamicResource AccentRedBrush}"/>
-                                            </Button>
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- Wide Layout (Log Panel Closed) -->
-                                    <Grid x:Name="WideFooter" ColumnDefinitions="Auto, Auto, *, Auto, Auto" RowDefinitions="Auto" Margin="0"
-                                          IsVisible="{Binding DataContext.IsLogPanelOpen, ElementName=Root, Converter={x:Static BoolConverters.Not}}">
-                                        
-                                        <!-- Master Group -->
-                                        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="5" Margin="0,0,20,0" VerticalAlignment="Center">
-                                            <StackPanel Spacing="2">
-                                                <TextBlock Text="MASTER" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <ComboBox ItemsSource="{Binding BatchVM.MasterScriptOptions}"
-                                                          SelectedValue="{Binding BatchVM.SelectedMasterScript}"
-                                                          DisplayMemberBinding="{Binding Name}"
-                                                          SelectedValueBinding="{Binding Path}"
-                                                          Width="150" Height="32" VerticalContentAlignment="Center"
-                                                          MaxDropDownHeight="300"
-                                                          PlaceholderText="Select Script..."
-                                                          ToolTip.Tip="Select Python Script"/>
-                                            </StackPanel>
-                                            <Button Command="{Binding BatchVM.ExecuteMasterCommand}"
-                                                    Background="{DynamicResource AccentGreenBrush}" Foreground="White"
-                                                    CornerRadius="4" Width="40" Height="32" VerticalAlignment="Bottom"
-                                                    ToolTip.Tip="Run Master">
-                                                <shapes:Path Data="M8,5.14V19.14L19,12.14L8,5.14Z" 
-                                                             Fill="White" Stretch="Uniform" Width="14" Height="14" Margin="2,0,0,0"/>
-                                            </Button>
-                                        </StackPanel>
-
-                                        <!-- Action Group -->
-                                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0" VerticalAlignment="Center">
-                                            <StackPanel Spacing="2">
-                                                <TextBlock Text="ACTION" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <ComboBox ItemsSource="{Binding BatchVM.ActionScriptOptions}"
-                                                          SelectedValue="{Binding BatchVM.SelectedActionScript}"
-                                                          DisplayMemberBinding="{Binding Name}"
-                                                          SelectedValueBinding="{Binding Path}"
-                                                          Width="150" Height="32" VerticalContentAlignment="Center"
-                                                          MaxDropDownHeight="300"
-                                                          PlaceholderText="Select Action..."
-                                                          ToolTip.Tip="Select JSX Action"/>
-                                            </StackPanel>
-                                            <Button Command="{Binding BatchVM.ExecuteActionCommand}"
-                                                    Background="{DynamicResource AccentGreenBrush}" Foreground="White"
-                                                    CornerRadius="4" Width="40" Height="32" VerticalAlignment="Bottom"
-                                                    ToolTip.Tip="Run Action">
-                                                <PathIcon Data="{StaticResource IconPlay}" Width="14" Height="14" Foreground="White" Margin="2,0,0,0"/>
-                                            </Button>
-                                        </StackPanel>
-
-                                        <!-- Scripts Path Button -->
-                                        <Button Grid.Row="0" Grid.Column="3" Command="{Binding BatchVM.BrowseScriptsFolderCommand}"
-                                                Padding="0" Width="32" Height="32" VerticalAlignment="Bottom" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                                Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                                CornerRadius="4" ToolTip.Tip="Set Scripts Folder"
-                                                Margin="0,0,5,0">
-                                             <shapes:Path Data="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" 
-                                                          Width="14" Height="14" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
-                                        </Button>
-
-                                        <!-- Clear Button -->
-                                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BatchVM.ClearCommand}"
-                                                Padding="0" Width="90" Height="32" VerticalAlignment="Bottom" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                                Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                                CornerRadius="4" ToolTip.Tip="Clear All" FontWeight="SemiBold" Foreground="{DynamicResource AccentRedBrush}">
-                                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
-                                                <TextBlock Text="Clear" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                        </Button>
-                                    </Grid>
-                                </Panel>
-                        </Border>
-                    </Grid>
-
-                    <!-- LOCKER TAB CONTENT -->
-                    <views:FolderLockerView DataContext="{Binding FolderLockerVM}" 
-                                            IsVisible="{Binding DataContext.IsLockerTabSelected, ElementName=Root}" 
-                                            Margin="20,0,20,0"/>
-                                            
-                    <!-- PIXELCUT TAB CONTENT -->
-                    <views:CompactPixelcutView DataContext="{Binding PixelcutVM}"
-                                               IsVisible="{Binding DataContext.IsPixelcutTabSelected, ElementName=Root}"
-                                               Margin="0,0,0,0"/>
-
-                    <!-- GDRIVE TAB CONTENT -->
-                    <views:CompactGdriveView DataContext="{Binding GdriveVM}"
-                                             IsVisible="{Binding DataContext.IsGdriveTabSelected, ElementName=Root}"
-                                             Margin="0,0,0,0"/>
-            </Grid>
-        </Grid>
-        
-
-
-        <!-- ACTIVITY PANEL (Overlay on right side of main content) -->
-        <Border Grid.Column="2" HorizontalAlignment="Right" Width="320"
-                Background="{DynamicResource CardBackgroundBrush}"
-                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,0,0,0"
-                IsVisible="{Binding IsActivityPanelOpen}"
-                BoxShadow="-4 0 20 0 #40000000">
-            <Grid RowDefinitions="Auto, *, Auto" Margin="0">
-                <!-- Header -->
-                <Grid ColumnDefinitions="*, Auto" Margin="20,20,20,15">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="ACTIVITY LOG" FontSize="14" FontWeight="Bold" 
-                                   Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="1"/>
-                        <TextBlock Text="Recent actions" FontSize="11" 
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding CloseActivityPanelCommand}" 
-                            Content="✕" Background="Transparent" BorderThickness="0" 
-                            FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"
-                            VerticalAlignment="Top"/>
+                    </Border>
                 </Grid>
 
-                <!-- Activity List -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Activities}" Margin="20,0,20,20">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid ColumnDefinitions="Auto, *" Margin="0,0,0,15">
-                                    <!-- Timeline Line -->
-                                    <Border Grid.Column="0" Width="1" Background="{DynamicResource TextSecondaryBrush}" 
-                                            HorizontalAlignment="Center" Margin="0,10,0,-15"
-                                            IsVisible="{Binding !IsLast}" Opacity="0.3"/>
-                                            
-                                    <!-- Dot -->
-                                    <Border Grid.Column="0" Width="8" Height="8" CornerRadius="4" 
-                                            Background="{DynamicResource AccentBlueBrush}" Margin="0,6,12,0"
-                                            VerticalAlignment="Top"/>
-                                            
-                                    <!-- Content -->
-                                    <StackPanel Grid.Column="1" Spacing="2">
-                                        <TextBlock Text="{Binding Title}" 
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" 
-                                                   FontSize="13" FontWeight="SemiBold"
-                                                   TextWrapping="Wrap"/>
-                                                   
-                                        <TextBlock Text="{Binding TimeDisplay}" 
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" 
-                                                   FontSize="11"/>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                <!-- LOCKER TAB CONTENT -->
+                <views:FolderLockerView DataContext="{Binding FolderLockerVM}" 
+                                        IsVisible="{Binding DataContext.IsLockerTabSelected, ElementName=Root}" 
+                                        Margin="20,0,20,0"/>
+                                        
+                <!-- PIXELCUT TAB CONTENT -->
+                <views:CompactPixelcutView DataContext="{Binding PixelcutVM}"
+                                           IsVisible="{Binding DataContext.IsPixelcutTabSelected, ElementName=Root}"
+                                           Margin="0,0,0,0"/>
 
-                <!-- Footer: Clear All Button -->
-                <Border Grid.Row="2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Padding="20,15">
-                    <Button Command="{Binding ClearActivitiesCommand}" 
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Background="Transparent" BorderBrush="{DynamicResource AccentRedBrush}" BorderThickness="1"
-                            Foreground="{DynamicResource AccentRedBrush}" CornerRadius="8" Padding="12,8" Cursor="Hand">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
-                            <TextBlock Text="Clear All Activity" FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </Button>
-                </Border>
-            </Grid>
-        </Border>
+                <!-- GDRIVE TAB CONTENT -->
+                <views:CompactGdriveView DataContext="{Binding GdriveVM}"
+                                         IsVisible="{Binding DataContext.IsGdriveTabSelected, ElementName=Root}"
+                                         Margin="0,0,0,0"/>
+        </Grid>
     </Grid>
+
+    <!-- GRID SPLITTER (NOW RIGHT) -->
+    <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="Transparent" 
+                  ResizeDirection="Columns" IsVisible="{Binding IsLogPanelOpen}"/>
+
+    <!-- LOG PANEL (NOW RIGHT) -->
+    <views:LogPanelSidebar Grid.Column="2" MinWidth="275"
+                           IsVisible="{Binding IsLogPanelOpen}" 
+                           VerticalAlignment="Stretch"/>
+</Grid>
 </UserControl>

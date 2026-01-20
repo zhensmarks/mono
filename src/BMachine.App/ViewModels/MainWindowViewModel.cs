@@ -59,6 +59,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         // Load Configs
         LoadAnimationConfig();
         _ = LoadBackgroundConfig();
+        _ = LoadShortcutConfig();
 
         // Start with Dashboard
         NavigateToDashboard();
@@ -193,5 +194,22 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             return (w, h, state, x, y);
         }
         return null; // No Saved Config
+    }
+
+    private async System.Threading.Tasks.Task LoadShortcutConfig()
+    {
+        try
+        {
+            var json = await _database.GetAsync<string>("ShortcutConfig");
+            if (!string.IsNullOrEmpty(json))
+            {
+                var config = System.Text.Json.JsonSerializer.Deserialize<BMachine.UI.Models.TriggerConfig>(json);
+                if (config != null)
+                {
+                    WeakReferenceMessenger.Default.Send(new UpdateTriggerConfigMessage(config));
+                }
+            }
+        }
+        catch {}
     }
 }

@@ -279,113 +279,92 @@ public partial class SettingsView : UserControl
 
     // --- Drag-and-Drop for Script Reordering ---
 
-    // --- Drag-and-Drop for Script Reordering ---
-
-    private bool _isDown = false;
-    private Point _dragStartPoint;
-
-    private void OnListPointerPressed(object? sender, PointerPressedEventArgs e)
+    public async void OnHamburgerPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not ListBox listBox) return;
+        if (sender is not Control control || control.DataContext is not ScriptItem item) return;
 
-        var point = e.GetCurrentPoint(listBox);
-        if (point.Properties.IsLeftButtonPressed)
-        {
-            _isDown = true;
-            _dragStartPoint = point.Position;
-            // Do NOT Handle here, let it tunnel/bubble so selection works
-        }
+        // Prevent click from bubbling if we want to consume it, but for DnD we usually don't need to consume until drag starts.
+        // However, since this is a drag handle, we can start drag immediately.
+        
+        var dragData = new DataObject();
+        dragData.Set("ScriptItem", item);
+        dragData.Set("OriginType", "Script"); // Origin check is handled by Drop handler via Contains 
+        // We can infer IsMaster from the collection it belongs to, but ScriptItem doesn't know. 
+        // Actually, we can check the parent ItemsControl? Harder.
+        // Easier: The Drop handler checks if Source Item matches Target Collection type.
+        // Let's just pass the item.
+        
+        // Visual trick: To prevent the pointer press from being "click", we might invalid command execution.
+        // But the hamburger has no command.
+        
+        // Start Drag
+        // Use "Move" effect
+        var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
     }
 
-    private async void OnListPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (!_isDown) return;
-        if (sender is not ListBox listBox) return;
-
-        var point = e.GetCurrentPoint(listBox);
-        if (!point.Properties.IsLeftButtonPressed) 
-        {
-            _isDown = false;
-            return;
-        }
-
-        // Check drag threshold (e.g. 10 pixels)
-        var diff = _dragStartPoint - point.Position;
-        if (Math.Abs(diff.X) > 10 || Math.Abs(diff.Y) > 10)
-        {
-            _isDown = false; // Stop tracking, start drag
-
-            var visual = listBox.InputHitTest(_dragStartPoint) as Visual;
-            var itemContainer = visual?.FindAncestorOfType<ListBoxItem>();
-            
-            if (itemContainer?.DataContext is ScriptOrderItem scriptItem)
-            {
-                 var data = new DataObject();
-                 data.Set("ScriptItem", scriptItem);
-                 data.Set("SourceList", listBox.Name);
-
-                 // Use DragDropEffects.Move
-                 await DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
-            }
-        }
-    }
-
-    private void OnListPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        _isDown = false;
-    }
-
-    private void OnListDragOver(object? sender, DragEventArgs e)
+    public void OnItemDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = DragDropEffects.None;
         
-        if (e.Data.Contains("ScriptItem") && sender is ListBox targetList)
+        if (e.Data.Contains("ScriptItem") && sender is Control targetControl && targetControl.DataContext is ScriptItem targetItem)
         {
-            // Verify Source matches Target to prevent moving across lists
-            var sourceListName = e.Data.Get("SourceList") as string;
-            if (sourceListName == targetList.Name)
-            {
-                e.DragEffects = DragDropEffects.Move;
-            }
+             // Check if source and target are compatible
+             // We can check if the Target Control Tag matches the Source Item's inferred type?
+             // Since we don't know Source Item's type easily without reference, let's assume if they are in the same list they are compatible.
+             // But we need to prevent dragging Master to Action.
+             
+             // Simplest: Check if the dragged item exists in the collection associated with the target list?
+             // Access ViewModel
+             if (DataContext is SettingsViewModel vm)
+             {
+                 var draggedItem = e.Data.Get("ScriptItem") as ScriptItem;
+                 if (draggedItem == null) return;
+                 
+                 // Check Tag of target control to know which list we are hovering
+                 string targetType = targetControl.Tag?.ToString() ?? "";
+                 bool isTargetMaster = targetType == "Master";
+                 
+                 // Verify Dragged Item belongs to the Target Collection
+                 bool belongs = isTargetMaster 
+                     ? vm.MasterScripts.Contains(draggedItem) 
+                     : vm.ActionScripts.Contains(draggedItem);
+                     
+                 if (belongs && draggedItem != targetItem)
+                 {
+                     e.DragEffects = DragDropEffects.Move;
+                 }
+             }
         }
     }
 
-    private void OnListDrop(object? sender, DragEventArgs e)
+    public void OnItemDrop(object? sender, DragEventArgs e)
     {
-        if (sender is not ListBox targetList) return;
-        if (DataContext is not SettingsViewModel vm) return;
-        
-        if (e.Data.Contains("ScriptItem") && e.Data.Get("ScriptItem") is ScriptOrderItem scriptItem)
-        {
-            var point = e.GetPosition(targetList);
-            int newIndex = GetDropIndex(targetList, point);
-            
-            if (newIndex >= 0)
-            {
-                if (targetList.Name == "MasterListBox")
-                {
-                    vm.MoveMasterScript(scriptItem, newIndex);
-                }
-                else if (targetList.Name == "ActionListBox")
-                {
-                    vm.MoveActionScript(scriptItem, newIndex);
-                }
-            }
-        }
-    }
+        if (sender is not Control targetControl || 
+            targetControl.DataContext is not ScriptItem targetItem ||
+            DataContext is not SettingsViewModel vm) return;
 
-    private int GetDropIndex(ListBox list, Point point)
-    {
-        // Simple hit testing to find which item we are over
-        var visual = list.InputHitTest(point) as Visual;
-        var itemContainer = visual?.FindAncestorOfType<ListBoxItem>();
-        
-        if (itemContainer != null)
+        if (e.Data.Contains("ScriptItem") && e.Data.Get("ScriptItem") is ScriptItem draggedItem)
         {
-            return list.IndexFromContainer(itemContainer);
+             string targetType = targetControl.Tag?.ToString() ?? "";
+             bool isTargetMaster = targetType == "Master";
+             
+             // Verify again
+             bool belongs = isTargetMaster 
+                 ? vm.MasterScripts.Contains(draggedItem) 
+                 : vm.ActionScripts.Contains(draggedItem);
+
+             if (belongs)
+             {
+                 var collection = isTargetMaster ? vm.MasterScripts : vm.ActionScripts;
+                 int newIndex = collection.IndexOf(targetItem);
+                 
+                 if (newIndex >= 0)
+                 {
+                     vm.MoveScript(draggedItem, newIndex, isTargetMaster);
+                 }
+             }
         }
-        
-        // If not over an item, check if at bottom
-        return list.ItemCount - 1; 
     }
 }
+
+// Extension helper logic not strictly needed if we do the Contains check.

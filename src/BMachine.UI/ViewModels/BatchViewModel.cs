@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using BMachine.SDK;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
+using BMachine.UI.Models;
 
 namespace BMachine.UI.ViewModels;
 
@@ -296,11 +297,16 @@ public partial class BatchViewModel : ObservableObject
     public class BatchScriptOption
     {
         public string Name { get; set; } = "";
+        public string OriginalName { get; set; } = ""; // Original Filename
         public string Path { get; set; } = "";
+        public Avalonia.Media.StreamGeometry? IconGeometry { get; set; }
     }
 
     [ObservableProperty]
     private ObservableCollection<BatchScriptOption> _masterScriptOptions = new();
+
+    // Redundant but useful for ItemsControl binding specifically (if separate sorting needed later)
+    public ObservableCollection<BatchScriptOption> MasterScriptOrderList => MasterScriptOptions;
 
     [ObservableProperty]
     private ObservableCollection<BatchScriptOption> _actionScriptOptions = new();
@@ -329,8 +335,7 @@ public partial class BatchViewModel : ObservableObject
         if (value != null) SelectedActionScript = value.Path;
     }
 
-    private Dictionary<string, string> _scriptAliases = new();
-    private List<string> _scriptPriorityList = new(); // Stores order of keys in JSON
+    private Dictionary<string, ScriptConfig> _scriptAliases = new();
     private string _metadataPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
 
     private void LoadMetadata()
@@ -341,20 +346,20 @@ public partial class BatchViewModel : ObservableObject
             {
                 var json = File.ReadAllText(_metadataPath);
                 
-                // 1. Load Dictionary for Display Names
-                _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
-                
-                // 2. Load Keys List for Order Priority
-                // We re-parse to get ordered keys because Dictionary might not guarantee order depending on version/impl, 
-                // though usually does in modern .NET. Ideally use JsonDocument for raw order.
-                using var doc = System.Text.Json.JsonDocument.Parse(json);
-                _scriptPriorityList = doc.RootElement.EnumerateObject().Select(p => p.Name).ToList();
+                // Load Dictionary
+                try 
+                {
+                    _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ScriptConfig>>(json) ?? new();
+                }
+                catch
+                {
+                    _scriptAliases = new(); 
+                }
             }
         }
         catch 
         { 
             _scriptAliases = new(); 
-            _scriptPriorityList = new();
         }
     }
 
@@ -378,23 +383,51 @@ public partial class BatchViewModel : ObservableObject
                 var pyFiles = Directory.GetFiles(masterDir, "*.*")
                     .Where(f => f.EndsWith(".py"));
                 
-                var list = new List<BatchScriptOption>();
+                var list = new List<(BatchScriptOption Option, int Order)>();
                 foreach(var f in pyFiles)
                 {
                     var fname = Path.GetFileName(f);
-                    var display = _scriptAliases.ContainsKey(fname) ? _scriptAliases[fname] : Path.GetFileNameWithoutExtension(fname);
-                    list.Add(new BatchScriptOption { Name = display, Path = f });
+                    string display = Path.GetFileNameWithoutExtension(fname);
+                    int order = 9999;
+                    Avalonia.Media.StreamGeometry? iconGeom = null;
+
+                    if (_scriptAliases.ContainsKey(fname))
+                    {
+                        var config = _scriptAliases[fname];
+                        display = config.Name;
+                        order = config.Order;
+                        
+                        // Resolve Icon
+                        if (!string.IsNullOrEmpty(config.IconKey))
+                        {
+                            if (Avalonia.Application.Current!.TryGetResource(config.IconKey, null, out var res) && res is Avalonia.Media.StreamGeometry g)
+                            {
+                                iconGeom = g;
+                            }
+                        }
+                    }
+
+                    // Fallback to generic icon if null
+                    if (iconGeom == null)
+                    {
+                         // Try generic fallback based on name? Or just leave null to let View handle it
+                         // View handles null with Failover generic icon
+                    }
+
+                    list.Add((new BatchScriptOption 
+                    { 
+                        Name = display, 
+                        OriginalName = fname,
+                        Path = f, 
+                        IconGeometry = iconGeom 
+                    }, order));
                 }
                 
-                // Sort: Priority List Index, then Alphabetical
-                var sortedList = list.OrderBy(x => 
-                {
-                     var key = Path.GetFileName(x.Path);
-                     var index = _scriptPriorityList.IndexOf(key);
-                     return index == -1 ? int.MaxValue : index;
-                }).ThenBy(x => x.Name).ToList();
+                // Sort: Order, then Alphabetical
+                var sortedList = list.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
 
                 MasterScriptOptions = new ObservableCollection<BatchScriptOption>(sortedList);
+                OnPropertyChanged(nameof(MasterScriptOrderList));
                 
                 // Set initial selection logic
                 if (MasterScriptOptions.Count > 0)
@@ -406,7 +439,8 @@ public partial class BatchViewModel : ObservableObject
             }
 
             // 2. Action Scripts (JSX + PYW)
-            var actionList = new List<BatchScriptOption>();
+            // (Similar logic if we were keeping Actions, but UI removed them. Keeping Logic won't hurt)
+             var actionList = new List<(BatchScriptOption Option, int Order)>();
             
             // A. Load JSX from Action folder
             var actionDir = Path.Combine(baseDir, "Action");
@@ -416,27 +450,38 @@ public partial class BatchViewModel : ObservableObject
                 foreach(var f in jsxFiles)
                 {
                     var fname = Path.GetFileName(f);
-                    var display = _scriptAliases.ContainsKey(fname) ? _scriptAliases[fname] : Path.GetFileNameWithoutExtension(fname);
-                    actionList.Add(new BatchScriptOption { Name = display, Path = f });
+                    string display = Path.GetFileNameWithoutExtension(fname);
+                    int order = 9999;
+
+                    if (_scriptAliases.ContainsKey(fname))
+                    {
+                        var config = _scriptAliases[fname];
+                        display = config.Name;
+                        order = config.Order;
+                    }
+                    
+                    actionList.Add((new BatchScriptOption { Name = display, Path = f }, order));
                 }
             }
-
-            // B. Load PYW from Root Scripts folder
+             // B. Load PYW from Root Scripts folder
             var pywFiles = Directory.GetFiles(baseDir, "*.pyw");
             foreach (var f in pywFiles)
             {
                 var fname = Path.GetFileName(f);
-                var display = _scriptAliases.ContainsKey(fname) ? _scriptAliases[fname] : Path.GetFileNameWithoutExtension(fname);
-                actionList.Add(new BatchScriptOption { Name = display, Path = f });
-            }
+                string display = Path.GetFileNameWithoutExtension(fname);
+                int order = 9999;
 
-            // Assign to Property
-            var sortedActionList = actionList.OrderBy(x => 
-            {
-                 var key = Path.GetFileName(x.Path);
-                 var index = _scriptPriorityList.IndexOf(key);
-                 return index == -1 ? int.MaxValue : index;
-            }).ThenBy(x => x.Name).ToList();
+                if (_scriptAliases.ContainsKey(fname))
+                {
+                    var config = _scriptAliases[fname];
+                    display = config.Name;
+                    order = config.Order;
+                }
+
+                actionList.Add((new BatchScriptOption { Name = display, Path = f }, order));
+            }
+            // Return sorted list
+            var sortedActionList = actionList.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
 
             ActionScriptOptions = new ObservableCollection<BatchScriptOption>(sortedActionList);
             
@@ -447,6 +492,17 @@ public partial class BatchViewModel : ObservableObject
             }
         }
         catch { }
+    }
+
+    /// <summary>
+    /// Execute a specific Master script directly from the UI button.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExecuteSpecificMaster(BatchScriptOption option)
+    {
+        if (option == null) return;
+        SelectedMasterScript = option.Path; // Set selection
+        await ExecuteMaster(); // Execute standard logic
     }
 
     [RelayCommand]

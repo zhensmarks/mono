@@ -1,0 +1,82 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+        x:Class="BMachine.UI.Views.IconPickerWindow"
+        Title="Select Icon"
+    Width="460" Height="400"
+    WindowStartupLocation="CenterOwner"
+    CanResize="False"
+    SystemDecorations="None"
+    TransparencyLevelHint="Mica"
+    Background="Transparent"
+    ExtendClientAreaToDecorationsHint="True">
+
+    <Window.Styles>
+        <Style Selector="Button.IconGridItem">
+            <Setter Property="Width" Value="50"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="Margin" Value="6"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="#252525"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#404040"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.IconGridItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#353535"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Styles>
+
+    <Border CornerRadius="12" ClipToBounds="True" 
+            BorderThickness="1" BorderBrush="#30FFFFFF"
+            BoxShadow="0 10 30 0 #80000000">
+        <Border.Background>
+            <SolidColorBrush Color="#1e1e1e" Opacity="0.98"/>
+        </Border.Background>
+        
+        <Grid RowDefinitions="Auto, *, Auto">
+            <!-- Header -->
+            <Border Grid.Row="0" Padding="15" Background="#252525">
+                <TextBlock Text="Select Icon" FontWeight="Bold" FontSize="16" Foreground="White" 
+                           HorizontalAlignment="Center"/>
+            </Border>
+
+            <!-- Scrollable Grid -->
+            <ScrollViewer Grid.Row="1" Padding="15,15,15,0">
+                <ItemsControl Name="IconList" Margin="0,0,0,15">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Classes="IconGridItem" Click="OnIconClick" Tag="{Binding Key}">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Key}"/>
+                                </ToolTip.Tip>
+                                <Viewbox Width="24" Height="24">
+                                     <Path Data="{Binding Geometry}" Fill="White" Stretch="Uniform"/>
+                                </Viewbox>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            
+            <!-- Footer -->
+            <!-- Footer -->
+            <Border Grid.Row="2" Padding="15" Background="#252525">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                     <Button Classes="Clear" Content="Clear Icon" Foreground="#FF5555" Click="OnClearClick" Margin="0,0,20,0"/>
+                     <Button Content="Cancel" Click="OnCancelClick"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

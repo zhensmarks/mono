@@ -30,6 +30,9 @@
   <!-- Copy Python Scripts to Output Directory -->
   <ItemGroup>
     <None Include="..\..\Scripts\**\*.py" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
+    <None Include="..\..\Scripts\**\*.pyw" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
+    <None Include="..\..\Scripts\**\*.jsx" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
+    <None Include="..\..\Scripts\**\*.json" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
   </ItemGroup>
 
   <!-- Copy Google Drive Credentials -->

@@ -14,6 +14,19 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Global Exception Handler
+        AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+        {
+            try
+            {
+                var logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_report.txt");
+                var ex = e.ExceptionObject as Exception;
+                System.IO.File.AppendAllText(logPath, 
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] FATAL UNHANDLED EXCEPTION:\n{ex}\n\n");
+            }
+            catch { }
+        };
+
         try 
         {
             // Ensure .logs folder exists
@@ -24,6 +37,14 @@ class Program
         }
         catch (Exception ex)
         {
+            try
+            {
+                var logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_report.txt");
+                System.IO.File.AppendAllText(logPath, 
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAIN LOOP CRASH:\n{ex}\n\n");
+            }
+            catch { }
+            
             System.IO.Directory.CreateDirectory(LogFolder);
             System.IO.File.AppendAllText(DebugLog, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] CRASH: {ex}\n");
             throw; // Re-throw to ensure process exit code is error
