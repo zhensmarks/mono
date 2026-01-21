@@ -46,7 +46,7 @@
     if (!inputFolder) { alert("Ga jadi ah males."); return; }
 
     // === Step 2: Scan subfolder dan ambil file ===
-    var templateFiles = scanFolderForFiles(templateFolder, /\.psd$/i);
+    var templateFiles = scanFolderForFiles(templateFolder, /\.(psd|psb)$/i);
     var allInputFiles = scanFolderForFiles(inputFolder, /\.(png|psd|jpe?g)$/i); // Scan semua jenis file
 
     // === Step 2.5: Tentukan mode operasi (PNG/PSD atau JPG) ===
@@ -191,8 +191,8 @@
                 continue;
             }
 
-            if (matchedInputs.length == 2 && smartS) {
-                // Replace XL & S normal
+            if (smartS && matchedInputs.length >= 2) {
+                // Replace XL & S normal (Prioritas PSD sudah di-sort di atas)
                 doc.activeLayer = smartXL;
                 replaceSmartContent(matchedInputs[0]);
                 smartXL.name = matchedInputs[0].displayName.replace(/\.[^\.]+$/, "");
@@ -202,13 +202,17 @@
                 smartS.name = matchedInputs[1].displayName.replace(/\.[^\.]+$/, "");
 
                 successList.push(relPath(templateFolder, template) + " (2 input: XL & S diganti)");
-            } else if (matchedInputs.length == 1) {
-                // Replace XL saja
+            } else if (matchedInputs.length >= 1) {
+                // Replace XL saja (Ambil input pertama meskipun ada banyak candidat)
                 doc.activeLayer = smartXL;
                 replaceSmartContent(matchedInputs[0]);
                 smartXL.name = matchedInputs[0].displayName.replace(/\.[^\.]+$/, "");
 
-                successList.push(relPath(templateFolder, template) + " (1 input: cuma XL diganti)");
+                var msg = " (1 input: cuma XL diganti)";
+                if (matchedInputs.length > 1) {
+                    msg += " [Info: Ditemukan " + matchedInputs.length + " input, diambil yg pertama]";
+                }
+                successList.push(relPath(templateFolder, template) + msg);
             } else {
                 failList.push(relPath(templateFolder, template) + " (Input file ketemu " + matchedInputs.length + ", ga sesuai aturan)");
                 doc.close(SaveOptions.DONOTSAVECHANGES);
@@ -237,21 +241,20 @@
     report.push("");
     report.push("Detail:");
     report = report.concat(detail);
-    // === Tampilkan ringkasan dalam window custom scrollable ===
-    var dlg = new Window("dialog", "Ringkasan Mirror");
-    dlg.orientation = "column";
-    dlg.alignChildren = "fill";
-    dlg.preferredSize = [350, 350];
-    dlg.minsize = [300, 250];
-
-    dlg.add("statictext", undefined, "Ringkasan", { bold: true });
-    var txt = dlg.add("edittext", undefined, report.join("\n"), { multiline: true, readonly: true, scrolling: true });
-    txt.preferredSize = [330, 230];
-    var btn = dlg.add("button", undefined, "OK", { name: "ok" });
-    btn.alignment = "center";
-    btn.onClick = function () { dlg.close(); };
-    dlg.center();
-    dlg.show();
+    // === Write Result to BMachine (No popup!) ===
+    function writeResult(title, lines) {
+        var f = new File(Folder.temp + "/bmachine_result.json");
+        f.open("w");
+        f.encoding = "UTF-8";
+        // Escape strings for JSON
+        var escaped = [];
+        for (var i = 0; i < lines.length; i++) {
+            escaped.push('"' + lines[i].replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"');
+        }
+        f.write('{"type":"result","title":"' + title + '","lines":[' + escaped.join(',') + ']}');
+        f.close();
+    }
+    writeResult("Ringkasan Mirror", report);
     $.writeln(report.join("\n"));
 
     // === Fungsi bantu ===

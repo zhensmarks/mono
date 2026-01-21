@@ -79,4 +79,5 @@ public partial class RevisionCardListViewModel : BaseTrelloListViewModel
             IsRefreshing = false;
         }
     }
+
 }

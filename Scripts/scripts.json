@@ -5,29 +5,11 @@
     "IconKey": "IconSkull",
     "Order": 0
   },
-  "replace_pas.jsx": {
-    "Name": "REPLACE PAS FOTO",
-    "Code": "RPAS",
-    "IconKey": "IconRefresh",
-    "Order": 2
-  },
-  "sepPP.jsx": {
-    "Name": "SEP-PASPOT",
-    "Code": "SPP",
-    "IconKey": "IconMenu",
-    "Order": 4
-  },
-  "sep_jpg_psd.jsx": {
-    "Name": "JPG | PSD",
-    "Code": "JPG",
+  "save_master.jsx": {
+    "Name": "SAVE MASTER",
+    "Code": "SAVE",
     "IconKey": "IconSave",
     "Order": 1
-  },
-  "sep_png_psd.jsx": {
-    "Name": "PNG | PSD",
-    "Code": "PNG",
-    "IconKey": "IconUser",
-    "Order": 3
   },
   "manasik.py": {
     "Name": "MANASIK",

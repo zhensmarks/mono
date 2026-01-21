@@ -238,6 +238,34 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedThemeIndex = 0; // 0=Dark, 1=Light
     
+    partial void OnSelectedThemeIndexChanged(int value)
+    {
+         UpdateTheme(value == 0);
+    }
+    
+    [ObservableProperty]
+    private bool _isDarkMode = true; // Default Dark
+    
+    partial void OnIsDarkModeChanged(bool value)
+    {
+        SelectedThemeIndex = value ? 0 : 1;
+    }
+    
+    private void UpdateTheme(bool isDark)
+    {
+        // 1. Update Avalonia Theme
+        if (Application.Current != null)
+        {
+            Application.Current.RequestedThemeVariant = isDark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
+        }
+        
+        // 2. Persist
+        _database?.SetAsync("Settings.Theme", isDark ? "Dark" : "Light");
+        
+        // 3. Notify Service
+        _themeService?.SetTheme(isDark ? ThemeVariantType.Dark : ThemeVariantType.Light);
+    }
+    
     [ObservableProperty] private string _darkBackgroundColor = "#1C1C1C"; // Default Dark
     [ObservableProperty] private string _lightBackgroundColor = "#F5F5F5"; // Default Light
     
@@ -597,6 +625,76 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CustomPointsHex))]
     private Color _customPointsColor = Colors.Green;
 
+    partial void OnCustomEditingColorChanged(Color value) => ApplyWidgetColors();
+    partial void OnCustomRevisionColorChanged(Color value) => ApplyWidgetColors();
+    partial void OnCustomLateColorChanged(Color value) => ApplyWidgetColors();
+    partial void OnCustomPointsColorChanged(Color value) => ApplyWidgetColors();
+
+
+    partial void OnEditingColorChanged(ColorOption? value) 
+    {
+        OnPropertyChanged(nameof(IsEditingCustom));
+        ApplyWidgetColors();
+    }
+    partial void OnRevisionColorChanged(ColorOption? value)
+    {
+        OnPropertyChanged(nameof(IsRevisionCustom));
+        ApplyWidgetColors();
+    }
+    partial void OnLateColorChanged(ColorOption? value)
+    {
+        OnPropertyChanged(nameof(IsLateCustom));
+        ApplyWidgetColors();
+    }
+    partial void OnPointsColorChanged(ColorOption? value)
+    {
+        OnPropertyChanged(nameof(IsPointsCustom));
+        ApplyWidgetColors();
+    }
+
+
+    private void ApplyWidgetColors()
+    {
+        if (_isInitializing || _themeService == null) return;
+        
+        // Editing
+        var editHex = GetColorHex(EditingColor, CustomEditingColor);
+        _themeService.SetWidgetColor("Editing", editHex);
+        _database?.SetAsync("Settings.Color.Editing", editHex);
+        
+        // Revision
+        var revHex = GetColorHex(RevisionColor, CustomRevisionColor);
+        _themeService.SetWidgetColor("Revision", revHex);
+        _database?.SetAsync("Settings.Color.Revision", revHex);
+        
+        // Late
+        var lateHex = GetColorHex(LateColor, CustomLateColor);
+        _themeService.SetWidgetColor("Late", lateHex);
+        _database?.SetAsync("Settings.Color.Late", lateHex);
+        
+        // Points
+        var ptsHex = GetColorHex(PointsColor, CustomPointsColor);
+        _themeService.SetWidgetColor("Points", ptsHex);
+        _database?.SetAsync("Settings.Color.Points", ptsHex);
+        
+        // Orb
+        var orbHex = GetColorHex(OrbColor, CustomOrbColor);
+        _themeService.SetWidgetColor("Orb", orbHex);
+        _database?.SetAsync("Settings.Color.Orb", orbHex);
+    }
+    
+
+
+    // Legacy Helper overload removal or keep if needed?
+    // The existing code calls GetColorHex(EditingColor, CustomEditingColor) where CustomEditingColor WAS string in old code
+    // but IS Color in new code.
+    // Wait, the "SaveProfile" method calls GetColorHex(EditingColor, CustomEditingHex) -> CustomEditingHex IS string wrapper property.
+    // To avoid breaking SaveProfile, I should overload or update SaveProfile.
+    // Let's UPDATE the helper signature and fix usage in SaveProfile later or relies on the fact that CustomEditingHex wraps CustomEditingColor?
+    // No, I changed _customEditingColor to Color.
+    // SaveProfile calls GetColorHex(EditingColor, CustomEditingColor).
+    // So the signature above IS correct for the new property type.
+    
     public string CustomEditingHex
     {
         get => CustomEditingColor.ToString();
@@ -718,6 +816,7 @@ public partial class SettingsViewModel : ObservableObject
             var themeStr = await _database.GetAsync<string>("Settings.Theme");
             if (themeStr == "Light") SelectedThemeIndex = 1;
             else SelectedThemeIndex = 0;
+            IsDarkMode = SelectedThemeIndex == 0;
             
             // Load Background Colors
             var darkBg = await _database.GetAsync<string>("Appearance.Background.Dark");
@@ -881,6 +980,7 @@ public partial class SettingsViewModel : ObservableObject
         finally
         {
             _isInitializing = false;
+            ApplyWidgetColors();
         }
     }
 
@@ -1316,14 +1416,7 @@ public partial class SettingsViewModel : ObservableObject
         });
     }
 
-    partial void OnSelectedThemeIndexChanged(int value)
-    {
-        if (_themeService == null) return;
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => 
-        {
-            _themeService.SetTheme(value == 1 ? ThemeVariantType.Light : ThemeVariantType.Dark);
-        });
-    }
+
 
     partial void OnSelectedAccentColorChanged(ColorOption? value)
     {

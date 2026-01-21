@@ -65,7 +65,8 @@ public partial class App : Application,
                     _inputHook.OnMouseMove += OnRadialMove;
                     _inputHook.OnRecorded += OnShortcutRecorded;
                     
-                    // Load saved config if exists (TODO: Load from DB)
+                    // Load saved config if exists
+                    LoadInitialShortcutConfig();
                     // For now default is Shift+MiddleMouse
                 }
                 catch(Exception ex)
@@ -196,5 +197,24 @@ public partial class App : Application,
         _radialMenuWindow?.Close();
         _inputHook?.Dispose();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.Shutdown();
+    }
+
+    private async void LoadInitialShortcutConfig()
+    {
+        try
+        {
+            if (_db == null) return;
+            var json = await _db.GetAsync<string>("ShortcutConfig");
+            if (!string.IsNullOrEmpty(json))
+            {
+                var config = System.Text.Json.JsonSerializer.Deserialize<BMachine.UI.Models.TriggerConfig>(json);
+                 if (config != null && _inputHook != null)
+                 {
+                     _inputHook.UpdateConfig(config);
+                     Console.WriteLine($"[App] Loaded Initial Shortcut: {config}");
+                 }
+            }
+        }
+        catch(Exception ex) { Console.WriteLine($"Error loading shortcut: {ex.Message}"); }
     }
 }

@@ -17,5 +17,6 @@ public interface IThemeService
     void SetFontFamily(string fontFamily);
     void SetBorderColor(string hexColor, bool isDark);
     void SetCardBackgroundColor(string hexColor, bool isDark);
+    void SetWidgetColor(string type, string hexColor);
     // void SetFontSize(double scale); // Reserved for future
 }

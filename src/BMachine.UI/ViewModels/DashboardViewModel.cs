@@ -336,9 +336,17 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private TimeSpan _statAnimationDuration = TimeSpan.FromSeconds(1.5);
 
 
+
+
+
     [ObservableProperty] private bool _isProcessing;
     [ObservableProperty] private string _processStatusText = "Console"; // Default Title
     [ObservableProperty] private Avalonia.Media.IBrush _statusColor = Avalonia.Media.Brushes.Green; // Default logic
+
+    // Progress Reporting
+    [ObservableProperty] private double _progressValue;
+    [ObservableProperty] private double _progressMax = 100;
+    [ObservableProperty] private bool _isDeterminateProgress;
 
     public ObservableCollection<string> Logs => _logService?.Logs ?? new();
     

@@ -296,6 +296,23 @@ def create_oke_base_links(pilihan_path, oke_base_path, user_name):
     except Exception as e:
         print(f"[ERROR] OKE BASE: {e}", file=sys.stderr)
 
+
+def copy_txt_files_recursive(source_folder, output_folder):
+    """Salin semua file .txt dari subfolder ke output folder, mempertahankan struktur folder."""
+    for root, dirs, files in os.walk(source_folder):
+        for file in files:
+            if file.lower().endswith('.txt'):
+                src_path = os.path.join(root, file)
+                rel_path = os.path.relpath(root, source_folder)
+                dest_dir = os.path.join(output_folder, rel_path) if rel_path != '.' else output_folder
+                os.makedirs(dest_dir, exist_ok=True)
+                dest_path = os.path.join(dest_dir, file)
+                try:
+                    shutil.copy2(src_path, dest_path)
+                    print(f"    - Salin .txt: {os.path.relpath(dest_path, output_folder)}")
+                except Exception as e:
+                    print(f"    - [ERROR] Gagal salin .txt '{file}': {e}", file=sys.stderr)
+
 # ---------- Core ----------
 def process_images(master_path_profesi, master_path_sporty, pilihan_path, output_path, config_data,
                    files_to_reprocess=None, mappings_b64=None, oke_base_path=None):
@@ -343,6 +360,16 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                 os.makedirs(os.path.join(final_event_folder, name), exist_ok=True)
     except Exception:
         pass
+
+    # Salin .txt dari semua subfolder (Mirip Manasik)
+    try:
+        for name in os.listdir(pilihan_path):
+            p = os.path.join(pilihan_path, name)
+            if os.path.isdir(p):
+                out_p = os.path.join(final_event_folder, name)
+                copy_txt_files_recursive(p, out_p)
+    except Exception as e:
+        print(f"[WARNING] Gagal salin .txt dari subfolder: {e}", file=sys.stderr)
 
     # Pre-create kelas/grup/kelompok di dalam folder yang mengandung 'profesi' atau 'sporty'
     def precreate_tag(tag: str):

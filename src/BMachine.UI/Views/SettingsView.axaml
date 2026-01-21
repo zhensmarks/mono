@@ -119,10 +119,7 @@
                                  <TextBlock Text="{Binding Language[Appearance.Mode]}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                  <TextBlock Text="{Binding Language[Appearance.ModeDesc]}" FontSize="12" Foreground="#999"/>
                             </StackPanel>
-                            <ComboBox Grid.Column="1" SelectedIndex="{Binding SelectedThemeIndex}" Width="150">
-                                <ComboBoxItem Content="{Binding Language[Appearance.Dark]}"/>
-                                <ComboBoxItem Content="{Binding Language[Appearance.Light]}"/>
-                            </ComboBox>
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsDarkMode}" OnContent="Dark" OffContent="Light"/>
                         </Grid>
 
                         <!-- Custom Backgrounds -->
@@ -182,47 +179,40 @@
                              </StackPanel>
 
                              <!-- Width -->
-                             <Grid ColumnDefinitions="*, 80">
+                             <Grid ColumnDefinitions="*, 120">
                                  <StackPanel>
                                      <TextBlock Text="Button Width" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                     <Slider Minimum="80" Maximum="250" Value="{Binding NavButtonWidth}" Margin="0,5,10,0"/>
                                  </StackPanel>
-                                 <TextBlock Grid.Column="1" Text="{Binding NavButtonWidth, StringFormat='{}{0:F0} px'}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                 <NumericUpDown Grid.Column="1" Value="{Binding NavButtonWidth}" Minimum="80" Maximum="250" Increment="1" FormatString="0" />
                              </Grid>
 
                              <!-- Height -->
-                             <Grid ColumnDefinitions="*, 80">
+                             <Grid ColumnDefinitions="*, 120">
                                  <StackPanel>
                                      <TextBlock Text="Button Height" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                     <Slider Minimum="20" Maximum="80" Value="{Binding NavButtonHeight}" Margin="0,5,10,0"/>
                                  </StackPanel>
-                                 <TextBlock Grid.Column="1" Text="{Binding NavButtonHeight, StringFormat='{}{0:F0} px'}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                 <NumericUpDown Grid.Column="1" Value="{Binding NavButtonHeight}" Minimum="20" Maximum="80" Increment="1" FormatString="0" />
                              </Grid>
 
                              <!-- Corner Radius -->
-                             <Grid ColumnDefinitions="*, 80">
+                             <Grid ColumnDefinitions="*, 120">
                                  <StackPanel>
                                      <TextBlock Text="Corner Radius" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                     <Slider Minimum="0" Maximum="40" Value="{Binding NavCornerRadius}" Margin="0,5,10,0"/>
                                  </StackPanel>
-                                 <TextBlock Grid.Column="1" Text="{Binding NavCornerRadius, StringFormat='{}{0:F0} px'}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                 <NumericUpDown Grid.Column="1" Value="{Binding NavCornerRadius}" Minimum="0" Maximum="40" Increment="1" FormatString="0" />
                              </Grid>
 
                              <!-- Font Size -->
-                             <Grid ColumnDefinitions="*, 80">
+                             <Grid ColumnDefinitions="*, 120">
                                  <StackPanel>
                                      <TextBlock Text="Font Size" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                     <Slider Minimum="10" Maximum="24" Value="{Binding NavFontSize}" Margin="0,5,10,0"/>
                                  </StackPanel>
-                                 <TextBlock Grid.Column="1" Text="{Binding NavFontSize, StringFormat='{}{0:F1} pt'}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                 <NumericUpDown Grid.Column="1" Value="{Binding NavFontSize}" Minimum="10" Maximum="24" Increment="0.5" FormatString="0.0" />
                              </Grid>
                         </StackPanel>
                         
-                        <!-- Accent Color -->
-<!-- Global Accent Removed -->
-                        
-                        <!-- Startup Animation -->
-                        <Grid ColumnDefinitions="*, Auto">
+                        <!-- Toggle Startup -->
+                         <Grid ColumnDefinitions="*, Auto" Margin="0,10,0,0">
                             <StackPanel Spacing="5" Margin="0,0,10,0">
                                  <TextBlock Text="Startup Animation" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                  <TextBlock Text="Efek animasi intro saat aplikasi dibuka." FontSize="12" Foreground="#999"/>
@@ -266,9 +256,9 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsEditingCustom}" ColumnDefinitions="*, Auto" Margin="0,5,0,0">
-                                <TextBox Text="{Binding CustomEditingHex}" Watermark="#Hex" VerticalAlignment="Center"/>
-                                <Border Width="24" Height="24" CornerRadius="4" Margin="10,0,0,0" Background="{Binding CustomEditingHex}" Grid.Column="1" BorderBrush="#555" BorderThickness="1"/>
+                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsEditingCustom}" ColumnDefinitions="Auto, *" Margin="0,5,0,0">
+                                <TextBlock Text="Pick Color: " VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="#888"/>
+                                <ColorPicker Grid.Column="1" Color="{Binding CustomEditingColor}" HorizontalAlignment="Stretch"/>
                             </Grid>
                         </Grid>
                         
@@ -285,9 +275,9 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsRevisionCustom}" ColumnDefinitions="*, Auto" Margin="0,5,0,0">
-                                <TextBox Text="{Binding CustomRevisionHex}" Watermark="#Hex" VerticalAlignment="Center"/>
-                                <Border Width="24" Height="24" CornerRadius="4" Margin="10,0,0,0" Background="{Binding CustomRevisionHex}" Grid.Column="1" BorderBrush="#555" BorderThickness="1"/>
+                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsRevisionCustom}" ColumnDefinitions="Auto, *" Margin="0,5,0,0">
+                                <TextBlock Text="Pick Color: " VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="#888"/>
+                                <ColorPicker Grid.Column="1" Color="{Binding CustomRevisionColor}" HorizontalAlignment="Stretch"/>
                             </Grid>
                         </Grid>
 
@@ -304,9 +294,9 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsLateCustom}" ColumnDefinitions="*, Auto" Margin="0,5,0,0">
-                                <TextBox Text="{Binding CustomLateHex}" Watermark="#Hex" VerticalAlignment="Center"/>
-                                <Border Width="24" Height="24" CornerRadius="4" Margin="10,0,0,0" Background="{Binding CustomLateHex}" Grid.Column="1" BorderBrush="#555" BorderThickness="1"/>
+                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsLateCustom}" ColumnDefinitions="Auto, *" Margin="0,5,0,0">
+                                <TextBlock Text="Pick Color: " VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="#888"/>
+                                <ColorPicker Grid.Column="1" Color="{Binding CustomLateColor}" HorizontalAlignment="Stretch"/>
                             </Grid>
                         </Grid>
 
@@ -323,9 +313,9 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsPointsCustom}" ColumnDefinitions="*, Auto" Margin="0,5,0,0">
-                                <TextBox Text="{Binding CustomPointsHex}" Watermark="#Hex" VerticalAlignment="Center"/>
-                                <Border Width="24" Height="24" CornerRadius="4" Margin="10,0,0,0" Background="{Binding CustomPointsHex}" Grid.Column="1" BorderBrush="#555" BorderThickness="1"/>
+                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsPointsCustom}" ColumnDefinitions="Auto, *" Margin="0,5,0,0">
+                                <TextBlock Text="Pick Color: " VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="#888"/>
+                                <ColorPicker Grid.Column="1" Color="{Binding CustomPointsColor}" HorizontalAlignment="Stretch"/>
                             </Grid>
                         </Grid>
                         
@@ -342,9 +332,9 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsOrbCustom}" ColumnDefinitions="*, Auto" Margin="0,5,0,0">
-                                <TextBox Text="{Binding CustomOrbHex}" Watermark="#Hex" VerticalAlignment="Center"/>
-                                <Border Width="24" Height="24" CornerRadius="4" Margin="10,0,0,0" Background="{Binding CustomOrbHex}" Grid.Column="1" BorderBrush="#555" BorderThickness="1"/>
+                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsOrbCustom}" ColumnDefinitions="Auto, *" Margin="0,5,0,0">
+                                <TextBlock Text="Pick Color: " VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="#888"/>
+                                <ColorPicker Grid.Column="1" Color="{Binding CustomOrbColor}" HorizontalAlignment="Stretch"/>
                             </Grid>
                         </Grid>
                         

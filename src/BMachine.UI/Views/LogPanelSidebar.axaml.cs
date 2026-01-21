@@ -46,7 +46,9 @@ public partial class LogPanelSidebar : UserControl
     }
 
     private System.IO.FileSystemWatcher? _progressWatcher;
+    private System.IO.FileSystemWatcher? _resultWatcher;
     private DateTime _lastReadTime = DateTime.MinValue;
+    private DateTime _lastResultTime = DateTime.MinValue;
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -75,6 +77,23 @@ public partial class LogPanelSidebar : UserControl
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Failed to start progress watcher: {ex.Message}");
+                }
+            }
+            
+            // Setup Result Watcher (for script completion alerts)
+            if (_resultWatcher == null)
+            {
+                try 
+                {
+                    var tempPath = System.IO.Path.GetTempPath();
+                    _resultWatcher = new System.IO.FileSystemWatcher(tempPath, "bmachine_result.json");
+                    _resultWatcher.NotifyFilter = System.IO.NotifyFilters.LastWrite;
+                    _resultWatcher.Changed += (s, args) => OnResultFileChanged(vm);
+                    _resultWatcher.EnableRaisingEvents = true;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to start result watcher: {ex.Message}");
                 }
             }
          }
@@ -129,11 +148,22 @@ public partial class LogPanelSidebar : UserControl
             var matchFile = System.Text.RegularExpressions.Regex.Match(json, "\"file\":\\s*\"([^\"]+)\"");
             if (matchFile.Success) file = matchFile.Groups[1].Value;
 
-            if (total > 0)
+            if (total > 0 || current > 0)
             {
                 Dispatcher.UIThread.Post(() => 
                 {
-                     // Update UI
+                     // Update Progress Bar
+                     vm.ProgressMax = total > 0 ? total : 100;
+                     vm.ProgressValue = current;
+                     vm.IsDeterminateProgress = total > 0;
+
+                     if (total > 0)
+                     {
+                         int percent = (int)((double)current / total * 100);
+                         vm.ProcessStatusText = $"Running... {percent}%";
+                     }
+
+                     // Update Log UI
                      // We could remove the previous 'Progress' line to avoid spamming the log? 
                      // Or just append? User asked to "show process".
                      // If we append every file of 500 files, log becomes useless.
@@ -164,6 +194,80 @@ public partial class LogPanelSidebar : UserControl
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Progress read error: {ex.Message}");
+        }
+    }
+
+    private void OnResultFileChanged(DashboardViewModel vm)
+    {
+        // Debounce
+        if ((DateTime.Now - _lastResultTime).TotalMilliseconds < 100) return;
+        _lastResultTime = DateTime.Now;
+
+        try 
+        {
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "bmachine_result.json");
+            if (!System.IO.File.Exists(path)) return;
+
+            string json = "";
+            // Retry loop for file lock
+            for (int i = 0; i < 5; i++)
+            {
+                try 
+                {
+                    using (var stream = System.IO.File.Open(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite))
+                    using (var reader = new System.IO.StreamReader(stream))
+                    {
+                        json = reader.ReadToEnd();
+                    }
+                    break; 
+                }
+                catch (System.IO.IOException) 
+                { 
+                    System.Threading.Thread.Sleep(20); 
+                }
+            }
+            
+            if (string.IsNullOrWhiteSpace(json)) return;
+
+            // Parse JSON
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            
+            string title = root.TryGetProperty("title", out var titleProp) ? titleProp.GetString() ?? "Result" : "Result";
+            
+            if (root.TryGetProperty("lines", out var linesProp) && linesProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                Dispatcher.UIThread.Post(() => 
+                {
+                     // Add Header
+                     vm.LogItems.Add(new BMachine.UI.Models.LogItem($"=== {title} ===", BMachine.UI.Models.LogLevel.Info) 
+                     { 
+                         Color = Avalonia.Media.Brushes.LimeGreen 
+                     });
+                     
+                     // Add Each Line
+                     foreach (var line in linesProp.EnumerateArray())
+                     {
+                         var text = line.GetString() ?? "";
+                         var color = Avalonia.Media.Brushes.White;
+                         if (text.StartsWith("OK")) color = Avalonia.Media.Brushes.LimeGreen;
+                         else if (text.StartsWith("GAGAL") || text.StartsWith("LEWATI")) color = Avalonia.Media.Brushes.Orange;
+                         
+                         vm.LogItems.Add(new BMachine.UI.Models.LogItem(text, BMachine.UI.Models.LogLevel.Info) 
+                         { 
+                             Color = color 
+                         });
+                     }
+
+                     // Auto Scroll
+                     var scroll = this.FindControl<ScrollViewer>("LogScrollViewer");
+                     scroll?.ScrollToEnd();
+                }, DispatcherPriority.Background);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Result read error: {ex.Message}");
         }
     }
 

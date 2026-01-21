@@ -71,9 +71,15 @@
             <!-- SEPARATOR (Row 1 Bottom) -->
             <Grid Grid.Row="1" VerticalAlignment="Bottom">
                 <Border Height="1" Background="#1AFFFFFF"/>
-                <ProgressBar IsIndeterminate="True" Height="2" VerticalAlignment="Top"
-                             IsVisible="{Binding IsProcessing}"
-                             Background="Transparent" Foreground="{DynamicResource PrimaryBrush}"/>
+                <Grid>
+                    <ProgressBar Height="2" VerticalAlignment="Top"
+                                 IsVisible="{Binding IsProcessing}"
+                                 Value="{Binding ProgressValue}" Maximum="{Binding ProgressMax}"
+                                 IsIndeterminate="{Binding !IsDeterminateProgress}"
+                                 Background="Transparent" Foreground="{DynamicResource PrimaryBrush}"/>
+                                 
+                     <!-- Optional Text Overlay for Progress if needed, or put in header -->
+                </Grid>
             </Grid>
             
             <!-- LOG LIST (Row 2) -->

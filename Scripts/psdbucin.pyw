@@ -163,8 +163,22 @@ def run():
         except Exception as e:
             logs.append(f"GAGAL  : {os.path.relpath(dst, master_dir)} ({e})")
 
-    # Selesai processing
-    messagebox.showinfo("Selesai", f"Proses selesai.\nTotal file: {len(results)}\nCek Log Panel BMachine untuk detail.")
+    # === Write Result to BMachine (No popup!) ===
+    def write_result(title, lines):
+        import json
+        result_file = os.path.join(tempfile.gettempdir(), 'bmachine_result.json')
+        data = {'type': 'result', 'title': title, 'lines': lines}
+        with open(result_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+    
+    summary_lines = [
+        f"Master  : {os.path.basename(master_file)}",
+        f"Ekstensi: {master_ext}",
+        f"Total file: {len(results)}",
+        "",
+        "Detail:"
+    ] + logs
+    write_result("Ringkasan psdbucin", summary_lines)
     root.destroy()
 
 def show_centered_error(msg):

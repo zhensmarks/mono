@@ -97,9 +97,58 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         await LoadComments(card.Id);
     }
 
+    // --- Detail Panel Logic (Shared) ---
+    [ObservableProperty] private bool _isDetailPanelOpen;
+
+    [RelayCommand]
+    protected virtual void SelectCard(TrelloCard card)
+    {
+        if (card == null) return;
+        
+        CloseAllSidePanels(); // Close others
+        SelectedCard = card;
+        IsDetailPanelOpen = true; // Open Detail Panel
+    }
+
+    [RelayCommand]
+    protected virtual void CloseDetailPanel()
+    {
+        IsDetailPanelOpen = false;
+        SelectedCard = null;
+    }
+
+    [RelayCommand]
+    protected async Task CopyId(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        
+        var clipboard = GetClipboard();
+        if (clipboard == null) return;
+        
+        await clipboard.SetTextAsync(id);
+        StatusMessage = "ID Copied!";
+        await LogActivity("System", "Copied", id);
+    }
+    
+    private Avalonia.Input.Platform.IClipboard? GetClipboard()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            return desktop.MainWindow?.Clipboard;
+        }
+        // Fallback for SingleView (Mobile/Web) if needed, though likely not for this desktop app
+        else if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.ISingleViewApplicationLifetime single)
+        {
+            var top = Avalonia.Controls.TopLevel.GetTopLevel(single.MainView);
+            return top?.Clipboard;
+        }
+        return null;
+    }
+
     [RelayCommand]
     protected virtual void CloseAllSidePanels()
     {
+        IsDetailPanelOpen = false;
         IsCommentPanelOpen = false;
         IsChecklistPanelOpen = false;
         IsMovePanelOpen = false;
@@ -110,8 +159,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     private void CloseCommentsPanel()
     {
         IsCommentPanelOpen = false;
-        SelectedCard = null;
         Comments.Clear();
+        // Return to Detail Panel if a card is selected
+        if (SelectedCard != null) IsDetailPanelOpen = true;
     }
 
     [RelayCommand]
@@ -237,8 +287,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     private void CloseChecklistPanel()
     {
         IsChecklistPanelOpen = false;
-        SelectedCard = null;
         Checklists.Clear();
+        if (SelectedCard != null) IsDetailPanelOpen = true;
     }
 
     [RelayCommand]
@@ -460,8 +510,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     private void CloseAttachmentPanel()
     {
         IsAttachmentPanelOpen = false;
-        SelectedCard = null;
         Attachments.Clear();
+        if (SelectedCard != null) IsDetailPanelOpen = true;
     }
 
     protected async Task LoadAttachments(string cardId)
@@ -679,9 +729,19 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     private void CloseMovePanel()
     {
         IsMovePanelOpen = false;
-        SelectedCard = null;
         AvailableBoards.Clear();
         AvailableLists.Clear();
+        
+        // If it was a batch move (dummy card), clear selection. Otherwise return to detail.
+        if (IsBatchMoveMode) 
+        {
+             SelectedCard = null;
+             IsBatchMoveMode = false;
+        }
+        else if (SelectedCard != null) 
+        {
+            IsDetailPanelOpen = true;
+        }
     }
 
 

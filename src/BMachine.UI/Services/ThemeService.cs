@@ -28,12 +28,24 @@ public class ThemeService : IThemeService
         // Load Card Background Colors
         var cardBgLight = await _database.GetAsync<string>("Settings.CardBgLight") ?? "#FFFFFF"; 
         var cardBgDark = await _database.GetAsync<string>("Settings.CardBgDark") ?? "#1A1C20";
+        
+        // Load Widget Colors
+        var editColor = await _database.GetAsync<string>("Settings.Color.Editing") ?? "#3b82f6";
+        var revColor = await _database.GetAsync<string>("Settings.Color.Revision") ?? "#f97316";
+        var lateColor = await _database.GetAsync<string>("Settings.Color.Late") ?? "#ef4444";
+        var pointsColor = await _database.GetAsync<string>("Settings.Color.Points") ?? "#10b981";
 
         // Store internally for switching
         _lightBorderColor = borderLight;
         _darkBorderColor = borderDark;
         _lightCardBgColor = cardBgLight;
         _darkCardBgColor = cardBgDark;
+
+        // Apply
+        SetWidgetColor("Editing", editColor);
+        SetWidgetColor("Revision", revColor);
+        SetWidgetColor("Late", lateColor);
+        SetWidgetColor("Points", pointsColor);
 
         // Apply Theme (This also applies the initial border)
         if (Enum.TryParse<ThemeVariantType>(themeStr, out var theme))
@@ -43,6 +55,19 @@ public class ThemeService : IThemeService
         
         SetAccentColor(accentStr);
         SetFontFamily(fontStr);
+    }
+    
+    // ... Existing Fields ...
+
+    public void SetWidgetColor(string type, string hexColor)
+    {
+        if (Application.Current == null) return;
+        
+        if (Color.TryParse(hexColor, out var color))
+        {
+            Application.Current.Resources[$"Accent{type}Brush"] = new SolidColorBrush(color);
+            Application.Current.Resources[$"Accent{type}Color"] = color;
+        }
     }
 
     private string _lightBorderColor = "#E5E7EB";
