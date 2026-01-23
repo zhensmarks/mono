@@ -62,8 +62,43 @@ public partial class TrelloCard : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ChecklistTooltip))]
+    private int _checklistTotal;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ChecklistTooltip))]
+    private int _checklistCompleted;
+
+    public bool IsChecklistComplete => ChecklistTotal > 0 && ChecklistCompleted == ChecklistTotal;
+
+    // Checklist Data
+    public List<string> ChecklistNames { get; set; } = new();
+
+    public bool HasEditingChecklist => ChecklistNames.Any(n => n.Trim().StartsWith("#EDITING", StringComparison.OrdinalIgnoreCase));
+
+    public string ChecklistTooltip 
+    {
+        get
+        {
+            if (HasEditingChecklist) return "Checklist OK";
+            if (HasChecklist) return "Ada checklist, tapi bukan format #EDITING";
+            return "Tidak ada checklist";
+        }
+    }
+
+    [ObservableProperty]
+    private bool _isActive;
+
     // Computed property for UI display
     public string DueDateText => DueDate.HasValue ? DueDate.Value.ToString("dd MMM") : "";
+
+    public void RefreshChecklistStatus()
+    {
+        OnPropertyChanged(nameof(HasEditingChecklist));
+        OnPropertyChanged(nameof(ChecklistTooltip));
+        OnPropertyChanged(nameof(HasChecklist));
+    }
 
     public string Url => !string.IsNullOrEmpty(Id) ? $"https://trello.com/c/{Id}" : "";
 }

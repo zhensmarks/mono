@@ -107,9 +107,13 @@
         var pnl = dlg.add("panel", undefined, "Pilih Output:");
         pnl.alignChildren = ["fill", "center"];
 
-        // Button 1: PSD + JPG
-        var btnJpg = pnl.add("button", undefined, "JPG");
+        // Button 1: PSD + JPG (Close)
+        var btnJpg = pnl.add("button", undefined, "JPG (Close)");
         btnJpg.onClick = function () { dlg.close(1); };
+
+        // Button 1b: PSD + JPG (Keep Open)
+        var btnJpgOpen = pnl.add("button", undefined, "JPG (Keep Open)");
+        btnJpgOpen.onClick = function () { dlg.close(5); };
 
         // Button 2: PSD + PNG
         var btnPng = pnl.add("button", undefined, "PNG");
@@ -187,7 +191,8 @@
     }
 
     // 3. Siapkan Mode
-    var MODE_JPG = (choice == 1);
+    var MODE_JPG = (choice == 1 || choice == 5);
+    var MODE_KEEP_OPEN = (choice == 5);
     var MODE_PNG = (choice == 2);
     var MODE_PAS = (choice == 3);
 
@@ -230,21 +235,19 @@
                 // Action 'anti ramijud' (optional, try catch)
                 try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
 
-                if (MODE_JPG || (MODE_PAS && pasModeSub == 1)) {
-                    // Save JPG Utama
-                    saveJPG(dupDoc, docPath + "/" + baseName + ".jpg");
-                    successList.push(baseName + " (PSD+JPG)");
-                }
-
-                // Pas Foto Logik
+                // --- KHUSUS PAS FOTO (Match sepPP.jsx logic) ---
                 if (MODE_PAS) {
+                    // 1. Selalu simpan JPG Utama dulu (sama seperti sepPP)
+                    saveJPG(dupDoc, docPath + "/" + baseName + ".jpg");
+                    successList.push(baseName + " (JPG Utama)");
+
                     var baseOutputFolder = docPath;
 
-                    // Kita close dupDoc dulu
+                    // Close dupDoc (flattened version) karena crop harus dari MASTER
                     dupDoc.close(SaveOptions.DONOTSAVECHANGES);
                     dupDoc = null;
 
-                    // Pakai doc master sebagai source crop
+                    // 2. Buat crop tambahan (dari doc master original)
                     if (pasModeSub == 2 || pasModeSub == 4) { // 2x3
                         var folder2x3 = createFolderIfNotExist(baseOutputFolder + "/2x3");
                         if (createCroppedVersion(doc, folder2x3, 2, 3)) success2x3++;
@@ -253,12 +256,18 @@
                         var folder4x6 = createFolderIfNotExist(baseOutputFolder + "/4x6");
                         if (createCroppedVersion(doc, folder4x6, 4, 6)) success4x6++;
                     }
-                    successList.push(baseName + " (Pas Foto)");
-                }
-                else {
-                    // Cuma JPG Mode
+
+                    if (pasModeSub != 1) { // Jika bukan "Hanya JPG", berarti ada crop
+                        successList.push(baseName + " (+Crops)");
+                    }
+
+                } else if (MODE_JPG) {
+                    // --- JPG BIASA (Standard) ---
+                    saveJPG(dupDoc, docPath + "/" + baseName + ".jpg");
+                    successList.push(baseName + " (PSD+JPG)");
                     dupDoc.close(SaveOptions.DONOTSAVECHANGES);
                 }
+                // (MODE_PNG ada di else if berikutnya)
 
             } else if (MODE_PNG) {
                 // Save PSD + PNG
@@ -286,7 +295,9 @@
             }
 
             // C. Close Original
-            doc.close(SaveOptions.DONOTSAVECHANGES);
+            if (!MODE_KEEP_OPEN) {
+                doc.close(SaveOptions.DONOTSAVECHANGES);
+            }
 
         } catch (e) {
             failList.push(docNames[j] + " (Error: " + e.message + ")");
@@ -297,14 +308,29 @@
     }
 
     // 5. Laporan Final
+    var modeLabel = "Unknown";
+    if (MODE_JPG) modeLabel = "Save PSD + JPG" + (MODE_KEEP_OPEN ? " (Keep Open)" : " (Standard)");
+    else if (MODE_PNG) modeLabel = "Save PSD + PNG (Standard)";
+    else if (MODE_PAS) {
+        modeLabel = "Pass Foto Output";
+        var sizes = [];
+        if (pasModeSub == 1) sizes.push("JPG Default");
+        if (pasModeSub == 2 || pasModeSub == 4) sizes.push("2x3");
+        if (pasModeSub == 3 || pasModeSub == 4) sizes.push("4x6");
+        modeLabel += " " + sizes.join(" + ");
+    }
+
     var reportLines = [];
+    reportLines.push("Mode: " + modeLabel);
     reportLines.push("Total Dokumen: " + docNames.length);
     reportLines.push("Sukses: " + successList.length);
-    if (MODE_PAS) {
-        if (pasModeSub == 2 || pasModeSub == 4) reportLines.push("  - 2x3 Created: " + success2x3);
-        if (pasModeSub == 3 || pasModeSub == 4) reportLines.push("  - 4x6 Created: " + success4x6);
-    }
     reportLines.push("Gagal: " + failList.length);
+    reportLines.push("");
+
+    if (successList.length > 0) {
+        reportLines.push("Detail Sukses:");
+        for (var k = 0; k < successList.length; k++) reportLines.push("- " + successList[k]);
+    }
 
     if (failList.length > 0) {
         reportLines.push("");

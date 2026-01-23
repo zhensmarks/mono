@@ -23,6 +23,7 @@
     <PackageReference Include="Google.Apis.Drive.v3" Version="1.73.0.3996" />
     <PackageReference Include="Google.Apis.Sheets.v4" Version="1.72.0.3966" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" Version="11.2.0" />
   </ItemGroup>
 
   <ItemGroup>

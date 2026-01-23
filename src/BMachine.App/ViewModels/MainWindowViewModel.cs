@@ -135,10 +135,15 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         CurrentView = _cachedDashboardVM;
     }
 
+    private SettingsViewModel? _cachedSettingsVM;
+    
     public void NavigateToSettings()
     {
-        var vm = new SettingsViewModel(_database, NavigateToDashboard, _languageService);
-        CurrentView = vm;
+        if (_cachedSettingsVM == null)
+        {
+             _cachedSettingsVM = new SettingsViewModel(_database, NavigateToDashboard, _languageService);
+        }
+        CurrentView = _cachedSettingsVM;
     }
 
     public void NavigateToEditingList()

@@ -65,8 +65,22 @@ public class ThemeService : IThemeService
         
         if (Color.TryParse(hexColor, out var color))
         {
-            Application.Current.Resources[$"Accent{type}Brush"] = new SolidColorBrush(color);
-            Application.Current.Resources[$"Accent{type}Color"] = color;
+            if (type == "Accent")
+            {
+                Application.Current.Resources["AccentBlueBrush"] = new SolidColorBrush(color);
+                Application.Current.Resources["AccentBlue"] = color;
+                
+                 // Update color resource for consistency
+                Application.Current.Resources["AccentColorBrush"] = new SolidColorBrush(color);
+                Application.Current.Resources["AccentLowOpacityBrush"] = new SolidColorBrush(color) { Opacity = 0.15 };
+                Application.Current.Resources["AccentColor"] = color;
+            }
+            else
+            {
+                Application.Current.Resources[$"Accent{type}Brush"] = new SolidColorBrush(color);
+                Application.Current.Resources[$"Accent{type}LowOpacityBrush"] = new SolidColorBrush(color) { Opacity = 0.35 };
+                Application.Current.Resources[$"Accent{type}Color"] = color;
+            }
         }
     }
 

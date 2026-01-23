@@ -310,10 +310,20 @@ public partial class FloatingWidgetViewModel : ObservableObject
             var fileName = Path.GetFileName(file);
             var displayName = _scriptAliases.ContainsKey(fileName) ? _scriptAliases[fileName] : Path.GetFileNameWithoutExtension(fileName);
             
+            var displayIcon = icon;
+            var lowerName = fileName.ToLower();
+            if (lowerName.Contains("profesi") && !lowerName.Contains("sporty")) displayIcon = "IconBriefcase";
+            else if (lowerName.Contains("manasik")) displayIcon = "IconMap";
+            else if (lowerName.Contains("pasfoto") || lowerName.Contains("pas_foto")) displayIcon = "IconCamera";
+            else if (lowerName.Contains("wisuda")) displayIcon = "IconGraduation";
+            else if (lowerName.Contains("sporty")) displayIcon = "IconActivity";
+
             var existing = collection.FirstOrDefault(i => i.FilePath == file);
             if (existing != null)
             {
                 if (existing.Name != displayName) existing.Name = displayName;
+                // Update icon if changed (e.g. renamed or new logic)
+                if (existing.Icon != displayIcon) existing.Icon = displayIcon;
             }
             else
             {
@@ -321,7 +331,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
                 { 
                     Name = displayName,
                     FilePath = file,
-                    Icon = icon,
+                    Icon = displayIcon,
                     Category = cat,
                     ActionCommand = new RelayCommand(() => ExecuteFile(file))
                 });
@@ -519,6 +529,10 @@ public partial class FloatingWidgetViewModel : ObservableObject
             {
                 await RunProfesi(path);
             }
+            else if (fileName == "sporty_flat.py")
+            {
+                await RunSporty(path);
+            }
             else if (fileName.Contains("manasik") && fileName.EndsWith(".py")) // Matches manasik (1).py
             {
                 await RunManasik(path);
@@ -665,6 +679,35 @@ public partial class FloatingWidgetViewModel : ObservableObject
         var userName = await _database.GetAsync<string>("UserProfile.Name") ?? "USER";
         // Args: <master_profesi> <master_sporty> <pilihan> <output> [oke_base]
         var args = new List<string> { scriptPath, masterProfesi, masterSporty, folders.Input, folders.Output, okeBase };
+        RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
+    }
+
+    private async Task RunSporty(string scriptPath)
+    {
+        if (_database == null) return;
+        
+        // 1. Get Master Paths
+        var masterSporty = await _database.GetAsync<string>("Configs.Master.Sporty");
+
+        if (string.IsNullOrEmpty(masterSporty))
+        {
+            _logService?.AddLog("[ERROR] Master Sporty path is not set in Settings! Please configure it.");
+            return;
+        }
+
+        // 2. Ask User
+        var folders = await AskForInputOutputFolders("Sporty");
+        if (folders.Input == null || folders.Output == null) 
+        {
+            _logService?.AddLog("[INFO] Folder selection cancelled.");
+            return;
+        }
+
+        // 3. Run
+        var okeBase = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? "";
+        var userName = await _database.GetAsync<string>("UserProfile.Name") ?? "USER";
+        // Args: <master_sporty> <pilihan> <output> [oke_base]
+        var args = new List<string> { scriptPath, masterSporty, folders.Input, folders.Output, okeBase };
         RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
     }
 

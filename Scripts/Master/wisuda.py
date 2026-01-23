@@ -473,10 +473,10 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
 
         master_folder_to_use = None
         prefer_tag = None
-        if '8r' in subfolder_lower:
+        if '8r' in subfolder_lower or '8 r' in subfolder_lower:
             master_folder_to_use = md_8r_path
             prefer_tag = '8R'
-        elif '10rp' in subfolder_lower:
+        elif '10rp' in subfolder_lower or '10 rp' in subfolder_lower:
             master_folder_to_use = md_10rp_path
             prefer_tag = '10RP'
         else:

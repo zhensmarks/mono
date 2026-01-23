@@ -276,7 +276,8 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel
     private async Task<TrelloCard?> FetchSingleCard(string cardId, string apiKey, string token)
     {
         using var client = new HttpClient();
-        var url = $"https://api.trello.com/1/cards/{cardId}?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges";
+        // Added checklists=all to fetch checklist details
+        var url = $"https://api.trello.com/1/cards/{cardId}?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges&checklists=all";
         
         try 
         {
@@ -310,17 +311,55 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel
                 card.LabelsText = string.Join(", ", lbls.Where(x => !string.IsNullOrEmpty(x)));
             }
 
-            if (element.TryGetProperty("badges", out var badges))
+            // Checklists Parsing
+            if (element.TryGetProperty("checklists", out var checklistsProp))
+            {
+                var names = new List<string>();
+                int total = 0;
+                int completed = 0;
+
+                foreach(var cl in checklistsProp.EnumerateArray())
+                {
+                    if (cl.TryGetProperty("name", out var clName)) names.Add(clName.GetString() ?? "");
+                    
+                    if (cl.TryGetProperty("checkItems", out var items))
+                    {
+                        foreach(var item in items.EnumerateArray())
+                        {
+                            total++;
+                            if (item.TryGetProperty("state", out var state) && state.GetString() == "complete")
+                            {
+                                completed++;
+                            }
+                        }
+                    }
+                }
+
+                card.ChecklistNames = names;
+                card.ChecklistTotal = total;
+                card.ChecklistCompleted = completed;
+                card.HasChecklist = total > 0;
+            }
+            // Fallback to badges if checklists missing (shouldn't happen with checklists=all)
+            else if (element.TryGetProperty("badges", out var badges))
             {
                 if (badges.TryGetProperty("attachments", out var att)) card.AttachmentCount = att.GetInt32();
                 if (badges.TryGetProperty("checkItems", out var checkItems) && checkItems.GetInt32() > 0) card.HasChecklist = true;
             }
 
+            // Ensure badges attachments still parsed if outside checklists block
+            if (element.TryGetProperty("badges", out var badges2))
+            {
+                 if (badges2.TryGetProperty("attachments", out var att)) card.AttachmentCount = att.GetInt32();
+            }
+
+            card.RefreshChecklistStatus(); // Update Tooltips
             return card;
         }
-        catch
+        catch (Exception ex)
         {
-            return null; // Card not found
+            System.Diagnostics.Debug.WriteLine($"Error fetching card {cardId}: {ex.Message}");
+            return null; // Card not found/Error
         }
     }
 }

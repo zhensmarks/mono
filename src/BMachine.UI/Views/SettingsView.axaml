@@ -169,6 +169,32 @@
                              </Grid>
                         </StackPanel>
                         
+                        <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="0,10"/>
+
+                        <!-- Global Accent Color -->
+                        <StackPanel Spacing="10">
+                             <TextBlock Text="Global Accent Color" FontWeight="SemiBold"/>
+                             <TextBlock Text="Warna utama aplikasi (Tombol, Link, Indikator)." FontSize="12" Foreground="#999"/>
+                             
+                             <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
+                                 <TextBlock Grid.Row="0" Text="Accent Color" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 <ComboBox Grid.Row="0" Grid.Column="1" SelectedItem="{Binding AccentColor}" ItemsSource="{Binding WidgetColorOptions}" Width="150" Cursor="Hand">
+                                     <ComboBox.ItemTemplate>
+                                         <DataTemplate>
+                                             <StackPanel Orientation="Horizontal" Spacing="8">
+                                                 <Border Width="12" Height="12" CornerRadius="6" Background="{Binding Brush}"/>
+                                                 <TextBlock Text="{Binding Name}"/>
+                                             </StackPanel>
+                                         </DataTemplate>
+                                     </ComboBox.ItemTemplate>
+                                 </ComboBox>
+                                 
+                                 <!-- Custom Picker for Accent -->
+                                 <ColorPicker Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsAccentCustom}" 
+                                             Color="{Binding CustomAccentColor}" Margin="0,10,0,0"/>
+                             </Grid>
+                        </StackPanel>
+                        
                         <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
 
                         <!-- Navigation Button Style -->
@@ -437,6 +463,7 @@
                                  <Button Content="Record New" 
                                          Command="{Binding StartRecordingShortcutCommand}"
                                          IsVisible="{Binding !IsRecordingShortcut}"
+                                         Classes="Primary"
                                          HorizontalAlignment="Right"/>
                                          
                                  <Button Content="Cancel (Esc)" 
@@ -455,7 +482,7 @@
                                  <TextBlock Text="Date &amp; Time" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                  <TextBlock Text="Buka pengaturan jam Windows untuk sinkronisasi waktu." FontSize="12" Foreground="#999" TextWrapping="Wrap"/>
                              </StackPanel>
-                             <Button Grid.Column="1" Command="{Binding SyncSystemTimeCommand}" Content="Sync Time"/>
+                             <Button Grid.Column="1" Command="{Binding SyncSystemTimeCommand}" Content="Sync Time" Classes="Primary"/>
                         </Grid>
                         
                         <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
@@ -482,7 +509,7 @@
                                    </Button>
                               </Grid>
                         </Grid>
-                         <Button Grid.Column="1" HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}"/>
+                         <Button Grid.Column="1" HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary"/>
 
                     </StackPanel>
                 </StackPanel>
@@ -506,7 +533,7 @@
                              <TextBlock Grid.Row="1" Grid.Column="0" Text="Token:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                                  <TextBox Grid.Column="0" Text="{Binding TrelloToken, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" Watermark="Trello Token"/>
-                                 <Button Grid.Column="1" Command="{Binding ToggleTrelloConnectionCommand}" Content="{Binding TrelloButtonText}" Margin="10,0,0,0"/>
+                                 <Button Grid.Column="1" Command="{Binding ToggleTrelloConnectionCommand}" Content="{Binding TrelloButtonText}" Classes="Primary" Margin="10,0,0,0"/>
                              </Grid>
                         </Grid>
                         
@@ -516,7 +543,9 @@
                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Credentials JSON:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                                  <TextBox Grid.Column="0" Text="{Binding GoogleCredsPath}" Watermark="Path to json credentials"/>
-                                 <Button Grid.Column="1" Content="..." Margin="10,0,0,0" Click="OnBrowseCredsClick"/>
+                                 <Button Grid.Column="1" Classes="Primary" Margin="10,0,0,0" Click="OnBrowseCredsClick" Padding="10,5">
+                                      <PathIcon Data="{StaticResource IconFolder}" Width="16" Height="16"/>
+                                 </Button>
                              </Grid>
                              
                              <TextBlock Grid.Row="1" Grid.Column="0" Text="Sheet ID:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -612,7 +641,7 @@
                                  <Border Background="#26282C" CornerRadius="10" Padding="15" Margin="0,0,0,10">
                                      <Grid ColumnDefinitions="Auto, *, Auto, Auto" RowDefinitions="Auto, Auto">
                                          <!-- Icon -->
-                                         <Border Grid.RowSpan="2" Width="40" Height="40" CornerRadius="8" Background="{DynamicResource AccentBlueBrush}" Margin="0,0,15,0">
+                                         <Border Grid.RowSpan="2" Width="40" Height="40" CornerRadius="8" Background="{DynamicResource AccentColorBrush}" Margin="0,0,15,0">
                                              <PathIcon Data="{StaticResource IconExtension}" Foreground="White" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                          </Border>
                                          
@@ -645,10 +674,10 @@
                  
                  <!-- FAB (Add Button) -->
                   <Button Command="{Binding AddExtensionCommand}" 
-                          Background="{DynamicResource AccentBlueBrush}" Foreground="White"
-                          HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,10" Padding="20,10" CornerRadius="25" FontWeight="SemiBold">
+                          Classes="Primary"
+                          HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,10">
                       <StackPanel Orientation="Horizontal" Spacing="8">
-                          <PathIcon Data="{StaticResource IconPlus}" Width="18" Height="18" Foreground="White" VerticalAlignment="Center"/>
+                          <PathIcon Data="{StaticResource IconPlus}" Width="16" Height="16" Foreground="White" VerticalAlignment="Center"/>
                           <TextBlock Text="{Binding Language[Extensions.Add]}" VerticalAlignment="Center"/>
                       </StackPanel>
                   </Button>
@@ -739,7 +768,7 @@
                                                         </TextBox>
                                                         
                                                         <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
-                                                            <Button Content="Cancel" Command="{Binding ToggleEditCommand}" Classes="Clear" FontSize="12" Padding="10,5"/>
+                                                            <Button Content="Cancel" Command="{Binding ToggleEditCommand}" Classes="Clear" Foreground="{DynamicResource AccentColorBrush}" FontSize="12" Padding="10,5"/>
                                                             <Button Content="Save Changes" Command="{Binding SaveRenameCommand}" Classes="Primary" FontSize="12" Padding="15,6"/>
                                                         </StackPanel>
                                                     </Grid>
@@ -832,7 +861,7 @@
                                                             </TextBox>
                                                             
                                                             <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
-                                                                <Button Content="Cancel" Command="{Binding ToggleEditCommand}" Classes="Clear" FontSize="12" Padding="10,5"/>
+                                                            <Button Content="Cancel" Command="{Binding ToggleEditCommand}" Classes="Clear" Foreground="{DynamicResource AccentColorBrush}" FontSize="12" Padding="10,5"/>
                                                                 <Button Content="Save Changes" Command="{Binding SaveRenameCommand}" Classes="Primary" FontSize="12" Padding="15,6"/>
                                                             </StackPanel>
                                                         </Grid>

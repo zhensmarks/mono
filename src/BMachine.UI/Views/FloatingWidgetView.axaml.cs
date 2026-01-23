@@ -103,7 +103,7 @@ public partial class FloatingWidgetView : Window
             BorderThickness = new Thickness(0),
             BoxShadow = new BoxShadows(new BoxShadow
             {
-                OffsetX = 0, OffsetY = 0, Blur = 20, Spread = 2, Color = Color.Parse("#3b82f6")
+                OffsetX = 0, OffsetY = 0, Blur = 20, Spread = 2, Color = Color.Parse("#003b82f6") // Initial transparent, updated by VM
             }),
             Opacity = 1.0,
             IsHitTestVisible = false // Pass clicks through
@@ -115,7 +115,7 @@ public partial class FloatingWidgetView : Window
             Width = 60, Height = 60,
             CornerRadius = new CornerRadius(30),
             // Background is bound below
-            BorderBrush = SolidColorBrush.Parse("#3b82f6"),
+            BorderBrush = SolidColorBrush.Parse("#3b82f6"), // Updated by VM
             BorderThickness = new Thickness(2),
             Cursor = new Cursor(StandardCursorType.Hand), 
             IsHitTestVisible = true

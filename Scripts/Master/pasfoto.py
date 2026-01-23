@@ -412,7 +412,8 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
 
             try:
                 shutil.copy2(psd_template_path, dest_path)
-                print(f"    - [OK] {os.path.basename(dest_path)}")
+                total = len(source_images)
+                print(f"    - [OK] {idx}/{total} {os.path.basename(dest_path)}")
             except Exception as e:
                 print(f"    - [ERROR] Gagal menyalin ke '{os.path.basename(dest_path)}': {e}", file=sys.stderr)
 

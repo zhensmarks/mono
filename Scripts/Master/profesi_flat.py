@@ -8,6 +8,10 @@ from collections import defaultdict
 import re
 import base64
 
+# FORCE UNBUFFERED OUTPUT
+sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
+print("PYTHON_SCRIPT_STARTED: profesi_flat.py", flush=True)
+
 ALLOWED_EXTS = (".jpg", ".jpeg")
 # Regex diperluas: KELAS..., GROUP..., KELOMPOK..., atau folder berawalan angka (misal "1. FOTO")
 CLASS_OR_GROUP_REGEX = re.compile(r'^(?:(?:KELAS|KLS|GROUP|KELOMPOK)|(?:\d+[\s._-]))', re.IGNORECASE)
@@ -309,9 +313,13 @@ def copy_txt_files_recursive(source_folder, output_folder):
                 dest_path = os.path.join(dest_dir, file)
                 try:
                     shutil.copy2(src_path, dest_path)
-                    print(f"    - Salin .txt: {os.path.relpath(dest_path, output_folder)}")
+                    print(f"    [COPY-TXT] {os.path.relpath(dest_path, output_folder)}")
                 except Exception as e:
-                    print(f"    - [ERROR] Gagal salin .txt '{file}': {e}", file=sys.stderr)
+                    print(f"    [ERROR-TXT] Gagal salin '{file}': {e}", file=sys.stderr)
+
+
+
+
 
 # ---------- Core ----------
 def process_images(master_path_profesi, master_path_sporty, pilihan_path, output_path, config_data,
@@ -352,16 +360,8 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
     final_event_folder = os.path.join(output_path, relative_structure)
     os.makedirs(final_event_folder, exist_ok=True)
 
-    # Mirror level-1
-    try:
-        for name in os.listdir(pilihan_path):
-            p = os.path.join(pilihan_path, name)
-            if os.path.isdir(p):
-                os.makedirs(os.path.join(final_event_folder, name), exist_ok=True)
-    except Exception:
-        pass
-
-    # Salin .txt dari semua subfolder (Mirip Manasik)
+    # Trigger Copy TXT (Mirip Manasik)
+    print("\n[INFO] Menyalin file .txt dari subfolder...")
     try:
         for name in os.listdir(pilihan_path):
             p = os.path.join(pilihan_path, name)
@@ -369,7 +369,11 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                 out_p = os.path.join(final_event_folder, name)
                 copy_txt_files_recursive(p, out_p)
     except Exception as e:
-        print(f"[WARNING] Gagal salin .txt dari subfolder: {e}", file=sys.stderr)
+        print(f"[WARNING] Gagal salin .txt loop utama: {e}", file=sys.stderr)
+
+
+
+
 
     # Pre-create kelas/grup/kelompok di dalam folder yang mengandung 'profesi' atau 'sporty'
     def precreate_tag(tag: str):
@@ -417,10 +421,16 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
     unmatched, errors = [], []
 
     # --- NEW LOGIC: Deep Walk with Smart Folder Detection ---
+    total_folders_scanned = 0
+    total_files_scanned = 0
+    print("[DEBUG] Memulai scan folder...")
     for root, dirs, files in os.walk(pilihan_path):
+        total_folders_scanned += 1
+        print(f"\r[SCAN] Folder ke-{total_folders_scanned}: {os.path.basename(root)[:40]}...", end='', flush=True)
         jpg_files = [f for f in files if f.lower().endswith(ALLOWED_EXTS)]
         if not jpg_files:
             continue
+        total_files_scanned += len(jpg_files)
 
         # 1. Tentukan konteks folder
         rel_dir = os.path.relpath(root, pilihan_path)
@@ -459,11 +469,14 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                 target_rel_dir = parts[0]
             elif len(parts) == 1:
                 # Kasus: 1. FOTO... (Cocok Regex) -> Tetap 1. FOTO...
-                # Kasus: BRIMOB (Tidak Cocok) -> Ratakan ke Root (".")
+                # Kasus: BRIMOB (Cocok Master) -> Ratakan ke Root (".")
+                # Kasus: GEDUNG B (Tidak Cocok Apa-apa) -> Tetap GEDUNG B (Anggap Kelas)
                 if is_class_or_group(parts[0]):
                     target_rel_dir = parts[0]
-                else:
+                elif folder_master_key:
                     target_rel_dir = "."
+                else:
+                    target_rel_dir = parts[0]
         
         if target_rel_dir == "." or target_rel_dir == "":
             current_output_dir = final_event_folder

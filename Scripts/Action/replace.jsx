@@ -17,15 +17,24 @@
     // === Step 1: Pilih folder ===
     var templateFolder = null;
 
-    // Check Config from BMachine for Template (Output Lokal)
-    if (bmachineContext && bmachineContext.UseOutput && bmachineContext.SourceFolders && bmachineContext.SourceFolders.length > 0) {
-        var path = bmachineContext.SourceFolders[0].OutputPath;
-        if (path && new Folder(path).exists) {
-            templateFolder = new Folder(path);
+    // Check Config from BMachine for Template (Output Lokal or Global Master)
+    if (bmachineContext) {
+        // PRIORITAS 1: Gunakan Global Master Template Path dari BMachine (jika ada)
+        if (bmachineContext.MasterTemplatePath && new Folder(bmachineContext.MasterTemplatePath).exists) {
+            templateFolder = new Folder(bmachineContext.MasterTemplatePath);
+        }
+        // PRIORITAS 2: Gunakan Output Path dari folder pertama (Implicit)
+        // Jika tidak ada Global Master, kita asumsikan user ingin menggunakan Output Lokal sebagai Master (PSD hasil generate)
+        else if (bmachineContext.SourceFolders && bmachineContext.SourceFolders.length > 0) {
+            var path = bmachineContext.SourceFolders[0].OutputPath;
+            if (path && new Folder(path).exists) {
+                templateFolder = new Folder(path);
+            }
         }
     }
 
     if (!templateFolder) {
+        // Fallback: Minta user pilih jika tidak ada indikasi path valid
         templateFolder = Folder.selectDialog("Pilih folder masternya dulu aja.");
     }
     if (!templateFolder) { alert("Ga jadi ah males."); return; }
@@ -33,7 +42,9 @@
     var inputFolder = null;
 
     // Check Config from BMachine for Input (Pilihan)
-    if (bmachineContext && bmachineContext.UseInput && bmachineContext.SourceFolders && bmachineContext.SourceFolders.length > 0) {
+    // Default: UseInput is implicit if SourceFolders exist
+    if (bmachineContext && bmachineContext.SourceFolders && bmachineContext.SourceFolders.length > 0) {
+        // Ambil folder pertama sebagai input source
         var path = bmachineContext.SourceFolders[0].SourcePath;
         if (path && new Folder(path).exists) {
             inputFolder = new Folder(path);
@@ -170,12 +181,19 @@
         }
         // === AKHIR LOGIKA BARU ===
 
-        // Sort matchedInputs: prioritaskan file .psd
+        // Sort matchedInputs: prioritaskan file .png -> .psd -> .jpg
         matchedInputs.sort(function (a, b) {
+            var aIsPng = /\.png$/i.test(a.name);
+            var bIsPng = /\.png$/i.test(b.name);
             var aIsPsd = /\.psd$/i.test(a.name);
             var bIsPsd = /\.psd$/i.test(b.name);
+            // PNG first
+            if (aIsPng && !bIsPng) return -1;
+            if (!aIsPng && bIsPng) return 1;
+            // Then PSD
             if (aIsPsd && !bIsPsd) return -1;
             if (!aIsPsd && bIsPsd) return 1;
+            // Finally alphabetical (JPG will naturally be last)
             return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
         });
 
@@ -209,6 +227,9 @@
                 smartXL.name = matchedInputs[0].displayName.replace(/\.[^\.]+$/, "");
 
                 var msg = " (1 input: cuma XL diganti)";
+                if (smartS) {
+                    msg += " [Layer S ada tapi input kurang, dilewati]";
+                }
                 if (matchedInputs.length > 1) {
                     msg += " [Info: Ditemukan " + matchedInputs.length + " input, diambil yg pertama]";
                 }
@@ -216,6 +237,7 @@
             } else {
                 failList.push(relPath(templateFolder, template) + " (Input file ketemu " + matchedInputs.length + ", ga sesuai aturan)");
                 doc.close(SaveOptions.DONOTSAVECHANGES);
+                continue; // Skip to next template
             }
         } catch (e) {
             failList.push(relPath(templateFolder, template) + " (error: " + e.toString() + ")");

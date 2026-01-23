@@ -353,9 +353,6 @@ public partial class SettingsViewModel : ObservableObject
     private ObservableCollection<ColorOption> _accentColors = new();
     
     [ObservableProperty]
-    private ColorOption? _selectedAccentColor;
-    
-    [ObservableProperty]
     private int _selectedLanguageIndex = 0; // 0=English, 1=Indonesian
     
     [ObservableProperty]
@@ -599,12 +596,17 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] 
     [NotifyPropertyChangedFor(nameof(IsOrbCustom))]
     private ColorOption? _orbColor;
+
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(IsAccentCustom))]
+    private ColorOption? _accentColor;
     
     public bool IsEditingCustom => EditingColor?.Name == "Custom";
     public bool IsRevisionCustom => RevisionColor?.Name == "Custom";
     public bool IsLateCustom => LateColor?.Name == "Custom";
     public bool IsPointsCustom => PointsColor?.Name == "Custom";
     public bool IsOrbCustom => OrbColor?.Name == "Custom";
+    public bool IsAccentCustom => AccentColor?.Name == "Custom";
     
     [ObservableProperty] private Color _customOrbColor = Color.Parse("#3b82f6");
     
@@ -625,10 +627,15 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CustomPointsHex))]
     private Color _customPointsColor = Colors.Green;
 
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(CustomAccentHex))]
+    private Color _customAccentColor = Color.Parse("#3b82f6");
+
     partial void OnCustomEditingColorChanged(Color value) => ApplyWidgetColors();
     partial void OnCustomRevisionColorChanged(Color value) => ApplyWidgetColors();
     partial void OnCustomLateColorChanged(Color value) => ApplyWidgetColors();
     partial void OnCustomPointsColorChanged(Color value) => ApplyWidgetColors();
+    partial void OnCustomAccentColorChanged(Color value) => ApplyWidgetColors();
 
 
     partial void OnEditingColorChanged(ColorOption? value) 
@@ -639,6 +646,11 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnRevisionColorChanged(ColorOption? value)
     {
         OnPropertyChanged(nameof(IsRevisionCustom));
+        ApplyWidgetColors();
+    }
+    partial void OnAccentColorChanged(ColorOption? value)
+    {
+        OnPropertyChanged(nameof(IsAccentCustom));
         ApplyWidgetColors();
     }
     partial void OnLateColorChanged(ColorOption? value)
@@ -681,6 +693,44 @@ public partial class SettingsViewModel : ObservableObject
         var orbHex = GetColorHex(OrbColor, CustomOrbColor);
         _themeService.SetWidgetColor("Orb", orbHex);
         _database?.SetAsync("Settings.Color.Orb", orbHex);
+
+        // Accent (Global)
+        var accentHex = GetColorHex(AccentColor, CustomAccentColor);
+        _themeService.SetWidgetColor("Accent", accentHex);
+        _database?.SetAsync("Settings.Accent", accentHex);
+    }
+
+    /// <summary>
+    /// Updates properties and ThemeService without saving to DB.
+    /// Used during initialization to prevent overwriting settings.
+    /// </summary>
+    private void SyncThemeOnly()
+    {
+        if (_themeService == null) return;
+
+         // Editing
+        var editHex = GetColorHex(EditingColor, CustomEditingColor);
+        _themeService.SetWidgetColor("Editing", editHex);
+        
+        // Revision
+        var revHex = GetColorHex(RevisionColor, CustomRevisionColor);
+        _themeService.SetWidgetColor("Revision", revHex);
+        
+        // Late
+        var lateHex = GetColorHex(LateColor, CustomLateColor);
+        _themeService.SetWidgetColor("Late", lateHex);
+        
+        // Points
+        var ptsHex = GetColorHex(PointsColor, CustomPointsColor);
+        _themeService.SetWidgetColor("Points", ptsHex);
+        
+        // Orb
+        var orbHex = GetColorHex(OrbColor, CustomOrbColor);
+        _themeService.SetWidgetColor("Orb", orbHex);
+
+        // Accent
+        var accentHex = GetColorHex(AccentColor, CustomAccentColor);
+        _themeService.SetWidgetColor("Accent", accentHex);
     }
     
 
@@ -714,6 +764,11 @@ public partial class SettingsViewModel : ObservableObject
     {
         get => CustomPointsColor.ToString();
         set { if (Color.TryParse(value, out Color c)) CustomPointsColor = c; }
+    }
+    public string CustomAccentHex
+    {
+        get => CustomAccentColor.ToString();
+        set { if (Color.TryParse(value, out Color c)) CustomAccentColor = c; }
     }
     public string CustomOrbHex
     {
@@ -779,6 +834,10 @@ public partial class SettingsViewModel : ObservableObject
         LateColor = WidgetColorOptions[1]; // Orange
         PointsColor = WidgetColorOptions[1]; // Orange
         OrbColor = WidgetColorOptions[0]; // Blue
+        AccentColor = WidgetColorOptions[0]; // Blue
+        
+        // Ensure defaults are set to trigger initial update
+        SyncThemeOnly();
     }
 
     private void InitializeAppearanceOptions()
@@ -792,7 +851,7 @@ public partial class SettingsViewModel : ObservableObject
             new() { Name = "Red", Hex = "#ef4444", Brush = SolidColorBrush.Parse("#ef4444") },
             new() { Name = "Random/Campur", Hex = "#FFFFFF", Brush = new SolidColorBrush(Colors.Gray) } 
         };
-        SelectedAccentColor = AccentColors[0];
+        // SelectedAccentColor = AccentColors[0]; // Legacy
     }
 
     private async void LoadSettings()
@@ -865,17 +924,7 @@ public partial class SettingsViewModel : ObservableObject
             else
                 CustomDarkCardBgColor = Color.Parse("#1A1C20"); // Default
 
-            // Load Accent
-            // Load Accent
-            var accentHex = await _database.GetAsync<string>("Settings.Accent");
-            if (!string.IsNullOrEmpty(accentHex))
-            {
-                var existing = AccentColors.FirstOrDefault(c => c.Hex == accentHex);
-                if (existing != null) 
-                {
-                    SelectedAccentColor = existing;
-                }
-            }
+
             
             // Load Floating Widget
             var fwEnabled = await _database.GetAsync<string>("Settings.FloatingWidget") ?? "True";
@@ -972,6 +1021,12 @@ public partial class SettingsViewModel : ObservableObject
                 SelectedRevisionList = RevisionLists.FirstOrDefault(l => l.Id == RevisionListId);
                 SelectedLateList = LateLists.FirstOrDefault(l => l.Id == LateListId);
             }
+            
+            await LoadWidgetColorAsync("Settings.Color.Revision", c => RevisionColor = c, hex => CustomRevisionColor = Color.Parse(hex));
+            await LoadWidgetColorAsync("Settings.Color.Late", c => LateColor = c, hex => CustomLateColor = Color.Parse(hex));
+            await LoadWidgetColorAsync("Settings.Color.Points", c => PointsColor = c, hex => CustomPointsColor = Color.Parse(hex));
+            await LoadWidgetColorAsync("Settings.Color.Orb", c => OrbColor = c, hex => CustomOrbColor = Color.Parse(hex));
+            await LoadWidgetColorAsync("Settings.Accent", c => AccentColor = c, hex => CustomAccentColor = Color.Parse(hex));
         }
         catch (Exception ex)
         {
@@ -980,7 +1035,7 @@ public partial class SettingsViewModel : ObservableObject
         finally
         {
             _isInitializing = false;
-            ApplyWidgetColors();
+            SyncThemeOnly();
         }
     }
 
@@ -993,7 +1048,7 @@ public partial class SettingsViewModel : ObservableObject
             if (string.IsNullOrEmpty(hex)) return;
     
             // Check if it matches a preset
-            var preset = WidgetColorOptions.FirstOrDefault(x => x.Hex == hex && x.Name != "Custom");
+            var preset = WidgetColorOptions.FirstOrDefault(x => x.Hex.Equals(hex, StringComparison.OrdinalIgnoreCase) && x.Name != "Custom");
             if (preset != null)
             {
                 setOption(preset);
@@ -1001,8 +1056,8 @@ public partial class SettingsViewModel : ObservableObject
             else
             {
                 // Must be custom
-                setOption(WidgetColorOptions.First(x => x.Name == "Custom"));
                 try { setCustomHex(hex); } catch {}
+                setOption(WidgetColorOptions.First(x => x.Name == "Custom"));
             }
         }
         catch (Exception ex)
@@ -1014,7 +1069,7 @@ public partial class SettingsViewModel : ObservableObject
     private string GetColorHex(ColorOption? option, Color custom)
     {
         if (option == null) return "#3b82f6"; // Default Blue
-        if (option.Name == "Custom") return custom.ToString();
+        if (option.Name == "Custom") return $"#{custom.A:X2}{custom.R:X2}{custom.G:X2}{custom.B:X2}";
         return option.Hex;
     }
     
@@ -1418,26 +1473,7 @@ public partial class SettingsViewModel : ObservableObject
 
 
 
-    partial void OnSelectedAccentColorChanged(ColorOption? value)
-    {
-        if (value == null || _themeService == null) return;
-        
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => 
-        {
-            if (value.Name == "Random/Campur")
-            {
-                var rnd = new Random();
-                var randomColor = AccentColors[rnd.Next(0, AccentColors.Count - 1)]; 
-                if (randomColor.Name == "Random/Campur") randomColor = AccentColors[0];
-                
-                _themeService.SetAccentColor(randomColor.Hex);
-            }
-            else
-            {
-                _themeService.SetAccentColor(value.Hex);
-            }
-        });
-    }
+
 
     partial void OnIsFloatingWidgetEnabledChanged(bool value)
     {
@@ -1481,8 +1517,8 @@ public partial class SettingsViewModel : ObservableObject
             await _database.SetAsync("Trello.QcBoardId", QcBoardId);
             
             await _database.SetAsync("Settings.Theme", SelectedThemeIndex == 1 ? "Light" : "Dark");
-            if (SelectedAccentColor != null)
-                await _database.SetAsync("Settings.Accent", SelectedAccentColor.Hex);
+            if (AccentColor != null)
+                await _database.SetAsync("Settings.Accent", GetColorHex(AccentColor, CustomAccentColor));
             
             // Save Background Colors
             await _database.SetAsync("Appearance.Background.Dark", DarkBackgroundColor);

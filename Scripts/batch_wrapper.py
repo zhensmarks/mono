@@ -64,18 +64,20 @@ def main():
 
     base_dir = os.path.dirname(os.path.realpath(__file__))
     
-    # Search for target script in root, Master, or Action subfolders
+    # Search for target script - Prioritize subfolders!
     possible_paths = [
-        os.path.join(base_dir, args.target),
         os.path.join(base_dir, "Master", args.target),
-        os.path.join(base_dir, "Action", args.target)
+        os.path.join(base_dir, "Action", args.target),
+        os.path.join(base_dir, args.target)
     ]
     
     target_path = ""
     for p in possible_paths:
-        if os.path.isfile(p):
             target_path = p
+            print(f"[DEBUG_WRAPPER] FOUND TARGET: {target_path}", file=sys.stderr)
             break
+    
+    print(f"[DEBUG_WRAPPER] RESOLVED TARGET PATH: {target_path}", file=sys.stderr)
             
     if not target_path:
         print(f"ERROR: Target script not found: {args.target}", file=sys.stderr)
@@ -136,20 +138,38 @@ def main():
         return 4
 
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Prepare environment
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONUNBUFFERED"] = "1"
 
-        # stream stdout and stderr
+        print(f"[DEBUG_WRAPPER] Launching subprocess: {cmd}", file=sys.stderr)
+        
+        # Use simple Popen without text=True to avoid buffering issues, handle decoding manually
+        proc = subprocess.Popen(
+            cmd, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.STDOUT, # Merge stderr into stdout to avoid deadlock
+            env=env
+        )
+
         while True:
-            out = proc.stdout.readline()
-            if out:
-                print(out, end='')
-            err = proc.stderr.readline()
-            if err:
-                print(err, end='', file=sys.stderr)
-            if out == '' and err == '' and proc.poll() is not None:
-                break
+            # Read byte by byte or line by line
+            line = proc.stdout.readline()
+            if not line:
+                if proc.poll() is not None:
+                    break
+                continue
+            
+            # Decode and print
+            try:
+                decoded_line = line.decode('utf-8', errors='replace')
+                sys.stdout.write(decoded_line)
+                sys.stdout.flush()
+            except:
+                 pass
 
-        return proc.returncode if proc.returncode is not None else 0
+        return proc.returncode
     except Exception as e:
         print(f"ERROR: Exception running target script: {e}", file=sys.stderr)
         return 3

@@ -39,7 +39,7 @@
         <!-- Primary Button Style -->
         <!-- Primary Button Style -->
         <Style Selector="Button.Primary">
-            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Padding" Value="15,8"/>
             <Setter Property="CornerRadius" Value="8"/>
@@ -53,7 +53,7 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}"
                             Padding="{TemplateBinding Padding}"
-                            BoxShadow="0 4 10 0 #663b82f6"> <!-- Shadow on Border -->
+                            BoxShadow="0 4 10 0 #40000000"> <!-- Neutral Shadow -->
                         <ContentPresenter Name="PART_ContentPresenter"
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -64,12 +64,21 @@
             </Setter>
         </Style>
         <Style Selector="Button.Primary:pointerover /template/ Border#PART_Border">
-             <Setter Property="Background" Value="#3366CC"/>
-             <Setter Property="BoxShadow" Value="0 6 12 0 #883b82f6"/>
+             <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+             <Setter Property="Opacity" Value="0.9"/>
+             <Setter Property="BoxShadow" Value="0 6 12 0 #60000000"/>
+        </Style>
+        <Style Selector="Button.Primary:pointerover /template/ ContentPresenter">
+             <Setter Property="Foreground" Value="White"/>
+             <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="Button.Primary:pressed /template/ Border#PART_Border">
              <Setter Property="RenderTransform" Value="scale(0.98)" />
-             <Setter Property="BoxShadow" Value="0 2 5 0 #663b82f6"/>
+             <Setter Property="BoxShadow" Value="0 2 5 0 #40000000"/>
+        </Style>
+        <Style Selector="Button.Primary:pressed /template/ ContentPresenter">
+             <Setter Property="Foreground" Value="White"/>
+             <Setter Property="Background" Value="Transparent"/>
         </Style>
 
         <!-- Global Compact ToolTip Style -->

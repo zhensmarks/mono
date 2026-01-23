@@ -105,8 +105,15 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         if (card == null) return;
         
+        // Deactivate previous
+        if (SelectedCard != null) SelectedCard.IsActive = false;
+        
         CloseAllSidePanels(); // Close others
         SelectedCard = card;
+        
+        // Activate new
+        if (SelectedCard != null) SelectedCard.IsActive = true;
+        
         IsDetailPanelOpen = true; // Open Detail Panel
     }
 
@@ -114,7 +121,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     protected virtual void CloseDetailPanel()
     {
         IsDetailPanelOpen = false;
-        SelectedCard = null;
+        if (SelectedCard != null)
+        {
+            SelectedCard.IsActive = false;
+            SelectedCard = null;
+        }
     }
 
     [RelayCommand]
@@ -352,10 +363,17 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             
             await LogActivity("Checklist", "Duplicated Checklist", $"{DuplicateChecklistName} from {SelectedSourceChecklist.Name}");
             
+            // Local Update for Real-time Feedback
+            SelectedCard.ChecklistNames.Add(DuplicateChecklistName);
+            SelectedCard.HasChecklist = true;
+            SelectedCard.RefreshChecklistStatus();
+
             IsDuplicateMode = false;
             DuplicateChecklistName = "";
             SelectedSourceChecklist = null;
-            await LoadChecklists(SelectedCard.Id);
+            
+            // Background reload to sync IDs/Items
+            _ = LoadChecklists(SelectedCard.Id);
         }
         catch (Exception ex)
         {
@@ -846,6 +864,19 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    protected async Task StartMoveCard(TrelloCard? card)
+    {
+        if (card == null) return;
+        
+        CloseAllSidePanels();
+        SelectedCard = card;
+        IsBatchMoveMode = false;
+        IsMovePanelOpen = true;
+        
+        await LoadMoveBoards();
+    }
+
     private async Task LoadMoveBoards()
     {
         IsLoadingMoveData = true;
@@ -1012,7 +1043,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         var results = new List<TrelloCard>();
         using var client = new HttpClient();
-        var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges";
+        var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges&checklists=all";
         
         try 
         {
@@ -1050,8 +1081,20 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 if (element.TryGetProperty("badges", out var badges))
                 {
                     if (badges.TryGetProperty("attachments", out var att)) card.AttachmentCount = att.GetInt32();
-                    if (badges.TryGetProperty("checkItems", out var checkItems) && checkItems.GetInt32() > 0) card.HasChecklist = true;
                 }
+
+                // Parse Checklists Names
+                if (element.TryGetProperty("checklists", out var checkArr) && checkArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var checkItem in checkArr.EnumerateArray())
+                    {
+                        if (checkItem.TryGetProperty("name", out var cName))
+                        {
+                            card.ChecklistNames.Add(cName.GetString() ?? "");
+                        }
+                    }
+                }
+                card.HasChecklist = card.ChecklistNames.Count > 0; // Simple boolean fallback
 
                 results.Add(card);
             }

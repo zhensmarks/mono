@@ -17,7 +17,7 @@ using Google.Apis.Sheets.v4;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>
 {
     private readonly IActivityService _activityService;
     private readonly IDatabase _database;
@@ -595,6 +595,9 @@ public partial class DashboardViewModel : ObservableObject
             // Auto open log panel on start? User preference. Maybe yes.
             if (m.Value) IsLogPanelOpen = true;
         });
+
+        // Register OpenTextFileMessage handler (implemented via IRecipient interface)
+        WeakReferenceMessenger.Default.Register<OpenTextFileMessage>(this);
     }
 
     private async Task LoadVisualSettings()
@@ -1052,6 +1055,36 @@ public partial class DashboardViewModel : ObservableObject
     }
 
 
+
+    public async void Receive(OpenTextFileMessage message)
+    {
+        try 
+        {
+            if (System.IO.File.Exists(message.Value))
+            {
+                var text = await System.IO.File.ReadAllTextAsync(message.Value);
+                
+                // Clear and show file content
+                LogItems.Clear();
+                ProcessStatusText = $"Viewing: {System.IO.Path.GetFileName(message.Value)}";
+                StatusColor = Brushes.Cyan;
+                
+                // One block to preserve formatting
+                var item = new BMachine.UI.Models.LogItem(text, BMachine.UI.Models.LogLevel.Standard);
+                // Optionally set color if needed, but Standard (White) is fine for text file
+                // item.CustomColor = Brushes.LightGray; 
+                
+                LogItems.Add(item);
+                
+                IsLogPanelOpen = true;
+            }
+        }
+        catch (Exception ex)
+        {
+             LogItems.Add(new BMachine.UI.Models.LogItem($"Error reading file: {ex.Message}", BMachine.UI.Models.LogLevel.Error));
+             IsLogPanelOpen = true;
+        }
+    }
 
     private string GetSmartDateString(DateTime date)
     {

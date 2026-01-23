@@ -28,23 +28,31 @@ public partial class DashboardView : UserControl
 
     private void OnBatchDrop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not DashboardViewModel vm) return;
-        if (vm.BatchVM == null) return;
-        
-        // Prevent Drop if Locker is Active
-        if (vm.IsLockerTabSelected) return;
-
-        var files = e.Data.GetFiles();
-        if (files == null) return;
-
-        var folderPaths = files
-            .Select(f => f.Path.LocalPath)
-            .Where(p => System.IO.Directory.Exists(p))
-            .ToArray();
-
-        if (folderPaths.Length > 0)
+        try
         {
-            vm.BatchVM.AddFolders(folderPaths);
+            if (DataContext is not DashboardViewModel vm) return;
+            if (vm.BatchVM == null) return;
+            
+            // Prevent Drop if Locker is Active
+            if (vm.IsLockerTabSelected) return;
+
+            var files = e.Data.GetFiles();
+            if (files == null) return;
+
+            var folderPaths = files
+                .Where(f => f?.Path?.LocalPath != null)
+                .Select(f => f.Path.LocalPath)
+                .Where(p => !string.IsNullOrEmpty(p) && System.IO.Directory.Exists(p))
+                .ToArray();
+
+            if (folderPaths.Length > 0)
+            {
+                vm.BatchVM.AddFolders(folderPaths);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error in OnBatchDrop: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
@@ -167,5 +175,35 @@ public partial class DashboardView : UserControl
         var owner = TopLevel.GetTopLevel(this) as Window;
         if (owner != null) win.Show(owner);
         else win.Show();
+    }
+
+    private void OnNodePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(sender as Visual);
+
+        // Detect Right Click (Expand)
+        if (point.Properties.IsRightButtonPressed)
+        {
+            if (sender is Control control && control.DataContext is BatchNodeItem item)
+            {
+                if (item.ExpandCommand.CanExecute(null))
+                {
+                    item.ExpandCommand.Execute(null);
+                    e.Handled = true;
+                }
+            }
+        }
+        // Detect Double Left Click (Open Text)
+        else if (e.ClickCount == 2 && point.Properties.IsLeftButtonPressed)
+        {
+            if (sender is Control control && control.DataContext is BatchNodeItem item)
+            {
+                if (item.OpenTextCommand.CanExecute(null))
+                {
+                    item.OpenTextCommand.Execute(null);
+                    e.Handled = true;
+                }
+            }
+        }
     }
 }

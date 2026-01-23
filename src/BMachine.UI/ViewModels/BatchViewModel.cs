@@ -9,6 +9,9 @@ using BMachine.SDK;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
 using BMachine.UI.Models;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
 
 namespace BMachine.UI.ViewModels;
 
@@ -25,7 +28,7 @@ public partial class BatchViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasFolders))]
     [NotifyPropertyChangedFor(nameof(ShowDropZone))]
-    private ObservableCollection<BatchFolderItem> _sourceFolders = new();
+    private ObservableCollection<BatchFolderRoot> _sourceFolders = new();
     
     // Store current process to kill it later
     private System.Diagnostics.Process? _currentProcess;
@@ -93,81 +96,95 @@ public partial class BatchViewModel : ObservableObject
 
     private readonly Services.IProcessLogService? _logService;
 
-    // Merged into primary constructor at line 32
-    // Removed duplicate definitions
-
-
-
     /// <summary>
     /// Add folders from drag-drop operation.
     /// </summary>
     public void AddFolders(string[] paths)
     {
-        foreach (var path in paths)
+        // 1. Dispose existing items to clean up watchers
+        if (SourceFolders != null)
         {
-            if (Directory.Exists(path) && !SourceFolders.Any(f => f.SourcePath == path))
+            foreach (var item in SourceFolders)
             {
-                // Ensure path doesn't have trailing slash for consistent name extraction
-                var effectivePath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                var folderName = Path.GetFileName(effectivePath);
-                
-                // Smart Path Prediction (mimic Python script logic)
-                var relativePath = GetRelativePathFromMonth(effectivePath);
-                
-                // If folder is "PILIHAN", we point Output to its parent (Project Folder)
-                if (folderName.Equals("PILIHAN", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    // Ensure relativePath doesn't have trailing slash before getting parent
-                    relativePath = relativePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    relativePath = Path.GetDirectoryName(relativePath) ?? relativePath;
-                }
-
-                var outputPath = string.IsNullOrEmpty(OutputBasePath) 
-                    ? "" 
-                    : Path.Combine(OutputBasePath, relativePath);
-
-                // Custom Display Name Logic
-                // If "PILIHAN": Source = "...\Parent", Output = "Parent"
-                // Else: Source = "Name\Parent", Output = "Name"
-                
-                var parentName = new DirectoryInfo(path).Parent?.Name ?? "";
-                string displayName; // For Source
-                string outputHeader; // For Output
-                
-                if (folderName.Equals("PILIHAN", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    displayName = $"...\\{parentName}";
-                    outputHeader = parentName;
-                }
-                else
-                {
-                    // Default behavior
-                    displayName = string.IsNullOrEmpty(parentName) ? folderName : $"{folderName}\\{parentName}";
-                    outputHeader = folderName;
-                }
-
-                var item = new BatchFolderItem
-                {
-                    SourcePath = path,
-                    FolderName = folderName,
-                    DisplayName = displayName, // ...\PARENT
-                    OutputHeader = outputHeader, // PARENT
-                    OutputPath = outputPath,
-                };
-                
-                // Populate Source List (Dirs + Files)
-                item.RefreshSourceList();
-
-                // Populate Output List
-                item.RefreshOutputList();
-
-                SourceFolders.Add(item);
+                try { item.Dispose(); } catch {}
             }
         }
 
+        // 2. Create new list safely
+        var newCollection = new ObservableCollection<BatchFolderRoot>();
+
+        foreach (var path in paths)
+        {
+            try 
+            {
+                if (Directory.Exists(path))
+                {
+                    // Ensure path doesn't have trailing slash for consistent name extraction
+                    var effectivePath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var folderName = Path.GetFileName(effectivePath);
+                    
+                    // Smart Path Prediction
+                    var relativePath = GetRelativePathFromMonth(effectivePath);
+                    
+                    // If folder is "PILIHAN", we point Output to its parent (Project Folder)
+                    if (folderName.Equals("PILIHAN", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        relativePath = relativePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        relativePath = Path.GetDirectoryName(relativePath) ?? relativePath;
+                    }
+
+                    var outputPath = string.IsNullOrEmpty(OutputBasePath) 
+                        ? "" 
+                        : Path.Combine(OutputBasePath, relativePath);
+
+                    var parentName = new DirectoryInfo(path).Parent?.Name ?? "";
+                    string displayName; 
+                    string outputHeader; 
+                    
+                    if (folderName.Equals("PILIHAN", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        displayName = $"...\\{parentName}";
+                        outputHeader = parentName;
+                    }
+                    else
+                    {
+                        displayName = string.IsNullOrEmpty(parentName) ? folderName : $"{folderName}\\{parentName}";
+                        outputHeader = folderName;
+                    }
+
+                    var item = new BatchFolderRoot
+                    {
+                        SourcePath = path,
+                        FolderName = folderName,
+                        DisplayName = displayName, 
+                        OutputHeader = outputHeader,
+                        OutputPath = outputPath,
+                    };
+                    
+                    // Populate Source Root
+                    item.RefreshSource();
+
+                    // Populate Output Root
+                    item.SetupOutputWatcher();
+
+                    newCollection.Add(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error processing path {path}: {ex.Message}");
+            }
+        }
+
+        // 3. Atomic Assignment on UI Thread
+        SourceFolders = newCollection;
+        
+        // Ensure manual notification if needed (though ObservableProperty handles it)
+        OnPropertyChanged(nameof(SourceFolders));
         OnPropertyChanged(nameof(HasFolders));
         OnPropertyChanged(nameof(ShowDropZone));
     }
+
 
     /// <summary>
     /// Refresh output folders - check if they exist after script execution.
@@ -177,7 +194,7 @@ public partial class BatchViewModel : ObservableObject
     {
         foreach (var item in SourceFolders)
         {
-            item.RefreshOutputList();
+            item.RefreshOutput();
         }
     }
     
@@ -246,7 +263,7 @@ public partial class BatchViewModel : ObservableObject
     /// Remove a specific folder item.
     /// </summary>
     [RelayCommand]
-    private void RemoveFolder(BatchFolderItem item)
+    private void RemoveFolder(BatchFolderRoot item)
     {
         if (SourceFolders.Contains(item))
         {
@@ -263,13 +280,9 @@ public partial class BatchViewModel : ObservableObject
 
     // --- SCRIPT EXECUTION CONTROLS ---
     
-    // --- SCRIPT EXECUTION CONTROLS ---
-    
     // Event to request file/folder picker from View
     public event Func<Task<string?>>? RequestMasterPathBrowse;
 
-
-    
     /// <summary>
     /// The selected Master Template Folder path (e.g. D:\MASTER).
     /// </summary>
@@ -578,7 +591,20 @@ public partial class BatchViewModel : ObservableObject
             if (!string.IsNullOrEmpty(masterSecondary)) _logService?.AddLog($"[INFO] Master 2: {masterSecondary}");
 
 
-            foreach (var item in SourceFolders)
+            // ALL Root Folders in the list are processed (Implicit selection)
+            var rootsToProcess = SourceFolders.ToList(); // All source folders
+            
+            if (rootsToProcess.Count == 0)
+            {
+                _logService?.AddLog("[WARNING] Tidak ada folder untuk diproses.");
+                IsProcessing = false;
+                WeakReferenceMessenger.Default.Send(new ProcessStatusMessage(false));
+                return;
+            }
+            
+            _logService?.AddLog($"[INFO] Memproses {rootsToProcess.Count} folder...");
+
+            foreach (var item in rootsToProcess)
             {
                 if (string.IsNullOrEmpty(item.SourcePath)) continue;
 
@@ -611,7 +637,7 @@ public partial class BatchViewModel : ObservableObject
                 await RunPythonProcess(args, envVars);
                 
                 // Refresh Output
-                item.RefreshOutputList();
+                item.RefreshOutput();
             }
             
             _logService?.AddLog("[SUCCESS] Batch Selesai.");
@@ -695,10 +721,13 @@ public partial class BatchViewModel : ObservableObject
                 SourceFolders = SourceFolders.Select(x => new { x.SourcePath, x.OutputPath }).ToList(),
                 OutputBasePath = OutputBasePath,
                 UseInput = IsUseInputFolder,
-                UseOutput = IsUseOutputFolder
+                UseOutput = IsUseOutputFolder,
+                MasterTemplatePath = MasterTemplatePath
             };
             
             var json = System.Text.Json.JsonSerializer.Serialize(context, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            _logService?.AddLog($"[DEBUG] Context Payload:\n{json}"); // DEBUG LOG
+            
             var tempPath = Path.Combine(Path.GetTempPath(), "bmachine_context.json");
             await File.WriteAllTextAsync(tempPath, json);
             
@@ -821,140 +850,4 @@ public partial class BatchViewModel : ObservableObject
     }
 }
 
-/// <summary>
-/// Represents a folder item in the batch queue.
-/// </summary>
-public partial class BatchFolderItem : ObservableObject
-{
-    /// <summary>
-    /// Full path to the source folder.
-    /// </summary>
-    [ObservableProperty]
-    private string _sourcePath = "";
 
-    /// <summary>
-    /// Just the folder name (for display and output path generation).
-    /// </summary>
-    [ObservableProperty]
-    private string _folderName = "";
-
-    /// <summary>
-    /// Custom display name (e.g. "...\Parent").
-    /// </summary>
-    [ObservableProperty]
-    private string _displayName = "";
-
-    /// <summary>
-    /// Header text for the Output panel (e.g. Parent Name).
-    /// </summary>
-    [ObservableProperty]
-    private string _outputHeader = "";
-
-    /// <summary>
-    /// Computed output path (OutputBasePath + FolderName).
-    /// </summary>
-    [ObservableProperty]
-    private string _outputPath = "";
-
-    /// <summary>
-    /// Whether the output folder exists.
-    /// </summary>
-    [ObservableProperty]
-    private bool _outputExists;
-
-    /// <summary>
-    /// Whether the source files list is expanded (visible).
-    /// </summary>
-    [ObservableProperty]
-    private bool _isExpanded = true;
-
-    /// <summary>
-    /// Files in the source folder (limited for display).
-    /// </summary>
-    [ObservableProperty]
-    private ObservableCollection<BatchFileItem> _sourceFiles = new();
-
-    /// <summary>
-    /// Files in the output folder (limited for display).
-    /// </summary>
-    [ObservableProperty]
-    private ObservableCollection<BatchFileItem> _outputFiles = new();
-
-    [RelayCommand]
-    private void ToggleExpanded()
-    {
-        IsExpanded = !IsExpanded;
-    }
-
-    public void RefreshSourceList()
-    {
-        SourceFiles = new ObservableCollection<BatchFileItem>(GetFileSystemEntries(SourcePath));
-    }
-
-    public void RefreshOutputList()
-    {
-        if (!string.IsNullOrEmpty(OutputPath) && Directory.Exists(OutputPath))
-        {
-            OutputExists = true;
-            OutputFiles = new ObservableCollection<BatchFileItem>(GetFileSystemEntries(OutputPath));
-        }
-        else
-        {
-            OutputExists = false;
-            OutputFiles.Clear();
-        }
-    }
-
-    private IEnumerable<BatchFileItem> GetFileSystemEntries(string path)
-    {
-        var list = new System.Collections.Generic.List<BatchFileItem>();
-        try
-        {
-            if (!Directory.Exists(path)) return list;
-
-            // Add Directories first
-            var dirs = Directory.GetDirectories(path)
-                .OrderBy(d => d)
-                .Select(d => new BatchFileItem(d));
-            
-            list.AddRange(dirs);
-
-            var files = Directory.GetFiles(path)
-                .Where(f => !Path.GetFileName(f).Equals("desktop.ini", System.StringComparison.OrdinalIgnoreCase))
-                .OrderBy(f => f)
-                .Select(f => new BatchFileItem(f));
-
-            list.AddRange(files);
-        }
-        catch { }
-        return list;
-    }
-}
-
-public class BatchFileItem
-{
-    public string FileName { get; set; } = "";
-    public string FullPath { get; set; } = "";
-    
-    // Command to copy path
-    public IRelayCommand CopyPathCommand { get; }
-    
-    public BatchFileItem(string path)
-    {
-        FullPath = path;
-        FileName = Path.GetFileName(path);
-        CopyPathCommand = new RelayCommand(async () => await CopyPath());
-    }
-    
-    private async Task CopyPath()
-    {
-         var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(
-            Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
-            ? desktop.MainWindow : null);
-         
-         if (topLevel?.Clipboard != null)
-         {
-             await topLevel.Clipboard.SetTextAsync(FullPath);
-         }
-    }
-}

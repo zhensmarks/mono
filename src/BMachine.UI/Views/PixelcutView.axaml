@@ -10,14 +10,15 @@
 
     <UserControl.Styles>
         <Style Selector="Button.action">
-            <Setter Property="Background" Value="#3b82f6"/>
+            <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="15,8"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="Button.action:pointerover">
-            <Setter Property="Background" Value="#2563eb"/>
+            <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="Opacity" Value="0.9"/>
         </Style>
         
         <Style Selector="Button.danger">
@@ -111,7 +112,7 @@
                         </Style>
                         <!-- Highlight Selected Item -->
                         <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#223B82F6"/>
+                            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
                         </Style>
                     </ListBox.Styles>
                     <ListBox.ItemTemplate>
@@ -280,7 +281,7 @@
                     
                     <Button Content="OK" Command="{Binding CloseCompletionDialogCommand}" 
                             HorizontalAlignment="Center" Width="100" HorizontalContentAlignment="Center"
-                            Padding="10" CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" Foreground="White" FontWeight="SemiBold"/>
+                            Padding="10" CornerRadius="6" Background="{DynamicResource AccentColorBrush}" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Border>
         </Grid>

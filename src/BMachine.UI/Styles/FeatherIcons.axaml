@@ -130,4 +130,19 @@
     <StreamGeometry x:Key="IconExtension">M20.5 14.25a2.5 2.5 0 0 0-2.5-2.5 2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 0 2.5-2.5c0-1.5-1.5-2.5-2.5-2.5h-5c-1.5 0-2.5 1.5-2.5 2.5 0 1 1 2.5 2.5 2.5 1 0 2.5 1.5 2.5 2.5 0 1-1.5 2.5-2.5 2.5h-5c-1.5 0-2.5-1.5-2.5-2.5 0-1-1-2.5-2.5-2.5-1 0-2.5-1.5-2.5-2.5 0-1 1.5-2.5 2.5-2.5H19</StreamGeometry>
 
 
+    <!-- Activity (Sporty) -->
+    <StreamGeometry x:Key="IconActivity">M22 12h-4l-3 9L9 3l-3 9H2</StreamGeometry>
+    
+    <!-- Briefcase (Profesi) -->
+    <StreamGeometry x:Key="IconBriefcase">M20 7h-3a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16</StreamGeometry>
+    
+    <!-- Map (Manasik) -->
+    <StreamGeometry x:Key="IconMap">M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16</StreamGeometry>
+    
+    <!-- Camera (Pas Foto) -->
+    <StreamGeometry x:Key="IconCamera">M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z</StreamGeometry>
+    
+    <!-- Graduation Cap (Wisuda) -->
+    <StreamGeometry x:Key="IconGraduation">M22 10v6M2 10l10-5 10 5-10 5-10-5zM6 12v5c3 3 9 3 12 0v-5</StreamGeometry>
+
 </ResourceDictionary>
