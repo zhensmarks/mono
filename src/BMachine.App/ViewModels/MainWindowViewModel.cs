@@ -9,7 +9,7 @@ using Avalonia;
 
 namespace BMachine.App.ViewModels;
 
-public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSettingsChangedMessage>
+public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSettingsChangedMessage>, IRecipient<UpdateAvailableMessage>
 {
     [ObservableProperty]
     private object? _currentView;
@@ -111,6 +111,13 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         if (!string.IsNullOrEmpty(message.DarkBackgroundColor)) _cachedDarkBg = message.DarkBackgroundColor;
         if (!string.IsNullOrEmpty(message.LightBackgroundColor)) _cachedLightBg = message.LightBackgroundColor;
         UpdateBackground();
+    }
+
+    public void Receive(UpdateAvailableMessage message)
+    {
+        IsUpdateAvailable = true;
+        LatestVersion = message.Value.LatestVersion;
+        UpdateUrl = message.Value.DownloadUrl;
     }
 
     private void UpdateBackground()
