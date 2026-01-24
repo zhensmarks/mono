@@ -200,8 +200,12 @@ dotnet run --project src/BMachine.App
 5. **Share** spreadsheet/folder ke email service account
 
 ### Pixelcut
-1. Dapatkan API Key dari [Pixelcut](https://pixelcut.ai)
-2. Masukkan di **Settings** → **Pixelcut**
+Pixelcut **tidak memerlukan API key**. Fitur ini menggunakan Python script yang berkomunikasi langsung dengan layanan Pixelcut.
+
+**Requirement:**
+- Python 3.10+ terinstall
+- **VPN aktif** (diperlukan untuk mengakses layanan Pixelcut dari Indonesia)
+- Proxy address dapat dikonfigurasi di Settings jika diperlukan
 
 ---
 
