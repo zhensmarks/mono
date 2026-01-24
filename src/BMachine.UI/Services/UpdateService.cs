@@ -56,10 +56,17 @@ public class UpdateService : IUpdateService
                     if (Version.TryParse(versionStr, out Version? remoteVersion) && 
                         Version.TryParse(result.CurrentVersion, out Version? localVersion))
                     {
+                        Console.WriteLine($"[UpdateService] Checking Update: Local='{result.CurrentVersion}' (parsed {localVersion}), Remote='{versionStr}' (parsed {remoteVersion})");
+                        
                         if (remoteVersion > localVersion)
                         {
                             result.IsUpdateAvailable = true;
                             result.ReleaseNotes = root.GetProperty("body").GetString() ?? "";
+                            Console.WriteLine("[UpdateService] Update FOUND.");
+                        }
+                        else
+                        {
+                            Console.WriteLine("[UpdateService] No update found (Remote <= Local).");
                         }
                     }
                     else
@@ -86,6 +93,7 @@ public class UpdateService : IUpdateService
     private string GetCurrentVersion()
     {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+        Console.WriteLine($"[UpdateService] Using Assembly: {assembly.GetName().Name}, Version: {assembly.GetName().Version}");
         var version = assembly.GetName().Version;
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
     }
