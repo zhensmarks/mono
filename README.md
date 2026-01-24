@@ -112,6 +112,35 @@ Integrasi dengan Google Sheets untuk tracking data:
 - Windows 10/11
 - .NET 8 Runtime (sudah termasuk jika menggunakan versi portable)
 
+### Script Requirements (Opsional)
+Beberapa fitur memerlukan software tambahan:
+
+| Software | Versi | Diperlukan Untuk |
+|----------|-------|------------------|
+| **Python** | 3.10+ | Script automasi (`.py`, `.pyw`) |
+| **Adobe Photoshop** | CC 2020+ | Script JSX untuk edit PSD |
+
+#### Instalasi Python
+1. Download Python dari [python.org](https://python.org)
+2. Saat install, **centang** "Add Python to PATH"
+3. Install dependencies:
+   ```bash
+   pip install requests pillow
+   ```
+
+#### Script JSX (Adobe Photoshop)
+- Script `.jsx` akan otomatis berjalan jika **Adobe Photoshop** terpasang
+- Pastikan Photoshop sudah diset sebagai default untuk file `.jsx`
+- File JSX ada di folder `Scripts/Action/`
+
+#### Lokasi Script
+```
+Scripts/
+├── Master/          # Script utama (.py)
+├── Action/          # Script Photoshop (.jsx, .pyw)
+└── *.txt            # File template/instruksi
+```
+
 ### Cara Install
 
 #### Metode 1: Download Release (Recommended)
