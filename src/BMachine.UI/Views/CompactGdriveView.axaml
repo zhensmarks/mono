@@ -62,41 +62,47 @@
                         </ListBox.Styles>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border Padding="12,12" CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}"
+                                <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
                                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                        Margin="2"
+                                        Margin="0,0,0,4"
                                         Cursor="Hand">
-                                    <Grid RowDefinitions="Auto, Auto">
-                                        <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,8">
-                                            <!-- Checkbox (New) -->
-                                            <CheckBox IsChecked="{Binding IsSelected}" IsHitTestVisible="False" 
-                                                      VerticalAlignment="Center" Margin="0,0,12,0" MinHeight="0" Padding="0"/>
+                                    <Grid ColumnDefinitions="Auto, *, Auto">
+                                        <!-- 1. Checkbox -->
+                                        <CheckBox IsChecked="{Binding IsSelected}" IsHitTestVisible="False" 
+                                                  VerticalAlignment="Center" Margin="0,0,10,0" MinHeight="0" Padding="0"/>
+                                        
+                                        <!-- 2. Left: Name & Progress Bar -->
+                                        <Grid Grid.Column="1" RowDefinitions="Auto, Auto" VerticalAlignment="Center">
+                                            <!-- Name (Bold) -->
+                                            <TextBlock Text="{Binding DisplayPath}" FontWeight="Bold" FontSize="13" 
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                                                       Margin="0,0,0,4"/>
                                             
-                                            <!-- Name -->
-                                            <TextBlock Grid.Column="1" Text="{Binding DisplayPath}" FontWeight="SemiBold" FontSize="13" 
-                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                            
-                                            <!-- Action (Remove) -->
-                                            <Button Grid.Column="2" Command="{Binding DataContext.RemoveFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                                    CommandParameter="{Binding}"
-                                                    Width="24" Height="24" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                    ToolTip.Tip="Remove File">
-                                                <PathIcon Data="M18 6L6 18M6 6l12 12" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                            </Button>
+                                            <!-- Progress Bar (Blue Line) -->
+                                            <ProgressBar Grid.Row="1" Height="3" HorizontalAlignment="Stretch"
+                                                         Foreground="{DynamicResource AccentBlueBrush}" Background="Transparent" BorderThickness="0"
+                                                         Value="{Binding Progress}" Maximum="100" 
+                                                         IsVisible="{Binding IsProcessing}"/>
+                                                         
+                                            <!-- Error Message -->
+                                            <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" FontSize="10" FontWeight="Bold" Foreground="#EF4444" 
+                                                       IsVisible="{Binding IsFailed}" TextTrimming="CharacterEllipsis"/>
                                         </Grid>
                                         
-                                        <!-- Row 1: Status & Progress (Stacked) -->
-                                        <StackPanel Grid.Row="1" Spacing="4" Margin="28,4,0,0"> <!-- Indent to align with text -->
-                                             <!-- Status Text -->
-                                            <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Left">
-                                                <TextBlock Text="{Binding Status}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !IsFailed}"/>
-                                                <TextBlock Text="{Binding ErrorMessage}" FontSize="11" FontWeight="Medium" Foreground="#EF4444" IsVisible="{Binding IsFailed}" TextTrimming="CharacterEllipsis" MaxWidth="200"/>
-                                                <TextBlock Text="{Binding FileSizeDisplay}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7" Margin="5,0,0,0"/>
-                                            </StackPanel>
+                                        <!-- 3. Right: Size & Status -->
+                                        <StackPanel Grid.Column="2" Margin="15,0,8,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <!-- Size -->
+                                            <TextBlock Text="{Binding FileSizeDisplay}" FontSize="11" 
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                       VerticalAlignment="Center" TextTrimming="None" TextWrapping="NoWrap"
+                                                       HorizontalAlignment="Right"/>
                                             
-                                            <!-- Progress Bar -->
-                                            <ProgressBar Height="4" Margin="0" HorizontalAlignment="Stretch"
-                                                         Value="{Binding Progress}" Maximum="100" IsVisible="{Binding IsProcessing}"/>
+                                            <!-- Status "Selesai" -->
+                                             <TextBlock Text="Selesai" FontSize="10" FontWeight="SemiBold" 
+                                                        Foreground="{DynamicResource AccentBlueBrush}" 
+                                                        HorizontalAlignment="Right"
+                                                        Margin="0,2,0,0"
+                                                        IsVisible="{Binding IsDone}"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
@@ -178,11 +184,6 @@
                           </Panel>
                       </Border>
                       
-                     <!-- Clear Button -->
-                     <Button Command="{Binding ClearCommand}" ToolTip.Tip="Clear All" Background="Transparent" BorderThickness="0" Padding="4">
-                         <PathIcon Data="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" Width="14" Height="14" Foreground="#EF4444"/>
-                     </Button>
-                     
                      <!-- Settings -->
                      <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" Background="Transparent" BorderThickness="0" Padding="4">
                          <!-- IconSettings (Gear) -->
@@ -194,6 +195,11 @@
                 <!-- Right: Actions -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
                     
+                    <!-- Clear Button (Moved Here) -->
+                     <Button Command="{Binding ClearCommand}" ToolTip.Tip="Clear All" Background="Transparent" BorderThickness="0" Padding="4">
+                         <PathIcon Data="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" Width="14" Height="14" Foreground="#EF4444"/>
+                     </Button>
+
                     <!-- Upload -->
                     <Button Command="{Binding StartUploadCommand}" IsVisible="{Binding !IsProcessing}"
                             Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="8" Padding="15,8" BorderThickness="0">

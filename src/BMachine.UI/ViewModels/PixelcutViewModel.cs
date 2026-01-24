@@ -213,10 +213,11 @@ public partial class PixelcutViewModel : ObservableObject
              if (ext == ".png")
              {
                  var info = new FileInfo(path);
+                 // Only accept PNG if it is a placeholder (<= 1KB)
                  if (info.Length <= 1024)
                  {
                      var dir = Path.GetDirectoryName(path);
-                     if (string.IsNullOrEmpty(dir)) return path;
+                     if (string.IsNullOrEmpty(dir)) return null;
 
                      var name = Path.GetFileNameWithoutExtension(path);
                      var jpg = Path.Combine(dir, name + ".jpg");
@@ -225,10 +226,13 @@ public partial class PixelcutViewModel : ObservableObject
                      if (File.Exists(jpg)) return jpg;
                      if (File.Exists(jpeg)) return jpeg;
                  }
+                 
+                 // If normal PNG or placeholder without JPG partner -> Ignore
+                 return null;
              }
              return path;
         }
-        catch { return path; }
+        catch { return null; }
     }
     
     private bool IsSupportedExtension(string ext)

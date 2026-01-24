@@ -18,58 +18,35 @@
 
     <Border CornerRadius="12" ClipToBounds="True">
         <Grid>
-             <!-- 1. Background: Radial Gradient for "Glow" effect -->
+            <!-- 1. Background: New Image -->
             <Grid.Background>
-                <RadialGradientBrush Center="0.5, 0.4" GradientOrigin="0.5, 0.4" Radius="0.8">
-                    <GradientStop Color="#1E293B" Offset="0"/> <!-- Dark Blue/Slate -->
-                    <GradientStop Color="#0F172A" Offset="0.5"/> <!-- Darker -->
-                    <GradientStop Color="#020617" Offset="1"/> <!-- Almost Black -->
-                </RadialGradientBrush>
+                <ImageBrush Source="avares://BMachine.UI/Assets/splash_bg.png" Stretch="UniformToFill"/>
             </Grid.Background>
+            
+            <!-- Dark Overlay to ensure readability -->
+            <Border Background="#40000000" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
             
             <!-- 2. Content Container -->
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="25">
                 
-                <!-- Logo with Glow Effect -->
-                <Grid HorizontalAlignment="Center">
-                    <!-- Outer Glow (Simulated with Border/Shadow or Opacity) -->
-                     <Ellipse Width="80" Height="80" Fill="#3b82f6" Opacity="0.2">
-                         <Ellipse.Effect>
-                             <BlurEffect Radius="40"/>
-                         </Ellipse.Effect>
-                     </Ellipse>
-                     
-                     <!-- Icon -->
-                     <Viewbox Width="60" Height="60">
-                         <PathIcon Data="{StaticResource IconSettings}" Foreground="#60A5FA"/> 
-                         <!-- Using 60A5FA (Lighter Blue) for glow look -->
-                     </Viewbox>
-                     
-                     <!-- Center White/Highlight -->
-                     <Viewbox Width="60" Height="60" Opacity="0.5">
-                         <PathIcon Data="{StaticResource IconSettings}" Foreground="White"/> 
-                     </Viewbox>
-                </Grid>
-
-                <!-- App Title -->
-                <StackPanel Spacing="5">
-                    <TextBlock Text="B M A C H I N E" 
-                               FontSize="32" 
-                               FontWeight="Light" 
-                               LetterSpacing="3" 
-                               HorizontalAlignment="Center" 
-                               Foreground="White">
-                        <TextBlock.Effect>
-                            <DropShadowEffect Color="#3b82f6" BlurRadius="10" Opacity="0.5" OffsetX="0" OffsetY="0"/>
-                        </TextBlock.Effect>
-                    </TextBlock>
-                    <TextBlock Text="v2.0" 
-                               FontSize="14" 
-                               FontWeight="Normal" 
-                               HorizontalAlignment="Center" 
-                               Foreground="#64748B" 
-                               LetterSpacing="1"/>
-                </StackPanel>
+                <!-- NEW LOGO IMAGE -->
+                <Image Source="avares://BMachine.UI/Assets/splash_logo.png" 
+                       Width="300" 
+                       HorizontalAlignment="Center"
+                       RenderOptions.BitmapInterpolationMode="HighQuality">
+                     <Image.Effect>
+                         <DropShadowEffect Color="#3b82f6" BlurRadius="30" Opacity="0.25"/>
+                     </Image.Effect>
+                </Image>
+                    
+                <!-- Version -->
+                <TextBlock Text="v2.0" 
+                           FontSize="14" 
+                           FontWeight="Normal" 
+                           HorizontalAlignment="Center" 
+                           Foreground="#64748B" 
+                           LetterSpacing="1"
+                           Margin="0,-10,0,0"/>
             </StackPanel>
 
             <!-- 3. Footer: Progress Bar & Status -->

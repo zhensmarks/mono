@@ -13,6 +13,7 @@ public partial class GdriveFileItem : ObservableObject
     [ObservableProperty] private bool _isFailed;
     [ObservableProperty] private bool _isDone;
     [ObservableProperty] private bool _isSelected;
+    [ObservableProperty] private bool _isProcessing; // Added for Progress Bar visibility
 
     public long FileSize { get; private set; }
     public string FileSizeDisplay => FormatSize(FileSize);
