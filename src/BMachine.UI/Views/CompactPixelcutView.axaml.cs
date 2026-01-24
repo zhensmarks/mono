@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -125,6 +126,33 @@ public partial class CompactPixelcutView : UserControl
             System.Console.WriteLine($"[CompactPixelcutView] Drop Error: {ex.Message}");
         }
         e.Handled = true;
+    }
+
+    public static readonly StyledProperty<bool> IsWindowModeProperty =
+        AvaloniaProperty.Register<CompactPixelcutView, bool>(nameof(IsWindowMode));
+
+    public bool IsWindowMode
+    {
+        get => GetValue(IsWindowModeProperty);
+        set => SetValue(IsWindowModeProperty, value);
+    }
+
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            var window = TopLevel.GetTopLevel(this) as Window;
+            if (window != null)
+            {
+                window.BeginMoveDrag(e);
+            }
+        }
+    }
+
+    private void OnCloseWindow(object? sender, RoutedEventArgs e)
+    {
+         var window = TopLevel.GetTopLevel(this) as Window;
+         window?.Close();
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)

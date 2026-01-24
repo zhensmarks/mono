@@ -5,17 +5,17 @@
         xmlns:views="using:BMachine.UI.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
         x:Class="BMachine.UI.Views.PixelcutWindow"
-        Title="Pixelcut Extension"
-        Width="900" Height="600"
+        Title="Pixelcut Portable"
+        Width="500" Height="300"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
         TransparencyLevelHint="Mica"
         SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="60"
+
         CanResize="True">
     
-    <views:PixelcutView />
+    <views:CompactPixelcutView x:Name="CompactView" />
     
 </Window>

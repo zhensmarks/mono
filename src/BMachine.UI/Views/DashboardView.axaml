@@ -507,7 +507,7 @@
                 <!-- PIXELCUT TAB CONTENT -->
                 <views:CompactPixelcutView DataContext="{Binding PixelcutVM}"
                                            IsVisible="{Binding DataContext.IsPixelcutTabSelected, ElementName=Root}"
-                                           Margin="0,0,0,0"/>
+                                           Margin="20,0,20,0"/>
 
                 <!-- GDRIVE TAB CONTENT -->
                 <views:CompactGdriveView DataContext="{Binding GdriveVM}"

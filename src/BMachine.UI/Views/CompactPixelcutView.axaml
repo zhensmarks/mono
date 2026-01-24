@@ -10,9 +10,22 @@
     <UserControl.Resources>
     </UserControl.Resources>
 
-    <Grid RowDefinitions="*, Auto" Margin="20,0,20,0">
+    <Grid RowDefinitions="Auto, *, Auto">
+        <!-- 0. Header (Window Mode Only) -->
+        <Grid Grid.Row="0" Height="40" Background="Transparent" 
+              IsVisible="{Binding IsWindowMode, RelativeSource={RelativeSource AncestorType=UserControl}}"
+              PointerPressed="OnHeaderPointerPressed">
+            <TextBlock Text="Pixelcut" VerticalAlignment="Center" Margin="15,0,0,0" FontWeight="Bold" FontSize="14" 
+                       Foreground="{DynamicResource TextPrimaryBrush}" IsHitTestVisible="False"/>
+            
+            <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Click="OnCloseWindow"
+                    Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="4" ToolTip.Tip="Close">
+                <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
+                          Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </Button>
+        </Grid>
         <!-- Main Content Area -->
-        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}" 
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" 
                 CornerRadius="20" Padding="0" ClipToBounds="True"
                 BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
             
@@ -141,7 +154,7 @@
         </Border>
 
         <!-- Footer / Controls -->
-        <Border Grid.Row="1" Margin="0,10,0,0" Background="{DynamicResource CardBackgroundBrush}" 
+        <Border Grid.Row="2" Margin="0,10,0,0" Background="{DynamicResource CardBackgroundBrush}" 
                 CornerRadius="12" Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 
@@ -158,7 +171,15 @@
                       <!-- Settings -->
                       <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" Background="Transparent" BorderThickness="0" Padding="4">
                           <!-- IconSettings (Gear) -->
-                          <PathIcon Data="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" 
+                          <PathIcon Data="{StaticResource IconSettings}" 
+                                    Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                      </Button>
+
+                      <!-- Open Separate Window -->
+                      <Button Command="{Binding OpenSeparateWindowCommand}" 
+                              IsVisible="{Binding !IsWindowMode, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              ToolTip.Tip="Open in New Window" Background="Transparent" BorderThickness="0" Padding="4">
+                          <PathIcon Data="M18,10.5V6H13.5V7.5H15.44L11.22,11.72L12.28,12.78L16.5,8.56V10.5H18M12,19V17H7V12H5V19H12M17,12V19H12V19.03L12,21H17A2,2 0 0,0 19,19V12H17M5,5V10H7V7H10V5H5Z" 
                                     Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                       </Button>
                  </StackPanel>

@@ -8,6 +8,7 @@ using System;
 using System.Diagnostics;
 using BMachine.UI.Models;
 using BMachine.SDK;
+using BMachine.UI.Views;
 
 namespace BMachine.UI.ViewModels;
 
@@ -654,8 +655,23 @@ public partial class PixelcutViewModel : ObservableObject
         await tcs.Task;
     }
     
-    private void AppendLog(string message)
+    [RelayCommand]
+    private void OpenSeparateWindow()
     {
+        try
+        {
+            var win = new Views.PixelcutWindow();
+            win.DataContext = this; // Share the same ViewModel state
+            win.Show();
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error opening window: {ex.Message}");
+        }
+    }
+		
+	private void AppendLog(string message)
+	{
         LogOutput += $"[{DateTime.Now:HH:mm:ss}] {message}\n";
     }
 }

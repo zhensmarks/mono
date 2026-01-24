@@ -16,22 +16,11 @@ public partial class PixelcutWindow : Window
              DataContext = new PixelcutViewModel(null); 
         }
 
-        // Window Interaction Logic
-        this.PointerPressed += (s, e) =>
+        // Set Window Mode
+        var view = this.FindControl<CompactPixelcutView>("CompactView");
+        if (view != null)
         {
-            var point = e.GetCurrentPoint(this);
-            
-            // Right Click -> Close
-            if (point.Properties.IsRightButtonPressed)
-            {
-                this.Close();
-                e.Handled = true;
-            }
-            // Left Click -> Drag Move (Simulate Title Bar everywhere or check hit test)
-            else if (point.Properties.IsLeftButtonPressed)
-            {
-                this.BeginMoveDrag(e);
-            }
-        };
+            view.IsWindowMode = true;
+        }
     }
 }
