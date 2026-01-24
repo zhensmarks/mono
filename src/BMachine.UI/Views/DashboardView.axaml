@@ -131,6 +131,20 @@
                                          Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </ToggleButton>
 
+                        <!-- Update Button (Visible Only When Update Available) -->
+                        <Button Command="{Binding DataContext.OpenUpdatePageCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                IsVisible="{Binding DataContext.IsUpdateAvailable, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Width="32" Height="32" CornerRadius="8" Padding="0" 
+                                Background="{DynamicResource AccentGreenBrush}" BorderThickness="0" Cursor="Hand" 
+                                ToolTip.Tip="New Update Available!">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="#2ECC71"/>
+                                </Style>
+                            </Button.Styles>
+                            <shapes:Path Data="{StaticResource IconDownload}" Width="16" Height="16" Stretch="Uniform" Fill="White"/>
+                        </Button>
+
                         <!-- Settings Button -->
                         <Button Click="OnSettingsClick" 
                                 Width="32" Height="32" CornerRadius="8" Padding="0" 

@@ -90,6 +90,9 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         {
             Application.Current.ActualThemeVariantChanged += (s, e) => UpdateBackground();
         }
+        
+        // Check for updates
+        CheckForUpdatesBackground();
     }
 
     private async System.Threading.Tasks.Task LoadBackgroundConfig()
@@ -137,7 +140,41 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
          IsAnimationEnabled = string.IsNullOrEmpty(animStr) || bool.Parse(animStr);
     }
 
+    // Update State
+    [ObservableProperty] private bool _isUpdateAvailable;
+    [ObservableProperty] private string _latestVersion = "";
+    [ObservableProperty] private string _updateUrl = "";
+
+    [RelayCommand]
+    private void OpenUpdatePage()
+    {
+        if (!string.IsNullOrEmpty(UpdateUrl))
+        {
+            try 
+            { 
+               System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = UpdateUrl, UseShellExecute = true }); 
+            } 
+            catch { }
+        }
+    }
+
     private DashboardViewModel? _cachedDashboardVM;
+
+    private async void CheckForUpdatesBackground()
+    {
+        try
+        {
+            var service = new BMachine.UI.Services.UpdateService();
+            var info = await service.CheckForUpdatesAsync();
+            if (info.IsUpdateAvailable)
+            {
+                IsUpdateAvailable = true;
+                LatestVersion = info.LatestVersion;
+                UpdateUrl = info.DownloadUrl;
+            }
+        }
+        catch { }
+    }
 
     public void NavigateToDashboard()
     {

@@ -48,6 +48,10 @@ public class Bootstrapper
         status?.Report("Menyiapkan Layanan...");
         progress?.Report(70);
         // Init Google Drive service...
+        
+        // Register Update Service (Singleton-ish via ServiceLocator pattern typically, but here we just ensure logic is ready)
+        // For now, MainWindowViewModel creates it, so we might just log ready.
+        
         await Task.Delay(500);
         
         // 5. Finalizing

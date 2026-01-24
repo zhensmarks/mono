@@ -97,6 +97,14 @@
                              <TextBlock Text="Paths" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </ListBoxItem>
+
+                    <!-- About Item -->
+                    <ListBoxItem>
+                        <StackPanel Orientation="Horizontal" Spacing="15">
+                             <PathIcon Data="{StaticResource IconInfoCircle}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                             <TextBlock Text="About" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </ListBoxItem>
                 </ListBox>
             </StackPanel>
             </ScrollViewer>
@@ -539,12 +547,16 @@
                         
                         <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto">
                              <TextBlock Grid.Row="0" Grid.Column="0" Text="API Key:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrelloApiKey, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" Watermark="Trello API Key" Margin="0,0,0,10"/>
+                             <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
+                                 <TextBox Grid.Column="0" Text="{Binding TrelloApiKey, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" Watermark="Trello API Key" />
+                                 <Button Grid.Column="1" Command="{Binding GetTrelloApiKeyCommand}" Content="Get Key" Classes="Clear" Margin="10,0,0,0" ToolTip.Tip="Open Trello Power-Up Admin to generate Key"/>
+                             </Grid>
                              
                              <TextBlock Grid.Row="1" Grid.Column="0" Text="Token:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                             <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
+                             <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto, Auto" Margin="0,0,0,10">
                                  <TextBox Grid.Column="0" Text="{Binding TrelloToken, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" Watermark="Trello Token"/>
-                                 <Button Grid.Column="1" Command="{Binding ToggleTrelloConnectionCommand}" Content="{Binding TrelloButtonText}" Classes="Primary" Margin="10,0,0,0"/>
+                                 <Button Grid.Column="1" Command="{Binding GetTrelloTokenCommand}" Content="Get Token" Classes="Clear" Margin="5,0,0,0" ToolTip.Tip="Generate Token (Requires API Key)"/>
+                                 <Button Grid.Column="2" Command="{Binding ToggleTrelloConnectionCommand}" Content="{Binding TrelloButtonText}" Classes="Primary" Margin="5,0,0,0"/>
                              </Grid>
                         </Grid>
                         
@@ -900,6 +912,76 @@
         <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
                 IsVisible="{Binding IsPathsSelected}">
              <views:PathSettingsView DataContext="{Binding PathSettingsVM}" />
+        </Border>
+
+        <!-- Content Area (About) -->
+        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
+                IsVisible="{Binding IsAboutSelected}">
+             <ScrollViewer>
+                 <StackPanel Spacing="30" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center">
+                     
+                     <!-- App Logo -->
+                     <Image Source="/Assets/splash_logo.png" Width="100" Height="100" HorizontalAlignment="Center"/>
+                     
+                     <!-- App Info -->
+                     <StackPanel Spacing="5" HorizontalAlignment="Center">
+                         <TextBlock Text="BMachine" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                              <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="4" Padding="6,2">
+                                  <TextBlock Text="{Binding CurrentVersion, StringFormat='v{0}'}" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                              </Border>
+                              <TextBlock Text="Photo Editing Workflow" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                         </StackPanel>
+                     </StackPanel>
+                     
+                     <!-- Update Check -->
+                     <StackPanel Spacing="15" HorizontalAlignment="Center" Width="300">
+                         <Button Command="{Binding CheckForUpdatesCommand}" 
+                                 IsEnabled="{Binding !IsCheckingUpdate}"
+                                 Classes="Primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Height="40">
+                             <StackPanel Orientation="Horizontal" Spacing="10">
+                                 <PathIcon Data="{StaticResource IconRefresh}" Width="16" Height="16" IsVisible="{Binding !IsCheckingUpdate}"/>
+                                 <TextBlock Text="Check for Updates" IsVisible="{Binding !IsCheckingUpdate}"/>
+                                 <TextBlock Text="Checking..." IsVisible="{Binding IsCheckingUpdate}"/>
+                             </StackPanel>
+                         </Button>
+                         
+                         <!-- Update Result -->
+                         <StackPanel Spacing="10" IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                             <TextBlock Text="{Binding UpdateStatusText}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             
+                             <Button Command="{Binding OpenDownloadPageCommand}" 
+                                     IsVisible="{Binding IsUpdateAvailable}"
+                                     Classes="Accent" HorizontalAlignment="Stretch" Content="Download Update"/>
+                                     
+                             <TextBlock Text="{Binding UpdateReleaseNotes}" 
+                                        IsVisible="{Binding IsUpdateAvailable}"
+                                        Foreground="#888" FontSize="12" TextWrapping="Wrap" MaxHeight="100" TextTrimming="CharacterEllipsis"/>
+                         </StackPanel>
+                     </StackPanel>
+                     
+                     <Border Height="1" Background="{DynamicResource SeparatorBrush}" Width="400"/>
+                     
+                     <!-- Links -->
+                     <StackPanel Orientation="Horizontal" Spacing="20" HorizontalAlignment="Center">
+                         <Button Classes="Clear" Command="{Binding OpenUrlCommand}" CommandParameter="https://github.com/zhensmarks/BMachine.v2">
+                             <StackPanel Orientation="Horizontal" Spacing="5">
+                                 <PathIcon Data="{StaticResource IconBrandGithub}" Width="16" Height="16"/>
+                                 <TextBlock Text="GitHub"/>
+                             </StackPanel>
+                         </Button>
+                          <Button Classes="Clear" Command="{Binding OpenUrlCommand}" CommandParameter="https://github.com/zhensmarks/BMachine.v2/issues">
+                             <StackPanel Orientation="Horizontal" Spacing="5">
+                                 <PathIcon Data="{StaticResource IconBug}" Width="16" Height="16"/>
+                                 <TextBlock Text="Report Issue"/>
+                             </StackPanel>
+                         </Button>
+                     </StackPanel>
+                     
+                     <TextBlock Text="Copyright © 2024-2026 Antigravity. All rights reserved." Foreground="#555" FontSize="11" HorizontalAlignment="Center"/>
+                     
+                 </StackPanel>
+             </ScrollViewer>
         </Border>
         </Grid>
         <!-- Notification Overlay -->

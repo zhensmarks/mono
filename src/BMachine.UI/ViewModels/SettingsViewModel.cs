@@ -203,6 +203,7 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsScriptsManagerSelected)); // New
         OnPropertyChanged(nameof(IsScriptsSelected));
         OnPropertyChanged(nameof(IsPathsSelected));
+        OnPropertyChanged(nameof(IsAboutSelected));
         
         // Lazy Load Logic
         if (value == 2 && IsTrelloConnected) // 2 = Account
@@ -230,6 +231,7 @@ public partial class SettingsViewModel : ObservableObject
     // "Shortcuts" (was Scripts?) is now likely 5 or removed?
     // Let's look at UI again.
     public bool IsPathsSelected => SelectedMenuIndex == 5;
+    public bool IsAboutSelected => SelectedMenuIndex == 6; // New About Tab
 
     // Sub-ViewModels
     public PathSettingsViewModel? PathSettingsVM { get; private set; }
@@ -771,6 +773,104 @@ public partial class SettingsViewModel : ObservableObject
     // SaveProfile calls GetColorHex(EditingColor, CustomEditingColor).
     // So the signature above IS correct for the new property type.
     
+    // --- Update System ---
+    [ObservableProperty] private string _currentVersion = "2.0.0";
+    [ObservableProperty] private bool _isUpdateAvailable = false;
+    [ObservableProperty] private string _latestVersion = "";
+    [ObservableProperty] private string _updateReleaseNotes = "";
+    [ObservableProperty] private string _updateDownloadUrl = "";
+    [ObservableProperty] private bool _isCheckingUpdate = false;
+    [ObservableProperty] private string _updateStatusText = "";
+
+    [RelayCommand]
+    private async Task CheckForUpdates()
+    {
+        IsCheckingUpdate = true;
+        UpdateStatusText = "Checking...";
+        
+        try
+        {
+            var service = new UpdateService();
+            var info = await service.CheckForUpdatesAsync();
+            
+            CurrentVersion = info.CurrentVersion;
+            LatestVersion = info.LatestVersion;
+            IsUpdateAvailable = info.IsUpdateAvailable;
+            UpdateReleaseNotes = info.ReleaseNotes;
+            UpdateDownloadUrl = info.DownloadUrl;
+            
+            UpdateStatusText = IsUpdateAvailable ? "New version available!" : "You are up to date.";
+            
+            // Notify Main Window (via Message)
+            if (IsUpdateAvailable)
+            {
+                 WeakReferenceMessenger.Default.Send(new UpdateAvailableMessage(info));
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText = "Error checking update.";
+            Console.WriteLine($"Update check failed: {ex.Message}");
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
+
+    [RelayCommand]
+    private void OpenDownloadPage()
+    {
+        if (!string.IsNullOrEmpty(UpdateDownloadUrl))
+        {
+            OpenUrl(UpdateDownloadUrl);
+        }
+        else
+        {
+            // Fallback to releases page
+            OpenUrl("https://github.com/zhensmarks/BMachine.v2/releases");
+        }
+    }
+
+    [RelayCommand]
+    private void GetTrelloApiKey()
+    {
+        // Opens Trello Power-Up / API Key generation page
+        OpenUrl("https://trello.com/power-ups/admin");
+    }
+    
+    [RelayCommand]
+    private void GetTrelloToken()
+    {
+        if (string.IsNullOrEmpty(TrelloApiKey))
+        {
+             // StatusMessage = "Please enter API Key first"; 
+             // IsStatusVisible = true;
+             // But maybe we can guide them? For now, just open guide.
+             OpenUrl("https://trello.com/app-key"); 
+             return;
+        }
+        
+        // Direct Token Generation URL if Key is known
+        var url = $"https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&name=BMachine&key={TrelloApiKey}";
+        OpenUrl(url);
+    }
+    
+    private void OpenUrl(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+    
+    // --- End Update System ---
+
     public string CustomEditingHex
     {
         get => CustomEditingColor.ToString();
@@ -801,6 +901,7 @@ public partial class SettingsViewModel : ObservableObject
         get => CustomOrbColor.ToString();
         set { if (Color.TryParse(value, out Color c)) CustomOrbColor = c; }
     }
+
     
     public ObservableCollection<ColorOption> WidgetColorOptions { get; private set; } = new();
 
