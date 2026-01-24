@@ -29,6 +29,12 @@ public partial class BatchNodeItem : ObservableObject
 
     // Dummy item for lazy loading indicator
     private static readonly BatchNodeItem Dummy = new BatchNodeItem(true);
+    
+    /// <summary>
+    /// Global filter for allowed extensions (e.g. .jpg, .png). 
+    /// If null or empty, all files are valid (except system files).
+    /// </summary>
+    public static HashSet<string>? AllowedExtensions { get; set; }
 
     public IRelayCommand CopyPathCommand { get; }
     public IRelayCommand OpenTextCommand { get; }
@@ -105,9 +111,16 @@ public partial class BatchNodeItem : ObservableObject
                          list.Add(new BatchNodeItem(d, true));
                      }
                      // Files
-                     foreach(var f in Directory.EnumerateFiles(FullPath, "*", opts)
-                         .Where(f => !Path.GetFileName(f).Equals("desktop.ini", StringComparison.OrdinalIgnoreCase))
-                         .OrderBy(x => x))
+                     // Filter extensions if AllowedExtensions is set
+                     IEnumerable<string> fileEnum = Directory.EnumerateFiles(FullPath, "*", opts)
+                         .Where(f => !Path.GetFileName(f).Equals("desktop.ini", StringComparison.OrdinalIgnoreCase));
+                     
+                     if (AllowedExtensions != null && AllowedExtensions.Count > 0)
+                     {
+                         fileEnum = fileEnum.Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLower()));
+                     }
+                         
+                     foreach(var f in fileEnum.OrderBy(x => x))
                      {
                          list.Add(new BatchNodeItem(f, false));
                      }

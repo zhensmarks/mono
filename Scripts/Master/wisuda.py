@@ -274,6 +274,11 @@ def find_candidate_codes(folder_path, prefer_tag=None):
             for m in re.finditer(r'(?:10RP|8R)[\s-]*(\d{1,3}(?:\s*[A-Za-z])?)\b', search_text, re.IGNORECASE):
                 push(m.group(1))
 
+            # 2.5 Capture Underscore pattern: KRA_001, ABC_001 B
+            # Captures: (AnyLetters)_(1-3 digits)(Optional Space Letter)
+            for m in re.finditer(r'\b[A-Za-z]+_(\d{1,3}(?:\s*[A-Za-z])?)\b', search_text, re.IGNORECASE):
+                push(m.group(1))
+
             # 3. Fallback: Capture generic 3-digit numbers with optional suffix (e.g. 013, 013 B)
             # Filter out things that look like years (202x) or labels (10RP, 8R if not caught above)
             # Regex captures: Word Boundary + 1-3 digits + Optional(Space + A-Z) + Word Boundary

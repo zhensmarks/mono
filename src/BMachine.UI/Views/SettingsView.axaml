@@ -427,6 +427,17 @@
                         </Grid>
                         
                         <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+
+                        <!-- Batch File Filter -->
+                        <Grid ColumnDefinitions="*, Auto">
+                             <StackPanel Spacing="5" Margin="0,0,10,0">
+                                 <TextBlock Text="File Extensions Filter" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="Masukan ekstensi yang ingin ditampilkan (contoh: .jpg, .png). Kosongkan untuk semua." FontSize="12" Foreground="#999" TextWrapping="Wrap"/>
+                             </StackPanel>
+                             <TextBox Grid.Column="1" Text="{Binding BatchFileFilter}" Watermark="All (*)" Width="150" HorizontalContentAlignment="Right"/>
+                        </Grid>
+                        
+                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
                         
                         <!-- Storage -->
                         <Grid ColumnDefinitions="*, Auto">

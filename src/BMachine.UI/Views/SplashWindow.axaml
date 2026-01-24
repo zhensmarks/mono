@@ -1,0 +1,105 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="350"
+        x:Class="BMachine.UI.Views.SplashWindow"
+        x:DataType="vm:SplashViewModel"
+        Width="600" Height="350"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent"
+        Topmost="True">
+
+    <Border CornerRadius="12" ClipToBounds="True">
+        <Grid>
+             <!-- 1. Background: Radial Gradient for "Glow" effect -->
+            <Grid.Background>
+                <RadialGradientBrush Center="0.5, 0.4" GradientOrigin="0.5, 0.4" Radius="0.8">
+                    <GradientStop Color="#1E293B" Offset="0"/> <!-- Dark Blue/Slate -->
+                    <GradientStop Color="#0F172A" Offset="0.5"/> <!-- Darker -->
+                    <GradientStop Color="#020617" Offset="1"/> <!-- Almost Black -->
+                </RadialGradientBrush>
+            </Grid.Background>
+            
+            <!-- 2. Content Container -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="25">
+                
+                <!-- Logo with Glow Effect -->
+                <Grid HorizontalAlignment="Center">
+                    <!-- Outer Glow (Simulated with Border/Shadow or Opacity) -->
+                     <Ellipse Width="80" Height="80" Fill="#3b82f6" Opacity="0.2">
+                         <Ellipse.Effect>
+                             <BlurEffect Radius="40"/>
+                         </Ellipse.Effect>
+                     </Ellipse>
+                     
+                     <!-- Icon -->
+                     <Viewbox Width="60" Height="60">
+                         <PathIcon Data="{StaticResource IconSettings}" Foreground="#60A5FA"/> 
+                         <!-- Using 60A5FA (Lighter Blue) for glow look -->
+                     </Viewbox>
+                     
+                     <!-- Center White/Highlight -->
+                     <Viewbox Width="60" Height="60" Opacity="0.5">
+                         <PathIcon Data="{StaticResource IconSettings}" Foreground="White"/> 
+                     </Viewbox>
+                </Grid>
+
+                <!-- App Title -->
+                <StackPanel Spacing="5">
+                    <TextBlock Text="B M A C H I N E" 
+                               FontSize="32" 
+                               FontWeight="Light" 
+                               LetterSpacing="3" 
+                               HorizontalAlignment="Center" 
+                               Foreground="White">
+                        <TextBlock.Effect>
+                            <DropShadowEffect Color="#3b82f6" BlurRadius="10" Opacity="0.5" OffsetX="0" OffsetY="0"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock Text="v2.0" 
+                               FontSize="14" 
+                               FontWeight="Normal" 
+                               HorizontalAlignment="Center" 
+                               Foreground="#64748B" 
+                               LetterSpacing="1"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 3. Footer: Progress Bar & Status -->
+            <StackPanel VerticalAlignment="Bottom" Margin="60,0,60,50" Spacing="10">
+                <TextBlock Text="{Binding StatusText}" 
+                           FontSize="12" 
+                           Foreground="#94A3B8" 
+                           HorizontalAlignment="Center"/>
+                           
+                <!-- Progress Bar Container -->
+                <Grid Height="4">
+                    <!-- Track -->
+                    <Border Background="#1E293B" CornerRadius="2"/>
+                    
+                    <!-- Styled Progress Bar -->
+                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="4" 
+                                 Background="Transparent" Foreground="#3b82f6" 
+                                 BorderThickness="0" CornerRadius="2"
+                                 ShowProgressText="False">
+                        <ProgressBar.Effect>
+                            <DropShadowEffect Color="#3b82f6" BlurRadius="8" Opacity="0.6"/>
+                        </ProgressBar.Effect>
+                    </ProgressBar>
+                </Grid>
+                 <TextBlock Text="{Binding Progress, StringFormat='{}{0}%'}" 
+                           FontSize="10" 
+                           Foreground="#64748B" 
+                           HorizontalAlignment="Center"
+                           IsVisible="False"/> <!-- Hidden per design -->
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

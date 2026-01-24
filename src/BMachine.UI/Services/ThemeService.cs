@@ -172,12 +172,18 @@ public class ThemeService : IThemeService
         
         if (Color.TryParse(hexColor, out var color))
         {
-            // Update resource
+            // Update Core Accent Resources
+            Application.Current.Resources["AccentColor"] = color;
+            Application.Current.Resources["AccentColorBrush"] = new SolidColorBrush(color);
+            Application.Current.Resources["AccentLowOpacityBrush"] = new SolidColorBrush(color) { Opacity = 0.15 };
+
+            // Update Specific Variants (Blue/Orange) to match if we want unified theme
             Application.Current.Resources["AccentBlue"] = color;
             Application.Current.Resources["AccentBlueBrush"] = new SolidColorBrush(color);
             
-            // Also update other accents if we want a unified color
-            Application.Current.Resources["AccentOrange"] = color; // Simplified for now
+            // Simplified: Keeping others as fallback or also unified?
+            // User requested "Accent Color" generally, so let's unify.
+            Application.Current.Resources["AccentOrange"] = color; 
             Application.Current.Resources["AccentOrangeBrush"] = new SolidColorBrush(color);
             
              _database.SetAsync("Settings.Accent", hexColor);

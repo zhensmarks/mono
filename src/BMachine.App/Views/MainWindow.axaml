@@ -59,7 +59,7 @@
                                TextAlignment="Center" TextWrapping="Wrap" Opacity="0.8"/>
                     
                     <!-- Buttons: Cancel (Safe) vs Exit (Danger) - Vertical Layout -->
-                    <Grid RowDefinitions="Auto,Auto" Margin="0,10,0,0">
+                    <Grid RowDefinitions="Auto,Auto,Auto" Margin="0,10,0,0">
                         <!-- EXIT (Danger - Red) - TOP -->
                         <Button Grid.Row="0" Command="{Binding ConfirmExitCommand}" 
                                 Content="YES" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
@@ -71,6 +71,13 @@
                                 Content="NO" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                 Background="{DynamicResource AccentGreenBrush}" Foreground="White"
                                 Margin="0" CornerRadius="6" FontWeight="SemiBold" Height="36"/>
+                                
+                        <!-- RESTART - SPACED BELOW -->
+                        <Button Grid.Row="2" Command="{Binding RestartApplicationCommand}" 
+                                Content="RESTART" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Background="{DynamicResource AccentColorBrush}" Foreground="White"
+                                Margin="0,15,0,0" CornerRadius="6" FontWeight="SemiBold" Height="36">
+                        </Button>
                     </Grid>
                 </StackPanel>
             </Border>

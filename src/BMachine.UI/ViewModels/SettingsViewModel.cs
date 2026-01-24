@@ -502,6 +502,32 @@ public partial class SettingsViewModel : ObservableObject
     
     // --- End Folder Locker Setup ---
 
+    [ObservableProperty]
+    private string _batchFileFilter = "";
+
+    partial void OnBatchFileFilterChanged(string value)
+    {
+        if (_isInitializing) return;
+        _database?.SetAsync("Settings.Batch.Filter", value);
+        UpdateBatchFilter(value);
+    }
+
+    private void UpdateBatchFilter(string filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            BatchNodeItem.AllowedExtensions = null;
+        }
+        else
+        {
+            var exts = filter.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                             .Select(x => x.Trim().ToLower())
+                             .Select(x => x.StartsWith(".") ? x : "." + x) // Ensure starts with .
+                             .ToHashSet();
+            BatchNodeItem.AllowedExtensions = exts;
+        }
+    }
+
     public SettingsViewModel() 
     {
         UserName = "Preview User";
@@ -877,6 +903,11 @@ public partial class SettingsViewModel : ObservableObject
             else SelectedThemeIndex = 0;
             IsDarkMode = SelectedThemeIndex == 0;
             
+            // Load Batch Filter
+            var filter = await _database.GetAsync<string>("Settings.Batch.Filter");
+            BatchFileFilter = filter ?? "";
+            UpdateBatchFilter(BatchFileFilter);
+
             // Load Background Colors
             var darkBg = await _database.GetAsync<string>("Appearance.Background.Dark");
             if (!string.IsNullOrEmpty(darkBg)) 

@@ -58,6 +58,11 @@ public partial class PixelcutViewModel : ObservableObject
         CheckVpnStatus();
     }
 
+    partial void OnIsProcessingChanged(bool value)
+    {
+        CheckRetryVisibility();
+    }
+
     private void CheckVpnStatus()
     {
         // 1. Check Manual Proxy
@@ -145,6 +150,7 @@ public partial class PixelcutViewModel : ObservableObject
                             catch { }
                         }
                         HasFiles = Files.Count > 0;
+                        CheckRetryVisibility();
                     });
                 }
             });
@@ -157,6 +163,7 @@ public partial class PixelcutViewModel : ObservableObject
         finally
         {
             IsProcessing = false; 
+            Avalonia.Threading.Dispatcher.UIThread.Post(CheckRetryVisibility);
         }
     }
 
@@ -237,6 +244,7 @@ public partial class PixelcutViewModel : ObservableObject
             Files.Remove(item);
         }
         HasFiles = Files.Count > 0;
+        CheckRetryVisibility();
     }
 
     [RelayCommand]
@@ -254,6 +262,23 @@ public partial class PixelcutViewModel : ObservableObject
             Files.Clear();
             HasFiles = false;
         }
+        CheckRetryVisibility();
+    }
+
+    [ObservableProperty] private bool _isRetryVisible;
+
+    private void CheckRetryVisibility()
+    {
+        if (IsProcessing) 
+        {
+            IsRetryVisible = false;
+            return;
+        }
+
+        // Retry if:
+        // 1. Files marked as Failed
+        // 2. Files marked as Done but Size < 100 bytes (e.g. 59B error)
+        IsRetryVisible = Files.Any(x => x.IsFailed || (x.IsDone && x.ResultSize > 0 && x.ResultSize < 100));
     }
 
     [RelayCommand]
@@ -297,6 +322,7 @@ public partial class PixelcutViewModel : ObservableObject
             Files.Remove(item);
         }
         HasFiles = Files.Count > 0;
+        CheckRetryVisibility();
     }
 
     [RelayCommand]
@@ -397,6 +423,7 @@ public partial class PixelcutViewModel : ObservableObject
 
         IsProcessing = false;
         AppendLog("Antrian selesai.");
+        CheckRetryVisibility();
         
         // Show Completion Dialog if not stopped manually
         if (!_stopRequested && (success > 0 || failed > 0))

@@ -5,7 +5,7 @@
         mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
         x:Class="BMachine.UI.Views.IconPickerWindow"
         Title="Select Icon"
-    Width="460" Height="400"
+    Width="600" Height="500"
     WindowStartupLocation="CenterOwner"
     CanResize="False"
     SystemDecorations="None"

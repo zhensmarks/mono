@@ -49,6 +49,32 @@ public partial class IconPickerWindow : Window
             "IconGitBranch", "IconTerminalBash", "IconBug", "IconApi",
             
             // Thematic
+            // Tabler Essentials
+            "IconHome2", "IconUserCircle", "IconSettings2", "IconSearch2", "IconMenu2", 
+            
+            // Tabler Editing
+            "IconPencil", "IconBrush", "IconScissors", "IconEraser", "IconPalette2",
+            
+            // Tabler Files
+            "IconFolderFilled", "IconFileFilled", "IconPhoto", "IconMovie", "IconMusic", "IconDownload2",
+            
+            // Tabler Actions
+            "IconPlayerPlay", "IconPlayerPlayFilled", "IconPlayerPause", "IconPlayerStop", "IconPlayerRecord", 
+            "IconReload", "IconPower",
+            
+            // Tabler Tech
+            "IconCode2", "IconTerminal2", "IconBrandGithub", "IconBrandPython", "IconDatabase", "IconServer", "IconCpu", "IconRobot",
+            
+            // Tabler Communication
+            "IconMessage", "IconMessageFilled", "IconMail", "IconSend",
+            
+            // Tabler Alerts
+            "IconAlertCircle", "IconAlertTriangle", "IconCheck2", "IconX2", "IconShieldCheck", "IconLock2", "IconLockOpen",
+            
+            // Tabler Misc
+            "IconHeartFilled", "IconStarFilled", "IconFlame", "IconBook", "IconBookmark", 
+            "IconCalendarFilled", "IconClockFilled", "IconMoodSmile", "IconRocket2",
+
             "IconBriefcase", "IconMapPin", "IconCreditCard", "IconGraduationCap", "IconGift", "IconFilm", "IconSun"
         };
         

@@ -43,6 +43,24 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         }
     }
 
+    [RelayCommand]
+    private void RestartApplication()
+    {
+        var appPath = System.Environment.ProcessPath;
+        if (appPath != null)
+        {
+            System.Diagnostics.Process.Start(appPath);
+            if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+            else
+            {
+                System.Environment.Exit(0);
+            }
+        }
+    }
+
     private string _cachedDarkBg = "#1C1C1C";
     private string _cachedLightBg = "#F5F5F5";
 

@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using BMachine.UI.Views;
@@ -8,6 +9,7 @@ using BMachine.Core.Database;
 using BMachine.UI.Messages;
 using CommunityToolkit.Mvvm.Messaging;
 using System; 
+using System.Threading.Tasks;
 
 namespace BMachine.App;
 
@@ -30,56 +32,99 @@ public partial class App : Application,
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Console.WriteLine("[App] Framework Initialization Started");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             try 
             {
-                // 1. Create Shared Services
-                _db = new DatabaseService();
-                _logService = new ProcessLogService(); 
+                // 1. Show Splash Screen
+                var splashVm = new SplashViewModel();
+                var splashWindow = new SplashWindow
+                {
+                    DataContext = splashVm
+                };
+                desktop.MainWindow = splashWindow;
+                splashWindow.Show();
 
-                // 2. Initialize MainWindow with Shared Services
-                var mainWindow = new BMachine.App.Views.MainWindow();
-                mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(_db, _logService);
-                desktop.MainWindow = mainWindow;
-                _mainWindow = mainWindow;
-                desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
+                // Store ref to close it later
+                // Note: We need to access splashWindow inside the async block, so we might need a local ref or just use context?
+                // Actually, we pass progress to VM, and close window later.
+                // Let's refactor slightly to ensure robustness.
 
-                // 3. Initialize Theme
-                try
-                {
-                    var themeService = new ThemeService(_db);
-                    themeService.InitializeAsync().Wait(); 
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error initializing theme: {ex.Message}");
-                }
-
-                // 4. Initialize Radial Menu Hook
-                try
-                {
-                    _inputHook = new GlobalInputHookService();
-                    _inputHook.OnTriggerDown += OnRadialTrigger;
-                    _inputHook.OnTriggerUp += OnRadialRelease;
-                    _inputHook.OnMouseMove += OnRadialMove;
-                    _inputHook.OnRecorded += OnShortcutRecorded;
-                    
-                    // Load saved config if exists
-                    LoadInitialShortcutConfig();
-                    // For now default is Shift+MiddleMouse
-                }
-                catch(Exception ex)
-                {
-                    _logService.AddLog($"[Hook Error] Failed to init global hook: {ex.Message}");
-                }
+                _ = InitializeAppAsync(desktop, splashWindow, splashVm);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error launching App: {ex.Message}");
+                Console.WriteLine($"[CRITICAL] Error showing Splash Screen: {ex}");
+                // Fallback: Try to show MainWindow directly if Splash fails
+                try
+                {
+                    var mainWindow = new BMachine.App.Views.MainWindow();
+                    mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(new DatabaseService(), new ProcessLogService());
+                    desktop.MainWindow = mainWindow;
+                    mainWindow.Show();
+                }
+                catch(Exception e2)
+                {
+                     Console.WriteLine($"[CRITICAL] Fallback failed: {e2}");
+                }
+            }
+            
+            base.OnFrameworkInitializationCompleted(); // This call was moved here
+            return; // Already called base
+        }
+
+        base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task InitializeAppAsync(IClassicDesktopStyleApplicationLifetime desktop, Window splashWindow, SplashViewModel splashVm)
+    {
+        await Task.Delay(100); // Give UI time to render
+
+        try 
+        {
+            // 2. Initialize Services (Background)
+            _db = new DatabaseService();
+            _logService = new ProcessLogService(); 
+
+            var bootstrapper = new Bootstrapper(_db);
+            var progress = new Progress<double>(p => splashVm.Progress = p);
+            var status = new Progress<string>(s => splashVm.StatusText = s);
+
+            // Run initialization
+            await bootstrapper.InitializeAsync(progress, status);
+            
+            // 3. Create Main Window
+            var mainWindow = new BMachine.App.Views.MainWindow(); // Fully qualified to avoid namespace conflict locally
+            mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(_db, _logService);
+            
+            // 4. Swap Windows
+            desktop.MainWindow = mainWindow;
+            mainWindow.Show();
+            splashWindow.Close();
+            _mainWindow = mainWindow;
+            
+            // Note: ShutdownMode is OnLastWindowClose by default? Or OnMainWindowClose. 
+            // Since we swapped MainWindow, it should be fine.
+            desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
+
+            // 5. Post-Init (Hooks)
+            // Initialize Radial Menu Hook
+            try
+            {
+                _inputHook = new GlobalInputHookService();
+                _inputHook.OnTriggerDown += OnRadialTrigger;
+                _inputHook.OnTriggerUp += OnRadialRelease;
+                _inputHook.OnMouseMove += OnRadialMove;
+                _inputHook.OnRecorded += OnShortcutRecorded;
+                
+                LoadInitialShortcutConfig();
+            }
+            catch(Exception ex)
+            {
+                _logService.AddLog($"[Hook Error] Failed to init global hook: {ex.Message}");
             }
 
-            
             desktop.Exit += (s, e) => 
             {
                 _radialMenuWindow?.Close();
@@ -89,8 +134,12 @@ public partial class App : Application,
             // Register as Recipient
             WeakReferenceMessenger.Default.RegisterAll(this);
         }
-
-        base.OnFrameworkInitializationCompleted();
+        catch (Exception ex)
+        {
+             Console.WriteLine($"Error launching App: {ex.Message}");
+             // Ensure Splash doesn't hang forever
+             splashWindow.Close();
+        }
     }
     
     private void OnShortcutRecorded(BMachine.UI.Models.TriggerConfig config)

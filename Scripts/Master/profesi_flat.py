@@ -437,55 +437,53 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
         parts_dir = [] if rel_dir in (".", "") else rel_dir.split(os.sep)
         
         current_folder_name = os.path.basename(root)
-        
-        # 2. Cek apakah folder ini sendiri adalah NAMA PROFESI?
-        #    Strategi: Cek apakah nama folder cocok dengan salah satu Master Key (fuzzy/exact).
-        folder_master_key = None
-        
-        # Cek di Profesi
-        k_prof = try_find_master_key(current_folder_name, master_files_profesi)
-        if k_prof:
-            folder_master_key = (k_prof, 'profesi')
-        
-        # Cek di Sporty (jika belum ketemu & ada master sporty)
-        if not folder_master_key and master_sporty_exists:
-            k_sport = try_find_master_key(current_folder_name, master_files_sporty)
-            if k_sport:
-                folder_master_key = (k_sport, 'sporty')
 
-        # 3. Siapkan Folder Output (Mirroring Partial - AGGRESSIVE FLAT)
-        #    Strategi:
-        #    - Jika file ada di dalam subfolder (Depth >= 2), ratakan semua ke folder Level 1 (Group/Kelas).
-        #    - Jika file ada di Level 1 (Depth == 1):
-        #        - Jika nama folder cocok dengan format Group/Kelas (Regex), pertahankan (Level 1).
-        #        - Jika folder biasa (misal folder profesi BRIMOB), ratakan ke Root.
+        # 2. Tentukan Struktur Output (SMART FLATTEN)
+        #    Strategi Baru:
+        #    Iterasi setiap bagian path. Jika bagian tersebut cocok dengan MASTER KEY (Profesi/Sporty),
+        #    maka anggap itu adalah folder kategori.
+        #    - Path SEBELUM folder kategori => Dipertahankan (misal "KELAS B2")
+        #    - Folder kategori itu sendiri => Di-flatten (kontennya naik ke parent 'KELAS B2')
         
-        target_rel_dir = rel_dir
+        target_parts = []
+        folder_master_key = None # (key, category)
+
+        for part in parts_dir:
+            # Cek apakah part ini adalah Master Key?
+            found_key = None
+            
+            # Cek Profesi
+            k_prof = try_find_master_key(part, master_files_profesi)
+            if k_prof:
+                found_key = (k_prof, 'profesi')
+            
+            # Cek Sporty (jika belum ketemu di Profesi)
+            if not found_key and master_sporty_exists:
+                k_sport = try_find_master_key(part, master_files_sporty)
+                if k_sport:
+                    found_key = (k_sport, 'sporty')
+            
+            if found_key:
+                # KETEMU! Ini adalah folder profesi (misal "ASTRONOT").
+                # Kita stop penambahan path target di sini.
+                # Artinya ASTRONOT dan anak-anaknya akan masuk ke folder akumulasi sebelumnya.
+                folder_master_key = found_key
+                break 
+            else:
+                # Bukan folder master, anggap ini bagian struktur (misal "KELAS B2")
+                target_parts.append(part)
         
-        if rel_dir != "." and rel_dir != "":
-            parts = rel_dir.split(os.sep)
-            if len(parts) >= 2:
-                # Kasus: 1. FOTO.../BRIMOB -> output ke 1. FOTO...
-                target_rel_dir = parts[0]
-            elif len(parts) == 1:
-                # Kasus: 1. FOTO... (Cocok Regex) -> Tetap 1. FOTO...
-                # Kasus: BRIMOB (Cocok Master) -> Ratakan ke Root (".")
-                # Kasus: GEDUNG B (Tidak Cocok Apa-apa) -> Tetap GEDUNG B (Anggap Kelas)
-                if is_class_or_group(parts[0]):
-                    target_rel_dir = parts[0]
-                elif folder_master_key:
-                    target_rel_dir = "."
-                else:
-                    target_rel_dir = parts[0]
-        
-        if target_rel_dir == "." or target_rel_dir == "":
-            current_output_dir = final_event_folder
-        else:
+        # Susun Output Directory
+        if target_parts:
+            target_rel_dir = os.path.join(*target_parts)
             current_output_dir = os.path.join(final_event_folder, target_rel_dir)
+        else:
+            # Jika target_parts kosong, berarti langsung ketemu Master di root, atau memang root
+            target_rel_dir = "."
+            current_output_dir = final_event_folder
             
         os.makedirs(current_output_dir, exist_ok=True)
-
-        print(f"\n[FOLDER] {rel_dir} -> [OUTPUT] {target_rel_dir} (GroupMatch: {'YES' if len(parts)>0 and is_class_or_group(parts[0]) else 'NO'})")
+        print(f"\n[FOLDER] {rel_dir} -> [OUTPUT] {target_rel_dir if target_rel_dir != '.' else '[ROOT]'} (MasterFolder: {folder_master_key[0] if folder_master_key else 'None'})")
 
         # 4. Proses File
         for filename in jpg_files:

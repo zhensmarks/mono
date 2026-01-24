@@ -18,6 +18,10 @@
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#E5E7EB"/>
+
+     <!-- Default Shared Accents (Prevent crash/empty if ThemeService delays) -->
+    <SolidColorBrush x:Key="AccentColorBrush" Color="{StaticResource AccentBlue}"/>
+    <Color x:Key="AccentColor">#3b82f6</Color>
     
     <!-- Geometries are shared, so we can re-include them or just keep them in a shared dictionary. 
          For simplicity, I'll duplicate the geometries or ideally, move them to a Shared.axaml. 

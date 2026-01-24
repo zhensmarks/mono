@@ -99,6 +99,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://BMachine.UI/Styles/FeatherIcons.axaml" />
+                <ResourceInclude Source="avares://BMachine.UI/Styles/TablerIcons.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Card Border Brush (Dynamic) -->

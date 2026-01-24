@@ -227,7 +227,7 @@
                     
                     <!-- Smart Retry -->
                     <Button Content="ULANGI (Error/Kecil)" Command="{Binding RetrySmallFilesCommand}" 
-                            IsVisible="{Binding !IsProcessing}" Background="#333" Foreground="LightYellow"
+                            IsVisible="{Binding IsRetryVisible}" Background="#333" Foreground="LightYellow"
                             Padding="14,8" CornerRadius="6"
                             ToolTip.Tip="Ulangi file yang selesai tapi outputnya kecil/error (misal 59B)"/>
 

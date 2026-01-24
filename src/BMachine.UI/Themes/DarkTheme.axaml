@@ -18,6 +18,10 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#26282C"/>
     
+    <!-- Default Shared Accents (Prevent crash/empty if ThemeService delays) -->
+    <SolidColorBrush x:Key="AccentColorBrush" Color="{StaticResource AccentBlue}"/>
+    <Color x:Key="AccentColor">#3b82f6</Color>
+    
     <!-- Geometries (Icons) -->
     <!-- More Horizontal (...) -->
     <StreamGeometry x:Key="IconMoreHorizontal">M5 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm7 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm7 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z</StreamGeometry>
