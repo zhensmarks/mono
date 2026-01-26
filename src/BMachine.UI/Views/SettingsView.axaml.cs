@@ -180,7 +180,7 @@ public partial class SettingsView : UserControl
             catch { }
         }
 
-        vm.LoadAllScripts();
+        await vm.LoadAllScriptsAsync();
         vm.StatusMessage = $"{files.Count} file(s) added to {targetType}!";
         vm.IsStatusVisible = true;
         await System.Threading.Tasks.Task.Delay(2000);

@@ -1,0 +1,251 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PixelcutCompact.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+        x:Class="PixelcutCompact.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="avares://PixelcutCompact/appicon.ico"
+        Title="Pixelcut Compact">
+
+    <Grid RowDefinitions="*, Auto">
+        <!-- Main Content Area -->
+
+        <!-- Main Content Area -->
+        <!-- Main Content Area with Tabs -->
+        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="0" Padding="0" ClipToBounds="True"
+                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0" Margin="0">
+            
+            <TabControl Margin="0" Padding="0" Background="Transparent">
+                 <TabControl.Styles>
+                    <Style Selector="TabItem">
+                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Padding" Value="12,8"/>
+                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="MinHeight" Value="32"/>
+                    </Style>
+                    <Style Selector="TabItem:selected">
+                        <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                    </Style>
+                 </TabControl.Styles>
+
+                 <!-- Tab 1: Proses -->
+                <TabItem Header="Proses">
+                    <Grid DragDrop.AllowDrop="True" Background="Transparent">
+                        <!-- Empty State -->
+                        <Grid IsVisible="{Binding !HasFiles}">
+                            <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
+                                     <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
+                                             HorizontalAlignment="Center" Width="80" Height="64">
+                                         <PathIcon Data="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5M12 4.15L6.04 7.5L12 10.85L17.96 7.5L12 4.15M5 15.91L11 19.29V12.58L5 9.21V15.91M19 15.91V9.21L13 12.58V19.29L19 15.91Z" 
+                                                   Width="32" Height="32" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                     </Border>
+                                    <TextBlock Text="Drop Images Here" FontSize="15" FontWeight="SemiBold" 
+                                               Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- File List -->
+                        <ListBox x:Name="FileListBox" IsVisible="{Binding HasFiles}" ItemsSource="{Binding Files}" Background="Transparent" 
+                                 Margin="0,10" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionMode="Multiple">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="10,0,10,8"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <ControlTemplate>
+                                            <ContentPresenter Background="{TemplateBinding Background}"
+                                                              BorderBrush="{TemplateBinding BorderBrush}"
+                                                              BorderThickness="{TemplateBinding BorderThickness}"
+                                                              CornerRadius="{TemplateBinding CornerRadius}"
+                                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                              Content="{TemplateBinding Content}"
+                                                              Padding="{TemplateBinding Padding}"
+                                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                        </ControlTemplate>
+                                    </Setter>
+                                </Style>
+                            </ListBox.Styles>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <!-- Use Border with PointerPressed to handle Shift-Click -->
+                                    <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
+                                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                            Margin="0,0,0,4"
+                                            PointerPressed="OnFileItemPointerPressed"> 
+                                        <Grid ColumnDefinitions="Auto, *, Auto">
+                                            <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" MinHeight="0" Padding="0"
+                                                      IsHitTestVisible="False"/> 
+                                                      
+                                            <Grid.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Remove" Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).RemoveFileCommand}" CommandParameter="{Binding .}"/>
+                                                </ContextMenu>
+                                            </Grid.ContextMenu>
+                                            
+                                            <!-- Left: Name & Progress -->
+                                            <Grid Grid.Column="1" RowDefinitions="Auto, Auto" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding FileName}" FontWeight="Bold" FontSize="13" 
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                                                           Margin="0,0,0,4"/>
+                                                           
+                                                <ProgressBar Grid.Row="1" Height="3" HorizontalAlignment="Stretch"
+                                                             Foreground="{DynamicResource AccentBlueBrush}" Background="Transparent" BorderThickness="0"
+                                                             Value="{Binding Progress}" Maximum="100" 
+                                                             IsVisible="{Binding IsProcessing}"/>
+                                                             
+                                                <TextBlock Grid.Row="1" Text="{Binding Status}" FontSize="10" FontWeight="Bold" 
+                                                           Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                           IsVisible="{Binding !IsFailed}" TextTrimming="CharacterEllipsis"/>
+                                                           
+                                                <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" FontSize="10" FontWeight="Bold" Foreground="#EF4444" 
+                                                           IsVisible="{Binding IsFailed}" TextTrimming="CharacterEllipsis"/>
+                                            </Grid>
+                                            
+                                            <!-- Right: Size & Status -->
+                                            <StackPanel Grid.Column="2" Margin="15,0,8,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding OriginalSizeDisplay}" FontSize="11" 
+                                                               Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                               VerticalAlignment="Center" TextTrimming="None" TextWrapping="NoWrap"/>
+                                                    
+                                                    <PathIcon Data="M5 12h14M12 5l7 7-7 7" Width="10" Height="10" 
+                                                              Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                              VerticalAlignment="Center"
+                                                              IsVisible="{Binding IsDone}"/>
+                                                    
+                                                    <TextBlock Text="{Binding ResultSizeDisplay}" FontSize="11" 
+                                                               Foreground="{DynamicResource AccentBlueBrush}" 
+                                                               VerticalAlignment="Center" TextTrimming="None" TextWrapping="NoWrap"
+                                                               IsVisible="{Binding IsDone}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        
+                        <!-- Overlay: Settings -->
+                         <Border Background="#CC000000" IsVisible="{Binding IsSettingsOpen}">
+                            <Border Width="300" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Background="{DynamicResource CardBackgroundBrush}"
+                                    CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="20">
+                                <StackPanel Spacing="15">
+                                    <TextBlock Text="Settings" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    
+                                    <!-- Proxy -->
+                                    <StackPanel Spacing="5">
+                                        <TextBlock Text="Manual Proxy" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBox Text="{Binding ProxyAddress}" Watermark="http://127.0.0.1:8080" />
+                                        <TextBlock Text="* Leave empty to use Free Proxy Rotation + Auto Retry" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    
+                                    <Button Command="{Binding CloseSettingsCommand}" Content="Save" 
+                                            HorizontalAlignment="Right"/>
+                                </StackPanel>
+                            </Border>
+                        </Border>
+                    </Grid>
+                </TabItem>
+                
+                <!-- Tab 2: Log -->
+                <TabItem Header="Log">
+                     <Grid Background="#1E1E1E">
+                        <TextBox Text="{Binding LogOutput}" IsReadOnly="True" 
+                                 Background="Transparent" BorderThickness="0" 
+                                 FontFamily="Consolas, Monospace" FontSize="11" Foreground="#D4D4D4"
+                                 TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Padding="10"/>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Border>
+
+        <!-- Footer / Controls -->
+        <Border Grid.Row="1" Margin="10" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="12" Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                
+                <!-- Left: Utils -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                      <Border Background="Transparent" CornerRadius="4" Padding="8,4" ToolTip.Tip="{Binding VpnStatus}" VerticalAlignment="Center">
+                          <Panel Width="6" Height="6">
+                              <Border CornerRadius="3" Background="#4ade80" IsVisible="{Binding IsVpnActive}"/>
+                              <Border CornerRadius="3" Background="#ef4444" IsVisible="{Binding !IsVpnActive}"/>
+                          </Panel>
+                      </Border>
+                      
+                      <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" 
+                              Background="Transparent" BorderThickness="0" Padding="0"
+                              Height="32" Width="32" CornerRadius="4">
+                          <PathIcon Data="{StaticResource IconSettings}" 
+                                    Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                      </Button>
+                 </StackPanel>
+
+                <!-- Right: Actions -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    
+                     <Button Command="{Binding RetrySmallFilesCommand}" 
+                             IsVisible="{Binding IsRetryVisible}"
+                             ToolTip.Tip="Retry Failed" 
+                             Background="Transparent" BorderThickness="0" Padding="0"
+                             Height="32" Width="32" CornerRadius="4">
+                        <PathIcon Data="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
+                     </Button>
+                     
+                     <Button Command="{Binding ClearCommand}" ToolTip.Tip="Clear All" 
+                             Background="Transparent" BorderThickness="0" Padding="0"
+                             Height="32" Width="32" CornerRadius="4">
+                         <PathIcon Data="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" Width="14" Height="14" Foreground="#EF4444"/>
+                     </Button>
+                     
+                    <Button Command="{Binding ProcessRemoveBgCommand}" IsVisible="{Binding !IsProcessing}"
+                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="8" Padding="15,0" BorderThickness="0" Height="32">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconEraser}" Width="14" Height="14"/>
+                            <TextBlock Text="Remove BG" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    
+                    <Button Command="{Binding ProcessUpscaleCommand}" IsVisible="{Binding !IsProcessing}"
+                            Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
+                            Foreground="{DynamicResource AccentBlueBrush}" CornerRadius="8" Padding="0" Height="32" Width="42"
+                            ToolTip.Tip="Upscale">
+                        <PathIcon Data="M16 4h-2l-4 4-4-4H4v16h2V8l4 4 4-4v12h2V4z M20 4h-2v16h2V4z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
+                    </Button>
+                    
+                     <Button Command="{Binding PauseCommand}" IsVisible="{Binding IsProcessing}"
+                            Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1"
+                            Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="8" Padding="15,0" Height="32">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <PathIcon Data="M6 4h4v16H6z M14 4h4v16h-4z" Width="12" Height="12" IsVisible="{Binding !IsPaused}"/>
+                            <PathIcon Data="M5 3 L19 12 L5 21 L5 3 Z" Width="12" Height="12" IsVisible="{Binding IsPaused}"/>
+                            
+                            <TextBlock Text="JEDA" FontWeight="Bold" VerticalAlignment="Center" IsVisible="{Binding !IsPaused}"/>
+                            <TextBlock Text="LANJUTKAN" FontWeight="Bold" VerticalAlignment="Center" IsVisible="{Binding IsPaused}"/>
+                        </StackPanel>
+                    </Button>
+                
+                     <Button Command="{Binding StopCommand}" IsVisible="{Binding IsProcessing}"
+                            Background="#EF4444" Foreground="White" CornerRadius="8" Padding="15,0" BorderThickness="0" Height="32">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="STOP" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

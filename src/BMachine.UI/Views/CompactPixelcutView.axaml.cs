@@ -157,19 +157,34 @@ public partial class CompactPixelcutView : UserControl
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        // Keep this for sync if default selection changes occur
         foreach (var item in e.AddedItems)
-        {
-            if (item is BMachine.UI.Models.PixelcutFileItem fileItem)
-            {
-                fileItem.IsSelected = true;
-            }
-        }
+            if (item is BMachine.UI.Models.PixelcutFileItem fileItem) fileItem.IsSelected = true;
 
         foreach (var item in e.RemovedItems)
+            if (item is BMachine.UI.Models.PixelcutFileItem fileItem) fileItem.IsSelected = false;
+    }
+
+    private void OnFileItemPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Control control && control.DataContext is BMachine.UI.Models.PixelcutFileItem item)
         {
-            if (item is BMachine.UI.Models.PixelcutFileItem fileItem)
+            if (DataContext is PixelcutViewModel vm)
             {
-                fileItem.IsSelected = false;
+                 // Check Shift Key
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                {
+                    vm.SelectRange(item);
+                }
+                else
+                {
+                    // Handle Left Click for Toggle
+                    var props = e.GetCurrentPoint(this).Properties;
+                    if (props.IsLeftButtonPressed)
+                    {
+                        vm.ToggleSelectionCommand.Execute(item);
+                    }
+                }
             }
         }
     }

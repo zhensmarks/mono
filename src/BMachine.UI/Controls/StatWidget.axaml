@@ -16,12 +16,16 @@
         </Style>
     </UserControl.Styles>
 
-    <Button Classes="Clear" 
-            Command="{Binding #Root.Command}"
-            Padding="0" 
-            BorderThickness="0" 
-            Background="Transparent"
-            Cursor="Hand">
+    <Panel>
+        <!-- Main Click Area -->
+        <Button Classes="Clear" 
+                Command="{Binding #Root.Command}"
+                Padding="0" 
+                BorderThickness="0" 
+                Background="Transparent"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Cursor="Hand">
         <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="15">
             <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
                 
@@ -50,7 +54,20 @@
                                Foreground="{DynamicResource TextPrimaryBrush}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               Margin="0"/>
+                               Margin="0,0,0,18"/>
+                               
+                     <!-- Open Window Button (Small, Bottom of Circle) -->
+                     <Button Command="{Binding #Root.WindowCommand}"
+                             IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                             Margin="0,0,0,8"
+                             Width="16" Height="16"
+                             Background="Transparent" BorderThickness="0" Padding="2"
+                             ToolTip.Tip="Open in New Window" Classes="Clear">
+                         <shapes:Path Data="{StaticResource IconOpenWindow}" 
+                                      Fill="{Binding #Root.Color}"
+                                      Stretch="Uniform" Opacity="0.8"/>
+                     </Button>
                                
                      <!-- Icon (optional, small top left inside ring?) -->
                      <shapes:Path Data="{Binding #Root.Icon}"
@@ -71,5 +88,6 @@
                            TextAlignment="Center"/>
             </StackPanel>
         </Border>
-    </Button>
+        </Button>
+    </Panel>
 </UserControl>

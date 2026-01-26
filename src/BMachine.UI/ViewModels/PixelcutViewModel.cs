@@ -241,6 +241,39 @@ public partial class PixelcutViewModel : ObservableObject
         return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".psd" || ext == ".webp";
     }
 
+    private PixelcutFileItem? _lastSelectedItem;
+
+    [RelayCommand]
+    private void ToggleSelection(PixelcutFileItem item)
+    {
+        if (IsProcessing) return;
+        item.IsSelected = !item.IsSelected;
+        _lastSelectedItem = item;
+    }
+
+    public void SelectRange(PixelcutFileItem item)
+    {
+        if (IsProcessing) return;
+        if (_lastSelectedItem == null || !Files.Contains(_lastSelectedItem))
+        {
+            ToggleSelection(item);
+            return;
+        }
+
+        var idx1 = Files.IndexOf(_lastSelectedItem);
+        var idx2 = Files.IndexOf(item);
+        
+        var start = Math.Min(idx1, idx2);
+        var end = Math.Max(idx1, idx2);
+        
+        for (int i = start; i <= end; i++)
+        {
+            Files[i].IsSelected = true;
+        }
+        
+        _lastSelectedItem = item;
+    }
+
     [RelayCommand]
     private void RemoveFile(PixelcutFileItem item)
     {
@@ -661,7 +694,9 @@ public partial class PixelcutViewModel : ObservableObject
         try
         {
             var win = new Views.PixelcutWindow();
-            win.DataContext = this; // Share the same ViewModel state
+            // Create a new instance for independent processing
+            var newVm = new PixelcutViewModel(_database);
+            win.DataContext = newVm; 
             win.Show();
         }
         catch (Exception ex)
@@ -672,6 +707,8 @@ public partial class PixelcutViewModel : ObservableObject
 		
 	private void AppendLog(string message)
 	{
-        LogOutput += $"[{DateTime.Now:HH:mm:ss}] {message}\n";
+        var msg = $"[{DateTime.Now:HH:mm:ss}] {message}";
+        LogOutput += $"{msg}\n";
+        Console.WriteLine($"[Pixelcut] {msg}"); // Output to terminal
     }
 }

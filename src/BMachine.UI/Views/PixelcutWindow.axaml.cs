@@ -23,4 +23,12 @@ public partial class PixelcutWindow : Window
             view.IsWindowMode = true;
         }
     }
+    
+    private void OnHeaderPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            this.BeginMoveDrag(e);
+        }
+    }
 }

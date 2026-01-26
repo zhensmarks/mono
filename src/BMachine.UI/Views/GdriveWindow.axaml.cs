@@ -1,55 +1,34 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.VisualTree;
-using System.Runtime.InteropServices;
-using Avalonia.Controls.Primitives;
+using BMachine.UI.ViewModels;
+using BMachine.SDK;
 
 namespace BMachine.UI.Views;
 
 public partial class GdriveWindow : Window
 {
-    private bool _isDragging;
-    private Point _dragStartPosition;
-
     public GdriveWindow()
     {
         InitializeComponent();
-        PointerPressed += OnPointerPressed;
-        PointerMoved += OnPointerMoved;
-        PointerReleased += OnPointerReleased;
         
-        // Right-click to close
-        PointerReleased += (s, e) =>
+        // Auto-inject ViewModel if not set (Simulated IoC fallback, though typically set by command)
+        if (DataContext == null)
         {
-            if (e.InitialPressMouseButton == MouseButton.Right)
-            {
-                Close();
-            }
-        };
-    }
+             // Typically this won't be hit if created via OpenSeparateWindow
+        }
 
-    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        // Set Window Mode on the View
+        var view = this.FindControl<CompactGdriveView>("CompactView");
+        if (view != null)
+        {
+            view.IsWindowMode = true;
+        }
+    }
+    
+    private void OnHeaderPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             this.BeginMoveDrag(e);
         }
-    }
-
-    private void OnPointerMoved(object? sender, PointerEventArgs e)
-    {
-        // No manual move needed
-    }
-
-    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        // No manual capture needed
-    }
-
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
-    {
-        base.OnApplyTemplate(e);
     }
 }

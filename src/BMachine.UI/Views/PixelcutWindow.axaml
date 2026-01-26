@@ -8,14 +8,14 @@
         Title="Pixelcut Portable"
         Width="500" Height="300"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+        Background="{DynamicResource AppBackgroundBrush}"
         TransparencyLevelHint="Mica"
+        Padding="20,0"
         SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
-
         CanResize="True">
     
-    <views:CompactPixelcutView x:Name="CompactView" />
+    <views:CompactPixelcutView x:Name="CompactView" PointerPressed="OnHeaderPointerPressed"/>
     
 </Window>

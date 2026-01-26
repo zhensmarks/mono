@@ -85,8 +85,8 @@
                                                 <Setter Property="BoxShadow" Value="0 0 0 0 Transparent"/>
                                             </Style>
                                             <Style Selector="Border">
-                                                <Setter Property="Background" Value="#1E1E1E"/>
-                                                <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+                                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
                                             </Style>
                                         </Border.Styles>
                                         
@@ -137,7 +137,7 @@
                                                      <PathIcon.Styles>
                                                          <Style Selector="PathIcon">
                                                              <Setter Property="Data" Value="{StaticResource IconSquare}"/>
-                                                             <Setter Property="Foreground" Value="#BBB"/>
+                                                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                                                          </Style>
                                                          <Style Selector="Border.valid PathIcon">
                                                              <Setter Property="Data" Value="{StaticResource IconCheckSquare}"/>
@@ -151,8 +151,8 @@
                                             <Border Grid.Column="4" Background="#26FFFFFF" CornerRadius="4" Padding="6,2" Margin="0,0,10,0"
                                                     IsVisible="{Binding HasAttachments}" VerticalAlignment="Center">
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <PathIcon Data="{StaticResource IconPaperclip}" Width="10" Height="10" Foreground="#BBB"/>
-                                                    <TextBlock Text="{Binding AttachmentCount}" FontSize="11" Foreground="#BBB" VerticalAlignment="Center"/>
+                                                    <PathIcon Data="{StaticResource IconPaperclip}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <TextBlock Text="{Binding AttachmentCount}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                                 </StackPanel>
                                             </Border>
                                         </Grid>
@@ -452,12 +452,12 @@
                 </ScrollViewer>
                 
                 <StackPanel Grid.Row="2" Margin="0,10,0,0">
-                     <Border Background="#26282C" CornerRadius="8" Padding="15" IsVisible="{Binding IsDuplicateMode}" Margin="0,0,0,10">
+                     <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="15" IsVisible="{Binding IsDuplicateMode}" Margin="0,0,0,10">
                          <StackPanel Spacing="10">
                              <TextBlock Text="Duplicate Checklist" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                              <StackPanel Spacing="5">
                                   <TextBlock Text="New Name:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                  <TextBox Text="{Binding DuplicateChecklistName}" Watermark="#EDITING USER_PROFILE" IsReadOnly="True" Background="#1AFFFFFF"/>
+                                  <TextBox Text="{Binding DuplicateChecklistName}" Watermark="#EDITING USER_PROFILE" IsReadOnly="True"/>
                              </StackPanel>
                              <StackPanel Spacing="5">
                                   <TextBlock Text="Source:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>

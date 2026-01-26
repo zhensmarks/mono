@@ -1,20 +1,21 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:views="using:BMachine.UI.Views"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
         x:Class="BMachine.UI.Views.GdriveWindow"
-        Title="Upload Google Drive"
-        Width="700"
-        Height="550"
+        Title="GDrive Portable"
+        Width="500" Height="300"
         WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackgroundBrush}"
+        TransparencyLevelHint="Mica"
+        Padding="20,0"
+        SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="60"
-        Background="Transparent"
-        SystemDecorations="Full"
         CanResize="True">
-
-    <Border Background="#1A1A1A" CornerRadius="12" BorderBrush="#333" BorderThickness="1"
-            BoxShadow="0 8 32 0 #000000">
-        <views:GdriveView />
-    </Border>
+    
+    <views:CompactGdriveView x:Name="CompactView" PointerPressed="OnHeaderPointerPressed" />
+    
 </Window>

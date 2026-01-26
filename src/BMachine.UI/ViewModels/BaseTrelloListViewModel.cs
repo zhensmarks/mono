@@ -58,6 +58,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    private string _title = "List";
+
+    [ObservableProperty]
     private ObservableCollection<TrelloCard> _cards;
 
     [ObservableProperty]
@@ -104,6 +107,13 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     protected virtual void SelectCard(TrelloCard card)
     {
         if (card == null) return;
+        
+        // Toggle Logic: If clicking same card, close it
+        if (SelectedCard == card && IsDetailPanelOpen)
+        {
+            CloseDetailPanel();
+            return;
+        }
         
         // Deactivate previous
         if (SelectedCard != null) SelectedCard.IsActive = false;

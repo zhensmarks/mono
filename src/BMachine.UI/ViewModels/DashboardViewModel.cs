@@ -226,6 +226,28 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     }
 
     [RelayCommand]
+    private void OpenEditingWindow() => OpenListWindow(new EditingCardListViewModel(_database), "Editing List");
+
+    [RelayCommand]
+    private void OpenRevisionWindow() => OpenListWindow(new RevisionCardListViewModel(_database), "Revision List");
+
+    [RelayCommand]
+    private void OpenLateWindow() => OpenListWindow(new LateCardListViewModel(_database), "Late List");
+
+    private void OpenListWindow(BaseTrelloListViewModel vm, string title)
+    {
+        vm.Title = title;
+        // Start AutoRefresh if available (Editing/Revision/Late usually have it public)
+        if (vm is EditingCardListViewModel evm) evm.StartAutoRefresh();
+        else if (vm is RevisionCardListViewModel rvm) rvm.StartAutoRefresh();
+        else if (vm is LateCardListViewModel lvm) lvm.StartAutoRefresh();
+        
+        var win = new BMachine.UI.Views.CardListWindow();
+        win.DataContext = vm;
+        win.Show();
+    }
+
+    [RelayCommand]
     private async Task ClearActivities()
     {
         Activities.Clear();
@@ -388,7 +410,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             {
                 var ext = System.IO.Path.GetExtension(path);
                 LogItems.Clear();
-                AddLog($"Reading log file: {System.IO.Path.GetFileName(path)}", Avalonia.Media.Colors.Cyan);
+                AddLog($"Reading log file: {System.IO.Path.GetFileName(path)}", BMachine.UI.Models.LogLevel.System);
 
                 string[] lines = Array.Empty<string>();
 
@@ -445,18 +467,18 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                 {
                     ParseLogAndAdd(line.Trim());
                 }
-                AddLog("--- End of File ---", Avalonia.Media.Colors.Cyan);
+                AddLog("--- End of File ---", BMachine.UI.Models.LogLevel.System);
             }
             catch (Exception ex)
             {
-                AddLog($"Error reading file: {ex.Message}", Avalonia.Media.Colors.Red);
+                AddLog($"Error reading file: {ex.Message}", BMachine.UI.Models.LogLevel.Error);
             }
         }
     }
     
-    private void AddLog(string message, Avalonia.Media.Color color)
+    private void AddLog(string message, BMachine.UI.Models.LogLevel level)
     {
-         LogItems.Add(new LogItem(message, LogLevel.Info) { Color = new Avalonia.Media.SolidColorBrush(color) });
+         LogItems.Add(new BMachine.UI.Models.LogItem(message, level));
     }
     
     private void ParseLogAndAdd(string line)
@@ -627,6 +649,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     {
         var hex = await _database.GetAsync<string>(key);
         if (string.IsNullOrEmpty(hex)) hex = defaultHex;
+        if (hex == "RANDOM") return SolidColorBrush.Parse("#FFFFFF"); // Fallback for Random
         try { return SolidColorBrush.Parse(hex); }
         catch { return SolidColorBrush.Parse(defaultHex); }
     }

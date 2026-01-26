@@ -58,6 +58,32 @@
         return folder;
     }
 
+    // === UTILS: Window Position Persistence ===
+    function loadWindowLocation() {
+        var f = new File(Folder.temp + "/bmachine_save_master_pos.json");
+        if (f.exists) {
+            f.open("r");
+            var data = f.read();
+            f.close();
+            try {
+                // simple parse
+                var obj = eval("(" + data + ")");
+                if (obj && typeof obj.x === 'number' && typeof obj.y === 'number') {
+                    return obj;
+                }
+            } catch (e) { }
+        }
+        return null;
+    }
+
+    function saveWindowLocation(loc) {
+        if (!loc) return;
+        var f = new File(Folder.temp + "/bmachine_save_master_pos.json");
+        f.open("w");
+        f.write('{"x": ' + Math.round(loc.x) + ', "y": ' + Math.round(loc.y) + '}');
+        f.close();
+    }
+
     // Logic Crop Pas Foto (dari sepPP.jsx)
     function createCroppedVersion(sourceDoc, targetFolder, widthCm, heightCm) {
         var baseName = sourceDoc.name.replace(/\.[^.]+$/, "");
@@ -107,61 +133,79 @@
         var pnl = dlg.add("panel", undefined, "Pilih Output:");
         pnl.alignChildren = ["fill", "center"];
 
-        // Button 1: PSD + JPG (Close)
-        var btnJpg = pnl.add("button", undefined, "JPG (Close)");
+        var mainGrp = pnl.add("group");
+        mainGrp.orientation = "row";
+        mainGrp.alignChildren = ["fill", "top"];
+        mainGrp.spacing = 15;
+
+        // --- KOLOM 1 (JPG) ---
+        var col1 = mainGrp.add("group");
+        col1.orientation = "column";
+        col1.alignChildren = ["fill", "top"];
+        col1.add("statictext", undefined, "--- JPG ---");
+
+        var btnJpg = col1.add("button", undefined, "JPG - TUTUP");
         btnJpg.onClick = function () { dlg.close(1); };
 
-        // Button 1b: PSD + JPG (Keep Open)
-        var btnJpgOpen = pnl.add("button", undefined, "JPG (Keep Open)");
+        var btnJpgOpen = col1.add("button", undefined, "JPG - TETAP");
         btnJpgOpen.onClick = function () { dlg.close(5); };
 
-        // Button 2: PSD + PNG
-        var btnPng = pnl.add("button", undefined, "PNG");
+        var btnOnlyJpg = col1.add("button", undefined, "JPG ONLY CLOSE");
+        btnOnlyJpg.onClick = function () { dlg.close(6); };
+
+        var btnJpgFolder = col1.add("button", undefined, "JPG FOLDER");
+        btnJpgFolder.onClick = function () { dlg.close(7); };
+
+        // --- KOLOM 2 (PNG) ---
+        var col2 = mainGrp.add("group");
+        col2.orientation = "column";
+        col2.alignChildren = ["fill", "top"];
+        col2.add("statictext", undefined, "--- PNG ---");
+
+        var btnPng = col2.add("button", undefined, "PNG");
         btnPng.onClick = function () { dlg.close(2); };
 
-        // Button 3: Pas Foto
-        var btnPas = pnl.add("button", undefined, "PAS FOTO (Crop)");
-        btnPas.onClick = function () { dlg.close(3); };
+        var btnPngFolder = col2.add("button", undefined, "PNG FOLDER");
+        btnPngFolder.onClick = function () { dlg.close(8); };
+
+        // --- KOLOM 3 (PAS FOTO) ---
+        var col3 = mainGrp.add("group");
+        col3.orientation = "column";
+        col3.alignChildren = ["fill", "top"];
+        col3.add("statictext", undefined, "--- PAS FOTO ---");
+
+        var btnPasDefault = col3.add("button", undefined, "PAS FOTO (JPG)");
+        btnPasDefault.onClick = function () { dlg.close(301); };
+
+        var btnPas2x3 = col3.add("button", undefined, "PAS FOTO (2x3)");
+        btnPas2x3.onClick = function () { dlg.close(302); };
+
+        var btnPas4x6 = col3.add("button", undefined, "PAS FOTO (4x6)");
+        btnPas4x6.onClick = function () { dlg.close(303); };
+
+        var btnPasKombi = col3.add("button", undefined, "PAS FOTO (KOMBI)");
+        btnPasKombi.onClick = function () { dlg.close(304); };
 
         var btnCancel = dlg.add("button", undefined, "Cancel");
         btnCancel.onClick = function () { dlg.close(0); };
 
-        dlg.center();
-        return dlg.show();
+        // Restoration Logic
+        var savedLoc = loadWindowLocation();
+        if (savedLoc) {
+            dlg.location = [savedLoc.x, savedLoc.y];
+        } else {
+            dlg.center();
+        }
+
+        var result = dlg.show();
+
+        // Persistence Logic
+        if (result !== undefined) {
+            saveWindowLocation(dlg.location);
+        }
+
+        return result;
     }
-
-    // === DIALOG PAS FOTO (Sub-Menu) ===
-    function showPasFotoDialog() {
-        var dlg = new Window("dialog", "Opsi Pas Foto");
-        dlg.orientation = "column";
-        dlg.alignChildren = ["fill", "center"];
-
-        var pnl = dlg.add("panel", undefined, "Ukuran:");
-        pnl.alignChildren = ["fill", "center"];
-
-        var btnDefault = pnl.add("button", undefined, "Hanya JPG (Default)");
-        btnDefault.onClick = function () { dlg.close(1); };
-
-        var btn2x3 = pnl.add("button", undefined, "Hanya 2x3");
-        btn2x3.onClick = function () { dlg.close(2); };
-
-        var btn4x6 = pnl.add("button", undefined, "Hanya 4x6");
-        btn4x6.onClick = function () { dlg.close(3); };
-
-        var btnKombi = pnl.add("button", undefined, "KOMBI (2x3 & 4x6)");
-        btnKombi.onClick = function () { dlg.close(4); };
-
-        // Back Button
-        var btnBack = dlg.add("button", undefined, "<< Kembali");
-        btnBack.onClick = function () { dlg.close(-1); };
-
-        var btnCancel = dlg.add("button", undefined, "Cancel");
-        btnCancel.onClick = function () { dlg.close(0); };
-
-        dlg.center();
-        return dlg.show();
-    }
-
 
     // === MAIN LOGIC ===
     if (app.documents.length == 0) {
@@ -170,31 +214,29 @@
         return;
     }
 
-    var choice = 0;
+    var choice = showMainDialog();
+    if (choice == 0) return; // Cancelled
+
     var pasModeSub = 0;
-
-    // Navigation Loop
-    while (true) {
-        // 1. Tampilkan Dialog Utama
-        choice = showMainDialog();
-        if (choice == 0) return; // Cancelled
-
-        // 2. Cek Mode Pas Foto
-        if (choice == 3) {
-            pasModeSub = showPasFotoDialog();
-            if (pasModeSub == 0) return; // Cancelled
-            if (pasModeSub == -1) continue; // Back to Main Menu
-        }
-
-        // If valid choice (and not back), break loop and process
-        break;
+    if (choice >= 300) {
+        pasModeSub = choice - 300;
+        choice = 3;
     }
 
     // 3. Siapkan Mode
-    var MODE_JPG = (choice == 1 || choice == 5);
+    var MODE_JPG = (choice == 1 || choice == 5 || choice == 6 || choice == 7);
     var MODE_KEEP_OPEN = (choice == 5);
-    var MODE_PNG = (choice == 2);
+    var MODE_ONLY_JPG = (choice == 6);
+    var MODE_JPG_FOLDER = (choice == 7);
+    var MODE_PNG_FOLDER = (choice == 8);
+    var MODE_PNG = (choice == 2 || MODE_PNG_FOLDER);
     var MODE_PAS = (choice == 3);
+
+    var customTargetFolder = null;
+    if (MODE_JPG_FOLDER || MODE_PNG_FOLDER) {
+        customTargetFolder = Folder.selectDialog("Pilih folder tujuan:");
+        if (!customTargetFolder) return; // User Cancel
+    }
 
     // 4. Proses Dokumen
     var docNames = [];
@@ -219,21 +261,30 @@
                 continue;
             }
 
-            var docPath = doc.path;
+            var docPath = customTargetFolder ? customTargetFolder.fsName : doc.path;
             var baseName = doc.name.replace(/\.[^\.]+$/, "");
 
-            // A. Save Master (PSD/PSB)
-            doc.save();
+            // A. Save Master (PSD/PSB) - Skip if Only JPG/Folder mode
+            if (!MODE_ONLY_JPG && !MODE_JPG_FOLDER && !MODE_PNG_FOLDER) {
+                doc.save();
+            }
 
             // B. Export Sesuai Mode
             if (MODE_JPG || MODE_PAS) {
                 // Duplicate & Flatten
                 var dupDoc = doc.duplicate(baseName + "_temp");
                 app.activeDocument = dupDoc;
+
+                // [FIX] Tambahkan layer baru (visible) sebelum flatten
+                // Ini mencegah error/glitch jika layer yang terpilih di master sedang hidden.
+                dupDoc.artLayers.add();
+
                 dupDoc.flatten();
 
-                // Action 'anti ramijud' (optional, try catch)
-                try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+                // Action 'anti ramijud' (Skip if Only JPG/Folder mode)
+                if (!MODE_ONLY_JPG && !MODE_JPG_FOLDER && !MODE_PNG_FOLDER) {
+                    try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+                }
 
                 // --- KHUSUS PAS FOTO (Match sepPP.jsx logic) ---
                 if (MODE_PAS) {
@@ -270,28 +321,36 @@
                 // (MODE_PNG ada di else if berikutnya)
 
             } else if (MODE_PNG) {
-                // Save PSD + PNG
-                // Save PSD As (Make sure compatibility)
-                var psdFile = new File(docPath + "/" + baseName + ".psd");
-                var psdOptions = new PhotoshopSaveOptions();
-                psdOptions.embedColorProfile = true;
-                psdOptions.layers = true;
-                psdOptions.maximizeCompatibility = true;
-                doc.saveAs(psdFile, psdOptions, true, Extension.LOWERCASE);
+                // Save PSD + PNG (Skip PSD if Folder mode)
+                if (!MODE_PNG_FOLDER) {
+                    // Save PSD As (Make sure compatibility)
+                    var psdFile = new File(docPath + "/" + baseName + ".psd");
+                    var psdOptions = new PhotoshopSaveOptions();
+                    psdOptions.embedColorProfile = true;
+                    psdOptions.layers = true;
+                    psdOptions.maximizeCompatibility = true;
+                    doc.saveAs(psdFile, psdOptions, true, Extension.LOWERCASE);
+                }
 
                 // Export PNG
                 var dupDoc = doc.duplicate(baseName + "_forPNG");
                 app.activeDocument = dupDoc;
 
+                // [FIX] Tambahkan layer baru agar ada layer aktif yang visible 
+                // untuk menghindari error jika layer asli yang terpilih sedang di-hide.
+                dupDoc.artLayers.add();
+
                 // Stamp Visible (Merge All)
                 executeAction(stringIDToTypeID("mergeVisible"), undefined, DialogModes.NO);
 
-                try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+                if (!MODE_PNG_FOLDER) {
+                    try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+                }
 
                 savePNG(dupDoc, docPath + "/" + baseName + ".png");
                 dupDoc.close(SaveOptions.DONOTSAVECHANGES);
 
-                successList.push(baseName + " (PSD+PNG)");
+                successList.push(baseName + (MODE_PNG_FOLDER ? " (PNG Folder)" : " (PSD+PNG)"));
             }
 
             // C. Close Original
@@ -309,7 +368,10 @@
 
     // 5. Laporan Final
     var modeLabel = "Unknown";
-    if (MODE_JPG) modeLabel = "Save PSD + JPG" + (MODE_KEEP_OPEN ? " (Keep Open)" : " (Standard)");
+    if (MODE_ONLY_JPG) modeLabel = "JPG ONLY CLOSE (No PSD)";
+    else if (MODE_JPG_FOLDER) modeLabel = "Export JPG to Folder";
+    else if (MODE_PNG_FOLDER) modeLabel = "Export PNG to Folder";
+    else if (MODE_JPG) modeLabel = "Save PSD + JPG" + (MODE_KEEP_OPEN ? " (Keep Open)" : " (Standard)");
     else if (MODE_PNG) modeLabel = "Save PSD + PNG (Standard)";
     else if (MODE_PAS) {
         modeLabel = "Pass Foto Output";

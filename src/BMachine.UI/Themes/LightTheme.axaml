@@ -19,6 +19,35 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#E5E7EB"/>
 
+    <!-- Log Brushes (Darker for Light Theme) -->
+    <SolidColorBrush x:Key="LogInfoBrush" Color="#004d99"/>     <!-- Dark Blue -->
+    <SolidColorBrush x:Key="LogSystemBrush" Color="#006666"/>   <!-- Dark Teal -->
+    <SolidColorBrush x:Key="LogSuccessBrush" Color="#15803d"/>  <!-- Dark Green -->
+    <SolidColorBrush x:Key="LogWarningBrush" Color="#c2410c"/>  <!-- Dark Orange -->
+    <SolidColorBrush x:Key="LogErrorBrush" Color="#b91c1c"/>    <!-- Dark Red -->
+    <SolidColorBrush x:Key="LogDebugBrush" Color="#525252"/>    <!-- Dark Gray -->
+
+    <!-- TERMINAL SPECIFIC COLORS -->
+    <SolidColorBrush x:Key="TerminalBackgroundBrush" Color="#F8F9FA"/> <!-- Light Gray BG for Light Theme -->
+    <SolidColorBrush x:Key="TerminalTextBrush" Color="#1F2937"/>       <!-- Gray-800 -->
+    <SolidColorBrush x:Key="TerminalInfoBrush" Color="#1d4ed8"/>       <!-- Blue-700 (Readable on White) -->
+    <SolidColorBrush x:Key="TerminalSuccessBrush" Color="#15803d"/>    <!-- Green-700 -->
+    <SolidColorBrush x:Key="TerminalWarningBrush" Color="#c2410c"/>    <!-- Orange-700 -->
+    <SolidColorBrush x:Key="TerminalErrorBrush" Color="#b91c1c"/>      <!-- Red-700 -->
+    <SolidColorBrush x:Key="TerminalSystemBrush" Color="#0f766e"/>     <!-- Teal-700 -->
+    <SolidColorBrush x:Key="TerminalDebugBrush" Color="#4b5563"/>      <!-- Gray-600 -->
+
+    <!-- Legacy/Missing Brushes -->
+    <SolidColorBrush x:Key="BackgroundDarkBrush" Color="{StaticResource CardBackground}"/>
+    <SolidColorBrush x:Key="AccentEditingBrush" Color="{StaticResource AccentBlue}"/>
+    <SolidColorBrush x:Key="AccentRevisionBrush" Color="{StaticResource AccentOrange}"/>
+    <SolidColorBrush x:Key="AccentLateBrush" Color="#ef4444"/>
+    <SolidColorBrush x:Key="AccentRevisionLowOpacityBrush" Color="#33f97316"/>
+
+    <!-- Dialog Accents -->
+    <SolidColorBrush x:Key="AccentRedBrush" Color="#dc2626"/>
+    <SolidColorBrush x:Key="AccentGreenBrush" Color="#16a34a"/>
+
      <!-- Default Shared Accents (Prevent crash/empty if ThemeService delays) -->
     <SolidColorBrush x:Key="AccentColorBrush" Color="{StaticResource AccentBlue}"/>
     <Color x:Key="AccentColor">#3b82f6</Color>

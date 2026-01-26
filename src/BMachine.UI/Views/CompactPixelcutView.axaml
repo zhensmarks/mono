@@ -72,14 +72,22 @@
                             </Setter>
                         </Style>
                     </ListBox.Styles>
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                    Margin="0,0,0,4"> 
+                                    Margin="0,0,0,4"
+                                    Cursor="Hand"
+                                    PointerPressed="OnFileItemPointerPressed"> 
                                 <Grid ColumnDefinitions="Auto, *, Auto">
                                     <!-- 1. Checkbox -->
-                                    <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" MinHeight="0" Padding="0"/>
+                                    <CheckBox IsChecked="{Binding IsSelected}" IsHitTestVisible="False"
+                                              VerticalAlignment="Center" Margin="0,0,10,0" MinHeight="0" Padding="0"/>
                                     
                                     <!-- 2. Left: Name & Progress Bar -->
                                     <Grid Grid.Column="1" RowDefinitions="Auto, Auto" VerticalAlignment="Center">
@@ -155,7 +163,7 @@
 
         <!-- Footer / Controls -->
         <Border Grid.Row="2" Margin="0,10,0,0" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="12" Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                CornerRadius="12" Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 
                 <!-- Left: Utils -->
@@ -169,18 +177,22 @@
                       </Border>
                       
                       <!-- Settings -->
-                      <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" Background="Transparent" BorderThickness="0" Padding="4">
+                      <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" 
+                              Background="Transparent" BorderThickness="0" Padding="0"
+                              Height="32" Width="32" CornerRadius="4">
                           <!-- IconSettings (Gear) -->
                           <PathIcon Data="{StaticResource IconSettings}" 
-                                    Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
                       </Button>
 
                       <!-- Open Separate Window -->
                       <Button Command="{Binding OpenSeparateWindowCommand}" 
                               IsVisible="{Binding !IsWindowMode, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                              ToolTip.Tip="Open in New Window" Background="Transparent" BorderThickness="0" Padding="4">
+                              ToolTip.Tip="Open in New Window" 
+                              Background="Transparent" BorderThickness="0" Padding="0"
+                              Height="32" Width="32" CornerRadius="4">
                           <PathIcon Data="M18,10.5V6H13.5V7.5H15.44L11.22,11.72L12.28,12.78L16.5,8.56V10.5H18M12,19V17H7V12H5V19H12M17,12V19H12V19.03L12,21H17A2,2 0 0,0 19,19V12H17M5,5V10H7V7H10V5H5Z" 
-                                    Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
                       </Button>
                  </StackPanel>
 
@@ -190,20 +202,24 @@
                     <!-- Retry Failed/Small Files (Moved Here) -->
                      <Button Command="{Binding RetrySmallFilesCommand}" 
                              IsVisible="{Binding IsRetryVisible}"
-                             ToolTip.Tip="Retry Failed/Small Files (59b)" Background="Transparent" BorderThickness="0" Padding="4">
+                             ToolTip.Tip="Retry Failed/Small Files (59b)" 
+                             Background="Transparent" BorderThickness="0" Padding="0"
+                             Height="32" Width="32" CornerRadius="4">
                         <PathIcon Data="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
                      </Button>
                      
                     <!-- Clear Button (Moved Here) -->
-                     <Button Command="{Binding ClearCommand}" ToolTip.Tip="Clear All (or Selected)" Background="Transparent" BorderThickness="0" Padding="4">
+                     <Button Command="{Binding ClearCommand}" ToolTip.Tip="Clear All (or Selected)" 
+                             Background="Transparent" BorderThickness="0" Padding="0"
+                             Height="32" Width="32" CornerRadius="4">
                          <!-- IconTrash -->
                          <PathIcon Data="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" Width="14" Height="14" Foreground="#EF4444"/>
                      </Button>
                      
                     <!-- Main Actions -->
                     <Button Command="{Binding ProcessRemoveBgCommand}" IsVisible="{Binding !IsProcessing}"
-                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="8" Padding="15,8" BorderThickness="0">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="8" Padding="15,0" BorderThickness="0" Height="32">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <!-- IconLayers (Remove BG) -->
                             <PathIcon Data="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" Width="14" Height="14"/>
                             <TextBlock Text="Remove BG" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -212,29 +228,28 @@
                     
                     <Button Command="{Binding ProcessUpscaleCommand}" IsVisible="{Binding !IsProcessing}"
                             Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
-                            Foreground="{DynamicResource AccentBlueBrush}" CornerRadius="8" Padding="15,8">
-                        <TextBlock Text="Upscale" FontWeight="SemiBold"/>
+                            Foreground="{DynamicResource AccentBlueBrush}" CornerRadius="8" Padding="0" Height="32" Width="42"
+                            ToolTip.Tip="Upscale">
+                        <PathIcon Data="M16 4h-2l-4 4-4-4H4v16h2V8l4 4 4-4v12h2V4z M20 4h-2v16h2V4z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
                     </Button>
                     
                     <!-- Processing Controls -->
                      <Button Command="{Binding PauseCommand}" IsVisible="{Binding IsProcessing}"
                             Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1"
-                            Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="8" Padding="15,8">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="8" Padding="15,0" Height="32">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <!-- IconPause / IconPlay -->
-                            <!-- Logic: If IsPaused is true, show Play. If IsPaused is false, show Pause. -->
-                            <!-- Since we don't have a ValueConverter for path data, we use two Icons with IsVisible binding -->
                             <PathIcon Data="M6 4h4v16H6z M14 4h4v16h-4z" Width="12" Height="12" IsVisible="{Binding !IsPaused}"/>
                             <PathIcon Data="M5 3 L19 12 L5 21 L5 3 Z" Width="12" Height="12" IsVisible="{Binding IsPaused}"/>
                             
-                            <TextBlock Text="PAUSE" FontWeight="Bold" VerticalAlignment="Center" IsVisible="{Binding !IsPaused}"/>
-                            <TextBlock Text="RESUME" FontWeight="Bold" VerticalAlignment="Center" IsVisible="{Binding IsPaused}"/>
+                            <TextBlock Text="JEDA" FontWeight="Bold" VerticalAlignment="Center" IsVisible="{Binding !IsPaused}"/>
+                            <TextBlock Text="LANJUTKAN" FontWeight="Bold" VerticalAlignment="Center" IsVisible="{Binding IsPaused}"/>
                         </StackPanel>
                     </Button>
                 
                      <Button Command="{Binding StopCommand}" IsVisible="{Binding IsProcessing}"
-                            Background="#EF4444" Foreground="White" CornerRadius="8" Padding="15,8" BorderThickness="0">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            Background="#EF4444" Foreground="White" CornerRadius="8" Padding="15,0" BorderThickness="0" Height="32">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <!-- IconSquare (Stop) -->
                             <PathIcon Data="M3 3h18v18H3z" Width="12" Height="12"/>
                             <TextBlock Text="STOP" FontWeight="Bold" VerticalAlignment="Center"/>

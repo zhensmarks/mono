@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Threading;
 using BMachine.UI.ViewModels;
@@ -132,6 +133,57 @@ public partial class CompactGdriveView : UserControl
             if (item != null)
             {
                  FileListBox.ScrollIntoView(item);
+            }
+        }
+    }
+
+    public static readonly StyledProperty<bool> IsWindowModeProperty =
+        AvaloniaProperty.Register<CompactGdriveView, bool>(nameof(IsWindowMode));
+
+    public bool IsWindowMode
+    {
+        get => GetValue(IsWindowModeProperty);
+        set => SetValue(IsWindowModeProperty, value);
+    }
+
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            var window = TopLevel.GetTopLevel(this) as Window;
+            if (window != null)
+            {
+                window.BeginMoveDrag(e);
+            }
+        }
+    }
+
+    private void OnCloseWindow(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+    {
+         var window = TopLevel.GetTopLevel(this) as Window;
+         window?.Close();
+    }
+
+    private void OnFileItemPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Control control && control.DataContext is BMachine.UI.Models.GdriveFileItem item)
+        {
+            if (DataContext is GdriveViewModel vm)
+            {
+                 // Check Shift Key
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                {
+                    vm.SelectRange(item);
+                }
+                else
+                {
+                    // Handle Left Click for Toggle
+                    var props = e.GetCurrentPoint(this).Properties;
+                    if (props.IsLeftButtonPressed)
+                    {
+                        vm.ToggleSelectionCommand.Execute(item);
+                    }
+                }
             }
         }
     }

@@ -81,6 +81,7 @@ public partial class EditingCardListView : UserControl
         var checklistPanel = this.FindControl<Border>("Part_ChecklistPanel");
         var movePanel = this.FindControl<Border>("Part_MovePanel");
         var attachmentPanel = this.FindControl<Border>("Part_AttachmentPanel");
+        var detailPanel = this.FindControl<Border>("Part_DetailPanel");
         var mainContent = this.FindControl<Grid>("Part_MainContent");
 
         if (commentPanel == null || mainContent == null) return; 
@@ -96,6 +97,7 @@ public partial class EditingCardListView : UserControl
             UpdatePanelForMobile(checklistPanel);
             UpdatePanelForMobile(movePanel);
             UpdatePanelForMobile(attachmentPanel);
+            UpdatePanelForMobile(detailPanel);
         }
         else
         {
@@ -105,6 +107,7 @@ public partial class EditingCardListView : UserControl
             UpdatePanelForDesktop(checklistPanel);
             UpdatePanelForDesktop(movePanel);
             UpdatePanelForDesktop(attachmentPanel);
+            UpdatePanelForDesktop(detailPanel);
         }
     }
 
@@ -116,13 +119,10 @@ public partial class EditingCardListView : UserControl
         panel.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
         panel.Margin = new Avalonia.Thickness(0);
         
+        // Match Revision/Late logic: Use AppBackgroundBrush for solid background in mobile overlay
         if (Application.Current!.TryGetResource("AppBackgroundBrush", out var res) && res is IBrush brush)
         {
              panel.Background = brush;
-        }
-        else
-        {
-             panel.Background = Brushes.Black; // Fallback
         }
     }
 
@@ -133,6 +133,8 @@ public partial class EditingCardListView : UserControl
         panel.Width = 400;
         panel.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
         panel.Margin = new Avalonia.Thickness(0);
+        
+        // Match Revision/Late logic: Transparent allows underlying container background (AppBackground) to show
         panel.Background = Brushes.Transparent;
     }
 }

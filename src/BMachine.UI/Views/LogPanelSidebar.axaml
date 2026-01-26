@@ -7,7 +7,7 @@
              x:Class="BMachine.UI.Views.LogPanelSidebar"
              x:DataType="vm:DashboardViewModel">
 
-    <Border Background="{DynamicResource BackgroundDarkBrush}" 
+    <Border Background="{DynamicResource TerminalBackgroundBrush}" 
             BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0"
             PointerPressed="OnRootPointerPressed">
         
@@ -22,7 +22,7 @@
                     <!-- Title & Status Text (Truncated) -->
                     <TextBlock Text="{Binding ProcessStatusText}" 
                                FontWeight="SemiBold" FontSize="14" 
-                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Foreground="{DynamicResource TerminalTextBrush}"
                                TextTrimming="CharacterEllipsis" MaxWidth="150"
                                ToolTip.Tip="{Binding ProcessStatusText}"
                                VerticalAlignment="Center"/>
@@ -90,7 +90,13 @@
                             <Grid Margin="0,2">
                                 <!-- Message Only -->
                                 <SelectableTextBlock Text="{Binding Message}" 
-                                           Foreground="{Binding Color}" FontSize="12" FontFamily="Consolas, Monospace" 
+                                           Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
+                                           Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
+                                           Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
+                                           Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
+                                           Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
+                                           Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                           FontSize="12" FontFamily="Consolas, Monospace" 
                                            TextWrapping="Wrap"/>
                             </Grid>
                         </DataTemplate>
@@ -128,6 +134,16 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="#2AFFFFFF"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
         </Style>
+        
+        <!-- Log Color Styles -->
+        <Style Selector="SelectableTextBlock.info"> <Setter Property="Foreground" Value="{DynamicResource TerminalInfoBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.system"> <Setter Property="Foreground" Value="{DynamicResource TerminalSystemBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.success"> <Setter Property="Foreground" Value="{DynamicResource TerminalSuccessBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.warning"> <Setter Property="Foreground" Value="{DynamicResource TerminalWarningBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.error"> <Setter Property="Foreground" Value="{DynamicResource TerminalErrorBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.debug"> <Setter Property="Foreground" Value="{DynamicResource TerminalDebugBrush}"/> </Style>
+
     </UserControl.Styles>
 </UserControl>

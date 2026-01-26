@@ -176,6 +176,22 @@
                                 </Grid>
                              </Grid>
                         </StackPanel>
+
+                        <!-- Custom Terminal Background -->
+                        <StackPanel Spacing="10" Margin="0,10,0,0">
+                             <TextBlock Text="Custom Terminal Background (Dark/Light)" FontWeight="SemiBold"/>
+                             <TextBlock Text="Pilih warna latar belakang terminal." FontSize="12" Foreground="#999"/>
+                             <Grid ColumnDefinitions="*, *" ShowGridLines="False">
+                                <Grid Grid.Column="0" ColumnDefinitions="Auto, *" Margin="0,0,5,0">
+                                    <TextBlock Text="Dark Mode" VerticalAlignment="Center" Width="80"/>
+                                    <ColorPicker Grid.Column="1" Color="{Binding CustomDarkTerminalBgColor}" Margin="5,0,0,0" HorizontalAlignment="Stretch"/>
+                                </Grid>
+                                <Grid Grid.Column="1" ColumnDefinitions="Auto, *" Margin="5,0,0,0">
+                                    <TextBlock Text="Light Mode" VerticalAlignment="Center" Width="80"/>
+                                    <ColorPicker Grid.Column="1" Color="{Binding CustomLightTerminalBgColor}" Margin="5,0,0,0" HorizontalAlignment="Stretch"/>
+                                </Grid>
+                             </Grid>
+                        </StackPanel>
                         
                         <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="0,10"/>
 
@@ -661,7 +677,7 @@
                      <ItemsControl ItemsSource="{Binding Extensions}" Margin="0,0,0,80">
                          <ItemsControl.ItemTemplate>
                              <DataTemplate>
-                                 <Border Background="#26282C" CornerRadius="10" Padding="15" Margin="0,0,0,10">
+                                 <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" Padding="15" Margin="0,0,0,10">
                                      <Grid ColumnDefinitions="Auto, *, Auto, Auto" RowDefinitions="Auto, Auto">
                                          <!-- Icon -->
                                          <Border Grid.RowSpan="2" Width="40" Height="40" CornerRadius="8" Background="{DynamicResource AccentColorBrush}" Margin="0,0,15,0">
@@ -670,15 +686,15 @@
                                          
                                          <!-- Info -->
                                          <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                             <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="White" FontSize="14"/>
-                                             <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#999" TextTrimming="CharacterEllipsis"/>
+                                             <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14"/>
+                                             <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
                                          </StackPanel>
                                           
                                           <!-- Meta -->
                                          <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,5,0,0">
-                                             <TextBlock Text="{Binding Version, StringFormat='v{0}'}" FontSize="11" Foreground="#666"/>
+                                             <TextBlock Text="{Binding Version, StringFormat='v{0}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                               <TextBlock Text="|" FontSize="11" Foreground="#444"/>
-                                             <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#666"/>
+                                             <TextBlock Text="{Binding Author}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                          </StackPanel>
 
                                          <!-- Toggle -->
@@ -718,9 +734,9 @@
                         
                         <!-- Master Scripts (Python) -->
                         <Grid Grid.Row="0" RowDefinitions="Auto, *" Margin="0,0,0,20">
-                            <TextBlock Grid.Row="0" Text="Master Scripts (Python)" FontWeight="SemiBold" Margin="0,0,0,10" Foreground="White" HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Row="0" Text="Master Scripts (Python)" FontWeight="SemiBold" Margin="0,0,0,10" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Left"/>
                             
-                            <Border Grid.Row="1" Background="#26282C" CornerRadius="10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                  <ItemsControl ItemsSource="{Binding MasterScripts}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -771,7 +787,7 @@
                                                                 <TextBlock Text="{Binding ShortCode}" FontSize="12" Foreground="#AAA" FontWeight="Bold"/>
                                                             </Border>
                                                         </StackPanel>
-                                                        <TextBlock Grid.Row="1" Text="{Binding OriginalName}" FontSize="12" Foreground="#666" Margin="0,4,0,0"/>
+                                                        <TextBlock Grid.Row="1" Text="{Binding OriginalName}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
                                                     </Grid>
 
                                                     <!-- Editor (Edit Mode) -->
@@ -811,13 +827,13 @@
 
                         <!-- Action Scripts (JSX/PYW) -->
                         <Grid Grid.Row="1" RowDefinitions="Auto, *">
-                            <TextBlock Grid.Row="0" Text="Action Scripts (JSX / PYW)" FontWeight="SemiBold" Margin="0,0,0,10" Foreground="White" HorizontalAlignment="Left"/>
+                            <TextBlock Grid.Row="0" Text="Action Scripts (JSX / PYW)" FontWeight="SemiBold" Margin="0,0,0,10" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Left"/>
                             
-                            <Border Grid.Row="1" Background="#26282C" CornerRadius="10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                     <ItemsControl ItemsSource="{Binding ActionScripts}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Padding="15" Margin="0,0,0,1" Background="Transparent" BorderBrush="#333" BorderThickness="0,0,0,1"
+                                                <Border Padding="15" Margin="0,0,0,1" Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1"
                                                         DragDrop.AllowDrop="True" DragDrop.DragOver="OnItemDragOver" DragDrop.Drop="OnItemDrop"
                                                         Tag="Action">
                                                     <Grid ColumnDefinitions="Auto, Auto, *, Auto">

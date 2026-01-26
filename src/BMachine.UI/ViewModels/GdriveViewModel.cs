@@ -11,6 +11,9 @@ using BMachine.UI.Models;
 using BMachine.UI.Services;
 using BMachine.SDK;
 
+using BMachine.SDK;
+using BMachine.UI.Views;
+
 namespace BMachine.UI.ViewModels;
 
 public partial class GdriveViewModel : ObservableObject
@@ -70,7 +73,9 @@ public partial class GdriveViewModel : ObservableObject
 
     private void AppendLog(string message)
     {
-        LogOutput += $"[{DateTime.Now:HH:mm:ss}] {message}\n";
+        var msg = $"[{DateTime.Now:HH:mm:ss}] {message}";
+        LogOutput += $"{msg}\n";
+        Console.WriteLine($"[GDrive] {msg}"); // Output to terminal
     }
 
     [RelayCommand]
@@ -258,6 +263,39 @@ public partial class GdriveViewModel : ObservableObject
         Files.Add(new GdriveFileItem(filePath, displayPath));
     }
 
+    private GdriveFileItem? _lastSelectedItem;
+
+    [RelayCommand]
+    private void ToggleSelection(GdriveFileItem item)
+    {
+        if (IsProcessing) return;
+        item.IsSelected = !item.IsSelected;
+        _lastSelectedItem = item;
+    }
+
+    public void SelectRange(GdriveFileItem item)
+    {
+        if (IsProcessing) return;
+        if (_lastSelectedItem == null || !Files.Contains(_lastSelectedItem))
+        {
+            ToggleSelection(item);
+            return;
+        }
+
+        var idx1 = Files.IndexOf(_lastSelectedItem);
+        var idx2 = Files.IndexOf(item);
+        
+        var start = Math.Min(idx1, idx2);
+        var end = Math.Max(idx1, idx2);
+        
+        for (int i = start; i <= end; i++)
+        {
+            Files[i].IsSelected = true;
+        }
+        
+        _lastSelectedItem = item;
+    }
+
     [RelayCommand]
     private void RemoveFile(GdriveFileItem item)
     {
@@ -281,6 +319,14 @@ public partial class GdriveViewModel : ObservableObject
             HasFiles = false;
             LogOutput = "";
         }
+    }
+    
+    [ObservableProperty] private bool _isPaused;
+
+    [RelayCommand]
+    private void Pause()
+    {
+        IsPaused = !IsPaused;
     }
 
     private void RemoveSelectedFiles()
@@ -388,6 +434,14 @@ public partial class GdriveViewModel : ObservableObject
              var item = Files.FirstOrDefault(j => j.Status == "Ready" || j.IsFailed);
              
              if (item == null) break; // Queue Empty
+             
+             // Check Pause
+             while (IsPaused)
+             {
+                 if (_stopRequested || token.IsCancellationRequested) break;
+                 await Task.Delay(500);
+             }
+             if (_stopRequested || token.IsCancellationRequested) break;
              
              item.Status = "Uploading...";
              item.Progress = 0;
@@ -527,5 +581,22 @@ public partial class GdriveViewModel : ObservableObject
             }
         }
         return result;
+    }
+
+    [RelayCommand]
+    private void OpenSeparateWindow()
+    {
+        try
+        {
+            var win = new Views.GdriveWindow();
+            // Create independent instance
+            var newVm = new GdriveViewModel(_database);
+            win.DataContext = newVm;
+            win.Show();
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error opening window: {ex.Message}");
+        }
     }
 }

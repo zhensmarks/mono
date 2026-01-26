@@ -86,6 +86,7 @@ public partial class RevisionCardListView : UserControl
         var checklistPanel = this.FindControl<Border>("Part_ChecklistPanel");
         var movePanel = this.FindControl<Border>("Part_MovePanel");
         var attachmentPanel = this.FindControl<Border>("Part_AttachmentPanel");
+        var detailPanel = this.FindControl<Border>("Part_DetailPanel");
         var mainContent = this.FindControl<Grid>("Part_MainContent");
 
         if (commentPanel == null || mainContent == null) return;
@@ -100,6 +101,7 @@ public partial class RevisionCardListView : UserControl
             UpdatePanelForMobile(checklistPanel);
             UpdatePanelForMobile(movePanel);
             UpdatePanelForMobile(attachmentPanel);
+            UpdatePanelForMobile(detailPanel);
         }
         else
         {
@@ -108,6 +110,7 @@ public partial class RevisionCardListView : UserControl
             UpdatePanelForDesktop(checklistPanel);
             UpdatePanelForDesktop(movePanel);
             UpdatePanelForDesktop(attachmentPanel);
+            UpdatePanelForDesktop(detailPanel);
         }
     }
 

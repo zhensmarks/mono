@@ -318,10 +318,10 @@ public partial class SettingsViewModel : ObservableObject
     }
     
     [ObservableProperty]
-    private Color _customLightCardBgColor;
+    private Color _customLightCardBgColor = Color.Parse("#FFFFFF");
     
     [ObservableProperty]
-    private Color _customDarkCardBgColor;
+    private Color _customDarkCardBgColor = Color.Parse("#1A1C20");
 
     partial void OnCustomLightCardBgColorChanged(Color value)
     {
@@ -348,6 +348,21 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (_isInitializing) return;
         LightBackgroundColor = value.ToString();
+    }
+
+    [ObservableProperty] private Color _customDarkTerminalBgColor = Color.Parse("#1E1E1E");
+    [ObservableProperty] private Color _customLightTerminalBgColor = Color.Parse("#F8F9FA");
+
+    partial void OnCustomDarkTerminalBgColorChanged(Color value)
+    {
+        if (_themeService == null || _isInitializing) return;
+        _themeService.SetTerminalBackgroundColor(value.ToString(), true);
+    }
+    
+    partial void OnCustomLightTerminalBgColorChanged(Color value)
+    {
+        if (_themeService == null || _isInitializing) return;
+        _themeService.SetTerminalBackgroundColor(value.ToString(), false);
     }
 
 
@@ -573,15 +588,15 @@ public partial class SettingsViewModel : ObservableObject
         
         LoadSettings();
         _ = LoadNavSettings();
-        LoadExtensions();
-        LoadAllScripts();
+        _ = LoadExtensionsAsync();
+        _ = LoadAllScriptsAsync();
         
         // Shortcut
         WeakReferenceMessenger.Default.Register<TriggerRecordedMessage>(this, (r, m) =>
         {
              if (r is SettingsViewModel vm) vm.OnShortcutRecorded(m);
         });
-        LoadShortcutConfig();
+        _ = LoadShortcutConfigAsync();
     }
 
     private void InitializeSheetOptions()
@@ -759,6 +774,20 @@ public partial class SettingsViewModel : ObservableObject
         // Accent
         var accentHex = GetColorHex(AccentColor, CustomAccentColor);
         _themeService.SetWidgetColor("Accent", accentHex);
+
+        // --- Sync Additional Colors ---
+        
+        // Border
+        _themeService.SetBorderColor(CustomDarkBorderColor.ToString(), true, saveToDb: false);
+        _themeService.SetBorderColor(CustomLightBorderColor.ToString(), false, saveToDb: false);
+        
+        // Card Background
+        _themeService.SetCardBackgroundColor(CustomDarkCardBgColor.ToString(), true, saveToDb: false);
+        _themeService.SetCardBackgroundColor(CustomLightCardBgColor.ToString(), false, saveToDb: false);
+        
+        // Terminal Background
+        _themeService.SetTerminalBackgroundColor(CustomDarkTerminalBgColor.ToString(), true, saveToDb: false);
+        _themeService.SetTerminalBackgroundColor(CustomLightTerminalBgColor.ToString(), false, saveToDb: false);
     }
     
 
@@ -976,7 +1005,7 @@ public partial class SettingsViewModel : ObservableObject
             new() { Name = "Green", Hex = "#10b981", Brush = SolidColorBrush.Parse("#10b981") },
             new() { Name = "Purple", Hex = "#8b5cf6", Brush = SolidColorBrush.Parse("#8b5cf6") },
             new() { Name = "Red", Hex = "#ef4444", Brush = SolidColorBrush.Parse("#ef4444") },
-            new() { Name = "Random/Campur", Hex = "#FFFFFF", Brush = new SolidColorBrush(Colors.Gray) } 
+            new() { Name = "Random/Campur", Hex = "RANDOM", Brush = new SolidColorBrush(Colors.Gray) } 
         };
         // SelectedAccentColor = AccentColors[0]; // Legacy
     }
@@ -1025,6 +1054,15 @@ public partial class SettingsViewModel : ObservableObject
                 if(Color.TryParse(lightBg, out var c)) CustomLightBackgroundColor = c;
             }
             else LightBackgroundColor = "#F5F5F5"; // Trigger default brush
+            
+            // Load Terminal Background Colors
+            var termDark = await _database.GetAsync<string>("Settings.TermBgDark");
+            if (!string.IsNullOrEmpty(termDark) && Color.TryParse(termDark, out var ctd))
+                CustomDarkTerminalBgColor = ctd;
+
+            var termLight = await _database.GetAsync<string>("Settings.TermBgLight");
+            if (!string.IsNullOrEmpty(termLight) && Color.TryParse(termLight, out var ctl))
+                CustomLightTerminalBgColor = ctl;
             
             // Ensure brushes are set if they werent triggered by change (e.g. initial load might not trigger if value same)
             // Actually ObservableProperty logic triggers if value changes. If default is same, it might not.
@@ -1180,7 +1218,7 @@ public partial class SettingsViewModel : ObservableObject
             if (string.IsNullOrEmpty(hex)) return;
     
             // Check if it matches a preset
-            var preset = WidgetColorOptions.FirstOrDefault(x => x.Hex.Equals(hex, StringComparison.OrdinalIgnoreCase) && x.Name != "Custom");
+            var preset = WidgetColorOptions.FirstOrDefault(x => x.Hex.Equals(hex, StringComparison.OrdinalIgnoreCase));
             if (preset != null)
             {
                 setOption(preset);
@@ -1209,25 +1247,35 @@ public partial class SettingsViewModel : ObservableObject
     
     // --- Extension Management Logic ---
     
-    private void LoadExtensions()
+    private async Task LoadExtensionsAsync()
     {
-        Extensions.Clear();
-        var pluginsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
-        if (!Directory.Exists(pluginsDir)) Directory.CreateDirectory(pluginsDir);
+        await Task.Run(async () => 
+        {
+            var tempList = new List<ExtensionViewModel>();
+            var pluginsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
+            if (!Directory.Exists(pluginsDir)) Directory.CreateDirectory(pluginsDir);
 
-        // Load active dlls
-        var dlls = Directory.GetFiles(pluginsDir, "*.dll");
-        foreach(var dll in dlls)
-        {
-             Extensions.Add(CreateExtensionViewModel(dll, true));
-        }
-        
-        // Load disabled (e.g. .disabled)
-        var disabled = Directory.GetFiles(pluginsDir, "*.disabled");
-        foreach(var file in disabled)
-        {
-             Extensions.Add(CreateExtensionViewModel(file, false));
-        }
+            // Load active dlls
+            var dlls = Directory.GetFiles(pluginsDir, "*.dll");
+            foreach(var dll in dlls)
+            {
+                 tempList.Add(CreateExtensionViewModel(dll, true));
+            }
+            
+            // Load disabled (e.g. .disabled)
+            var disabled = Directory.GetFiles(pluginsDir, "*.disabled");
+            foreach(var file in disabled)
+            {
+                 tempList.Add(CreateExtensionViewModel(file, false));
+            }
+
+            // Update UI
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                Extensions.Clear();
+                foreach(var item in tempList) Extensions.Add(item);
+            });
+        });
     }
     
     private ExtensionViewModel CreateExtensionViewModel(string path, bool isEnabled)
@@ -1289,7 +1337,7 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             File.Copy(sourceFile, destPath, true);
-            LoadExtensions(); // Refresh
+            _ = LoadExtensionsAsync(); // Refresh Async
             StatusMessage = "Extension Added!";
             IsStatusVisible = true;
             await Task.Delay(2000);
@@ -1336,7 +1384,8 @@ public partial class SettingsViewModel : ObservableObject
         }
         
         // Reload to refresh list state properly
-        LoadExtensions();
+        // Reload to refresh list state properly
+        _ = LoadExtensionsAsync();
     }
     
     private void OnDeleteExtension(ExtensionViewModel vm)
@@ -1353,7 +1402,7 @@ public partial class SettingsViewModel : ObservableObject
             if (File.Exists(pathDll)) File.Delete(pathDll);
             if (File.Exists(pathDisabled)) File.Delete(pathDisabled);
             
-            LoadExtensions();
+            _ = LoadExtensionsAsync();
         }
         catch {}
     }
@@ -1766,21 +1815,43 @@ public partial class SettingsViewModel : ObservableObject
         catch { }
     }
 
-    public void LoadAllScripts()
+    public async Task LoadAllScriptsAsync()
     {
-        LoadMetadata();
-        LoadScriptsFor(MasterScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Master"), "*.py;*.pyw");
-        
-        // Action Scripts: Load .jsx and .pyw from "Scripts/Action"
-        LoadScriptsFor(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action"), "*.jsx;*.pyw");
-        
-        // Action Scripts: ALSO Load .pyw from "Scripts/" (Root) as RadialMenu supports this
-        // We use a helper to Append instead of Clear for this second call
-        LoadScriptsFor(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts"), "*.pyw", append: true);
+        await Task.Run(async () => 
+        {
+            LoadMetadata(); // This is synchronous IO but running in Task.Run now
+            
+            // Note: We should probably run these sequentially if they share state or parallel if independent.
+            // But updating UI needs to be sync.
+            
+            await LoadScriptsForAsync(MasterScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Master"), "*.py;*.pyw");
+            
+            // Action Scripts: Load .jsx and .pyw from "Scripts/Action"
+            await LoadScriptsForAsync(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action"), "*.jsx;*.pyw");
+            
+            // Action Scripts: ALSO Load .pyw from "Scripts/" (Root)
+            await LoadScriptsForAsync(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts"), "*.pyw", append: true);
 
-        LoadScriptsFor(OtherScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Others"), "*.*");
+            await LoadScriptsForAsync(OtherScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Others"), "*.*");
+            
+            // Internal Pixelcut/GDrive Logic (Memory only, fast enough, but needs UI thread if accessing Collection)
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                AddInternalScripts();
+            });
+        });
+    }
+
+    private void AddInternalScripts()
+    {
+        // Add Pixelcut Extension as internal entry if not exists or re-add logic
+        // For simplicity, we assume OtherScripts is populated and we insert at top.
+        // But since LoadScriptsForAsync cleared/appended, we need to ensure insertions happen correctly.
+        // If append=false cleared it, we represent.
         
-        // Add Pixelcut Extension as internal entry
+        // Wait, LoadScriptsForAsync calls Clear() if !append.
+        // So OtherScripts is likely fresh.
+        
         var pixelcutConfig = _scriptAliases.ContainsKey("INTERNAL_PIXELCUT_EXTENSION") 
             ? _scriptAliases["INTERNAL_PIXELCUT_EXTENSION"] 
             : new ScriptConfig { Name = "Pixelcut Extension", Code = "PXL" };
@@ -1804,13 +1875,15 @@ public partial class SettingsViewModel : ObservableObject
                 SaveMetadata();
             }
         };
-        OtherScripts.Insert(0, pixelcutItem); // Add at top (Pixelcut)
+        
+        // Remove existing if any (unlikely after clear)
+        // OtherScripts.Insert(0, pixelcutItem); 
 
         // Add GDrive Extension as internal entry
         var gdriveConfig = _scriptAliases.ContainsKey("INTERNAL_GDRIVE_EXTENSION") 
             ? _scriptAliases["INTERNAL_GDRIVE_EXTENSION"] 
             : new ScriptConfig { Name = "GDrive Uploader", Code = "GDR" };
-            
+
         var gdriveItem = new ScriptItem
         {
             Name = gdriveConfig.Name,
@@ -1830,14 +1903,18 @@ public partial class SettingsViewModel : ObservableObject
                 SaveMetadata();
             }
         };
-        OtherScripts.Insert(1, gdriveItem); // Add after Pixelcut
+        
+        // Insert Internal items at Top
+        OtherScripts.Insert(0, pixelcutItem);
+        OtherScripts.Insert(1, gdriveItem);
     }
+            
 
 
 
-    private void LoadScriptsFor(ObservableCollection<ScriptItem> collection, string path, string pattern, bool append = false)
+
+    private async Task LoadScriptsForAsync(ObservableCollection<ScriptItem> collection, string path, string pattern, bool append = false)
     {
-        if (!append) collection.Clear();
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         
         var tempList = new List<(ScriptItem Item, int Order)>();
@@ -1851,20 +1928,19 @@ public partial class SettingsViewModel : ObservableObject
                 var filename = Path.GetFileName(f);
                 var config = _scriptAliases.ContainsKey(filename) 
                     ? _scriptAliases[filename] 
-                    : new ScriptConfig { Name = Path.GetFileNameWithoutExtension(filename), Code = "", Order = 9999 }; // Default to end
+                    : new ScriptConfig { Name = Path.GetFileNameWithoutExtension(filename), Code = "", Order = 9999 }; 
                 
                 var item = new ScriptItem 
                 { 
                     Name = config.Name,
                     ShortCode = config.Code,
-                    IconKey = config.IconKey, // Load Icon
+                    IconKey = config.IconKey, 
                     OriginalName = filename,
                     FullPath = f,
                     Type = Path.GetExtension(f).TrimStart('.').ToUpper(),
-                    PickIconFunc = PickIconAsync // Assign Picker
+                    PickIconFunc = PickIconAsync 
                 };
                 
-                // Attach Save Handler
                 item.OnSaveRequested += (newName, newCode, newIcon) => 
                 {
                     if (!string.IsNullOrWhiteSpace(newName))
@@ -1877,10 +1953,7 @@ public partial class SettingsViewModel : ObservableObject
                             Order = currentOrder 
                         };
                         _scriptAliases[item.OriginalName] = newConfig;
-                        
-                        item.Name = newName;
-                        item.ShortCode = newCode;
-                        item.IconKey = newIcon;
+                        item.Name = newName; item.ShortCode = newCode; item.IconKey = newIcon;
                         SaveMetadata();
                     }
                 };
@@ -1889,13 +1962,13 @@ public partial class SettingsViewModel : ObservableObject
             }
         }
 
-        // Sort by Order, then Name
         var sortedList = tempList.OrderBy(x => x.Order).ThenBy(x => x.Item.Name).ToList();
 
-        foreach(var item in sortedList)
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
         {
-            collection.Add(item.Item);
-        }
+            if (!append) collection.Clear();
+            foreach(var item in sortedList) collection.Add(item.Item);
+        });
     }
 
     private async Task<string?> PickIconAsync()
@@ -1961,7 +2034,7 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
              File.Copy(sourceFile, dest, true);
-             LoadAllScripts(); // Refresh
+             _ = LoadAllScriptsAsync(); // Refresh
              StatusMessage = $"{type} Script Added!";
              IsStatusVisible = true;
              await Task.Delay(2000);
@@ -1988,7 +2061,7 @@ public partial class SettingsViewModel : ObservableObject
                     _scriptAliases.Remove(item.OriginalName);
                     SaveMetadata();
                 }
-                LoadAllScripts();
+                _ = LoadAllScriptsAsync();
             }
         }
         catch(Exception ex)
@@ -2024,7 +2097,7 @@ public partial class SettingsViewModel : ObservableObject
                 File.Copy(newFilePath, item.FullPath, overwrite: true);
                 
                 // Refresh the list to show updated file
-                LoadAllScripts();
+                _ = LoadAllScriptsAsync();
                 
                 Console.WriteLine($"Script '{item.Name}' reloaded successfully");
             }
@@ -2241,7 +2314,7 @@ public partial class SettingsViewModel : ObservableObject
         catch {}
     }
     
-    private async void LoadShortcutConfig()
+    private async Task LoadShortcutConfigAsync()
     {
         try
         {

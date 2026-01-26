@@ -28,6 +28,15 @@ public partial class StatWidget : UserControl
     public static readonly StyledProperty<System.Windows.Input.ICommand> CommandProperty =
         AvaloniaProperty.Register<StatWidget, System.Windows.Input.ICommand>(nameof(Command));
 
+    public static readonly StyledProperty<System.Windows.Input.ICommand> WindowCommandProperty =
+        AvaloniaProperty.Register<StatWidget, System.Windows.Input.ICommand>(nameof(WindowCommand));
+
+    public System.Windows.Input.ICommand WindowCommand
+    {
+        get => GetValue(WindowCommandProperty);
+        set => SetValue(WindowCommandProperty, value);
+    }
+
     public System.Windows.Input.ICommand Command
     {
         get => GetValue(CommandProperty);

@@ -26,23 +26,12 @@ public partial class LogItem : ObservableObject
     [NotifyPropertyChangedFor(nameof(Color))]
     private IBrush? _customColor;
 
-    public IBrush Color
+    public IBrush? Color
     {
         get
         {
              if (CustomColor != null) return CustomColor;
-             
-             return Level switch
-             {
-                 LogLevel.Success => SolidColorBrush.Parse("#4ade80"), // Green
-                 LogLevel.Error => SolidColorBrush.Parse("#f87171"),   // Red
-                 LogLevel.Warning => SolidColorBrush.Parse("#facc15"), // Yellow
-                 LogLevel.System => SolidColorBrush.Parse("#22d3ee"),  // Cyan
-                 LogLevel.Info => SolidColorBrush.Parse("#60a5fa"),    // Blue
-                 LogLevel.Debug => SolidColorBrush.Parse("#9ca3af"),   // Gray
-                 LogLevel.Standard => SolidColorBrush.Parse("#e5e7eb"), // White
-                 _ => SolidColorBrush.Parse("#e5e7eb")
-             };
+             return null; // Let View handle Theme Resources via Style/Triggers
         }
         set
         {

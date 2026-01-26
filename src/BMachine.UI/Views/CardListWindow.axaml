@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+        x:Class="BMachine.UI.Views.CardListWindow"
+        Title="BMachine List"
+        Width="450" Height="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+        TransparencyLevelHint="Mica"
+        SystemDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        CanResize="True">
+    
+    <Grid>
+        <!-- Content Area -->
+        <!-- ContentControl will resolve the VM to its associated View via ViewLocator -->
+        <Border Margin="0" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="0" BorderThickness="0"
+                PointerPressed="OnHeaderPointerPressed">
+             <ContentControl Content="{Binding}" Margin="0,0,0,0"/>
+        </Border>
+        
+        <!-- Custom Chrome Overlay -->
+        <Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                Width="40" Height="30" Margin="0"
+                Background="Transparent" BorderThickness="0"
+                Click="OnCloseWindow" Cursor="Hand"
+                ToolTip.Tip="Close (Ctrl+W)">
+            <Button.Styles>
+                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                    <Setter Property="Background" Value="#C42B1C"/> <!-- Standard Red Close Hover -->
+                    <Setter Property="Foreground" Value="White"/>
+                </Style>
+                <Style Selector="Button:pressed /template/ ContentPresenter">
+                     <Setter Property="Background" Value="#A81B0C"/>
+                     <Setter Property="Foreground" Value="White"/>
+                </Style>
+            </Button.Styles>
+            <PathIcon Data="M13.46,12L19,17.54V19H17.54L12,13.46L6.46,19H5V17.54L10.54,12L5,6.46V5H6.46L12,10.54L17.54,5H19V6.46L13.46,12Z" 
+                      Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </Button>
+    </Grid>
+    
+</Window>

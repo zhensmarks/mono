@@ -88,80 +88,43 @@ public partial class RadialMenuViewModel : ObservableObject
         double centerX = 100; 
         double centerY = 100;
         
-        // Dynamic Scaling Login
-        bool isArcLayout = ActionItems.Count <= 4;
-        
-        if (isArcLayout)
-        {
-            // Arc Layout (Semi-Circle Right)
-            // Radius 50 (kept tight)
-            double radius = 50; 
-            
-            // Layout on Right Side: -90 (Top) to 90 (Bottom)
-            // Center is 0 (Right).
-            
-            if (ActionItems.Count == 1)
-            {
-                 // Single item at Right (0)
-                 ActionItems[0].X = centerX + radius * Math.Cos(0) - 16; 
-                 ActionItems[0].Y = centerY + radius * Math.Sin(0) - 16;
-                 ActionItems[0].Angle = 90; // 0 deg physically + 90 normalization
-            }
-            else
-            {
-                // Distribute evenly from -60 to 60 (120 span) to keep them tight?
-                // Or -90 to 90 (180 span)?
-                // User drawing looks like Top to Bottom on Right side.
-                // Let's use 160 degree span centered at 0 (-80 to 80).
-                
-                double span = 160.0;
-                double startAngle = -span / 2; // -80
-                double step = span / (ActionItems.Count - 1);
-                
-                for (int i = 0; i < ActionItems.Count; i++)
-                {
-                    double angleDeg = startAngle + (i * step);
-                    double angleRad = angleDeg * (Math.PI / 180.0);
+        // Unified "Tight Arc" Logic
+        // User requested: "buat dekat lagi" (closer/tighter) and "ke tengahkan" (centered on right).
+        // 40 degrees step provides a tight, cohesive arc that stays on the Right side 
+        // even with 5-6 items (-80..80 to -100..100).
+        double angleStep = 45.0; 
+        double radius = 50; 
 
-                    ActionItems[i].X = centerX + radius * Math.Cos(angleRad) - 16; 
-                    ActionItems[i].Y = centerY + radius * Math.Sin(angleRad) - 16;
-                    
-                    // Normalize for Highlight Logic
-                    // Physical: -90 (Top) -> Norm: 0
-                    // Physical: 0 (Right) -> Norm: 90
-                    // Physical: 90 (Bottom) -> Norm: 180
-                    
-                    double normalizedAngle = (angleDeg + 90);
-                    while (normalizedAngle < 0) normalizedAngle += 360;
-                    while (normalizedAngle >= 360) normalizedAngle -= 360;
-                    
-                    ActionItems[i].Angle = normalizedAngle;
-                }
-            }
+        // If items exceed circle capacity (e.g. 9+ items @ 45deg), compress spacing
+        if (ActionItems.Count * angleStep > 360)
+        {
+            angleStep = 360.0 / ActionItems.Count;
         }
-        else
+
+        // Calculate total span required
+        double totalSpan = (ActionItems.Count - 1) * angleStep;
+
+        // Start Angle logic: Center the arc around 0 degrees (Right)
+        double startAngle = -totalSpan / 2.0;
+
+        for (int i = 0; i < ActionItems.Count; i++)
         {
-            // Full Circle Layout (Standard)
-            double radius = 70; // Slightly larger for more items
-            if (ActionItems.Count > 8) radius = 80;
+            double angleDeg = startAngle + (i * angleStep);
+            
+            // Convert to Radians
+            double angleRad = angleDeg * (Math.PI / 180.0);
 
-            double step = 360.0 / ActionItems.Count;
-            double startAngle = -90; 
-
-            for (int i = 0; i < ActionItems.Count; i++)
-            {
-                double angleDeg = startAngle + (i * step);
-                double angleRad = angleDeg * (Math.PI / 180.0);
-
-                ActionItems[i].X = centerX + radius * Math.Cos(angleRad) - 16; 
-                ActionItems[i].Y = centerY + radius * Math.Sin(angleRad) - 16;
-                
-                double normalizedAngle = (angleDeg + 90);
-                while (normalizedAngle < 0) normalizedAngle += 360;
-                while (normalizedAngle >= 360) normalizedAngle -= 360;
-                
-                ActionItems[i].Angle = normalizedAngle;
-            }
+            // Calculate Position
+            ActionItems[i].X = centerX + radius * Math.Cos(angleRad) - 16; 
+            ActionItems[i].Y = centerY + radius * Math.Sin(angleRad) - 16;
+            
+            // Normalize for Highlight Logic
+            // Transform standard trig angle (0=Right) to Logic angle (0=Top/North)
+            double normalizedAngle = (angleDeg + 90);
+            while (normalizedAngle < 0) normalizedAngle += 360;
+            while (normalizedAngle >= 360) normalizedAngle -= 360;
+            
+            ActionItems[i].Angle = normalizedAngle;
         }
     }
 

@@ -44,8 +44,8 @@
 
         <!-- Exit Confirmation Overlay (ZIndex 999) -->
         <Grid ZIndex="999" IsVisible="{Binding IsExitConfirmOpen}" Background="#CC000000">
-            <Border Background="{DynamicResource SolidBackgroundFillColorBaseBrush}" 
-                    BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1"
+            <Border Background="{DynamicResource CardBackgroundBrush}" 
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                     CornerRadius="12" Padding="20" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center"
                     BoxShadow="0 8 32 0 #66000000">
                 <StackPanel Spacing="15">

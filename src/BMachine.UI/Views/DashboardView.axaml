@@ -163,7 +163,7 @@
                     <!-- GDrive Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
                         <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
@@ -194,7 +194,7 @@
                     <!-- Pixelcut Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsPixelcutTabSelected}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
                         <PathIcon Data="M20,6 L18.59,4.59 L14.73,8.45 L13.32,7.04 L17.18,3.18 L15.76,1.76 L13.64,3.88 C13.06,3.33 12.29,3 11.5,3 C9.57,3 8,4.57 8,6.5 C8,7.29 8.27,8.03 8.74,8.63 L6,11.37 C5.53,10.9 5.25,10.27 5.25,9.58 C5.25,8.13 6.42,6.96 7.88,6.96 C8.4,6.96 8.82,6.54 8.82,6.02 C8.82,5.5 8.4,5.08 7.88,5.08 C5.39,5.08 3.37,7.1 3.37,9.58 C3.37,10.79 3.86,11.9 4.66,12.71 L2.25,15.12 L3.66,16.54 L7.52,12.68 L8.93,14.09 L5.07,17.95 L6.49,19.36 L9.29,16.56 C10.1,17.37 11.21,17.86 12.42,17.86 C14.91,17.86 16.92,15.84 16.92,13.36 C16.92,12.83 16.5,12.41 15.98,12.41 C15.46,12.41 15.04,12.83 15.04,13.36 C15.04,14.81 13.86,15.98 12.42,15.98 C11.72,15.98 11.09,15.7 10.63,15.22 L13.37,12.48 C13.97,12.95 14.71,13.23 15.5,13.23 C17.43,13.23 19,11.66 19,9.73 C19,8.94 18.73,8.2 18.26,7.6 L20.38,5.48 L20.4,5.5 L20,6 M11.5,4.88 C12.4,4.88 13.12,5.6 13.12,6.5 C13.12,7.4 12.4,8.12 11.5,8.12 C10.6,8.12 9.88,7.4 9.88,6.5 C9.88,5.6 10.6,4.88 11.5,4.88 M15.5,11.35 C14.6,11.35 13.88,10.63 13.88,9.73 C13.88,8.83 14.6,8.11 15.5,8.11 C16.4,8.11 17.12,8.83 17.12,9.73 C17.12,10.63 16.4,11.35 15.5,11.35" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
@@ -225,7 +225,7 @@
                     <!-- Dashboard Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
                         <PathIcon Data="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
@@ -256,7 +256,7 @@
                     <!-- Batch Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
                          <PathIcon Data="M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
@@ -287,7 +287,7 @@
                     <!-- Locker Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="White" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
                         <PathIcon Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8H17V6A5,5 0 0,0 12,1H12A5,5 0 0,0 7,6V8H6A2,2 0 0,0 4,10V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V10A2,2 0 0,0 18,8M12,13A2,2 0 0,1 10,15A2,2 0 0,1 12,17A2,2 0 0,1 14,15A2,2 0 0,1 12,13M12,1A5,5 0 0,1 17,6V8H7V6A5,5 0 0,1 12,1Z"
                                   Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
@@ -331,11 +331,14 @@
                         <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Center">
                             <Grid ColumnDefinitions="*,*,*,*" VerticalAlignment="Center">
                                 <controls:StatWidget Grid.Column="0" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
-                                                     Color="{DynamicResource AccentEditingBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" Command="{Binding OpenEditingListCommand}"/>
+                                                     Color="{DynamicResource AccentEditingBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
+                                                     Command="{Binding OpenEditingListCommand}" WindowCommand="{Binding OpenEditingWindowCommand}"/>
                                 <controls:StatWidget Grid.Column="1" Label="{Binding Language[Stats.Revision]}" Value="{Binding StatRevision}" Percentage="{Binding StatRevisionPercentage}" 
-                                                     Color="{DynamicResource AccentRevisionBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" Command="{Binding OpenRevisionListCommand}"/>
+                                                     Color="{DynamicResource AccentRevisionBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
+                                                     Command="{Binding OpenRevisionListCommand}" WindowCommand="{Binding OpenRevisionWindowCommand}"/>
                                 <controls:StatWidget Grid.Column="2" Label="{Binding Language[Stats.Late]}" Value="{Binding StatLate}" Percentage="{Binding StatLatePercentage}" 
-                                                     Color="{DynamicResource AccentLateBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" Command="{Binding OpenLateListCommand}"/>
+                                                     Color="{DynamicResource AccentLateBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
+                                                     Command="{Binding OpenLateListCommand}" WindowCommand="{Binding OpenLateWindowCommand}"/>
                                 <controls:StatWidget Grid.Column="3" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
                                                      Color="{DynamicResource AccentPointsBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}"/>
                             </Grid>
@@ -426,7 +429,7 @@
                                 </TreeView>
                             </Border>
                             <Border VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,20,0" Background="{DynamicResource CardBackgroundBrush}" Padding="6,0" CornerRadius="4">
-                                <TextBlock Text="OUTPUT LOKAL" FontWeight="Bold" FontSize="10" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                <TextBlock Text="OUTPUT LOKAL" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             </Border>
                         </Grid>
                     </Grid>
@@ -512,7 +515,7 @@
                 <!-- GDRIVE TAB CONTENT -->
                 <views:CompactGdriveView DataContext="{Binding GdriveVM}"
                                          IsVisible="{Binding DataContext.IsGdriveTabSelected, ElementName=Root}"
-                                         Margin="0,0,0,0"/>
+                                         Margin="20,0,20,0"/>
         </Grid>
     </Grid>
 
