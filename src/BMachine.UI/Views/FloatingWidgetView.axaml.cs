@@ -7,13 +7,14 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using BMachine.UI.ViewModels;
+using CommunityToolkit.Mvvm.Messaging;
 using Avalonia.Data;
 using Avalonia.Animation;
 using Avalonia.Styling;
 
 namespace BMachine.UI.Views;
 
-public partial class FloatingWidgetView : Window
+public partial class FloatingWidgetView : Window, CommunityToolkit.Mvvm.Messaging.IRecipient<BMachine.UI.Messages.AppFocusChangedMessage>
 {
     // Manual Drag Fields
     // Manual Drag Fields
@@ -197,6 +198,24 @@ public partial class FloatingWidgetView : Window
         // Attach Drag Events to _orbRootPanel (larger hit area) or _orbBorder
         // The logic below (not shown in this replacement block) attaches to internal events, 
         // need to ensure _orbBorder event handlers are attached in OnOpened or setup here.
+        
+        // Listen for App Focus Changes
+        WeakReferenceMessenger.Default.RegisterAll(this);
+    }
+    
+    public void Receive(BMachine.UI.Messages.AppFocusChangedMessage message)
+    {
+         if (DataContext is FloatingWidgetViewModel vm)
+         {
+             if (message.Value) // Focused or Active
+             {
+                 if (vm.IsOrbBreathing) UpdateSpeed(vm);
+             }
+             else // Background
+             {
+                 StartBreathingAnimation(TimeSpan.Zero, false); // Turn off
+             }
+         }
     }
     
     private System.Threading.CancellationTokenSource? _animationCts;

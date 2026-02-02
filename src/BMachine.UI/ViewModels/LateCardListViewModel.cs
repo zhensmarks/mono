@@ -3,15 +3,18 @@ using BMachine.SDK;
 using BMachine.UI.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class LateCardListViewModel : BaseTrelloListViewModel
+public partial class LateCardListViewModel : BaseTrelloListViewModel, CommunityToolkit.Mvvm.Messaging.IRecipient<BMachine.UI.Messages.AppFocusChangedMessage>
 {
     public LateCardListViewModel(IDatabase database, INotificationService? notificationService = null)
         : base(database, notificationService)
     {
          _ = LoadAccentColor();
+         // Register once at creation
+         WeakReferenceMessenger.Default.RegisterAll(this);
     }
 
     protected override string ColorSettingKey => "Settings.Color.Late";
@@ -33,12 +36,26 @@ public partial class LateCardListViewModel : BaseTrelloListViewModel
         RefreshCommand.Execute(null);
         if (_timer == null)
         {
-            _timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-            _timer.Tick += (s, e) => {
-                if (!IsRefreshing) RefreshCommand.Execute(null);
+            _timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+            _timer.Tick += async (s, e) => {
+                if (!IsRefreshing)
+                {
+                    var listId = await _database.GetAsync<string>("Trello.LateListId");
+                    if (!string.IsNullOrEmpty(listId) && await CheckForUpdates(listId))
+                    {
+                        RefreshCommand.Execute(null);
+                    }
+                }
             };
         }
         _timer.Start();
+    }
+
+    public void Receive(BMachine.UI.Messages.AppFocusChangedMessage message)
+    {
+         if (_timer == null) return;
+         if (message.Value) _timer.Start();
+         else _timer.Stop();
     }
 
     [RelayCommand]

@@ -14,6 +14,13 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Optimization: Reduce process priority to minimize system lag
+        try 
+        { 
+            System.Diagnostics.Process.GetCurrentProcess().PriorityClass = System.Diagnostics.ProcessPriorityClass.BelowNormal; 
+        } 
+        catch { /* Ignore permission errors */ }
+
         // Global Exception Handler
         AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
         {

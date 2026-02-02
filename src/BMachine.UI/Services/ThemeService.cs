@@ -114,9 +114,22 @@ public class ThemeService : IThemeService
             _ => ThemeVariant.Default
         };
 
+        // Resolve actual theme to apply correct manual colors (Border, CardBg)
+        // If System/Default, we check ActualThemeVariant.
+        // Note: This only sets the initial colors. Fully dynamic system switching 
+        // would require listening to ActualThemeVariantChanged event.
+        bool isLight = false;
+        if (theme == ThemeVariantType.Light) isLight = true;
+        else if (theme == ThemeVariantType.Dark) isLight = false;
+        else 
+        {
+            // System
+            isLight = Application.Current.ActualThemeVariant == ThemeVariant.Light;
+        }
+
         // Apply Border Color for the new theme
-        var borderColor = theme == ThemeVariantType.Light ? _lightBorderColor : _darkBorderColor;
-        var cardBgColor = theme == ThemeVariantType.Light ? _lightCardBgColor : _darkCardBgColor;
+        var borderColor = isLight ? _lightBorderColor : _darkBorderColor;
+        var cardBgColor = isLight ? _lightCardBgColor : _darkCardBgColor;
         
         // Update the Dynamic Resource
         Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(borderColor);
@@ -124,11 +137,11 @@ public class ThemeService : IThemeService
         Application.Current.Resources["BackgroundDarkBrush"] = SolidColorBrush.Parse(cardBgColor); // Sync BackgroundDarkBrush
         
         // Terminal Background
-        var termBgColor = theme == ThemeVariantType.Light ? _lightTerminalBgColor : _darkTerminalBgColor;
+        var termBgColor = isLight ? _lightTerminalBgColor : _darkTerminalBgColor;
         Application.Current.Resources["TerminalBackgroundBrush"] = SolidColorBrush.Parse(termBgColor);
         
         // Update Log Colors
-        UpdateLogColors(theme == ThemeVariantType.Light);
+        UpdateLogColors(isLight);
 
         // Fire and forget save
         _database.SetAsync("Settings.Theme", theme.ToString());

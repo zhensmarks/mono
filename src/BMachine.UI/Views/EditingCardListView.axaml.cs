@@ -137,4 +137,12 @@ public partial class EditingCardListView : UserControl
         // Match Revision/Late logic: Transparent allows underlying container background (AppBackground) to show
         panel.Background = Brushes.Transparent;
     }
+
+    private void AutoCompleteBox_GotFocus(object? sender, Avalonia.Input.GotFocusEventArgs e)
+    {
+        if (sender is AutoCompleteBox acb)
+        {
+            acb.IsDropDownOpen = true;
+        }
+    }
 }

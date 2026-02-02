@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using BMachine.UI.ViewModels;
 using System;
+using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
 using CommunityToolkit.Mvvm.Input;
@@ -64,7 +66,11 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     private string _cachedDarkBg = "#1C1C1C";
     private string _cachedLightBg = "#F5F5F5";
 
-    public MainWindowViewModel(BMachine.Core.Database.DatabaseService? db = null, BMachine.UI.Services.ProcessLogService? logService = null)
+
+
+    public MainWindowViewModel(
+        BMachine.Core.Database.DatabaseService? db = null, 
+        BMachine.UI.Services.ProcessLogService? logService = null)
     {
         // Init services (Use passed or create default)
         _database = db ?? new BMachine.Core.Database.DatabaseService();
@@ -93,6 +99,24 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         
         // Check for updates
         CheckForUpdatesBackground();
+        
+        // Eager-load SettingsViewModel in background after 1s delay (to ensure Dashboard is ready)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1000); // Wait for Dashboard to fully initialize
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _cachedSettingsVM = new SettingsViewModel(_database, NavigateToDashboard, _languageService, null);
+                    Console.WriteLine("[MainWindow] SettingsViewModel pre-loaded successfully");
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MainWindow] Error pre-loading SettingsViewModel: {ex.Message}");
+            }
+        });
     }
 
     private async System.Threading.Tasks.Task LoadBackgroundConfig()
@@ -187,7 +211,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     {
         if (_cachedDashboardVM == null)
         {
-            _cachedDashboardVM = new DashboardViewModel(_database, _database, _languageService, _logService);
+            _cachedDashboardVM = new DashboardViewModel(_database, _languageService, _logService);
             _cachedDashboardVM.OpenSettingsRequested += () => NavigateToSettings();
             _cachedDashboardVM.OpenEditingListRequested += () => NavigateToEditingList();
             _cachedDashboardVM.OpenRevisionListRequested += () => NavigateToRevisionList();
@@ -201,9 +225,10 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     
     public void NavigateToSettings()
     {
+        // Fallback to lazy loading if eager-loading hasn't completed yet
         if (_cachedSettingsVM == null)
         {
-             _cachedSettingsVM = new SettingsViewModel(_database, NavigateToDashboard, _languageService);
+            _cachedSettingsVM = new SettingsViewModel(_database, NavigateToDashboard, _languageService, null);
         }
         CurrentView = _cachedSettingsVM;
     }

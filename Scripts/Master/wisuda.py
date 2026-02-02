@@ -244,14 +244,18 @@ def parse_code_parts(text):
 
 def find_candidate_codes(folder_path, prefer_tag=None):
     prefer_tag = (prefer_tag or "").upper()
-    cand, seen = [], set()
+    # Map code -> is_high_priority (True/False)
+    candidates_map = {}
 
-    def push(x):
-        if x is None: return
-        x = x.strip().upper()
-        if x not in seen:
-            seen.add(x)
-            cand.append(x)
+    def register(val, high_priority=False):
+        if val is None: return
+        val = val.strip().upper()
+        if val not in candidates_map:
+            candidates_map[val] = high_priority
+        else:
+            # Upgrade priority if found in high-prio context later
+            if high_priority:
+                candidates_map[val] = True
 
     try:
         for filename in os.listdir(folder_path):
@@ -268,20 +272,19 @@ def find_candidate_codes(folder_path, prefer_tag=None):
             
             # 1. Capture WSD pattern with optional suffix: WSD-006, WSD 006 B, WSD-006B
             for m in re.finditer(r'WSD[\s-]*(\d{1,3}(?:\s*[A-Za-z])?)\b', search_text, re.IGNORECASE):
-                push(m.group(1))
+                register(m.group(1), high_priority=True)
 
             # 2. Capture Type pattern: 10RP 006, 8R 006 B
             for m in re.finditer(r'(?:10RP|8R)[\s-]*(\d{1,3}(?:\s*[A-Za-z])?)\b', search_text, re.IGNORECASE):
-                push(m.group(1))
+                register(m.group(1), high_priority=True)
 
-            # 2.5 Capture Underscore pattern: KRA_001, ABC_001 B
-            # Captures: (AnyLetters)_(1-3 digits)(Optional Space Letter)
-            for m in re.finditer(r'\b[A-Za-z]+_(\d{1,3}(?:\s*[A-Za-z])?)\b', search_text, re.IGNORECASE):
-                push(m.group(1))
+            # 2.5 Capture Prefix pattern: KRA_001, ABC-001 B
+            # MODIFIED: Allow underscore, dash, or space separator to catch cases like KRA-002 B
+            for m in re.finditer(r'\b[A-Za-z]+[\s_-]+(\d{1,3}(?:\s*[A-Za-z])?)\b', search_text, re.IGNORECASE):
+                register(m.group(1), high_priority=True)
 
             # 3. Fallback: Capture generic 3-digit numbers with optional suffix (e.g. 013, 013 B)
             # Filter out things that look like years (202x) or labels (10RP, 8R if not caught above)
-            # Regex captures: Word Boundary + 1-3 digits + Optional(Space + A-Z) + Word Boundary
             matches = re.finditer(r'\b(\d{1,3}(?:\s*[A-Za-z])?)\b', search_text)
             for m in matches:
                 val = m.group(1)
@@ -293,13 +296,22 @@ def find_candidate_codes(folder_path, prefer_tag=None):
                 if num_val == 8 and '8R' in search_text.upper(): continue
                 # if num_val > 500? No, maybe they have code 999.
                 
-                # Check if it was already caught by specific regexes? 'push' handles duplication.
-                push(val)
+                # Logic Tambahan: Jika punya suffix (misal "02 B"), anggap High Priority
+                # Jika cuma angka polos (misal "1" dari "1 ANAK..."), anggap Low Priority
+                _, suffix = parse_code_parts(val)
+                is_with_suffix = bool(suffix)
+                
+                register(val, high_priority=is_with_suffix)
 
     except Exception as e:
         print(f"[ERROR] Gagal scan .txt di {folder_path}: {e}", file=sys.stderr)
 
-    return cand
+    # Return High Priority first, then Low Priority
+    # Sorting keys produces deterministic order (e.g. '002 B' vs '1')
+    high_prio = sorted([k for k, v in candidates_map.items() if v])
+    low_prio = sorted([k for k, v in candidates_map.items() if not v])
+    
+    return high_prio + low_prio
 
 
 def find_master_file(master_folder, code):

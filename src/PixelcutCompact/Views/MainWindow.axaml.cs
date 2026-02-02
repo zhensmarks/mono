@@ -152,4 +152,21 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    private void CloseSettings(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm)
+        {
+            vm.CloseSettingsCommand.Execute(null);
+        }
+    }
+
+    private void CloseAlert(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm)
+        {
+            vm.CloseAlertCommand.Execute(null);
+        }
+    }
+
 }

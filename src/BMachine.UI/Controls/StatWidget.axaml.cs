@@ -25,6 +25,9 @@ public partial class StatWidget : UserControl
     public static readonly StyledProperty<bool> ShowIconProperty =
         AvaloniaProperty.Register<StatWidget, bool>(nameof(ShowIcon), true);
 
+    public static readonly StyledProperty<bool> IsOnlineProperty =
+        AvaloniaProperty.Register<StatWidget, bool>(nameof(IsOnline), true);
+
     public static readonly StyledProperty<System.Windows.Input.ICommand> CommandProperty =
         AvaloniaProperty.Register<StatWidget, System.Windows.Input.ICommand>(nameof(Command));
 
@@ -77,6 +80,12 @@ public partial class StatWidget : UserControl
     {
         get => GetValue(ShowIconProperty);
         set => SetValue(ShowIconProperty, value);
+    }
+    
+    public bool IsOnline
+    {
+        get => GetValue(IsOnlineProperty);
+        set => SetValue(IsOnlineProperty, value);
     }
     
     // Calculated property for Arc SweepAngle

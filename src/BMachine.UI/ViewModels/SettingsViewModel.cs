@@ -13,6 +13,9 @@ using System.IO;
 using QRCoder;
 using BMachine.UI.Messages;
 using BMachine.UI.Models;
+using Avalonia.Platform.Storage;
+using System.Threading.Tasks;
+
 
 namespace BMachine.UI.ViewModels;
 
@@ -41,6 +44,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly Action? _navigateBack;
     private readonly IThemeService? _themeService;
     private readonly ILanguageService? _languageService;
+
     
     public ILanguageService? Language => _languageService;
     
@@ -58,7 +62,14 @@ public partial class SettingsViewModel : ObservableObject
     private static List<TrelloItem>? _staticBoardCache;
 
     [ObservableProperty]
-    private string _userName = "";
+    private string _userName = "USER"; // Default
+
+    partial void OnUserNameChanged(string value)
+    {
+        _database?.SetAsync("User.Name", value);
+        // Specific message for profile updates
+        WeakReferenceMessenger.Default.Send(new ProfileUpdatedMessage(value, AvatarSource));
+    }
 
     [ObservableProperty]
     private Avalonia.Media.Imaging.Bitmap? _avatarImage;
@@ -73,8 +84,14 @@ public partial class SettingsViewModel : ObservableObject
             if (string.IsNullOrEmpty(value) || value == "default")
             {
                 AvatarImage = null;
+                _database?.SetAsync("User.Avatar", "default");
+                WeakReferenceMessenger.Default.Send(new ProfileUpdatedMessage(UserName, "default"));
                 return;
             }
+
+            // Save & Notify
+            _database?.SetAsync("User.Avatar", value);
+            WeakReferenceMessenger.Default.Send(new ProfileUpdatedMessage(UserName, value));
 
             if (value.StartsWith("preset:"))
             {
@@ -125,6 +142,7 @@ public partial class SettingsViewModel : ObservableObject
         OpenAvatarSelectionRequested?.Invoke();
     }
     
+    
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSidebarVisible))]
     [NotifyPropertyChangedFor(nameof(IsContentVisible))]
@@ -157,6 +175,16 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private double _navFontSize = 14;
     partial void OnNavFontSizeChanged(double value) => SaveAndNotify(value, "Dashboard.Nav.FontSize");
 
+    [ObservableProperty] private int _navStyleIndex = 0; // 0=Icon, 1=Text
+    partial void OnNavStyleIndexChanged(int value) => SaveAndNotify(value, "Dashboard.Nav.Style");
+
+    [ObservableProperty] private string _navCustomText = "Dashboard";
+    partial void OnNavCustomTextChanged(string value) 
+    {
+        _database.SetAsync("Dashboard.Nav.Text", value);
+        WeakReferenceMessenger.Default.Send(new NavSettingsChangedMessage());
+    }
+
     private void SaveAndNotify(double value, string key)
     {
         _database.SetAsync(key, value.ToString());
@@ -176,6 +204,39 @@ public partial class SettingsViewModel : ObservableObject
         
         var f = await _database.GetAsync<string>("Dashboard.Nav.FontSize");
         if (double.TryParse(f, out double dF)) NavFontSize = dF;
+
+        var s = await _database.GetAsync<string>("Dashboard.Nav.Style");
+        if (int.TryParse(s, out int dS)) NavStyleIndex = dS;
+
+        var t = await _database.GetAsync<string>("Dashboard.Nav.Text");
+        if (!string.IsNullOrEmpty(t)) NavCustomText = t;
+    }
+
+    private async Task LoadUserProfileAsync()
+    {
+        if (_database == null) return;
+        
+        var name = await _database.GetAsync<string>("User.Name");
+        // Only overwrite if DB has value. If DB is empty, default "Agency Team" remains (from field init).
+        // But if we want to SAVE the default to DB, we can do it here.
+        if (!string.IsNullOrEmpty(name))
+        {
+            UserName = name;
+        }
+        else
+        {
+             // Verify if we should save default?
+             // User said "dibuat default jika saat di publish".
+             // If we set UserName = "Agency Team" again it triggers save.
+             // Let's ensure it matches field default.
+             if (string.IsNullOrEmpty(UserName)) UserName = "USER";
+        }
+        
+        var avatar = await _database.GetAsync<string>("User.Avatar");
+        if (!string.IsNullOrEmpty(avatar))
+        {
+            AvatarSource = avatar;
+        }
     }
 
     [ObservableProperty]
@@ -237,12 +298,15 @@ public partial class SettingsViewModel : ObservableObject
     public PathSettingsViewModel? PathSettingsVM { get; private set; }
 
     // Theme Settings
+    // Theme Settings
     [ObservableProperty]
-    private int _selectedThemeIndex = 0; // 0=Dark, 1=Light
+    private int _selectedThemeIndex = 0; // 0=Light, 1=Dark, 2=System
+
     
     partial void OnSelectedThemeIndexChanged(int value)
     {
-         UpdateTheme(value == 0);
+         if (value == 2) UpdateTheme(false, true); // System
+         else UpdateTheme(value == 1, false); // 0=Light, 1=Dark
     }
     
     [ObservableProperty]
@@ -250,22 +314,26 @@ public partial class SettingsViewModel : ObservableObject
     
     partial void OnIsDarkModeChanged(bool value)
     {
-        SelectedThemeIndex = value ? 0 : 1;
+        // Legacy support or binding update
+        if (value && SelectedThemeIndex != 1) SelectedThemeIndex = 1;
+        if (!value && SelectedThemeIndex != 0) SelectedThemeIndex = 0;
     }
     
-    private void UpdateTheme(bool isDark)
+    private void UpdateTheme(bool isDark, bool isSystem = false)
     {
         // 1. Update Avalonia Theme
         if (Application.Current != null)
         {
-            Application.Current.RequestedThemeVariant = isDark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
+            if (isSystem) Application.Current.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Default;
+            else Application.Current.RequestedThemeVariant = isDark ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light;
         }
         
         // 2. Persist
-        _database?.SetAsync("Settings.Theme", isDark ? "Dark" : "Light");
+        string themeVal = isSystem ? "System" : (isDark ? "Dark" : "Light");
+        _database?.SetAsync("Settings.Theme", themeVal);
         
         // 3. Notify Service
-        _themeService?.SetTheme(isDark ? ThemeVariantType.Dark : ThemeVariantType.Light);
+        _themeService?.SetTheme(isSystem ? ThemeVariantType.System : (isDark ? ThemeVariantType.Dark : ThemeVariantType.Light));
     }
     
     [ObservableProperty] private string _darkBackgroundColor = "#1C1C1C"; // Default Dark
@@ -375,22 +443,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFloatingWidgetEnabled = true;
 
-    [ObservableProperty] private double _orbButtonWidth = 160;
-    [ObservableProperty] private double _orbButtonHeight = 36;
-    
-    partial void OnOrbButtonWidthChanged(double value)
-    {
-        if (_isInitializing) return;
-        _database?.SetAsync("Settings.Orb.ButtonWidth", value.ToString());
-        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new Messages.OrbButtonSizeChangedMessage(value, OrbButtonHeight));
-    }
-    
-    partial void OnOrbButtonHeightChanged(double value)
-    {
-        if (_isInitializing) return;
-        _database?.SetAsync("Settings.Orb.ButtonHeight", value.ToString());
-         CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new Messages.OrbButtonSizeChangedMessage(OrbButtonWidth, value));
-    }
+    // Orb props removed
+
 
     [RelayCommand]
     private void SyncSystemTime()
@@ -410,13 +464,18 @@ public partial class SettingsViewModel : ObservableObject
     // ...
 
     // Integrations (Account)
-    [ObservableProperty] private string _trelloApiKey = "";
-    [ObservableProperty] private string _trelloToken = "";
+    // [ObservableProperty] private string _trelloApiKey = ""; // Removed, defined above with Command
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SmartTrelloButtonText))]
+    private string _trelloToken = "";
     [ObservableProperty] private string _googleCredsPath = "";
     [ObservableProperty] private string _googleSheetId = "";
     [ObservableProperty] private string _sheetName = "";
-    [ObservableProperty] private string _sheetColumn = "";
-    [ObservableProperty] private string _sheetRow = "";
+    [ObservableProperty] private string _sheetColumn = "C";
+    [ObservableProperty] private string _sheetRow = "3";
+    
+    // Leaderboard
+    [ObservableProperty] private string _leaderboardRange = "A2:C10"; // Default Range
     
     // Trello Config
     [ObservableProperty] private string _editingBoardId = "";
@@ -460,6 +519,8 @@ public partial class SettingsViewModel : ObservableObject
         await FetchListsAsync(value.Id, LateLists);
     }
     
+    partial void OnLeaderboardRangeChanged(string value) => _database?.SetAsync("Leaderboard.Range", value);
+
     partial void OnSelectedQcBoardChanged(TrelloItem? value)
     {
         if (value == null) return;
@@ -498,6 +559,48 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _statusMessage = "";
     [ObservableProperty] private bool _isStatusVisible = false;
 
+    // --- Manual Refresh Interval (Seconds) ---
+    [ObservableProperty] private int _editingRefreshSeconds = 60;
+    partial void OnEditingRefreshSecondsChanged(int value) => SaveAndNotifyInterval("Settings.Interval.Editing", value);
+
+    [ObservableProperty] private int _revisionRefreshSeconds = 60;
+    partial void OnRevisionRefreshSecondsChanged(int value) => SaveAndNotifyInterval("Settings.Interval.Revision", value);
+
+    [ObservableProperty] private int _lateRefreshSeconds = 60;
+    partial void OnLateRefreshSecondsChanged(int value) => SaveAndNotifyInterval("Settings.Interval.Late", value);
+
+    [ObservableProperty] private int _pointsRefreshSeconds = 60;
+    partial void OnPointsRefreshSecondsChanged(int value) => SaveAndNotifyInterval("Settings.Interval.Points", value);
+
+    private void SaveAndNotifyInterval(string key, int value)
+    {
+         if (_isInitializing) return;
+         _database?.SetAsync(key, value.ToString());
+         // Notify Dashboard to update logic
+         CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new RefreshDashboardMessage());
+    }
+
+    // --- Dashboard Visibility Toggles ---
+    [ObservableProperty] private bool _isGdriveVisible = true;
+    [ObservableProperty] private bool _isPixelcutVisible = true;
+    [ObservableProperty] private bool _isBatchVisible = true;
+    [ObservableProperty] private bool _isFolderLockVisible = true;
+    [ObservableProperty] private bool _isPointVisible = true; // For Point/GSheet
+
+    partial void OnIsGdriveVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Gdrive", value);
+    partial void OnIsPixelcutVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Pixelcut", value);
+
+    partial void OnIsBatchVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Batch", value);
+    partial void OnIsFolderLockVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Lock", value);
+    partial void OnIsPointVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Point", value);
+
+    private void SaveAndNotifyDashboard(string key, bool value)
+    {
+        if (_isInitializing) return;
+        _database?.SetAsync(key, value.ToString());
+        WeakReferenceMessenger.Default.Send(new Messages.DashboardVisibilityChangedMessage());
+    }
+
     // Google Sheet Dropdown Options
     public ObservableCollection<string> SheetColumns { get; } = new();
     public ObservableCollection<string> SheetRows { get; } = new();
@@ -508,7 +611,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _isStartupAnimationEnabled = true;
     
     [ObservableProperty] 
-    private int _selectedStatSpeedIndex = 1; // 0=Slow, 1=Normal, 2=Fast
+    private int _selectedStatSpeedIndex = 2; // 0=Mati, 1=Slow, 2=Normal, 3=Fast
     
     partial void OnSelectedStatSpeedIndexChanged(int value)
     {
@@ -552,19 +655,24 @@ public partial class SettingsViewModel : ObservableObject
         
         IsLockerConfigured = BMachine.Core.Security.FolderLockerConfig.Load().IsConfigured;
 
-        PathSettingsVM = new PathSettingsViewModel(); // Design-time fallback
+
     }
 
-    [ObservableProperty] private ObservableCollection<ExtensionViewModel> _extensions = new();
-    
-    // File Picker delegate to be set by View/Parent
-    public Func<Task<string?>>? PickExtensionFileFunc { get; set; }
 
-    public SettingsViewModel(IDatabase database, Action navigateBack, ILanguageService? languageService = null, INotificationService? notificationService = null)
+
+
+
+
+    public SettingsViewModel(
+        IDatabase database, 
+        Action navigateBack, 
+        ILanguageService? languageService = null, 
+        INotificationService? notificationService = null)
     {
         _database = database;
         _navigateBack = navigateBack;
         _themeService = new ThemeService(database); 
+        _languageService = languageService;
         _languageService = languageService;
 
         // Initialize Path Settings VM
@@ -588,7 +696,8 @@ public partial class SettingsViewModel : ObservableObject
         
         LoadSettings();
         _ = LoadNavSettings();
-        _ = LoadExtensionsAsync();
+        _ = LoadNavSettings();
+        _ = LoadUserProfileAsync();
         _ = LoadAllScriptsAsync();
         
         // Shortcut
@@ -635,12 +744,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] 
     [NotifyPropertyChangedFor(nameof(IsPointsCustom))]
     private ColorOption? _pointsColor;
-    
-    [ObservableProperty] 
-    [NotifyPropertyChangedFor(nameof(IsOrbCustom))]
-    private ColorOption? _orbColor;
 
-    [ObservableProperty] 
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsAccentCustom))]
     private ColorOption? _accentColor;
     
@@ -648,10 +753,11 @@ public partial class SettingsViewModel : ObservableObject
     public bool IsRevisionCustom => RevisionColor?.Name == "Custom";
     public bool IsLateCustom => LateColor?.Name == "Custom";
     public bool IsPointsCustom => PointsColor?.Name == "Custom";
-    public bool IsOrbCustom => OrbColor?.Name == "Custom";
     public bool IsAccentCustom => AccentColor?.Name == "Custom";
     
-    [ObservableProperty] private Color _customOrbColor = Color.Parse("#3b82f6");
+    
+    // Orb Removed
+    // [ObservableProperty] private Color _customOrbColor = Color.Parse("#3b82f6");
     
     // Custom Color Pickers (Visible if "Custom" is selected for that widget)
     [ObservableProperty] 
@@ -679,6 +785,9 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnCustomLateColorChanged(Color value) => ApplyWidgetColors();
     partial void OnCustomPointsColorChanged(Color value) => ApplyWidgetColors();
     partial void OnCustomAccentColorChanged(Color value) => ApplyWidgetColors();
+
+    [ObservableProperty]
+    private ObservableCollection<ColorOption> _widgetColorOptions;
 
 
     partial void OnEditingColorChanged(ColorOption? value) 
@@ -732,10 +841,10 @@ public partial class SettingsViewModel : ObservableObject
         _themeService.SetWidgetColor("Points", ptsHex);
         _database?.SetAsync("Settings.Color.Points", ptsHex);
         
-        // Orb
-        var orbHex = GetColorHex(OrbColor, CustomOrbColor);
-        _themeService.SetWidgetColor("Orb", orbHex);
-        _database?.SetAsync("Settings.Color.Orb", orbHex);
+        // Orb Removed
+        // var orbHex = GetColorHex(OrbColor, CustomOrbColor);
+        // _themeService.SetWidgetColor("Orb", orbHex);
+        // _database?.SetAsync("Settings.Color.Orb", orbHex);
 
         // Accent (Global)
         var accentHex = GetColorHex(AccentColor, CustomAccentColor);
@@ -767,9 +876,9 @@ public partial class SettingsViewModel : ObservableObject
         var ptsHex = GetColorHex(PointsColor, CustomPointsColor);
         _themeService.SetWidgetColor("Points", ptsHex);
         
-        // Orb
-        var orbHex = GetColorHex(OrbColor, CustomOrbColor);
-        _themeService.SetWidgetColor("Orb", orbHex);
+        // Orb Removed
+        // var orbHex = GetColorHex(OrbColor, CustomOrbColor);
+        // _themeService.SetWidgetColor("Orb", orbHex);
 
         // Accent
         var accentHex = GetColorHex(AccentColor, CustomAccentColor);
@@ -880,9 +989,30 @@ public partial class SettingsViewModel : ObservableObject
              return;
         }
         
-        // Direct Token Generation URL if Key is known
-        var url = $"https://trello.com/1/authorize?expiration=never&scope=read,write,account&response_type=token&name=BMachine&key={TrelloApiKey}";
+        // Direct Token Generation URL (same format as list_trello)
+        var url = $"https://trello.com/1/authorize?expiration=30days&name=BMachine%20Task%20Panel&scope=read,write&response_type=token&key={TrelloApiKey}";
         OpenUrl(url);
+    }
+    
+    [RelayCommand]
+    private async Task SmartTrelloAction()
+    {
+        // Smart button: Get Token -> Connect -> Disconnect
+        if (IsTrelloConnected)
+        {
+            // Disconnect
+            await ToggleTrelloConnection();
+        }
+        else if (string.IsNullOrEmpty(TrelloToken))
+        {
+            // Get Token
+            GetTrelloToken();
+        }
+        else
+        {
+            // Connect
+            await ToggleTrelloConnection();
+        }
     }
     
     private void OpenUrl(string url)
@@ -925,58 +1055,7 @@ public partial class SettingsViewModel : ObservableObject
         get => CustomAccentColor.ToString();
         set { if (Color.TryParse(value, out Color c)) CustomAccentColor = c; }
     }
-    public string CustomOrbHex
-    {
-        get => CustomOrbColor.ToString();
-        set { if (Color.TryParse(value, out Color c)) CustomOrbColor = c; }
-    }
-
-    
-    public ObservableCollection<ColorOption> WidgetColorOptions { get; private set; } = new();
-
-    [ObservableProperty]
-    private int _orbBreathingSpeedIndex = 1; // 0=Slow, 1=Normal, 2=Fast
-
-    [ObservableProperty]
-    private bool _isOrbBreathingEnabled = true;
-
-    partial void OnIsOrbBreathingEnabledChanged(bool value)
-    {
-        if (_isInitializing) return;
-        _database?.SetAsync("Settings.Orb.Breathing", value.ToString());
-        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new Messages.OrbBreathingToggledMessage(value));
-    }
-
-    partial void OnOrbBreathingSpeedIndexChanged(int value)
-    {
-        if (_isInitializing) return;
-        _database?.SetAsync("Settings.Orb.Speed", value.ToString());
-        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new Messages.OrbSpeedChangedMessage(value));
-    }
-
-    partial void OnOrbColorChanged(ColorOption? value)
-    {
-        if (_isInitializing) return;
-        if (value == null) return;
-        var hex = GetColorHex(value, CustomOrbColor);
-        _database?.SetAsync("Settings.Color.Orb", hex);
-        
-        if (Color.TryParse(hex, out var color))
-        {
-             CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new Messages.OrbColorChangedMessage(new SolidColorBrush(color)));
-        }
-    }
-
-    partial void OnCustomOrbColorChanged(Color value)
-    {
-        if (_isInitializing) return;
-        if (IsOrbCustom) 
-        {
-             var hex = value.ToString();
-             _database?.SetAsync("Settings.Color.Orb", hex);
-             CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new Messages.OrbColorChangedMessage(new SolidColorBrush(value)));
-        }
-    }
+    // Orb Event Handlers Removed
 
     private void InitializeWidgetColors()
     {
@@ -989,7 +1068,7 @@ public partial class SettingsViewModel : ObservableObject
         RevisionColor = WidgetColorOptions[1]; // Orange
         LateColor = WidgetColorOptions[1]; // Orange
         PointsColor = WidgetColorOptions[1]; // Orange
-        OrbColor = WidgetColorOptions[0]; // Blue
+        // OrbColor = WidgetColorOptions[0]; // Blue -> Removed
         AccentColor = WidgetColorOptions[0]; // Blue
         
         // Ensure defaults are set to trigger initial update
@@ -1016,8 +1095,8 @@ public partial class SettingsViewModel : ObservableObject
         try 
         {
             if (_database == null) return;
-            var name = await _database.GetAsync<string>("UserProfile.Name");
-            UserName = name ?? "ABENG";
+            var name = await _database.GetAsync<string>("User.Name");
+            UserName = name ?? "USER";
             
             // Load Animation Setting
             var animStr = await _database.GetAsync<string>("Settings.StartupAnim");
@@ -1028,10 +1107,21 @@ public partial class SettingsViewModel : ObservableObject
             if (int.TryParse(speedStr, out int speedIdx)) SelectedStatSpeedIndex = speedIdx;
             
             // Load Theme
-            var themeStr = await _database.GetAsync<string>("Settings.Theme");
-            if (themeStr == "Light") SelectedThemeIndex = 1;
-            else SelectedThemeIndex = 0;
-            IsDarkMode = SelectedThemeIndex == 0;
+            var themeStr = await _database.GetAsync<string>("Settings.Theme"); 
+            // "Light", "Dark", "System"
+            if (themeStr == "System") SelectedThemeIndex = 2;
+            else if (themeStr == "Light") SelectedThemeIndex = 0; // Revised: 0=Light
+            else SelectedThemeIndex = 1; // Revised: 1=Dark (Default or explicit)
+            // IsDarkMode = SelectedThemeIndex == 1; // Sync legacy (Not critical if using index)
+            
+            // Load Interval Removed (Granular Seconds used now)
+            
+            // Load Dashboard Toggles
+            IsGdriveVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Gdrive") ?? "True");
+            IsPixelcutVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Pixelcut") ?? "True");
+            IsBatchVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Batch") ?? "True");
+            IsFolderLockVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Lock") ?? "True");
+            IsPointVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Point") ?? "True");
             
             // Load Batch Filter
             var filter = await _database.GetAsync<string>("Settings.Batch.Filter");
@@ -1101,10 +1191,10 @@ public partial class SettingsViewModel : ObservableObject
             IsFloatingWidgetEnabled = bool.Parse(fwEnabled);
 
              var orbBtnW = await _database.GetAsync<string>("Settings.Orb.ButtonWidth");
-            if (double.TryParse(orbBtnW, out double obw)) OrbButtonWidth = obw;
+            // if (double.TryParse(orbBtnW, out double obw)) OrbButtonWidth = obw; // Removed
             
             var orbBtnH = await _database.GetAsync<string>("Settings.Orb.ButtonHeight");
-            if (double.TryParse(orbBtnH, out double obh)) OrbButtonHeight = obh;
+            // if (double.TryParse(orbBtnH, out double obh)) OrbButtonHeight = obh; // Removed
             
             // Allow time for ViewModel to bind, then broadcast initial state
             // (Actually FloatingWidgetViewModel should read form DB too, but message sync prevents drift)
@@ -1115,19 +1205,16 @@ public partial class SettingsViewModel : ObservableObject
             await LoadWidgetColorAsync("Settings.Color.Revision", c => RevisionColor = c, hex => CustomRevisionColor = Color.Parse(hex));
             await LoadWidgetColorAsync("Settings.Color.Late", c => LateColor = c, hex => CustomLateColor = Color.Parse(hex));
             await LoadWidgetColorAsync("Settings.Color.Points", c => PointsColor = c, hex => CustomPointsColor = Color.Parse(hex));
-            await LoadWidgetColorAsync("Settings.Color.Orb", c => OrbColor = c, hex => CustomOrbColor = Color.Parse(hex));
+            // Orb Removed
             
             // Load Orb Speed
-            var orbSpeedStr = await _database.GetAsync<string>("Settings.Orb.Speed");
-            if (int.TryParse(orbSpeedStr, out int orbSpeedIdx)) OrbBreathingSpeedIndex = orbSpeedIdx;
-            else OrbBreathingSpeedIndex = 1; // Default Normal
-            
-            var orbBreathStr = await _database.GetAsync<string>("Settings.Orb.Breathing");
-            IsOrbBreathingEnabled = string.IsNullOrEmpty(orbBreathStr) || bool.Parse(orbBreathStr);
+            // Load Orb Speed/Breath -> Removed
+
             // --------------------------
 
             // Load Integrations
-            TrelloApiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
+            var storedKey = await _database.GetAsync<string>("Trello.ApiKey");
+            TrelloApiKey = !string.IsNullOrEmpty(storedKey) ? storedKey : "47f95e83d2fdb00fb7b3da2f691f0e75";
             TrelloToken = await _database.GetAsync<string>("Trello.Token") ?? "";
             
             var trelloConnStr = await _database.GetAsync<string>("Trello.IsConnected");
@@ -1136,8 +1223,11 @@ public partial class SettingsViewModel : ObservableObject
             GoogleCredsPath = await _database.GetAsync<string>("Google.CredsPath") ?? "";
             GoogleSheetId = await _database.GetAsync<string>("Google.SheetId") ?? "";
             SheetName = await _database.GetAsync<string>("Google.SheetName") ?? "";
-            SheetColumn = await _database.GetAsync<string>("Google.SheetColumn") ?? "";
-            SheetRow = await _database.GetAsync<string>("Google.SheetRow") ?? "";
+            SheetColumn = await _database.GetAsync<string>("Google.SheetColumn") ?? "C";
+            SheetRow = await _database.GetAsync<string>("Google.SheetRow") ?? "3";
+
+            var lbRange = await _database.GetAsync<string>("Leaderboard.Range");
+            if (!string.IsNullOrEmpty(lbRange)) LeaderboardRange = lbRange;
             
             if (IsTrelloConnected && !string.IsNullOrEmpty(TrelloApiKey) && !string.IsNullOrEmpty(TrelloToken))
             {
@@ -1195,8 +1285,13 @@ public partial class SettingsViewModel : ObservableObject
             await LoadWidgetColorAsync("Settings.Color.Revision", c => RevisionColor = c, hex => CustomRevisionColor = Color.Parse(hex));
             await LoadWidgetColorAsync("Settings.Color.Late", c => LateColor = c, hex => CustomLateColor = Color.Parse(hex));
             await LoadWidgetColorAsync("Settings.Color.Points", c => PointsColor = c, hex => CustomPointsColor = Color.Parse(hex));
-            await LoadWidgetColorAsync("Settings.Color.Orb", c => OrbColor = c, hex => CustomOrbColor = Color.Parse(hex));
             await LoadWidgetColorAsync("Settings.Accent", c => AccentColor = c, hex => CustomAccentColor = Color.Parse(hex));
+            
+            // Load Intervals (Seconds)
+            EditingRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Editing") ?? "60");
+            RevisionRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Revision") ?? "60");
+            LateRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Late") ?? "60");
+            PointsRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Points") ?? "60");
         }
         catch (Exception ex)
         {
@@ -1206,6 +1301,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             _isInitializing = false;
             SyncThemeOnly();
+            _ = LoadExtensionsAsync();
         }
     }
 
@@ -1245,175 +1341,166 @@ public partial class SettingsViewModel : ObservableObject
     
     // ------------------------------------
     
-    // --- Extension Management Logic ---
-    
-    private async Task LoadExtensionsAsync()
+    // --- Extensions Logic ---
+    [ObservableProperty] private ObservableCollection<ExtensionItem> _extensions = new();
+
+    public async Task LoadExtensionsAsync()
     {
-        await Task.Run(async () => 
+        Extensions.Clear();
+        var pluginsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins");
+        if (!Directory.Exists(pluginsDir)) Directory.CreateDirectory(pluginsDir);
+
+        var files = Directory.GetFiles(pluginsDir, "*.dll");
+        foreach (var file in files)
         {
-            var tempList = new List<ExtensionViewModel>();
-            var pluginsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
-            if (!Directory.Exists(pluginsDir)) Directory.CreateDirectory(pluginsDir);
-
-            // Load active dlls
-            var dlls = Directory.GetFiles(pluginsDir, "*.dll");
-            foreach(var dll in dlls)
-            {
-                 tempList.Add(CreateExtensionViewModel(dll, true));
-            }
-            
-            // Load disabled (e.g. .disabled)
-            var disabled = Directory.GetFiles(pluginsDir, "*.disabled");
-            foreach(var file in disabled)
-            {
-                 tempList.Add(CreateExtensionViewModel(file, false));
-            }
-
-            // Update UI
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
-            {
-                Extensions.Clear();
-                foreach(var item in tempList) Extensions.Add(item);
-            });
-        });
-    }
-    
-    private ExtensionViewModel CreateExtensionViewModel(string path, bool isEnabled)
-    {
-        var fileName = Path.GetFileName(path);
-        // For disabled files, remove the .disabled extension for display if needed, 
-        // but here we just want the base DLL name usually.
-        // If file is "MyPlugin.dll.disabled", Name -> "MyPlugin.dll"
-        var displayName = isEnabled ? fileName : Path.GetFileNameWithoutExtension(fileName);
+             var name = Path.GetFileNameWithoutExtension(file);
+             var item = new ExtensionItem
+             {
+                 Name = name,
+                 FullPath = file,
+                 IsEnabled = true,
+                 Description = "External Extension",
+                 Author = "Unknown",
+                 Version = "1.0",
+                 ToggleAction = (i) => ToggleExtension(i),
+                 DeleteAction = (i) => DeleteExtension(i)
+             };
+             Extensions.Add(item);
+        }
         
-        // Mocking LoadedPlugin wrapping since we don't have the real context fully set up here
-        // We will create a dummy LoadedPlugin-like structure or just use ExtensionViewModel properly.
-        // Wait, ExtensionViewModel expects LoadedPlugin. I need to modify ExtensionViewModel constructor OR
-        // create a dummy LoadedPlugin.
-        
-        // Let's instantiate a dummy Plugin for the view model 
-        var dummyPlugin = new BMachine.Core.PluginSystem.LoadedPlugin 
-        { 
-            Plugin = new MockPlugin { Id = displayName, Name = displayName, Version = "1.0.0" },
-            Assembly = System.Reflection.Assembly.GetExecutingAssembly(), // Dummy
-            LoadedAt = DateTime.Now
-        };
-
-        var vm = new ExtensionViewModel(dummyPlugin, OnToggleExtension, OnDeleteExtension);
-        vm.IsEnabled = isEnabled;
-        // Hack: Store the real path somewhere? 
-        // We use Id as the filename for now in this simple implementation.
-        return vm;
-    }
-    
-    private class MockPlugin : BMachine.SDK.IPlugin
-    {
-        public string Id { get; set; } = "";
-        public string Name { get; set; } = "";
-        public string Version { get; set; } = "";
-        public string Description { get; set; } = ""; // Missing
-        public string Icon { get; set; } = ""; // Missing
-        
-        public void Initialize(BMachine.SDK.IPluginContext context) {}
-        public void Shutdown() {}
-        public IEnumerable<BMachine.SDK.IWidget> GetDashboardWidgets() => Enumerable.Empty<BMachine.SDK.IWidget>();
-        public IEnumerable<BMachine.SDK.IMenuEntry> GetMenuEntries() => Enumerable.Empty<BMachine.SDK.IMenuEntry>();
+        var disabledFiles = Directory.GetFiles(pluginsDir, "*.dll.disabled");
+        foreach (var file in disabledFiles)
+        {
+             var realName = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(file));
+             var item = new ExtensionItem
+             {
+                 Name = realName,
+                 FullPath = file,
+                 IsEnabled = false,
+                 Description = "External Extension (Disabled)",
+                 Author = "Unknown",
+                 Version = "1.0",
+                 ToggleAction = (i) => ToggleExtension(i),
+                 DeleteAction = (i) => DeleteExtension(i)
+             };
+             Extensions.Add(item);
+        }
     }
 
     [RelayCommand]
     private async Task AddExtension()
     {
-        if (PickExtensionFileFunc == null) return;
-        
-        var sourceFile = await PickExtensionFileFunc();
-        if (string.IsNullOrEmpty(sourceFile)) return;
-        
-        var pluginsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
-        if (!Directory.Exists(pluginsDir)) Directory.CreateDirectory(pluginsDir);
-        
-        var fileName = Path.GetFileName(sourceFile);
-        var destPath = Path.Combine(pluginsDir, fileName);
-        
+         var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d ? d.MainWindow : null);
+         if (topLevel == null) return;
+         
+         var files = await topLevel.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+         {
+             Title = "Select Extension DLL",
+             AllowMultiple = false,
+             FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType("DLL") { Patterns = new[] { "*.dll" } } }
+         });
+         
+         if (files.Count > 0)
+         {
+             var source = files[0].Path.LocalPath;
+             var dest = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", Path.GetFileName(source));
+             if (!Directory.Exists(Path.GetDirectoryName(dest))) Directory.CreateDirectory(Path.GetDirectoryName(dest));
+             
+             File.Copy(source, dest, true);
+             await LoadExtensionsAsync();
+             
+             StatusMessage = "Extension Added!";
+             IsStatusVisible = true;
+             await Task.Delay(2000);
+             IsStatusVisible = false;
+         }
+    }
+
+    private void ToggleExtension(ExtensionItem item)
+    {
         try
         {
-            File.Copy(sourceFile, destPath, true);
-            _ = LoadExtensionsAsync(); // Refresh Async
-            StatusMessage = "Extension Added!";
-            IsStatusVisible = true;
-            await Task.Delay(2000);
-            IsStatusVisible = false;
-        }
-        catch(Exception ex)
-        {
-            StatusMessage = "Error adding extension";
-            Console.WriteLine(ex.Message);
-        }
-    }
-    
-    private void OnToggleExtension(ExtensionViewModel vm)
-    {
-        var pluginsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
-        var fileName = vm.Name; // Assuming Name holds filenames relative to Plugins dir
-        
-        if (vm.IsEnabled)
-        {
-            // Disable it: Rename .dll -> .disabled
-            var currentPath = Path.Combine(pluginsDir, fileName);
-            var newPath = currentPath + ".disabled";
-            if (File.Exists(currentPath))
+            if (item.IsEnabled)
             {
-                try {
-                    File.Move(currentPath, newPath, true);
-                    vm.IsEnabled = false;
-                } catch {}
+                // Enable: Rename .disabled -> .dll
+                if (item.FullPath.EndsWith(".disabled")) 
+                {
+                     var newPath = item.FullPath.Substring(0, item.FullPath.Length - 9);
+                     if (File.Exists(newPath)) File.Delete(newPath); // Overwrite?
+                     File.Move(item.FullPath, newPath);
+                     item.FullPath = newPath;
+                }
+            }
+            else
+            {
+                // Disable: Rename .dll -> .disabled
+                if (!item.FullPath.EndsWith(".disabled"))
+                {
+                     var newPath = item.FullPath + ".disabled";
+                     if (File.Exists(newPath)) File.Delete(newPath);
+                     File.Move(item.FullPath, newPath);
+                     item.FullPath = newPath;
+                }
             }
         }
-        else
+        catch (Exception ex) 
         {
-             // Enable: Rename .disabled -> .dll
-             // Current Name is "MyPlugin.dll", but file on disk is "MyPlugin.dll.disabled"
-             var currentPath = Path.Combine(pluginsDir, fileName + ".disabled");
-             var newPath = Path.Combine(pluginsDir, fileName);
-             if (File.Exists(currentPath))
-             {
-                 try {
-                     File.Move(currentPath, newPath, true);
-                     vm.IsEnabled = true;
-                 } catch {}
-             }
+            Console.WriteLine($"Error toggling extension: {ex.Message}");
+            // Revert UI if failed (simple visual revert)
+            item.IsEnabled = !item.IsEnabled; 
         }
-        
-        // Reload to refresh list state properly
-        // Reload to refresh list state properly
-        _ = LoadExtensionsAsync();
     }
     
-    private void OnDeleteExtension(ExtensionViewModel vm)
+    private void DeleteExtension(ExtensionItem item)
     {
-        var pluginsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
-        var fileName = vm.Name; 
-        
-        // Check both .dll and .disabled
-        var pathDll = Path.Combine(pluginsDir, fileName);
-        var pathDisabled = Path.Combine(pluginsDir, fileName + ".disabled");
-        
-        try
-        {
-            if (File.Exists(pathDll)) File.Delete(pathDll);
-            if (File.Exists(pathDisabled)) File.Delete(pathDisabled);
-            
-            _ = LoadExtensionsAsync();
-        }
-        catch {}
+         try
+         {
+             if (File.Exists(item.FullPath)) File.Delete(item.FullPath);
+             Extensions.Remove(item);
+         }
+         catch {}
     }
+
+    public partial class ExtensionItem : ObservableObject
+    {
+        [ObservableProperty] private string _name = "";
+        [ObservableProperty] private string _description = "";
+        [ObservableProperty] private string _version = "";
+        [ObservableProperty] private string _author = "";
+        [ObservableProperty] private bool _isEnabled;
+        public string FullPath { get; set; } = "";
+        
+        public Action<ExtensionItem>? ToggleAction { get; set; }
+        public Action<ExtensionItem>? DeleteAction { get; set; }
+        
+        [RelayCommand]
+        private void Toggle() => ToggleAction?.Invoke(this);
+        
+        [RelayCommand]
+        private void Delete() => DeleteAction?.Invoke(this);
+    }
+        
+
 
     private bool _isRefreshingTrello;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TrelloButtonText))]
+    [NotifyPropertyChangedFor(nameof(SmartTrelloButtonText))]
     private bool _isTrelloConnected;
 
     public string TrelloButtonText => IsTrelloConnected ? "Disconnect" : "Connect";
+    
+    // Smart button: Get Token -> Connect -> Disconnect
+    public string SmartTrelloButtonText
+    {
+        get
+        {
+            if (IsTrelloConnected) return "Disconnect";
+            if (string.IsNullOrEmpty(TrelloToken)) return "Get Token";
+            return "Connect";
+        }
+    }
 
     [RelayCommand]
     private async Task ToggleTrelloConnection()
@@ -1474,6 +1561,31 @@ public partial class SettingsViewModel : ObservableObject
         
         await Task.Delay(2000);
         IsStatusVisible = false;
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsTrelloKeyMissing))]
+    [NotifyPropertyChangedFor(nameof(IsTrelloKeyProvided))]
+    private string _trelloApiKey = ""; // Manual Input
+
+    public bool IsTrelloKeyMissing => string.IsNullOrEmpty(TrelloApiKey);
+    public bool IsTrelloKeyProvided => !string.IsNullOrEmpty(TrelloApiKey);
+
+    partial void OnTrelloApiKeyChanged(string value) => _database?.SetAsync("Trello.ApiKey", value);
+    partial void OnTrelloTokenChanged(string value) => _database?.SetAsync("Trello.Token", value);
+
+    [RelayCommand]
+    private void OpenTrelloAdmin()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://trello.com/power-ups/admin/",
+                UseShellExecute = true
+            });
+        }
+        catch { }
     }
 
     [RelayCommand]
@@ -1633,6 +1745,86 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
     
+    private async Task RefreshTrelloData()
+    {
+        if (string.IsNullOrEmpty(TrelloApiKey) || string.IsNullOrEmpty(TrelloToken)) return;
+
+        try
+        {
+            // Fetch boards
+            using var client = new System.Net.Http.HttpClient();
+            var boardsUrl = $"https://api.trello.com/1/members/me/boards?key={TrelloApiKey}&token={TrelloToken}&fields=name,id";
+            var response = await client.GetStringAsync(boardsUrl);
+
+            using var doc = System.Text.Json.JsonDocument.Parse(response);
+            var root = doc.RootElement;
+            
+            var boards = new List<TrelloItem>();
+            if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var element in root.EnumerateArray())
+                {
+                    boards.Add(new TrelloItem 
+                    { 
+                        Id = element.GetProperty("id").GetString() ?? "", 
+                        Name = element.GetProperty("name").GetString() ?? "" 
+                    });
+                }
+            }
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                MockBoards.Clear();
+                foreach (var board in boards)
+                {
+                    MockBoards.Add(board);
+                }
+
+                // Set selected boards based on saved IDs (this will trigger OnSelectedXXXBoardChanged)
+                SelectedEditingBoard = MockBoards.FirstOrDefault(b => b.Id == EditingBoardId);
+                SelectedRevisionBoard = MockBoards.FirstOrDefault(b => b.Id == RevisionBoardId);
+                SelectedLateBoard = MockBoards.FirstOrDefault(b => b.Id == LateBoardId);
+                SelectedQcBoard = MockBoards.FirstOrDefault(b => b.Id == QcBoardId);
+
+                // Also fetch and set selected lists
+                if (SelectedEditingBoard != null)
+                {
+                    _ = FetchListsAsync(SelectedEditingBoard.Id, EditingLists).ContinueWith(async _ =>
+                    {
+                        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            SelectedEditingList = EditingLists.FirstOrDefault(l => l.Id == EditingListId);
+                        });
+                    });
+                }
+                if (SelectedRevisionBoard != null)
+                {
+                    _ = FetchListsAsync(SelectedRevisionBoard.Id, RevisionLists).ContinueWith(async _ =>
+                    {
+                        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            SelectedRevisionList = RevisionLists.FirstOrDefault(l => l.Id == RevisionListId);
+                        });
+                    });
+                }
+                if (SelectedLateBoard != null)
+                {
+                    _ = FetchListsAsync(SelectedLateBoard.Id, LateLists).ContinueWith(async _ =>
+                    {
+                        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            SelectedLateList = LateLists.FirstOrDefault(l => l.Id == LateListId);
+                        });
+                    });
+                }
+            });
+        }
+        catch (Exception ex) 
+        {
+            Console.WriteLine($"Error refreshing Trello data: {ex.Message}");
+        }
+    }
+    
     partial void OnSelectedLanguageIndexChanged(int value)
     {
         if (_languageService == null) return;
@@ -1688,6 +1880,7 @@ public partial class SettingsViewModel : ObservableObject
             await _database.SetAsync("Google.SheetName", SheetName);
             await _database.SetAsync("Google.SheetColumn", SheetColumn);
             await _database.SetAsync("Google.SheetRow", SheetRow);
+            await _database.SetAsync("Leaderboard.Range", LeaderboardRange);
             
             await _database.SetAsync("Trello.EditingBoardId", EditingBoardId);
             await _database.SetAsync("Trello.EditingListId", EditingListId);
@@ -1697,7 +1890,11 @@ public partial class SettingsViewModel : ObservableObject
             await _database.SetAsync("Trello.LateListId", LateListId);
             await _database.SetAsync("Trello.QcBoardId", QcBoardId);
             
-            await _database.SetAsync("Settings.Theme", SelectedThemeIndex == 1 ? "Light" : "Dark");
+            string themeVal = "Dark";
+            if (SelectedThemeIndex == 0) themeVal = "Light";
+            else if (SelectedThemeIndex == 2) themeVal = "System";
+            
+            await _database.SetAsync("Settings.Theme", themeVal);
             if (AccentColor != null)
                 await _database.SetAsync("Settings.Accent", GetColorHex(AccentColor, CustomAccentColor));
             
@@ -1716,9 +1913,6 @@ public partial class SettingsViewModel : ObservableObject
             await _database.SetAsync("Settings.Color.Revision", GetColorHex(RevisionColor, CustomRevisionColor));
             await _database.SetAsync("Settings.Color.Late", GetColorHex(LateColor, CustomLateColor));
             await _database.SetAsync("Settings.Color.Points", GetColorHex(PointsColor, CustomPointsColor));
-            await _database.SetAsync("Settings.Color.Orb", GetColorHex(OrbColor, CustomOrbColor));
-            await _database.SetAsync("Settings.Orb.Speed", OrbBreathingSpeedIndex.ToString());
-            await _database.SetAsync("Settings.Orb.Breathing", IsOrbBreathingEnabled.ToString());
             
             // Notify Dashboard (We'll use a specific message)
             CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new RefreshDashboardMessage());

@@ -52,116 +52,82 @@
     </UserControl.Styles>
 
     
-    <Grid ColumnDefinitions="*, 0, Auto">
-        
-        <!-- MAIN DASHBOARD AREA (Content - NOW LEFT) -->
-        <Grid Grid.Column="0" RowDefinitions="Auto, Auto, *" MinWidth="479">
-            <!-- HEADER -->
-            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="20,20,20,10">
-                <!-- Profile -->
-                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                     <Border Width="38" Height="38" CornerRadius="19" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                         <Panel>
-                             <shapes:Path Data="{StaticResource IconUser}" Width="20" Height="20" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                          IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNull}}"/>
-                             <Image Source="{Binding UserAvatar}" Stretch="UniformToFill"
-                                    IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                         </Panel>
-                     </Border>
-                     <StackPanel VerticalAlignment="Center">
-                         <TextBlock Text="{Binding UserName}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14"/>
-                         <TextBlock Text="{Binding Greeting}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                     </StackPanel>
-                </StackPanel>
+    <Grid ColumnDefinitions="Auto, *, 0, Auto">
+        <!-- COMPACT SIDEBAR (LEFT) -->
+        <Border Grid.Column="0" 
+                Background="{DynamicResource BackgroundBrush}"
+                BorderThickness="0,0,1,0"
+                BorderBrush="{DynamicResource CardBorderBrush}"
+                Width="50">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="8" OffsetX="2" OffsetY="0" Color="#20000000" Opacity="1"/>
+            </Border.Effect>
+            <Grid RowDefinitions="Auto, *, Auto">
+                <!-- Profile Picture (Top) -->
+                <Border Grid.Row="0" Width="36" Height="36" CornerRadius="8" 
+                        Background="{DynamicResource CardBackgroundBrush}" 
+                        ClipToBounds="True" Margin="10,16,10,16"
+                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                    <Panel>
+                        <shapes:Path Data="{StaticResource IconUser}" Width="20" Height="20" 
+                                   Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNull}}"/>
+                        <Image Source="{Binding UserAvatar}" Stretch="UniformToFill"
+                               IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </Panel>
+                </Border>
                 
-                <!-- Actions -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <!-- Activity Panel Toggle -->
-                        <ToggleButton Command="{Binding ToggleActivityPanelCommand}" 
-                                      IsChecked="{Binding IsActivityPanelOpen, Mode=OneWay}"
-                                      Width="32" Height="32" CornerRadius="8" Padding="0"
-                                      ToolTip.Tip="Activity Log" Cursor="Hand">
-                            <ToggleButton.Styles>
-                                <Style Selector="ToggleButton">
-                                    <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                </Style>
-                                <Style Selector="ToggleButton Path">
-                                     <Setter Property="Fill" Value="White"/>
-                                </Style>
-                                <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                    <Setter Property="Opacity" Value="0.9"/>
-                                </Style>
-                                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                    <Setter Property="Opacity" Value="0.8"/>
-                                </Style>
-                                <Style Selector="ToggleButton:checked Path">
-                                     <Setter Property="Fill" Value="White"/>
-                                </Style>
-                            </ToggleButton.Styles>
-                            <shapes:Path Data="M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.28,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3Z" 
-                                         Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </ToggleButton>
-                        
-                        <!-- Log Panel Toggle -->
-                        <ToggleButton Command="{Binding ToggleLogPanelCommand}" 
-                                      IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
-                                      Width="32" Height="32" CornerRadius="8" Padding="0"
-                                      ToolTip.Tip="Log Panel" Cursor="Hand">
-                            <ToggleButton.Styles>
-                                <Style Selector="ToggleButton">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                </Style>
-                                <Style Selector="ToggleButton Path">
-                                     <Setter Property="Fill" Value="{DynamicResource TextPrimaryBrush}"/>
-                                </Style>
-                                <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                                </Style>
-                                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                </Style>
-                                <Style Selector="ToggleButton:checked Path">
-                                     <Setter Property="Fill" Value="White"/>
-                                </Style>
-                            </ToggleButton.Styles>
-                            <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
-                                         Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </ToggleButton>
-
-                        <!-- Update Button (Visible Only When Update Available) -->
-                        <Button Command="{Binding DataContext.OpenUpdatePageCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
-                                IsVisible="{Binding DataContext.IsUpdateAvailable, RelativeSource={RelativeSource AncestorType=Window}}"
-                                Width="32" Height="32" CornerRadius="8" Padding="0" 
-                                Background="{DynamicResource AccentGreenBrush}" BorderThickness="0" Cursor="Hand" 
-                                ToolTip.Tip="New Update Available!">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="#2ECC71"/>
-                                </Style>
-                            </Button.Styles>
-                            <shapes:Path Data="{StaticResource IconDownload}" Width="16" Height="16" Stretch="Uniform" Fill="White"/>
-                        </Button>
-
-                        <!-- Settings Button -->
-                        <Button Click="OnSettingsClick" 
-                                Width="32" Height="32" CornerRadius="8" Padding="0" 
-                                Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Cursor="Hand" 
-                                ToolTip.Tip="Settings">
-                            <shapes:Path Data="{StaticResource IconSettings}" Width="16" Height="16" Stretch="Uniform" Fill="White"/>
-                        </Button>
-                    </StackPanel>
+                <!-- Middle Spacer -->
+                <Border Grid.Row="1"/>
+                
+                <!-- Bottom Buttons -->
+                <StackPanel Grid.Row="2" Spacing="12" HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <!-- Terminal/Log Button -->
+                    <ToggleButton Command="{Binding ToggleLogPanelCommand}" 
+                                  IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
+                                  Width="36" Height="36" Padding="0"
+                                  Background="Transparent" BorderThickness="0"
+                                  CornerRadius="8" Cursor="Hand"
+                                  ToolTip.Tip="Terminal">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                        <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
+                                     Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                    
+                    <!-- Settings Button -->
+                    <Button Click="OnSettingsClick" 
+                            Width="36" Height="36" Padding="0" 
+                            Background="Transparent" BorderThickness="0" 
+                            CornerRadius="8" Cursor="Hand" 
+                            ToolTip.Tip="Settings">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                        <shapes:Path Data="{StaticResource IconSettings}" Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
+                    </Button>
                 </StackPanel>
             </Grid>
-            
-            <!-- NAVIGATION BAR -->
-            <Border Grid.Row="1" HorizontalAlignment="Center" Background="{DynamicResource CardBackgroundBrush}" 
-                    CornerRadius="12" Padding="4" Margin="20,0,20,2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+        </Border>
+        
+        <!-- Vertical Separator (like terminal) -->
+        <Border Grid.Column="0" Width="1" Background="#33FFFFFF" HorizontalAlignment="Right" Margin="0" ZIndex="10"/>
+        
+        <!-- MAIN DASHBOARD AREA (Content) -->
+        <Grid Grid.Column="1" RowDefinitions="Auto, *" MinWidth="479">
+            <!-- NAVIGATION BAR (Horizontal, at top) -->
+            <Border Grid.Row="0" HorizontalAlignment="Center" Background="{DynamicResource CardBackgroundBrush}" 
+                    CornerRadius="12" Padding="4" Margin="12,12,12,6" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                 <StackPanel Orientation="Horizontal" Spacing="0">
                     <!-- GDrive Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
+                                 IsVisible="{Binding IsGdriveVisible}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
                                  Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
@@ -193,6 +159,7 @@
 
                     <!-- Pixelcut Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsPixelcutTabSelected}"
+                                 IsVisible="{Binding IsPixelcutVisible}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
                                  Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
@@ -255,6 +222,7 @@
 
                     <!-- Batch Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}"
+                                 IsVisible="{Binding IsBatchVisible}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
                                  Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
@@ -286,10 +254,11 @@
 
                     <!-- Locker Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}"
+                                 IsVisible="{Binding IsFolderLockerVisible}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
                                  Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                        <PathIcon Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8H17V6A5,5 0 0,0 12,1H12A5,5 0 0,0 7,6V8H6A2,2 0 0,0 4,10V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V10A2,2 0 0,0 18,8M12,13A2,2 0 0,1 10,15A2,2 0 0,1 12,17A2,2 0 0,1 14,15A2,2 0 0,1 12,13M12,1A5,5 0 0,1 17,6V8H7V6A5,5 0 0,1 12,1Z"
+                        <PathIcon Data="M12,17C10.89,17 10,16.1 10,15C10,13.89 10.89,13 12,13A2,2 0 0,1 14,15A2,2 0 0,1 12,17M18,20V10H6V20H18M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V10C4,8.89 4.89,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"
                                   Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
                         <RadioButton.Template>
                             <ControlTemplate>
@@ -319,7 +288,7 @@
             </Border>
             
             <!-- MAIN CONTENT AREA -->
-            <Grid Grid.Row="2" ClipToBounds="True">
+            <Grid Grid.Row="1" ClipToBounds="True">
                 
                 <!-- DASHBOARD TAB CONTENT -->
                 <Grid IsVisible="{Binding IsDashboardTabSelected}" Margin="20,0,20,0">
@@ -340,7 +309,8 @@
                                                      Color="{DynamicResource AccentLateBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenLateListCommand}" WindowCommand="{Binding OpenLateWindowCommand}"/>
                                 <controls:StatWidget Grid.Column="3" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
-                                                     Color="{DynamicResource AccentPointsBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}"/>
+                                                     Color="{DynamicResource AccentPointsBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}"
+                                                     WindowCommand="{Binding OpenLeaderboardWindowCommand}"/>
                             </Grid>
                         </Viewbox>
                     </Border>
@@ -520,11 +490,11 @@
     </Grid>
 
     <!-- GRID SPLITTER (DISABLED) -->
-    <GridSplitter Grid.Column="1" Width="0" HorizontalAlignment="Stretch" Background="Transparent" 
+    <GridSplitter Grid.Column="2" Width="0" HorizontalAlignment="Stretch" Background="Transparent" 
                   ResizeDirection="Columns" IsVisible="False"/>
 
     <!-- LOG PANEL (NOW RIGHT) -->
-    <views:LogPanelSidebar Grid.Column="2" Width="279"
+    <views:LogPanelSidebar Grid.Column="3" Width="279"
                            IsVisible="{Binding IsLogPanelOpen}" 
                            VerticalAlignment="Stretch"/>
 </Grid>

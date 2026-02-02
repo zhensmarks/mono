@@ -1,9 +1,13 @@
 {
-  "ProxyAddress": null,
-  "WindowWidth": 817,
-  "WindowHeight": 425,
-  "WindowX": -7,
-  "WindowY": 583,
+  "ProxyAddress": "",
+  "WindowWidth": 480,
+  "WindowHeight": 389,
+  "WindowX": 0,
+  "WindowY": 0,
   "IsMaximized": false,
-  "PythonScriptPath": null
+  "PythonScriptPath": null,
+  "Theme": "Light",
+  "AccentColor": "#1840B2",
+  "CustomDarkBackground": "#000000",
+  "CustomLightBackground": "#d7d7d7"
 }

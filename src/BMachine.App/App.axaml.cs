@@ -35,6 +35,8 @@ public partial class App : Application,
         Console.WriteLine("[App] Framework Initialization Started");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+
+
             try 
             {
                 // 1. Show Splash Screen
@@ -89,11 +91,13 @@ public partial class App : Application,
 
             var bootstrapper = new Bootstrapper(_db);
             var progress = new Progress<double>(p => splashVm.Progress = p);
-            var status = new Progress<string>(s => splashVm.StatusText = s);
+            IProgress<string> status = new Progress<string>(s => splashVm.StatusText = s);
 
             // Run initialization
             await bootstrapper.InitializeAsync(progress, status);
             
+
+
             // 3. Create Main Window
             var mainWindow = new BMachine.App.Views.MainWindow(); // Fully qualified to avoid namespace conflict locally
             mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(_db, _logService);
@@ -103,6 +107,10 @@ public partial class App : Application,
             mainWindow.Show();
             splashWindow.Close();
             _mainWindow = mainWindow;
+            
+            // Hook Focus Events
+            mainWindow.Activated += (s, e) => WeakReferenceMessenger.Default.Send(new AppFocusChangedMessage(true));
+            mainWindow.Deactivated += (s, e) => WeakReferenceMessenger.Default.Send(new AppFocusChangedMessage(false));
             
             // Note: ShutdownMode is OnLastWindowClose by default? Or OnMainWindowClose. 
             // Since we swapped MainWindow, it should be fine.
@@ -133,6 +141,9 @@ public partial class App : Application,
             
             // Register as Recipient
             WeakReferenceMessenger.Default.RegisterAll(this);
+            
+            // Start Context Menu Listener (Named Pipe)
+            // Removed as per request
         }
         catch (Exception ex)
         {

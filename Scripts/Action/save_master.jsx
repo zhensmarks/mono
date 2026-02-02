@@ -2,228 +2,182 @@
 
 /*
     unified_save_master.jsx
-    Gabungan dari: sep_jpg_psd.jsx, sep_png_psd.jsx, dan sepPP.jsx
     Fitur: Dialog pilihan mode untuk simpan master + export format lain.
-    Update: Added Loop & Back Navigation.
+    Update: Added Custom Folder UI & Window Persistence.
 */
 
-(function () {
+function loadSettings() {
+    var settingsFile = new File(Folder.userData + "/save_master_settings.json");
+    if (settingsFile.exists) {
+        try {
+            settingsFile.open("r");
+            var content = settingsFile.read();
+            settingsFile.close();
+            return eval("(" + content + ")");
+        } catch (e) { }
+    }
+    return { x: -1, y: -1 };
+}
+
+function saveSettings(x, y) {
+    var settingsFile = new File(Folder.userData + "/save_master_settings.json");
+    try {
+        settingsFile.open("w");
+        settingsFile.write('{"x":' + x + ',"y":' + y + '}');
+        settingsFile.close();
+    } catch (e) { }
+}
+
+function main() {
     // === KONFIGURASI ===
     var JPG_QUALITY = 12;
 
-    // === UTILS: Progress & Result Reporting ===
-    function reportProgress(current, total, filename) {
-        var f = new File(Folder.temp + "/bmachine_progress.json");
-        f.open("w");
-        f.write('{"current": ' + current + ', "total": ' + total + ', "file": "' + filename + '", "status": "processing"}');
-        f.close();
-    }
-
-    function writeResult(title, lines) {
-        var f = new File(Folder.temp + "/bmachine_result.json");
-        f.open("w");
-        f.encoding = "UTF-8";
-        var escaped = [];
-        for (var i = 0; i < lines.length; i++) {
-            // Escape backslashes and double quotes
-            var esc = lines[i].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-            escaped.push('"' + esc + '"');
-        }
-        f.write('{"type":"result","title":"' + title + '","lines":[' + escaped.join(',') + ']}');
-        f.close();
-    }
-
-    // === UTILS: Photoshop Helpers ===
-    function saveJPG(doc, filePath) {
-        var jpgOptions = new JPEGSaveOptions();
-        jpgOptions.quality = JPG_QUALITY;
-        jpgOptions.embedColorProfile = true;
-        jpgOptions.formatOptions = FormatOptions.STANDARDBASELINE;
-        jpgOptions.scans = 3;
-        doc.saveAs(new File(filePath), jpgOptions, true, Extension.LOWERCASE);
-    }
-
-    function savePNG(doc, filePath) {
-        var pngOptions = new PNGSaveOptions();
-        // pngOptions.compression = 0; // Default is fine
-        // pngOptions.interlaced = false; 
-        doc.saveAs(new File(filePath), pngOptions, true, Extension.LOWERCASE);
-    }
-
-    function createFolderIfNotExist(folderPath) {
-        var folder = new Folder(folderPath);
-        if (!folder.exists) {
-            folder.create();
-        }
-        return folder;
-    }
-
-    // === UTILS: Window Position Persistence ===
-    function loadWindowLocation() {
-        var f = new File(Folder.temp + "/bmachine_save_master_pos.json");
-        if (f.exists) {
-            f.open("r");
-            var data = f.read();
-            f.close();
-            try {
-                // simple parse
-                var obj = eval("(" + data + ")");
-                if (obj && typeof obj.x === 'number' && typeof obj.y === 'number') {
-                    return obj;
-                }
-            } catch (e) { }
-        }
-        return null;
-    }
-
-    function saveWindowLocation(loc) {
-        if (!loc) return;
-        var f = new File(Folder.temp + "/bmachine_save_master_pos.json");
-        f.open("w");
-        f.write('{"x": ' + Math.round(loc.x) + ', "y": ' + Math.round(loc.y) + '}');
-        f.close();
-    }
-
-    // Logic Crop Pas Foto (dari sepPP.jsx)
-    function createCroppedVersion(sourceDoc, targetFolder, widthCm, heightCm) {
-        var baseName = sourceDoc.name.replace(/\.[^.]+$/, "");
-        var tempDoc = sourceDoc.duplicate();
-        app.activeDocument = tempDoc;
-
-        var curW = tempDoc.width.as('px');
-        var curH = tempDoc.height.as('px');
-        var targetRatio = widthCm / heightCm;
-
-        var cropW, cropH;
-        if (curW / curH > targetRatio) {
-            cropH = curH;
-            cropW = Math.round(curH * targetRatio);
-        } else {
-            cropW = curW;
-            cropH = Math.round(curW / targetRatio);
-        }
-
-        var left = Math.round((curW - cropW) / 2);
-        var top = Math.round((curH - cropH) / 2);
-        var right = left + cropW;
-        var bottom = top + cropH;
-
-        try {
-            tempDoc.crop([UnitValue(left, 'px'), UnitValue(top, 'px'), UnitValue(right, 'px'), UnitValue(bottom, 'px')]);
-        } catch (e) {
-            try { tempDoc.crop([left, top, right, bottom]); } catch (e2) { }
-        }
-
-        // Resize
-        tempDoc.resizeImage(UnitValue(widthCm, 'cm'), UnitValue(heightCm, 'cm'), tempDoc.resolution, ResampleMethod.BICUBIC);
-
-        // Save JPG
-        saveJPG(tempDoc, targetFolder + "/" + baseName + ".jpg");
-
-        tempDoc.close(SaveOptions.DONOTSAVECHANGES);
-        return true;
-    }
-
-    // === DIALOG UTAMA ===
-    function showMainDialog() {
-        var dlg = new Window("dialog", "Save Master Options");
-        dlg.orientation = "column";
-        dlg.alignChildren = ["fill", "center"];
-
-        var pnl = dlg.add("panel", undefined, "Pilih Output:");
-        pnl.alignChildren = ["fill", "center"];
-
-        var mainGrp = pnl.add("group");
-        mainGrp.orientation = "row";
-        mainGrp.alignChildren = ["fill", "top"];
-        mainGrp.spacing = 15;
-
-        // --- KOLOM 1 (JPG) ---
-        var col1 = mainGrp.add("group");
-        col1.orientation = "column";
-        col1.alignChildren = ["fill", "top"];
-        col1.add("statictext", undefined, "--- JPG ---");
-
-        var btnJpg = col1.add("button", undefined, "JPG - TUTUP");
-        btnJpg.onClick = function () { dlg.close(1); };
-
-        var btnJpgOpen = col1.add("button", undefined, "JPG - TETAP");
-        btnJpgOpen.onClick = function () { dlg.close(5); };
-
-        var btnOnlyJpg = col1.add("button", undefined, "JPG ONLY CLOSE");
-        btnOnlyJpg.onClick = function () { dlg.close(6); };
-
-        var btnJpgFolder = col1.add("button", undefined, "JPG FOLDER");
-        btnJpgFolder.onClick = function () { dlg.close(7); };
-
-        // --- KOLOM 2 (PNG) ---
-        var col2 = mainGrp.add("group");
-        col2.orientation = "column";
-        col2.alignChildren = ["fill", "top"];
-        col2.add("statictext", undefined, "--- PNG ---");
-
-        var btnPng = col2.add("button", undefined, "PNG");
-        btnPng.onClick = function () { dlg.close(2); };
-
-        var btnPngFolder = col2.add("button", undefined, "PNG FOLDER");
-        btnPngFolder.onClick = function () { dlg.close(8); };
-
-        // --- KOLOM 3 (PAS FOTO) ---
-        var col3 = mainGrp.add("group");
-        col3.orientation = "column";
-        col3.alignChildren = ["fill", "top"];
-        col3.add("statictext", undefined, "--- PAS FOTO ---");
-
-        var btnPasDefault = col3.add("button", undefined, "PAS FOTO (JPG)");
-        btnPasDefault.onClick = function () { dlg.close(301); };
-
-        var btnPas2x3 = col3.add("button", undefined, "PAS FOTO (2x3)");
-        btnPas2x3.onClick = function () { dlg.close(302); };
-
-        var btnPas4x6 = col3.add("button", undefined, "PAS FOTO (4x6)");
-        btnPas4x6.onClick = function () { dlg.close(303); };
-
-        var btnPasKombi = col3.add("button", undefined, "PAS FOTO (KOMBI)");
-        btnPasKombi.onClick = function () { dlg.close(304); };
-
-        var btnCancel = dlg.add("button", undefined, "Cancel");
-        btnCancel.onClick = function () { dlg.close(0); };
-
-        // Restoration Logic
-        var savedLoc = loadWindowLocation();
-        if (savedLoc) {
-            dlg.location = [savedLoc.x, savedLoc.y];
-        } else {
-            dlg.center();
-        }
-
-        var result = dlg.show();
-
-        // Persistence Logic
-        if (result !== undefined) {
-            saveWindowLocation(dlg.location);
-        }
-
-        return result;
-    }
-
     // === MAIN LOGIC ===
     if (app.documents.length == 0) {
-        // Tulis error ke result file agar user tau
-        writeResult("Error", ["Tidak ada dokumen terbuka di Photoshop."]);
+        alert("Tidak ada dokumen terbuka di Photoshop.");
         return;
     }
 
-    var choice = showMainDialog();
+    var settings = loadSettings();
+
+    // === DIALOG UTAMA ===
+    var dlg = new Window("dialog", "Save Master Options", undefined, { borderless: true }); // Borderless removed white title bar
+    dlg.orientation = "column";
+    dlg.alignChildren = ["fill", "top"];
+    dlg.spacing = 15;
+    dlg.margins = 20;
+
+    // --- GROUP: STANDARD OUTPUT ---
+    var pnlStd = dlg.add("panel", undefined, "Standard Output (Same Folder)");
+    pnlStd.orientation = "row";
+    pnlStd.alignChildren = ["fill", "top"];
+    pnlStd.spacing = 15;
+    pnlStd.margins = 15;
+
+    // Col 1: JPG
+    var col1 = pnlStd.add("group");
+    col1.orientation = "column";
+    col1.add("statictext", undefined, "--- JPG ---");
+    var btnJpg = col1.add("button", undefined, "JPG - TUTUP");
+    btnJpg.preferredSize.width = 130;
+    var btnJpgOpen = col1.add("button", undefined, "JPG - TETAP");
+    btnJpgOpen.preferredSize.width = 130;
+    var btnOnlyJpg = col1.add("button", undefined, "JPG ONLY CLOSE");
+    btnOnlyJpg.preferredSize.width = 130;
+
+    // Col 2: PNG
+    var col2 = pnlStd.add("group");
+    col2.orientation = "column";
+    col2.add("statictext", undefined, "--- PNG ---");
+    var btnPng = col2.add("button", undefined, "PNG Standard");
+    btnPng.preferredSize.width = 130;
+
+    // Col 3: PAS FOTO
+    var col3 = pnlStd.add("group");
+    col3.orientation = "column";
+    col3.add("statictext", undefined, "--- PAS FOTO ---");
+    var btnPasDefault = col3.add("button", undefined, "PAS FOTO (JPG)");
+    btnPasDefault.preferredSize.width = 130;
+    var btnPas2x3 = col3.add("button", undefined, "PAS FOTO (2x3)");
+    btnPas2x3.preferredSize.width = 130;
+    var btnPas4x6 = col3.add("button", undefined, "PAS FOTO (4x6)");
+    btnPas4x6.preferredSize.width = 130;
+    var btnPasKombi = col3.add("button", undefined, "PAS FOTO (KOMBI)");
+    btnPasKombi.preferredSize.width = 130;
+
+    // --- GROUP: CUSTOM FOLDER OUTPUT ---
+    var pnlCustom = dlg.add("panel", undefined, "Custom Folder Output");
+    pnlCustom.orientation = "column";
+    pnlCustom.alignChildren = ["fill", "top"];
+    pnlCustom.spacing = 10;
+    pnlCustom.margins = 15;
+
+    var grpPath = pnlCustom.add("group");
+    grpPath.orientation = "row";
+    grpPath.alignChildren = ["fill", "center"];
+
+    var txtCustomPath = grpPath.add("edittext", undefined, "");
+    txtCustomPath.preferredSize.width = 300;
+
+    var btnClearPath = grpPath.add("button", undefined, "X");
+    btnClearPath.size = [30, 25];
+    btnClearPath.helpTip = "Hapus text & Fokus";
+
+    var btnBrowsePath = grpPath.add("button", undefined, "Browse...");
+    btnBrowsePath.preferredSize.width = 80;
+
+    var grpCustomBtns = pnlCustom.add("group");
+    grpCustomBtns.orientation = "row";
+    grpCustomBtns.alignChildren = ["center", "center"];
+    var btnJpgFolder = grpCustomBtns.add("button", undefined, "Export JPG to Folder");
+    var btnPngFolder = grpCustomBtns.add("button", undefined, "Export PNG to Folder");
+    btnJpgFolder.preferredSize.width = 150;
+    btnPngFolder.preferredSize.width = 150;
+
+    // --- BOTTOM ---
+    var btnCancel = dlg.add("button", undefined, "Cancel");
+    btnCancel.alignment = "center";
+
+    // --- EVENTS ---
+    // Helper to close with code
+    // Codes: 1=JPG, 2=PNG, 5=JPG_OPEN, 6=ONLY_JPG, 7=JPG_FOLDER, 8=PNG_FOLDER, 30x=PAS
+
+    btnJpg.onClick = function () { dlg.close(1); };
+    btnJpgOpen.onClick = function () { dlg.close(5); };
+    btnOnlyJpg.onClick = function () { dlg.close(6); };
+    btnPng.onClick = function () { dlg.close(2); };
+
+    btnPasDefault.onClick = function () { dlg.close(301); };
+    btnPas2x3.onClick = function () { dlg.close(302); };
+    btnPas4x6.onClick = function () { dlg.close(303); };
+    btnPasKombi.onClick = function () { dlg.close(304); };
+
+    // Custom Path Events
+    btnBrowsePath.onClick = function () {
+        var f = Folder.selectDialog("Pilih Folder Output");
+        if (f) txtCustomPath.text = decodeURI(f.fullName);
+    };
+
+    btnClearPath.onClick = function () {
+        txtCustomPath.text = "";
+        txtCustomPath.active = true;
+    };
+
+    btnJpgFolder.onClick = function () {
+        if (txtCustomPath.text === "") { alert("Pilih folder tujuan dulu!"); return; }
+        if (!new Folder(txtCustomPath.text).exists) { alert("Folder tidak ditemukan!"); return; }
+        dlg.close(7);
+    };
+
+    btnPngFolder.onClick = function () {
+        if (txtCustomPath.text === "") { alert("Pilih folder tujuan dulu!"); return; }
+        if (!new Folder(txtCustomPath.text).exists) { alert("Folder tidak ditemukan!"); return; }
+        dlg.close(8);
+    };
+
+    btnCancel.onClick = function () { dlg.close(0); };
+
+    // Restore Location
+    if (settings.x > 0 && settings.y > 0) {
+        dlg.location = [settings.x, settings.y];
+    } else {
+        dlg.center();
+    }
+
+    var choice = dlg.show();
+
+    // Save Location
+    saveSettings(dlg.location.x, dlg.location.y);
+
     if (choice == 0) return; // Cancelled
 
+    // === PROCESSING LOGIC Setup ===
     var pasModeSub = 0;
     if (choice >= 300) {
         pasModeSub = choice - 300;
         choice = 3;
     }
 
-    // 3. Siapkan Mode
     var MODE_JPG = (choice == 1 || choice == 5 || choice == 6 || choice == 7);
     var MODE_KEEP_OPEN = (choice == 5);
     var MODE_ONLY_JPG = (choice == 6);
@@ -234,14 +188,13 @@
 
     var customTargetFolder = null;
     if (MODE_JPG_FOLDER || MODE_PNG_FOLDER) {
-        customTargetFolder = Folder.selectDialog("Pilih folder tujuan:");
-        if (!customTargetFolder) return; // User Cancel
+        customTargetFolder = new Folder(txtCustomPath.text);
     }
 
     // 4. Proses Dokumen
-    var docNames = [];
+    var docs = [];
     for (var i = 0; i < app.documents.length; i++) {
-        docNames.push(app.documents[i].name);
+        docs.push(app.documents[i]);
     }
 
     var successList = [];
@@ -249,19 +202,36 @@
     var success2x3 = 0;
     var success4x6 = 0;
 
-    for (var j = 0; j < docNames.length; j++) {
-        reportProgress(j + 1, docNames.length, docNames[j]);
+    for (var j = 0; j < docs.length; j++) {
         var doc = null;
         try {
-            doc = app.documents.getByName(docNames[j]);
+            doc = docs[j];
             app.activeDocument = doc;
 
-            if (!doc.path) {
-                failList.push(doc.name + " (belum pernah disave)");
+            if (!doc.path && !customTargetFolder) {
+                failList.push(doc.name + " (belum pernah disave & no custom folder)");
                 continue;
             }
 
-            var docPath = customTargetFolder ? customTargetFolder.fsName : doc.path;
+            var docPath;
+            if (customTargetFolder) {
+                try {
+                    // Coba ambil path dokumen asal untuk mirroring folder
+                    if (doc.path) {
+                        var parentFolderName = doc.path.name;
+                        var subFolder = new Folder(customTargetFolder + "/" + parentFolderName);
+                        if (!subFolder.exists) subFolder.create();
+                        docPath = subFolder.fsName;
+                    } else {
+                        docPath = customTargetFolder.fsName;
+                    }
+                } catch (e) {
+                    // Fallback jika doc.path error (misal belum disave)
+                    docPath = customTargetFolder.fsName;
+                }
+            } else {
+                docPath = doc.path;
+            }
             var baseName = doc.name.replace(/\.[^\.]+$/, "");
 
             // A. Save Master (PSD/PSB) - Skip if Only JPG/Folder mode
@@ -276,9 +246,7 @@
                 app.activeDocument = dupDoc;
 
                 // [FIX] Tambahkan layer baru (visible) sebelum flatten
-                // Ini mencegah error/glitch jika layer yang terpilih di master sedang hidden.
                 dupDoc.artLayers.add();
-
                 dupDoc.flatten();
 
                 // Action 'anti ramijud' (Skip if Only JPG/Folder mode)
@@ -286,44 +254,32 @@
                     try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
                 }
 
-                // --- KHUSUS PAS FOTO (Match sepPP.jsx logic) ---
                 if (MODE_PAS) {
-                    // 1. Selalu simpan JPG Utama dulu (sama seperti sepPP)
-                    saveJPG(dupDoc, docPath + "/" + baseName + ".jpg");
+                    saveJPG(dupDoc, docPath + "/" + baseName + ".jpg", JPG_QUALITY);
                     successList.push(baseName + " (JPG Utama)");
-
                     var baseOutputFolder = docPath;
-
-                    // Close dupDoc (flattened version) karena crop harus dari MASTER
                     dupDoc.close(SaveOptions.DONOTSAVECHANGES);
                     dupDoc = null;
 
-                    // 2. Buat crop tambahan (dari doc master original)
                     if (pasModeSub == 2 || pasModeSub == 4) { // 2x3
                         var folder2x3 = createFolderIfNotExist(baseOutputFolder + "/2x3");
-                        if (createCroppedVersion(doc, folder2x3, 2, 3)) success2x3++;
+                        if (createCroppedVersion(doc, folder2x3, 2, 3, JPG_QUALITY)) success2x3++;
                     }
                     if (pasModeSub == 3 || pasModeSub == 4) { // 4x6
                         var folder4x6 = createFolderIfNotExist(baseOutputFolder + "/4x6");
-                        if (createCroppedVersion(doc, folder4x6, 4, 6)) success4x6++;
+                        if (createCroppedVersion(doc, folder4x6, 4, 6, JPG_QUALITY)) success4x6++;
                     }
-
-                    if (pasModeSub != 1) { // Jika bukan "Hanya JPG", berarti ada crop
-                        successList.push(baseName + " (+Crops)");
-                    }
+                    if (pasModeSub != 1) successList.push(baseName + " (+Crops)");
 
                 } else if (MODE_JPG) {
-                    // --- JPG BIASA (Standard) ---
-                    saveJPG(dupDoc, docPath + "/" + baseName + ".jpg");
-                    successList.push(baseName + " (PSD+JPG)");
+                    saveJPG(dupDoc, docPath + "/" + baseName + ".jpg", JPG_QUALITY);
+                    successList.push(baseName + (MODE_JPG_FOLDER ? " (JPG Folder)" : " (PSD+JPG)"));
                     dupDoc.close(SaveOptions.DONOTSAVECHANGES);
                 }
-                // (MODE_PNG ada di else if berikutnya)
 
             } else if (MODE_PNG) {
                 // Save PSD + PNG (Skip PSD if Folder mode)
                 if (!MODE_PNG_FOLDER) {
-                    // Save PSD As (Make sure compatibility)
                     var psdFile = new File(docPath + "/" + baseName + ".psd");
                     var psdOptions = new PhotoshopSaveOptions();
                     psdOptions.embedColorProfile = true;
@@ -332,15 +288,9 @@
                     doc.saveAs(psdFile, psdOptions, true, Extension.LOWERCASE);
                 }
 
-                // Export PNG
                 var dupDoc = doc.duplicate(baseName + "_forPNG");
                 app.activeDocument = dupDoc;
-
-                // [FIX] Tambahkan layer baru agar ada layer aktif yang visible 
-                // untuk menghindari error jika layer asli yang terpilih sedang di-hide.
                 dupDoc.artLayers.add();
-
-                // Stamp Visible (Merge All)
                 executeAction(stringIDToTypeID("mergeVisible"), undefined, DialogModes.NO);
 
                 if (!MODE_PNG_FOLDER) {
@@ -359,47 +309,70 @@
             }
 
         } catch (e) {
-            failList.push(docNames[j] + " (Error: " + e.message + ")");
-            if (doc) {
-                try { doc.close(SaveOptions.DONOTSAVECHANGES); } catch (ex) { }
-            }
+            failList.push((docs[j] ? docs[j].name : "Unknown") + " (Error: " + e.message + ")");
+            if (doc) { try { doc.close(SaveOptions.DONOTSAVECHANGES); } catch (ex) { } }
         }
     }
 
     // 5. Laporan Final
-    var modeLabel = "Unknown";
-    if (MODE_ONLY_JPG) modeLabel = "JPG ONLY CLOSE (No PSD)";
-    else if (MODE_JPG_FOLDER) modeLabel = "Export JPG to Folder";
-    else if (MODE_PNG_FOLDER) modeLabel = "Export PNG to Folder";
-    else if (MODE_JPG) modeLabel = "Save PSD + JPG" + (MODE_KEEP_OPEN ? " (Keep Open)" : " (Standard)");
-    else if (MODE_PNG) modeLabel = "Save PSD + PNG (Standard)";
-    else if (MODE_PAS) {
-        modeLabel = "Pass Foto Output";
-        var sizes = [];
-        if (pasModeSub == 1) sizes.push("JPG Default");
-        if (pasModeSub == 2 || pasModeSub == 4) sizes.push("2x3");
-        if (pasModeSub == 3 || pasModeSub == 4) sizes.push("4x6");
-        modeLabel += " " + sizes.join(" + ");
+    alert("Selesai!\nSukses: " + successList.length + "\nGagal: " + failList.length);
+}
+
+// Global invocation
+main();
+
+// === HELPERS ===
+function saveJPG(doc, filePath, quality) {
+    var jpgOptions = new JPEGSaveOptions();
+    jpgOptions.quality = quality;
+    jpgOptions.embedColorProfile = true;
+    jpgOptions.formatOptions = FormatOptions.STANDARDBASELINE;
+    jpgOptions.scans = 3;
+    doc.saveAs(new File(filePath), jpgOptions, true, Extension.LOWERCASE);
+}
+
+function savePNG(doc, filePath) {
+    var pngOptions = new PNGSaveOptions();
+    doc.saveAs(new File(filePath), pngOptions, true, Extension.LOWERCASE);
+}
+
+function createFolderIfNotExist(folderPath) {
+    var folder = new Folder(folderPath);
+    if (!folder.exists) folder.create();
+    return folder;
+}
+
+function createCroppedVersion(sourceDoc, targetFolder, widthCm, heightCm, quality) {
+    var baseName = sourceDoc.name.replace(/\.[^.]+$/, "");
+    var tempDoc = sourceDoc.duplicate();
+    app.activeDocument = tempDoc;
+
+    var curW = tempDoc.width.as('px');
+    var curH = tempDoc.height.as('px');
+    var targetRatio = widthCm / heightCm;
+
+    var cropW, cropH;
+    if (curW / curH > targetRatio) {
+        cropH = curH;
+        cropW = Math.round(curH * targetRatio);
+    } else {
+        cropW = curW;
+        cropH = Math.round(curW / targetRatio);
     }
 
-    var reportLines = [];
-    reportLines.push("Mode: " + modeLabel);
-    reportLines.push("Total Dokumen: " + docNames.length);
-    reportLines.push("Sukses: " + successList.length);
-    reportLines.push("Gagal: " + failList.length);
-    reportLines.push("");
+    var left = Math.round((curW - cropW) / 2);
+    var top = Math.round((curH - cropH) / 2);
+    var right = left + cropW;
+    var bottom = top + cropH;
 
-    if (successList.length > 0) {
-        reportLines.push("Detail Sukses:");
-        for (var k = 0; k < successList.length; k++) reportLines.push("- " + successList[k]);
+    try {
+        tempDoc.crop([UnitValue(left, 'px'), UnitValue(top, 'px'), UnitValue(right, 'px'), UnitValue(bottom, 'px')]);
+    } catch (e) {
+        try { tempDoc.crop([left, top, right, bottom]); } catch (e2) { }
     }
 
-    if (failList.length > 0) {
-        reportLines.push("");
-        reportLines.push("Detail Gagal:");
-        for (var k = 0; k < failList.length; k++) reportLines.push("- " + failList[k]);
-    }
-
-    writeResult("Save Master Result", reportLines);
-
-})();
+    tempDoc.resizeImage(UnitValue(widthCm, 'cm'), UnitValue(heightCm, 'cm'), tempDoc.resolution, ResampleMethod.BICUBIC);
+    saveJPG(tempDoc, targetFolder + "/" + baseName + ".jpg", quality);
+    tempDoc.close(SaveOptions.DONOTSAVECHANGES);
+    return true;
+}

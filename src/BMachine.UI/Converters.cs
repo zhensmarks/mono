@@ -38,3 +38,20 @@ public class IntGreaterThanZeroConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+public class BoolToTextConverter : IValueConverter
+{
+    public string TrueText { get; set; } = "True";
+    public string FalseText { get; set; } = "False";
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool b && b) return TrueText;
+        return FalseText;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

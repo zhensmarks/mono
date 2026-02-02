@@ -17,11 +17,20 @@ public partial class PixelcutFileItem : ObservableObject
     [ObservableProperty] private string _originalSizeDisplay = "";
     [ObservableProperty] private string _resultSizeDisplay = "";
     [ObservableProperty] private long _resultSize;
+    [ObservableProperty] private string _resultPath = "";
+    [ObservableProperty] private bool _hasResult;
+
+    partial void OnResultPathChanged(string value)
+    {
+        HasResult = !string.IsNullOrEmpty(value) && File.Exists(value);
+    }
 
     public PixelcutFileItem(string path)
     {
         FilePath = path;
-        FileName = Path.GetFileName(path);
+        // Format: PARENT_FOLDER\FILENAME.EXT
+        var dir = Path.GetFileName(Path.GetDirectoryName(path)) ?? "";
+        FileName = Path.Combine(dir, Path.GetFileName(path));
         
         var info = new FileInfo(path);
         if (info.Exists)
@@ -45,6 +54,10 @@ public partial class PixelcutFileItem : ObservableObject
             order++;
             len = len / 1024;
         }
-        return $"{len:0.1} {sizes[order]}";
+        // Use N2 for 2 decimal places with comma (depending on culture, but usually N2 handles it well)
+        // If we want to force comma, we can use specific culture, but let's try standard N2 first 
+        // which usually follows system locale (User likely has ID/EU locale for comma)
+        // Or explicitly replace dot with comma for "Indonesian style" if system is US.
+        return $"{len:0.00} {sizes[order]}".Replace('.', ','); 
     }
 }

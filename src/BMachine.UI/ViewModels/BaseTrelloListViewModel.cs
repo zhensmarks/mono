@@ -72,6 +72,17 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [ObservableProperty]
     private TrelloCard? _selectedCard;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ConnectionStatusText))]
+    private bool _isOnline = true;
+
+    public string ConnectionStatusText => IsOnline ? "Online" : "Offline";
+
+    partial void OnIsOnlineChanged(bool value)
+    {
+        // Maybe log status change?
+    }
+
     public event Action? CloseRequested;
     
     [RelayCommand]
@@ -309,6 +320,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         IsChecklistPanelOpen = false;
         Checklists.Clear();
+        SelectedSourceChecklist = null; // Explicit reset
+        DuplicateChecklistName = ""; // Explicit reset
         if (SelectedCard != null) IsDetailPanelOpen = true;
     }
 
@@ -318,8 +331,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         IsDuplicateMode = !IsDuplicateMode;
         if (IsDuplicateMode)
         {
-             var userName = await _database.GetAsync<string>("UserProfile.Name");
-             if (string.IsNullOrWhiteSpace(userName)) userName = "ABENG";
+             var userName = await _database.GetAsync<string>("User.Name");
+             if (string.IsNullOrWhiteSpace(userName)) userName = "USER";
              DuplicateChecklistName = $"#EDITING {userName.ToUpper()}"; 
         }
     }
@@ -757,6 +770,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     private void CloseMovePanel()
     {
         IsMovePanelOpen = false;
+        
+        // Reset Dropdowns
+        SelectedMoveBoard = null;
+        SelectedMoveList = null;
+        
         AvailableBoards.Clear();
         AvailableLists.Clear();
         
@@ -1052,14 +1070,43 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     protected async Task<List<TrelloCard>> FetchCards(string listId, string apiKey, string token)
     {
         var results = new List<TrelloCard>();
+        var cacheKey = $"Cache.List.{listId}";
+        
         using var client = new HttpClient();
+        client.Timeout = TimeSpan.FromSeconds(15); // Increased timeout to prevent false offline
         var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges&checklists=all";
+        
+        string json = "";
         
         try 
         {
-            var json = await client.GetStringAsync(url);
+            json = await client.GetStringAsync(url);
+            
+            // Cache Success
+            await _database.SetAsync(cacheKey, json);
+            IsOnline = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fetch Error (Offline?): {ex.Message}");
+            IsOnline = false;
+            
+            // Fallback to Cache
+            try 
+            {
+                json = await _database.GetAsync<string>(cacheKey) ?? "";
+            }
+            catch { /* Cache Read Error */ }
+        }
+
+        if (string.IsNullOrEmpty(json)) return results; // No API and No Cache
+
+        try
+        {
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) return results;
+
             foreach (var element in doc.RootElement.EnumerateArray())
             {
                 var card = new TrelloCard
@@ -1111,9 +1158,56 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-             Console.WriteLine($"Fetch Error: {ex.Message}");
+             StatusMessage = $"Parse Error: {ex.Message}";
         }
 
         return results;
+    }
+    protected async Task<bool> CheckForUpdates(string listId)
+    {
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return false;
+
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
+            
+            // Fetch only IDs to minimize data transfer and parsing
+            var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=id";
+            var json = await client.GetStringAsync(url);
+            
+            // If offline/error, client throws, goes to catch.
+            IsOnline = true; 
+
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) return false;
+
+            var currentIds = new HashSet<string>(Cards.Select(c => c.Id));
+            var newIds = new HashSet<string>();
+            
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                if (element.TryGetProperty("id", out var idProp))
+                {
+                    newIds.Add(idProp.GetString() ?? "");
+                }
+            }
+
+            // Simple comparison: Any mismatch in content or count means update needed
+            // This handles adds, removes, and reorders (if we cared about order, but HashSet doesn't. 
+            // For simple notification "something changed", count or set difference is enough.
+            // If only Order changed, we might skip refresh? 
+            // Trello cards move positions frequently. Let's use SetEquals.
+            
+            bool isSame = currentIds.SetEquals(newIds);
+            return !isSame;
+        }
+        catch 
+        {
+            return false;
+        }
     }
 }

@@ -4,11 +4,53 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
              xmlns:views="using:BMachine.UI.Views"
+             xmlns:converters="using:BMachine.UI.Converters"
              xmlns:shapes="using:Avalonia.Controls.Shapes"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
              x:Class="BMachine.UI.Views.SettingsView">
+    
+    <UserControl.Resources>
+        <converters:BoolToTextConverter x:Key="BoolToInstallText" TrueText="Uninstall" FalseText="Install" />
+        <converters:BoolToTextConverter x:Key="BoolToInstallStyle" TrueText="Clear" FalseText="Primary" />
+    </UserControl.Resources>
+
     <UserControl.Styles>
-        <!-- Local override removed to use Global App.axaml Style -->
+        <Style Selector="RadioButton.Segmented">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                         <ContentPresenter Content="{TemplateBinding Content}" 
+                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.Segmented:checked">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/> <!-- Or white/lighter -->
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+             <!-- Add a shadow or border for effect -->
+            <Setter Property="Effect">
+                <DropShadowEffect BlurRadius="4" Color="Black" Opacity="0.1" OffsetX="0" OffsetY="2"/>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.Segmented:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
     </UserControl.Styles>
     
     <Grid x:Name="Part_RootGrid" RowDefinitions="Auto, *" ColumnDefinitions="300, *" Margin="30" SizeChanged="OnRootGridSizeChanged" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
@@ -127,7 +169,17 @@
                                  <TextBlock Text="{Binding Language[Appearance.Mode]}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                  <TextBlock Text="{Binding Language[Appearance.ModeDesc]}" FontSize="12" Foreground="#999"/>
                             </StackPanel>
-                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsDarkMode}" OnContent="Dark" OffContent="Light"/>
+                            <!-- Theme Segmented Control -->
+                            <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2" Width="140" HorizontalAlignment="Right">
+                                <Grid ColumnDefinitions="*,*">
+                                    <RadioButton Grid.Column="0" Content="Light" GroupName="ThemeGroup" 
+                                                 IsChecked="{Binding SelectedThemeIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=0}"
+                                                 Classes="Segmented"/>
+                                    <RadioButton Grid.Column="1" Content="Dark" GroupName="ThemeGroup"
+                                                 IsChecked="{Binding SelectedThemeIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=1}"
+                                                 Classes="Segmented"/>
+                                </Grid>
+                            </Border>
                         </Grid>
 
                         <!-- Custom Backgrounds -->
@@ -252,6 +304,41 @@
                                  <NumericUpDown Grid.Column="1" Value="{Binding NavCornerRadius}" Minimum="0" Maximum="40" Increment="1" FormatString="0" />
                              </Grid>
 
+                             <!-- Nav Style Segmented -->
+                             <Grid ColumnDefinitions="*, 200">
+                                 <StackPanel>
+                                     <TextBlock Text="Button Type" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 </StackPanel>
+                                 <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2">
+                                     <Grid ColumnDefinitions="*,*">
+                                         <RadioButton Grid.Column="0" Content="Icon" GroupName="NavStyleGroup" 
+                                                     IsChecked="{Binding NavStyleIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=0}"
+                                                     Classes="Segmented"/>
+                                         <RadioButton Grid.Column="1" Content="Text" GroupName="NavStyleGroup"
+                                                     IsChecked="{Binding NavStyleIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=1}"
+                                                     Classes="Segmented"/>
+                                     </Grid>
+                                 </Border>
+                             </Grid>
+
+                             <!-- Custom Text (If Text Mode) -->
+                             <Grid IsVisible="{Binding NavStyleIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=1}">
+                                 <Grid.ColumnDefinitions>
+                                     <ColumnDefinition Width="*"/>
+                                     <ColumnDefinition Width="200"/>
+                                 </Grid.ColumnDefinitions>
+                                 <StackPanel Spacing="10" Grid.Column="0">
+                                     <TextBlock Text="Button Texts" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 </StackPanel>
+                                 <StackPanel Grid.Column="1" Spacing="5">
+                                     <TextBox Text="{Binding NavCustomText}" Watermark="Dashboard" />
+                                     <TextBox Text="{Binding NavGdriveText}" Watermark="Driver" />
+                                     <TextBox Text="{Binding NavPixelcutText}" Watermark="Pixelcut" />
+                                     <TextBox Text="{Binding NavBatchText}" Watermark="Batch" />
+                                     <TextBox Text="{Binding NavLockerText}" Watermark="Locker" />
+                                 </StackPanel>
+                             </Grid>
+
                              <!-- Font Size -->
                              <Grid ColumnDefinitions="*, 120">
                                  <StackPanel>
@@ -277,6 +364,7 @@
                                  <TextBlock Text="Durasi animasi lingkaran pada widget statistik." FontSize="12" Foreground="#999"/>
                             </StackPanel>
                             <ComboBox Grid.Column="1" SelectedIndex="{Binding SelectedStatSpeedIndex}" Width="150">
+                                <ComboBoxItem Content="Mati (Off)"/>
                                 <ComboBoxItem Content="Lambat (3s)"/>
                                 <ComboBoxItem Content="Normal (1.5s)"/>
                                 <ComboBoxItem Content="Cepat (0.5s)"/>
@@ -369,58 +457,7 @@
                             </Grid>
                         </Grid>
                         
-                        <!-- Smart Orb Color (Tier 1) -->
-                        <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
-                            <TextBlock Grid.Row="0" Text="Smart Orb Color" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <ComboBox Grid.Row="0" Grid.Column="1" SelectedItem="{Binding OrbColor}" ItemsSource="{Binding WidgetColorOptions}" Width="150">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Border Width="16" Height="16" CornerRadius="8" Background="{Binding Brush}"/>
-                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                            <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsOrbCustom}" ColumnDefinitions="Auto, *" Margin="0,5,0,0">
-                                <TextBlock Text="Pick Color: " VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="#888"/>
-                                <ColorPicker Grid.Column="1" Color="{Binding CustomOrbColor}" HorizontalAlignment="Stretch"/>
-                            </Grid>
-                        </Grid>
-                        
-                        <!-- Orb Speed -->
-                        <Grid ColumnDefinitions="*, *" Margin="0,10,0,0">
-                            <!-- Speed -->
-                            <StackPanel>
-                                <TextBlock Text="Breathing Speed" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <ComboBox SelectedIndex="{Binding OrbBreathingSpeedIndex}" Width="120" HorizontalAlignment="Left">
-                                    <ComboBoxItem>Slow</ComboBoxItem>
-                                    <ComboBoxItem>Normal</ComboBoxItem>
-                                    <ComboBoxItem>Fast</ComboBoxItem>
-                                </ComboBox>
-                            </StackPanel>
-                            
-                            <!-- Toggle -->
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="Animation" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <ToggleSwitch IsChecked="{Binding IsOrbBreathingEnabled}" OnContent="On" OffContent="Off"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Orb Button Size -->
-                        <Grid ColumnDefinitions="*, *" Margin="0,15,0,0">
-                            <!-- Width -->
-                            <StackPanel Margin="0,0,10,0">
-                                <TextBlock Text="Button Width" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <NumericUpDown Value="{Binding OrbButtonWidth}" Minimum="100" Maximum="400" Increment="1" FormatString="0" />
-                            </StackPanel>
-                            
-                            <!-- Height -->
-                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                <TextBlock Text="Button Height" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <NumericUpDown Value="{Binding OrbButtonHeight}" Minimum="30" Maximum="100" Increment="1" FormatString="0" />
-                            </StackPanel>
-                        </Grid>
+                        <!-- Orb Settings Removed -->
                     </StackPanel>
                     
                     <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,20,0,0"/>
@@ -461,7 +498,10 @@
                              <TextBox Grid.Column="1" Text="{Binding BatchFileFilter}" Watermark="All (*)" Width="150" HorizontalContentAlignment="Right"/>
                         </Grid>
                         
+
                         <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                        
+
                         
                         <!-- Storage -->
                         <Grid ColumnDefinitions="*, Auto">
@@ -474,16 +514,32 @@
                         
                         <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
                         
-                        <!-- Smart Orb Toggle -->
-                        <Grid ColumnDefinitions="*, Auto">
-                             <StackPanel Spacing="5" Margin="0,0,10,0">
-                                 <TextBlock Text="Smart Orb (Assistive Touch)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="Show the always-on-top floating button" FontSize="12" Foreground="#999" TextWrapping="Wrap"/>
-                             </StackPanel>
-                             <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsFloatingWidgetEnabled}"/>
-                        </Grid>
+                        <!-- Dashboard Visibility -->
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Dashboard Visibility" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
+                                <TextBlock Text="Show GDrive" VerticalAlignment="Center" Foreground="#999"/>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsGdriveVisible}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
+                                <TextBlock Text="Show Pixelcut" VerticalAlignment="Center" Foreground="#999"/>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsPixelcutVisible}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
+                                <TextBlock Text="Show Batch" VerticalAlignment="Center" Foreground="#999"/>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsBatchVisible}"/>
+                            </Grid>
+                             <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
+                                <TextBlock Text="Show Folder Locker" VerticalAlignment="Center" Foreground="#999"/>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsFolderLockVisible}"/>
+                            </Grid>
+                             <!-- <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
+                                <TextBlock Text="Show Points" VerticalAlignment="Center" Foreground="#999"/>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsPointVisible}"/>
+                            </Grid> -->
+                        </StackPanel>
                         
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                        <!-- Refresh Interval Removed (Moved to Account) -->
                         
                         <!-- Shortcut -->
                         <Grid ColumnDefinitions="*, Auto">
@@ -565,14 +621,16 @@
                              <TextBlock Grid.Row="0" Grid.Column="0" Text="API Key:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                                  <TextBox Grid.Column="0" Text="{Binding TrelloApiKey, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" Watermark="Trello API Key" />
-                                 <Button Grid.Column="1" Command="{Binding GetTrelloApiKeyCommand}" Content="Get Key" Classes="Clear" Margin="10,0,0,0" ToolTip.Tip="Open Trello Power-Up Admin to generate Key"/>
+                                 <Button Grid.Column="1" Command="{Binding OpenTrelloAdminCommand}" Content="Get Key" Classes="Clear" Margin="10,0,0,0" ToolTip.Tip="Open Trello Power-Up Admin to generate Key"
+                                         IsVisible="{Binding IsTrelloKeyMissing}"/>
                              </Grid>
                              
-                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Token:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                             <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto, Auto" Margin="0,0,0,10">
+                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Token:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                        IsVisible="{Binding IsTrelloKeyProvided}"/>
+                             <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10"
+                                   IsVisible="{Binding IsTrelloKeyProvided}">
                                  <TextBox Grid.Column="0" Text="{Binding TrelloToken, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" Watermark="Trello Token"/>
-                                 <Button Grid.Column="1" Command="{Binding GetTrelloTokenCommand}" Content="Get Token" Classes="Clear" Margin="5,0,0,0" ToolTip.Tip="Generate Token (Requires API Key)"/>
-                                 <Button Grid.Column="2" Command="{Binding ToggleTrelloConnectionCommand}" Content="{Binding TrelloButtonText}" Classes="Primary" Margin="5,0,0,0"/>
+                                 <Button Grid.Column="1" Command="{Binding SmartTrelloActionCommand}" Content="{Binding SmartTrelloButtonText}" Classes="Primary" Margin="10,0,0,0"/>
                              </Grid>
                         </Grid>
                         
@@ -595,9 +653,13 @@
 
                              <TextBlock Grid.Row="3" Grid.Column="0" Text="Column/Row:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,10">
-                                 <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding SheetColumns}" SelectedItem="{Binding SheetColumn}" Watermark="Col" HorizontalAlignment="Stretch" Margin="0,0,5,0" FilterMode="Contains" MinimumPrefixLength="0"/>
-                                 <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding SheetRows}" SelectedItem="{Binding SheetRow}" Watermark="Row" HorizontalAlignment="Stretch" Margin="5,0,0,0" FilterMode="Contains" MinimumPrefixLength="0"/>
+                                 <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding SheetColumns}" SelectedItem="{Binding SheetColumn}" Watermark="Col" HorizontalAlignment="Stretch" Margin="0,0,5,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                 <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding SheetRows}" SelectedItem="{Binding SheetRow}" Watermark="Row" HorizontalAlignment="Stretch" Margin="5,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                              </Grid>
+                             
+                             <!-- LEADERBOARD CONFIG -->
+                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Leaderboard Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding LeaderboardRange}" Watermark="e.g. A2:C10" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         </Grid>
                         
                         <TextBlock Text="Board Synchronization" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"/>
@@ -606,25 +668,25 @@
                         <!-- Board Configs (Only Visible if Connected) -->
                         <StackPanel IsVisible="{Binding IsTrelloConnected}">
                              <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
-                                  <!-- Editing -->
+                                   <!-- Editing -->
                                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Editing Board/List:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                   <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,10">
-                                      <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedEditingBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0"/>
-                                      <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding EditingLists}" SelectedItem="{Binding SelectedEditingList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="10,0,0,0" FilterMode="Contains" MinimumPrefixLength="0"/>
+                                      <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedEditingBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                      <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding EditingLists}" SelectedItem="{Binding SelectedEditingList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="10,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                                   </Grid>
                                   
-                                  <!-- Revision -->
+                                   <!-- Revision -->
                                   <TextBlock Grid.Row="1" Grid.Column="0" Text="Revisi Board/List:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                   <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,10">
-                                      <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedRevisionBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0"/>
-                                      <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding RevisionLists}" SelectedItem="{Binding SelectedRevisionList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="10,0,0,0" FilterMode="Contains" MinimumPrefixLength="0"/>
+                                      <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedRevisionBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                      <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding RevisionLists}" SelectedItem="{Binding SelectedRevisionList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="10,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                                   </Grid>
                                   
-                                  <!-- Late/Susulan -->
+                                   <!-- Late/Susulan -->
                                   <TextBlock Grid.Row="2" Grid.Column="0" Text="Susulan Board/List:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                   <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,10">
-                                      <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedLateBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0"/>
-                                      <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding LateLists}" SelectedItem="{Binding SelectedLateList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="10,0,0,0" FilterMode="Contains" MinimumPrefixLength="0"/>
+                                      <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedLateBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                      <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding LateLists}" SelectedItem="{Binding SelectedLateList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="10,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                                   </Grid>
     
                                   <!-- QC Move Board -->
@@ -635,7 +697,8 @@
                                                 ValueMemberBinding="{Binding Name}" 
                                                 HorizontalAlignment="Stretch" 
                                                 Watermark="Select Auto-Move Board"
-                                                FilterMode="Contains" MinimumPrefixLength="0"/>
+                                                FilterMode="Contains" MinimumPrefixLength="0"
+                                                GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                                   </Grid>
                              </Grid>
                         </StackPanel>
@@ -651,6 +714,37 @@
                                  <TextBlock Text="Connect your Trello Account above to configure Boards &amp; Lists." Foreground="#555" FontSize="13"/>
                              </StackPanel>
                         </Border>
+
+                        <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="0,20,0,10"/>
+                        
+                        <TextBlock Text="Refresh Intervals (Seconds)" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Atur interval update otomatis per detik." FontSize="12" Foreground="#999" Margin="0,0,0,10"/>
+
+                        <UniformGrid Columns="2" Rows="2">
+                             <!-- Editing -->
+                             <StackPanel Spacing="5" Margin="0,0,10,10">
+                                 <TextBlock Text="Editing Board" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 <NumericUpDown Value="{Binding EditingRefreshSeconds}" Minimum="5" Maximum="3600" Increment="5" FormatString="0" />
+                             </StackPanel>
+                             
+                             <!-- Revision -->
+                             <StackPanel Spacing="5" Margin="0,0,0,10">
+                                 <TextBlock Text="Revision Board" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 <NumericUpDown Value="{Binding RevisionRefreshSeconds}" Minimum="5" Maximum="3600" Increment="5" FormatString="0" />
+                             </StackPanel>
+                             
+                             <!-- Late -->
+                             <StackPanel Spacing="5" Margin="0,0,10,0">
+                                 <TextBlock Text="Late Board" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 <NumericUpDown Value="{Binding LateRefreshSeconds}" Minimum="5" Maximum="3600" Increment="5" FormatString="0" />
+                             </StackPanel>
+                             
+                             <!-- Points -->
+                             <StackPanel Spacing="5">
+                                 <TextBlock Text="Points (Sheet)" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 <NumericUpDown Value="{Binding PointsRefreshSeconds}" Minimum="5" Maximum="3600" Increment="5" FormatString="0" />
+                             </StackPanel>
+                        </UniformGrid>
 
                         <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,20,0,0"/>
                     </StackPanel>

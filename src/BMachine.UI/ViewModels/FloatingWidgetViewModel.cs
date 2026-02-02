@@ -676,7 +676,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         // 3. Run
         var okeBase = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? "";
-        var userName = await _database.GetAsync<string>("UserProfile.Name") ?? "USER";
+        var userName = await _database.GetAsync<string>("User.Name") ?? "USER";
         // Args: <master_profesi> <master_sporty> <pilihan> <output> [oke_base]
         var args = new List<string> { scriptPath, masterProfesi, masterSporty, folders.Input, folders.Output, okeBase };
         RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
@@ -705,7 +705,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         // 3. Run
         var okeBase = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? "";
-        var userName = await _database.GetAsync<string>("UserProfile.Name") ?? "USER";
+        var userName = await _database.GetAsync<string>("User.Name") ?? "USER";
         // Args: <master_sporty> <pilihan> <output> [oke_base]
         var args = new List<string> { scriptPath, masterSporty, folders.Input, folders.Output, okeBase };
         RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
@@ -738,7 +738,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         // 3. Run
         var okeBase = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? "";
-        var userName = await _database.GetAsync<string>("UserProfile.Name") ?? "USER";
+        var userName = await _database.GetAsync<string>("User.Name") ?? "USER";
         // Args: <master_path> <pilihan> <output> [oke_base]
          var args = new List<string> { scriptPath, masterPath, folders.Input, folders.Output, okeBase };
         RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
@@ -764,7 +764,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         // Args: <master_path> <pilihan> <output> <oke_base>
         var okeBase = await _database.GetAsync<string>("Configs.Master.OkeBase");
-        var userName = await _database.GetAsync<string>("UserProfile.Name") ?? "USER";
+        var userName = await _database.GetAsync<string>("User.Name") ?? "USER";
         var finalOke = string.IsNullOrEmpty(okeBase) ? "NONE" : okeBase;
         var args = new List<string> { scriptPath, masterPath, folders.Input, folders.Output, finalOke };
         RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
@@ -795,7 +795,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         // 3. Run
         var okeBase = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? "";
-        var userName = await _database.GetAsync<string>("UserProfile.Name") ?? "USER";
+        var userName = await _database.GetAsync<string>("User.Name") ?? "USER";
         var args = new List<string> { scriptPath, masterPath, folders.Input, folders.Output, okeBase };
         RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
     }

@@ -1,0 +1,15 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\ViewModels\MainWindowViewModel.cs(93,18): warning CS8826: Partial method declarations 'void MainWindowViewModel.OnIsDarkThemeChanged(bool value)' and 'void MainWindowViewModel.OnIsDarkThemeChanged(bool isDark)' have signature differences. [D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\PixelcutCompact.csproj]
+D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\Views\PreviewWindow.axaml.cs(15,14): error CS1061: 'PreviewWindow' does not contain a definition for 'AttachDevTools' and no accessible extension method 'AttachDevTools' accepting a first argument of type 'PreviewWindow' could be found (are you missing a using directive or an assembly reference?) [D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\PixelcutCompact.csproj]
+D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\Models\PixelcutFileItem.cs(28,12): warning CS8618: Non-nullable field '_resultPath' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\PixelcutCompact.csproj]
+
+Build FAILED.
+
+D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\ViewModels\MainWindowViewModel.cs(93,18): warning CS8826: Partial method declarations 'void MainWindowViewModel.OnIsDarkThemeChanged(bool value)' and 'void MainWindowViewModel.OnIsDarkThemeChanged(bool isDark)' have signature differences. [D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\PixelcutCompact.csproj]
+D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\Models\PixelcutFileItem.cs(28,12): warning CS8618: Non-nullable field '_resultPath' must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring the field as nullable. [D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\PixelcutCompact.csproj]
+D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\Views\PreviewWindow.axaml.cs(15,14): error CS1061: 'PreviewWindow' does not contain a definition for 'AttachDevTools' and no accessible extension method 'AttachDevTools' accepting a first argument of type 'PreviewWindow' could be found (are you missing a using directive or an assembly reference?) [D:\#DATA ABENG\BMachine.v2\src\PixelcutCompact\PixelcutCompact.csproj]
+    2 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:01.19

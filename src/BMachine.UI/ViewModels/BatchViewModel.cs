@@ -58,6 +58,13 @@ public partial class BatchViewModel : ObservableObject
             OnPropertyChanged(nameof(HasFolders));
             OnPropertyChanged(nameof(ShowDropZone));
         };
+
+        // Ensure HasFolders updates when items are added/removed
+        SourceFolders.CollectionChanged += (s, e) =>
+        {
+            OnPropertyChanged(nameof(HasFolders));
+            OnPropertyChanged(nameof(ShowDropZone));
+        };
     }
 
     private void KillProcess()
@@ -189,11 +196,15 @@ public partial class BatchViewModel : ObservableObject
     /// <summary>
     /// Refresh output folders - check if they exist after script execution.
     /// </summary>
+    /// <summary>
+    /// Refresh source and output folders.
+    /// </summary>
     [RelayCommand]
-    private void RefreshOutputFolders()
+    private void Refresh()
     {
         foreach (var item in SourceFolders)
         {
+            item.RefreshSource();
             item.RefreshOutput();
         }
     }

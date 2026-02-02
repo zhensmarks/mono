@@ -294,4 +294,12 @@ public partial class LogPanelSidebar : UserControl
             }
         }
     }
+
+    private void AutoCompleteBox_GotFocus(object? sender, GotFocusEventArgs e)
+    {
+        if (sender is AutoCompleteBox acb)
+        {
+            acb.IsDropDownOpen = true;
+        }
+    }
 }

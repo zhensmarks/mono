@@ -40,10 +40,14 @@
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <!-- App Icon as Avalonia Resource -->
   <ItemGroup>
     <AvaloniaResource Include="appicon.ico" />
   </ItemGroup>
+
+
 </Project>

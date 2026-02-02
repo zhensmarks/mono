@@ -66,13 +66,29 @@ public class PixelcutService
         // Read File
         byte[] fileBytes = await File.ReadAllBytesAsync(item.FilePath, ct);
         using var fileContent = new ByteArrayContent(fileBytes);
-        fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg"); // or generic
-        content.Add(fileContent, "image", "image.jpg");
+        
+        string ext = Path.GetExtension(item.FilePath).ToLowerInvariant();
+        string mimeType = (ext == ".png") ? "image/png" : "image/jpeg";
+        string fileName = (ext == ".png") ? "image.png" : "image.jpg";
+
+        fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
+        content.Add(fileContent, "image", fileName);
 
         // Parameters
         if (job == "upscale")
         {
             content.Add(new StringContent("2"), "scale");
+            
+            // Request same format as input if possible (jpg or png)
+            // var ext = Path.GetExtension(item.FilePath).ToLower(); // REMOVED (Duplicate)
+            if (ext == ".jpg" || ext == ".jpeg")
+            {
+                content.Add(new StringContent("jpg"), "format");
+            }
+            else
+            {
+                 content.Add(new StringContent("png"), "format");
+            }
         }
         else // remove_bg
         {
@@ -113,7 +129,14 @@ public class PixelcutService
         var dir = Path.GetDirectoryName(input) ?? "";
         var name = Path.GetFileNameWithoutExtension(input);
         
-        if (job == "upscale") return Path.Combine(dir, $"{name}_up.png");
+        if (job == "upscale")
+        {
+             // Match input extension
+             var ext = Path.GetExtension(input);
+             // Default to png if no extension
+             if (string.IsNullOrEmpty(ext)) ext = ".png";
+             return Path.Combine(dir, $"{name}_up{ext}");
+        }
         return Path.Combine(dir, $"{name}.png");
     }
 }

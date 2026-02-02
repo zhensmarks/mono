@@ -134,4 +134,12 @@ public partial class LateCardListView : UserControl
         panel.Margin = new Avalonia.Thickness(0);
         panel.Background = Avalonia.Media.Brushes.Transparent;
     }
+
+    private void AutoCompleteBox_GotFocus(object? sender, GotFocusEventArgs e)
+    {
+        if (sender is AutoCompleteBox acb)
+        {
+            acb.IsDropDownOpen = true;
+        }
+    }
 }

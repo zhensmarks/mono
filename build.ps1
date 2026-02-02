@@ -30,30 +30,64 @@ Write-Host "  - Removed $logsRemoved temporary files" -ForegroundColor DarkGray
 Write-Host "[OK] Cleanup completed." -ForegroundColor Green
 Write-Host ""
 
+
+
 # 1. Publish Application
 Write-Host "[1/4] Publishing application..." -ForegroundColor Yellow
-dotnet publish src/BMachine.App/BMachine.App.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+dotnet publish src/BMachine.App/BMachine.App.csproj -c Release -r win-x64 --self-contained -o publish
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Publish failed!" -ForegroundColor Red
-    exit 1
+    exit
 }
+
+# Cleanup unwanted files (PDBs, etc if any)
+Get-ChildItem -Path publish -Filter "*.pdb" -Recurse | Remove-Item -Force
+
 Write-Host "[OK] Publish completed." -ForegroundColor Green
 
-# 2. Sync Scripts Folder
+# 1b. Build Plugins
 Write-Host ""
-Write-Host "[2/4] Syncing Scripts folder..." -ForegroundColor Yellow
+Write-Host "[1b/4] Building Plugins..." -ForegroundColor Yellow
 
-# Remove old Scripts folder in publish
-if (Test-Path "publish\Scripts") {
-    Remove-Item -Path "publish\Scripts" -Recurse -Force
-    Write-Host "  - Removed old Scripts folder" -ForegroundColor DarkGray
+# Helper (BMachineContext)
+# Write-Host "  - Building Helper (BMachineContext)..."
+# dotnet publish src/BMachineContext/BMachineContext.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o src/BMachine.Plugins.ContextMenu/assets
+
+# Plugin (ContextMenu)
+# Write-Host "  - Building Plugin (ContextMenu)..."
+# $pluginOut = "publish/plugins/BMachine.Plugins.ContextMenu"
+# dotnet publish src/BMachine.Plugins.ContextMenu/BMachine.Plugins.ContextMenu.csproj -c Release -o $pluginOut
+
+# Copy Manifest & Asset
+# Copy-Item "src/BMachine.Plugins.ContextMenu/plugin.json" -Destination $pluginOut -Force
+# if (Test-Path "src/BMachine.Plugins.ContextMenu/assets") {
+#    Copy-Item "src/BMachine.Plugins.ContextMenu/assets" -Destination $pluginOut -Recurse -Force
+# }
+
+Write-Host "[OK] Plugins built." -ForegroundColor Green
+
+# 2. Sync Scripts & Plugins
+Write-Host ""
+Write-Host "[2/4] Syncing content..." -ForegroundColor Yellow
+
+# Scripts
+if (Test-Path "publish\Scripts") { Remove-Item "publish\Scripts" -Recurse -Force }
+Copy-Item "Scripts" -Destination "publish" -Recurse -Force
+Write-Host "  - Scripts synced." -ForegroundColor DarkGray
+
+# Plugins - MERGE existing publish with source plugins folder
+# Don't delete publish/plugins because it contains ContextMenu plugin from publish step
+if (Test-Path "plugins") {
+    # Copy individual plugin files from source plugins folder
+    if (!(Test-Path "publish\plugins")) { New-Item -ItemType Directory "publish\plugins" | Out-Null }
+    Copy-Item "plugins\*" -Destination "publish\plugins" -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "  - Plugins synced." -ForegroundColor DarkGray
+} else {
+    Write-Host "  [WARN] 'plugins' folder not found in source!" -ForegroundColor Magenta
 }
 
-# Copy fresh Scripts folder
-Copy-Item -Path "Scripts" -Destination "publish\Scripts" -Recurse -Force
-Write-Host "  - Copied Scripts folder" -ForegroundColor DarkGray
-Write-Host "[OK] Scripts synced." -ForegroundColor Green
+Write-Host "[OK] Content synced." -ForegroundColor Green
 
 # 3. Build Summary
 Write-Host ""

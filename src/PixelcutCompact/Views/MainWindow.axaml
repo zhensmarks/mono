@@ -3,249 +3,543 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:PixelcutCompact.ViewModels"
+        xmlns:cv="clr-namespace:PixelcutCompact.Converters"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
         x:Class="PixelcutCompact.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="avares://PixelcutCompact/appicon.ico"
-        Title="Pixelcut Compact">
+        Title="Pixelcut Compact"
+        
+        SystemDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        WindowStartupLocation="CenterScreen"
+        CanResize="True"
+        CornerRadius="10"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent">
 
-    <Grid RowDefinitions="*, Auto">
-        <!-- Main Content Area -->
+    <Window.Resources>
+        <cv:LuminanceToBrushConverter x:Key="LuminanceToBrushConverter"/>
+        <cv:ColorToBrushConverter x:Key="ColorToBrushConverter"/>
+        <cv:BooleanToStatusBrushConverter x:Key="BooleanToStatusBrushConverter"/>
+        
+        <!-- Icons -->
+        <StreamGeometry x:Key="IconCheck">M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z</StreamGeometry>
+        <StreamGeometry x:Key="IconRetry">M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.86,17.53 19.79,14.15L17.65,13.62C16.96,16.27 14.73,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z</StreamGeometry>
+        <StreamGeometry x:Key="IconPause">M14,19H18V5H14M6,19H10V5H6V19Z</StreamGeometry>
+        <StreamGeometry x:Key="IconPlay">M8,5.14V19.14L19,12.14L8,5.14Z</StreamGeometry>
+    </Window.Resources>
+    
+    <Window.Styles>
+        <!-- Compact Tooltip Style -->
+        <Style Selector="ToolTip">
+            <Setter Property="Background" Value="#252525"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#404040"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+    </Window.Styles>
 
-        <!-- Main Content Area -->
-        <!-- Main Content Area with Tabs -->
-        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="0" Padding="0" ClipToBounds="True"
-                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0" Margin="0">
-            
-            <TabControl Margin="0" Padding="0" Background="Transparent">
-                 <TabControl.Styles>
-                    <Style Selector="TabItem">
-                        <Setter Property="FontSize" Value="12"/>
-                        <Setter Property="FontWeight" Value="SemiBold"/>
-                        <Setter Property="Padding" Value="12,8"/>
-                        <Setter Property="Margin" Value="0"/>
-                        <Setter Property="MinHeight" Value="32"/>
-                    </Style>
-                    <Style Selector="TabItem:selected">
-                        <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
-                        <Setter Property="BorderThickness" Value="0,0,0,2"/>
-                    </Style>
-                 </TabControl.Styles>
-
-                 <!-- Tab 1: Proses -->
-                <TabItem Header="Proses">
-                    <Grid DragDrop.AllowDrop="True" Background="Transparent">
-                        <!-- Empty State -->
-                        <Grid IsVisible="{Binding !HasFiles}">
-                            <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
-                                     <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
-                                             HorizontalAlignment="Center" Width="80" Height="64">
-                                         <PathIcon Data="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5M12 4.15L6.04 7.5L12 10.85L17.96 7.5L12 4.15M5 15.91L11 19.29V12.58L5 9.21V15.91M19 15.91V9.21L13 12.58V19.29L19 15.91Z" 
-                                                   Width="32" Height="32" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                     </Border>
-                                    <TextBlock Text="Drop Images Here" FontSize="15" FontWeight="SemiBold" 
-                                               Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-
-                        <!-- File List -->
-                        <ListBox x:Name="FileListBox" IsVisible="{Binding HasFiles}" ItemsSource="{Binding Files}" Background="Transparent" 
-                                 Margin="0,10" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 SelectionMode="Multiple">
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="Margin" Value="10,0,10,8"/>
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Template">
-                                        <ControlTemplate>
-                                            <ContentPresenter Background="{TemplateBinding Background}"
-                                                              BorderBrush="{TemplateBinding BorderBrush}"
-                                                              BorderThickness="{TemplateBinding BorderThickness}"
-                                                              CornerRadius="{TemplateBinding CornerRadius}"
-                                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                              Content="{TemplateBinding Content}"
-                                                              Padding="{TemplateBinding Padding}"
-                                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
-                                        </ControlTemplate>
-                                    </Setter>
-                                </Style>
-                            </ListBox.Styles>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <!-- Use Border with PointerPressed to handle Shift-Click -->
-                                    <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
-                                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                            Margin="0,0,0,4"
-                                            PointerPressed="OnFileItemPointerPressed"> 
-                                        <Grid ColumnDefinitions="Auto, *, Auto">
-                                            <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" MinHeight="0" Padding="0"
-                                                      IsHitTestVisible="False"/> 
-                                                      
-                                            <Grid.ContextMenu>
-                                                <ContextMenu>
-                                                    <MenuItem Header="Remove" Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).RemoveFileCommand}" CommandParameter="{Binding .}"/>
-                                                </ContextMenu>
-                                            </Grid.ContextMenu>
-                                            
-                                            <!-- Left: Name & Progress -->
-                                            <Grid Grid.Column="1" RowDefinitions="Auto, Auto" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding FileName}" FontWeight="Bold" FontSize="13" 
-                                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
-                                                           Margin="0,0,0,4"/>
-                                                           
-                                                <ProgressBar Grid.Row="1" Height="3" HorizontalAlignment="Stretch"
-                                                             Foreground="{DynamicResource AccentBlueBrush}" Background="Transparent" BorderThickness="0"
-                                                             Value="{Binding Progress}" Maximum="100" 
-                                                             IsVisible="{Binding IsProcessing}"/>
-                                                             
-                                                <TextBlock Grid.Row="1" Text="{Binding Status}" FontSize="10" FontWeight="Bold" 
-                                                           Foreground="{DynamicResource TextSecondaryBrush}" 
-                                                           IsVisible="{Binding !IsFailed}" TextTrimming="CharacterEllipsis"/>
-                                                           
-                                                <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" FontSize="10" FontWeight="Bold" Foreground="#EF4444" 
-                                                           IsVisible="{Binding IsFailed}" TextTrimming="CharacterEllipsis"/>
-                                            </Grid>
-                                            
-                                            <!-- Right: Size & Status -->
-                                            <StackPanel Grid.Column="2" Margin="15,0,8,0" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                                                    <TextBlock Text="{Binding OriginalSizeDisplay}" FontSize="11" 
-                                                               Foreground="{DynamicResource TextSecondaryBrush}" 
-                                                               VerticalAlignment="Center" TextTrimming="None" TextWrapping="NoWrap"/>
-                                                    
-                                                    <PathIcon Data="M5 12h14M12 5l7 7-7 7" Width="10" Height="10" 
-                                                              Foreground="{DynamicResource TextSecondaryBrush}" 
-                                                              VerticalAlignment="Center"
-                                                              IsVisible="{Binding IsDone}"/>
-                                                    
-                                                    <TextBlock Text="{Binding ResultSizeDisplay}" FontSize="11" 
-                                                               Foreground="{DynamicResource AccentBlueBrush}" 
-                                                               VerticalAlignment="Center" TextTrimming="None" TextWrapping="NoWrap"
-                                                               IsVisible="{Binding IsDone}"/>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                        
-                        <!-- Overlay: Settings -->
-                         <Border Background="#CC000000" IsVisible="{Binding IsSettingsOpen}">
-                            <Border Width="300" VerticalAlignment="Center" HorizontalAlignment="Center"
-                                    Background="{DynamicResource CardBackgroundBrush}"
-                                    CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="20">
-                                <StackPanel Spacing="15">
-                                    <TextBlock Text="Settings" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    
-                                    <!-- Proxy -->
-                                    <StackPanel Spacing="5">
-                                        <TextBlock Text="Manual Proxy" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <TextBox Text="{Binding ProxyAddress}" Watermark="http://127.0.0.1:8080" />
-                                        <TextBlock Text="* Leave empty to use Free Proxy Rotation + Auto Retry" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    
-                                    <Button Command="{Binding CloseSettingsCommand}" Content="Save" 
-                                            HorizontalAlignment="Right"/>
-                                </StackPanel>
-                            </Border>
-                        </Border>
-                    </Grid>
-                </TabItem>
-                
-                <!-- Tab 2: Log -->
-                <TabItem Header="Log">
-                     <Grid Background="#1E1E1E">
-                        <TextBox Text="{Binding LogOutput}" IsReadOnly="True" 
-                                 Background="Transparent" BorderThickness="0" 
-                                 FontFamily="Consolas, Monospace" FontSize="11" Foreground="#D4D4D4"
-                                 TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 Padding="10"/>
-                    </Grid>
-                </TabItem>
-            </TabControl>
-        </Border>
-
-        <!-- Footer / Controls -->
-        <Border Grid.Row="1" Margin="10" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="12" Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-            <Grid ColumnDefinitions="Auto, *, Auto">
-                
-                <!-- Left: Utils -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                      <Border Background="Transparent" CornerRadius="4" Padding="8,4" ToolTip.Tip="{Binding VpnStatus}" VerticalAlignment="Center">
-                          <Panel Width="6" Height="6">
-                              <Border CornerRadius="3" Background="#4ade80" IsVisible="{Binding IsVpnActive}"/>
-                              <Border CornerRadius="3" Background="#ef4444" IsVisible="{Binding !IsVpnActive}"/>
-                          </Panel>
-                      </Border>
-                      
-                      <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" 
-                              Background="Transparent" BorderThickness="0" Padding="0"
-                              Height="32" Width="32" CornerRadius="4">
-                          <PathIcon Data="{StaticResource IconSettings}" 
-                                    Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                      </Button>
+    <!-- Main Border for Window Outline -->
+    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" BorderBrush="#33000000" BorderThickness="1" ClipToBounds="True">
+        <Grid RowDefinitions="Auto, *, Auto">
+            <!-- Custom Title Bar -->
+            <Grid Grid.Row="0" Height="40" Background="Transparent" ColumnDefinitions="Auto, *, Auto">
+                 <!-- Title -->
+                 <StackPanel Orientation="Horizontal" Spacing="10" Margin="15,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+                     <TextBlock Text="Pixelcut Compact" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
                  </StackPanel>
+                 
+                 <!-- Drag Area -->
+                 <Panel Grid.Column="0" Grid.ColumnSpan="3" Background="Transparent" PointerPressed="OnHeaderPointerPressed" />
+    
+                 <!-- Window Controls (Right aligned) -->
+                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
+                     <!-- View Toggle Button -->
+                     <Button Command="{Binding ToggleViewModeCommand}" 
+                             Width="32" Height="32" Background="Transparent" BorderThickness="0"
+                             VerticalAlignment="Top" ToolTip.Tip="Ganti Tampilan (List/Grid)">
+                         <Panel>
+                              <!-- Show Grid Icon when in List Mode (to switch to Grid) -->
+                              <PathIcon Data="M2,2H11V11H2V2M2,13H11V22H2V13M13,2H22V11H13V2M13,13H22V22H13V13Z" 
+                                        Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"
+                                        IsVisible="{Binding !IsGridView}"/>
+                              <!-- Show List Icon when in Grid Mode (to switch to List) -->
+                              <PathIcon Data="M3,4H21V8H3V4M3,10H21V14H3V10M3,16H21V20H3V16Z" 
+                                        Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"
+                                        IsVisible="{Binding IsGridView}"/>
+                         </Panel>
+                     </Button>
 
-                <!-- Right: Actions -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    
-                     <Button Command="{Binding RetrySmallFilesCommand}" 
-                             IsVisible="{Binding IsRetryVisible}"
-                             ToolTip.Tip="Retry Failed" 
-                             Background="Transparent" BorderThickness="0" Padding="0"
-                             Height="32" Width="32" CornerRadius="4">
-                        <PathIcon Data="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
+                     <Button Click="OnCloseWindow" 
+                             Width="46" Height="32" CornerRadius="0,10,0,0" 
+                             Background="Transparent" BorderThickness="0"
+                             VerticalAlignment="Top" HorizontalAlignment="Right">
+                         <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
+                                   Width="10" Height="10" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                         <Button.Styles>
+                             <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                 <Setter Property="Background" Value="#E81123"/>
+                                 <Setter Property="Foreground" Value="White"/>
+                             </Style>
+                             <Style Selector="Button:pointerover PathIcon">
+                                 <Setter Property="Foreground" Value="White"/>
+                             </Style>
+                         </Button.Styles>
                      </Button>
-                     
-                     <Button Command="{Binding ClearCommand}" ToolTip.Tip="Clear All" 
-                             Background="Transparent" BorderThickness="0" Padding="0"
-                             Height="32" Width="32" CornerRadius="4">
-                         <PathIcon Data="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" Width="14" Height="14" Foreground="#EF4444"/>
-                     </Button>
-                     
-                    <Button Command="{Binding ProcessRemoveBgCommand}" IsVisible="{Binding !IsProcessing}"
-                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="8" Padding="15,0" BorderThickness="0" Height="32">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <PathIcon Data="{StaticResource IconEraser}" Width="14" Height="14"/>
-                            <TextBlock Text="Remove BG" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    
-                    <Button Command="{Binding ProcessUpscaleCommand}" IsVisible="{Binding !IsProcessing}"
-                            Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
-                            Foreground="{DynamicResource AccentBlueBrush}" CornerRadius="8" Padding="0" Height="32" Width="42"
-                            ToolTip.Tip="Upscale">
-                        <PathIcon Data="M16 4h-2l-4 4-4-4H4v16h2V8l4 4 4-4v12h2V4z M20 4h-2v16h2V4z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
-                    </Button>
-                    
-                     <Button Command="{Binding PauseCommand}" IsVisible="{Binding IsProcessing}"
-                            Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1"
-                            Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="8" Padding="15,0" Height="32">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <PathIcon Data="M6 4h4v16H6z M14 4h4v16h-4z" Width="12" Height="12" IsVisible="{Binding !IsPaused}"/>
-                            <PathIcon Data="M5 3 L19 12 L5 21 L5 3 Z" Width="12" Height="12" IsVisible="{Binding IsPaused}"/>
-                            
-                            <TextBlock Text="JEDA" FontWeight="Bold" VerticalAlignment="Center" IsVisible="{Binding !IsPaused}"/>
-                            <TextBlock Text="LANJUTKAN" FontWeight="Bold" VerticalAlignment="Center" IsVisible="{Binding IsPaused}"/>
-                        </StackPanel>
-                    </Button>
-                
-                     <Button Command="{Binding StopCommand}" IsVisible="{Binding IsProcessing}"
-                            Background="#EF4444" Foreground="White" CornerRadius="8" Padding="15,0" BorderThickness="0" Height="32">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="STOP" FontWeight="Bold" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+                 </StackPanel>
             </Grid>
-        </Border>
-    </Grid>
+    
+            <!-- Main Content Area with Tabs -->
+            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" 
+                    CornerRadius="0" Padding="0" ClipToBounds="True"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Margin="0">
+                
+                <TabControl Margin="0" Padding="0" Background="Transparent">
+                     <TabControl.Styles>
+                        <Style Selector="TabItem">
+                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Padding" Value="12,8"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="MinHeight" Value="32"/>
+                        </Style>
+                        <Style Selector="TabItem:selected">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                            <Setter Property="BorderThickness" Value="0,0,0,3"/> 
+                        </Style>
+                        <Style Selector="TabItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                        </Style>
+                     </TabControl.Styles>
+                     
+                     <!-- Tab 1: Proses -->
+                    <TabItem Header="Proses">
+                        <Grid DragDrop.AllowDrop="True" Background="Transparent">
+                            <!-- Empty State -->
+                            <Grid IsVisible="{Binding !HasFiles}">
+                                <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
+                                         <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
+                                                 HorizontalAlignment="Center" Width="80" Height="64">
+                                             <PathIcon Data="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5M12 4.15L6.04 7.5L12 10.85L17.96 7.5L12 4.15M5 15.91L11 19.29V12.58L5 9.21V15.91M19 15.91V9.21L13 12.58V19.29L19 15.91Z" 
+                                                       Width="32" Height="32" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                         </Border>
+                                        <TextBlock Text="Tarik &amp; Lepas Gambar Disini" FontSize="15" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+    
+                            <!-- File List -->
+                            <ListBox x:Name="FileListBox" IsVisible="{Binding HasFiles}" ItemsSource="{Binding Files}" Background="Transparent" 
+                                     Margin="0,10" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     SelectionMode="Multiple"
+                                     Classes.grid="{Binding IsGridView}">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Margin" Value="10,0,10,8"/>
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Template">
+                                            <ControlTemplate>
+                                                <ContentPresenter Background="{TemplateBinding Background}"
+                                                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                                  Content="{TemplateBinding Content}"
+                                                                  Padding="{TemplateBinding Padding}"
+                                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                            </ControlTemplate>
+                                        </Setter>
+                                    </Style>
+                                    <Style Selector="ListBox">
+                                        <Setter Property="ItemsPanel">
+                                            <ItemsPanelTemplate>
+                                                <StackPanel />
+                                            </ItemsPanelTemplate>
+                                        </Setter>
+                                    </Style>
+                                    <Style Selector="ListBox.grid">
+                                       <Setter Property="ItemsPanel">
+                                           <ItemsPanelTemplate>
+                                               <WrapPanel Orientation="Horizontal" />
+                                           </ItemsPanelTemplate>
+                                       </Setter>
+                                   </Style>
+                               </ListBox.Styles>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Panel>
+                                            <!-- LIST VIEW -->
+                                            <Border IsVisible="{Binding !DataContext.(vm:MainWindowViewModel).IsGridView, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                    Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
+                                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                                    Margin="0,0,0,4"
+                                                    PointerPressed="OnFileItemPointerPressed"> 
+                                                <Grid ColumnDefinitions="Auto, *, Auto">
+                                                    <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" MinHeight="0" Padding="0"
+                                                              IsHitTestVisible="False"/> 
+                                                              
+                                                    <Grid.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="Preview" Command="{Binding DataContext.(vm:MainWindowViewModel).PreviewItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
+                                                            <MenuItem Header="Buka Folder" Command="{Binding DataContext.(vm:MainWindowViewModel).OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
+                                                            <Separator/>
+                                                            <MenuItem Header="Retry" Command="{Binding DataContext.(vm:MainWindowViewModel).RetrySingleItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
+                                                            <MenuItem Header="Hapus" Command="{Binding DataContext.(vm:MainWindowViewModel).RemoveFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
+                                                        </ContextMenu>
+                                                    </Grid.ContextMenu>
+                                                    
+                                                    <!-- Left: Name & Progress -->
+                                                    <Grid Grid.Column="1" RowDefinitions="Auto, Auto" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding FileName}" FontWeight="Bold" FontSize="13" 
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                                                                   Margin="0,0,0,4"/>
+                                                                   
+                                                        <ProgressBar Grid.Row="1" Height="3" HorizontalAlignment="Stretch"
+                                                                     Foreground="{DynamicResource AccentBlueBrush}" Background="Transparent" BorderThickness="0"
+                                                                     Value="{Binding Progress}" Maximum="100" 
+                                                                     IsVisible="{Binding IsProcessing}"/>
+                                                                     
+                                                        <TextBlock Grid.Row="1" Text="{Binding Status}" FontSize="10" FontWeight="Bold" 
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                                   IsVisible="{Binding !IsFailed}" TextTrimming="CharacterEllipsis"/>
+                                                                   
+                                                        <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" FontSize="10" FontWeight="Bold" Foreground="#EF4444" 
+                                                                   IsVisible="{Binding IsFailed}" TextTrimming="CharacterEllipsis"/>
+                                                    </Grid>
+                                                    
+                                                    <!-- Right: Size & Status -->
+                                                    <StackPanel Grid.Column="2" Margin="15,0,8,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                                            <!-- Preview Button -->
+                                                            <Button Command="{Binding DataContext.(vm:MainWindowViewModel).PreviewItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" 
+                                                                    CommandParameter="{Binding .}"
+                                                                    Background="Transparent" BorderThickness="0" Padding="4"
+                                                                    IsVisible="{Binding HasResult}"
+                                                                    ToolTip.Tip="Preview Hasil">
+                                                                <PathIcon Data="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" 
+                                                                          Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                            </Button>
+
+                                                            <TextBlock Text="{Binding OriginalSizeDisplay}" FontSize="11" 
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                                       VerticalAlignment="Center" TextTrimming="None" TextWrapping="NoWrap"/>
+                                                            
+                                                            <PathIcon Data="M5 12h14M12 5l7 7-7 7" Width="10" Height="10" 
+                                                                      Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                                      VerticalAlignment="Center"
+                                                                      IsVisible="{Binding IsDone}"/>
+                                                            
+                                                            <TextBlock Text="{Binding ResultSizeDisplay}" FontSize="11" 
+                                                                       Foreground="{DynamicResource AccentBlueBrush}" 
+                                                                       VerticalAlignment="Center" TextTrimming="None" TextWrapping="NoWrap"
+                                                                       IsVisible="{Binding IsDone}"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- GRID VIEW -->
+                                            <Border IsVisible="{Binding DataContext.(vm:MainWindowViewModel).IsGridView, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                    Width="140" Height="140" Margin="4"
+                                                    Padding="8" CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}"
+                                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                                    PointerPressed="OnFileItemPointerPressed">
+                                                
+                                                <Grid RowDefinitions="*, Auto, Auto">
+                                                    <Grid.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="Preview" Command="{Binding DataContext.(vm:MainWindowViewModel).PreviewItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
+                                                            <MenuItem Header="Buka Folder" Command="{Binding DataContext.(vm:MainWindowViewModel).OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
+                                                            <Separator/>
+                                                            <MenuItem Header="Retry" Command="{Binding DataContext.(vm:MainWindowViewModel).RetrySingleItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
+                                                            <MenuItem Header="Hapus" Command="{Binding DataContext.(vm:MainWindowViewModel).RemoveFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
+                                                        </ContextMenu>
+                                                    </Grid.ContextMenu>
+                                                    <!-- Thumbnail / Icon Placehoder -->
+                                                    <Viewbox Grid.Row="0" Margin="0,0,0,8">
+                                                        <PathIcon Data="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z" 
+                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    </Viewbox>
+                                                    
+                                                    <TextBlock Grid.Row="1" Text="{Binding FileName}" FontWeight="Bold" FontSize="11" 
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                                                               HorizontalAlignment="Center"/>
+                                                               
+                                                    <TextBlock Grid.Row="2" Text="{Binding Status}" FontSize="10" 
+                                                               Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                    
+                                                    <!-- Processing Indicator Overlay (Fixed Width) -->
+                                                     <ProgressBar Grid.Row="2" Height="4" Width="124" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,15,0,0"
+                                                                 Foreground="{DynamicResource AccentBlueBrush}" Background="#20FFFFFF" BorderThickness="0"
+                                                                 Value="{Binding Progress}" Maximum="100" 
+                                                                 IsVisible="{Binding IsProcessing}"/>
+                                                                 
+                                                    <!-- Selection Check & Preview Button Stack -->
+                                                    <StackPanel Grid.Row="0" Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right"
+                                                                Margin="0,-4,-4,0" Spacing="2">
+                                                        <CheckBox IsChecked="{Binding IsSelected}" HorizontalAlignment="Center"/>
+                                                        
+                                                        <Button Command="{Binding DataContext.(vm:MainWindowViewModel).PreviewItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" 
+                                                                CommandParameter="{Binding .}"
+                                                                IsVisible="{Binding HasResult}"
+                                                                HorizontalAlignment="Center"
+                                                                Width="20" Height="20" Padding="3"
+                                                                Background="Transparent" CornerRadius="4" BorderThickness="0"
+                                                                ToolTip.Tip="Preview">
+                                                            <PathIcon Data="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" 
+                                                                      Width="14" Height="14"
+                                                                      Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </Panel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            
+                            <!-- Overlay: Settings -->
+                            <Grid Grid.Row="0" Grid.RowSpan="3" IsVisible="{Binding IsSettingsOpen}" ZIndex="100">
+                                 <!-- Background Dimmer (Button for Click-to-Close) -->
+                                 <Button Background="#AA000000" Command="{Binding CloseSettingsCommand}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
+                                         CornerRadius="0" BorderThickness="0">
+                                     <Button.Styles>
+                                         <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                             <Setter Property="Background" Value="#AA000000"/> 
+                                         </Style>
+                                     </Button.Styles>
+                                 </Button>
+                                 
+                                 <Border Width="340" Height="280" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                         Background="{DynamicResource CardBackgroundBrush}"
+                                         CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" 
+                                         Padding="24,20"
+                                         BoxShadow="0 10 40 0 #55000000">
+                                     <Grid RowDefinitions="Auto, *, Auto">
+                                         <!-- Header -->
+                                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,15">
+                                             <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                             <TextBlock Text="Pengaturan" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                         </StackPanel>
+                                         
+                                         <!-- Content (Scrollable) -->
+                                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,10,0">
+                                             <StackPanel Spacing="16">
+                                                 <!-- Proxy -->
+                                                 <StackPanel Spacing="6">
+                                                     <TextBlock Text="Manual Proxy" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                     <TextBox Text="{Binding ProxyAddress}" Watermark="http://127.0.0.1:8080" />
+                                                 </StackPanel>
+
+                                                 <Border Height="1" Background="{DynamicResource CardBorderBrush}"/>
+
+                                                 <!-- Theme -->
+                                                 <Grid ColumnDefinitions="*, Auto">
+                                                     <TextBlock Grid.Column="0" Text="Mode Gelap" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                     <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsDarkTheme}" OnContent="" OffContent="" Margin="0"/>
+                                                 </Grid>
+                                                 
+                                                 <!-- Accent Color -->
+                                                 <Grid ColumnDefinitions="*, 200">
+                                                     <TextBlock Grid.Column="0" Text="Warna Aksen" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                                         <TextBox Text="{Binding AccentColorHex}" Width="100" Watermark="#HEX" VerticalAlignment="Center" FontSize="12" MinHeight="0" Height="28" Padding="6,4"/>
+                                                         <ColorPicker Color="{Binding AccentColor}" IsAlphaEnabled="False" />
+                                                     </StackPanel>
+                                                 </Grid>
+
+                                                 <!-- Custom Background -->
+                                                 <Grid ColumnDefinitions="*, 200">
+                                                     <TextBlock Grid.Column="0" Text="Warna Background" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                                          <TextBox Text="{Binding CurrentBackgroundColorHex}" Width="100" Watermark="#HEX" VerticalAlignment="Center" FontSize="12" MinHeight="0" Height="28" Padding="6,4"/>
+                                                         <ColorPicker Color="{Binding CurrentBackgroundColor}" IsAlphaEnabled="False" />
+                                                     </StackPanel>
+                                                 </Grid>
+                                             </StackPanel>
+                                         </ScrollViewer>
+
+                                         <!-- Footer -->
+                                         <Button Grid.Row="2" Command="{Binding CloseSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" 
+                                                 Content="Simpan &amp; Tutup" Margin="0,15,0,0"
+                                                 Background="{DynamicResource AccentBlueBrush}" 
+                                                 Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}" 
+                                                 FontWeight="SemiBold"/>
+                                     </Grid>
+                                 </Border>
+                             </Grid>
+
+                             <!-- Overlay: Alert/Notification -->
+                            <Grid Grid.Row="0" Grid.RowSpan="3" IsVisible="{Binding IsAlertOpen}" ZIndex="110">
+                                <!-- Background Dimmer using Button for robustness -->
+                                <Button Background="#AA000000" Command="{Binding CloseAlertCommand}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
+                                         CornerRadius="0" BorderThickness="0">
+                                     <Button.Styles>
+                                         <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                             <Setter Property="Background" Value="#AA000000"/> 
+                                         </Style>
+                                     </Button.Styles>
+                                 </Button>
+                                
+                                <Border Width="300" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Background="{DynamicResource CardBackgroundBrush}"
+                                        CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" 
+                                        Padding="24"
+                                        BoxShadow="0 10 40 0 #55000000">
+                                    <StackPanel Spacing="20">
+                                        <PathIcon Data="{StaticResource IconCheck}" Width="32" Height="32" Foreground="{DynamicResource AccentBlueBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="{Binding AlertMessage}" FontSize="16" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+                                        <Button Command="{Binding CloseAlertCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" 
+                                                Content="OK" Margin="0,5,0,0"
+                                                Background="{DynamicResource AccentBlueBrush}" 
+                                                Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}" 
+                                                FontWeight="SemiBold" CornerRadius="8"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+                    
+                    <!-- Tab 2: Log -->
+                    <TabItem Header="Log">
+                         <Grid Background="#1E1E1E">
+                            <TextBox Text="{Binding LogOutput}" IsReadOnly="True" 
+                                     Background="Transparent" BorderThickness="0" 
+                                     FontFamily="Consolas, Monospace" FontSize="11" Foreground="#D4D4D4"
+                                     TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     Padding="10"/>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Border>
+    
+            <!-- Footer / Controls -->
+            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" 
+                    Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="Auto, *, Auto">
+                    <!-- Status -->
+                    <StackPanel Orientation="Horizontal" Spacing="15" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <!-- Connection Status Dot (Red=Direct, Green=VPN) -->
+                            <Ellipse Width="8" Height="8" Fill="{Binding ConnectionStatusBrush}" VerticalAlignment="Center" 
+                                     ToolTip.Tip="{Binding VpnStatus}"/> 
+                        </StackPanel>
+                        
+                        <!-- Settings Button -->
+                        <Button Command="{Binding ShowSettingsCommand}" Background="Transparent" Padding="4" ToolTip.Tip="Pengaturan">
+                            <PathIcon Data="{StaticResource IconSettings}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </Button>
+                    </StackPanel>
+                    
+                    <!-- Center Actions (Empty now as Retry moved to Right) -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Space for future use -->
+                    </StackPanel>
+    
+                    <!-- Right Actions -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        
+                        <!-- Retry Button (Moved Here, Icon Style) -->
+                        <Button Command="{Binding RetrySmallFilesCommand}" IsVisible="{Binding IsRetryVisible}"
+                                Background="{DynamicResource CardBackgroundBrush}" 
+                                BorderBrush="#EF4444" 
+                                BorderThickness="1" 
+                                CornerRadius="8" Padding="0" Height="32" Width="42"
+                                ToolTip.Tip="Ulangi (Error)">
+                             <PathIcon Data="{StaticResource IconRetry}" 
+                                       Width="16" Height="16" 
+                                       Foreground="#EF4444"/>
+                        </Button>
+
+                        <!-- Delete Button -->
+                        <!-- 
+                            Color Logic: 
+                            - BorderBrush & Foreground use TrashButtonBrush (Red if HasFiles, Accent if Empty)
+                            - IsEnabled removed so it is always visible/colored (but does nothing if empty)
+                         -->
+                        <Button Command="{Binding ClearCommand}" 
+                                Background="{DynamicResource CardBackgroundBrush}" 
+                                BorderBrush="{Binding TrashButtonBrush}" 
+                                BorderThickness="1" 
+                                CornerRadius="8" Padding="0" Height="32" Width="42"
+                                ToolTip.Tip="Hapus Semua">
+                             <PathIcon Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,19V6H17V19H7M9,8V17H11V8H9M13,8V17H15V8H13Z" 
+                                       Width="14" Height="14" 
+                                       Foreground="{Binding TrashButtonBrush}"/>
+                        </Button>
+                        
+                        <!-- Process Button (Started) -->
+                        <Button Command="{Binding ProcessRemoveBgCommand}"
+                                IsVisible="{Binding !IsProcessing}"
+                                IsEnabled="{Binding HasFiles}"
+                                Background="{DynamicResource AccentBlueBrush}" Padding="15,8" CornerRadius="8" BorderThickness="0"
+                                ToolTip.Tip="Mulai Hapus Background">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Data="{StaticResource IconProcess}" Width="14" Height="14" 
+                                          Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}" />
+                                <TextBlock Text="Remove BG" FontWeight="Bold" FontSize="13"
+                                           Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Pause/Resume Button (Processing) -->
+                        <Button Command="{Binding PauseCommand}" 
+                                IsVisible="{Binding IsProcessing}"
+                                Background="{DynamicResource AccentBlueBrush}" Padding="15,8" CornerRadius="8" BorderThickness="0"
+                                ToolTip.Tip="Jeda / Lanjut Proses">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <!-- Explicit Icons to avoid converter failure -->
+                                <!-- Running -> Pause Icon -->
+                                <PathIcon Data="{StaticResource IconPause}" Width="14" Height="14" IsVisible="{Binding !IsPaused}"
+                                          Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}" />
+                                <!-- Paused -> Play Icon -->
+                                <PathIcon Data="{StaticResource IconPlay}" Width="14" Height="14" IsVisible="{Binding IsPaused}"
+                                          Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}" />
+                                
+                                <TextBlock Text="Jeda" FontWeight="Bold" FontSize="13" IsVisible="{Binding !IsPaused}"
+                                           Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}"/>
+                                <TextBlock Text="Lanjutkan" FontWeight="Bold" FontSize="13" IsVisible="{Binding IsPaused}"
+                                           Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Stop Button -->
+                        <Button Command="{Binding StopCommand}" 
+                                IsVisible="{Binding IsProcessing}"
+                                Background="#E53935" Padding="15,8" CornerRadius="8" BorderThickness="0"
+                                ToolTip.Tip="Hentikan Proses">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Data="M18,18H6V6H18V18Z" Width="14" Height="14" Foreground="White" />
+                                <TextBlock Text="Stop" FontWeight="Bold" FontSize="13" Foreground="White"/>
+                            </StackPanel>
+                        </Button>
+
+                         <!-- Upscale Button (MI Icon) -->
+                       <Button Command="{Binding ProcessUpscaleCommand}" IsVisible="{Binding !IsProcessing}" IsEnabled="{Binding !IsPaused}"
+                               Background="{DynamicResource CardBackgroundBrush}" 
+                               BorderBrush="{Binding AccentColor, Converter={StaticResource ColorToBrushConverter}}" 
+                               BorderThickness="1"
+                               Foreground="{Binding AccentColor, Converter={StaticResource ColorToBrushConverter}}" 
+                               CornerRadius="8" Padding="0" Height="32" Width="42"
+                               ToolTip.Tip="UPSCALE">
+                             <PathIcon Data="M16 4h-2l-4 4-4-4H4v16h2V8l4 4 4-4v12h2V4z M20 4h-2v16h2V4z" Width="14" Height="14" 
+                                       Foreground="{Binding AccentColor, Converter={StaticResource ColorToBrushConverter}}"/>
+                       </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
 </Window>

@@ -6,10 +6,10 @@ namespace BMachine.SDK;
 public interface IEventBus
 {
     /// <summary>Publish event ke semua subscriber</summary>
-    void Publish<T>(T eventData) where T : IEvent;
+    void Publish<T>(T eventData) where T : class, IEvent;
     
     /// <summary>Subscribe ke event type tertentu</summary>
-    IDisposable Subscribe<T>(Action<T> handler) where T : IEvent;
+    IDisposable Subscribe<T>(Action<T> handler) where T : class, IEvent;
 }
 
 /// <summary>

@@ -43,20 +43,7 @@ public partial class SettingsView : UserControl
     {
         if (DataContext is SettingsViewModel vm)
         {
-            vm.PickExtensionFileFunc = async () =>
-            {
-                var topLevel = TopLevel.GetTopLevel(this);
-                if (topLevel == null) return null;
-                
-                var files = await topLevel.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
-                {
-                    Title = "Select Extension DLL",
-                    AllowMultiple = false,
-                    FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType("DLL Plugin") { Patterns = new[] { "*.dll" } } }
-                });
-                
-                return files.Count > 0 ? files[0].Path.LocalPath : null;
-            };
+
 
             vm.PickScriptFileFunc = async () =>
             {
@@ -363,6 +350,14 @@ public partial class SettingsView : UserControl
                      vm.MoveScript(draggedItem, newIndex, isTargetMaster);
                  }
              }
+        }
+    }
+
+    private void AutoCompleteBox_GotFocus(object? sender, GotFocusEventArgs e)
+    {
+        if (sender is AutoCompleteBox acb)
+        {
+            acb.IsDropDownOpen = true;
         }
     }
 }

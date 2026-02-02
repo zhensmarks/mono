@@ -119,14 +119,19 @@ public partial class PixelcutViewModel : ObservableObject
             await Task.Run(() =>
             {
                 var validPaths = new System.Collections.Generic.List<string>();
-                var searchPattern = new System.Collections.Generic.HashSet<string> { ".jpg", ".jpeg", ".png", ".psd", ".webp" };
+                // Removed .png from allowed extensions to block it (User request)
+                var searchPattern = new System.Collections.Generic.HashSet<string> { ".jpg", ".jpeg", ".psd", ".webp" };
 
                 foreach (var path in paths)
                 {
                     if (File.Exists(path))
                     {
-                        var p = CheckSmartPngReplacement(path);
-                        if (p != null) validPaths.Add(p);
+                         // No longer using CheckSmartPngReplacement since we block PNGs entirely
+                         // var p = CheckSmartPngReplacement(path);
+                         // if (p != null) validPaths.Add(p);
+                         
+                         var ext = Path.GetExtension(path).ToLower();
+                         if (searchPattern.Contains(ext)) validPaths.Add(path);
                     }
                     else if (Directory.Exists(path))
                     {

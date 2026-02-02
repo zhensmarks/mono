@@ -75,3 +75,20 @@ TestResults/
 
 # Publish output (large exe)
 publish/
+
+# User settings & API keys
+settings.json
+trello_config.json
+*_settings.json
+
+# Script outputs
+Scripts/Output/
+Scripts/Temp/
+**/[Oo]utput/
+**/[Tt]emp/
+
+# Large media files (optional - uncomment if needed)
+# *.psd
+# *.ai
+# *.mp4
+# *.mov

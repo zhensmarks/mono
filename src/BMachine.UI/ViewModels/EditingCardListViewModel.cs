@@ -3,15 +3,18 @@ using BMachine.SDK;
 using BMachine.UI.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class EditingCardListViewModel : BaseTrelloListViewModel
+public partial class EditingCardListViewModel : BaseTrelloListViewModel, CommunityToolkit.Mvvm.Messaging.IRecipient<BMachine.UI.Messages.AppFocusChangedMessage>
 {
     public EditingCardListViewModel(IDatabase database, INotificationService? notificationService = null)
         : base(database, notificationService)
     {
          _ = LoadAccentColor();
+         // Register once
+         WeakReferenceMessenger.Default.RegisterAll(this);
     }
 
     protected override void CloseAllSidePanels()
@@ -40,12 +43,32 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel
         RefreshCommand.Execute(null);
         if (_timer == null)
         {
-            _timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-            _timer.Tick += (s, e) => {
-                if (!IsRefreshing) RefreshCommand.Execute(null);
+            _timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+            _timer.Tick += async (s, e) => {
+                if (!IsRefreshing)
+                {
+                    // Optimization: Check for updates (Head-only) before full refresh
+                    var listId = await _database.GetAsync<string>("Trello.EditingListId");
+                    if (!string.IsNullOrEmpty(listId) && await CheckForUpdates(listId))
+                    {
+                         RefreshCommand.Execute(null);
+                    }
+                }
             };
         }
         _timer.Start();
+
+        // Optimization: Pause when backgrounded
+    }
+    
+    public void Receive(BMachine.UI.Messages.AppFocusChangedMessage message)
+    {
+         if (_timer == null) return;
+         if (message.Value) 
+         {
+             _timer.Start();
+         }
+         else _timer.Stop();
     }
 
     // Cache manual cards to prevent flickering if fetch fails momentarily

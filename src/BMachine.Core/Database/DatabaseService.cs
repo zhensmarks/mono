@@ -23,7 +23,15 @@ public class DatabaseService : IDatabase, IActivityService
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
 
-        // Key-Value Store Table for generic Get/Set
+        // Clear Cache on Startup (Session-based)
+        // We only clear entries that are marked as 'Cache' type or have specific keys if we want to be selective.
+        // But user asked for "cache expiry saat aplikasi close". Since persistence is needed for "offline fallback", 
+        // actually we should NOT clear it immediately on startup if we want to show last valid data until we fetch new one?
+        // Wait, User said: "cache expiry muungkin dibuat saat jam 12 malam saja mungkin, atau saat aplikasi di close saja ya?"
+        // Me: "Saya akan set agar Persistent (tetap ada meski di-close) tapi di-refresh otomatis saat App dibuka."
+        // So I will NOT clear it here. I will let the Service layer overwrite it.
+        // But I will add the Table Create command just to be sure it matches.
+        
         var command = connection.CreateCommand();
         command.CommandText = @"
             CREATE TABLE IF NOT EXISTS KeyValueStore (

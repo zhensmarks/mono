@@ -3,10 +3,12 @@
     /*
         C-REDAKSI.jsx
         Fitur: Otomatisasi Redaksi & Seleksi Warna
-        1. R-COLOR: Ganti Redaksi + Masking Selective Color (Invert)
-        2. H-R-COLOR: Sembunyi Redaksi + Masking Selective Color (Invert)
-        3. REDAKSI ONLY: Cuma Ganti Redaksi
-        4. R-ONTA: Tampilkan ONTA + Transform + Ganti Redaksi + Masking
+        1. HIDE REDAKSI: Sembunyi Redaksi
+        2. REDAKSI: Ganti Redaksi
+        
+        Options:
+        - MANASIK: Tampilkan ONTA + Transform
+        - COLOR RANGE: Action "COLORRANGE" set "ABENG"
     */
 
     (function () {
@@ -62,36 +64,21 @@
             }
         }
 
-        function colorRangeSkinTones() {
+        function playAction(actionName, setName) {
             try {
-                var idClrR = charIDToTypeID("ClrR");
-                var desc = new ActionDescriptor();
-                desc.putInteger(charIDToTypeID("Fzns"), 93);
-                desc.putEnumerated(charIDToTypeID("Clrs"), charIDToTypeID("Clrs"), stringIDToTypeID("skinTones"));
-                desc.putBoolean(stringIDToTypeID("detectFaces"), true);
-                executeAction(idClrR, desc, DialogModes.NO@);
-            } catch (e) { alert("Color Range Error: " + e); }
-        }
-
-        function invertMask() {
-            try {
-                var idInvr = charIDToTypeID("Invr");
-                executeAction(idInvr, undefined, DialogModes.NO);
-            } catch (e) { }
-        }
-
-        function selectLayerMask() {
-            try {
-                var idslct = charIDToTypeID("slct");
+                var idPly = charIDToTypeID("Ply ");
                 var desc = new ActionDescriptor();
                 var ref = new ActionReference();
-                ref.putEnumerated(charIDToTypeID("Chnl"), charIDToTypeID("Chnl"), charIDToTypeID("Msk "));
+                ref.putName(charIDToTypeID("Actn"), actionName);
+                ref.putName(charIDToTypeID("ASet"), setName);
                 desc.putReference(charIDToTypeID("null"), ref);
-                desc.putBoolean(charIDToTypeID("MkVs"), false);
-                executeAction(idslct, desc, DialogModes.NO);
-            } catch (e) { }
+                executeAction(idPly, desc, DialogModes.NO);
+            } catch (e) {
+                // Silently fail or alert if needed. 
+            }
         }
 
+        // === TRANSFORM FUNCTIONS ===
         function transformOnta() {
             try {
                 var idTrnf = charIDToTypeID("Trnf");
@@ -117,20 +104,25 @@
         }
 
         // === PROCESS LOGIC ===
-        function processAction(mode, isBatch) {
+        function processAction(mode, isBatch, useColorRange, useManasik) {
             if (isBatch) {
                 for (var i = 0; i < app.documents.length; i++) {
                     app.activeDocument = app.documents[i];
-                    doRedaksiAction(app.activeDocument, mode);
+                    doRedaksiAction(app.activeDocument, mode, useColorRange, useManasik);
                 }
             } else {
-                doRedaksiAction(app.activeDocument, mode);
+                doRedaksiAction(app.activeDocument, mode, useColorRange, useManasik);
             }
         }
 
-        function doRedaksiAction(doc, mode) {
+        function doRedaksiAction(doc, mode, useColorRange, useManasik) {
             try {
-                if (mode === 4) {
+                // Modes:
+                // 2: HIDE REDAKSI
+                // 3: REDAKSI (Replace)
+
+                // MANASIK Option: Show ONTA + Transform
+                if (useManasik) {
                     var onta = findLayerRecursive(doc, "ONTA");
                     if (onta) {
                         onta.visible = true;
@@ -139,26 +131,25 @@
                     }
                 }
 
+                // Handle REDAKSI SEKOLAH layer
                 var redaksi = findLayerRecursive(doc, "REDAKSI SEKOLAH");
                 if (redaksi) {
                     if (mode === 2) {
+                        // HIDE REDAKSI
                         redaksi.visible = false;
-                    } else {
+                    } else if (mode === 3) {
+                        // REDAKSI (Replace)
                         doc.activeLayer = redaksi;
                         redaksi.remove();
                         pasteInPlace();
                     }
                 }
 
-                if (mode === 1 || mode === 2 || mode === 4) {
-                    var selective = findLayerRecursive(doc, "Selective Color 1");
-                    if (selective) {
-                        doc.activeLayer = selective;
-                        selectLayerMask();
-                        invertMask();
-                        colorRangeSkinTones();
-                    }
+                // Execute COLOR RANGE Action if checkbox is checked
+                if (useColorRange) {
+                    playAction("COLORRANGE", "ABENG");
                 }
+
             } catch (err) { alert("Main Error: " + err); }
         }
 
@@ -177,26 +168,39 @@
         // Kolom 1
         var col1 = grp.add("group");
         col1.orientation = "column";
-        var btn1 = col1.add("button", [0, 0, 140, 40], "R-COLOR");
-        var btn3 = col1.add("button", [0, 0, 140, 40], "REDAKSI ONLY");
+        var btnRedaksi = col1.add("button", [0, 0, 140, 40], "REDAKSI");
 
         // Kolom 2
         var col2 = grp.add("group");
         col2.orientation = "column";
-        var btn2 = col2.add("button", [0, 0, 140, 40], "H-R-COLOR");
-        var btn4 = col2.add("button", [0, 0, 140, 40], "R-ONTA");
+        var btnHideRedaksi = col2.add("button", [0, 0, 140, 40], "HIDE REDAKSI");
 
-        // Batch Checkbox
-        var cbBatch = w.add("checkbox", undefined, "Batch (Semua File Terbuka)");
-        cbBatch.alignment = "center";
+        // Checkboxes Group
+        var grpCheckboxes = w.add("panel", undefined, "Options");
+        grpCheckboxes.orientation = "row";
+        grpCheckboxes.alignChildren = ["left", "center"];
+        grpCheckboxes.spacing = 15;
+        grpCheckboxes.margins = 15;
+
+        var cbBatch = grpCheckboxes.add("checkbox", undefined, "Batch All");
+        var cbColorRange = grpCheckboxes.add("checkbox", undefined, "COLOR RANGE");
+        var cbManasik = grpCheckboxes.add("checkbox", undefined, "MANASIK (Onta)");
 
         var btnCancel = w.add("button", undefined, "Cancel");
 
         // Handlers
-        btn1.onClick = function () { processAction(1, cbBatch.value); w.close(); };
-        btn2.onClick = function () { processAction(2, cbBatch.value); w.close(); };
-        btn3.onClick = function () { processAction(3, cbBatch.value); w.close(); };
-        btn4.onClick = function () { processAction(4, cbBatch.value); w.close(); };
+        // Mode 3: REDAKSI (Replace)
+        btnRedaksi.onClick = function () {
+            processAction(3, cbBatch.value, cbColorRange.value, cbManasik.value);
+            w.close();
+        };
+
+        // Mode 2: HIDE REDAKSI
+        btnHideRedaksi.onClick = function () {
+            processAction(2, cbBatch.value, cbColorRange.value, cbManasik.value);
+            w.close();
+        };
+
         btnCancel.onClick = function () { w.close(); };
 
         // Restore Position

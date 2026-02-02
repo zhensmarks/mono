@@ -31,30 +31,41 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="Editing" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="{Binding StatusMessage}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                            <!-- Status Dot -->
+                            <Ellipse Width="10" Height="10" VerticalAlignment="Center" ToolTip.Tip="{Binding ConnectionStatusText, StringFormat='{}Status: {0}'}">
+                                <Ellipse.Styles>
+                                    <Style Selector="Ellipse">
+                                        <Setter Property="Fill" Value="#EF4444"/> <!-- Red (Offline) -->
+                                    </Style>
+                                    <Style Selector="Ellipse.online">
+                                        <Setter Property="Fill" Value="#22C55E"/> <!-- Green (Online) -->
+                                    </Style>
+                                </Ellipse.Styles>
+                                <Classes.online>
+                                    <Binding Path="IsOnline"/>
+                                </Classes.online>
+                            </Ellipse>
+                            <TextBlock Text="{Binding StatusMessage}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
                     </StackPanel>
                     
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                          <!-- Manual Add Button -->
                          <Button Command="{Binding OpenAddManualPanelCommand}"
-                                 Content="TAMBAH MANUAL"
-                                 Background="Transparent"
-                                 BorderBrush="{DynamicResource AccentEditingBrush}" BorderThickness="1"
-                                 Foreground="{DynamicResource AccentEditingBrush}"
-                                 CornerRadius="8" Padding="15,8" Cursor="Hand"
-                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                 FontWeight="Bold" FontSize="12"/>
+                                 Classes="Primary" Padding="12,8" CornerRadius="6" Cursor="Hand">
+                             <TextBlock Text="Manual"/>
+                         </Button>
 
                          <!-- Batch Move Button -->
                          <Button Command="{Binding ShowBatchMovePanelCommand}"
-                                 Content="MOVE BATCH"
                                  IsVisible="{Binding HasSelectedCards}"
-                                 Background="Transparent"
-                                 BorderBrush="{DynamicResource AccentEditingBrush}" BorderThickness="1"
-                                 Foreground="{DynamicResource AccentEditingBrush}"
-                                 CornerRadius="8" Padding="15,8" Cursor="Hand"
-                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                 FontWeight="Bold" FontSize="12"/>
+                                 Classes="Primary" Padding="12,8" CornerRadius="6" Cursor="Hand">
+                             <StackPanel Orientation="Horizontal" Spacing="6">
+                                 <PathIcon Data="{StaticResource IconArrowRight}" Width="16" Height="16"/>
+                                 <TextBlock Text="Move Batch"/>
+                             </StackPanel>
+                         </Button>
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -162,6 +173,27 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
             </ScrollViewer>
+
+            <!-- FAB Refresh Button (kanan bawah) -->
+            <Button Command="{Binding RefreshCommand}" Grid.Row="1"
+                    Width="56" Height="56" CornerRadius="28"
+                    Background="{DynamicResource AccentBlueBrush}"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                    Margin="0,0,30,30" Cursor="Hand"
+                    IsVisible="{Binding !IsRefreshing}">
+                <PathIcon Data="{StaticResource IconRefresh}" 
+                          Width="24" Height="24" Foreground="White"/>
+            </Button>
+            
+            <!-- Loading Indicator for Manual Refresh -->
+            <Border Grid.Row="1" Width="56" Height="56" CornerRadius="28"
+                    Background="{DynamicResource AccentBlueBrush}"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                    BoxShadow="0 4 8 0 #40000000"
+                    Margin="0,0,30,30" 
+                    IsVisible="{Binding IsRefreshing}">
+                 <ProgressBar IsIndeterminate="True" Width="30" Height="30" Foreground="White" Theme="{DynamicResource ProgressRing}"/>
+            </Border>
         </Grid>
 
         <!-- Side Panel: Card Details -->
@@ -172,9 +204,14 @@
                  
                  <!-- 1. Header & Close -->
                  <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,15">
-                     <TextBlock Text="Card Details" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                     <!-- Offline Banner -->
+                     <Border Grid.Column="0" Grid.ColumnSpan="2" Background="#EF4444" Margin="-20,-20,-20,15" Padding="10" IsVisible="{Binding !IsOnline}">
+                         <TextBlock Text="OFFLINE - READ ONLY" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center"/>
+                     </Border>
+                     
+                     <TextBlock Grid.Column="0" Text="Card Details" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Bottom"/>
                      <Button Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Content="✕" 
-                             Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                             Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Bottom"/>
                  </Grid>
                  
                  <!-- 2. Action Buttons (Top) -->
@@ -197,6 +234,7 @@
                      <!-- Move (Regular) -->
                      <Button Command="{Binding StartMoveCardCommand}" CommandParameter="{Binding SelectedCard}"
                              Classes="Primary" CornerRadius="6" Padding="12,8" Cursor="Hand"
+                             IsEnabled="{Binding IsOnline}"
                              IsVisible="{Binding !SelectedCard.IsManual}">
                          <StackPanel Orientation="Horizontal" Spacing="6">
                              <PathIcon Data="{StaticResource IconArrowRight}" Width="16" Height="16"/>
@@ -461,14 +499,15 @@
                              </StackPanel>
                              <StackPanel Spacing="5">
                                   <TextBlock Text="Source:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                  <ComboBox ItemsSource="{Binding Checklists}" SelectedItem="{Binding SelectedSourceChecklist}" 
-                                            PlaceholderText="Select source..." HorizontalAlignment="Stretch">
-                                      <ComboBox.ItemTemplate>
-                                          <DataTemplate>
-                                              <TextBlock Text="{Binding Name}"/>
-                                          </DataTemplate>
-                                      </ComboBox.ItemTemplate>
-                                  </ComboBox>
+                                  <AutoCompleteBox ItemsSource="{Binding Checklists}" 
+                                                   SelectedItem="{Binding SelectedSourceChecklist}" 
+                                                   ValueMemberBinding="{Binding Name}"
+                                                   Watermark="Select source..." 
+                                                   HorizontalAlignment="Stretch"
+                                                   FilterMode="Contains"
+                                                   MinimumPrefixLength="0"
+                                                   GotFocus="AutoCompleteBox_GotFocus"
+                                                   MaxDropDownHeight="160"/>
                              </StackPanel>
                              <Grid ColumnDefinitions="*, *" Margin="0,5,0,0">
                                  <Button Grid.Column="0" Content="Cancel" Command="{Binding ToggleDuplicateModeCommand}" 
@@ -480,6 +519,7 @@
                      </Border>
                      <Button Command="{Binding ToggleDuplicateModeCommand}"
                              IsVisible="{Binding !IsDuplicateMode}"
+                             IsEnabled="{Binding IsOnline}"
                              Classes="Primary" HorizontalAlignment="Center" FontSize="12" Cursor="Hand">
                          <StackPanel Orientation="Horizontal" Spacing="6">
                              <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
@@ -509,28 +549,29 @@
                     
                     <StackPanel Spacing="8">
                         <TextBlock Text="Choose Board" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <ComboBox ItemsSource="{Binding AvailableBoards}" SelectedItem="{Binding SelectedMoveBoard}" 
-                                  PlaceholderText="Select target board..." HorizontalAlignment="Stretch"
-                                  IsEnabled="False" Opacity="0.8">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Name}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <AutoCompleteBox ItemsSource="{Binding AvailableBoards}" 
+                                         SelectedItem="{Binding SelectedMoveBoard}" 
+                                         ValueMemberBinding="{Binding Name}"
+                                         Watermark="Search board..." 
+                                         HorizontalAlignment="Stretch"
+                                         FilterMode="Contains"
+                                         MinimumPrefixLength="0"
+                                         GotFocus="AutoCompleteBox_GotFocus"
+                                         MaxDropDownHeight="160"/>
                     </StackPanel>
                     
                     <StackPanel Spacing="8">
                         <TextBlock Text="Select List" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <ComboBox ItemsSource="{Binding AvailableLists}" SelectedItem="{Binding SelectedMoveList}" 
-                                  PlaceholderText="Select target list..." HorizontalAlignment="Stretch"
-                                  IsEnabled="{Binding SelectedMoveBoard, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Name}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <AutoCompleteBox ItemsSource="{Binding AvailableLists}" 
+                                         SelectedItem="{Binding SelectedMoveList}" 
+                                         ValueMemberBinding="{Binding Name}"
+                                         Watermark="Search list..." 
+                                         HorizontalAlignment="Stretch"
+                                         FilterMode="Contains"
+                                         MinimumPrefixLength="0"
+                                         IsEnabled="{Binding SelectedMoveBoard, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                         GotFocus="AutoCompleteBox_GotFocus"
+                                         MaxDropDownHeight="160"/>
                     </StackPanel>
                     
                     <Button Command="{Binding MoveCardCommand}" 

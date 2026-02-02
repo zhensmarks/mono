@@ -17,7 +17,7 @@ using Google.Apis.Sheets.v4;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>
 {
     private readonly IActivityService _activityService;
     private readonly IDatabase _database;
@@ -32,6 +32,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
 
     [ObservableProperty] private bool _isLogPanelOpen;
+    [ObservableProperty] private bool _isOnline = true; // Connection status
 
     partial void OnIsLogPanelOpenChanged(bool value)
     {
@@ -43,6 +44,14 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     {
         IsLogPanelOpen = !IsLogPanelOpen;
     }
+
+    // --- Dashboard Visibility Properties ---
+    [ObservableProperty] private bool _isGdriveVisible = true;
+    [ObservableProperty] private bool _isPixelcutVisible = true;
+    [ObservableProperty] private bool _isBatchVisible = true;
+    [ObservableProperty] private bool _isLockerVisible = true; // Use Locker to match Tab name 'LockerTab'
+    [ObservableProperty] private bool _isPointVisible = true;
+
 
     // Activity Panel
     [ObservableProperty] private bool _isActivityPanelOpen;
@@ -60,7 +69,10 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     }
 
     // UI Customization
-    [ObservableProperty] private double _navButtonWidth = 40; // Reduced to 40 (icon width only)
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(NavButtonEffectiveWidth))]
+    private double _navButtonWidth = 40; // Reduced to 40 (icon width only)
+
     [ObservableProperty] private double _navButtonHeight = 40;
     
     [ObservableProperty] 
@@ -68,12 +80,34 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private double _navCornerRadius = 20;
 
     public CornerRadius NavCornerRadiusStruct => new CornerRadius(NavCornerRadius);
+    
+    // Auto width for Text mode, Fixed for Icon mode
+    public double NavButtonEffectiveWidth => IsNavIconMode ? NavButtonWidth : double.NaN;
 
     [ObservableProperty] private double _navFontSize = 14;
+
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(IsNavIconMode))]
+    [NotifyPropertyChangedFor(nameof(NavButtonEffectiveWidth))]
+    private int _navStyleIndex = 0; // 0=Icon, 1=Text
+    
+    public bool IsNavIconMode => NavStyleIndex == 0;
+
+    [ObservableProperty] private string _navCustomText = "Dashboard";
+    [ObservableProperty] private string _navGdriveText = "Driver";
+    [ObservableProperty] private string _navPixelcutText = "Pixelcut";
+    [ObservableProperty] private string _navBatchText = "Batch";
+    [ObservableProperty] private string _navLockerText = "Locker";
 
     partial void OnNavButtonWidthChanged(double value) => _database?.SetAsync("Dashboard.Nav.Width", value.ToString());
     partial void OnNavButtonHeightChanged(double value) => _database?.SetAsync("Dashboard.Nav.Height", value.ToString());
     partial void OnNavCornerRadiusChanged(double value) => _database?.SetAsync("Dashboard.Nav.Radius", value.ToString());
+    
+    partial void OnNavCustomTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Dash", value);
+    partial void OnNavGdriveTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Gdrive", value);
+    partial void OnNavPixelcutTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Pixelcut", value);
+    partial void OnNavBatchTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Batch", value);
+    partial void OnNavLockerTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Locker", value);
     partial void OnNavFontSizeChanged(double value) => _database?.SetAsync("Dashboard.Nav.FontSize", value.ToString());
 
     public async Task LoadNavSettings()
@@ -95,6 +129,24 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         
         var f = await _database.GetAsync<string>("Dashboard.Nav.FontSize");
         if (double.TryParse(f, out double dF)) NavFontSize = dF;
+        
+        var s = await _database.GetAsync<string>("Dashboard.Nav.Style");
+        if (int.TryParse(s, out int dS)) NavStyleIndex = dS;
+        
+        var navDash = await _database.GetAsync<string>("Dashboard.Nav.Text.Dash");
+        if (!string.IsNullOrEmpty(navDash)) NavCustomText = navDash;
+        
+        var navGdrive = await _database.GetAsync<string>("Dashboard.Nav.Text.Gdrive");
+        if (!string.IsNullOrEmpty(navGdrive)) NavGdriveText = navGdrive;
+        
+        var navPixel = await _database.GetAsync<string>("Dashboard.Nav.Text.Pixelcut");
+        if (!string.IsNullOrEmpty(navPixel)) NavPixelcutText = navPixel;
+        
+        var navBatch = await _database.GetAsync<string>("Dashboard.Nav.Text.Batch");
+        if (!string.IsNullOrEmpty(navBatch)) NavBatchText = navBatch;
+        
+        var navLocker = await _database.GetAsync<string>("Dashboard.Nav.Text.Locker");
+        if (!string.IsNullOrEmpty(navLocker)) NavLockerText = navLocker;
     }
 
     [RelayCommand]
@@ -133,13 +185,15 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private ObservableCollection<ActivityItem> _activities = new();
 
     [ObservableProperty]
-    private string _userName = "User";
+    private string _userName = "USER";
 
     [ObservableProperty]
     private string _greeting = "";
 
     [ObservableProperty]
     private Avalonia.Media.Imaging.Bitmap? _userAvatar;
+
+
 
     // Primary Constructor
     public event Action? OpenSettingsRequested;
@@ -161,7 +215,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [NotifyPropertyChangedFor(nameof(IsLockerTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsPixelcutTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsGdriveTabSelected))]
-    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive
+    [NotifyPropertyChangedFor(nameof(IsPointsTabSelected))] // Added for Points Tab
+    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive, 5=Points
 
     public bool IsDashboardTabSelected 
     { 
@@ -192,6 +247,12 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         get => SelectedTabIndex == 4; 
         set { if (value) SelectedTabIndex = 4; } 
     }
+
+    public bool IsPointsTabSelected
+    {
+        get => SelectedTabIndex == 5;
+        set { if (value) SelectedTabIndex = 5; }
+    }
     
     // Gdrive ViewModel
     [ObservableProperty]
@@ -200,6 +261,17 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     // Batch Master ViewModel
     [ObservableProperty]
     private BatchViewModel _batchVM;
+
+
+
+    // Leaderboard ViewModel
+    [ObservableProperty]
+    private PointLeaderboardViewModel _pointLeaderboardVM;
+
+    // Persistent List ViewModels (Single Source for Stats & Lists)
+    private EditingCardListViewModel _editingListVM;
+    private RevisionCardListViewModel _revisionListVM;
+    private LateCardListViewModel _lateListVM;
 
     [RelayCommand]
     private void OpenSettings()
@@ -226,13 +298,13 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     }
 
     [RelayCommand]
-    private void OpenEditingWindow() => OpenListWindow(new EditingCardListViewModel(_database), "Editing List");
+    private void OpenEditingWindow() => OpenListWindow(_editingListVM, "Editing List");
 
     [RelayCommand]
-    private void OpenRevisionWindow() => OpenListWindow(new RevisionCardListViewModel(_database), "Revision List");
+    private void OpenRevisionWindow() => OpenListWindow(_revisionListVM, "Revision List");
 
     [RelayCommand]
-    private void OpenLateWindow() => OpenListWindow(new LateCardListViewModel(_database), "Late List");
+    private void OpenLateWindow() => OpenListWindow(_lateListVM, "Late List");
 
     private void OpenListWindow(BaseTrelloListViewModel vm, string title)
     {
@@ -245,16 +317,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         var win = new BMachine.UI.Views.CardListWindow();
         win.DataContext = vm;
         win.Show();
-    }
-
-    [RelayCommand]
-    private async Task ClearActivities()
-    {
-        Activities.Clear();
-        if (_activityService != null)
-        {
-             await _activityService.ClearAsync();
-        }
     }
 
     [ObservableProperty]
@@ -287,9 +349,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.ShutdownMessage());
     }
 
-    public DashboardViewModel(IActivityService activityService, IDatabase database, ILanguageService? languageService = null, Services.IProcessLogService? logService = null)
+    public DashboardViewModel(
+        IDatabase database, 
+        ILanguageService? languageService = null, 
+        Services.IProcessLogService? logService = null)
     {
-        _activityService = activityService;
         _database = database;
         _languageService = languageService; // Nullable for design time or fallback
         _logService = logService;
@@ -316,8 +380,79 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         _batchVM = new BatchViewModel(database, logService);
         _pixelcutVM = new PixelcutViewModel(database);
         _gdriveVM = new GdriveViewModel(database);
+        _pointLeaderboardVM = new PointLeaderboardViewModel(database);
         
+        // Initialize Persistent List VMs
+        _editingListVM = new EditingCardListViewModel(database);
+        _revisionListVM = new RevisionCardListViewModel(database);
+        _lateListVM = new LateCardListViewModel(database);
+
+        // SYNC: Listen to changes in lists to update Stats immediately (Thread-Safe)
+        _editingListVM.Cards.CollectionChanged += (s, e) => 
+        {
+             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+             {
+                 StatEditing = _editingListVM.Cards.Count.ToString();
+                 StatEditingPercentage = Math.Min(_editingListVM.Cards.Count / 10.0, 1.0);
+             });
+        };
+        _revisionListVM.Cards.CollectionChanged += (s, e) => 
+        {
+             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+             {
+                 StatRevision = _revisionListVM.Cards.Count.ToString();
+                 StatRevisionPercentage = Math.Min(_revisionListVM.Cards.Count / 10.0, 1.0);
+             });
+        };
+        _lateListVM.Cards.CollectionChanged += (s, e) => 
+        {
+             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+             {
+                 StatLate = _lateListVM.Cards.Count.ToString();
+                 StatLatePercentage = Math.Min(_lateListVM.Cards.Count / 10.0, 1.0);
+             });
+        };
+
         LoadDataCommand.Execute(null);
+
+        // START AUTO-REFRESH IMMEDIATELY (Don't wait for LoadData async)
+        _editingListVM.StartAutoRefresh();
+        _revisionListVM.StartAutoRefresh();
+        _lateListVM.StartAutoRefresh();
+
+        // SAFETY: Fallback Timer to force sync UI if events fail
+        var safetyTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        safetyTimer.Tick += (s, e) => 
+        {
+             if (_editingListVM != null)
+             {
+                 int c = _editingListVM.Cards.Count;
+                 if (StatEditing != c.ToString()) 
+                 {
+                     StatEditing = c.ToString();
+                     StatEditingPercentage = Math.Min(c / 10.0, 1.0);
+                 }
+             }
+             if (_revisionListVM != null)
+             {
+                 int c = _revisionListVM.Cards.Count;
+                 if (StatRevision != c.ToString()) 
+                 {
+                     StatRevision = c.ToString();
+                     StatRevisionPercentage = Math.Min(c / 10.0, 1.0);
+                 }
+             }
+             if (_lateListVM != null)
+             {
+                 int c = _lateListVM.Cards.Count;
+                 if (StatLate != c.ToString()) 
+                 {
+                     StatLate = c.ToString();
+                     StatLatePercentage = Math.Min(c / 10.0, 1.0);
+                 }
+             }
+        };
+        safetyTimer.Start();
     }
 
     private async void LoadLogPanelState()
@@ -332,15 +467,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     // Fallback constructor for Design-Time
     public DashboardViewModel()
     {
-         _activityService = null!;
          _database = null!;
          _languageService = null!;
          _userName = "Preview User";
-         _activities = new ObservableCollection<ActivityItem>
-         {
-             new ActivityItem { Title = "Design Data 1", TimeDisplay = "10:00" },
-             new ActivityItem { Title = "Design Data 2", TimeDisplay = "11:00" }
-         };
     }
 
     private Avalonia.Threading.DispatcherTimer? _timer;
@@ -598,6 +727,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         {
             await LoadVisualSettings();
         });
+
+        WeakReferenceMessenger.Default.Register<BMachine.UI.Messages.DashboardVisibilityChangedMessage>(this, async (r, m) => 
+        {
+            await LoadVisualSettings();
+        });
         
         WeakReferenceMessenger.Default.Register<ProfileUpdatedMessage>(this, (r, m) =>
         {
@@ -618,8 +752,23 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             if (m.Value) IsLogPanelOpen = true;
         });
 
-        // Register OpenTextFileMessage handler (implemented via IRecipient interface)
-        WeakReferenceMessenger.Default.Register<OpenTextFileMessage>(this);
+        // Register all messages (OpenTextFileMessage, AppFocusChangedMessage)
+        WeakReferenceMessenger.Default.RegisterAll(this);
+    }
+
+    public void Receive(AppFocusChangedMessage message)
+    {
+         if (_timer != null)
+         {
+             if (message.Value) // Focused
+             {
+                 _timer.Interval = TimeSpan.FromSeconds(5);
+             }
+             else // Background
+             {
+                 _timer.Interval = TimeSpan.FromSeconds(60);
+             }
+         }
     }
 
     private async Task LoadVisualSettings()
@@ -643,7 +792,30 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             2 => TimeSpan.FromSeconds(0.5), // Fast
             _ => TimeSpan.FromSeconds(1.5)  // Normal
         };
+        
+        // Load Visibility
+        IsGdriveVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Gdrive") ?? "True");
+        IsPixelcutVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Pixelcut") ?? "True");
+        IsBatchVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Batch") ?? "True");
+        IsLockerVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Lock") ?? "True");
+        IsPointVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Point") ?? "True");
+
+        // Load refresh intervals (Seconds)
+        EditingRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Editing") ?? "60");
+        RevisionRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Revision") ?? "60");
+        LateRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Late") ?? "60");
+        PointsRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Points") ?? "60");
     }
+
+    [ObservableProperty] private int _editingRefreshSeconds = 60;
+    [ObservableProperty] private int _revisionRefreshSeconds = 60;
+    [ObservableProperty] private int _lateRefreshSeconds = 60;
+    [ObservableProperty] private int _pointsRefreshSeconds = 60;
+
+    private DateTime _lastEditingSync = DateTime.MinValue;
+    private DateTime _lastRevisionSync = DateTime.MinValue;
+    private DateTime _lastLateSync = DateTime.MinValue;
+    private DateTime _lastPointsSync = DateTime.MinValue;
     
     private async Task<IBrush> GetBrushFromSetting(string key, string defaultHex)
     {
@@ -703,7 +875,16 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
         // Load User Name
         var storedName = await _database.GetAsync<string>("User.Name");
-        UserName = !string.IsNullOrEmpty(storedName) ? storedName : "ABENG";
+        if (!string.IsNullOrEmpty(storedName))
+        {
+            UserName = storedName;
+        }
+        else
+        {
+            // Save default to database
+            UserName = "USER";
+            await _database.SetAsync("User.Name", UserName);
+        }
         
         // Load Avatar
         var storedAvatar = await _database.GetAsync<string>("User.Avatar");
@@ -736,6 +917,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         WeakReferenceMessenger.Default.Send(new FloatingWidgetMessage(IsFloatingWidgetVisible)); 
 
         await LoadVisualSettings(); // Load Colors & Speed
+        
+
 
 
 
@@ -757,19 +940,20 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              Activities.Add(new ActivityItem { Title = "Welcome: Dashboard initialized", TimeDisplay = "Now" });
         }
         
-        // Initial Sync
+        // Initial Sync (Checks intervals)
         await SyncTrelloStats();
         
-        // Start Realtime Timer (Every 5 seconds)
+        // Start Realtime Timer (Every 1 seconds)
         if (_timer == null)
         {
             _timer = new Avalonia.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(5)
+                Interval = TimeSpan.FromSeconds(1) // Run fast to check intervals
             };
             _timer.Tick += async (s, e) => 
             {
-                 Console.WriteLine("[Timer] Tick");
+                 // Console.WriteLine("[Timer] Tick");
+                 // Use 1-second tick to check against intervals
                  await SyncTrelloStats();
             };
             _timer.Start();
@@ -790,138 +974,95 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     private async Task SyncTrelloStats()
     {
-        // MAX reference values for progress calculation
         const double MAX_CARDS = 10.0; 
-        const double MAX_POINTS = 1500.0;
 
-        // 1. Trello Stats - Fetch Real Card Counts from Lists
-        var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
-        var token = await _database.GetAsync<string>("Trello.Token");
-        
-        var editingId = await _database.GetAsync<string>("Trello.EditingListId");
-        if (!string.IsNullOrEmpty(editingId)) 
-        {
-            var newValStr = await GetTrelloListCount(editingId, apiKey, token);
-            if (newValStr != null) // Only update if fetch succeeded
-            {
-                if (StatEditing != newValStr || _lastEditingCount == -1)
-                {
-                     StatEditing = newValStr;
-                     if (int.TryParse(newValStr, out int val))
-                     {
-                         // Animate to new Percentage
-                         StatEditingPercentage = Math.Min(val / MAX_CARDS, 1.0);
-                     }
-                     else StatEditingPercentage = 0;
-                     
-                     // Notification Logic
-                     if (int.TryParse(newValStr, out int currentCount))
-                     {
-                         if (_lastEditingCount != -1 && currentCount > _lastEditingCount)
-                         {
-                             int diff = currentCount - _lastEditingCount;
-                             string msg = $"New Card Board EDITING {diff}";
-                             
-                             TriggerWindowsNotification("BMachine Update", msg);
-                             
-                            // Log to Activity Feed And Refresh List
-                            await _activityService.LogAsync("Trello", "New Card", msg);
-                            
-                            // Refresh Activities UI immediately
-                            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
-                            {
-                                Activities.Insert(0, new ActivityItem 
-                                { 
-                                    Title = $"New Card: {msg}", 
-                                    TimeDisplay = GetSmartDateString(DateTime.Now)
-                                });
-                                if (Activities.Count > 10) Activities.RemoveAt(Activities.Count - 1);
-                            });
-                        }
-                        
-                        _lastEditingCount = currentCount;
-                        // Save last count
-                        await _database.SetAsync("Trello.LastEditingCount", _lastEditingCount.ToString());
-                    }
-                }
-            }
-        }
-
-        
-        var revisionId = await _database.GetAsync<string>("Trello.RevisionListId");
-        if (!string.IsNullOrEmpty(revisionId)) 
-        {
-             var newValStr = await GetTrelloListCount(revisionId, apiKey, token);
-             if (newValStr != null) // Only update if fetch succeeded
-             {
-                 if (StatRevision != newValStr || _lastRevisionCount == -1)
-                 {
-                     StatRevision = newValStr;
-                     if (int.TryParse(newValStr, out int val))
-                     {
-                         StatRevisionPercentage = Math.Min(val / MAX_CARDS, 1.0);
-                     }
-                     else StatRevisionPercentage = 0;
-    
-                     if (int.TryParse(newValStr, out int currentCount))
-                     {
-                         if (_lastRevisionCount != -1 && currentCount > _lastRevisionCount)
-                         {
-                             int diff = currentCount - _lastRevisionCount;
-                             string msg = $"New Card Board REVISI {diff}";
-                             TriggerWindowsNotification("BMachine Update", msg);
-                             await _activityService.LogAsync("Trello", "New Card", msg);
-                             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
-                             {
-                                 Activities.Insert(0, new ActivityItem { Title = $"New Card: {msg}", TimeDisplay = GetSmartDateString(DateTime.Now) });
-                                 if (Activities.Count > 10) Activities.RemoveAt(Activities.Count - 1);
-                             });
-                         }
-                         _lastRevisionCount = currentCount;
-                     }
-                 }
-             }
-        }
-        
-        var lateId = await _database.GetAsync<string>("Trello.LateListId");
-        if (!string.IsNullOrEmpty(lateId)) 
-        {
-            var newValStr = await GetTrelloListCount(lateId, apiKey, token);
-            if (newValStr != null) // Only update if fetch succeeded
-            {
-                if (StatLate != newValStr || _lastLateCount == -1)
-                {
-                    StatLate = newValStr;
-                    if (int.TryParse(newValStr, out int val))
-                    {
-                        StatLatePercentage = Math.Min(val / MAX_CARDS, 1.0);
-                    }
-                    else StatLatePercentage = 0;
-    
-                    if (int.TryParse(newValStr, out int currentCount))
-                    {
-                        if (_lastLateCount != -1 && currentCount > _lastLateCount)
-                        {
-                            int diff = currentCount - _lastLateCount;
-                            string msg = $"New Card Board SUSULAN {diff}";
-                            TriggerWindowsNotification("BMachine Update", msg);
-                            await _activityService.LogAsync("Trello", "New Card", msg);
-                            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
-                            {
-                                ActivityItem item = new ActivityItem { Title = $"New Card: {msg}", TimeDisplay = GetSmartDateString(DateTime.Now) };
-                                Activities.Insert(0, item);
-                                if (Activities.Count > 10) Activities.RemoveAt(Activities.Count - 1);
-                            });
-                        }
-                        _lastLateCount = currentCount;
-                    }
-                }
-            }
-        }
-        
-        // 2. Google Sheets Integration for Points
+        // 1. Editing List
         try 
         {
+             if ((DateTime.Now - _lastEditingSync).TotalSeconds >= EditingRefreshSeconds)
+             {
+                 _lastEditingSync = DateTime.Now;
+                 await _editingListVM.RefreshCommand.ExecuteAsync(null);
+                 
+                 int count = _editingListVM.Cards.Count;
+                 StatEditing = count.ToString();
+                 StatEditingPercentage = Math.Min(count / MAX_CARDS, 1.0);
+                 
+                 // Check for new cards
+                 if (_lastEditingCount != -1 && count > _lastEditingCount)
+                 {
+                     int diff = count - _lastEditingCount;
+                     string msg = $"New Card Board EDITING {diff}";
+                     TriggerWindowsNotification("BMachine Update", msg);
+                     await _activityService.LogAsync("Trello", "New Card", msg);
+                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                     {
+                         Activities.Insert(0, new ActivityItem { Title = $"New Card: {msg}", TimeDisplay = GetSmartDateString(DateTime.Now) });
+                         if (Activities.Count > 10) Activities.RemoveAt(Activities.Count - 1);
+                     });
+                 }
+                 _lastEditingCount = count;
+             }
+        }
+        catch (Exception ex) { /* Log? */ }
+
+        // 2. Revision List
+        try 
+        {
+             if ((DateTime.Now - _lastRevisionSync).TotalSeconds >= RevisionRefreshSeconds)
+             {
+                 _lastRevisionSync = DateTime.Now;
+                 await _revisionListVM.RefreshCommand.ExecuteAsync(null);
+                 
+                 int count = _revisionListVM.Cards.Count;
+                 StatRevision = count.ToString();
+                 StatRevisionPercentage = Math.Min(count / MAX_CARDS, 1.0);
+                 
+                 if (_lastRevisionCount != -1 && count > _lastRevisionCount)
+                 {
+                     int diff = count - _lastRevisionCount;
+                     string msg = $"New Card Board REVISI {diff}";
+                     TriggerWindowsNotification("BMachine Update", msg);
+                     await _activityService.LogAsync("Trello", "New Card", msg);
+                 }
+                 _lastRevisionCount = count;
+             }
+        }
+        catch { }
+
+        // 3. Late List
+        try 
+        {
+             if ((DateTime.Now - _lastLateSync).TotalSeconds >= LateRefreshSeconds)
+             {
+                 _lastLateSync = DateTime.Now;
+                 await _lateListVM.RefreshCommand.ExecuteAsync(null);
+                 
+                 int count = _lateListVM.Cards.Count;
+                 StatLate = count.ToString();
+                 StatLatePercentage = Math.Min(count / MAX_CARDS, 1.0);
+                 
+                 if (_lastLateCount != -1 && count > _lastLateCount)
+                 {
+                     int diff = count - _lastLateCount;
+                     string msg = $"New Card Board SUSULAN {diff}";
+                     TriggerWindowsNotification("BMachine Update", msg);
+                     await _activityService.LogAsync("Trello", "New Card", msg);
+                 }
+                 _lastLateCount = count;
+             }
+        }
+        catch { }
+    
+
+        // 2. Google Sheets Integration for Points
+        if ((DateTime.Now - _lastPointsSync).TotalSeconds >= PointsRefreshSeconds)
+        {
+            // MAX reference values for progress calculation
+            const double MAX_POINTS = 1500.0;
+            _lastPointsSync = DateTime.Now;
+            try 
+            {
             var credsPath = await _database.GetAsync<string>("Google.CredsPath");
             var sheetId = await _database.GetAsync<string>("Google.SheetId");
             var sheetName = await _database.GetAsync<string>("Google.SheetName");
@@ -971,6 +1112,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                             {
                                 var valStr = response.Values[0][0]?.ToString() ?? "0";
                                 StatPoints = valStr;
+                                await _database.SetAsync("Cache.GSheet.Points", valStr);
                                 
                                 if (double.TryParse(valStr, out double val))
                                 {
@@ -987,20 +1129,28 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                     catch (Exception ex)
                     {
                          _logService?.AddLog($"[GSheet Exception] {ex.Message}");
-                         StatPoints = "ErrAPI";
+                         
+                         // Fallback Cache
+                         var cached = await _database.GetAsync<string>("Cache.GSheet.Points");
+                         if (!string.IsNullOrEmpty(cached)) StatPoints = cached;
+                         else StatPoints = "ErrAPI";
                     }
                 }
             }
             else
             {
-                 // Config missing debug
-                 // _logService?.AddLog($"[GSheet Config] Konfigurasi belum lengkap. Path: {credsPath}, ID: {sheetId}");
+                 // Config missing or error
                  if (string.IsNullOrEmpty(StatPoints) || StatPoints == "0") StatPoints = "0";
             }
         }
         catch (Exception ex)
         {
-            _logService?.AddLog($"[GSheet System Error] {ex.Message}");
+            // _logService?.AddLog($"[GSheet System Error] {ex.Message}");
+            // Try fallback to cache logic handled inside the try block? 
+            // Actually the cache logic is inside. But if outer exception:
+             var cached = await _database?.GetAsync<string>("Cache.GSheet.Points");
+             if (!string.IsNullOrEmpty(cached)) StatPoints = cached;
+        }
         }
     }
 
@@ -1037,9 +1187,12 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     {
         if (string.IsNullOrEmpty(listId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return null;
         
+        var cacheKey = $"Cache.ListCount.{listId}";
+        
         try 
         {
             using var client = new System.Net.Http.HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(15);
             var url = $"https://api.trello.com/1/lists/{listId}?key={apiKey}&token={token}&cards=open&fields=none";
             var json = await client.GetStringAsync(url);
             
@@ -1047,13 +1200,18 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             if (doc.RootElement.TryGetProperty("cards", out var cardsElement) && 
                 cardsElement.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
-                return cardsElement.GetArrayLength().ToString();
+                var count = cardsElement.GetArrayLength().ToString();
+                await _database.SetAsync(cacheKey, count);
+                IsOnline = true;
+                return count;
             }
             return "0";
         }
         catch 
         {
-            return null; // Return null on error to prevent resetting state to 0
+            IsOnline = false;
+            var cached = await _database.GetAsync<string>(cacheKey);
+            return cached ?? null;
         }
     }
 
@@ -1128,5 +1286,25 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         {
             return $"{date:dd MMM yy}, {date:HH.mm}";
         }
+    }
+    [RelayCommand]
+    private void OpenLeaderboard()
+    {
+        // 1. Switch to Points Tab (Inside App)
+        IsPointsTabSelected = true;
+        // 2. Trigger data refresh (optional)
+        PointLeaderboardVM.LoadDataCommand.Execute(null);
+    }
+    
+    [RelayCommand]
+    private void OpenLeaderboardWindow()
+    {
+          var window = new Views.PointLeaderboardWindow();
+          window.DataContext = PointLeaderboardVM;
+          
+          if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+          {
+              window.Show();
+          }
     }
 }

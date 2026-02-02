@@ -28,6 +28,9 @@ public partial class ExtensionViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEnabled;
 
+    [ObservableProperty]
+    private bool _isNull;
+
     public ExtensionViewModel(LoadedPlugin plugin, Action<ExtensionViewModel> toggleAction, Action<ExtensionViewModel> deleteAction)
     {
         _plugin = plugin;

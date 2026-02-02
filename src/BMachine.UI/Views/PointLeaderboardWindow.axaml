@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="using:BMachine.UI.Views"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+        x:Class="BMachine.UI.Views.PointLeaderboardWindow"
+        Title="Leaderboard"
+        Width="400" Height="600"
+        WindowStartupLocation="CenterScreen"
+        CanResize="True"
+        SystemDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+        TransparencyLevelHint="Mica">
+
+    <Grid>
+        <!-- Content Wrapper -->
+        <Border Margin="0" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="0" BorderThickness="0"
+                PointerPressed="OnHeaderPointerPressed">
+            <Grid>
+                 <!-- Title Bar / Header -->
+                <Grid Height="40" VerticalAlignment="Top" Background="Transparent" ColumnDefinitions="*, Auto">
+                    <Button Grid.Column="1" Content="✕" Click="CloseButton_Click" 
+                            Width="40" Height="40" Background="Transparent" BorderThickness="0"
+                            Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"
+                            ToolTip.Tip="Close">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="#C42B1C"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Style>
+                            <Style Selector="Button:pressed /template/ ContentPresenter">
+                                 <Setter Property="Background" Value="#A81B0C"/>
+                                 <Setter Property="Foreground" Value="White"/>
+                            </Style>
+                        </Button.Styles>
+                        <PathIcon Data="M13.46,12L19,17.54V19H17.54L12,13.46L6.46,19H5V17.54L10.54,12L5,6.46V5H6.46L12,10.54L17.54,5H19V6.46L13.46,12Z" 
+                                  Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </Grid>
+
+                <!-- Leaderboard Content -->
+                <views:PointLeaderboardView Margin="0,40,0,0"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
