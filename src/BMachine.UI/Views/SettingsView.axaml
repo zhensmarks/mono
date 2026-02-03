@@ -651,11 +651,13 @@
                              <TextBlock Grid.Row="2" Grid.Column="0" Text="Worksheet Name:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SheetName}" Watermark="e.g. Sheet1" Margin="0,0,0,10"/>
 
+                             
                              <TextBlock Grid.Row="3" Grid.Column="0" Text="Column/Row:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,10">
                                  <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding SheetColumns}" SelectedItem="{Binding SheetColumn}" Watermark="Col" HorizontalAlignment="Stretch" Margin="0,0,5,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                                  <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding SheetRows}" SelectedItem="{Binding SheetRow}" Watermark="Row" HorizontalAlignment="Stretch" Margin="5,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                              </Grid>
+
                              
                              <!-- LEADERBOARD CONFIG -->
                              <TextBlock Grid.Row="4" Grid.Column="0" Text="Leaderboard Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>

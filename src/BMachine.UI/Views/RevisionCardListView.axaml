@@ -163,23 +163,23 @@
 
             <!-- FAB Refresh Button (kanan bawah) -->
             <Button Command="{Binding RefreshCommand}" Grid.Row="1"
-                    Width="56" Height="56" CornerRadius="28"
+                    Width="48" Height="48" CornerRadius="24"
                     Background="{DynamicResource AccentBlueBrush}"
                     HorizontalAlignment="Right" VerticalAlignment="Bottom"
                     Margin="0,0,30,30" Cursor="Hand"
                     IsVisible="{Binding !IsRefreshing}">
                 <PathIcon Data="{StaticResource IconRefresh}" 
-                          Width="24" Height="24" Foreground="White"/>
+                          Width="20" Height="20" Foreground="White"/>
             </Button>
             
             <!-- Loading Indicator for Manual Refresh -->
-            <Border Grid.Row="1" Width="56" Height="56" CornerRadius="28"
+            <Border Grid.Row="1" Width="48" Height="48" CornerRadius="24"
                     Background="{DynamicResource AccentBlueBrush}"
                     HorizontalAlignment="Right" VerticalAlignment="Bottom"
                     BoxShadow="0 4 8 0 #40000000"
                     Margin="0,0,30,30" 
                     IsVisible="{Binding IsRefreshing}">
-                 <ProgressBar IsIndeterminate="True" Width="30" Height="30" Foreground="White" Theme="{DynamicResource ProgressRing}"/>
+                 <ProgressBar IsIndeterminate="True" Width="26" Height="26" Foreground="White" Theme="{DynamicResource ProgressRing}"/>
             </Border>
         </Grid>
 

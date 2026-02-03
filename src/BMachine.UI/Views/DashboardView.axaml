@@ -64,12 +64,12 @@
             </Border.Effect>
             <Grid RowDefinitions="Auto, *, Auto">
                 <!-- Profile Picture (Top) -->
-                <Border Grid.Row="0" Width="36" Height="36" CornerRadius="8" 
+                <Border Grid.Row="0" Width="25" Height="25" CornerRadius="6" 
                         Background="{DynamicResource CardBackgroundBrush}" 
                         ClipToBounds="True" Margin="10,16,10,16"
                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                     <Panel>
-                        <shapes:Path Data="{StaticResource IconUser}" Width="20" Height="20" 
+                        <shapes:Path Data="{StaticResource IconUser}" Width="16" Height="16" 
                                    Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" 
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNull}}"/>

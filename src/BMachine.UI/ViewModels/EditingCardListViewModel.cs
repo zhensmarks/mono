@@ -79,9 +79,11 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
     {
         bool isFirstLoad = Cards.Count == 0;
         
+        // Always show loading indicator
+        IsRefreshing = true;
+        
         if (isFirstLoad) 
         {
-             IsRefreshing = true;
              StatusMessage = "Memuat data...";
         }
         

@@ -63,9 +63,11 @@ public partial class LateCardListViewModel : BaseTrelloListViewModel, CommunityT
     {
         bool isFirstLoad = Cards.Count == 0;
         
+        // Always show loading indicator
+        IsRefreshing = true;
+        
         if (isFirstLoad) 
         {
-             IsRefreshing = true;
              StatusMessage = "Memuat data...";
         }
         

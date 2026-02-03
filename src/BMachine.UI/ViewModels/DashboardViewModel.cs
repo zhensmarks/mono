@@ -350,11 +350,15 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     }
 
     public DashboardViewModel(
-        IDatabase database, 
+        IDatabase database,
+        IActivityService activityService, // ADDED: Missing parameter!
         ILanguageService? languageService = null, 
         Services.IProcessLogService? logService = null)
     {
+        StatPoints = "0";
+        
         _database = database;
+        _activityService = activityService; // ADDED: Missing assignment!
         _languageService = languageService; // Nullable for design time or fallback
         _logService = logService;
         
@@ -381,6 +385,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         _pixelcutVM = new PixelcutViewModel(database);
         _gdriveVM = new GdriveViewModel(database);
         _pointLeaderboardVM = new PointLeaderboardViewModel(database);
+        
+        // Leaderboard will load in LoadData() async method
         
         // Initialize Persistent List VMs
         _editingListVM = new EditingCardListViewModel(database);
@@ -413,7 +419,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              });
         };
 
-        LoadDataCommand.Execute(null);
+        // Call LoadData directly (async fire-and-forget)
+        _ = LoadData(); // Direct call instead of Command.Execute
 
         // START AUTO-REFRESH IMMEDIATELY (Don't wait for LoadData async)
         _editingListVM.StartAutoRefresh();
@@ -807,10 +814,13 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         PointsRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Points") ?? "60");
     }
 
-    [ObservableProperty] private int _editingRefreshSeconds = 60;
-    [ObservableProperty] private int _revisionRefreshSeconds = 60;
-    [ObservableProperty] private int _lateRefreshSeconds = 60;
-    [ObservableProperty] private int _pointsRefreshSeconds = 60;
+    [ObservableProperty] private int _editingRefreshSeconds = 30;
+    [ObservableProperty] private int _revisionRefreshSeconds = 30;
+    [ObservableProperty] private int _lateRefreshSeconds = 30;
+    [ObservableProperty] private int _pointsRefreshSeconds = 30; // Reduced from 60s for faster GSheet updates
+    
+    // Flag to bypass interval check on first stats load
+    private bool _isFirstStatsLoad = true;
 
     private DateTime _lastEditingSync = DateTime.MinValue;
     private DateTime _lastRevisionSync = DateTime.MinValue;
@@ -974,12 +984,15 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     private async Task SyncTrelloStats()
     {
-        const double MAX_CARDS = 10.0; 
+        const double MAX_CARDS = 10.0;
+        
+        // Force initial load (bypass interval check first time)
+        bool shouldSync = _isFirstStatsLoad; 
 
         // 1. Editing List
         try 
         {
-             if ((DateTime.Now - _lastEditingSync).TotalSeconds >= EditingRefreshSeconds)
+             if (shouldSync || (DateTime.Now - _lastEditingSync).TotalSeconds >= EditingRefreshSeconds)
              {
                  _lastEditingSync = DateTime.Now;
                  await _editingListVM.RefreshCommand.ExecuteAsync(null);
@@ -1009,7 +1022,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         // 2. Revision List
         try 
         {
-             if ((DateTime.Now - _lastRevisionSync).TotalSeconds >= RevisionRefreshSeconds)
+             if (shouldSync || (DateTime.Now - _lastRevisionSync).TotalSeconds >= RevisionRefreshSeconds)
              {
                  _lastRevisionSync = DateTime.Now;
                  await _revisionListVM.RefreshCommand.ExecuteAsync(null);
@@ -1033,7 +1046,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         // 3. Late List
         try 
         {
-             if ((DateTime.Now - _lastLateSync).TotalSeconds >= LateRefreshSeconds)
+             if (shouldSync || (DateTime.Now - _lastLateSync).TotalSeconds >= LateRefreshSeconds)
              {
                  _lastLateSync = DateTime.Now;
                  await _lateListVM.RefreshCommand.ExecuteAsync(null);
@@ -1054,104 +1067,117 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         }
         catch { }
     
-
-        // 2. Google Sheets Integration for Points
-        if ((DateTime.Now - _lastPointsSync).TotalSeconds >= PointsRefreshSeconds)
+        // StatPoints reset removed to persist value
+        
+        // 4. Google Sheets Integration for Points
+        if (shouldSync || (DateTime.Now - _lastPointsSync).TotalSeconds >= PointsRefreshSeconds)
         {
-            // MAX reference values for progress calculation
+            // Syncing...
+            
             const double MAX_POINTS = 1500.0;
             _lastPointsSync = DateTime.Now;
+            
+            Console.WriteLine("[Points] Starting sync...");
+            
             try 
             {
-            var credsPath = await _database.GetAsync<string>("Google.CredsPath");
-            var sheetId = await _database.GetAsync<string>("Google.SheetId");
-            var sheetName = await _database.GetAsync<string>("Google.SheetName");
-            var sheetCol = await _database.GetAsync<string>("Google.SheetColumn");
-            var sheetRow = await _database.GetAsync<string>("Google.SheetRow");
-            
-            // DEBUG: Print config status once (or on error)
-            // Console.WriteLine($"[GSheet Config] Path: {credsPath}, ID: {sheetId}, Range: {sheetName}!{sheetCol}{sheetRow}");
-
-            if (!string.IsNullOrEmpty(credsPath) && 
-                !string.IsNullOrEmpty(sheetId) && 
-                !string.IsNullOrEmpty(sheetName) &&
-                !string.IsNullOrEmpty(sheetCol) &&
-                !string.IsNullOrEmpty(sheetRow))
-            {
-                if (!System.IO.File.Exists(credsPath))
+                var credsPath = await _database.GetAsync<string>("Google.CredsPath");
+                var sheetId = await _database.GetAsync<string>("Google.SheetId");
+                var sheetName = await _database.GetAsync<string>("Google.SheetName");
+                var sheetCol = await _database.GetAsync<string>("Google.SheetColumn");
+                var sheetRow = await _database.GetAsync<string>("Google.SheetRow");
+                
+                Console.WriteLine($"[Points] Config - Col: '{sheetCol}', Row: '{sheetRow}', Sheet: '{sheetName}'");
+                
+                if (!string.IsNullOrEmpty(credsPath) && 
+                    !string.IsNullOrEmpty(sheetId) && 
+                    !string.IsNullOrEmpty(sheetName) &&
+                    !string.IsNullOrEmpty(sheetCol) &&
+                    !string.IsNullOrEmpty(sheetRow))
                 {
-                    _logService?.AddLog($"[GSheet Error] File kredensial tidak ditemukan di: {credsPath}");
-                    StatPoints = "ErrFile";
+                    if (!System.IO.File.Exists(credsPath))
+                    {
+                        _logService?.AddLog($"[GSheet Error] File kredensial tidak ditemukan di: {credsPath}");
+                        StatPoints = "ErrFile";
+                    }
+                    else
+                    {
+                        try
+                        {
+                            // Initialize Google Sheets Service
+                            GoogleCredential credential;
+                            using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+                            {
+                                credential = GoogleCredential.FromStream(stream)
+                                    .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
+                            }
+                            
+                            using (var service = new SheetsService(new BaseClientService.Initializer()
+                            {
+                                HttpClientInitializer = credential,
+                                ApplicationName = "BMachine"
+                            }))
+                            {
+                                service.HttpClient.Timeout = TimeSpan.FromMinutes(3);
+                                var range = $"{sheetName}!{sheetCol}{sheetRow}";
+                                
+                                Console.WriteLine($"[Points] Calling GSheet API: {range}");
+                                
+                                var request = service.Spreadsheets.Values.Get(sheetId, range);
+                                var response = await request.ExecuteAsync();
+                                
+                                Console.WriteLine($"[Points] API Response - Values count: {response.Values?.Count ?? 0}");
+                                
+                                if (response.Values != null && response.Values.Count > 0 && response.Values[0].Count > 0)
+                                {
+                                    var valStr = response.Values[0][0]?.ToString() ?? "0";
+                                    Console.WriteLine($"[Points] Got value: '{valStr}'");
+                                    StatPoints = valStr;
+                                    await _database.SetAsync("Cache.GSheet.Points", valStr);
+                                    
+                                    if (double.TryParse(valStr, out double val))
+                                    {
+                                        StatPointsPercentage = Math.Min(val / MAX_POINTS, 1.0);
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"[Points] No data found in range: {range}");
+                                    _logService?.AddLog($"[GSheet Warning] Data tidak ditemukan di range: {range}");
+                                    StatPoints = "0";
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[Points] GSheet Exception: {ex.Message}");
+                            _logService?.AddLog($"[GSheet Exception] {ex.Message}");
+                            
+                            // Fallback Cache
+                            var cached = await _database.GetAsync<string>("Cache.GSheet.Points");
+                            if (!string.IsNullOrEmpty(cached)) StatPoints = cached;
+                            else StatPoints = "ErrAPI";
+                        }
+                    }
                 }
                 else
                 {
-                    try
-                    {
-                        // Initialize Google Sheets Service
-                        GoogleCredential credential;
-                        using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
-                        {
-                            credential = GoogleCredential.FromStream(stream)
-                                .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
-                        }
-                        
-                        using (var service = new SheetsService(new BaseClientService.Initializer()
-                        {
-                            HttpClientInitializer = credential,
-                            ApplicationName = "BMachine"
-                        }))
-                        {
-                            service.HttpClient.Timeout = TimeSpan.FromMinutes(3);
-                            var range = $"{sheetName}!{sheetCol}{sheetRow}";
-                            // _logService?.AddLog($"[GSheet Info] Mengambil data dari: {range}");
-                            
-                            var request = service.Spreadsheets.Values.Get(sheetId, range);
-                            var response = await request.ExecuteAsync();
-                            
-                            if (response.Values != null && response.Values.Count > 0 && response.Values[0].Count > 0)
-                            {
-                                var valStr = response.Values[0][0]?.ToString() ?? "0";
-                                StatPoints = valStr;
-                                await _database.SetAsync("Cache.GSheet.Points", valStr);
-                                
-                                if (double.TryParse(valStr, out double val))
-                                {
-                                     StatPointsPercentage = Math.Min(val / MAX_POINTS, 1.0);
-                                }
-                            }
-                            else
-                            {
-                                 _logService?.AddLog($"[GSheet Warning] Data tidak ditemukan di range: {range}");
-                                 StatPoints = "0";
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                         _logService?.AddLog($"[GSheet Exception] {ex.Message}");
-                         
-                         // Fallback Cache
-                         var cached = await _database.GetAsync<string>("Cache.GSheet.Points");
-                         if (!string.IsNullOrEmpty(cached)) StatPoints = cached;
-                         else StatPoints = "ErrAPI";
-                    }
+                    Console.WriteLine($"[Points] Config missing! Col={sheetCol}, Row={sheetRow}");
+                    // Config missing
+                    if (string.IsNullOrEmpty(StatPoints) || StatPoints == "0") StatPoints = "0";
                 }
             }
-            else
+            catch (Exception ex)
             {
-                 // Config missing or error
-                 if (string.IsNullOrEmpty(StatPoints) || StatPoints == "0") StatPoints = "0";
+                // Outer exception fallback
+                var cached = await _database.GetAsync<string>("Cache.GSheet.Points");
+                if (!string.IsNullOrEmpty(cached)) StatPoints = cached;
+                else StatPoints = "ErrAPI";
             }
         }
-        catch (Exception ex)
-        {
-            // _logService?.AddLog($"[GSheet System Error] {ex.Message}");
-            // Try fallback to cache logic handled inside the try block? 
-            // Actually the cache logic is inside. But if outer exception:
-             var cached = await _database?.GetAsync<string>("Cache.GSheet.Points");
-             if (!string.IsNullOrEmpty(cached)) StatPoints = cached;
-        }
-        }
+        
+        // Reset first load flag to allow interval-based refreshes
+        if (_isFirstStatsLoad) _isFirstStatsLoad = false;
     }
 
     private void TriggerWindowsNotification(string title, string message)

@@ -211,7 +211,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     {
         if (_cachedDashboardVM == null)
         {
-            _cachedDashboardVM = new DashboardViewModel(_database, _languageService, _logService);
+            _cachedDashboardVM = new DashboardViewModel(_database, _database, _languageService, _logService);
             _cachedDashboardVM.OpenSettingsRequested += () => NavigateToSettings();
             _cachedDashboardVM.OpenEditingListRequested += () => NavigateToEditingList();
             _cachedDashboardVM.OpenRevisionListRequested += () => NavigateToRevisionList();
