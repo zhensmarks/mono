@@ -27,66 +27,116 @@
                 VerticalAlignment="Stretch"
                 Cursor="Hand">
         <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="15">
-            <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
-                
-                <!-- Circular Progress Container -->
-                <Panel Width="80" Height="80">
-                    <!-- Background Ring -->
-                    <shapes:Arc Width="80" Height="80"
-                         StartAngle="0" SweepAngle="360"
-                         Stroke="#33FFFFFF" StrokeThickness="6"/>
+            <Panel>
+                <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            IsVisible="{Binding #Root.IsCircularMode}">
                     
-                    <!-- Progress Ring (Calculated Arc) -->
-                    <!-- Note: For simplicity using Arc directly. in real app might need calculation or value converter -->
-                    <shapes:Arc x:Name="PART_ProgressArc" 
-                         Width="80" Height="80"
-                         StartAngle="-90" 
-                         SweepAngle="{Binding #Root.SweepAngle}"
-                         Stroke="{Binding #Root.Color}" 
-                         StrokeThickness="6"
-                         StrokeLineCap="Round">
-                    </shapes:Arc>
-                         
-                    <!-- Value Text -->
-                    <TextBlock Text="{Binding #Root.Value}"
-                               FontSize="22"
+                    <!-- Circular Progress Container -->
+                    <Panel Width="80" Height="80">
+                        <!-- Background Ring -->
+                        <shapes:Arc Width="80" Height="80"
+                             StartAngle="0" SweepAngle="360"
+                             Stroke="#33FFFFFF" StrokeThickness="6"/>
+                        
+                        <!-- Progress Ring (Calculated Arc) -->
+                        <shapes:Arc x:Name="PART_ProgressArc" 
+                             Width="80" Height="80"
+                             StartAngle="-90" 
+                             SweepAngle="{Binding #Root.SweepAngle}"
+                             Stroke="{Binding #Root.Color}" 
+                             StrokeThickness="6"
+                             StrokeLineCap="Round">
+                        </shapes:Arc>
+                             
+                        <!-- Value Text -->
+                        <TextBlock Text="{Binding #Root.Value}"
+                                   FontSize="22"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,0,18"/>
+                                   
+                         <!-- Open Window Button (Small, Bottom of Circle) -->
+                         <Button Command="{Binding #Root.WindowCommand}"
+                                 IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                 VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                                 Margin="0,0,0,8"
+                                 Width="16" Height="16"
+                                 Background="Transparent" BorderThickness="0" Padding="2"
+                                 ToolTip.Tip="Open in New Window" Classes="Clear">
+                             <shapes:Path Data="{StaticResource IconOpenWindow}" 
+                                          Fill="{Binding #Root.Color}"
+                                          Stretch="Uniform" Opacity="0.8"/>
+                         </Button>
+                                   
+                         <!-- Icon -->
+                         <shapes:Path Data="{Binding #Root.Icon}"
+                               Width="24" Height="24"
+                               Stretch="Uniform"
+                               Fill="{Binding #Root.Color}"
+                               VerticalAlignment="Top"
+                               HorizontalAlignment="Center"
+                               Margin="0,15,0,0"
+                               IsVisible="{Binding #Root.ShowIcon}"/>
+                    </Panel>
+                    
+                    <TextBlock Text="{Binding #Root.Label}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"/>
+                </StackPanel>
+
+                <!-- MODE: BAR (New Design) -->
+                <Grid RowDefinitions="Auto,*,Auto" 
+                      IsVisible="{Binding #Root.IsBarMode}">
+                    
+                    <!-- Header: Label + Open Button (Right aligned) -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,5">
+                        <TextBlock Text="{Binding #Root.Label}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="11"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                        
+                        <!-- Open Window Button (Top Right) -->
+                        <Button Grid.Column="1" 
+                                Command="{Binding #Root.WindowCommand}"
+                                IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                Width="20" Height="20"
+                                Background="Transparent" BorderThickness="0" Padding="4"
+                                ToolTip.Tip="Open in New Window" Classes="Clear"
+                                Margin="4,0,-4,0"
+                                Cursor="Hand">
+                            <shapes:Path Data="{StaticResource IconOpenWindow}" 
+                                         Fill="{Binding #Root.Color}"
+                                         Stretch="Uniform" Opacity="0.8"/>
+                        </Button>
+                    </Grid>
+
+                    <!-- Main Value -->
+                    <TextBlock Grid.Row="1" 
+                               Text="{Binding #Root.Value}"
+                               FontSize="32"
                                FontWeight="Bold"
                                Foreground="{DynamicResource TextPrimaryBrush}"
-                               HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               Margin="0,0,0,18"/>
-                               
-                     <!-- Open Window Button (Small, Bottom of Circle) -->
-                     <Button Command="{Binding #Root.WindowCommand}"
-                             IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
-                             VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                             Margin="0,0,0,8"
-                             Width="16" Height="16"
-                             Background="Transparent" BorderThickness="0" Padding="2"
-                             ToolTip.Tip="Open in New Window" Classes="Clear">
-                         <shapes:Path Data="{StaticResource IconOpenWindow}" 
-                                      Fill="{Binding #Root.Color}"
-                                      Stretch="Uniform" Opacity="0.8"/>
-                     </Button>
-                               
-                     <!-- Icon (optional, small top left inside ring?) -->
-                     <shapes:Path Data="{Binding #Root.Icon}"
-                           Width="24" Height="24"
-                           Stretch="Uniform"
-                           Fill="{Binding #Root.Color}"
-                           VerticalAlignment="Top"
-                           HorizontalAlignment="Center"
-                           Margin="0,15,0,0"
-                           IsVisible="{Binding #Root.ShowIcon}"/>
-                </Panel>
-                
-                <TextBlock Text="{Binding #Root.Label}"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="12"
-                           FontWeight="Bold"
-                           HorizontalAlignment="Center"
-                           TextAlignment="Center"/>
-            </StackPanel>
+                               Margin="0,0,0,10"/>
+
+                    <!-- Progress Bar -->
+                    <ProgressBar Grid.Row="2"
+                                 Value="{Binding #Root.Percentage}"
+                                 Maximum="1" Minimum="0"
+                                 Height="6"
+                                 CornerRadius="3"
+                                 Background="#22FFFFFF"
+                                 Foreground="{Binding #Root.Color}"
+                                 VerticalAlignment="Bottom"/>
+                </Grid>
+            </Panel>
         </Border>
         </Button>
     </Panel>

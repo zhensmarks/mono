@@ -293,22 +293,22 @@
                 <!-- DASHBOARD TAB CONTENT -->
                 <Grid IsVisible="{Binding IsDashboardTabSelected}" Margin="20,0,20,0">
                     <!-- StatsPanel -->
-                    <Border x:Name="Part_Stats" Classes="Card" Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="20" Padding="20"
+                    <Border x:Name="Part_Stats" 
+                            CornerRadius="20" Padding="10"
                             VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
-                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            Background="Transparent">
                         <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Center">
-                            <Grid ColumnDefinitions="*,*,*,*" VerticalAlignment="Center">
-                                <controls:StatWidget Grid.Column="0" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="*,*" VerticalAlignment="Center">
+                                <controls:StatWidget Grid.Row="0" Grid.Column="0" Margin="6" DisplayMode="Bar" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
                                                      Color="{DynamicResource AccentEditingBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenEditingListCommand}" WindowCommand="{Binding OpenEditingWindowCommand}"/>
-                                <controls:StatWidget Grid.Column="1" Label="{Binding Language[Stats.Revision]}" Value="{Binding StatRevision}" Percentage="{Binding StatRevisionPercentage}" 
+                                <controls:StatWidget Grid.Row="0" Grid.Column="1" Margin="6" DisplayMode="Bar" Label="{Binding Language[Stats.Revision]}" Value="{Binding StatRevision}" Percentage="{Binding StatRevisionPercentage}" 
                                                      Color="{DynamicResource AccentRevisionBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenRevisionListCommand}" WindowCommand="{Binding OpenRevisionWindowCommand}"/>
-                                <controls:StatWidget Grid.Column="2" Label="{Binding Language[Stats.Late]}" Value="{Binding StatLate}" Percentage="{Binding StatLatePercentage}" 
+                                <controls:StatWidget Grid.Row="1" Grid.Column="0" Margin="6" DisplayMode="Bar" Label="{Binding Language[Stats.Late]}" Value="{Binding StatLate}" Percentage="{Binding StatLatePercentage}" 
                                                      Color="{DynamicResource AccentLateBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenLateListCommand}" WindowCommand="{Binding OpenLateWindowCommand}"/>
-                                <controls:StatWidget Grid.Column="3" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
+                                <controls:StatWidget Grid.Row="1" Grid.Column="1" Margin="6" DisplayMode="Bar" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
                                                      Color="{DynamicResource AccentPointsBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}"
                                                      WindowCommand="{Binding OpenLeaderboardWindowCommand}"/>
                             </Grid>

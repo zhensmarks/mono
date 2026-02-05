@@ -119,6 +119,12 @@ public partial class StatWidget : UserControl
             {
                 UpdateTransition();
             }
+            // Update Boolean Helpers when DisplayMode changes
+            else if (e.Property == DisplayModeProperty)
+            {
+                RaisePropertyChanged(IsBarModeProperty, !IsBarMode, IsBarMode);
+                RaisePropertyChanged(IsCircularModeProperty, !IsCircularMode, IsCircularMode);
+            }
         };
     }
     
@@ -148,4 +154,29 @@ public partial class StatWidget : UserControl
         AvaloniaProperty.RegisterDirect<StatWidget, double>(
             nameof(SweepAngle),
             o => o.SweepAngle);
+
+    public static readonly StyledProperty<StatDisplayMode> DisplayModeProperty =
+        AvaloniaProperty.Register<StatWidget, StatDisplayMode>(nameof(DisplayMode), StatDisplayMode.Circular);
+
+    public StatDisplayMode DisplayMode
+    {
+        get => GetValue(DisplayModeProperty);
+        set => SetValue(DisplayModeProperty, value);
+    }
+
+    public static readonly DirectProperty<StatWidget, bool> IsBarModeProperty =
+        AvaloniaProperty.RegisterDirect<StatWidget, bool>(nameof(IsBarMode), o => o.IsBarMode);
+
+    public bool IsBarMode => DisplayMode == StatDisplayMode.Bar;
+
+    public static readonly DirectProperty<StatWidget, bool> IsCircularModeProperty =
+        AvaloniaProperty.RegisterDirect<StatWidget, bool>(nameof(IsCircularMode), o => o.IsCircularMode);
+
+    public bool IsCircularMode => DisplayMode == StatDisplayMode.Circular;
+}
+
+public enum StatDisplayMode
+{
+    Circular,
+    Bar
 }
