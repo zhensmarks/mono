@@ -92,8 +92,9 @@ echo "[4/5] Creating .app bundles..."
 create_app_bundle() {
     local arch=$1
     local source_dir="$PUBLISH_BASE/osx-$arch"
+    local staging_dir="$PUBLISH_BASE/staging-$arch"
     local app_name="BMachine.app"
-    local app_path="$PUBLISH_BASE/$app_name-$arch"
+    local app_path="$staging_dir/$app_name"
     
     if [ ! -d "$source_dir" ]; then
         return
@@ -101,11 +102,15 @@ create_app_bundle() {
     
     echo "  - Creating $app_name for $arch..."
     
-    # Create .app structure
+    # Clean and create staging directory (this will contain ONLY BMachine.app)
+    rm -rf "$staging_dir"
+    mkdir -p "$staging_dir"
+    
+    # Create .app structure inside staging
     mkdir -p "$app_path/Contents/MacOS"
     mkdir -p "$app_path/Contents/Resources"
     
-    # Copy executable and dependencies
+    # Copy executable and dependencies to MacOS folder
     cp -r "$source_dir/"* "$app_path/Contents/MacOS/"
     
     # Create Info.plist
@@ -140,10 +145,13 @@ create_app_bundle() {
 </plist>
 PLIST
 
+    # Create PkgInfo file (required for proper .app recognition)
+    echo -n "APPL????" > "$app_path/Contents/PkgInfo"
+
     # Make executable
     chmod +x "$app_path/Contents/MacOS/BMachine.App"
     
-    echo "    [OK] $app_name-$arch created."
+    echo "    [OK] $app_name for $arch created."
 }
 
 create_app_bundle "x64"
@@ -152,33 +160,48 @@ create_app_bundle "arm64"
 echo "[OK] App bundles created."
 echo ""
 
-# 5. Create DMG (optional)
+# 5. Create DMG
 echo "[5/5] Creating DMG installers..."
 
 create_dmg() {
     local arch=$1
-    local app_path="$PUBLISH_BASE/BMachine.app-$arch"
+    local staging_dir="$PUBLISH_BASE/staging-$arch"
     local dmg_path="$PUBLISH_BASE/BMachine-$arch.dmg"
     
-    if [ ! -d "$app_path" ]; then
+    if [ ! -d "$staging_dir/BMachine.app" ]; then
+        echo "  [SKIP] No .app bundle found for $arch"
         return
     fi
     
-    # Check if create-dmg is available
+    echo "  - Creating DMG for $arch..."
+    
+    # Remove old DMG if exists
+    rm -f "$dmg_path"
+    
+    # Check if create-dmg tool is available (prettier DMG with background)
     if command -v create-dmg &> /dev/null; then
-        echo "  - Creating DMG for $arch..."
-        create-dmg --volname "BMachine" --window-size 600 400 --hide-extension "BMachine.app" "$dmg_path" "$app_path" 2>/dev/null || {
-            # Fallback to hdiutil
-            hdiutil create -volname "BMachine" -srcfolder "$app_path" -ov -format UDZO "$dmg_path" 2>/dev/null || true
-        }
-        echo "    [OK] $dmg_path created."
-    else
-        # Use built-in hdiutil
-        echo "  - Creating DMG for $arch (using hdiutil)..."
-        hdiutil create -volname "BMachine" -srcfolder "$app_path" -ov -format UDZO "$dmg_path" 2>/dev/null && \
-            echo "    [OK] $dmg_path created." || \
-            echo "    [SKIP] DMG creation failed for $arch"
+        create-dmg \
+            --volname "BMachine" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "BMachine.app" 150 200 \
+            --app-drop-link 450 200 \
+            --hide-extension "BMachine.app" \
+            "$dmg_path" \
+            "$staging_dir" 2>/dev/null && \
+            echo "    [OK] $dmg_path created (with create-dmg)." && return
     fi
+    
+    # Fallback: Use built-in hdiutil (simpler but works)
+    hdiutil create \
+        -volname "BMachine" \
+        -srcfolder "$staging_dir" \
+        -ov \
+        -format UDZO \
+        "$dmg_path" 2>/dev/null && \
+        echo "    [OK] $dmg_path created." || \
+        echo "    [ERROR] DMG creation failed for $arch"
 }
 
 create_dmg "x64"
