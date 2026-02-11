@@ -177,6 +177,19 @@ public partial class DashboardView : UserControl
         else win.Show();
     }
 
+    private void OnEmbeddedViewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // Detect Right Click for Back Navigation
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+        {
+            if (DataContext is DashboardViewModel vm)
+            {
+                vm.NavigateBack();
+                e.Handled = true;
+            }
+        }
+    }
+
     private void OnNodePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var point = e.GetCurrentPoint(sender as Visual);

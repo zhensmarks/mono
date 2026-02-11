@@ -474,6 +474,13 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _sheetColumn = "C";
     [ObservableProperty] private string _sheetRow = "3";
     
+    // Spreadsheet Config
+    [ObservableProperty] private string _spreadsheetSheetName = "ALL DATA REGULER";
+    [ObservableProperty] private string _spreadsheetRange = "A1:Z";
+    
+    partial void OnSpreadsheetSheetNameChanged(string value) => _database?.SetAsync("Spreadsheet.SheetName", value);
+    partial void OnSpreadsheetRangeChanged(string value) => _database?.SetAsync("Spreadsheet.Range", value);
+
     // Leaderboard
     [ObservableProperty] private string _leaderboardRange = "A2:C10"; // Default Range
     
@@ -1225,6 +1232,9 @@ public partial class SettingsViewModel : ObservableObject
             SheetName = await _database.GetAsync<string>("Google.SheetName") ?? "";
             SheetColumn = await _database.GetAsync<string>("Google.SheetColumn") ?? "C";
             SheetRow = await _database.GetAsync<string>("Google.SheetRow") ?? "3";
+
+            SpreadsheetSheetName = await _database.GetAsync<string>("Spreadsheet.SheetName") ?? "ALL DATA REGULER";
+            SpreadsheetRange = await _database.GetAsync<string>("Spreadsheet.Range") ?? "A1:Z";
 
             var lbRange = await _database.GetAsync<string>("Leaderboard.Range");
             if (!string.IsNullOrEmpty(lbRange)) LeaderboardRange = lbRange;

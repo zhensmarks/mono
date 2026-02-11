@@ -92,7 +92,7 @@ if (pngPath && jpgPath) {
         // REMOVED: Now handled in XAML
         // AddHandler(PointerWheelChangedEvent, OnZoomScroll, Avalonia.Interactivity.RoutingStrategies.Tunnel);
 
-        RotationOriginal = -90;
+        RotationOriginal = 0;
         RotationResult = 0;
 
         _settings = PixelcutCompact.Services.PreviewWindowSettings.Load();
@@ -154,15 +154,65 @@ if (pngPath && jpgPath) {
             var imgResult = this.FindControl<Image>("ImgResult");
 
             if (imgOriginal != null && File.Exists(originalPath)) 
-                imgOriginal.Source = new Bitmap(originalPath);
+                imgOriginal.Source = LoadBitmapWithOrientation(originalPath);
             
             if (imgResult != null && File.Exists(resultPath)) 
-                imgResult.Source = new Bitmap(resultPath);
+                imgResult.Source = LoadBitmapWithOrientation(resultPath);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading preview: {ex.Message}");
         }
+    }
+
+    private Bitmap LoadBitmapWithOrientation(string path)
+    {
+        // 1. Check orientation
+        int orientation = 1;
+        try { orientation = PixelcutCompact.Helpers.ExifHelper.GetOrientation(path); } catch { }
+
+        // 2. Load full bitmap
+        var bitmap = new Bitmap(path);
+
+        // 3. If no rotation needed, return
+        if (orientation == 1) return bitmap;
+
+        // 4. Transform if needed
+        if (orientation == 6 || orientation == 8 || orientation == 3)
+        {
+             // Calculate new dimensions
+             var w = bitmap.PixelSize.Width;
+             var h = bitmap.PixelSize.Height;
+             
+             double angle = 0;
+             if (orientation == 6) angle = 90;
+             else if (orientation == 8) angle = -90; // 270
+             else if (orientation == 3) angle = 180;
+             
+             var newW = (orientation == 6 || orientation == 8) ? h : w;
+             var newH = (orientation == 6 || orientation == 8) ? w : h;
+
+             try {
+                 // Create RTB
+                 var rtb = new RenderTargetBitmap(new Avalonia.PixelSize(newW, newH));
+                 using (var ctx = rtb.CreateDrawingContext())
+                 {
+                      var matrix = Matrix.CreateTranslation(-w/2.0, -h/2.0) * 
+                                   Matrix.CreateRotation(Math.PI * angle / 180.0) *
+                                   Matrix.CreateTranslation(newW/2.0, newH/2.0);
+                                   
+                      using (ctx.PushTransform(matrix))
+                      {
+                          ctx.DrawImage(bitmap, new Rect(0, 0, w, h));
+                      }
+                 }
+                 bitmap.Dispose(); // Dispose original
+                 return rtb;
+             }
+             catch { return bitmap; } // Fallback
+        }
+        
+        return bitmap;
     }
     
     private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)

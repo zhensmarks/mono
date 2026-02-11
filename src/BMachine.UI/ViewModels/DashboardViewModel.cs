@@ -17,7 +17,7 @@ using Google.Apis.Sheets.v4;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>
 {
     private readonly IActivityService _activityService;
     private readonly IDatabase _database;
@@ -253,6 +253,19 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         get => SelectedTabIndex == 5;
         set { if (value) SelectedTabIndex = 5; }
     }
+
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        // When Tab changes, close the Embedded View Overlay if open
+        if (IsEmbeddedViewOpen)
+        {
+            NavigateBack(); // Tries to pop stack. If specific logic needed:
+            // Force clear:
+            IsEmbeddedViewOpen = false;
+            CurrentEmbeddedView = null;
+            _viewStack.Clear();
+        }
+    }
     
     // Gdrive ViewModel
     [ObservableProperty]
@@ -268,6 +281,40 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [ObservableProperty]
     private PointLeaderboardViewModel _pointLeaderboardVM;
 
+    [ObservableProperty]
+    private SpreadsheetViewModel _spreadsheetVM;
+
+
+    // --- Embedded View Navigation System ---
+    [ObservableProperty] private object? _currentEmbeddedView;
+    [ObservableProperty] private bool _isEmbeddedViewOpen;
+    
+    private readonly System.Collections.Generic.Stack<object> _viewStack = new();
+
+    public void NavigateToView(object view)
+    {
+        if (CurrentEmbeddedView != null)
+        {
+            _viewStack.Push(CurrentEmbeddedView);
+        }
+        CurrentEmbeddedView = view;
+        IsEmbeddedViewOpen = true;
+    }
+
+    public void NavigateBack()
+    {
+        if (_viewStack.Count > 0)
+        {
+            CurrentEmbeddedView = _viewStack.Pop();
+        }
+        else
+        {
+            IsEmbeddedViewOpen = false;
+            CurrentEmbeddedView = null;
+        }
+    }
+
+
     // Persistent List ViewModels (Single Source for Stats & Lists)
     private EditingCardListViewModel _editingListVM;
     private RevisionCardListViewModel _revisionListVM;
@@ -282,20 +329,36 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [RelayCommand]
     private void OpenEditingList()
     {
-        OpenEditingListRequested?.Invoke();
+        _editingListVM.Title = "Editing List"; // Ensure title is set
+        _editingListVM.StartAutoRefresh();
+        var view = new BMachine.UI.Views.EditingCardListView { DataContext = _editingListVM };
+        NavigateToView(view);
     }
 
     [RelayCommand]
     private void OpenRevisionList()
     {
-        OpenRevisionListRequested?.Invoke();
+        _revisionListVM.Title = "Revision List";
+        _revisionListVM.StartAutoRefresh();
+        var view = new BMachine.UI.Views.RevisionCardListView { DataContext = _revisionListVM };
+        NavigateToView(view);
     }
 
     [RelayCommand]
     private void OpenLateList()
     {
-        OpenLateListRequested?.Invoke();
+        _lateListVM.Title = "Late List";
+        _lateListVM.StartAutoRefresh();
+        var view = new BMachine.UI.Views.LateCardListView { DataContext = _lateListVM };
+        NavigateToView(view);
     }
+
+    // Keep Window commands for fallback or if user specifically wants window? 
+    // For now user requested replacement. We can keep them or separate.
+    // The previous implementation had separte "Open...Window" commands bound to specific buttons?
+    // Let's check logic:
+    // User click Widget -> Command="{Binding OpenEditingListCommand}"
+    // So modifying OpenEditingListCommand is correct.
 
     [RelayCommand]
     private void OpenEditingWindow() => OpenListWindow(_editingListVM, "Editing List");
@@ -305,6 +368,63 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     [RelayCommand]
     private void OpenLateWindow() => OpenListWindow(_lateListVM, "Late List");
+
+
+
+    [RelayCommand]
+    private void OpenLeaderboardWindow()
+    {
+         // Refresh Data
+         _pointLeaderboardVM.LoadDataCommand.Execute(null);
+         
+         // Embedded version
+         var view = new BMachine.UI.Views.LeaderboardView { DataContext = _pointLeaderboardVM };
+         NavigateToView(view);
+    }
+
+    [RelayCommand]
+    private async Task OpenSpreadsheetWindow()
+    {
+        // Refresh Data - DISABLED by user request (load manually)
+        // _spreadsheetVM.LoadDataCommand.Execute(null);
+
+        var window = new BMachine.UI.Views.SpreadsheetWindow
+        {
+            DataContext = _spreadsheetVM
+        };
+
+        // Restore Position & Size
+        var strX = await _database.GetAsync<string>("SpreadsheetWindow.X");
+        var strY = await _database.GetAsync<string>("SpreadsheetWindow.Y");
+        var strW = await _database.GetAsync<string>("SpreadsheetWindow.Width");
+        var strH = await _database.GetAsync<string>("SpreadsheetWindow.Height");
+
+        if (int.TryParse(strX, out int x) && int.TryParse(strY, out int y))
+        {
+            window.Position = new Avalonia.PixelPoint(x, y);
+            window.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.Manual;
+        }
+
+        if (double.TryParse(strW, out double w) && double.TryParse(strH, out double h))
+        {
+            window.Width = w;
+            window.Height = h;
+        }
+
+        // Save Position & Size on Close
+        window.Closing += (s, e) =>
+        {
+            if (s is Avalonia.Controls.Window w)
+            {
+                _database.SetAsync("SpreadsheetWindow.X", w.Position.X.ToString());
+                _database.SetAsync("SpreadsheetWindow.Y", w.Position.Y.ToString());
+                _database.SetAsync("SpreadsheetWindow.Width", w.Width.ToString());
+                _database.SetAsync("SpreadsheetWindow.Height", w.Height.ToString());
+            }
+        };
+
+        window.Show();
+    }
 
     private void OpenListWindow(BaseTrelloListViewModel vm, string title)
     {
@@ -385,6 +505,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         _pixelcutVM = new PixelcutViewModel(database);
         _gdriveVM = new GdriveViewModel(database);
         _pointLeaderboardVM = new PointLeaderboardViewModel(database);
+        _spreadsheetVM = new SpreadsheetViewModel(database);
         
         // Leaderboard will load in LoadData() async method
         
@@ -778,6 +899,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
          }
     }
 
+    public void Receive(NavigateBackMessage message)
+    {
+        NavigateBack();
+    }
+
     private async Task LoadVisualSettings()
     {
         if (_database == null) return;
@@ -1073,11 +1199,10 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         if (shouldSync || (DateTime.Now - _lastPointsSync).TotalSeconds >= PointsRefreshSeconds)
         {
             // Syncing...
-            
             const double MAX_POINTS = 1500.0;
             _lastPointsSync = DateTime.Now;
             
-            Console.WriteLine("[Points] Starting sync...");
+            // Console.WriteLine("[Points] Starting sync..."); // Cleaned up
             
             try 
             {
@@ -1087,7 +1212,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                 var sheetCol = await _database.GetAsync<string>("Google.SheetColumn");
                 var sheetRow = await _database.GetAsync<string>("Google.SheetRow");
                 
-                Console.WriteLine($"[Points] Config - Col: '{sheetCol}', Row: '{sheetRow}', Sheet: '{sheetName}'");
+                // _logService?.AddLog($"[Points Debug] Config - Col: '{sheetCol}', Row: '{sheetRow}', Sheet: '{sheetName}'", LogLevel.Debug);
                 
                 if (!string.IsNullOrEmpty(credsPath) && 
                     !string.IsNullOrEmpty(sheetId) && 
@@ -1102,79 +1227,80 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                     }
                     else
                     {
-                        try
+                        await Task.Run(async () => 
                         {
-                            // Initialize Google Sheets Service
-                            GoogleCredential credential;
-                            using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
-                            {
-                                credential = GoogleCredential.FromStream(stream)
-                                    .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
-                            }
+                            int retries = 3;
+                            int delay = 1000;
                             
-                            using (var service = new SheetsService(new BaseClientService.Initializer()
+                            while (retries > 0)
                             {
-                                HttpClientInitializer = credential,
-                                ApplicationName = "BMachine"
-                            }))
-                            {
-                                service.HttpClient.Timeout = TimeSpan.FromMinutes(3);
-                                var range = $"{sheetName}!{sheetCol}{sheetRow}";
-                                
-                                Console.WriteLine($"[Points] Calling GSheet API: {range}");
-                                
-                                var request = service.Spreadsheets.Values.Get(sheetId, range);
-                                var response = await request.ExecuteAsync();
-                                
-                                Console.WriteLine($"[Points] API Response - Values count: {response.Values?.Count ?? 0}");
-                                
-                                if (response.Values != null && response.Values.Count > 0 && response.Values[0].Count > 0)
+                                try
                                 {
-                                    var valStr = response.Values[0][0]?.ToString() ?? "0";
-                                    Console.WriteLine($"[Points] Got value: '{valStr}'");
-                                    StatPoints = valStr;
-                                    await _database.SetAsync("Cache.GSheet.Points", valStr);
-                                    
-                                    if (double.TryParse(valStr, out double val))
+                                    // Initialize Google Sheets Service
+                                    GoogleCredential credential;
+                                    using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
                                     {
-                                        StatPointsPercentage = Math.Min(val / MAX_POINTS, 1.0);
+                                        credential = GoogleCredential.FromStream(stream)
+                                            .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
+                                    }
+                                    
+                                    using (var service = new SheetsService(new BaseClientService.Initializer()
+                                    {
+                                        HttpClientInitializer = credential,
+                                        ApplicationName = "BMachine"
+                                    }))
+                                    {
+                                        service.HttpClient.Timeout = TimeSpan.FromMinutes(1); // Reduced timeout
+                                        var range = $"{sheetName}!{sheetCol}{sheetRow}";
+                                        
+                                        var request = service.Spreadsheets.Values.Get(sheetId, range);
+                                        var response = await request.ExecuteAsync();
+                                        
+                                        if (response.Values != null && response.Values.Count > 0 && response.Values[0].Count > 0)
+                                        {
+                                            var valStr = response.Values[0][0]?.ToString() ?? "0";
+                                            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                                            {
+                                                StatPoints = valStr;
+                                                // Calculate Percentage (Assuming Max 1500?)
+                                                if (double.TryParse(valStr, out double dVal))
+                                                {
+                                                     StatPointsPercentage = Math.Max(0, Math.Min(dVal / MAX_POINTS, 1.0));
+                                                }
+                                            });
+                                            await _database.SetAsync("Cache.GSheet.Points", valStr);
+                                            // Success
+                                            break; 
+                                        }
+                                    }
+                                    break; // If we get here (no values or success), stop retrying
+                                }
+                                catch (Exception ex)
+                                {
+                                    retries--;
+                                    if (retries == 0)
+                                    {
+                                        _logService?.AddLog($"[GSheet Fail] After 3 attempts: {ex.Message}");
+                                        // Keep previous value or show Err?
+                                        // StatPoints = "Err"; // Maybe keep last known
+                                    }
+                                    else
+                                    {
+                                        await Task.Delay(delay);
+                                        delay *= 2; // Exponential backoff
                                     }
                                 }
-                                else
-                                {
-                                    Console.WriteLine($"[Points] No data found in range: {range}");
-                                    _logService?.AddLog($"[GSheet Warning] Data tidak ditemukan di range: {range}");
-                                    StatPoints = "0";
-                                }
                             }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[Points] GSheet Exception: {ex.Message}");
-                            _logService?.AddLog($"[GSheet Exception] {ex.Message}");
-                            
-                            // Fallback Cache
-                            var cached = await _database.GetAsync<string>("Cache.GSheet.Points");
-                            if (!string.IsNullOrEmpty(cached)) StatPoints = cached;
-                            else StatPoints = "ErrAPI";
-                        }
+                        });
                     }
-                }
-                else
-                {
-                    Console.WriteLine($"[Points] Config missing! Col={sheetCol}, Row={sheetRow}");
-                    // Config missing
-                    if (string.IsNullOrEmpty(StatPoints) || StatPoints == "0") StatPoints = "0";
                 }
             }
             catch (Exception ex)
             {
-                // Outer exception fallback
-                var cached = await _database.GetAsync<string>("Cache.GSheet.Points");
-                if (!string.IsNullOrEmpty(cached)) StatPoints = cached;
-                else StatPoints = "ErrAPI";
+                _logService?.AddLog($"[Points Error] {ex.Message}");
             }
         }
+
         
         // Reset first load flag to allow interval-based refreshes
         if (_isFirstStatsLoad) _isFirstStatsLoad = false;
@@ -1322,15 +1448,5 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         PointLeaderboardVM.LoadDataCommand.Execute(null);
     }
     
-    [RelayCommand]
-    private void OpenLeaderboardWindow()
-    {
-          var window = new Views.PointLeaderboardWindow();
-          window.DataContext = PointLeaderboardVM;
-          
-          if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
-          {
-              window.Show();
-          }
-    }
+
 }

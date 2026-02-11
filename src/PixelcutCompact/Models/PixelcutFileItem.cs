@@ -60,4 +60,54 @@ public partial class PixelcutFileItem : ObservableObject
         // Or explicitly replace dot with comma for "Indonesian style" if system is US.
         return $"{len:0.00} {sizes[order]}".Replace('.', ','); 
     }
+    private Avalonia.Media.Imaging.Bitmap? _thumbnail;
+    public Avalonia.Media.Imaging.Bitmap? Thumbnail
+    {
+        get
+        {
+            if (_thumbnail == null) LoadThumbnailAsync();
+            return _thumbnail;
+        }
+        private set => SetProperty(ref _thumbnail, value);
+    }
+
+    private bool _isLoadingThumbnail;
+
+    private async void LoadThumbnailAsync()
+    {
+        if (_isLoadingThumbnail || _thumbnail != null) return;
+        _isLoadingThumbnail = true;
+
+        var path = HasResult && File.Exists(ResultPath) ? ResultPath : FilePath;
+        if (!File.Exists(path)) return;
+
+        try
+        {
+            await System.Threading.Tasks.Task.Run(() =>
+            {
+                using var stream = File.OpenRead(path);
+                // Decode to 200px width/height to save memory
+                var bitmap = Avalonia.Media.Imaging.Bitmap.DecodeToWidth(stream, 200);
+                
+                // Dispatch to UI thread
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    Thumbnail = bitmap;
+                    _isLoadingThumbnail = false;
+                });
+            });
+        }
+        catch
+        {
+            _isLoadingThumbnail = false;
+        }
+    }
+
+    partial void OnHasResultChanged(bool value)
+    {
+        // Invalidate thumbnail to reload (e.g. switch from original to result)
+        _thumbnail = null;
+        OnPropertyChanged(nameof(Thumbnail));
+        LoadThumbnailAsync();
+    }
 }

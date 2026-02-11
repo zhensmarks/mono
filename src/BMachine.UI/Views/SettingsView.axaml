@@ -636,7 +636,7 @@
                         
                         <TextBlock Text="Google Integration" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"/>
                         
-                        <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                        <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Credentials JSON:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                                  <TextBox Grid.Column="0" Text="{Binding GoogleCredsPath}" Watermark="Path to json credentials"/>
@@ -657,11 +657,18 @@
                                  <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding SheetColumns}" SelectedItem="{Binding SheetColumn}" Watermark="Col" HorizontalAlignment="Stretch" Margin="0,0,5,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                                  <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding SheetRows}" SelectedItem="{Binding SheetRow}" Watermark="Row" HorizontalAlignment="Stretch" Margin="5,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                              </Grid>
+                             
+                             <!-- PREFERENCES -->
+                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Spreadsheet Sheet:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SpreadsheetSheetName}" Watermark="e.g. ALL DATA REGULER" Margin="0,0,0,10"/>
+
+                             <TextBlock Grid.Row="5" Grid.Column="0" Text="Spreadsheet Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding SpreadsheetRange}" Watermark="e.g. A1:Z" Margin="0,0,0,10"/>
 
                              
                              <!-- LEADERBOARD CONFIG -->
-                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Leaderboard Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                             <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding LeaderboardRange}" Watermark="e.g. A2:C10" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                             <TextBlock Grid.Row="6" Grid.Column="0" Text="Leaderboard Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding LeaderboardRange}" Watermark="e.g. A2:C10" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         </Grid>
                         
                         <TextBlock Text="Board Synchronization" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"/>

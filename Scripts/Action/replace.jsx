@@ -322,19 +322,16 @@ function runReplacementLogic(templateFolder, inputFolder) {
                 doc.activeLayer = smartXL;
                 replaceSmartContent(matchedInputs[0]);
                 smartXL.name = matchedInputs[0].displayName.replace(/\.[^\.]+$/, "");
-                doc.activeLayer.rasterize(RasterizeType.ENTIRELAYER);
 
                 doc.activeLayer = smartS;
                 replaceSmartContent(matchedInputs[1]);
                 smartS.name = matchedInputs[1].displayName.replace(/\.[^\.]+$/, "");
-                doc.activeLayer.rasterize(RasterizeType.ENTIRELAYER);
 
                 successList.push(relPath(templateFolder, template));
             } else if (matchedInputs.length >= 1) {
                 doc.activeLayer = smartXL;
                 replaceSmartContent(matchedInputs[0]);
                 smartXL.name = matchedInputs[0].displayName.replace(/\.[^\.]+$/, "");
-                doc.activeLayer.rasterize(RasterizeType.ENTIRELAYER);
                 successList.push(relPath(templateFolder, template));
             } else {
                 failList.push(relPath(templateFolder, template) + " (No input match)");

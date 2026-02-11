@@ -84,14 +84,14 @@
             if (mode === 1) {
                 // S-WS BARU
                 // Hide: REDAKSI SEKOLAH, ASET, KECIL, BG KECIL, PROP, KARPET, BG
-                var list = ["REDAKSI SEKOLAH", "ASET", "KECIL", "BG KECIL", "PROP", "KARPET", "BG"];
+                var list = ["REDAKSI SEKOLAH", "ASET", "KECIL", "BG KECIL", "PROP", "KARPET", "karpet", "BG"];
                 hideLayers(doc, list);
             }
             else if (mode === 2) {
                 // S-WS BARU ORTU
                 // Hide: REDAKSI SEKOLAH, ASET, PROP, BESAR, BG KECIL, KARPET
                 // Set/Show: KECIL
-                var list = ["REDAKSI SEKOLAH", "ASET", "PROP", "BESAR", "BG KECIL", "KARPET"];
+                var list = ["REDAKSI SEKOLAH", "ASET", "PROP", "BESAR", "BG KECIL", "KARPET", "karpet"];
                 hideLayers(doc, list);
                 showAndSelectLayer(doc, "KECIL");
             }

@@ -55,6 +55,13 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _isPaused;
     private System.Timers.Timer? _vpnCheckTimer;
 
+    // Gallery and Preview Pane
+    [ObservableProperty] private ObservableCollection<GalleryItemViewModel> _galleryItems = new();
+    [ObservableProperty] private int _selectedCount;
+    [ObservableProperty] private bool _hasSelectedWithResult;
+    [ObservableProperty] private bool _isPreviewPaneVisible;
+    [ObservableProperty] private PixelcutFileItem? _selectedPreviewItem;
+
     public MainWindowViewModel()
     {
         // Load Settings
@@ -788,6 +795,159 @@ public partial class MainWindowViewModel : ObservableObject
             if (File.Exists(path))
             {
                  new Process { StartInfo = new ProcessStartInfo(path) { UseShellExecute = true } }.Start();
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void OpenFullPreviewWindow(PixelcutFileItem? item)
+    {
+        if (item == null) return;
+        // Delegate to PreviewItem which has all the logic for preview window, Next/Previous events, etc.
+        PreviewItem(item);
+    }
+
+    private GalleryWindow? _galleryWindow;
+
+    [RelayCommand]
+    private void OpenGallery()
+    {
+        // Show Window Immediately
+        if (_galleryWindow == null)
+        {
+            _galleryWindow = new GalleryWindow();
+            _galleryWindow.DataContext = this;
+            _galleryWindow.Closed += (s, e) => _galleryWindow = null;
+            
+            if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
+            {
+                _galleryWindow.Show(desktop.MainWindow);
+            }
+            else
+            {
+                _galleryWindow.Show();
+            }
+        }
+        else
+        {
+            _galleryWindow.Activate();
+        }
+
+        // Populate asynchronously to prevent UI freeze
+        Task.Run(() =>
+        {
+            var newItems = new List<GalleryItemViewModel>();
+            
+            // Snapshot files to avoid modification during enumeration
+            var filesSnapshot = Files.ToList();
+
+            foreach (var file in filesSnapshot)
+            {
+                // Add Source
+                newItems.Add(new GalleryItemViewModel(file, file.FilePath, true));
+                
+                // Add Result if exists
+                if (file.HasResult && File.Exists(file.ResultPath))
+                {
+                    newItems.Add(new GalleryItemViewModel(file, file.ResultPath, false));
+                }
+            }
+
+            // Update UI
+            Dispatcher.UIThread.Post(() =>
+            {
+                GalleryItems = new ObservableCollection<GalleryItemViewModel>(newItems);
+            });
+        });
+    }
+
+    [RelayCommand]
+    private void TogglePreviewPane()
+    {
+        IsPreviewPaneVisible = !IsPreviewPaneVisible;
+    }
+
+    [RelayCommand]
+    private async Task OpenSelectedInPhotoshop()
+    {
+        // Find ALL selected items with result
+        var selectedItems = Files.Where(f => f.IsSelected && f.HasResult && File.Exists(f.ResultPath)).ToList();
+        if (selectedItems.Count == 0)
+        {
+            AlertMessage = "Tidak ada item dipilih dengan hasil.";
+            IsAlertOpen = true;
+            return;
+        }
+
+        // Load settings to get Photoshop path
+        var settings = Services.PreviewWindowSettings.Load();
+
+        // Check if Photoshop path is set
+        if (string.IsNullOrEmpty(settings.PhotoshopPath) || !File.Exists(settings.PhotoshopPath))
+        {
+            AlertMessage = "Path Photoshop belum diatur. Buka Preview Window dan klik Photoshop terlebih dahulu.";
+            IsAlertOpen = true;
+            return;
+        }
+
+        // JSX Script (same as PreviewWindow)
+        const string JsxScript = @"
+#target photoshop
+var tempFile = new File(Folder.temp + '/pixelcut_edit_args.txt');
+var pngPath = ''; var jpgPath = '';
+if (tempFile.exists) {
+    tempFile.open('r');
+    pngPath = tempFile.readln();
+    jpgPath = tempFile.readln();
+    tempFile.close(); tempFile.remove();
+}
+if (pngPath && jpgPath) {
+    try {
+        var pngFile = new File(pngPath);
+        if (pngFile.exists) {
+            var doc = app.open(pngFile);
+            if (doc.artLayers.length > 0) { doc.artLayers[0].name = 'Result (PNG)'; }
+            var jpgFile = new File(jpgPath);
+            if (jpgFile.exists) {
+                var jpgDoc = app.open(jpgFile);
+                jpgDoc.selection.selectAll();
+                jpgDoc.activeLayer.copy();
+                jpgDoc.close(SaveOptions.DONOTSAVECHANGES);
+                app.activeDocument = doc;
+                doc.paste();
+                doc.activeLayer = doc.artLayers[0];
+            }
+        }
+    } catch (e) { alert('Error: ' + e.message); }
+} else { alert('No files specified.'); }
+";
+
+        var tempJsxPath = Path.Combine(Path.GetTempPath(), "open_for_edit.jsx");
+        await File.WriteAllTextAsync(tempJsxPath, JsxScript);
+
+        // Open EACH selected item
+        foreach (var selected in selectedItems)
+        {
+            try
+            {
+                // Write temp file with paths for THIS item
+                var tempArgsPath = Path.Combine(Path.GetTempPath(), "pixelcut_edit_args.txt");
+                await File.WriteAllTextAsync(tempArgsPath, $"{selected.ResultPath}\n{selected.FilePath}");
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = settings.PhotoshopPath,
+                    Arguments = $"\"{tempJsxPath}\"",
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+
+                // Small delay to allow Photoshop to read the temp file before next launch
+                await Task.Delay(1500);
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"Error launching Photoshop for {selected.FileName}: {ex.Message}");
             }
         }
     }

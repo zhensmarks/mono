@@ -1,0 +1,125 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="BMachine.UI.Views.SpreadsheetView"
+             x:DataType="vm:SpreadsheetViewModel">
+
+    <UserControl.Styles>
+        <!-- Row Selection: Blue Background -->
+        <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="#402196F3"/>
+        </Style>
+        <Style Selector="DataGridRow:selected">
+             <Setter Property="Background" Value="#402196F3"/>
+        </Style>
+        
+        <!-- Cell Selection: Ensure transparent background so Row background shows -->
+        <Style Selector="DataGridRow:selected DataGridCell">
+             <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <!-- Current Focused Cell: Thick Blue Border AND Background -->
+        <Style Selector="DataGridCell:current">
+             <Setter Property="BorderBrush" Value="#2196F3"/>
+             <Setter Property="BorderThickness" Value="2"/>
+             <Setter Property="Background" Value="#202196F3"/>
+        </Style>
+        
+        <!-- Hover visual -->
+        <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="#10FFFFFF"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto, *, Auto">
+        
+        <!-- Toolbar (Top) -->
+        <Border Grid.Row="0" Padding="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
+    <Grid>
+                 <!-- Right Side: Order Time & Search -->
+                 <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="10">
+                    <!-- Date Filter -->
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                         <CalendarDatePicker SelectedDate="{Binding SelectedDateFilter}" 
+                                          Watermark="Order Time" 
+                                          Width="140"
+                                          VerticalAlignment="Center"/>
+                        
+                         <Button Command="{Binding ClearDateFilterCommand}" 
+                                Classes="Clear"
+                                ToolTip.Tip="Clear Date Filter"
+                                IsVisible="{Binding SelectedDateFilter, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <PathIcon Data="{StaticResource IconX}" Width="14" Height="14"/>
+                         </Button>
+                    </StackPanel>
+
+                    <!-- Search (Rightmost) -->
+                    <TextBox Width="200" Text="{Binding SearchText}" Watermark="Search..." Classes="SearchBox"/>
+                 </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- DataGrid Container -->
+        <Border Grid.Row="1" x:Name="GridContainer" Background="{DynamicResource CardBackgroundBrush}" Margin="0"/>
+
+        <!-- Status Bar (Bottom) -->
+        <Border Grid.Row="2" Padding="10,5" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*, Auto, Auto">
+                <!-- Left: Status -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center"/>
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" Width="100" Height="4" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Right: Controls -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    
+                    <!-- Refresh Button -->
+                    <Button Command="{Binding LoadDataCommand}" Classes="Clear" IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Refresh Data">
+                         <PathIcon Data="{StaticResource IconRefresh}" Width="16" Height="16"/>
+                    </Button>
+
+                    <!-- Columns Menu (Icon Only) -->
+                    <Button Classes="Clear" ToolTip.Tip="Show/Hide Columns">
+                         <Button.Flyout>
+                             <Flyout Placement="Top">
+                                 <ScrollViewer MaxHeight="300">
+                                     <ItemsControl ItemsSource="{Binding Columns}">
+                                         <ItemsControl.ItemTemplate>
+                                             <DataTemplate>
+                                                 <CheckBox Content="{Binding Header}" IsChecked="{Binding IsVisible, Mode=TwoWay}" Margin="0,2"/>
+                                             </DataTemplate>
+                                         </ItemsControl.ItemTemplate>
+                                     </ItemsControl>
+                                 </ScrollViewer>
+                             </Flyout>
+                         </Button.Flyout>
+                         <PathIcon Data="{StaticResource IconGrid}" Width="16" Height="16"/>
+                    </Button>
+                    
+                    <!-- Separator -->
+                    <Border Width="1" Height="16" Background="{DynamicResource SeparatorBrush}" Margin="5,0"/>
+
+                    <!-- Zoom Controls -->
+                    <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+                        <Button Command="{Binding ZoomOutCommand}" Classes="Clear" ToolTip.Tip="Zoom Out" Padding="5">
+                             <TextBlock Text="-" FontWeight="Bold" FontSize="16"/>
+                        </Button>
+                        <TextBlock Text="{Binding ZoomLevel, StringFormat='{}{0:P0}'}" VerticalAlignment="Center" Margin="5,0" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Button Command="{Binding ZoomInCommand}" Classes="Clear" ToolTip.Tip="Zoom In" Padding="5">
+                             <TextBlock Text="+" FontWeight="Bold" FontSize="16"/>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Save Button (Icon Only, Rightmost) -->
+                    <Button Command="{Binding SaveChangesCommand}" Classes="Primary" IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Save Changes">
+                         <PathIcon Data="{StaticResource IconSave}" Width="16" Height="16"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

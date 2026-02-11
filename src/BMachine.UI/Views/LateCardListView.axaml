@@ -50,7 +50,7 @@
                         </StackPanel>
                     </StackPanel>
                     
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                          <!-- Batch Move Button -->
                          <Button Command="{Binding ShowBatchMovePanelCommand}"
                                  IsVisible="{Binding HasSelectedCards}"
@@ -61,6 +61,26 @@
                                      <TextBlock Text="Move Batch"/>
                                  </StackPanel>
                          </Button>
+
+                         <!-- Refresh Button (Mini FAB Style) -->
+                         <Panel>
+                             <Button Command="{Binding RefreshCommand}"
+                                     Width="36" Height="36" CornerRadius="18"
+                                     Background="{DynamicResource AccentBlueBrush}" 
+                                     BorderThickness="0" Padding="0" Cursor="Hand"
+                                     IsVisible="{Binding !IsRefreshing}"
+                                     ToolTip.Tip="Refresh">
+                                 <PathIcon Data="{StaticResource IconRefresh}" 
+                                           Width="16" Height="16" Foreground="White" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </Button>
+                             <!-- Loading Spinner -->
+                             <Border Width="36" Height="36" CornerRadius="18"
+                                     Background="{DynamicResource AccentBlueBrush}"
+                                     IsVisible="{Binding IsRefreshing}">
+                                  <ProgressBar IsIndeterminate="True" Width="20" Height="20" Foreground="White" Theme="{DynamicResource ProgressRing}"/>
+                             </Border>
+                         </Panel>
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -162,32 +182,14 @@
                     </ItemsControl>
             </ScrollViewer>
 
-            <!-- FAB Refresh Button (kanan bawah) -->
-            <Button Command="{Binding RefreshCommand}" Grid.Row="1"
-                    Width="48" Height="48" CornerRadius="24"
-                    Background="{DynamicResource AccentBlueBrush}"
-                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                    Margin="0,0,30,30" Cursor="Hand"
-                    IsVisible="{Binding !IsRefreshing}">
-                <PathIcon Data="{StaticResource IconRefresh}" 
-                          Width="20" Height="20" Foreground="White"/>
-            </Button>
-            
-            <!-- Loading Indicator for Manual Refresh -->
-            <Border Grid.Row="1" Width="48" Height="48" CornerRadius="24"
-                    Background="{DynamicResource AccentBlueBrush}"
-                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                    BoxShadow="0 4 8 0 #40000000"
-                    Margin="0,0,30,30" 
-                    IsVisible="{Binding IsRefreshing}">
-                 <ProgressBar IsIndeterminate="True" Width="26" Height="26" Foreground="White" Theme="{DynamicResource ProgressRing}"/>
-            </Border>
+            <!-- FAB Refresh Button Removed -->
         </Grid>
 
         <!-- Side Panel: Card Details -->
         <Border x:Name="Part_DetailPanel" Grid.Column="1" Width="400" Background="{DynamicResource BackgroundDarkBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
-                IsVisible="{Binding IsDetailPanelOpen}">
+                IsVisible="{Binding IsDetailPanelOpen}"
+                PointerPressed="OnDetailPanelPointerPressed">
              <Grid RowDefinitions="Auto, Auto, Auto, *" Margin="20">
                  
                  <!-- 1. Header & Close -->

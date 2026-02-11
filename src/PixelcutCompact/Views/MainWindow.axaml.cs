@@ -169,4 +169,15 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnFileDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is Control control && control.DataContext is PixelcutCompact.Models.PixelcutFileItem item)
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                 vm.PreviewItemCommand.Execute(item);
+            }
+        }
+    }
+
 }

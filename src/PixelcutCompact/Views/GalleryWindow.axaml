@@ -1,0 +1,117 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:PixelcutCompact.ViewModels"
+        xmlns:models="using:PixelcutCompact.Models"
+        xmlns:cv="clr-namespace:PixelcutCompact.Converters"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+        x:Class="PixelcutCompact.Views.GalleryWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Gallery View"
+        Width="1000" Height="700"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource CardBackgroundBrush}"
+        TransparencyLevelHint="AcrylicBlur"
+        ExtendClientAreaToDecorationsHint="True">
+
+    <Window.Resources>
+    </Window.Resources>
+
+    <Grid RowDefinitions="Auto, *, Auto">
+        <!-- Header -->
+        <Border Grid.Row="0" Padding="15,10" Background="#10FFFFFF" PointerPressed="OnHeaderPointerPressed">
+             <Grid ColumnDefinitions="Auto, *, Auto">
+                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="Gallery View" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Files.Count, StringFormat='({0} Item)'}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                 </StackPanel>
+             </Grid>
+        </Border>
+
+        <!-- Gallery Grid -->
+        <ListBox Grid.Row="1" ItemsSource="{Binding GalleryItems}" Background="Transparent" 
+                 SelectionMode="Multiple" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.Styles>
+                <Style Selector="ListBoxItem" x:DataType="vm:GalleryItemViewModel">
+                    <Setter Property="Padding" Value="4"/>
+                    <Setter Property="Margin" Value="4"/>
+                    <Setter Property="CornerRadius" Value="4"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                    <Setter Property="IsHitTestVisible" Value="{Binding IsSource}"/>
+                    <Setter Property="Focusable" Value="{Binding IsSource}"/>
+                </Style>
+                <!-- Selection State -->
+                <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                     <Setter Property="Background" Value="#200078D7"/>
+                     <Setter Property="BorderBrush" Value="#0078D7"/>
+                     <Setter Property="BorderThickness" Value="1"/>
+                </Style>
+                <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                     <Setter Property="Background" Value="#10FFFFFF"/>
+                </Style>
+
+                <Style Selector="ListBox">
+                    <Setter Property="ItemsPanel">
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </Setter>
+                </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:GalleryItemViewModel">
+                    <!-- Explorer-like Tile -->
+                    <Grid RowDefinitions="*, Auto" Width="140" Height="190" Background="Transparent"
+                          PointerPressed="OnPointerPressed"
+                          DoubleTapped="OnDoubleTapped">
+                        <Grid.ContextFlyout>
+                            <MenuFlyout>
+                                <MenuItem Header="Preview" Click="OnPreviewClick"/>
+                                <MenuItem Header="Buka di Photoshop" Click="OnOpenPhotoshopClick"/>
+                                <MenuItem Header="Buka Folder" Click="OnOpenFolderClick"/>
+                            </MenuFlyout>
+                        </Grid.ContextFlyout>
+
+                        <!-- Image Container with Padding -->
+                        <Border Grid.Row="0" Padding="4">
+                             <!-- Show Loading State if Thumbnail is null -->
+                             <Panel>
+                                 <PathIcon Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M5,19V5H19V19H5M6,17H18L14.25,12L11.25,16L9,13L6,17Z" 
+                                           Width="32" Height="32" Foreground="#33FFFFFF"
+                                           IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                           
+                                                             
+                                 <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" 
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </Panel>
+                        </Border>
+                        
+                        <!-- Filename -->
+                        <TextBlock Grid.Row="1" Text="{Binding FileName}" 
+                                   Foreground="{DynamicResource TextPrimaryBrush}" 
+                                   FontSize="11" TextAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" 
+                                   Margin="0,4,0,0"
+                                   ToolTip.Tip="{Binding FilePath}"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        
+        <!-- Footer -->
+        <Border Grid.Row="2" Padding="15,10" Background="#10FFFFFF" BorderBrush="#20FFFFFF" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                 <!-- Photoshop Button (Visible if items selected) -->
+                 <Button Command="{Binding OpenSelectedInPhotoshopCommand}" 
+                         IsVisible="{Binding SelectedCount, Converter={x:Static ObjectConverters.IsNotNull}}"
+                         Classes="Accent" Theme="{DynamicResource SolidButtonTheme}"
+                         Padding="15,8" CornerRadius="6" Background="#200078D7" BorderBrush="#0078D7" BorderThickness="1">
+                     <TextBlock Text="BUKA DI PHOTOSHOP" Foreground="#0078D7" FontSize="13" FontWeight="SemiBold"/>
+                 </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

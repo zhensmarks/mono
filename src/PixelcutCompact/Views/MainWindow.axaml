@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -23,12 +23,15 @@
         <cv:LuminanceToBrushConverter x:Key="LuminanceToBrushConverter"/>
         <cv:ColorToBrushConverter x:Key="ColorToBrushConverter"/>
         <cv:BooleanToStatusBrushConverter x:Key="BooleanToStatusBrushConverter"/>
+        <cv:PathToBitmapConverter x:Key="PathToBitmapConverter"/>
         
         <!-- Icons -->
         <StreamGeometry x:Key="IconCheck">M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z</StreamGeometry>
         <StreamGeometry x:Key="IconRetry">M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.86,17.53 19.79,14.15L17.65,13.62C16.96,16.27 14.73,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z</StreamGeometry>
         <StreamGeometry x:Key="IconPause">M14,19H18V5H14M6,19H10V5H6V19Z</StreamGeometry>
         <StreamGeometry x:Key="IconPlay">M8,5.14V19.14L19,12.14L8,5.14Z</StreamGeometry>
+        <StreamGeometry x:Key="IconSettings">M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.35 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.35 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.04 4.95,18.95L7.44,17.95C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.95L19.05,18.95C19.27,19.04 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z</StreamGeometry>
+        <StreamGeometry x:Key="IconProcess">M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M10,16.5L16,12L10,7.5V16.5Z</StreamGeometry>
     </Window.Resources>
     
     <Window.Styles>
@@ -60,18 +63,18 @@
                  <!-- Window Controls (Right aligned) -->
                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
                      <!-- View Toggle Button -->
-                     <Button Command="{Binding ToggleViewModeCommand}" 
+                     <Button Command="{Binding OpenGalleryCommand}" 
                              Width="32" Height="32" Background="Transparent" BorderThickness="0"
-                             VerticalAlignment="Top" ToolTip.Tip="Ganti Tampilan (List/Grid)">
+                             VerticalAlignment="Top" ToolTip.Tip="Buka Gallery View (Jendela Baru)">
                          <Panel>
                               <!-- Show Grid Icon when in List Mode (to switch to Grid) -->
                               <PathIcon Data="M2,2H11V11H2V2M2,13H11V22H2V13M13,2H22V11H13V2M13,13H22V22H13V13Z" 
                                         Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"
-                                        IsVisible="{Binding !IsGridView}"/>
+                                        />
                               <!-- Show List Icon when in Grid Mode (to switch to List) -->
                               <PathIcon Data="M3,4H21V8H3V4M3,10H21V14H3V10M3,16H21V20H3V16Z" 
                                         Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"
-                                        IsVisible="{Binding IsGridView}"/>
+                                        IsVisible="False"/>
                          </Panel>
                      </Button>
 
@@ -121,66 +124,64 @@
                      <!-- Tab 1: Proses -->
                     <TabItem Header="Proses">
                         <Grid DragDrop.AllowDrop="True" Background="Transparent">
-                            <!-- Empty State -->
-                            <Grid IsVisible="{Binding !HasFiles}">
-                                <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
-                                         <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
-                                                 HorizontalAlignment="Center" Width="80" Height="64">
-                                             <PathIcon Data="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5M12 4.15L6.04 7.5L12 10.85L17.96 7.5L12 4.15M5 15.91L11 19.29V12.58L5 9.21V15.91M19 15.91V9.21L13 12.58V19.29L19 15.91Z" 
-                                                       Width="32" Height="32" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                         </Border>
-                                        <TextBlock Text="Tarik &amp; Lepas Gambar Disini" FontSize="15" FontWeight="SemiBold" 
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-    
-                            <!-- File List -->
-                            <ListBox x:Name="FileListBox" IsVisible="{Binding HasFiles}" ItemsSource="{Binding Files}" Background="Transparent" 
-                                     Margin="0,10" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                     SelectionMode="Multiple"
-                                     Classes.grid="{Binding IsGridView}">
-                                <ListBox.Styles>
-                                    <Style Selector="ListBoxItem">
-                                        <Setter Property="Padding" Value="0"/>
-                                        <Setter Property="Margin" Value="10,0,10,8"/>
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="Template">
-                                            <ControlTemplate>
-                                                <ContentPresenter Background="{TemplateBinding Background}"
-                                                                  BorderBrush="{TemplateBinding BorderBrush}"
-                                                                  BorderThickness="{TemplateBinding BorderThickness}"
-                                                                  CornerRadius="{TemplateBinding CornerRadius}"
-                                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                                  Content="{TemplateBinding Content}"
-                                                                  Padding="{TemplateBinding Padding}"
-                                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
-                                            </ControlTemplate>
-                                        </Setter>
-                                    </Style>
-                                    <Style Selector="ListBox">
-                                        <Setter Property="ItemsPanel">
-                                            <ItemsPanelTemplate>
-                                                <StackPanel />
-                                            </ItemsPanelTemplate>
-                                        </Setter>
-                                    </Style>
-                                    <Style Selector="ListBox.grid">
-                                       <Setter Property="ItemsPanel">
-                                           <ItemsPanelTemplate>
-                                               <WrapPanel Orientation="Horizontal" />
-                                           </ItemsPanelTemplate>
-                                       </Setter>
-                                   </Style>
-                               </ListBox.Styles>
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Panel>
-                                            <!-- LIST VIEW -->
-                                            <Border IsVisible="{Binding !DataContext.(vm:MainWindowViewModel).IsGridView, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                    Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto" MinWidth="0" MaxWidth="500"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- FILE LIST AREA -->
+                            <Grid Grid.Column="0">
+                                <!-- Empty State -->
+                                <Grid IsVisible="{Binding !HasFiles}">
+                                    <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
+                                             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
+                                                     HorizontalAlignment="Center" Width="80" Height="64">
+                                                 <PathIcon Data="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5M12 4.15L6.04 7.5L12 10.85L17.96 7.5L12 4.15M5 15.91L11 19.29V12.58L5 9.21V15.91M19 15.91V9.21L13 12.58V19.29L19 15.91Z" 
+                                                           Width="32" Height="32" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                             </Border>
+                                            <TextBlock Text="Tarik &amp; Lepas Gambar Disini" FontSize="15" FontWeight="SemiBold" 
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+        
+                                <!-- File List -->
+                                <ListBox x:Name="FileListBox" IsVisible="{Binding HasFiles}" ItemsSource="{Binding Files}" Background="Transparent" 
+                                         Margin="0,10" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         SelectionMode="Multiple"
+                                         DoubleTapped="OnFileDoubleTapped">
+                                    <ListBox.Styles>
+                                        <Style Selector="ListBoxItem">
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Margin" Value="10,0,10,8"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="Template">
+                                                <ControlTemplate>
+                                                    <ContentPresenter Background="{TemplateBinding Background}"
+                                                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                                      Content="{TemplateBinding Content}"
+                                                                      Padding="{TemplateBinding Padding}"
+                                                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                                </ControlTemplate>
+                                            </Setter>
+                                        </Style>
+                                        <Style Selector="ListBox">
+                                            <Setter Property="ItemsPanel">
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel />
+                                                </ItemsPanelTemplate>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.Styles>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
                                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                                     Margin="0,0,0,4"
                                                     PointerPressed="OnFileItemPointerPressed"> 
@@ -247,70 +248,94 @@
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
 
-                                            <!-- GRID VIEW -->
-                                            <Border IsVisible="{Binding DataContext.(vm:MainWindowViewModel).IsGridView, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                    Width="140" Height="140" Margin="4"
-                                                    Padding="8" CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}"
-                                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                                    PointerPressed="OnFileItemPointerPressed">
-                                                
-                                                <Grid RowDefinitions="*, Auto, Auto">
-                                                    <Grid.ContextMenu>
-                                                        <ContextMenu>
-                                                            <MenuItem Header="Preview" Command="{Binding DataContext.(vm:MainWindowViewModel).PreviewItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
-                                                            <MenuItem Header="Buka Folder" Command="{Binding DataContext.(vm:MainWindowViewModel).OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
-                                                            <Separator/>
-                                                            <MenuItem Header="Retry" Command="{Binding DataContext.(vm:MainWindowViewModel).RetrySingleItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
-                                                            <MenuItem Header="Hapus" Command="{Binding DataContext.(vm:MainWindowViewModel).RemoveFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding .}"/>
-                                                        </ContextMenu>
-                                                    </Grid.ContextMenu>
-                                                    <!-- Thumbnail / Icon Placehoder -->
-                                                    <Viewbox Grid.Row="0" Margin="0,0,0,8">
-                                                        <PathIcon Data="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z" 
-                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </Viewbox>
-                                                    
-                                                    <TextBlock Grid.Row="1" Text="{Binding FileName}" FontWeight="Bold" FontSize="11" 
-                                                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
-                                                               HorizontalAlignment="Center"/>
-                                                               
-                                                    <TextBlock Grid.Row="2" Text="{Binding Status}" FontSize="10" 
-                                                               Foreground="{DynamicResource TextSecondaryBrush}" 
-                                                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                                    
-                                                    <!-- Processing Indicator Overlay (Fixed Width) -->
-                                                     <ProgressBar Grid.Row="2" Height="4" Width="124" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,15,0,0"
-                                                                 Foreground="{DynamicResource AccentBlueBrush}" Background="#20FFFFFF" BorderThickness="0"
-                                                                 Value="{Binding Progress}" Maximum="100" 
-                                                                 IsVisible="{Binding IsProcessing}"/>
-                                                                 
-                                                    <!-- Selection Check & Preview Button Stack -->
-                                                    <StackPanel Grid.Row="0" Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right"
-                                                                Margin="0,-4,-4,0" Spacing="2">
-                                                        <CheckBox IsChecked="{Binding IsSelected}" HorizontalAlignment="Center"/>
-                                                        
-                                                        <Button Command="{Binding DataContext.(vm:MainWindowViewModel).PreviewItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" 
-                                                                CommandParameter="{Binding .}"
-                                                                IsVisible="{Binding HasResult}"
-                                                                HorizontalAlignment="Center"
-                                                                Width="20" Height="20" Padding="3"
-                                                                Background="Transparent" CornerRadius="4" BorderThickness="0"
-                                                                ToolTip.Tip="Preview">
-                                                            <PathIcon Data="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" 
-                                                                      Width="14" Height="14"
-                                                                      Foreground="{DynamicResource AccentBlueBrush}"/>
-                                                        </Button>
+                            <!-- SPLITTER -->
+                            <GridSplitter Grid.Column="1" Width="4" Background="Transparent" ResizeDirection="Columns" 
+                                          IsVisible="{Binding IsPreviewPaneVisible}"/>
+                            
+                            <!-- PREVIEW PANE -->
+                            <Border Grid.Column="2" IsVisible="{Binding IsPreviewPaneVisible}" 
+                                    Width="300" Background="{DynamicResource CardBackgroundBrush}"
+                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,0,0,0">
+                                <Grid>
+                                    <!-- No Selection State -->
+                                    <Grid IsVisible="{Binding SelectedPreviewItem, Converter={x:Static ObjectConverters.IsNull}}">
+                                        <TextBlock Text="Pilih file untuk preview" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                    
+                                    <!-- Selection Content -->
+                                    <Grid IsVisible="{Binding SelectedPreviewItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                          RowDefinitions="Auto, *, Auto">
+                                        
+                                        
+                                        <!-- Header Info -->
+                                        <Grid Grid.Row="0" Margin="15" ColumnDefinitions="*, Auto">
+                                            <StackPanel Grid.Column="0" Spacing="5">
+                                                 <TextBlock Text="{Binding SelectedPreviewItem.FileName}" FontWeight="Bold" 
+                                                            Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" FontSize="16"/>
+                                                 <StackPanel Orientation="Horizontal" Spacing="10">
+                                                     <TextBlock Text="{Binding SelectedPreviewItem.ResultSizeDisplay, StringFormat='Result: {0}'}" FontSize="12" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                     <TextBlock Text="{Binding SelectedPreviewItem.OriginalSizeDisplay, StringFormat='Original: {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                 </StackPanel>
+                                            </StackPanel>
+                                            
+                                            <!-- Close Button -->
+                                            <Button Grid.Column="1" Command="{Binding TogglePreviewPaneCommand}"
+                                                    Width="24" Height="24" Padding="0" 
+                                                    Background="Transparent" BorderThickness="0"
+                                                    VerticalAlignment="Top" HorizontalAlignment="Right"
+                                                    ToolTip.Tip="Tutup Panel">
+                                                <TextBlock Text="✕" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Button>
+                                        </Grid>
+                                        
+                                        <!-- Images -->
+                                        <ScrollViewer Grid.Row="1" Padding="15,0">
+                                            <StackPanel Spacing="15">
+                                                <!-- Result -->
+                                                <Border CornerRadius="8" ClipToBounds="True" Background="#10000000" IsVisible="{Binding SelectedPreviewItem.HasResult}">
+                                                    <StackPanel>
+                                                        <Image Source="{Binding SelectedPreviewItem.ResultPath, Converter={StaticResource PathToBitmapConverter}}" Stretch="Uniform" MaxHeight="250"/>
+                                                        <Border Background="#20000000" Padding="5">
+                                                            <TextBlock Text="OUTPUT" FontWeight="Bold" FontSize="10" HorizontalAlignment="Center"/>
+                                                        </Border>
                                                     </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                        </Panel>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                                                </Border>
+                                                
+                                                <!-- Original -->
+                                                <Border CornerRadius="8" ClipToBounds="True" Background="#10000000">
+                                                    <StackPanel>
+                                                        <Image Source="{Binding SelectedPreviewItem.FilePath, Converter={StaticResource PathToBitmapConverter}}" Stretch="Uniform" MaxHeight="250"/>
+                                                        <Border Background="#20000000" Padding="5">
+                                                            <TextBlock Text="INPUT" FontWeight="Bold" FontSize="10" HorizontalAlignment="Center"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                        
+                                        <!-- Actions -->
+                                        <StackPanel Grid.Row="2" Margin="15" Spacing="10">
+                                            <Button Command="{Binding OpenFullPreviewWindowCommand}" 
+                                                    CommandParameter="{Binding SelectedPreviewItem}"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                     <PathIcon Data="M21 19V5C21 3.89 20.1 3 19 3H5C3.9 3 3 3.89 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19M8.5 13.5L11 16.5L14.5 12L19 18H5L8.5 13.5Z" Width="16" Height="16"/>
+                                                     <TextBlock Text="Full Preview"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
                             
                             <!-- Overlay: Settings -->
-                            <Grid Grid.Row="0" Grid.RowSpan="3" IsVisible="{Binding IsSettingsOpen}" ZIndex="100">
+                            <Grid Grid.Column="0" Grid.ColumnSpan="3" IsVisible="{Binding IsSettingsOpen}" ZIndex="100">
                                  <!-- Background Dimmer (Button for Click-to-Close) -->
                                  <Button Background="#AA000000" Command="{Binding CloseSettingsCommand}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
                                          CornerRadius="0" BorderThickness="0">
@@ -341,9 +366,9 @@
                                                      <TextBlock Text="Manual Proxy" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                      <TextBox Text="{Binding ProxyAddress}" Watermark="http://127.0.0.1:8080" />
                                                  </StackPanel>
-
+ 
                                                  <Border Height="1" Background="{DynamicResource CardBorderBrush}"/>
-
+ 
                                                  <!-- Theme -->
                                                  <Grid ColumnDefinitions="*, Auto">
                                                      <TextBlock Grid.Column="0" Text="Mode Gelap" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -358,7 +383,7 @@
                                                          <ColorPicker Color="{Binding AccentColor}" IsAlphaEnabled="False" />
                                                      </StackPanel>
                                                  </Grid>
-
+ 
                                                  <!-- Custom Background -->
                                                  <Grid ColumnDefinitions="*, 200">
                                                      <TextBlock Grid.Column="0" Text="Warna Background" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -369,7 +394,7 @@
                                                  </Grid>
                                              </StackPanel>
                                          </ScrollViewer>
-
+ 
                                          <!-- Footer -->
                                          <Button Grid.Row="2" Command="{Binding CloseSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" 
                                                  Content="Simpan &amp; Tutup" Margin="0,15,0,0"
@@ -379,9 +404,9 @@
                                      </Grid>
                                  </Border>
                              </Grid>
-
+ 
                              <!-- Overlay: Alert/Notification -->
-                            <Grid Grid.Row="0" Grid.RowSpan="3" IsVisible="{Binding IsAlertOpen}" ZIndex="110">
+                            <Grid Grid.Column="0" Grid.ColumnSpan="3" IsVisible="{Binding IsAlertOpen}" ZIndex="110">
                                 <!-- Background Dimmer using Button for robustness -->
                                 <Button Background="#AA000000" Command="{Binding CloseAlertCommand}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
                                          CornerRadius="0" BorderThickness="0">
@@ -450,6 +475,19 @@
     
                     <!-- Right Actions -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        
+                         <!-- Photoshop Button -->
+                         <Button Command="{Binding OpenSelectedInPhotoshopCommand}" 
+                                 IsVisible="{Binding HasSelectedWithResult}"
+                                 Background="#001E36" BorderBrush="#31A8FF" BorderThickness="1"
+                                 CornerRadius="8" Padding="10,0" Height="32"
+                                 ToolTip.Tip="Buka di Photoshop (Multi-Select)">
+                             <StackPanel Orientation="Horizontal" Spacing="6">
+                                 <PathIcon Data="M4,2C2.89,2 2,2.89 2,4V20C2,21.11 2.89,22 4,22H20C21.11,22 22,21.11 22,20V4C22,2.89 21.11,2 20,2H4M4,4H20V20H4V4M6.5,7V10H9V12H6.5V17H11V14.5H8.5V13H12V9H9.5V8.5H12V7H6.5M13,9V14H14.5V12.5H16A1.5,1.5 0 0,0 17.5,11A1.5,1.5 0 0,0 16,9.5H13M14.5,10.5H16V11H14.5V10.5Z"
+                                           Width="14" Height="14" Foreground="#31A8FF"/>
+                                 <TextBlock Text="{Binding SelectedCount}" Foreground="#31A8FF" FontWeight="Bold" VerticalAlignment="Center"/>
+                             </StackPanel>
+                         </Button>
                         
                         <!-- Retry Button (Moved Here, Icon Style) -->
                         <Button Command="{Binding RetrySmallFilesCommand}" IsVisible="{Binding IsRetryVisible}"

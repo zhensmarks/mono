@@ -14,6 +14,7 @@
         <!-- <FluentTheme /> -->
         <StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" />
         <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
         
         <Style Selector="Button.Clear">
             <Setter Property="Background" Value="Transparent"/>
@@ -108,6 +109,9 @@
                 <ResourceInclude Source="avares://BMachine.UI/Styles/FeatherIcons.axaml" />
                 <ResourceInclude Source="avares://BMachine.UI/Styles/TablerIcons.axaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Fix for DataGrid Fluent Theme Crash: Missing SystemControlTransparentBrush -->
+            <SolidColorBrush x:Key="SystemControlTransparentBrush" Color="Transparent" />
 
             <!-- Card Border Brush (Dynamic) -->
             <SolidColorBrush x:Key="CardBorderBrush" Color="Transparent"/>

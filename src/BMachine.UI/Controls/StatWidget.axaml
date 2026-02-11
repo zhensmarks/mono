@@ -25,8 +25,10 @@
                 Background="Transparent"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
                 Cursor="Hand">
-        <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="15">
+        <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="15,8,15,12">
             <Panel>
                 <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center"
                             IsVisible="{Binding #Root.IsCircularMode}">
@@ -90,11 +92,11 @@
                 </StackPanel>
 
                 <!-- MODE: BAR (New Design) -->
-                <Grid RowDefinitions="Auto,*,Auto" 
+                <Grid RowDefinitions="24,*,Auto" 
                       IsVisible="{Binding #Root.IsBarMode}">
                     
                     <!-- Header: Label + Open Button (Right aligned) -->
-                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,5">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
                         <TextBlock Text="{Binding #Root.Label}"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    FontSize="11"
@@ -109,7 +111,8 @@
                                 Width="20" Height="20"
                                 Background="Transparent" BorderThickness="0" Padding="4"
                                 ToolTip.Tip="Open in New Window" Classes="Clear"
-                                Margin="4,0,-4,0"
+                                Margin="4,0,-6,0"
+                                VerticalAlignment="Center"
                                 Cursor="Hand">
                             <shapes:Path Data="{StaticResource IconOpenWindow}" 
                                          Fill="{Binding #Root.Color}"
@@ -124,14 +127,14 @@
                                FontWeight="Bold"
                                Foreground="{DynamicResource TextPrimaryBrush}"
                                VerticalAlignment="Center"
-                               Margin="0,0,0,10"/>
+                               Margin="0,0,0,4"/>
 
                     <!-- Progress Bar -->
                     <ProgressBar Grid.Row="2"
                                  Value="{Binding #Root.Percentage}"
                                  Maximum="1" Minimum="0"
-                                 Height="6"
-                                 CornerRadius="3"
+                                 Height="4"
+                                 CornerRadius="2"
                                  Background="#22FFFFFF"
                                  Foreground="{Binding #Root.Color}"
                                  VerticalAlignment="Bottom"/>

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia;
@@ -23,8 +24,9 @@ public partial class LateCardListView : UserControl
             if (DataContext is LateCardListViewModel vm)
             {
                 // If any panel is open, close it first
-                if (vm.IsCommentPanelOpen || vm.IsChecklistPanelOpen || vm.IsMovePanelOpen || vm.IsAttachmentPanelOpen)
+                if (vm.IsDetailPanelOpen || vm.IsCommentPanelOpen || vm.IsChecklistPanelOpen || vm.IsMovePanelOpen || vm.IsAttachmentPanelOpen)
                 {
+                    vm.IsDetailPanelOpen = false;
                     vm.IsCommentPanelOpen = false;
                     vm.IsChecklistPanelOpen = false;
                     vm.IsMovePanelOpen = false;
@@ -33,47 +35,25 @@ public partial class LateCardListView : UserControl
                     return;
                 }
 
-                vm.CloseCommand.Execute(null);
+                // Navigate Back using Message
+                CommunityToolkit.Mvvm.Messaging.IMessenger messenger = CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default;
+                messenger.Send(new BMachine.UI.Messages.NavigateBackMessage());
                 e.Handled = true;
             }
         }
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
+    private void OnDetailPanelPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
-        base.OnKeyDown(e);
-        if (e.Key == Key.Escape)
-        {
-            if (DataContext is LateCardListViewModel vm)
-            {
-                if (vm.IsCommentPanelOpen || vm.IsChecklistPanelOpen || vm.IsMovePanelOpen || vm.IsAttachmentPanelOpen)
-                {
-                    vm.IsCommentPanelOpen = false;
-                    vm.IsChecklistPanelOpen = false;
-                    vm.IsMovePanelOpen = false;
-                    vm.IsAttachmentPanelOpen = false;
-                    e.Handled = true;
-                    return;
-                }
-
-                vm.CloseCommand.Execute(null);
-                e.Handled = true;
-            }
-        }
-    }
-    
-    // Copy ID functionality
-    private async void OnIdClick(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button btn && btn.Tag is string id && !string.IsNullOrEmpty(id))
-        {
-             var topLevel = TopLevel.GetTopLevel(this);
-             if (topLevel != null && topLevel.Clipboard != null)
+         var props = e.GetCurrentPoint(sender as Visual).Properties;
+         if (props.IsRightButtonPressed)
+         {
+             if (DataContext is LateCardListViewModel vm)
              {
-                 await topLevel.Clipboard.SetTextAsync(id);
-                 Console.WriteLine($"Copied: {id}");
+                 vm.IsDetailPanelOpen = false;
+                 e.Handled = true;
              }
-        }
+         }
     }
 
     private void OnRootGridSizeChanged(object? sender, SizeChangedEventArgs e)
@@ -132,7 +112,12 @@ public partial class LateCardListView : UserControl
         panel.Width = 400;
         panel.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
         panel.Margin = new Avalonia.Thickness(0);
-        panel.Background = Avalonia.Media.Brushes.Transparent;
+        
+        // Ensure solid background for embedded view
+        if (Application.Current!.TryGetResource("AppBackgroundBrush", out var res) && res is IBrush brush)
+        {
+             panel.Background = brush;
+        }
     }
 
     private void AutoCompleteBox_GotFocus(object? sender, GotFocusEventArgs e)

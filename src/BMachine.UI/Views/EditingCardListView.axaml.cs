@@ -3,6 +3,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia;
 using Avalonia.Input;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace BMachine.UI.Views;
 
@@ -22,8 +23,9 @@ public partial class EditingCardListView : UserControl
             if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
             {
                 // If any panel is open, close it first
-                if (vm.IsCommentPanelOpen || vm.IsChecklistPanelOpen || vm.IsMovePanelOpen || vm.IsAttachmentPanelOpen)
+                if (vm.IsDetailPanelOpen || vm.IsCommentPanelOpen || vm.IsChecklistPanelOpen || vm.IsMovePanelOpen || vm.IsAttachmentPanelOpen)
                 {
+                    vm.IsDetailPanelOpen = false; // Close detail panel too if user right clicks main area
                     vm.IsCommentPanelOpen = false;
                     vm.IsChecklistPanelOpen = false;
                     vm.IsMovePanelOpen = false;
@@ -32,45 +34,28 @@ public partial class EditingCardListView : UserControl
                     return;
                 }
 
-                vm.CloseCommand.Execute(null);
+                // If no panels open, Navigate Back (DashboardViewModel handles this if we send a message or call a command?)
+                // Since this view is now embedded, we need to talk to the navigation controller (DashboardVM).
+                // DashboardVM isn't the DataContext here (EditingCardListViewModel is).
+                // We should use Messenger to signal Back.
+                CommunityToolkit.Mvvm.Messaging.IMessenger messenger = CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default;
+                messenger.Send(new BMachine.UI.Messages.NavigateBackMessage());
                 e.Handled = true;
             }
         }
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
+    private void OnDetailPanelPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
-        base.OnKeyDown(e);
-        if (e.Key == Key.Escape)
-        {
-            if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
-            {
-                if (vm.IsCommentPanelOpen || vm.IsChecklistPanelOpen || vm.IsMovePanelOpen || vm.IsAttachmentPanelOpen)
-                {
-                    vm.IsCommentPanelOpen = false;
-                    vm.IsChecklistPanelOpen = false;
-                    vm.IsMovePanelOpen = false;
-                    vm.IsAttachmentPanelOpen = false;
-                    e.Handled = true;
-                    return;
-                }
-
-                vm.CloseCommand.Execute(null);
-                e.Handled = true;
-            }
-        }
-    }
-
-    private async void OnIdClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (sender is Avalonia.Controls.Button btn && btn.Tag is string id && !string.IsNullOrEmpty(id))
-        {
-             var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(this);
-             if (topLevel?.Clipboard != null)
+         var props = e.GetCurrentPoint(sender as Visual).Properties;
+         if (props.IsRightButtonPressed)
+         {
+             if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
              {
-                 await topLevel.Clipboard.SetTextAsync(id);
+                 vm.IsDetailPanelOpen = false;
+                 e.Handled = true;
              }
-        }
+         }
     }
 
     private void OnRootGridSizeChanged(object? sender, SizeChangedEventArgs e)
@@ -84,7 +69,7 @@ public partial class EditingCardListView : UserControl
         var detailPanel = this.FindControl<Border>("Part_DetailPanel");
         var mainContent = this.FindControl<Grid>("Part_MainContent");
 
-        if (commentPanel == null || mainContent == null) return; 
+        if (commentPanel == null || mainContent == null) return;
 
         double threshold = 800; 
         bool isMobile = e.NewSize.Width < threshold;
@@ -92,7 +77,6 @@ public partial class EditingCardListView : UserControl
         if (isMobile)
         {
             grid.ColumnDefinitions = ColumnDefinitions.Parse("*");
-            
             UpdatePanelForMobile(commentPanel);
             UpdatePanelForMobile(checklistPanel);
             UpdatePanelForMobile(movePanel);
@@ -102,7 +86,6 @@ public partial class EditingCardListView : UserControl
         else
         {
             grid.ColumnDefinitions = ColumnDefinitions.Parse("*, Auto");
-            
             UpdatePanelForDesktop(commentPanel);
             UpdatePanelForDesktop(checklistPanel);
             UpdatePanelForDesktop(movePanel);
@@ -115,12 +98,10 @@ public partial class EditingCardListView : UserControl
     {
         if (panel == null) return;
         Grid.SetColumn(panel, 0); 
-        panel.Width = double.NaN; // Auto
+        panel.Width = double.NaN; 
         panel.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
         panel.Margin = new Avalonia.Thickness(0);
-        
-        // Match Revision/Late logic: Use AppBackgroundBrush for solid background in mobile overlay
-        if (Application.Current!.TryGetResource("AppBackgroundBrush", out var res) && res is IBrush brush)
+        if (Avalonia.Application.Current!.TryGetResource("AppBackgroundBrush", out var res) && res is Avalonia.Media.IBrush brush)
         {
              panel.Background = brush;
         }
@@ -134,8 +115,11 @@ public partial class EditingCardListView : UserControl
         panel.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
         panel.Margin = new Avalonia.Thickness(0);
         
-        // Match Revision/Late logic: Transparent allows underlying container background (AppBackground) to show
-        panel.Background = Brushes.Transparent;
+        // Ensure solid background for embedded view
+        if (Application.Current!.TryGetResource("AppBackgroundBrush", out var res) && res is IBrush brush)
+        {
+             panel.Background = brush;
+        }
     }
 
     private void AutoCompleteBox_GotFocus(object? sender, Avalonia.Input.GotFocusEventArgs e)
