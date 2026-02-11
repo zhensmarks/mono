@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.VisualTree;
+using Avalonia.Styling;
 using Avalonia.Data;
 using BMachine.UI.ViewModels;
 using System.Collections.Specialized;
@@ -15,6 +17,7 @@ public partial class SpreadsheetView : UserControl
 {
     private DataGrid? _dataGrid;
     private int? _focusedColumnIndex = null;
+    private bool _isExtendingSelection = false;
 
     public SpreadsheetView()
     {
@@ -101,24 +104,29 @@ public partial class SpreadsheetView : UserControl
         
         foreach (var col in columns)
         {
-            DataGridColumn dataGridCol;
+            DataGridTemplateColumn templateCol = new DataGridTemplateColumn
+            {
+                Header = col.Header,
+                Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells),
+                MinWidth = 100,
+                // Store Column Index in Tag for Fill Down logic (Column level)
+                Tag = col.Index
+            };
 
             // 1. Dropdown Column
             if (col.IsDropdown)
             {
-                var templateCol = new DataGridTemplateColumn
-                {
-                    Header = col.Header,
-                    Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells),
-                    MinWidth = 100
-                };
-
                 // Cell Template (Display)
                 templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
+                    // Wrap in Border to capture clicks on full cell area and store Tag
+                    var border = new Border { Background = Avalonia.Media.Brushes.Transparent, Tag = col.Index };
+                    
                     var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
                     textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
-                    return textBlock;
+                    
+                    border.Child = textBlock;
+                    return border;
                 });
 
                 // Editing Template (AutoCompleteBox)
@@ -140,25 +148,20 @@ public partial class SpreadsheetView : UserControl
                     
                     return autoComplete;
                 });
-
-                dataGridCol = templateCol;
             }
             // 2. Date Column
             else if (col.IsDate)
             {
-                var templateCol = new DataGridTemplateColumn
-                {
-                    Header = col.Header,
-                    Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells),
-                    MinWidth = 100
-                };
-
                 // Cell Template (Display)
                 templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
+                    var border = new Border { Background = Avalonia.Media.Brushes.Transparent, Tag = col.Index };
+
                     var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
                     textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
-                    return textBlock;
+                    
+                    border.Child = textBlock;
+                    return border;
                 });
 
                 // Editing Template (DatePicker)
@@ -173,21 +176,29 @@ public partial class SpreadsheetView : UserControl
                         });
                     return picker;
                 });
-
-                dataGridCol = templateCol;
             }
-            // 3. Text Column (Default)
+            // 3. Text Column (Default) - Converted to TemplateColumn
             else
             {
-                var bindingPath = $"Cells[{col.Index}].Value";
-                dataGridCol = new DataGridTextColumn
+                // Cell Template (Display)
+                templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
-                    Header = col.Header,
-                    Binding = new Binding(bindingPath) { Mode = BindingMode.TwoWay },
-                    IsReadOnly = false,
-                    Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells),
-                    MinWidth = 100
-                };
+                    var border = new Border { Background = Avalonia.Media.Brushes.Transparent, Tag = col.Index };
+
+                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
+                    textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
+
+                    border.Child = textBlock;
+                    return border;
+                });
+
+                // Editing Template (TextBox)
+                templateCol.CellEditingTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
+                {
+                    var textBox = new TextBox { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
+                    textBox.Bind(TextBox.TextProperty, new Binding($"Cells[{col.Index}].Value") { Mode = BindingMode.TwoWay });
+                    return textBox;
+                });
             }
             
             // Bind IsVisible to the ColumnViewModel's IsVisible property.
@@ -197,12 +208,9 @@ public partial class SpreadsheetView : UserControl
                 Mode = BindingMode.TwoWay
             };
             
-            dataGridCol.Bind(DataGridColumn.IsVisibleProperty, visibilityBinding);
+            templateCol.Bind(DataGridColumn.IsVisibleProperty, visibilityBinding);
 
-            // Store Column Index in Tag for Fill Down logic
-            dataGridCol.Tag = col.Index;
-
-            _dataGrid.Columns.Add(dataGridCol);
+            _dataGrid.Columns.Add(templateCol);
         }
     }
 
@@ -272,17 +280,51 @@ public partial class SpreadsheetView : UserControl
             count++;
         }
         
-        var columnName = _focusedColumnIndex.HasValue ? $"col {_focusedColumnIndex.Value}" : "all cols";
-        vm.StatusText = $"Filled {count} rows from Row#{sourceRow.OriginalRowIndex + 1} to [{string.Join(",", targetIndices)}] ({columnName})";
+        // Show column name for debugging
+        string columnName;
+        string sourceVal = "";
+        if (_focusedColumnIndex.HasValue)
+        {
+            var colVM = vm.Columns.FirstOrDefault(c => c.Index == _focusedColumnIndex.Value);
+            columnName = colVM != null ? $"'{colVM.Header}' (col {_focusedColumnIndex.Value})" : $"col {_focusedColumnIndex.Value}";
+            if (_focusedColumnIndex.Value < sourceRow.Cells.Count)
+                sourceVal = $" val='{sourceRow.Cells[_focusedColumnIndex.Value].Value}'";
+        }
+        else
+        {
+            columnName = "all cols";
+        }
+        vm.StatusText = $"Filled {count} rows from Row#{sourceRow.OriginalRowIndex + 1} to [{string.Join(",", targetIndices)}] ({columnName}){sourceVal}";
     }
 
     private void OnDataGridPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
+        // FORCE FOCUS UPDATE: Update _focusedColumnIndex to the column under the mouse
+        // This fixes the issue where Shift+Click doesn't update CurrentCell/FocusedColumn as expected
+        // Walk up from source to find a Control with Tag = colIndex
+        var visual = e.Source as Avalonia.Visual;
+        while (visual != null)
+        {
+            if (visual is Control control && control.Tag is int tagIndex)
+            {
+                _focusedColumnIndex = tagIndex;
+                System.Diagnostics.Debug.WriteLine($"PointerPressed: Forced Focus to Column {tagIndex}");
+                break;
+            }
+            // Stop if we hit the DataGrid itself (avoid finding unrelated tags)
+            if (visual is DataGrid) break;
+            
+            visual = visual.GetVisualParent();
+        }
+
+        // Track if user is extending selection (Shift/Ctrl held)
+        // This prevents CurrentCellChanged from overwriting _focusedColumnIndex
+        _isExtendingSelection = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift) 
+                             || e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control);
+
         // Only handle double-click (ClickCount >= 2)
         // Skip if Shift or Ctrl held (those are for selection)
-        if (e.ClickCount >= 2 
-            && !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift)
-            && !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
+        if (e.ClickCount >= 2 && !_isExtendingSelection)
         {
             e.Handled = true; // Stop DataGrid from processing
             if (_dataGrid != null && DataContext is SpreadsheetViewModel vm)
@@ -308,6 +350,11 @@ public partial class SpreadsheetView : UserControl
     private void OnDataGridCurrentCellChanged(object? sender, EventArgs e)
     {
         if (_dataGrid == null || DataContext is not SpreadsheetViewModel vm) return;
+        
+        // DON'T update focused column during Shift/Ctrl selection extension
+        // User clicked on column X first, then Shift+Clicked to extend rows
+        // We want to keep column X as the fill target
+        if (_isExtendingSelection) return;
         
         // Track which column is currently focused
         var currentColumn = _dataGrid.CurrentColumn;
