@@ -1,0 +1,7 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  BMachine.SDK -> D:\#DATA ABENG\BMachine.v2\src\BMachine.SDK\bin\Release\net8.0\BMachine.SDK.dll
+  BMachine.Core -> D:\#DATA ABENG\BMachine.v2\src\BMachine.Core\bin\Release\net8.0\BMachine.Core.dll
+  BMachine.UI -> D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\bin\Release\net8.0\BMachine.UI.dll
+  BMachine.App -> D:\#DATA ABENG\BMachine.v2\src\BMachine.App\bin\Release\net8.0\win-x64\BMachine.App.dll
+  BMachine.App -> D:\#DATA ABENG\BMachine.v2\publish\

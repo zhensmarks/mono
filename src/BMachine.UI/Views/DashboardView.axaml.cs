@@ -194,19 +194,30 @@ public partial class DashboardView : UserControl
     {
         var point = e.GetCurrentPoint(sender as Visual);
 
-        // Detect Right Click (Expand)
+        // Detect Right Click (Expand/Collapse)
         if (point.Properties.IsRightButtonPressed)
         {
-            if (sender is Control control && control.DataContext is BatchNodeItem item)
+            if (sender is Control control)
             {
-                if (item.ExpandCommand.CanExecute(null))
+                if (control.DataContext is BatchNodeItem item)
                 {
-                    item.ExpandCommand.Execute(null);
-                    e.Handled = true;
+                    if (item.ExpandCommand.CanExecute(null))
+                    {
+                        item.ExpandCommand.Execute(null);
+                        e.Handled = true;
+                    }
+                }
+                else if (control.DataContext is BatchFolderRoot root)
+                {
+                    if (root.ExpandCommand.CanExecute(null))
+                    {
+                        root.ExpandCommand.Execute(null);
+                        e.Handled = true;
+                    }
                 }
             }
         }
-        // Detect Double Left Click (Open Text)
+        // Detect Double Left Click (Open Text - BatchNodeItem only)
         else if (e.ClickCount == 2 && point.Properties.IsLeftButtonPressed)
         {
             if (sender is Control control && control.DataContext is BatchNodeItem item)
@@ -215,6 +226,29 @@ public partial class DashboardView : UserControl
                 {
                     item.OpenTextCommand.Execute(null);
                     e.Handled = true;
+                }
+            }
+        }
+        // Detect Single Left Click (Copy Path)
+        else if (e.ClickCount == 1 && point.Properties.IsLeftButtonPressed)
+        {
+            if (sender is Control control)
+            {
+                if (control.DataContext is BatchNodeItem item)
+                {
+                    if (item.CopyPathCommand.CanExecute(null))
+                    {
+                        item.CopyPathCommand.Execute(null);
+                        e.Handled = true;
+                    }
+                }
+                else if (control.DataContext is BatchFolderRoot root)
+                {
+                    if (root.CopyPathCommand.CanExecute(null))
+                    {
+                        root.CopyPathCommand.Execute(null);
+                        e.Handled = true;
+                    }
                 }
             }
         }

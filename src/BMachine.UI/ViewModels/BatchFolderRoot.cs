@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using System.IO;
 using Avalonia.Threading;
+using BMachine.UI.Messages;
 
 namespace BMachine.UI.ViewModels;
 
@@ -15,6 +17,19 @@ public partial class BatchFolderRoot : ObservableObject
     public string DisplayName { get; set; } = "";
     public string OutputHeader { get; set; } = "";
     public string OutputPath { get; set; } = "";
+    
+    [ObservableProperty] private string _newSubFolderName = "";
+
+    public IRelayCommand DeleteCommand { get; }
+    public IRelayCommand CreateSubFolderCommand { get; }
+
+    public BatchFolderRoot()
+    {
+        DeleteCommand = new RelayCommand(DeleteFolder);
+        CreateSubFolderCommand = new RelayCommand(CreateSubFolder);
+        CopyPathCommand = new RelayCommand(async () => await CopyPath());
+        ExpandCommand = new RelayCommand(ToggleExpand);
+    }
 
     [ObservableProperty] private bool _isExpanded = true;
 
@@ -80,5 +95,62 @@ public partial class BatchFolderRoot : ObservableObject
     {
         _watcher?.Dispose();
         _watcher = null;
+    }
+
+    private void DeleteFolder()
+    {
+        try
+        {
+            if (Directory.Exists(SourcePath))
+            {
+                Directory.Delete(SourcePath, true);
+                // Notify logic to remove self
+                CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new FolderDeletedMessage(new BatchNodeItem(SourcePath, true)));
+            }
+        }
+        catch (Exception ex)
+        {
+             System.Diagnostics.Debug.WriteLine($"Error deleting root folder: {ex.Message}");
+        }
+    }
+
+    private void CreateSubFolder()
+    {
+        if (string.IsNullOrWhiteSpace(NewSubFolderName)) return;
+
+        try
+        {
+            var newPath = Path.Combine(SourcePath, NewSubFolderName);
+            if (!Directory.Exists(newPath))
+            {
+                Directory.CreateDirectory(newPath);
+                NewSubFolderName = "";
+                RefreshSource(); // Reload children
+            }
+        }
+        catch (Exception ex)
+        {
+             System.Diagnostics.Debug.WriteLine($"Error creating subfolder in root: {ex.Message}");
+        }
+    }
+
+    public IRelayCommand CopyPathCommand { get; }
+    public IRelayCommand ExpandCommand { get; }
+
+    private void ToggleExpand()
+    {
+        IsExpanded = !IsExpanded;
+    }
+
+    private async Task CopyPath()
+    {
+         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+         {
+             var window = desktop.MainWindow;
+             if (window?.Clipboard is not null)
+             {
+                 await window.Clipboard.SetTextAsync(SourcePath);
+             }
+         }
     }
 }

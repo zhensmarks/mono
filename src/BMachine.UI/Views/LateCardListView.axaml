@@ -434,15 +434,15 @@
                              </StackPanel>
                              <StackPanel Spacing="5">
                                   <TextBlock Text="Source:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                  <AutoCompleteBox ItemsSource="{Binding Checklists}" 
-                                                   SelectedItem="{Binding SelectedSourceChecklist}" 
-                                                   ValueMemberBinding="{Binding Name}"
-                                                   Watermark="Select source..." 
-                                                   HorizontalAlignment="Stretch"
-                                                   FilterMode="Contains"
-                                                   MinimumPrefixLength="0"
-                                                   GotFocus="AutoCompleteBox_GotFocus"
-                                                   MaxDropDownHeight="160"/>
+                                   <AutoCompleteBox ItemsSource="{Binding Checklists}" 
+                                                    SelectedItem="{Binding SelectedSourceChecklist}" 
+                                                    ValueMemberBinding="{Binding Name}"
+                                                    Watermark="Select source..." 
+                                                    HorizontalAlignment="Stretch"
+                                                    FilterMode="Contains"
+                                                    MinimumPrefixLength="0"
+                                                    GotFocus="AutoCompleteBox_GotFocus"
+                                                    MaxDropDownHeight="160"/>
                              </StackPanel>
                              <Grid ColumnDefinitions="*, *" Margin="0,5,0,0">
                                  <Button Grid.Column="0" Content="Cancel" Command="{Binding ToggleDuplicateModeCommand}" 

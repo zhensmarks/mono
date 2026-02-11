@@ -39,6 +39,24 @@ public partial class BatchNodeItem : ObservableObject
     public IRelayCommand CopyPathCommand { get; }
     public IRelayCommand OpenTextCommand { get; }
     public IRelayCommand ExpandCommand { get; }
+    public IRelayCommand DeleteCommand { get; }
+    public IRelayCommand CreateSubFolderCommand { get; }
+    
+    // Inline Action Bar Commands
+    public IRelayCommand ToggleActionBarCommand { get; }
+    public IRelayCommand ShowNewFolderInputCommand { get; }
+    public IRelayCommand CancelActionCommand { get; }
+    public IRelayCommand ConfirmNewFolderCommand { get; } // For "Enter" key or explicit button if needed
+    public IRelayCommand<string> ShowMasterBrowserCommand { get; } // Param: "Left" or "Right"
+
+    [ObservableProperty]
+    private string _newSubFolderName = "";
+
+    [ObservableProperty]
+    private bool _isActionBarOpen;
+
+    [ObservableProperty]
+    private bool _isNewFolderInputVisible;
 
     public BatchNodeItem(string path, bool isDirectory)
     {
@@ -57,7 +75,34 @@ public partial class BatchNodeItem : ObservableObject
         CopyPathCommand = new RelayCommand(async () => await CopyPath());
         OpenTextCommand = new RelayCommand(OpenText);
         ExpandCommand = new RelayCommand(ToggleExpand);
+        DeleteCommand = new RelayCommand(DeleteItem); // Renamed from DeleteFolder to cover both
+        CreateSubFolderCommand = new RelayCommand(CreateSubFolder);
+        
+        // Inline Action Bar
+        ToggleActionBarCommand = new RelayCommand(() => IsActionBarOpen = !IsActionBarOpen);
+        ShowNewFolderInputCommand = new RelayCommand(() => 
+        {
+            IsNewFolderInputVisible = true;
+            IsActionBarOpen = false; // Hide action bar when input is shown
+        });
+        CancelActionCommand = new RelayCommand(() => 
+        {
+            IsActionBarOpen = false;
+            IsNewFolderInputVisible = false;
+            NewSubFolderName = "";
+        });
+
+        ConfirmNewFolderCommand = new RelayCommand(CreateSubFolder);
+        ShowMasterBrowserCommand = new RelayCommand<string>(ShowMasterBrowser);
     }
+    
+    private void ShowMasterBrowser(string? side)
+    {
+        if (string.IsNullOrEmpty(side)) side = "Left"; // Default
+        WeakReferenceMessenger.Default.Send(new OpenMasterBrowserMessage(this, side));
+        IsActionBarOpen = false; // Close action bar
+    }
+
     
     // Constructor for Dummy
     private BatchNodeItem(bool isDummy)
@@ -68,6 +113,12 @@ public partial class BatchNodeItem : ObservableObject
         CopyPathCommand = new RelayCommand(() => { });
         OpenTextCommand = new RelayCommand(() => { });
         ExpandCommand = new RelayCommand(() => { });
+        DeleteCommand = new RelayCommand(() => { });
+        CreateSubFolderCommand = new RelayCommand(() => { });
+        ToggleActionBarCommand = new RelayCommand(() => { });
+        ShowNewFolderInputCommand = new RelayCommand(() => { });
+        CancelActionCommand = new RelayCommand(() => { });
+        ConfirmNewFolderCommand = new RelayCommand(() => { });
     }
 
     private void ToggleExpand()
@@ -86,7 +137,7 @@ public partial class BatchNodeItem : ObservableObject
         }
     }
 
-    private async Task LoadChildren()
+    public async Task LoadChildren()
     {
         if (!IsDirectory) return;
 
@@ -164,6 +215,67 @@ public partial class BatchNodeItem : ObservableObject
         {
              // Send message to open in Log Panel
              WeakReferenceMessenger.Default.Send(new OpenTextFileMessage(FullPath));
+        }
+    }
+
+    private void DeleteItem()
+    {
+        try
+        {
+            if (IsDirectory)
+            {
+                if (Directory.Exists(FullPath))
+                {
+                    Directory.Delete(FullPath, true);
+                    WeakReferenceMessenger.Default.Send(new FolderDeletedMessage(this));
+                }
+            }
+            else
+            {
+                if (File.Exists(FullPath))
+                {
+                    File.Delete(FullPath);
+                    WeakReferenceMessenger.Default.Send(new FolderDeletedMessage(this)); // Reusing message for refresh
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+             // Log error?
+             System.Diagnostics.Debug.WriteLine($"Error deleting item: {ex.Message}");
+        }
+    }
+
+    private void CreateSubFolder()
+    {
+        if (string.IsNullOrWhiteSpace(NewSubFolderName)) return;
+
+        try
+        {
+            var newPath = Path.Combine(FullPath, NewSubFolderName);
+            if (!Directory.Exists(newPath))
+            {
+                Directory.CreateDirectory(newPath);
+                
+                // Reset UI State
+                NewSubFolderName = ""; 
+                IsNewFolderInputVisible = false;
+                IsActionBarOpen = false;
+                
+                // If Expanded, refresh children to show new folder
+                if (IsExpanded) 
+                {
+                    _ = LoadChildren();
+                }
+                else
+                {
+                    IsExpanded = true; // This will trigger LoadChildren
+                }
+            }
+        }
+        catch (System.Exception ex)
+        {
+             System.Diagnostics.Debug.WriteLine($"Error creating subfolder: {ex.Message}");
         }
     }
 }

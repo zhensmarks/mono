@@ -6,6 +6,11 @@ using Avalonia.Platform.Storage;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia;
+using System.Collections.ObjectModel;
+using System.Text.Json;
+using CommunityToolkit.Mvvm.Messaging;
+using BMachine.UI.Messages;
+
 
 namespace BMachine.UI.ViewModels;
 
@@ -39,6 +44,9 @@ public partial class PathSettingsViewModel : ObservableObject
     [ObservableProperty] private string _pathPhotoshop = "";
     [ObservableProperty] private string _pathLocalOutput = "";
     [ObservableProperty] private string _offlineStoragePath = "";
+    
+    [ObservableProperty]
+    private ObservableCollection<string> _additionalMasterPaths = new();
 
     private async void LoadPaths()
     {
@@ -58,6 +66,67 @@ public partial class PathSettingsViewModel : ObservableObject
         // Default to Downloads/BMachine_Attachments if empty
         var defaultStorage = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), "Downloads", "BMachine_Attachments");
         OfflineStoragePath = await _database.GetAsync<string>("Configs.Storage.OfflinePath") ?? defaultStorage;
+
+        // Load Additional Paths
+        var jsonPaths = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
+        if (!string.IsNullOrEmpty(jsonPaths))
+        {
+            try 
+            {
+                var paths = JsonSerializer.Deserialize<string[]>(jsonPaths);
+                if (paths != null)
+                {
+                    AdditionalMasterPaths = new ObservableCollection<string>(paths);
+                }
+            }
+            catch { }
+        }
+        
+        // Notify any listeners
+        WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
+    }
+    
+    [RelayCommand]
+    private async Task AddMasterPath()
+    {
+         var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
+         if (topLevel == null) return;
+         
+         var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+         {
+             Title = "Select Additional Master Folder",
+             AllowMultiple = false
+         });
+         
+         if (result != null && result.Count > 0)
+         {
+             var path = result[0].Path.LocalPath;
+             if (!AdditionalMasterPaths.Contains(path))
+             {
+                 AdditionalMasterPaths.Add(path);
+                 await SaveAdditionalPaths();
+             }
+         }
+    }
+
+    [RelayCommand]
+    private async Task RemoveMasterPath(string path)
+    {
+        if (AdditionalMasterPaths.Contains(path))
+        {
+            AdditionalMasterPaths.Remove(path);
+            await SaveAdditionalPaths();
+        }
+    }
+
+    private async Task SaveAdditionalPaths()
+    {
+        if (_database == null) return;
+        var json = JsonSerializer.Serialize(AdditionalMasterPaths);
+        await _database.SetAsync("Configs.Master.AdditionalPaths", json);
+        
+        // Notify listeners (Dashboard/BatchVM) to reload
+        WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
     }
     
     [RelayCommand]

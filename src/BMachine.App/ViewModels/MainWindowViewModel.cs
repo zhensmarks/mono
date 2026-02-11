@@ -11,7 +11,7 @@ using Avalonia;
 
 namespace BMachine.App.ViewModels;
 
-public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSettingsChangedMessage>, IRecipient<UpdateAvailableMessage>
+public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSettingsChangedMessage>, IRecipient<UpdateAvailableMessage>, IRecipient<OpenExitConfirmMessage>
 {
     [ObservableProperty]
     private object? _currentView;
@@ -142,6 +142,11 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         IsUpdateAvailable = true;
         LatestVersion = message.Value.LatestVersion;
         UpdateUrl = message.Value.DownloadUrl;
+    }
+
+    public void Receive(OpenExitConfirmMessage message)
+    {
+        IsExitConfirmOpen = true;
     }
 
     private void UpdateBackground()

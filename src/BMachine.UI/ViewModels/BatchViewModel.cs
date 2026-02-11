@@ -18,54 +18,93 @@ namespace BMachine.UI.ViewModels;
 /// <summary>
 /// ViewModel for the Batch Master feature - manages source folders and output paths for batch processing.
 /// </summary>
-public partial class BatchViewModel : ObservableObject
-{
-    private readonly IDatabase? _database;
-
-    /// <summary>
-    /// Collection of source folder items dropped by the user.
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasFolders))]
-    [NotifyPropertyChangedFor(nameof(ShowDropZone))]
-    private ObservableCollection<BatchFolderRoot> _sourceFolders = new();
-    
-    // Store current process to kill it later
-    private System.Diagnostics.Process? _currentProcess;
-
-    public BatchViewModel(IDatabase? database, Services.IProcessLogService? logService)
+    public partial class BatchViewModel : ObservableObject, IRecipient<FolderDeletedMessage>, IRecipient<OpenMasterBrowserMessage>, IRecipient<MasterPathsChangedMessage>
     {
-        _database = database;
-        _logService = logService;
+        private readonly IDatabase? _database;
+
+        /// <summary>
+        /// Collection of source folder items dropped by the user.
+        /// </summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasFolders))]
+        [NotifyPropertyChangedFor(nameof(ShowDropZone))]
+        private ObservableCollection<BatchFolderRoot> _sourceFolders = new();
         
-        // Register for Stop Message
-        WeakReferenceMessenger.Default.Register<StopProcessMessage>(this, (r, m) =>
+        // Store current process to kill it later
+        private System.Diagnostics.Process? _currentProcess;
+    
+        public BatchViewModel(IDatabase? database, Services.IProcessLogService? logService)
         {
-            if (m.Value) KillProcess();
-        });
+            _database = database;
+            _logService = logService;
+            
+            // Register for Stop Message
+            WeakReferenceMessenger.Default.Register<StopProcessMessage>(this, (r, m) =>
+            {
+                if (m.Value) KillProcess();
+            });
+    
+            // Register for Script Order Updates
+            WeakReferenceMessenger.Default.Register<ScriptOrderChangedMessage>(this, (r, m) =>
+            {
+                LoadScripts();
+            });
 
-        // Register for Script Order Updates
-        WeakReferenceMessenger.Default.Register<ScriptOrderChangedMessage>(this, (r, m) =>
-        {
-            LoadScripts();
-        });
+            // Register for Folder Deleted Message
+            WeakReferenceMessenger.Default.Register<FolderDeletedMessage>(this);
+    
+            _ = LoadOutputBasePathAsync();
+            
+            // Ensure HasFolders updates when items are added/removed
+            SourceFolders.CollectionChanged += (s, e) =>
+            {
+                OnPropertyChanged(nameof(HasFolders));
+                OnPropertyChanged(nameof(ShowDropZone));
+            };
+    
 
-        _ = LoadOutputBasePathAsync();
-        
-        // Ensure HasFolders updates when items are added/removed
-        SourceFolders.CollectionChanged += (s, e) =>
-        {
-            OnPropertyChanged(nameof(HasFolders));
-            OnPropertyChanged(nameof(ShowDropZone));
-        };
 
-        // Ensure HasFolders updates when items are added/removed
-        SourceFolders.CollectionChanged += (s, e) =>
+            // Register Master Browser Messages
+            WeakReferenceMessenger.Default.Register<OpenMasterBrowserMessage>(this);
+            WeakReferenceMessenger.Default.Register<MasterPathsChangedMessage>(this);
+        }
+
+        public void Receive(OpenMasterBrowserMessage message)
         {
-            OnPropertyChanged(nameof(HasFolders));
-            OnPropertyChanged(nameof(ShowDropZone));
-        };
-    }
+            OpenMasterBrowser(message.TargetNode, message.Side);
+        }
+
+        public void Receive(MasterPathsChangedMessage message)
+        {
+            // Reload master files if browser is open, or just clear cache
+            if (IsMasterBrowserOpenLeft || IsMasterBrowserOpenRight)
+            {
+                _ = LoadMasterNodes();
+            }
+        }
+
+        public void Receive(FolderDeletedMessage message)
+        {
+            // Simple approach: Refresh all roots to reflect changes
+            // Since we deleted a folder, the tree needs to be rebuilt or the item removed.
+            // If the deleted item was a Root, we remove it.
+            // If it was a child, Refreshing the root should clear it.
+            
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                // Check if the deleted item is one of the roots
+                var rootMatch = SourceFolders.FirstOrDefault(x => x.SourcePath == message.Value.FullPath);
+                if (rootMatch != null)
+                {
+                    SourceFolders.Remove(rootMatch);
+                }
+                else
+                {
+                    // It's a subfolder, so we refresh all roots
+                    Refresh();
+                }
+            });
+        }
 
     private void KillProcess()
     {
@@ -288,6 +327,246 @@ public partial class BatchViewModel : ObservableObject
     /// Get the first output path for script execution.
     /// </summary>
     public string? GetFirstOutputPath() => SourceFolders.FirstOrDefault()?.OutputPath;
+
+    // --- MASTER FILE BROWSER LOGIC ---
+
+    [ObservableProperty] private bool _isMasterBrowserOpenLeft;
+    [ObservableProperty] private bool _isMasterBrowserOpenRight;
+    [ObservableProperty] private string _masterBrowserTargetName = "";
+    [ObservableProperty] private string _masterBrowserTargetPath = "";
+    [ObservableProperty] private string _masterSearchText = "";
+    [ObservableProperty] private ObservableCollection<MasterNode> _masterNodes = new(); // Changed to MasterNode
+    
+    // Copy Feedback
+    [ObservableProperty] private string _copyStatusText = "";
+    [ObservableProperty] private bool _isCopying;
+
+    private BatchNodeItem? _currentTargetNode;
+
+    partial void OnMasterSearchTextChanged(string value)
+    {
+        ApplyMasterFilter(value);
+    }
+
+    private void ApplyMasterFilter(string filter)
+    {
+        // Simple reload logic for now to handle search filtering
+        // Ideally we filter the existing tree visually, but reloading is safer for correctness
+        _ = LoadMasterNodes(filter);
+    }
+
+    private async Task LoadMasterNodes(string filter = "")
+    {
+        MasterNodes.Clear();
+
+        var paths = new List<string>();
+        
+        // 1. Get Additional Paths from Settings
+        if (_database != null)
+        {
+            var json = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
+            if (!string.IsNullOrEmpty(json))
+            {
+                try {
+                    var loaded = System.Text.Json.JsonSerializer.Deserialize<string[]>(json);
+                    if (loaded != null) paths.AddRange(loaded);
+                } catch {}
+            }
+        }
+
+        // 2. Recursive Scan
+        var nodes = await Task.Run(() => 
+        {
+            var result = new List<MasterNode>();
+            
+            foreach (var path in paths)
+            {
+                if (Directory.Exists(path))
+                {
+                    var rootNode = ScanDirectory(path, filter);
+                    if (rootNode != null)
+                    {
+                        // Expand only if filtering
+                        if (!string.IsNullOrEmpty(filter)) rootNode.IsExpanded = true;
+                        result.Add(rootNode);
+                    }
+                }
+            }
+            return result;
+        });
+
+        foreach (var node in nodes) MasterNodes.Add(node);
+    }
+
+    // Recursive Scanner
+    private MasterNode? ScanDirectory(string path, string filter)
+    {
+        var node = new MasterNode(path, true);
+        bool hasContent = false;
+        
+        try
+        {
+            var opts = new EnumerationOptions { IgnoreInaccessible = true };
+            
+            // Subdirectories
+            foreach (var d in Directory.EnumerateDirectories(path, "*", opts))
+            {
+                var subNode = ScanDirectory(d, filter);
+                if (subNode != null)
+                {
+                    node.Children.Add(subNode);
+                    hasContent = true;
+                }
+            }
+            
+            // Files (.psd, .psb)
+            var files = Directory.EnumerateFiles(path, "*.*", opts)
+                .Where(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase));
+                
+            foreach (var f in files)
+            {
+                var fName = Path.GetFileName(f);
+                
+                // Filter Logic:
+                // If filter is present, check filename OR if parent folder matched (implicit from recursive call structure?)
+                // Actually, if we want to filter, we need to know if this file matches.
+                
+                bool matches = string.IsNullOrEmpty(filter) || fName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                
+                if (matches)
+                {
+                    node.Children.Add(new MasterNode(f, false));
+                    hasContent = true;
+                }
+            }
+        }
+        catch {}
+
+        // If filtering, only return node if it has content (files or subfolders with content)
+        if (!string.IsNullOrEmpty(filter) && !hasContent) return null;
+        
+        // If not filtering, we might want to return empty folders? 
+        // Requirement said: "only include folder that contains .psd/.psb (or subfolder with it)"
+        // So yes, strictly check hasContent.
+        if (!hasContent) return null;
+        
+        // Sort
+        // node.SortChildren(); // Can sort if needed, ObservableCollection doesn't sort automatically
+        
+        return node;
+    }
+
+    private void OpenMasterBrowser(BatchNodeItem target, string side)
+    {
+        _currentTargetNode = target;
+        MasterBrowserTargetName = target.Name;
+        MasterBrowserTargetPath = target.FullPath; 
+        
+        // If node is a file, use parent dir
+        if (!target.IsDirectory)
+        {
+             MasterBrowserTargetPath = Path.GetDirectoryName(target.FullPath) ?? "";
+        }
+
+        _ = LoadMasterNodes(); // Load data
+
+        if (side == "Left")
+        {
+            IsMasterBrowserOpenLeft = true;
+            IsMasterBrowserOpenRight = false; // Close other
+        }
+        else
+        {
+            IsMasterBrowserOpenRight = true;
+            IsMasterBrowserOpenLeft = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseMasterBrowser()
+    {
+        IsMasterBrowserOpenLeft = false;
+        IsMasterBrowserOpenRight = false;
+        _currentTargetNode = null;
+        MasterSearchText = "";
+    }
+
+    [RelayCommand]
+    private async Task CopyMasterFile(MasterNode item)
+    {
+        if (item.IsDirectory) return; // Can't copy folder directly yet
+
+        if (string.IsNullOrEmpty(MasterBrowserTargetPath) || !Directory.Exists(MasterBrowserTargetPath))
+        {
+            _logService?.AddLog("[ERROR] Target folder not found.");
+            return;
+        }
+
+        IsCopying = true;
+        
+        // Log Start
+        if (_logService != null)
+        {
+             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+             {
+                 _logService.AddLog($"[INFO] Copying {item.Name}...");
+             });
+        }
+
+        var source = item.FullPath;
+        var dest = Path.Combine(MasterBrowserTargetPath, item.Name);
+
+        // Auto Rename Logic if Exists
+        if (File.Exists(dest))
+        {
+            string nameNoExt = Path.GetFileNameWithoutExtension(dest);
+            string ext = Path.GetExtension(dest);
+            int count = 1;
+            while (File.Exists(dest))
+            {
+                dest = Path.Combine(MasterBrowserTargetPath, $"{nameNoExt} ({count}){ext}");
+                count++;
+            }
+        }
+
+        try
+        {
+             // Copy in background
+             await Task.Run(() => File.Copy(source, dest));
+             
+             // Refresh Target Node Children
+             if (_currentTargetNode != null)
+             {
+                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                 {
+                     _currentTargetNode.LoadChildren(); 
+                 });
+             }
+             
+             // Log Success
+             if (_logService != null)
+             {
+                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                 {
+                     _logService.AddLog($"[INFO] Copied: {Path.GetFileName(dest)}");
+                 });
+             }
+        }
+        catch (Exception ex)
+        {
+            if (_logService != null)
+            {
+                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                 {
+                     _logService.AddLog($"[ERROR] Copy failed: {ex.Message}");
+                 });
+            }
+        }
+        finally
+        {
+            IsCopying = false;
+        }
+    }
 
     // --- SCRIPT EXECUTION CONTROLS ---
     
@@ -810,6 +1089,90 @@ public partial class BatchViewModel : ObservableObject
             _logService?.AddLog($"[INFO] Master Template set: {MasterTemplatePath}");
         }
     }
+
+    // --- QUICK ACTIONS ---
+    [ObservableProperty]
+    private string _newFolderName = "";
+
+    [RelayCommand]
+    private async Task CreateFolder(string targetType)
+    {
+        if (string.IsNullOrWhiteSpace(NewFolderName)) return;
+        
+        string? targetPath = null;
+        BatchFolderRoot? itemToRefresh = null;
+
+        // Determine Target Path
+        if (targetType.Equals("Source", StringComparison.OrdinalIgnoreCase))
+        {
+            var root = SourceFolders.FirstOrDefault();
+            if (root != null) 
+            {
+                targetPath = root.SourcePath;
+                itemToRefresh = root;
+            }
+        }
+        else if (targetType.Equals("Output", StringComparison.OrdinalIgnoreCase))
+        {
+             // For Output, we create in the Output Base Path + Relative Path of first item?
+             // Or just in the Output Base Path directly if no folder structure?
+             // Let's assume user wants to create folder in the Output directory of the first item
+             // OR in the main OutputBasePath if it's set.
+             
+             // Strategy: Try to use the first item's OutputPath
+             var root = SourceFolders.FirstOrDefault();
+             if (root != null && !string.IsNullOrEmpty(root.OutputPath))
+             {
+                 targetPath = root.OutputPath;
+                 itemToRefresh = root;
+             }
+             else if (!string.IsNullOrEmpty(OutputBasePath))
+             {
+                 targetPath = OutputBasePath;
+             }
+        }
+
+        if (string.IsNullOrEmpty(targetPath)) 
+        {
+            _logService?.AddLog("[WARNING] Cannot create folder: Target path not found.");
+            return;
+        }
+        
+        try
+        {
+            var newPath = Path.Combine(targetPath, NewFolderName);
+            if (!Directory.Exists(newPath))
+            {
+                Directory.CreateDirectory(newPath);
+                
+                // Show success (log)
+                _logService?.AddLog($"[INFO] Folder Created: {newPath}");
+                
+                // Refresh
+                if (itemToRefresh != null)
+                {
+                    itemToRefresh.RefreshSource();
+                    itemToRefresh.RefreshOutput();
+                }
+                else
+                {
+                    Refresh();
+                }
+                
+                // Clear input
+                NewFolderName = "";
+            }
+            else
+            {
+                 _logService?.AddLog($"[WARNING] Folder already exists: {NewFolderName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Failed to create folder: {ex.Message}");
+        }
+    }
+
 
     /// <summary>
     /// Load settings from database.

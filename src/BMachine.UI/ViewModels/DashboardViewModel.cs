@@ -464,9 +464,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     }
 
     [RelayCommand]
-    private void LogOut()
+    private void OpenLogoutDialog()
     {
-        WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.ShutdownMessage());
+        WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.OpenExitConfirmMessage());
     }
 
     public DashboardViewModel(

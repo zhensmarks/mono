@@ -909,6 +909,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         IsLoadingMoveData = true;
         AvailableBoards.Clear();
+        SelectedMoveBoard = null; // FORCE RESET to ensure we don't remember previous selection
+        SelectedMoveList = null;  // Also reset list
         try
         {
             var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
@@ -919,34 +921,27 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
             using var client = new HttpClient();
             
+            // Always fetch ALL boards to allow user selection
+            var url = $"https://api.trello.com/1/members/me/boards?key={apiKey}&token={token}&fields=name,id";
+            var json = await client.GetStringAsync(url);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                AvailableBoards.Add(new TrelloItem 
+                { 
+                    Id = element.GetProperty("id").GetString() ?? "", 
+                    Name = element.GetProperty("name").GetString() ?? "" 
+                });
+            }
+
+            // Default Selection Logic
             if (!string.IsNullOrEmpty(qcBoardId))
             {
-                var url = $"https://api.trello.com/1/boards/{qcBoardId}?key={apiKey}&token={token}&fields=name,id";
-                var json = await client.GetStringAsync(url);
-                 using var doc = System.Text.Json.JsonDocument.Parse(json);
-                 var root = doc.RootElement;
-                 
-                 var boardItem = new TrelloItem 
-                 { 
-                        Id = root.GetProperty("id").GetString() ?? "", 
-                        Name = root.GetProperty("name").GetString() ?? "" 
-                 };
-                 
-                 AvailableBoards.Add(boardItem);
-                 SelectedMoveBoard = boardItem;
-            }
-            else 
-            {
-                var url = $"https://api.trello.com/1/members/me/boards?key={apiKey}&token={token}&fields=name,id";
-                var json = await client.GetStringAsync(url);
-                using var doc = System.Text.Json.JsonDocument.Parse(json);
-                foreach (var element in doc.RootElement.EnumerateArray())
+                var match = AvailableBoards.FirstOrDefault(b => b.Id == qcBoardId);
+                if (match != null)
                 {
-                    AvailableBoards.Add(new TrelloItem 
-                    { 
-                        Id = element.GetProperty("id").GetString() ?? "", 
-                        Name = element.GetProperty("name").GetString() ?? "" 
-                    });
+                    SelectedMoveBoard = match;
                 }
             }
         }
