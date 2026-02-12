@@ -13,6 +13,7 @@ public partial class PixelcutFileItem : ObservableObject
     [ObservableProperty] private double _progress = 0;
     [ObservableProperty] private long _originalSize = 0;
     [ObservableProperty] private long _resultSize = 0;
+    [ObservableProperty] private string _resultPath = "";
     [ObservableProperty] private bool _isProcessing;
     [ObservableProperty] private bool _isFailed;
     [ObservableProperty] private string? _errorMessage; // Inline error display

@@ -101,6 +101,63 @@
                 
                 <!-- Bottom Buttons -->
                 <StackPanel Grid.Row="2" Spacing="12" HorizontalAlignment="Center" Margin="0,0,0,16">
+                    
+                    <!-- EXPANDABLE TOOLS (Visible when Expanded) -->
+                    <StackPanel Spacing="12" IsVisible="{Binding IsToolsExpanded}">
+                        <!-- GDrive Pop-out -->
+                        <Button Click="OnGdriveClick" 
+                                Width="36" Height="36" Padding="0"
+                                Background="Transparent" BorderThickness="0"
+                                CornerRadius="8" Cursor="Hand"
+                                ToolTip.Tip="GDrive Window">
+                             <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                </Style>
+                            </Button.Styles>
+                            <shapes:Path Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" 
+                                         Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
+                        </Button>
+
+                        <!-- Pixelcut Pop-out -->
+                        <Button Click="OnPixelcutClick" 
+                                Width="36" Height="36" Padding="0"
+                                Background="Transparent" BorderThickness="0"
+                                CornerRadius="8" Cursor="Hand"
+                                ToolTip.Tip="Pixelcut Window">
+                             <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                </Style>
+                            </Button.Styles>
+                            <shapes:Path Data="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" 
+                                         Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Chevron Toggle -->
+                    <Button Command="{Binding ToggleToolsExpandedCommand}" 
+                            Width="36" Height="36" Padding="0"
+                            Background="Transparent" BorderThickness="0"
+                            CornerRadius="8" Cursor="Hand"
+                            ToolTip.Tip="Tools">
+                         <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                        <Panel>
+                             <!-- Chevron Up (Show) -->
+                             <shapes:Path Data="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" 
+                                          Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
+                                          IsVisible="{Binding !IsToolsExpanded}"/>
+                             <!-- Chevron Down (Hide) -->
+                             <shapes:Path Data="M7.41,8.59L12,13.17L16.59,8.59L18,10L12,16L6,10L7.41,8.59Z" 
+                                          Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
+                                          IsVisible="{Binding IsToolsExpanded}"/>
+                        </Panel>
+                    </Button>
+                    
                     <!-- Terminal/Log Button -->
                     <ToggleButton Command="{Binding ToggleLogPanelCommand}" 
                                   IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"

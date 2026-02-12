@@ -30,7 +30,15 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="Daftar Revisi" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="REVISI" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Button x:Name="NextViewButton" Click="OnNextViewClicked"
+                                    Width="30" Height="30" CornerRadius="15"
+                                    Background="#1AFFFFFF" BorderThickness="0" Padding="0" Cursor="Hand"
+                                    ToolTip.Tip="Next View" VerticalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconArrowRight}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
                             <!-- Status Dot -->
                             <Ellipse Width="10" Height="10" VerticalAlignment="Center" ToolTip.Tip="{Binding ConnectionStatusText, StringFormat='{}Status: {0}'}">
@@ -321,7 +329,7 @@
                             Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
                 </Grid>
 
-                <ScrollViewer Grid.Row="1">
+                <ScrollViewer x:Name="Part_CommentScrollViewer" Grid.Row="1">
                     <StackPanel Spacing="15">
                         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingComments}" Margin="0,20"/>
                         <TextBlock Text="No comments yet." IsVisible="{Binding !Comments.Count}" 

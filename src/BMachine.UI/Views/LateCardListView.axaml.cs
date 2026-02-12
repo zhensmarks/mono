@@ -127,4 +127,51 @@ public partial class LateCardListView : UserControl
             acb.IsDropDownOpen = true;
         }
     }
+
+    private void OnNextViewClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        object? sourceWindow = null;
+        if (this.VisualRoot is BMachine.UI.Views.CardListWindow win)
+        {
+            sourceWindow = win;
+        }
+        WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.NavigateToNextTrelloViewMessage("Late", sourceWindow));
+    }
+
+    private Vector _savedCommentScrollOffset;
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        
+        if (DataContext is BaseTrelloListViewModel vm)
+        {
+            vm.PropertyChanged -= ViewModel_PropertyChanged;
+            vm.PropertyChanged += ViewModel_PropertyChanged;
+        }
+    }
+    
+    private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.IsLoadingComments))
+        {
+             if (DataContext is BaseTrelloListViewModel vm)
+             {
+                 var scrollViewer = this.FindControl<ScrollViewer>("Part_CommentScrollViewer");
+                 if (scrollViewer == null) return;
+
+                 if (vm.IsLoadingComments)
+                 {
+                     _savedCommentScrollOffset = scrollViewer.Offset;
+                 }
+                 else
+                 {
+                     Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                     {
+                         scrollViewer.Offset = _savedCommentScrollOffset;
+                     }, Avalonia.Threading.DispatcherPriority.Loaded);
+                 }
+             }
+        }
+    }
 }

@@ -1,45 +1,36 @@
 // Photoshop JSX Script
 // Buka banyak file PSD dari folder (natural sort A-Z + angka)
-// Update: UI Textbox, mengingat path, dan mengingat posisi kedua dialog.
+// Update: 2-Column Layout, Filter Revisi, Sort Options, Restore "Buka Semua", Fix Cancel Logic
 
 #target photoshop
 
-// --- Fungsi Persistence (Menyimpan & Memuat Semua Pengaturan) ---
 function loadSettings() {
     var settingsFile = new File(Folder.userData + "/open_psd_final_settings.json");
     if (settingsFile.exists) {
         try {
             settingsFile.open("r");
-            var content = settingsFile.read();
-            settingsFile.close();
-            return eval("(" + content + ")");
-        } catch (e) { /* Abaikan error, gunakan default */ }
+            return eval("(" + settingsFile.read() + ")");
+        } catch (e) { }
     }
-    // Pengaturan default jika file tidak ada atau rusak
-    return {
-        lastPath: "",
-        main_x: -1, main_y: -1,
-        list_x: -1, list_y: -1
-    };
+    return { lastPath: "", main_x: -1, main_y: -1, list_x: -1, list_y: -1, sort_asc: false };
 }
 
 function saveSettings(settingsObj) {
     var settingsFile = new File(Folder.userData + "/open_psd_final_settings.json");
     try {
-        var settingsStr = '{';
-        settingsStr += '"lastPath":"' + (settingsObj.lastPath || "").replace(/\\/g, '\\\\') + '",';
-        settingsStr += '"main_x":' + (settingsObj.main_x || -1) + ',';
-        settingsStr += '"main_y":' + (settingsObj.main_y || -1) + ',';
-        settingsStr += '"list_x":' + (settingsObj.list_x || -1) + ',';
-        settingsStr += '"list_y":' + (settingsObj.list_y || -1);
-        settingsStr += '}';
-
+        var str = '{';
+        str += '"lastPath":"' + (settingsObj.lastPath || "").replace(/\\/g, '\\\\') + '",';
+        str += '"main_x":' + (settingsObj.main_x || -1) + ',';
+        str += '"main_y":' + (settingsObj.main_y || -1) + ',';
+        str += '"list_x":' + (settingsObj.list_x || -1) + ',';
+        str += '"list_y":' + (settingsObj.list_y || -1) + ',';
+        str += '"sort_asc":' + (settingsObj.sort_asc || false);
+        str += '}';
         settingsFile.open("w");
-        settingsFile.write(settingsStr);
+        settingsFile.write(str);
         settingsFile.close();
-    } catch (e) { /* Gagal menyimpan tidak menghentikan script */ }
+    } catch (e) { }
 }
-
 
 function getPSDfiles(folder) {
     var psdFiles = [];
@@ -55,210 +46,238 @@ function getPSDfiles(folder) {
     return psdFiles;
 }
 
-// --- Fungsi natural sort ---
-// --- Fungsi natural sort (Modified for Parent/Name) ---
 function naturalSort(a, b) {
     var ax = [], bx = [];
-
-    // Construct comparison strings: ParentName/FileName
     var nameA = decodeURI(a.parent.name) + "/" + decodeURI(a.name);
     var nameB = decodeURI(b.parent.name) + "/" + decodeURI(b.name);
-
-    nameA.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
-        ax.push([$1 || Infinity, $2 || ""]);
-    });
-    nameB.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
-        bx.push([$1 || Infinity, $2 || ""]);
-    });
-
+    nameA.replace(/(\d+)|(\D+)/g, function (_, $1, $2) { ax.push([$1 || Infinity, $2 || ""]); });
+    nameB.replace(/(\d+)|(\D+)/g, function (_, $1, $2) { bx.push([$1 || Infinity, $2 || ""]); });
     while (ax.length && bx.length) {
-        var an = ax.shift();
-        var bn = bx.shift();
+        var an = ax.shift(), bn = bx.shift();
         var nn = (an[0] - bn[0]) || an[1].localeCompare(bn[1]);
         if (nn) return nn;
     }
-
     return ax.length - bx.length;
+}
+
+// Helper: Extract angka dari string "1, 2, 3" atau "5" dan push ke array (skip duplikat)
+function extractNumbers(str, arr) {
+    var parts = str.split(/[,\s]+/);
+    for (var i = 0; i < parts.length; i++) {
+        var clean = parts[i].replace(/\D/g, '');
+        if (clean) {
+            var num = parseInt(clean, 10);
+            var exists = false;
+            for (var j = 0; j < arr.length; j++) { if (arr[j] == num) { exists = true; break; } }
+            if (!exists) arr.push(num);
+        }
+    }
+}
+
+function parseRevisionNumbers(text) {
+    var numbers = [];
+
+    // Step 1: Normalize — pecah "- " (dash-space) inline jadi newline
+    //   "GRADASI- 1 MULUSIN" → "GRADASI\n1 MULUSIN"
+    var normalized = text.replace(/-\s/g, '\n');
+
+    // Step 2: Pecah jadi baris
+    var lines = normalized.split(/[\r\n]+/);
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].replace(/^\s+/, ''); // Trim left
+        if (!line) continue;
+
+        // A. Keyword eksplisit: NO 1, NOMOR 2, NO. 3, #4, NOMOR 16,34
+        var keywordMatch = line.match(/(?:NO\.?|NOMOR|NUM|#)\s*([\d\s,]+)/i);
+        if (keywordMatch && keywordMatch[1]) {
+            extractNumbers(keywordMatch[1], numbers);
+            continue;
+        }
+
+        // B. Angka di awal segment (termasuk deret koma: "1, 2, 3, 5 ILANGIN")
+        var startMatch = line.match(/^([\d][\d,\s]*)/);
+        if (startMatch && startMatch[1]) {
+            extractNumbers(startMatch[1], numbers);
+        }
+    }
+
+    return numbers;
+}
+
+function isFileMatchNumber(file, number) {
+    var name = decodeURI(file.name);
+    var match = name.match(/^(\d+)/);
+    if (match && parseInt(match[1], 10) === number) return true;
+    return false;
 }
 
 function main() {
     var settings = loadSettings();
 
-    // === DIALOG UTAMA (Pilih Folder dengan Textbox) ===
+    // === DIALOG 1: PILIH FOLDER ===
     var dlg_main = new Window("dialog", "Pilih Folder Master");
     dlg_main.orientation = "column";
     dlg_main.alignChildren = ["fill", "top"];
-    dlg_main.spacing = 15;
-    dlg_main.margins = 20;
 
-    var pnlFolder = dlg_main.add("panel", undefined, "Folder Master (.psd)");
-    pnlFolder.orientation = "column";
-    pnlFolder.alignChildren = ["fill", "top"];
-    pnlFolder.spacing = 8;
-    pnlFolder.margins = 12;
-
-    var grpFolder = pnlFolder.add("group");
-    grpFolder.orientation = "row";
-    grpFolder.alignChildren = ["fill", "center"];
+    var grpFolder = dlg_main.add("group");
+    grpFolder.add("statictext", undefined, "Folder:");
     var txtFolder = grpFolder.add("edittext", undefined, decodeURI(settings.lastPath));
-    txtFolder.preferredSize.width = 310;
-
-    var btnClear = grpFolder.add("button", undefined, "X");
-    btnClear.size = [30, 25];
-    btnClear.helpTip = "Hapus path";
-
+    txtFolder.preferredSize.width = 300;
     var btnBrowse = grpFolder.add("button", undefined, "Browse...");
-    btnBrowse.preferredSize.width = 80;
 
     btnBrowse.onClick = function () {
         var f = Folder(txtFolder.text || settings.lastPath).selectDlg("Pilih Folder Master");
         if (f) txtFolder.text = decodeURI(f.fullName);
     };
 
-    btnClear.onClick = function () {
-        txtFolder.text = "";
-        txtFolder.active = true;
-    };
+    var btnGroup = dlg_main.add("group");
+    btnGroup.add("button", undefined, "Lanjut", { name: "ok" });
+    btnGroup.add("button", undefined, "Batal", { name: "cancel" });
 
-    var btnGroupMain = dlg_main.add("group");
-    btnGroupMain.alignment = "center";
-    btnGroupMain.add("button", undefined, "Lanjutkan", { name: "ok" });
-    btnGroupMain.add("button", undefined, "Batal", { name: "cancel" });
-
-    // Kembalikan posisi dialog utama
-    if (settings.main_x > 0 && settings.main_y > 0) {
-        dlg_main.location = [settings.main_x, settings.main_y];
-    } else {
-        dlg_main.center();
-    }
+    if (settings.main_x > 0) dlg_main.location = [settings.main_x, settings.main_y];
+    else dlg_main.center();
 
     if (dlg_main.show() != 1) return;
 
-    // Simpan path & posisi dialog utama
-    // Sanitize path (remove quotes and extra spaces)
-    var rawPath = txtFolder.text;
-    if (rawPath) {
-        rawPath = rawPath.replace(/^["']+|["']+$/g, "").replace(/^\s+|\s+$/g, "");
-    }
-
+    var rawPath = txtFolder.text.replace(/^["']+|["']+$/g, "").replace(/^\s+|\s+$/g, "");
     settings.lastPath = rawPath;
     settings.main_x = dlg_main.location.x;
     settings.main_y = dlg_main.location.y;
     saveSettings(settings);
 
     var folder = new Folder(settings.lastPath);
-    if (!folder.exists) {
-        alert("Folder tidak ditemukan:\n" + settings.lastPath + "\n(Pastikan path benar dan folder ada)");
-        return;
-    }
+    if (!folder.exists) { alert("Folder tidak ada!"); return; }
 
-    var psdFiles = getPSDfiles(folder);
-    if (psdFiles.length === 0) {
-        alert("Tidak ada file PSD ditemukan di folder tersebut.");
-        return;
-    }
+    var allPsdFiles = getPSDfiles(folder);
+    if (allPsdFiles.length === 0) { alert("Tidak ada PSD!"); return; }
+    allPsdFiles.sort(naturalSort);
 
-    psdFiles.sort(naturalSort);
-
-    // --- DIALOG KEDUA (Pilih File dari Daftar) ---
-    var dlg_list = new Window("dialog", "Pilih File PSD untuk Dibuka");
+    // === DIALOG 2: LIST FILE & FILTER ===
+    var dlg_list = new Window("dialog", "Pilih File PSD");
     dlg_list.orientation = "column";
-    dlg_list.alignChildren = ["fill", "fill"]; // Allow expanding
+    dlg_list.alignChildren = ["fill", "fill"];
 
-    // Kembalikan posisi dialog daftar
-    if (settings.list_x > 0 && settings.list_y > 0) {
-        dlg_list.location = [settings.list_x, settings.list_y];
-    } else {
-        dlg_list.center();
-    }
+    if (settings.list_x > 0) dlg_list.location = [settings.list_x, settings.list_y];
+    else dlg_list.center();
 
-    var grpHeader = dlg_list.add("group");
-    grpHeader.orientation = "row";
-    grpHeader.alignChildren = ["left", "center"];
-    grpHeader.add("statictext", undefined, "Daftar File PSD (" + psdFiles.length + " items):");
+    var grpContent = dlg_list.add("group");
+    grpContent.orientation = "row";
+    grpContent.alignChildren = ["fill", "fill"];
+    grpContent.spacing = 15;
 
-    // Tombol Pilih Semua (Select All) - Bertindak sebagai Check All
-    var btnSelectAll = grpHeader.add("button", undefined, "Pilih Semua");
-    btnSelectAll.size = [100, 25];
-    btnSelectAll.onClick = function () {
-        // Toggle selection based on first item
-        var newState = (list.items.length > 0 && !list.items[0].selected);
-        for (var i = 0; i < list.items.length; i++) {
-            list.items[i].selected = newState;
+    // Kiri
+    var pnlLeft = grpContent.add("panel", undefined, "List File PSD");
+    pnlLeft.orientation = "column";
+    pnlLeft.alignChildren = ["fill", "fill"];
+    pnlLeft.preferredSize = [350, 450];
+    var list = pnlLeft.add("listbox", undefined, [], { multiselect: true });
+    list.preferredSize.height = 400;
+
+    // Kanan
+    var pnlRight = grpContent.add("panel", undefined, "Filter Revisi (Paste Chat/Trello)");
+    pnlRight.orientation = "column";
+    pnlRight.alignChildren = ["fill", "fill"];
+    pnlRight.preferredSize = [350, 450];
+    var txtFilter = pnlRight.add("edittext", undefined, "", { multiline: true });
+    txtFilter.preferredSize.height = 350;
+    txtFilter.helpTip = "Paste revisi di sini (contoh: NO 1 revisi ini...)";
+
+    var grpFilterControls = pnlRight.add("group");
+    grpFilterControls.orientation = "column";
+    grpFilterControls.alignChildren = ["fill", "top"];
+    var btnApplyFilter = grpFilterControls.add("button", undefined, "FILTER List");
+    var btnReset = grpFilterControls.add("button", undefined, "Reset List (Show All)");
+    var chkSort = grpFilterControls.add("checkbox", undefined, "Urutkan Nomor (Ascending)");
+    chkSort.value = settings.sort_asc;
+
+    function populateList(files, autoSelectAll) {
+        list.removeAll();
+        for (var i = 0; i < files.length; i++) {
+            var label = decodeURI(files[i].parent.name) + "/" + decodeURI(files[i].name);
+            var item = list.add("item", label);
+            item.fileRef = files[i];
+            if (autoSelectAll) item.selected = true;
         }
-        // Update text logic (optional)
-        btnSelectAll.text = newState ? "Hapus Pilihan" : "Pilih Semua";
-    };
-
-    var list = dlg_list.add("listbox", undefined, [], { multiselect: true });
-    list.preferredSize.width = 400;
-    list.preferredSize.height = 300;
-
-    for (var i = 0; i < psdFiles.length; i++) {
-        var displayName = decodeURI(psdFiles[i].parent.name) + "/" + decodeURI(psdFiles[i].name);
-        var item = list.add("item", displayName);
-        item.fileRef = psdFiles[i];
     }
+    populateList(allPsdFiles, false);
 
-    var btnGroupList = dlg_list.add("group");
-    btnGroupList.alignment = "center";
+    btnApplyFilter.onClick = function () {
+        var text = txtFilter.text;
+        if (!text) { alert("Paste teks revisi dulu!"); return; }
 
-    // Tombol Buka (Hanya yang terceklis/terpilih)
-    var btnOpen = btnGroupList.add("button", undefined, "Buka (Selected)", { name: "ok" });
+        var nums = parseRevisionNumbers(text);
+        if (nums.length === 0) { alert("Tidak ditemukan nomor revisi (format: NO/NOMOR X)!"); return; }
 
-    // Tombol Buka Semua (Open All) - Request User
-    var btnOpenAll = btnGroupList.add("button", undefined, "Buka Semua");
+        if (chkSort.value) nums.sort(function (a, b) { return a - b });
 
-    var btnCancel = btnGroupList.add("button", undefined, "Batal", { name: "cancel" });
-
-    btnCancel.onClick = function () {
-        dlg_list.close(2);
+        var filteredFiles = [];
+        for (var n = 0; n < nums.length; n++) {
+            var targetNum = nums[n];
+            for (var f = 0; f < allPsdFiles.length; f++) {
+                if (isFileMatchNumber(allPsdFiles[f], targetNum)) {
+                    var alreadyIn = false;
+                    for (var k = 0; k < filteredFiles.length; k++) {
+                        if (filteredFiles[k].fullName === allPsdFiles[f].fullName) alreadyIn = true;
+                    }
+                    if (!alreadyIn) filteredFiles.push(allPsdFiles[f]);
+                }
+            }
+        }
+        if (filteredFiles.length === 0) { alert("Nomor ditemukan tapi tidak ada file PSD yang cocok."); return; }
+        if (chkSort.value) filteredFiles.sort(naturalSort);
+        populateList(filteredFiles, true);
     };
 
-    // Logic Tombol Buka Semua
-    btnOpenAll.onClick = function () {
-        dlg_list.close(3); // Return code 3 for 'Open All' (2 is for Cancel)
+    btnReset.onClick = function () {
+        txtFilter.text = "";
+        populateList(allPsdFiles, false);
     };
 
-    // Logic Tombol Buka (Selected) - Default 'ok' button behavior
-    btnOpen.onClick = function () {
-        dlg_list.close(1); // Return code 1 for 'Open Selected'
-    };
+    // --- BUTTONS BAWAH ---
+    var grpButtons = dlg_list.add("group");
+    grpButtons.alignment = "center";
 
-    var listResult = dlg_list.show();
+    // Explicit reference untuk handle onClick
+    var btnCancel = grpButtons.add("button", undefined, "Batal", { name: "cancel" });
+    var btnOpen = grpButtons.add("button", undefined, "Buka (Selected)", { name: "ok" });
+    var btnOpenAll = grpButtons.add("button", undefined, "Buka Semua (List)");
 
-    // Simpan posisi dialog daftar
+    // Override onClick to ensure correct return codes
+    // 0: Cancel, 1: Selected, 3: All List Items
+    btnCancel.onClick = function () { dlg_list.close(0); };
+    btnOpen.onClick = function () { dlg_list.close(1); };
+    btnOpenAll.onClick = function () { dlg_list.close(3); };
+
+    // Show
+    var result = dlg_list.show();
+
     settings.list_x = dlg_list.location.x;
     settings.list_y = dlg_list.location.y;
-    saveSettings(settings);
+    settings.sort_asc = chkSort.value;
+    saveSettings(settings); // Selalu simpan setting walau cancel
 
-    // Handle Results
-    if (listResult === 3) {
-        // OPEN ALL
-        if (psdFiles.length === 0) return;
-        for (var i = 0; i < psdFiles.length; i++) {
-            app.open(psdFiles[i]);
-        }
-        alert("Selesai membuka SEMUA (" + psdFiles.length + ") file PSD.");
+    // Jika result bukan 1 (Selected) atau 3 (All), alias 0/2 (Cancel/Close window), maka stop.
+    if (result !== 1 && result !== 3) return;
 
-    } else if (listResult === 1) {
-        // OPEN SELECTED
-        var selected = list.selection;
-        if (!selected || selected.length === 0) {
-            // Coba cek user mungkin salah paham, jika tidak ada selected tapi klik buka, 
-            // kita bisa tanya atau default batal. Script ini akan batal.
-            // Tapi user minta "logika jika ada ceklist ... buka yang terceklis".
-            // Jika tidak ada yang terceklis, kita anggap user batal atau lupa.
-            alert("Tidak ada file yang dipilih (dicentang).");
-            return;
-        }
+    var filesToOpen = [];
 
-        for (var i = 0; i < selected.length; i++) {
-            app.open(selected[i].fileRef);
+    if (result === 1) { // OPEN SELECTED
+        var items = list.selection;
+        if (items) {
+            for (var i = 0; i < items.length; i++) filesToOpen.push(items[i].fileRef);
         }
-        alert("Selesai membuka " + selected.length + " file PSD yang dipilih.");
+    } else if (result === 3) { // OPEN ALL LIST ITEMS
+        for (var i = 0; i < list.items.length; i++) {
+            filesToOpen.push(list.items[i].fileRef);
+        }
     }
-    // Else Cancel (0)
+
+    if (filesToOpen.length == 0) return;
+
+    for (var i = 0; i < filesToOpen.length; i++) {
+        if (filesToOpen[i].exists) app.open(filesToOpen[i]);
+    }
 }
 
 main();

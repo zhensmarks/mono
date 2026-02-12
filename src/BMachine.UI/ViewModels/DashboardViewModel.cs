@@ -14,10 +14,11 @@ using BMachine.UI.Messages;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
+using BMachine.UI.Messages; // Ensure this is available or add if missing
 
 namespace BMachine.UI.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>
 {
     private readonly IActivityService _activityService;
     private readonly IDatabase _database;
@@ -463,6 +464,15 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         IsFloatingWidgetVisible = !IsFloatingWidgetVisible;
     }
 
+    [ObservableProperty] private bool _isToolsExpanded;
+    [ObservableProperty] private bool _isFolderLockerVisible = true; // Added for Toggle Sync
+
+    [RelayCommand]
+    private void ToggleToolsExpanded()
+    {
+        IsToolsExpanded = !IsToolsExpanded;
+    }
+
     [RelayCommand]
     private void OpenLogoutDialog()
     {
@@ -484,6 +494,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         
         LoadLogPanelState();
         _ = LoadNavSettings();
+        _ = LoadVisibilitySettings(); // Loaded alongside Nav settings
         
         if (_languageService != null)
         {
@@ -1449,4 +1460,65 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     }
     
 
+    public void Receive(SettingsChangedMessage message)
+    {
+        if (message.Key == "Settings.Dash.Lock" && bool.TryParse(message.Value, out bool val))
+        {
+             IsFolderLockerVisible = val;
+        }
+    }
+
+    private async Task LoadVisibilitySettings()
+    {
+         if (_database == null) return;
+         var str = await _database.GetAsync<string>("Settings.Dash.Lock");
+         if (string.IsNullOrEmpty(str)) str = "True"; // Default True
+         
+         if (bool.TryParse(str, out bool val)) IsFolderLockerVisible = val;
+    }
+
+    // --- Trello View Cycling ---
+    public void Receive(NavigateToNextTrelloViewMessage message)
+    {
+        switch (message.Value)
+        {
+            case "Editing":
+                CycleTrelloView(message.SourceWindow, _revisionListVM, () => OpenRevisionList());
+                break;
+            case "Revisi":
+                CycleTrelloView(message.SourceWindow, _lateListVM, () => OpenLateList());
+                break;
+            case "Late":
+                CycleTrelloView(message.SourceWindow, _editingListVM, () => OpenEditingList());
+                break;
+        }
+    }
+
+    private void CycleTrelloView(object? sourceWindow, BaseTrelloListViewModel nextVm, Action openEmbedded)
+    {
+         if (sourceWindow is Avalonia.Controls.Window w)
+         {
+             ActivateViewModel(nextVm);
+             w.DataContext = nextVm;
+         }
+         else
+         {
+             ReplaceCurrentView(openEmbedded);
+         }
+    }
+
+    private void ActivateViewModel(BaseTrelloListViewModel vm)
+    {
+        if (vm is EditingCardListViewModel evm) evm.StartAutoRefresh();
+        else if (vm is RevisionCardListViewModel rvm) rvm.StartAutoRefresh();
+        else if (vm is LateCardListViewModel lvm) lvm.StartAutoRefresh();
+    }
+
+    private void ReplaceCurrentView(Action openNext)
+    {
+        // Replace current view instead of pushing to stack
+        CurrentEmbeddedView = null;
+        _viewStack.Clear();
+        openNext();
+    }
 }

@@ -26,8 +26,10 @@ public partial class PixelcutViewModel : ObservableObject
     
     // Settings
     [ObservableProperty] private string _proxyAddress = "";
+    [ObservableProperty] private int _skippedCount;
     
     private bool _stopRequested;
+    private CancellationTokenSource? _cts;
     [ObservableProperty] private bool _isPaused;
     private System.Timers.Timer? _vpnCheckTimer; // Added timer field
 
@@ -126,12 +128,27 @@ public partial class PixelcutViewModel : ObservableObject
                 {
                     if (File.Exists(path))
                     {
-                         // No longer using CheckSmartPngReplacement since we block PNGs entirely
-                         // var p = CheckSmartPngReplacement(path);
-                         // if (p != null) validPaths.Add(p);
-                         
-                         var ext = Path.GetExtension(path).ToLower();
-                         if (searchPattern.Contains(ext)) validPaths.Add(path);
+                        var ext = Path.GetExtension(path).ToLower();
+
+                        // --- REDIRECT SMALL PNG TO JPG SOURCE ---
+                        if (ext == ".png")
+                        {
+                            try
+                            {
+                                if (new FileInfo(path).Length < 1024)
+                                {
+                                    // Check for source JPG
+                                    var jpg = Path.ChangeExtension(path, ".jpg");
+                                    if (File.Exists(jpg)) { validPaths.Add(jpg); continue; }
+                                    var jpeg = Path.ChangeExtension(path, ".jpeg");
+                                    if (File.Exists(jpeg)) { validPaths.Add(jpeg); continue; }
+                                }
+                            }
+                            catch { }
+                        }
+                        // ----------------------------------------
+
+                        if (searchPattern.Contains(ext)) validPaths.Add(path);
                     }
                     else if (Directory.Exists(path))
                     {
@@ -144,6 +161,7 @@ public partial class PixelcutViewModel : ObservableObject
                 {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
+                        int skipped = 0;
                         foreach (var p in validPaths)
                         {
                             try
@@ -152,9 +170,20 @@ public partial class PixelcutViewModel : ObservableObject
                                 {
                                     Files.Add(new PixelcutFileItem(p));
                                 }
+                                else
+                                {
+                                    skipped++;
+                                }
                             }
                             catch { }
                         }
+                        
+                        if (skipped > 0)
+                        {
+                            SkippedCount += skipped;
+                            AppendLog($"Skipped {skipped} duplicates");
+                        }
+
                         HasFiles = Files.Count > 0;
                         CheckRetryVisibility();
                     });
@@ -340,6 +369,7 @@ public partial class PixelcutViewModel : ObservableObject
     private void Stop()
     {
         _stopRequested = true;
+        _cts?.Cancel();
         AppendLog("Stop diminta...");
     }
     
@@ -421,6 +451,7 @@ public partial class PixelcutViewModel : ObservableObject
         _stopRequested = false;
         IsPaused = false;
         AppendLog($"Memulai proses {job}...");
+        _cts = new CancellationTokenSource();
 
         int success = 0;
         int failed = 0;
@@ -433,23 +464,7 @@ public partial class PixelcutViewModel : ObservableObject
                  continue;
             }
 
-            // Find next ready item dynamically (Live Queue)
-            // We use ToList() only to safely find the item without modifying collection during enumeration
-            // But since we are Modify property not collection, it's safer to just Linq.
-            // However, Linq on ObservableCollection is not thread safe if UI adds items.
-            // But Add happens on UI thread. This ProcessQueue runs on background Task? No, it's async void/Task on UI thread context?
-            // Wait, ProcessQueue is async Task. If called from Command, it's on UI thread.
-            // But ProcessItem calls RunPythonWorker which awaits Task.Run or Process.
-            // Let's assume we are on UI context or captured context.
-            
             PixelcutFileItem? item = null;
-            
-            // Thread-safe access attempt (simple lock not possible on ObservableCollection without proper sync)
-            // But if we are on UI thread (due to async/await), it's safe.
-            // If we are on background thread, we might crash.
-            // ProcessQueue is called by [RelayCommand], so it starts on UI Thread.
-            // Await points might return to UI thread if context captured.
-            
             item = Files.FirstOrDefault(x => x.Status == "Menunggu");
 
             if (item == null)
@@ -458,13 +473,15 @@ public partial class PixelcutViewModel : ObservableObject
                 break;
             }
 
-            await ProcessItem(item, job);
+            await ProcessItem(item, job, _cts.Token);
 
             if (item.IsDone && !item.IsFailed) success++;
             else if (item.IsFailed) failed++;
         }
 
         IsProcessing = false;
+        _cts?.Dispose();
+        _cts = null;
         AppendLog("Antrian selesai.");
         CheckRetryVisibility();
         
@@ -477,17 +494,37 @@ public partial class PixelcutViewModel : ObservableObject
         }
     }
 
-    private async Task ProcessItem(PixelcutFileItem item, string job)
+    private async Task ProcessItem(PixelcutFileItem item, string job, CancellationToken ct = default)
     {
         item.Status = "Memproses";
         item.IsProcessing = true;
         item.Progress = 0;
         item.IsFailed = false;
 
+        // --- SKIP LOGIC ---
+        var expectedPath = GetResultPath(item.FilePath, job);
+        bool isSameFile = string.Equals(item.FilePath, expectedPath, StringComparison.OrdinalIgnoreCase);
+
+        if (!isSameFile && File.Exists(expectedPath))
+        {
+            var info = new FileInfo(expectedPath);
+            if (info.Length >= 1024) 
+            {
+                item.ResultPath = expectedPath;
+                item.ResultSize = info.Length;
+                item.Status = "Selesai (Skipped)";
+                item.IsDone = true;
+                item.Progress = 100;
+                item.IsProcessing = false;
+                return;
+            }
+        }
+        // ------------------
+
         try
         {
             // Call Python Backend
-            await RunPythonWorker(item, job);
+            await RunPythonWorker(item, job, ct);
             
             if (!item.IsFailed)
             {
@@ -502,6 +539,13 @@ public partial class PixelcutViewModel : ObservableObject
                     item.ResultSize = new FileInfo(resultPath).Length;
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
+             item.Status = "Berhenti";
+             item.IsFailed = true; 
+             item.ErrorMessage = "Dibatalkan";
+             item.Progress = 0;
         }
         catch (Exception ex)
         {
@@ -531,8 +575,11 @@ public partial class PixelcutViewModel : ObservableObject
         
         IsProcessing = true;
         AppendLog($"Mengulangi {item.FileName} ({_lastJobType})...");
-        await ProcessItem(item, _lastJobType);
+        _cts = new CancellationTokenSource();
+        await ProcessItem(item, _lastJobType, _cts.Token);
         IsProcessing = false;
+        _cts.Dispose();
+        _cts = null;
     }
     
     private string GetResultPath(string input, string job)
@@ -565,7 +612,7 @@ public partial class PixelcutViewModel : ObservableObject
         }
     }
 
-    private async Task RunPythonWorker(PixelcutFileItem item, string job)
+    private async Task RunPythonWorker(PixelcutFileItem item, string job, CancellationToken ct)
     {
         // Use relative path from application directory
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -644,6 +691,12 @@ public partial class PixelcutViewModel : ObservableObject
             }
         };
 
+        // Handle Cancellation
+        using var reg = ct.Register(() => 
+        {
+            try { process.Kill(); } catch {}
+        });
+
         process.ErrorDataReceived += (s, e) => 
         {
              if (!string.IsNullOrEmpty(e.Data))
@@ -666,9 +719,14 @@ public partial class PixelcutViewModel : ObservableObject
         process.BeginErrorReadLine();
 
         // Wait for exit or cancellation
-        // We could implement CancellationToken here for Stop/Pause
         while (!process.HasExited)
         {
+             if (ct.IsCancellationRequested)
+             {
+                 // ensure kill handled by reg or here
+                 try { process.Kill(); } catch {}
+                 throw new OperationCanceledException();
+             }
              if (IsPaused)
              {
                  item.Status = "Dijeda...";

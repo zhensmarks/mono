@@ -427,7 +427,7 @@ function relPath(rootFolder, file) {
 
 // ==========================================
 // REPLACE REVISI Logic
-// Match Smart Object name with input files
+// Match Smart Object name with input files, prioritizing same relative folder
 // ==========================================
 function runRevisiLogic(masterFolder, inputFolder) {
     // Scan for PSD/PSB files in master folder
@@ -447,27 +447,17 @@ function runRevisiLogic(masterFolder, inputFolder) {
         return;
     }
 
-    // Build a lookup map: filename (without extension) -> file object
-    // Priority: PNG > PSD > JPG
+    // Build a lookup map: filename (without extension) -> ARRAY of file objects
     var inputMap = {};
 
-    // First pass: add all files
     for (var i = 0; i < inputFiles.length; i++) {
         var file = inputFiles[i];
         var baseName = file.displayName.replace(/\.[^\.]+$/, "").toLowerCase();
 
         if (!inputMap[baseName]) {
-            inputMap[baseName] = file;
-        } else {
-            // Check priority: PNG > PSD > JPG
-            var existingExt = inputMap[baseName].name.match(/\.([^\.]+)$/i)[1].toLowerCase();
-            var newExt = file.name.match(/\.([^\.]+)$/i)[1].toLowerCase();
-
-            var priority = { "png": 3, "psd": 2, "jpg": 1, "jpeg": 1 };
-            if ((priority[newExt] || 0) > (priority[existingExt] || 0)) {
-                inputMap[baseName] = file;
-            }
+            inputMap[baseName] = [];
         }
+        inputMap[baseName].push(file);
     }
 
     var successList = [];
@@ -475,9 +465,17 @@ function runRevisiLogic(masterFolder, inputFolder) {
     var totalSmartObjects = 0;
     var replacedCount = 0;
 
+    // Helper to get relative directory path
+    function getRelDir(file, root) {
+        var rel = decodeURI(file.parent.fullName).replace(decodeURI(root.fullName), "");
+        if (rel.indexOf("/") == 0) rel = rel.substring(1);
+        return rel;
+    }
+
     // Process each master file
     for (var m = 0; m < masterFiles.length; m++) {
         var masterFile = masterFiles[m];
+        var masterRelDir = getRelDir(masterFile, masterFolder);
 
         try {
             var doc = app.open(masterFile);
@@ -499,11 +497,35 @@ function runRevisiLogic(masterFolder, inputFolder) {
                 var smartObj = smartObjects[s];
                 var smartName = smartObj.name.toLowerCase();
 
-                // Look for matching file in inputMap
-                if (inputMap[smartName]) {
+                // Look for matching files in inputMap
+                var candidates = inputMap[smartName];
+
+                if (candidates && candidates.length > 0) {
+                    // Sort candidates to find best match
+                    // Priority 1: Same relative directory
+                    // Priority 2: File type (PNG > PSD > JPG)
+                    candidates.sort(function (a, b) {
+                        var aRel = getRelDir(a, inputFolder);
+                        var bRel = getRelDir(b, inputFolder);
+                        var aMatch = (aRel === masterRelDir);
+                        var bMatch = (bRel === masterRelDir);
+
+                        if (aMatch && !bMatch) return -1;
+                        if (!aMatch && bMatch) return 1;
+
+                        // Tie-break with extension priority
+                        var aExt = a.name.match(/\.([^\.]+)$/i)[1].toLowerCase();
+                        var bExt = b.name.match(/\.([^\.]+)$/i)[1].toLowerCase();
+                        var priority = { "png": 3, "psd": 2, "jpg": 1, "jpeg": 1 };
+
+                        return (priority[bExt] || 0) - (priority[aExt] || 0);
+                    });
+
+                    var bestMatch = candidates[0];
+
                     try {
                         doc.activeLayer = smartObj;
-                        replaceSmartContent(inputMap[smartName]);
+                        replaceSmartContent(bestMatch);
                         replacedCount++;
                         fileReplaced = true;
                     } catch (e) {

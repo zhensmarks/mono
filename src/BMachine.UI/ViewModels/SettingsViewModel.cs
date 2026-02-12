@@ -605,7 +605,12 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (_isInitializing) return;
         _database?.SetAsync(key, value.ToString());
-        WeakReferenceMessenger.Default.Send(new Messages.DashboardVisibilityChangedMessage());
+        
+        // Notify Dashboard via Messenger
+        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.SettingsChangedMessage(key, value.ToString()));
+        
+        // Also send general update just in case
+        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new Messages.DashboardVisibilityChangedMessage());
     }
 
     // Google Sheet Dropdown Options
