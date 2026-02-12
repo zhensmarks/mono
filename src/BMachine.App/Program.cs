@@ -8,7 +8,10 @@ class Program
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
-    private static readonly string LogFolder = ".logs";
+    // Use PlatformServiceFactory to get persistent path, but fallback to BaseDirectory if it fails/logs before init
+    private static readonly string LogFolder = System.IO.Path.Combine(
+        BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), 
+        ".logs");
     private static readonly string DebugLog = System.IO.Path.Combine(LogFolder, "debug.log");
     
     [STAThread]
@@ -26,7 +29,8 @@ class Program
         {
             try
             {
-                var logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_report.txt");
+                var appData = BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory();
+                var logPath = System.IO.Path.Combine(appData, "crash_report.txt");
                 var ex = e.ExceptionObject as Exception;
                 System.IO.File.AppendAllText(logPath, 
                     $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] FATAL UNHANDLED EXCEPTION:\n{ex}\n\n");
@@ -46,7 +50,8 @@ class Program
         {
             try
             {
-                var logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_report.txt");
+                var appData = BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory();
+                var logPath = System.IO.Path.Combine(appData, "crash_report.txt");
                 System.IO.File.AppendAllText(logPath, 
                     $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAIN LOOP CRASH:\n{ex}\n\n");
             }

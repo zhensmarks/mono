@@ -30,6 +30,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 {
     private readonly IDatabase? _database;
     private readonly Services.IProcessLogService? _logService;
+    private readonly BMachine.Core.Platform.IPlatformService _platformService;
     private readonly Action<string> _launchAction;
     private DispatcherTimer _scanTimer;
 
@@ -51,11 +52,12 @@ public partial class FloatingWidgetViewModel : ObservableObject
     // Custom Accent Color
     [ObservableProperty] private Avalonia.Media.IBrush _accentColor = Avalonia.Media.Brushes.Blue; // Default Fallback
 
-    public FloatingWidgetViewModel(IDatabase? database, Action<string> launchAction, Services.IProcessLogService? logService = null)
+    public FloatingWidgetViewModel(IDatabase? database, Action<string> launchAction, Services.IProcessLogService? logService = null, BMachine.Core.Platform.IPlatformService? platformService = null)
     {
         _database = database;
         _launchAction = launchAction;
         _logService = logService;
+        _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
         
         // Initial Color Load
         _ = LoadAccentColor();
@@ -548,7 +550,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
             else
             {
                 // Default Execution
-                Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+                _platformService.OpenUrl(path);
             }
         }
 
@@ -561,28 +563,21 @@ public partial class FloatingWidgetViewModel : ObservableObject
     
     private async Task RunJsxScript(string scriptPath)
     {
-        if (_database == null) return;
+        try
+        {
+            if (_database == null) return;
         
         var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
         if (string.IsNullOrEmpty(photoshopPath) || !File.Exists(photoshopPath))
         {
              _logService?.AddLog("[ERROR] Photoshop path not set or invalid. Please Config in Settings.");
-             Process.Start("explorer", "/select,\"" + scriptPath + "\""); // Fallback: Show file
+             _platformService.RevealFileInExplorer(scriptPath); // Fallback: Show file
              return;
         }
         
         _logService?.AddLog($"Running JSX in Photoshop: {Path.GetFileName(scriptPath)}");
         
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = photoshopPath,
-            Arguments = $"-r \"{scriptPath}\"",
-            UseShellExecute = false
-        };
-        
-        try
-        {
-             Process.Start(startInfo);
+             _platformService.RunJsxInPhotoshop(scriptPath, photoshopPath);
         }
         catch(Exception ex)
         {

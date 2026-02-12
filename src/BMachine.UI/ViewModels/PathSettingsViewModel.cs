@@ -139,7 +139,11 @@ public partial class PathSettingsViewModel : ObservableObject
          {
              Title = $"Select Executable for {type}",
              AllowMultiple = false,
-             FileTypeFilter = new[] { new FilePickerFileType("Executable") { Patterns = new[] { "*.exe" } } }
+             FileTypeFilter = new[] 
+             { 
+                 new FilePickerFileType("Executables") { Patterns = new[] { "*.exe", "*.app", "*.sh", "*.py" } },
+                 new FilePickerFileType("All Files") { Patterns = new[] { "*" } } 
+             }
          });
          
          if (result != null && result.Count > 0)

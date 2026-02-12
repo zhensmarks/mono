@@ -18,6 +18,7 @@ public partial class RadialMenuViewModel : ObservableObject
 {
     private readonly IDatabase? _database;
     private readonly Services.IProcessLogService? _logService;
+    private readonly BMachine.Core.Platform.IPlatformService _platformService;
     // private Dictionary<string, string> _scriptAliases = new(); // Replaced by ScriptConfig version below
     
     [ObservableProperty]
@@ -34,10 +35,11 @@ public partial class RadialMenuViewModel : ObservableObject
 
     [ObservableProperty] private string _customScriptsPath = "";
 
-    public RadialMenuViewModel(IDatabase? database, Services.IProcessLogService? logService = null)
+    public RadialMenuViewModel(IDatabase? database, Services.IProcessLogService? logService = null, BMachine.Core.Platform.IPlatformService? platformService = null) // Modified constructor signature
     {
         _database = database;
         _logService = logService;
+        _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get(); // Initialized _platformService
         
         LoadScripts();
     }
@@ -320,28 +322,35 @@ public partial class RadialMenuViewModel : ObservableObject
             
             if (ext == ".jsx")
             {
-                 // Photoshop Action
-                 await RunJsxScript(path);
-                 _logService?.AddLog("[SUCCESS] Script sent to Photoshop.");
+                 // JSX Script -> Photoshop
+                 _logService?.AddLog($"[INFO] Launching JSX: {fileName}");
+                 
+                 var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+                 if (string.IsNullOrEmpty(photoshopPath))
+                 {
+                      // Try to find it? Or just warn
+                      _logService?.AddLog("[WARN] Photoshop path not set.");
+                 }
+                 
+                 _platformService.RunJsxInPhotoshop(path, photoshopPath ?? "");
+                 _logService?.AddLog("[SUCCESS] JSX sent to Photoshop.");
             }
             else if (ext == ".pyw")
             {
                  // Python GUI Script
                  _logService?.AddLog($"[INFO] Launching Python Script: {fileName}");
-                 
-                 var startInfo = new ProcessStartInfo
-                 {
-                     FileName = path,
-                     UseShellExecute = true // Let OS handle .pyw -> pythonw
-                 };
-                 Process.Start(startInfo);
+
+                  // Use platform service to run python script (it handles .pyw vs .py logic internally if needed, or we just pass it)
+                  // WindowsPlatformService handles .pyw via UseShellExecute=true usually, or specific pythonw launcher.
+                  // Linux/Mac need python3.
+                  _platformService.RunPythonScript(path, true);
                  _logService?.AddLog("[SUCCESS] Python script launched.");
             }
             else
             {
                  // Standard Python/Shell
                  _logService?.AddLog($"[INFO] Launching Script: {fileName}");
-                 Process.Start(new ProcessStartInfo { FileName = "python", Arguments = $"\"{path}\"", UseShellExecute = true });
+                   _platformService.RunPythonScript(path, false);
                  _logService?.AddLog("[SUCCESS] Script launched.");
             }
              
@@ -353,61 +362,7 @@ public partial class RadialMenuViewModel : ObservableObject
         }
     }
 
-    private async Task RunJsxScript(string scriptPath)
-    {
-        if (_database == null) return;
-        
-        var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
-        
-        // Auto-Detect if missing
-        if (string.IsNullOrEmpty(photoshopPath) || !File.Exists(photoshopPath))
-        {
-             var commonPaths = new[]
-             {
-                 @"C:\Program Files\Adobe\Adobe Photoshop 2024\Photoshop.exe",
-                 @"C:\Program Files\Adobe\Adobe Photoshop 2023\Photoshop.exe",
-                 @"C:\Program Files\Adobe\Adobe Photoshop 2022\Photoshop.exe",
-                 @"C:\Program Files\Adobe\Adobe Photoshop 2021\Photoshop.exe",
-                 @"C:\Program Files\Adobe\Adobe Photoshop 2020\Photoshop.exe"
-             };
 
-             foreach (var path in commonPaths)
-             {
-                 if (File.Exists(path))
-                 {
-                     photoshopPath = path;
-                     await _database.SetAsync("Configs.Master.PhotoshopPath", path); // Auto-save
-                     _logService?.AddLog($"[Radial] Auto-detected Photoshop: {path}");
-                     break;
-                 }
-             }
-        }
-
-        if (string.IsNullOrEmpty(photoshopPath) || !File.Exists(photoshopPath))
-        {
-             _logService?.AddLog("[ERROR] Photoshop path not set or invalid. Please Config in Settings.");
-             Process.Start("explorer", "/select,\"" + scriptPath + "\""); // Fallback
-             return;
-        }
-        
-        _logService?.AddLog($"Running JSX in Photoshop: {Path.GetFileName(scriptPath)}");
-        
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = photoshopPath,
-            Arguments = $"-r \"{scriptPath}\"",
-            UseShellExecute = false
-        };
-        
-        try
-        {
-             Process.Start(startInfo);
-        }
-        catch(Exception ex)
-        {
-             _logService?.AddLog($"[ERROR] Failed to launch Photoshop: {ex.Message}");
-        }
-    }
 
     public event Action? RequestClose;
 }

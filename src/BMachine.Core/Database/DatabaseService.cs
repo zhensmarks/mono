@@ -10,9 +10,11 @@ public class DatabaseService : IDatabase, IActivityService
     
     public DatabaseService(string databasePath = "BMachine.db")
     {
-        // Ensure we use an absolute path to avoid CWD issues (e.g. file picker)
-        var basePath = AppDomain.CurrentDomain.BaseDirectory;
-        var fullPath = Path.Combine(basePath, databasePath);
+        // Use Platform Service to get persistent app data path
+        var platform = BMachine.Core.Platform.PlatformServiceFactory.Get();
+        var appData = platform.GetAppDataDirectory();
+        
+        var fullPath = Path.Combine(appData, databasePath);
         
         _connectionString = $"Data Source={fullPath}";
         InitializeDatabase();

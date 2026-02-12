@@ -11,12 +11,14 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     protected readonly IDatabase _database;
     protected readonly INotificationService? _notificationService;
     protected readonly IActivityService? _activityService;
+    protected readonly BMachine.Core.Platform.IPlatformService _platformService;
 
-    public BaseTrelloListViewModel(IDatabase database, INotificationService? notificationService = null)
+    public BaseTrelloListViewModel(IDatabase database, INotificationService? notificationService = null, BMachine.Core.Platform.IPlatformService? platformService = null)
     {
         _database = database ?? throw new ArgumentNullException(nameof(database));
         _notificationService = notificationService;
         _activityService = database as IActivityService; // Attempt to cast, or we could inject explicitly if refactored
+        _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
         Cards = new ObservableCollection<TrelloCard>();
     }
 
@@ -25,6 +27,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         _database = null!;
         _activityService = null;
+        _platformService = BMachine.Core.Platform.PlatformServiceFactory.Get();
         Cards = new ObservableCollection<TrelloCard>();
     }
     
@@ -647,11 +650,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         if (att == null) return;
         try 
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = att.Url,
-                UseShellExecute = true
-            });
+            _platformService.OpenUrl(att.Url);
         }
         catch (Exception ex)
         {
@@ -696,7 +695,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             await LogActivity("Attachment", "Downloaded", $"{attachment.Name} from {SelectedCard.Name}");
 
             // Open Folder?
-            System.Diagnostics.Process.Start("explorer", $"/select,\"{filePath}\"");
+            _platformService.RevealFileInExplorer(filePath);
         }
         catch (Exception ex)
         {

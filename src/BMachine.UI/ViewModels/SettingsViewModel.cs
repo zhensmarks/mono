@@ -44,6 +44,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly Action? _navigateBack;
     private readonly IThemeService? _themeService;
     private readonly ILanguageService? _languageService;
+    private readonly BMachine.Core.Platform.IPlatformService _platformService;
 
     
     public ILanguageService? Language => _languageService;
@@ -452,7 +453,7 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             // Open Windows Date & Time Settings
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:dateandtime") { UseShellExecute = true });
+            _platformService.OpenDateTimeSettings();
         }
         catch 
         {
@@ -666,8 +667,7 @@ public partial class SettingsViewModel : ObservableObject
         InitializeAppearanceOptions();
         
         IsLockerConfigured = BMachine.Core.Security.FolderLockerConfig.Load().IsConfigured;
-
-
+        _platformService = BMachine.Core.Platform.PlatformServiceFactory.Get();
     }
 
 
@@ -679,13 +679,17 @@ public partial class SettingsViewModel : ObservableObject
         IDatabase database, 
         Action navigateBack, 
         ILanguageService? languageService = null, 
-        INotificationService? notificationService = null)
+        INotificationService? notificationService = null,
+        BMachine.Core.Platform.IPlatformService? platformService = null)
     {
         _database = database;
         _navigateBack = navigateBack;
         _themeService = new ThemeService(database); 
-        _languageService = languageService;
-        _languageService = languageService;
+        _database = database;
+        _navigateBack = navigateBack;
+        _themeService = new ThemeService(database); 
+        _languageService = languageService; // Fixed duplication
+        _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
 
         // Initialize Path Settings VM
         PathSettingsVM = new PathSettingsViewModel(database, notificationService!);

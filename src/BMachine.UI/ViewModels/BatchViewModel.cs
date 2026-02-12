@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -21,6 +22,8 @@ namespace BMachine.UI.ViewModels;
     public partial class BatchViewModel : ObservableObject, IRecipient<FolderDeletedMessage>, IRecipient<OpenMasterBrowserMessage>, IRecipient<MasterPathsChangedMessage>
     {
         private readonly IDatabase? _database;
+        private readonly Services.IProcessLogService? _logService;
+        private readonly BMachine.Core.Platform.IPlatformService _platformService;
 
         /// <summary>
         /// Collection of source folder items dropped by the user.
@@ -31,12 +34,13 @@ namespace BMachine.UI.ViewModels;
         private ObservableCollection<BatchFolderRoot> _sourceFolders = new();
         
         // Store current process to kill it later
-        private System.Diagnostics.Process? _currentProcess;
+        private Process? _currentProcess;
     
-        public BatchViewModel(IDatabase? database, Services.IProcessLogService? logService)
+        public BatchViewModel(IDatabase? database, Services.IProcessLogService? logService, BMachine.Core.Platform.IPlatformService? platformService = null)
         {
             _database = database;
             _logService = logService;
+            _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
             
             // Register for Stop Message
             WeakReferenceMessenger.Default.Register<StopProcessMessage>(this, (r, m) =>
@@ -139,8 +143,6 @@ namespace BMachine.UI.ViewModels;
     /// Whether to show the drop zone (inverse of HasFolders).
     /// </summary>
     public bool ShowDropZone => !HasFolders;
-
-    private readonly Services.IProcessLogService? _logService;
 
     /// <summary>
     /// Add folders from drag-drop operation.
@@ -550,7 +552,7 @@ namespace BMachine.UI.ViewModels;
                  {
                      _logService.AddLog($"[INFO] Copied: {Path.GetFileName(dest)}");
                  });
-             }
+            }
         }
         catch (Exception ex)
         {
@@ -947,44 +949,34 @@ namespace BMachine.UI.ViewModels;
     {
         try 
         {
-            var startInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "python",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory
-            };
+            var scriptPath = "python"; // Default fallback if needed, but the service handles it.
+            // Wait, the interface expects scriptPath separated from args?
+            // The existing `args` list contains "Scripts/batch_wrapper.py" as the first element!
+            // See line 912: "Scripts/batch_wrapper.py"
             
-            // Add Environment Variables
-            if (envVars != null)
+            string actualScript = "";
+            var actualArgs = new List<string>();
+            
+            if (args.Count > 0)
             {
-                foreach (var kvp in envVars)
-                {
-                    startInfo.EnvironmentVariables[kvp.Key] = kvp.Value;
-                }
+                actualScript = args[0];
+                if (args.Count > 1) actualArgs = args.Skip(1).ToList();
+            }
+            
+            // Resolve script path to absolute if it's relative?
+            // "Scripts/batch_wrapper.py" implies relative to BaseDirectory.
+            if (!Path.IsPathRooted(actualScript))
+            {
+                actualScript = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, actualScript);
             }
 
-            // Use ArgumentList for robust argument passing (handles spaces and quotes automatically)
-            foreach (var arg in args)
-            {
-                startInfo.ArgumentList.Add(arg);
-            }
-
-            // DO NOT set startInfo.Arguments if using ArgumentList
-
-            using var process = new System.Diagnostics.Process { StartInfo = startInfo };
-            _currentProcess = process; // Capture reference for Kill
-            
-            process.OutputDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) _logService?.AddLog(e.Data); };
-            process.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) _logService?.AddLog($"[ERROR] {e.Data}"); };
-            
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            
-            await process.WaitForExitAsync();
+            await _platformService.RunPythonScriptAsync(
+                actualScript, 
+                actualArgs, 
+                envVars,
+                onOutput: (data) => _logService?.AddLog(data),
+                onError: (data) => _logService?.AddLog($"[ERROR] {data}")
+            );
         }
         catch (Exception ex)
         {
@@ -1027,26 +1019,25 @@ namespace BMachine.UI.ViewModels;
             // Assume Photoshop is in PATH or just use 'start' via Process
             // Command: photoshop.exe -r "path/to/script.jsx"
             
-            var startInfo = new System.Diagnostics.ProcessStartInfo();
-
             if (SelectedActionScript.EndsWith(".pyw", StringComparison.OrdinalIgnoreCase))
             {
                  // Run Python GUI Script direclty
-                 startInfo.FileName = SelectedActionScript;
-                 startInfo.UseShellExecute = true; // Let OS handle .pyw association (pythonw)
-                 
                  _logService?.AddLog($"[INFO] Launching Python Script: {Path.GetFileName(SelectedActionScript)}");
+                 _platformService.RunPythonScript(SelectedActionScript, true);
             }
             else
             {
                 // Default: Photoshop Action (.jsx)
-                startInfo.FileName = "photoshop";
-                startInfo.Arguments = $"-r \"{SelectedActionScript}\"";
-                startInfo.UseShellExecute = true; // Find in PATH
-                
                  _logService?.AddLog($"[INFO] Launching Photoshop...");
+                 // Need Photoshop path? 
+                 // The old code assumed "photoshop" in PATH.
+                 // We can lookup or just try "photoshop" if we implement fuzzy search in Service?
+                 // Or we can use RunJsxInPhotoshop which requires a path.
+                 // Let's get the path from DB first as Best Practice.
+                 var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath") ?? "photoshop";
+                 
+                 _platformService.RunJsxInPhotoshop(SelectedActionScript, photoshopPath);
             }
-            System.Diagnostics.Process.Start(startInfo);
             
             _logService?.AddLog("[SUCCESS] Script sent to Photoshop.");
         }

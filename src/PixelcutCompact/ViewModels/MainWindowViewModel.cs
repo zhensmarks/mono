@@ -22,6 +22,7 @@ public partial class MainWindowViewModel : ObservableObject
 {
     private readonly PixelcutService _pixelcutService = new();
     private readonly SettingsService _settingsService = new();
+    private readonly BMachine.Core.Platform.IPlatformService _platformService;
     private CancellationTokenSource? _cts;
     
     [ObservableProperty] private ObservableCollection<PixelcutFileItem> _files = new();
@@ -64,6 +65,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel()
     {
+        _platformService = BMachine.Core.Platform.PlatformServiceFactory.Get();
+        
         // Load Settings
         var settings = _settingsService.Load();
         ProxyAddress = settings.ProxyAddress ?? "";
@@ -710,7 +713,7 @@ public partial class MainWindowViewModel : ObservableObject
         var path = item.HasResult ? item.ResultPath : item.FilePath;
         if (File.Exists(path))
         {
-            Process.Start("explorer.exe", $"/select,\"{path}\"");
+            _platformService.RevealFileInExplorer(path);
         }
     }
     
@@ -794,7 +797,7 @@ public partial class MainWindowViewModel : ObservableObject
             var path = File.Exists(result) ? result : original;
             if (File.Exists(path))
             {
-                 new Process { StartInfo = new ProcessStartInfo(path) { UseShellExecute = true } }.Start();
+                  _platformService.RevealFileInExplorer(path);
             }
         }
     }
