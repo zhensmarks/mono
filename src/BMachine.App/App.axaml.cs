@@ -35,8 +35,6 @@ public partial class App : Application,
         Console.WriteLine("[App] Framework Initialization Started");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-
-
             try 
             {
                 // 1. Show Splash Screen
@@ -47,11 +45,6 @@ public partial class App : Application,
                 };
                 desktop.MainWindow = splashWindow;
                 splashWindow.Show();
-
-                // Store ref to close it later
-                // Note: We need to access splashWindow inside the async block, so we might need a local ref or just use context?
-                // Actually, we pass progress to VM, and close window later.
-                // Let's refactor slightly to ensure robustness.
 
                 _ = InitializeAppAsync(desktop, splashWindow, splashVm);
             }
@@ -72,8 +65,8 @@ public partial class App : Application,
                 }
             }
             
-            base.OnFrameworkInitializationCompleted(); // This call was moved here
-            return; // Already called base
+            base.OnFrameworkInitializationCompleted();
+            return;
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -81,7 +74,7 @@ public partial class App : Application,
 
     private async Task InitializeAppAsync(IClassicDesktopStyleApplicationLifetime desktop, Window splashWindow, SplashViewModel splashVm)
     {
-        await Task.Delay(100); // Give UI time to render
+        await Task.Delay(100); 
 
         try 
         {
@@ -95,11 +88,9 @@ public partial class App : Application,
 
             // Run initialization
             await bootstrapper.InitializeAsync(progress, status);
-            
-
 
             // 3. Create Main Window
-            var mainWindow = new BMachine.App.Views.MainWindow(); // Fully qualified to avoid namespace conflict locally
+            var mainWindow = new BMachine.App.Views.MainWindow(); 
             mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(_db, _logService);
             
             // 4. Swap Windows
@@ -112,12 +103,9 @@ public partial class App : Application,
             mainWindow.Activated += (s, e) => WeakReferenceMessenger.Default.Send(new AppFocusChangedMessage(true));
             mainWindow.Deactivated += (s, e) => WeakReferenceMessenger.Default.Send(new AppFocusChangedMessage(false));
             
-            // Note: ShutdownMode is OnLastWindowClose by default? Or OnMainWindowClose. 
-            // Since we swapped MainWindow, it should be fine.
             desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
 
             // 5. Post-Init (Hooks)
-            // Initialize Radial Menu Hook
             try
             {
                 _inputHook = new GlobalInputHookService();
@@ -139,16 +127,11 @@ public partial class App : Application,
                 _inputHook?.Dispose();
             };
             
-            // Register as Recipient
             WeakReferenceMessenger.Default.RegisterAll(this);
-            
-            // Start Context Menu Listener (Named Pipe)
-            // Removed as per request
         }
         catch (Exception ex)
         {
              Console.WriteLine($"Error launching App: {ex.Message}");
-             // Ensure Splash doesn't hang forever
              splashWindow.Close();
         }
     }

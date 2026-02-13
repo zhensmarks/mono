@@ -1,0 +1,21 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  BMachine.SDK -> D:\#DATA ABENG\BMachine.v2\src\BMachine.SDK\bin\Debug\net8.0\BMachine.SDK.dll
+  BMachine.Core -> D:\#DATA ABENG\BMachine.v2\src\BMachine.Core\bin\Debug\net8.0\BMachine.Core.dll
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\Services\GlobalMouseHookService.cs(6,7): warning CS0105: The using directive for 'SharpHook.Native' appeared previously in this namespace [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\DashboardViewModel.cs(17,7): warning CS0105: The using directive for 'BMachine.UI.Messages' appeared previously in this namespace [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\GdriveViewModel.cs(14,7): warning CS0105: The using directive for 'BMachine.SDK' appeared previously in this namespace [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\DashboardViewModel.cs(553,44): error CS0246: The type or namespace name 'DatabaseService' could not be found (are you missing a using directive or an assembly reference?) [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\DashboardViewModel.cs(553,70): error CS0246: The type or namespace name 'ProcessLogService' could not be found (are you missing a using directive or an assembly reference?) [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+
+Build FAILED.
+
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\Services\GlobalMouseHookService.cs(6,7): warning CS0105: The using directive for 'SharpHook.Native' appeared previously in this namespace [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\DashboardViewModel.cs(17,7): warning CS0105: The using directive for 'BMachine.UI.Messages' appeared previously in this namespace [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\GdriveViewModel.cs(14,7): warning CS0105: The using directive for 'BMachine.SDK' appeared previously in this namespace [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\DashboardViewModel.cs(553,44): error CS0246: The type or namespace name 'DatabaseService' could not be found (are you missing a using directive or an assembly reference?) [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\ViewModels\DashboardViewModel.cs(553,70): error CS0246: The type or namespace name 'ProcessLogService' could not be found (are you missing a using directive or an assembly reference?) [D:\#DATA ABENG\BMachine.v2\src\BMachine.UI\BMachine.UI.csproj]
+    3 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:01.51

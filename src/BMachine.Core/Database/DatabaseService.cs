@@ -15,10 +15,13 @@ public class DatabaseService : IDatabase, IActivityService
         var appData = platform.GetAppDataDirectory();
         
         var fullPath = Path.Combine(appData, databasePath);
+        DatabasePath = fullPath;
         
         _connectionString = $"Data Source={fullPath}";
         InitializeDatabase();
     }
+
+    public string DatabasePath { get; private set; }
 
     private void InitializeDatabase()
     {

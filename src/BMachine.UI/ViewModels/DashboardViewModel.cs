@@ -24,16 +24,14 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private readonly IDatabase _database;
     private readonly ILanguageService? _languageService;
     private readonly Services.IProcessLogService? _logService;
+    private Services.FileOperationManager _fileManager; // Added
 
     public IDatabase Database => _database;
     public ILanguageService? Language => _languageService;
 
-
-
-
-
     [ObservableProperty] private bool _isLogPanelOpen;
-    [ObservableProperty] private bool _isOnline = true; // Connection status
+    [ObservableProperty] private bool _isOnline = true; // General Online status
+    [ObservableProperty] private bool _isSpreadsheetOnline = true; // Specific for Spreadsheet
 
     partial void OnIsLogPanelOpenChanged(bool value)
     {
@@ -52,6 +50,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [ObservableProperty] private bool _isBatchVisible = true;
     [ObservableProperty] private bool _isLockerVisible = true; // Use Locker to match Tab name 'LockerTab'
     [ObservableProperty] private bool _isPointVisible = true;
+    [ObservableProperty] private bool _isOutputExplorerVisible = true;
 
 
     // Activity Panel
@@ -109,6 +108,16 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     partial void OnNavPixelcutTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Pixelcut", value);
     partial void OnNavBatchTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Batch", value);
     partial void OnNavLockerTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Locker", value);
+
+    partial void OnIsOutputExplorerVisibleChanged(bool value)
+    {
+         _database?.SetAsync("Settings.Dash.Explorer", value.ToString());
+    }
+
+    partial void OnIsSpreadsheetOnlineChanged(bool value)
+    {
+        if (_spreadsheetVM != null) _spreadsheetVM.IsOnline = value;
+    }
     partial void OnNavFontSizeChanged(double value) => _database?.SetAsync("Dashboard.Nav.FontSize", value.ToString());
 
     public async Task LoadNavSettings()
@@ -217,7 +226,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [NotifyPropertyChangedFor(nameof(IsPixelcutTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsGdriveTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsPointsTabSelected))] // Added for Points Tab
-    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive, 5=Points
+    [NotifyPropertyChangedFor(nameof(IsExplorerTabSelected))] // Added for Explorer Tab
+    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive, 5=Points, 6=Explorer
 
     public bool IsDashboardTabSelected 
     { 
@@ -254,6 +264,12 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         get => SelectedTabIndex == 5;
         set { if (value) SelectedTabIndex = 5; }
     }
+    
+    public bool IsExplorerTabSelected
+    {
+        get => SelectedTabIndex == 6; // New Tab Index
+        set { if (value) SelectedTabIndex = 6; }
+    }
 
     partial void OnSelectedTabIndexChanged(int value)
     {
@@ -284,6 +300,10 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     [ObservableProperty]
     private SpreadsheetViewModel _spreadsheetVM;
+
+    [ObservableProperty]
+    private OutputExplorerViewModel _outputExplorerVM; // Added
+
 
 
     // --- Embedded View Navigation System ---
@@ -481,43 +501,103 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     public DashboardViewModel(
         IDatabase database,
-        IActivityService activityService, // ADDED: Missing parameter!
+        IActivityService activityService, 
         ILanguageService? languageService = null, 
         Services.IProcessLogService? logService = null)
     {
-        StatPoints = "0";
-        
-        _database = database;
-        _activityService = activityService; // ADDED: Missing assignment!
-        _languageService = languageService; // Nullable for design time or fallback
-        _logService = logService;
-        
-        LoadLogPanelState();
-        _ = LoadNavSettings();
-        _ = LoadVisibilitySettings(); // Loaded alongside Nav settings
-        
-        if (_languageService != null)
+        try
         {
-            _languageService.PropertyChanged += (s, e) => UpdateGreeting();
+            var logPath = System.IO.Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "startup_log.txt");
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] DashboardViewModel CTOR Started\n");
+
+            StatPoints = "0";
+            
+            _database = database;
+            _activityService = activityService; 
+            _languageService = languageService; 
+            _logService = logService;
+            
+            LoadLogPanelState();
+            _ = LoadNavSettings();
+            _ = LoadVisibilitySettings(); 
+            
+            if (_languageService != null)
+            {
+                _languageService.PropertyChanged += (s, e) => UpdateGreeting();
+            }
+            
+            if (_logService != null)
+            {
+                _logService.Logs.CollectionChanged += (s, e) => UpdateLogText();
+                UpdateLogText();
+            }
+            
+            RegisterMessages(); 
+            
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init Child VMs...\n");
+            // Initialize Sub-ViewModels
+            InitializeChildViewModels(database, logService);
+            
+            // Initial Check
+            _ = CheckConnectivity();
+             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] DashboardViewModel CTOR Finished\n");
         }
-        
-        if (_logService != null)
+        catch (Exception ex)
         {
-            _logService.Logs.CollectionChanged += (s, e) => UpdateLogText();
-            UpdateLogText();
+            var logPath = System.IO.Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "startup_log.txt");
+            System.IO.File.AppendAllText(logPath, $"[CRITICAL ERROR] DashboardViewModel CTOR Failed: {ex}\n");
+             throw;
         }
+    }
         
-        RegisterMessages(); // Hook up message handlers
-        
-        // Initialize Child ViewModels
-        _folderLockerVM = new FolderLockerViewModel();
-        _batchVM = new BatchViewModel(database, logService);
-        _batchVM = new BatchViewModel(database, logService);
-        _pixelcutVM = new PixelcutViewModel(database);
-        _gdriveVM = new GdriveViewModel(database);
-        _pointLeaderboardVM = new PointLeaderboardViewModel(database);
-        _spreadsheetVM = new SpreadsheetViewModel(database);
-        
+    private void InitializeChildViewModels(IDatabase database, Services.IProcessLogService? logService)
+    {
+        var logPath = System.IO.Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "startup_log.txt");
+        try
+        {
+            // Initialize Child ViewModels
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init FolderLocker...\n");
+            _folderLockerVM = new FolderLockerViewModel();
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init BatchVM...\n");
+            _batchVM = new BatchViewModel(database, logService);
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init PixelcutVM...\n");
+            _pixelcutVM = new PixelcutViewModel(database);
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init GdriveVM...\n");
+            _gdriveVM = new GdriveViewModel(database);
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init PointLeaderboardVM...\n");
+            _pointLeaderboardVM = new PointLeaderboardViewModel(database);
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init SpreadsheetVM...\n");
+            _spreadsheetVM = new SpreadsheetViewModel(database);
+            
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init FileOperationManager...\n");
+            _fileManager = new BMachine.UI.Services.FileOperationManager(); // Init Manager
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init OutputExplorerVM...\n");
+            _outputExplorerVM = new OutputExplorerViewModel(database, new BMachine.UI.Services.NotificationService(), _fileManager); // Init Explorer
+            
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init ConnectivityTimer...\n");
+            // Connectivity Check Timer
+            var connectivityTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+            connectivityTimer.Tick += async (s, e) => await CheckConnectivity();
+            connectivityTimer.Start();
+            
+            // Initial Check
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () => await CheckConnectivity());
+            
+            // SYNC: Listen to changes in lists to update Stats
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Setup Stat Sync...\n");
+        }
+        catch(Exception ex)
+        {
+             System.IO.File.AppendAllText(logPath, $"[CRITICAL ERROR] InitChildViewModels Failed: {ex}\n");
+             throw;
+        }
+
         // Leaderboard will load in LoadData() async method
         
         // Initialize Persistent List VMs
@@ -609,6 +689,17 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
          _database = null!;
          _languageService = null!;
          _userName = "Preview User";
+         
+         // Fix non-nullable warnings for design time
+         _activityService = null!; 
+         _fileManager = null!;
+         _folderLockerVM = null!;
+         _pixelcutVM = null!;
+         _gdriveVM = null!;
+         _batchVM = null!;
+         _pointLeaderboardVM = null!;
+         _spreadsheetVM = null!;
+         _outputExplorerVM = null!;
     }
 
     private Avalonia.Threading.DispatcherTimer? _timer;
@@ -943,6 +1034,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         IsBatchVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Batch") ?? "True");
         IsLockerVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Lock") ?? "True");
         IsPointVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Point") ?? "True");
+        IsOutputExplorerVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Explorer") ?? "True");
 
         // Load refresh intervals (Seconds)
         EditingRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Editing") ?? "60");
@@ -1520,5 +1612,28 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         CurrentEmbeddedView = null;
         _viewStack.Clear();
         openNext();
+    }
+
+    private async Task CheckConnectivity()
+    {
+        try
+        {
+            using (var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(2) })
+            {
+                // Use a reliable endpoint that returns 204 or 200 light response
+                using (var response = await client.GetAsync("https://www.google.com/generate_204"))
+                {
+                     bool connected = response.IsSuccessStatusCode;
+                     // Only update property if changed to avoid UI flickering if bound
+                     if (IsSpreadsheetOnline != connected) IsSpreadsheetOnline = connected;
+                     if (IsOnline != connected) IsOnline = connected;
+                }
+            }
+        }
+        catch
+        {
+            if (IsSpreadsheetOnline) IsSpreadsheetOnline = false;
+            if (IsOnline) IsOnline = false;
+        }
     }
 }

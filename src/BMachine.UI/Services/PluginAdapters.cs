@@ -50,6 +50,8 @@ public class AppDatabase : IDatabase
         _db = db;
     }
 
+    public string DatabasePath => _db.DatabasePath;
+
     public async Task<T?> GetAsync<T>(string key) where T : class
     {
         // SDK expects reference types for T? (class constraint)

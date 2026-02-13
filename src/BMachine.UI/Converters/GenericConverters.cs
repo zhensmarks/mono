@@ -47,3 +47,44 @@ public class BoolInverter : IValueConverter
         return false;
     }
 }
+
+public class IconConverter : IValueConverter
+{
+    public static readonly IconConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string key && Application.Current != null)
+        {
+            if (Application.Current.TryGetResource(key, null, out var resource))
+            {
+                return resource;
+            }
+        }
+        return null;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class StringEqualsConverter : IValueConverter
+{
+    public static readonly StringEqualsConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string s && parameter is string p)
+        {
+            return s.Equals(p, StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return AvaloniaProperty.UnsetValue;
+    }
+}

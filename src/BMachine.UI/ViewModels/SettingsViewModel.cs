@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using BMachine.SDK;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -142,7 +143,110 @@ public partial class SettingsViewModel : ObservableObject
     {
         OpenAvatarSelectionRequested?.Invoke();
     }
-    
+
+    [RelayCommand]
+    private async Task ExportDatabase()
+    {
+        if (_database == null) return;
+
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
+            if (topLevel == null) return;
+
+            var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export Database Backup",
+                DefaultExtension = "db",
+                SuggestedFileName = $"BMachine_Backup_{DateTime.Now:yyyyMMdd}.db",
+                FileTypeChoices = new[] { new FilePickerFileType("SQLite Database") { Patterns = new[] { "*.db" } } }
+            });
+
+            if (file != null)
+            {
+                var sourcePath = _database.DatabasePath;
+                
+                // Ensure source exists
+                if (File.Exists(sourcePath))
+                {
+                    using (var sourceStream = File.OpenRead(sourcePath))
+                    using (var destStream = await file.OpenWriteAsync())
+                    {
+                        await sourceStream.CopyToAsync(destStream);
+                    }
+                    StatusMessage = "Database exported successfully!";
+                    IsStatusVisible = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Export Failed: {ex.Message}";
+            IsStatusVisible = true;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportDatabase()
+    {
+         if (_database == null) return;
+
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
+            if (topLevel == null) return;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Import Database Backup",
+                AllowMultiple = false,
+                FileTypeFilter = new[] { new FilePickerFileType("SQLite Database") { Patterns = new[] { "*.db" } } }
+            });
+
+            if (files.Count > 0)
+            {
+                 var file = files[0];
+                 var destPath = _database.DatabasePath;
+                 
+                 // Confirm
+                 // Ideally show dialog, but for now we just do it with warning in UI about restart.
+                 
+                 // We can't easily close DB connection here as it's pooled/managed inside methods.
+                 // But we can try to copy over it. Sqlite might lock it.
+                 // Force GC to clear pools? Not reliable.
+                 // Best effort: Rename old, Copy new.
+                 
+                 var backupPath = destPath + ".bak";
+                 File.Copy(destPath, backupPath, true); // Safety backup
+                 
+                 try 
+                 {
+                     SqliteConnection.ClearAllPools(); // Try to release locks
+                     
+                     using (var sourceStream = await file.OpenReadAsync())
+                     using (var destStream = File.Create(destPath))
+                     {
+                         await sourceStream.CopyToAsync(destStream);
+                     }
+                     
+                     StatusMessage = "Import SUCCESS! Please RESTART App.";
+                     IsStatusVisible = true;
+                 }
+                 catch (IOException)
+                 {
+                     StatusMessage = "Cannot replace DB. App is using it. Restart and try again immediately.";
+                     IsStatusVisible = true;
+                     // Restore?
+                 }
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Import Failed: {ex.Message}";
+            IsStatusVisible = true;
+        }
+    }
+
     
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSidebarVisible))]
@@ -158,9 +262,16 @@ public partial class SettingsViewModel : ObservableObject
     public bool IsContentVisible => !IsMobileView || IsMobileContentOpen;
 
     [RelayCommand]
-    private void NavigateBack()
+    private void GoBack()
     {
-        IsMobileContentOpen = false;
+        if (IsMobileView && IsMobileContentOpen)
+        {
+            IsMobileContentOpen = false;
+        }
+        else
+        {
+            _navigateBack?.Invoke();
+        }
     }
 
     [ObservableProperty]
@@ -1949,11 +2060,7 @@ public partial class SettingsViewModel : ObservableObject
         IsStatusVisible = false;
     }
 
-    [RelayCommand]
-    private void GoBack()
-    {
-        _navigateBack?.Invoke();
-    }
+
 
     // --- Script Manager Logic ---
     

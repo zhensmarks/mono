@@ -1,4 +1,5 @@
 using Avalonia;
+using BMachine.UI.Models;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
@@ -41,6 +42,30 @@ public partial class LogPanelSidebar : UserControl
             {
                 vm.ToggleLogPanelCommand.Execute(null);
                 e.Handled = true;
+            }
+        }
+        }
+
+
+    private void OnMasterNodeDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm && e.Source is Control control)
+        {
+            // Walk up to find the data context if needed, but usually control.DataContext is the item
+            if (control.DataContext is MasterNode node)
+            {
+                 vm.BatchVM.CopyMasterFileCommand.Execute(node);
+            }
+        }
+    }
+
+    private void OnPhotoshopNodeDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm && e.Source is Control control)
+        {
+            if (control.DataContext is MasterNode node)
+            {
+                 vm.BatchVM.SendToPhotoshopCommand.Execute(node);
             }
         }
     }
@@ -302,4 +327,5 @@ public partial class LogPanelSidebar : UserControl
             acb.IsDropDownOpen = true;
         }
     }
-}
+    }
+

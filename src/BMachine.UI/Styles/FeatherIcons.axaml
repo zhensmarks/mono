@@ -19,6 +19,9 @@
     <!-- Refresh-CW -->
     <StreamGeometry x:Key="IconRefresh">M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15</StreamGeometry>
     
+    <!-- Search -->
+    <StreamGeometry x:Key="IconSearch">M11 19c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8zM21 21l-4.35-4.35</StreamGeometry>
+    
     <!-- Folder -->
     <StreamGeometry x:Key="IconFolder">M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z</StreamGeometry>
     
@@ -116,6 +119,12 @@
     
     <!-- Arrow Down -->
     <StreamGeometry x:Key="IconArrowDown">M12 5v14M5 12l7 7 7-7</StreamGeometry>
+    
+    <!-- Chevrons -->
+    <StreamGeometry x:Key="IconChevronUp">M18 15l-6-6-6 6</StreamGeometry>
+    <StreamGeometry x:Key="IconChevronDown">M6 9l6 6 6-6</StreamGeometry>
+    <StreamGeometry x:Key="IconChevronLeft">M15 18l-6-6 6-6</StreamGeometry>
+    <StreamGeometry x:Key="IconChevronRight">M9 18l6-6-6-6</StreamGeometry>
     
     <!-- Send -->
     <StreamGeometry x:Key="IconSend">M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z</StreamGeometry>

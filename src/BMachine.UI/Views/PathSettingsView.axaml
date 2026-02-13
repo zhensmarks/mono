@@ -48,6 +48,41 @@
                 </StackPanel>
             </Border>
 
+            <!-- TAMBAHAN PHOTOSHOP (New Feature) -->
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="TAMBAHAN PHOTOSHOP" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextControlForeground}"/>
+                     <TextBlock Text="Folder khusus gambar (jpg/png) yang akan muncul di tab PHOTOSHOP." 
+                                FontSize="12" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
+                    
+                    <!-- List of Paths -->
+                    <ItemsControl ItemsSource="{Binding AdditionalPhotoshopPaths}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,0,5">
+                                    <Grid ColumnDefinitions="*, Auto">
+                                        <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
+                                        <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.RemovePhotoshopPathCommand}" 
+                                                CommandParameter="{Binding}"
+                                                Classes="Clear" Margin="10,0,0,0" Padding="5">
+                                             <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    
+                    <!-- Add Button -->
+                    <Button Command="{Binding AddPhotoshopPathCommand}" Classes="Primary" HorizontalAlignment="Left" Margin="0,5,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
+                            <TextBlock Text="Tambah Folder Photoshop" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
             <!-- Global / General -->
             <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">

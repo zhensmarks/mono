@@ -48,6 +48,9 @@ public partial class PathSettingsViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<string> _additionalMasterPaths = new();
 
+    [ObservableProperty]
+    private ObservableCollection<string> _additionalPhotoshopPaths = new();
+
     private async void LoadPaths()
     {
         if (_database == null) return;
@@ -77,6 +80,21 @@ public partial class PathSettingsViewModel : ObservableObject
                 if (paths != null)
                 {
                     AdditionalMasterPaths = new ObservableCollection<string>(paths);
+                }
+            }
+            catch { }
+        }
+
+        // Load Additional Photoshop Paths
+        var jsonPsPaths = await _database.GetAsync<string>("Configs.Master.PhotoshopPaths");
+        if (!string.IsNullOrEmpty(jsonPsPaths))
+        {
+            try 
+            {
+                var paths = JsonSerializer.Deserialize<string[]>(jsonPsPaths);
+                if (paths != null)
+                {
+                    AdditionalPhotoshopPaths = new ObservableCollection<string>(paths);
                 }
             }
             catch { }
@@ -126,6 +144,48 @@ public partial class PathSettingsViewModel : ObservableObject
         await _database.SetAsync("Configs.Master.AdditionalPaths", json);
         
         // Notify listeners (Dashboard/BatchVM) to reload
+        WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
+    }
+
+    [RelayCommand]
+    private async Task AddPhotoshopPath()
+    {
+         var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
+         if (topLevel == null) return;
+         
+         var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+         {
+             Title = "Select Additional Photoshop Folder",
+             AllowMultiple = false
+         });
+         
+         if (result != null && result.Count > 0)
+         {
+             var path = result[0].Path.LocalPath;
+             if (!AdditionalPhotoshopPaths.Contains(path))
+             {
+                 AdditionalPhotoshopPaths.Add(path);
+                 await SaveAdditionalPhotoshopPaths();
+             }
+         }
+    }
+
+    [RelayCommand]
+    private async Task RemovePhotoshopPath(string path)
+    {
+        if (AdditionalPhotoshopPaths.Contains(path))
+        {
+            AdditionalPhotoshopPaths.Remove(path);
+            await SaveAdditionalPhotoshopPaths();
+        }
+    }
+
+    private async Task SaveAdditionalPhotoshopPaths()
+    {
+        if (_database == null) return;
+        var json = JsonSerializer.Serialize(AdditionalPhotoshopPaths);
+        await _database.SetAsync("Configs.Master.PhotoshopPaths", json);
+        
         WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
     }
     

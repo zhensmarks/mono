@@ -8,16 +8,10 @@ class Program
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
-    // Use PlatformServiceFactory to get persistent path, but fallback to BaseDirectory if it fails/logs before init
-    private static readonly string LogFolder = System.IO.Path.Combine(
-        BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), 
-        ".logs");
-    private static readonly string DebugLog = System.IO.Path.Combine(LogFolder, "debug.log");
-    
     [STAThread]
     public static void Main(string[] args)
     {
-        // Optimization: Reduce process priority to minimize system lag
+        // Optimization: Reduce process priority
         try 
         { 
             System.Diagnostics.Process.GetCurrentProcess().PriorityClass = System.Diagnostics.ProcessPriorityClass.BelowNormal; 
@@ -29,20 +23,30 @@ class Program
         {
             try
             {
-                var appData = BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory();
-                var logPath = System.IO.Path.Combine(appData, "crash_report.txt");
                 var ex = e.ExceptionObject as Exception;
-                System.IO.File.AppendAllText(logPath, 
-                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] FATAL UNHANDLED EXCEPTION:\n{ex}\n\n");
+                // Try AppData path
+                try 
+                {
+                    var appData = BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory();
+                    var logPath = System.IO.Path.Combine(appData, "crash_report.txt");
+                    string crashMsg = $"[{DateTime.Now}] FATAL UNHANDLED EXCEPTION:\n{ex}\n\n";
+                    System.IO.File.AppendAllText(logPath, crashMsg);
+                }
+                catch { }
             }
             catch { }
         };
 
         try 
         {
+            var appData = BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory();
+            string logFolder = System.IO.Path.Combine(appData, ".logs");
+            string debugLog = System.IO.Path.Combine(logFolder, "debug.log");
+
             // Ensure .logs folder exists
-            System.IO.Directory.CreateDirectory(LogFolder);
-            System.IO.File.WriteAllText(DebugLog, $"App Starting... [{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n");
+            System.IO.Directory.CreateDirectory(logFolder);
+            System.IO.File.WriteAllText(debugLog, $"App Starting... [{DateTime.Now}]\n");
+            
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
         }
@@ -52,13 +56,11 @@ class Program
             {
                 var appData = BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory();
                 var logPath = System.IO.Path.Combine(appData, "crash_report.txt");
-                System.IO.File.AppendAllText(logPath, 
-                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAIN LOOP CRASH:\n{ex}\n\n");
+                string crashMsg = $"[{DateTime.Now}] MAIN LOOP CRASH:\n{ex}\n\n";
+                System.IO.File.AppendAllText(logPath, crashMsg);
             }
             catch { }
             
-            System.IO.Directory.CreateDirectory(LogFolder);
-            System.IO.File.AppendAllText(DebugLog, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] CRASH: {ex}\n");
             throw; // Re-throw to ensure process exit code is error
         }
     }

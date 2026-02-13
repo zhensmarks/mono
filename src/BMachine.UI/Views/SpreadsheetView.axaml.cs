@@ -113,6 +113,14 @@ public partial class SpreadsheetView : UserControl
                 Tag = col.Index
             };
 
+            // Bind Width to ViewModel
+            var widthBinding = new Binding(nameof(SpreadsheetColumnViewModel.Width))
+            {
+                Source = col,
+                Mode = BindingMode.TwoWay
+            };
+            templateCol.Bind(DataGridColumn.WidthProperty, widthBinding);
+
             // 1. Dropdown Column
             if (col.IsDropdown)
             {
@@ -229,6 +237,31 @@ public partial class SpreadsheetView : UserControl
                 _dataGrid.IsReadOnly = false;
                 _dataGrid.BeginEdit();
                 e.Handled = true;
+            }
+        }
+        else if (e.Key == Avalonia.Input.Key.Delete || e.Key == Avalonia.Input.Key.Back)
+        {
+            if (DataContext is SpreadsheetViewModel vm && _dataGrid != null)
+            {
+                // Resolve current cell from DataGrid
+                var currentColumn = _dataGrid.CurrentColumn;
+                // Use SelectedItem (extended selection)
+                var currentRow = _dataGrid.SelectedItem as SpreadsheetRowViewModel;
+
+                if (currentColumn != null && currentRow != null)
+                {
+                    // Use Tag (Column Index) stored during column creation
+                    if (currentColumn.Tag is int colIndex && colIndex >= 0 && colIndex < currentRow.Cells.Count)
+                    {
+                        vm.SelectedCell = currentRow.Cells[colIndex];
+                        // Execute Command
+                        if (vm.ClearSelectedDateCommand.CanExecute(null))
+                        {
+                            vm.ClearSelectedDateCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                    }
+                }
             }
         }
     }

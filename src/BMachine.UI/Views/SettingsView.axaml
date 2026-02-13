@@ -513,6 +513,18 @@
                         </Grid>
                         
                         <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+
+                        <!-- Data Management -->
+                        <Grid ColumnDefinitions="*, Auto">
+                             <StackPanel Spacing="5" Margin="0,0,10,0">
+                                 <TextBlock Text="Database Backup" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="Export untuk simpan pengaturan, Import untuk memulihkan." FontSize="12" Foreground="#999" TextWrapping="Wrap"/>
+                             </StackPanel>
+                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                 <Button Command="{Binding ExportDatabaseCommand}" Content="Export" Classes="Accent"/>
+                                 <Button Command="{Binding ImportDatabaseCommand}" Content="Import" Classes="Primary"/>
+                             </StackPanel>
+                        </Grid>
                         
                         <!-- Dashboard Visibility -->
                         <StackPanel Spacing="10">
@@ -532,6 +544,10 @@
                              <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show Folder Locker" VerticalAlignment="Center" Foreground="#999"/>
                                 <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsFolderLockVisible}"/>
+                            </Grid>
+                             <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
+                                <TextBlock Text="Show Output Explorer" VerticalAlignment="Center" Foreground="#999"/>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsOutputExplorerVisible}"/>
                             </Grid>
                              <!-- <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show Points" VerticalAlignment="Center" Foreground="#999"/>

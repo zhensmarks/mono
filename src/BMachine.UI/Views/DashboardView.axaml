@@ -279,6 +279,39 @@
                         </RadioButton.Styles>
                     </RadioButton>
 
+                    <!-- Link to Explorer Tab (Moved) -->
+                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}"
+                                 IsVisible="{Binding IsOutputExplorerVisible}"
+                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
+                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                 ToolTip.Tip="Output Explorer">
+                        <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
+                        <RadioButton.Template>
+                            <ControlTemplate>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </RadioButton.Template>
+                        <RadioButton.Styles>
+                            <Style Selector="RadioButton">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Transitions">
+                                    <Transitions>
+                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                    </Transitions>
+                                </Setter>
+                            </Style>
+                            <Style Selector="RadioButton:checked">
+                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Opacity" Value="1.0"/>
+                            </Style>
+                        </RadioButton.Styles>
+                    </RadioButton>
+
                     <!-- Dashboard Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}"
                                  Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
@@ -374,6 +407,8 @@
                             </Style>
                         </RadioButton.Styles>
                     </RadioButton>
+
+
                 </StackPanel>
             </Border>
             
@@ -406,6 +441,11 @@
                     </Border>
                 </Grid>
                     
+                <!-- OUTPUT EXPLORER TAB CONTENT -->
+                <Grid IsVisible="{Binding IsExplorerTabSelected}" Margin="20,0,20,0">
+                     <views:OutputExplorerView DataContext="{Binding OutputExplorerVM}"/>
+                </Grid>
+
                 <!-- BATCH TAB CONTENT (REDESIGNED) -->
                 <Grid IsVisible="{Binding IsBatchTabSelected}" RowDefinitions="*, Auto" Margin="20,0,20,0">
                     
@@ -436,6 +476,7 @@
                             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="10" Margin="0,8,0,14" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
+                                              SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
                                               IsVisible="{Binding !BatchVM.IsMasterBrowserOpenLeft}"
                                               SelectionMode="Single"
                                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -450,12 +491,16 @@
                                                            <Button.Flyout>
                                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
                                                                    <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="6" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                                                                       <StackPanel Spacing="8" Width="160">
+                                                                       <StackPanel Spacing="8">
                                                                            <TextBlock Text="Folder Options" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                                           <!-- Create Subfolder -->
-                                                                           <StackPanel Spacing="4">
-                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder Name..." FontSize="11" CornerRadius="4"/>
-                                                                               <Button Content="Add Subfolder" Command="{Binding CreateSubFolderCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11"/>
+                                                                           <!-- Create Subfolder (Horizontal) -->
+                                                                           <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder..." Width="140" FontSize="11" CornerRadius="4" Padding="6,4">
+                                                                                   <TextBox.KeyBindings>
+                                                                                       <KeyBinding Gesture="Enter" Command="{Binding CreateSubFolderCommand}"/>
+                                                                                   </TextBox.KeyBindings>
+                                                                               </TextBox>
+                                                                               <Button Command="{Binding CreateSubFolderCommand}" Content="Add" HorizontalContentAlignment="Center" FontSize="11" Padding="8,4" Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="4"/>
                                                                            </StackPanel>
                                                                            <Separator Height="1" Background="{DynamicResource CardBorderBrush}"/>
                                                                            <!-- Delete -->
@@ -530,7 +575,6 @@
                                                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#FF5555"/>
                                                                </Button>
     
-                                                               <!-- MASTER FILE BROWSER (New Feature) -->
                                                                <Button Command="{Binding ShowMasterBrowserCommand}"
                                                                        CommandParameter="Left" 
                                                                        Classes="actionBtn"
@@ -539,18 +583,13 @@
                                                                        Cursor="Hand" ToolTip.Tip="Buka Master File Browser">
                                                                    <PathIcon Data="{StaticResource IconFolder}" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                                </Button>
+                                                               <!-- MASTER FILE BROWSER (Removed) -->
                                                            </StackPanel>
                                                        </Panel>
                                                        
                                                        <!-- 3. FOLDER ICON (Hidden if not directory OR if Input is Visible) -->
-                                                       <PathIcon Data="{StaticResource IconFile}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0">
-                                                           <PathIcon.IsVisible>
-                                                               <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                                                   <Binding Path="!IsDirectory"/>
-                                                                   <Binding Path="!IsNewFolderInputVisible"/>
-                                                               </MultiBinding>
-                                                           </PathIcon.IsVisible>
-                                                       </PathIcon>
+                                                       <!-- 3. FOLDER ICON (Hidden if not directory OR if Input is Visible) -->
+                                                       <!-- <PathIcon Data="{StaticResource IconFile}" ... /> -->
     
                                                        <!-- 4. ITEM NAME (Visible when Input is HIDDEN) -->
                                                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" 
@@ -565,7 +604,11 @@
                                                                <ColumnDefinition Width="Auto"/>
                                                            </Grid.ColumnDefinitions>
                                                            <TextBox Grid.Column="0" Text="{Binding NewSubFolderName, Mode=TwoWay}" 
-                                                                    Watermark="Name..." FontSize="11" VerticalAlignment="Center" MinHeight="0" Height="22" Padding="4,2"/>
+                                                                    Watermark="Name..." FontSize="11" VerticalAlignment="Center" MinHeight="0" Height="22" Padding="4,2">
+                                                               <TextBox.KeyBindings>
+                                                                   <KeyBinding Gesture="Enter" Command="{Binding ConfirmNewFolderCommand}"/>
+                                                               </TextBox.KeyBindings>
+                                                           </TextBox>
                                                            <Button Grid.Column="1" Command="{Binding ConfirmNewFolderCommand}" Content="✓" FontSize="10" Width="20" Height="20" MinHeight="0" Padding="0" Margin="2,0" Background="{DynamicResource AccentBlueBrush}" Foreground="White"/>
                                                            <Button Grid.Column="2" Command="{Binding CancelActionCommand}" Content="✕" FontSize="10" Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                        </Grid>
@@ -697,6 +740,7 @@
                             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="10" Margin="0,8,0,14" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
+                                              SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
                                               IsVisible="{Binding !BatchVM.IsMasterBrowserOpenRight}"
                                               SelectionMode="Single"
                                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -792,7 +836,6 @@
                                                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#FF5555"/>
                                                                </Button>
     
-                                                               <!-- MASTER FILE BROWSER (New Feature) -->
                                                                <Button Command="{Binding ShowMasterBrowserCommand}"
                                                                        CommandParameter="Right" 
                                                                        Classes="actionBtn"
@@ -801,18 +844,13 @@
                                                                        Cursor="Hand" ToolTip.Tip="Buka Master File Browser">
                                                                    <PathIcon Data="{StaticResource IconFolder}" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                                </Button>
+                                                               <!-- MASTER FILE BROWSER (Removed) -->
                                                            </StackPanel>
                                                        </Panel>
     
                                                        <!-- 3. FOLDER ICON (Hidden if not directory OR if Input is Visible) -->
-                                                       <PathIcon Data="{StaticResource IconFile}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0">
-                                                           <PathIcon.IsVisible>
-                                                               <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                                                   <Binding Path="!IsDirectory"/>
-                                                                   <Binding Path="!IsNewFolderInputVisible"/>
-                                                               </MultiBinding>
-                                                           </PathIcon.IsVisible>
-                                                       </PathIcon>
+                                                       <!-- 3. FOLDER ICON (Hidden if not directory OR if Input is Visible) -->
+                                                       <!-- <PathIcon Data="{StaticResource IconFile}" ... /> -->
     
                                                        <!-- 4. ITEM NAME (Visible when Input is HIDDEN) -->
                                                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" 
@@ -1030,6 +1068,11 @@
                 <views:CompactPixelcutView DataContext="{Binding PixelcutVM}"
                                            IsVisible="{Binding DataContext.IsPixelcutTabSelected, ElementName=Root}"
                                            Margin="20,0,20,0"/>
+
+                <!-- EXPLORER TAB CONTENT -->
+                <views:OutputExplorerView DataContext="{Binding OutputExplorerVM}"
+                                          IsVisible="{Binding DataContext.IsExplorerTabSelected, ElementName=Root}"
+                                          Margin="20,0,20,0"/>
 
                 <!-- GDRIVE TAB CONTENT -->
                 <views:CompactGdriveView DataContext="{Binding GdriveVM}"

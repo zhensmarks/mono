@@ -14,6 +14,10 @@ public partial class EditingCardListView : UserControl
     {
         InitializeComponent();
         this.PointerPressed += EditingCardListView_PointerPressed;
+        
+        // Fix Scrolling Issue: Focus on Hover
+        this.Focusable = true;
+        this.PointerEntered += (s, e) => this.Focus(); 
     }
 
     private void EditingCardListView_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)

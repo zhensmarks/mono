@@ -3,120 +3,202 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:models="using:BMachine.UI.Models"
              mc:Ignorable="d" d:DesignWidth="290" d:DesignHeight="600"
              x:Class="BMachine.UI.Views.LogPanelSidebar"
              x:DataType="vm:DashboardViewModel">
+
+    <UserControl.DataTemplates>
+        <!-- MASTER NODE TEMPLATE (Shared for Master/Photoshop) - NO ICONS FOR FILES -->
+        <TreeDataTemplate DataType="{x:Type models:MasterNode}" ItemsSource="{Binding Children}">
+            <StackPanel Orientation="Horizontal" Spacing="4" Background="Transparent" Margin="0,2">
+                <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="False"/>
+                <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            </StackPanel>
+        </TreeDataTemplate>
+    </UserControl.DataTemplates>
 
     <Border Background="{DynamicResource TerminalBackgroundBrush}" 
             BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0"
             PointerPressed="OnRootPointerPressed">
         
-    <Grid RowDefinitions="Auto, Auto, *, Auto">
+        <Grid RowDefinitions="Auto, *, Auto">
             
             <!-- HEADER (Row 0) -->
-            <Grid Grid.Row="0" Margin="15,15,15,10" ColumnDefinitions="*, Auto">
-                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ClipToBounds="True">
-                    <!-- Status Dot (Moved to LEFT) -->
-                    <Border Width="8" Height="8" CornerRadius="4" 
-                            Background="{Binding StatusColor}"
-                            VerticalAlignment="Center" Margin="0"/>
-                    
-                    <!-- Status Text (2-line capable, smaller font) -->
-                    <TextBlock Text="{Binding ProcessStatusText}" 
-                               FontWeight="SemiBold" FontSize="11" 
-                               Foreground="{DynamicResource TerminalTextBrush}"
-                               TextWrapping="Wrap" MaxWidth="150" MaxLines="2"
-                               ToolTip.Tip="{Binding ProcessStatusText}"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
+            <Grid Grid.Row="0" Margin="10,12" ColumnDefinitions="Auto, *, Auto">
+                <!-- Mode Selection -->
+                <ComboBox SelectedIndex="{Binding BatchVM.SelectedActivityMode}" 
+                          HorizontalAlignment="Left" VerticalAlignment="Center"
+                          BorderThickness="0" Background="Transparent" 
+                          Height="28" Padding="8,0" FontSize="12" Width="110">
+                    <ComboBoxItem>CONSOLE</ComboBoxItem>
+                    <ComboBoxItem>MASTER</ComboBoxItem>
+                    <ComboBoxItem>PHOTOSHOP</ComboBoxItem>
+                </ComboBox>
                 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                     <!-- Stop Button (Visible only when Processing) -->
-                     <Button Classes="iconBtn" Command="{Binding StopProcessCommand}" 
-                             IsVisible="{Binding IsProcessing}"
-                             ToolTip.Tip="Stop Script">
-                         <PathIcon Data="{StaticResource IconSquare}" Width="14" Height="14" Foreground="#ef4444"/>
-                     </Button>
+                <!-- Search Box (Visible for Master/Photoshop) -->
+                <TextBox Grid.Column="1" Margin="8,0" Height="24" FontSize="11"
+                         Watermark="Search..." Background="#15FFFFFF" BorderThickness="0"
+                         CornerRadius="4" VerticalContentAlignment="Center"
+                         Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}"
+                         IsVisible="{Binding !BatchVM.IsConsoleVisible}">
+                    <TextBox.InnerRightContent>
+                        <PathIcon Data="{DynamicResource IconSearch}" Width="10" Height="10" 
+                                  Margin="0,0,6,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </TextBox.InnerRightContent>
+                </TextBox>
 
-                     <!-- Copy All -->
-                     <Button Classes="iconBtn" Command="{Binding CopyAllLogsCommand}" ToolTip.Tip="Copy All">
-                         <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                     </Button>
-                     <!-- Clear -->
-                     <Button Classes="iconBtn" Command="{Binding ClearLogCommand}" ToolTip.Tip="Clear Console">
-                         <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                     </Button>
-                    <!-- Close REMOVED -->
-                </StackPanel>
+                <!-- Status Dot (Mini) -->
+                <Border Grid.Column="2" Width="8" Height="8" CornerRadius="4" 
+                        Background="{Binding StatusColor}"
+                        Margin="4,0,0,0"
+                        ToolTip.Tip="{Binding ProcessStatusText}"/>
             </Grid>
             
-            <!-- SEPARATOR (Row 1 Bottom) -->
-            <Grid Grid.Row="1" VerticalAlignment="Bottom">
-                <Border Height="1" Background="#1AFFFFFF"/>
-                <Grid>
-                    <ProgressBar Height="2" VerticalAlignment="Top"
-                                 IsVisible="{Binding IsProcessing}"
+            <!-- CONTENT (Row 1) -->
+            <Grid Grid.Row="1">
+                
+                <!-- 1. CONSOLE VIEW -->
+                <Grid IsVisible="{Binding BatchVM.IsConsoleVisible}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Progress Bar (Only visible when processing) -->
+                    <ProgressBar Grid.Row="0" Height="2" IsVisible="{Binding IsProcessing}"
                                  Value="{Binding ProgressValue}" Maximum="{Binding ProgressMax}"
                                  IsIndeterminate="{Binding !IsDeterminateProgress}"
                                  Background="Transparent" Foreground="{DynamicResource PrimaryBrush}"/>
-                                 
-                     <!-- Optional Text Overlay for Progress if needed, or put in header -->
+
+                    <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding LogItems}" Margin="10,0,10,10">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <SelectableTextBlock Text="{Binding Message}" 
+                                               Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
+                                               Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
+                                               Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
+                                               Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
+                                               Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
+                                               Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                               FontSize="11" FontFamily="Consolas, Monospace" 
+                                               TextWrapping="Wrap" Margin="0,1"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </Grid>
+
+                <!-- 2. MASTER BROWSER VIEW -->
+                <TreeView Grid.Row="1" ItemsSource="{Binding BatchVM.MasterNodes}" 
+                          IsVisible="{Binding BatchVM.IsMasterVisible}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          Background="Transparent" BorderThickness="0"
+                          DoubleTapped="OnMasterNodeDoubleTapped">
+                    <TreeView.Styles>
+                         <Style Selector="TreeViewItem">
+                             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                         </Style>
+                    </TreeView.Styles>
+                </TreeView>
+
+                <!-- 3. PHOTOSHOP BROWSER VIEW -->
+                <TreeView Grid.Row="1" ItemsSource="{Binding BatchVM.PhotoshopNodes}"
+                          IsVisible="{Binding BatchVM.IsPhotoshopVisible}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          Background="Transparent" BorderThickness="0"
+                          DoubleTapped="OnPhotoshopNodeDoubleTapped">
+                    <TreeView.Styles>
+                         <Style Selector="TreeViewItem">
+                             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                         </Style>
+                    </TreeView.Styles>
+                </TreeView>
+                
             </Grid>
             
-            <!-- LOG LIST (Row 2) -->
-            <ScrollViewer x:Name="LogScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding LogItems}" Margin="10">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,2">
-                                <!-- Message Only -->
-                                <SelectableTextBlock Text="{Binding Message}" 
-                                           Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
-                                           Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
-                                           Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
-                                           Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
-                                           Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
-                                           Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
-                                           FontSize="12" FontFamily="Consolas, Monospace" 
-                                           TextWrapping="Wrap"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-            
-            <!-- FOOTER REMOVED -->
+            <!-- FOOTER (Row 2) -->
+            <Border Grid.Row="2" Background="#10FFFFFF" Padding="10,8">
+                <Grid ColumnDefinitions="*, Auto">
+                     <!-- Status / Current File -->
+                     <!-- Status / Current File -->
+                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                         
+                         <!-- 1. Connectivity Status REMOVED -->
+                         
+                         <!-- 2. Process Status -->
+
+                         <!-- 2. Process Status -->
+                         <Grid>
+                             <!-- Normal Status -->
+                             <TextBlock Text="{Binding ProcessStatusText}" 
+                                        IsVisible="{Binding !BatchVM.IsMasterVisible}"
+                                        Foreground="{DynamicResource TextSecondaryBrush}" 
+                                        FontSize="10" 
+                                        TextTrimming="CharacterEllipsis" MaxWidth="180"/>
+                             
+                             <!-- Master Browser Target -->
+                             <StackPanel Orientation="Horizontal" IsVisible="{Binding BatchVM.IsMasterVisible}">
+                                 <StackPanel.IsVisible>
+                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                         <Binding Path="BatchVM.IsMasterVisible"/>
+                                         <Binding Path="!BatchVM.IsBusy"/>
+                                     </MultiBinding>
+                                 </StackPanel.IsVisible>
+                                 <TextBlock Text="Copy to " Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10"/>
+                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="10" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
+                             </StackPanel>
+    
+                             <!-- BUSY INDICATOR -->
+                             <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding BatchVM.IsBusy}">
+                                 <ProgressBar IsIndeterminate="True" Width="20" Height="4" VerticalAlignment="Center" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                 <TextBlock Text="{Binding BatchVM.BusyMessage}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="10" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="150"/>
+                             </StackPanel>
+                         </Grid>
+                     </StackPanel>
+                     
+                     <!-- Actions -->
+                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                         <!-- Stop -->
+                         <Button Classes="iconBtn" Command="{Binding StopProcessCommand}" IsVisible="{Binding IsProcessing}" ToolTip.Tip="Stop">
+                             <PathIcon Data="{StaticResource IconSquare}" Width="12" Height="12" Foreground="#ef4444"/>
+                         </Button>
+                         <!-- Copy Log (Console Only) -->
+                         <Button Classes="iconBtn" Command="{Binding CopyAllLogsCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Copy Log">
+                             <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                         </Button>
+                         <!-- Clear Log (Console Only) -->
+                         <Button Classes="iconBtn" Command="{Binding ClearLogCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Clear Log">
+                             <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                         </Button>
+                         
+                         <!-- Master Actions? (Refresh) -->
+                         <Button Classes="iconBtn" Command="{Binding BatchVM.RefreshMasterCommand}" IsVisible="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Refresh">
+                             <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12"/>
+                         </Button>
+                     </StackPanel>
+                </Grid>
+            </Border>
 
         </Grid>
     </Border>
 
     <UserControl.Styles>
-        <Style Selector="Button.iconBtn, ToggleButton.iconBtn">
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#20FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        
+        <Style Selector="Button.iconBtn">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Padding" Value="6"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="CornerRadius" Value="4"/>
         </Style>
-        <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter, ToggleButton.iconBtn:pointerover /template/ ContentPresenter">
+        <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
              <Setter Property="Background" Value="#1AFFFFFF"/>
-             <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style Selector="ToggleButton.iconBtn:checked /template/ ContentPresenter">
-             <Setter Property="Background" Value="#33FFFFFF"/> <!-- Subtle active state -->
-             <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        
-        <!-- Compact ComboBox Styling -->
-        <Style Selector="AutoCompleteBox.compact">
-            <Setter Property="MinHeight" Value="24"/>
-            <Setter Property="Height" Value="24"/>
-            <Setter Property="Padding" Value="6,0"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Background" Value="#2AFFFFFF"/>
-            <Setter Property="Margin" Value="0,4,0,0"/>
         </Style>
         
         <!-- Log Color Styles -->
@@ -129,3 +211,4 @@
 
     </UserControl.Styles>
 </UserControl>
+

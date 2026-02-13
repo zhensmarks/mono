@@ -75,15 +75,17 @@ namespace BMachine.UI.ViewModels;
 
         public void Receive(OpenMasterBrowserMessage message)
         {
-            OpenMasterBrowser(message.TargetNode, message.Side);
+            // Activating this will trigger OnSelectedBatchItemChanged
+            SelectedBatchItem = message.TargetNode;
         }
 
         public void Receive(MasterPathsChangedMessage message)
         {
-            // Reload master files if browser is open, or just clear cache
-            if (IsMasterBrowserOpenLeft || IsMasterBrowserOpenRight)
+            // Reload master files if browser is open, or if we are in Master/Photoshop mode
+            if (IsMasterBrowserOpenLeft || IsMasterBrowserOpenRight || IsMasterVisible || IsPhotoshopVisible)
             {
                 _ = LoadMasterNodes();
+                _ = LoadPhotoshopNodes();
             }
         }
 
@@ -337,7 +339,25 @@ namespace BMachine.UI.ViewModels;
     [ObservableProperty] private string _masterBrowserTargetName = "";
     [ObservableProperty] private string _masterBrowserTargetPath = "";
     [ObservableProperty] private string _masterSearchText = "";
-    [ObservableProperty] private ObservableCollection<MasterNode> _masterNodes = new(); // Changed to MasterNode
+    [ObservableProperty] private ObservableCollection<MasterNode> _masterNodes = new(); 
+    [ObservableProperty] private ObservableCollection<MasterNode> _photoshopNodes = new();
+
+    // Side Panel Modes
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(IsConsoleVisible))]
+    [NotifyPropertyChangedFor(nameof(IsMasterVisible))]
+    [NotifyPropertyChangedFor(nameof(IsPhotoshopVisible))]
+    private int _selectedActivityMode = 0; // 0=Console, 1=Master, 2=Photoshop
+
+    public bool IsConsoleVisible => SelectedActivityMode == 0;
+    public bool IsMasterVisible => SelectedActivityMode == 1;
+    public bool IsPhotoshopVisible => SelectedActivityMode == 2;
+
+    partial void OnSelectedActivityModeChanged(int value)
+    {
+        if (value == 1) _ = LoadMasterNodes();
+        if (value == 2) _ = LoadPhotoshopNodes();
+    }
     
     // Copy Feedback
     [ObservableProperty] private string _copyStatusText = "";
@@ -359,52 +379,246 @@ namespace BMachine.UI.ViewModels;
 
     private async Task LoadMasterNodes(string filter = "")
     {
-        MasterNodes.Clear();
+        if (IsBusy) return;
+        IsBusy = true;
+        BusyMessage = "Loading Master Browser...";
 
-        var paths = new List<string>();
-        
-        // 1. Get Additional Paths from Settings
-        if (_database != null)
+        try
         {
-            var json = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
-            if (!string.IsNullOrEmpty(json))
-            {
-                try {
-                    var loaded = System.Text.Json.JsonSerializer.Deserialize<string[]>(json);
-                    if (loaded != null) paths.AddRange(loaded);
-                } catch {}
-            }
-        }
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => MasterNodes.Clear());
 
-        // 2. Recursive Scan
-        var nodes = await Task.Run(() => 
-        {
-            var result = new List<MasterNode>();
+            var paths = new List<string>();
             
-            foreach (var path in paths)
+            // 1. Get Additional Paths from Settings
+            if (_database != null)
             {
-                if (Directory.Exists(path))
+                var json = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
+                if (!string.IsNullOrEmpty(json))
                 {
-                    var rootNode = ScanDirectory(path, filter);
-                    if (rootNode != null)
+                    try {
+                        var loaded = System.Text.Json.JsonSerializer.Deserialize<string[]>(json);
+                        if (loaded != null) paths.AddRange(loaded);
+                    } catch {}
+                }
+            }
+
+            // 1.5. Include Main Master Path
+            if (!string.IsNullOrEmpty(MasterTemplatePath) && Directory.Exists(MasterTemplatePath))
+            {
+                paths.Add(MasterTemplatePath);
+            }
+
+            // 2. Linear Scan (Top-Level Only)
+            var nodes = await Task.Run(() => 
+            {
+                var result = new List<MasterNode>();
+                
+                foreach (var path in paths)
+                {
+                    if (Directory.Exists(path))
                     {
-                        // Expand only if filtering
-                        if (!string.IsNullOrEmpty(filter)) rootNode.IsExpanded = true;
-                        result.Add(rootNode);
+                        var rootName = Path.GetFileName(path);
+                        if (string.IsNullOrEmpty(rootName)) rootName = path;
+
+                        bool nameMatches = string.IsNullOrEmpty(filter) || rootName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+                        // If not matching by name, check contents
+                        List<MasterNode> matchingChildren = new();
+                        if (!string.IsNullOrEmpty(filter) && !nameMatches)
+                        {
+                            matchingChildren = ScanDirectory(path, filter).ToList();
+                        }
+
+                        // Add if name matches OR has content
+                        if (string.IsNullOrEmpty(filter) || nameMatches || matchingChildren.Any())
+                        {
+                            string childFilter = nameMatches ? "" : filter;
+                            var rootNode = new MasterNode(path, true, (p) => ScanDirectory(p, childFilter));
+                            
+                            if (matchingChildren.Any())
+                            {
+                                rootNode.SetChildren(matchingChildren);
+                                rootNode.IsExpanded = true;
+                            }
+                            else if (!string.IsNullOrEmpty(filter) && nameMatches)
+                            {
+                                rootNode.IsExpanded = true;
+                            }
+                            
+                            result.Add(rootNode);
+                        }
+                    }
+                }
+                return result;
+            });
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                foreach (var node in nodes) MasterNodes.Add(node);
+            });
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyMessage = "";
+        }
+    }
+
+    private async Task LoadPhotoshopNodes(string filter = "")
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        BusyMessage = "Loading Photoshop Browser...";
+
+        try
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => PhotoshopNodes.Clear());
+            var paths = new List<string>();
+            
+            // USE NEW SETTING KEY: Configs.Master.PhotoshopPaths
+            if (_database != null)
+            {
+                var json = await _database.GetAsync<string>("Configs.Master.PhotoshopPaths");
+                if (!string.IsNullOrEmpty(json))
+                {
+                    try {
+                        var loaded = System.Text.Json.JsonSerializer.Deserialize<string[]>(json);
+                        if (loaded != null) paths.AddRange(loaded);
+                    } catch {}
+                }
+            }
+            
+            // Also include global Photoshop Path if not empty and not already added
+            var globalPsPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+            if (!string.IsNullOrEmpty(globalPsPath) && Directory.Exists(globalPsPath) && !paths.Contains(globalPsPath))
+            {
+                paths.Add(globalPsPath);
+            }
+
+            var nodes = await Task.Run(() => 
+            {
+                var result = new List<MasterNode>();
+                foreach (var path in paths)
+                {
+                    if (Directory.Exists(path))
+                    {
+                        var rootName = Path.GetFileName(path);
+                        if (string.IsNullOrEmpty(rootName)) rootName = path;
+
+                        bool nameMatches = string.IsNullOrEmpty(filter) || rootName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                        
+                        List<MasterNode> matchingChildren = new();
+                        if (!string.IsNullOrEmpty(filter) && !nameMatches)
+                        {
+                            matchingChildren = ScanDirectoryImages(path, filter).ToList();
+                        }
+
+                        if (string.IsNullOrEmpty(filter) || nameMatches || matchingChildren.Any())
+                        {
+                            string childFilter = nameMatches ? "" : filter;
+                            var rootNode = new MasterNode(path, true, (p) => ScanDirectoryImages(p, childFilter));
+                            
+                            if (matchingChildren.Any())
+                            {
+                                rootNode.SetChildren(matchingChildren);
+                                rootNode.IsExpanded = true;
+                            }
+                            else if (!string.IsNullOrEmpty(filter) && nameMatches)
+                            {
+                                rootNode.IsExpanded = true;
+                            }
+
+                            result.Add(rootNode);
+                        }
+                    }
+                }
+                return result;
+            });
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                foreach (var node in nodes) PhotoshopNodes.Add(node);
+            });
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyMessage = "";
+        }
+    }
+
+    private IEnumerable<MasterNode> ScanDirectoryImages(string path, string filter)
+    {
+        var results = new List<MasterNode>();
+        
+        try
+        {
+            var opts = new EnumerationOptions { IgnoreInaccessible = true };
+            
+            // 1. Directories
+            foreach (var d in Directory.EnumerateDirectories(path, "*", opts))
+            {
+                if (string.IsNullOrEmpty(filter))
+                {
+                    // No Filter: Standard Lazy Load
+                    var subNode = new MasterNode(d, true, (p) => ScanDirectoryImages(p, filter));
+                    results.Add(subNode);
+                }
+                else
+                {
+                    // Filter: Recursive Logic
+                    var dName = Path.GetFileName(d);
+                    bool nameMatches = !string.IsNullOrEmpty(dName) && dName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                    
+                    List<MasterNode> children = new();
+                    if (!nameMatches)
+                    {
+                        children = ScanDirectoryImages(d, filter).ToList();
+                    }
+
+                    if (nameMatches || children.Any())
+                    {
+                        string childFilter = nameMatches ? "" : filter;
+                        var subNode = new MasterNode(d, true, (p) => ScanDirectoryImages(p, childFilter));
+                        
+                        if (children.Any())
+                        {
+                            subNode.SetChildren(children);
+                            subNode.IsExpanded = true;
+                        }
+                        
+                        results.Add(subNode);
                     }
                 }
             }
-            return result;
-        });
+            
+            // 2. Files
+            var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif" };
+            var files = Directory.EnumerateFiles(path, "*.*", opts)
+                .Where(f => extensions.Contains(Path.GetExtension(f)));
+                
+            foreach (var f in files)
+            {
+                var fName = Path.GetFileName(f);
+                bool matches = string.IsNullOrEmpty(filter) || fName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                
+                if (matches)
+                {
+                    results.Add(new MasterNode(f, false));
+                }
+            }
+        }
+        catch {}
 
-        foreach (var node in nodes) MasterNodes.Add(node);
+        return results;
     }
 
+
     // Recursive Scanner
-    private MasterNode? ScanDirectory(string path, string filter)
+    // Recursive Scanner (Now supports Lazy Loading return IEnumerable)
+    private IEnumerable<MasterNode> ScanDirectory(string path, string filter)
     {
-        var node = new MasterNode(path, true);
-        bool hasContent = false;
+        var results = new List<MasterNode>();
         
         try
         {
@@ -413,11 +627,36 @@ namespace BMachine.UI.ViewModels;
             // Subdirectories
             foreach (var d in Directory.EnumerateDirectories(path, "*", opts))
             {
-                var subNode = ScanDirectory(d, filter);
-                if (subNode != null)
+                if (string.IsNullOrEmpty(filter))
                 {
-                    node.Children.Add(subNode);
-                    hasContent = true;
+                    // Standard
+                    var subNode = new MasterNode(d, true, (p) => ScanDirectory(p, filter));
+                    results.Add(subNode);
+                }
+                else
+                {
+                    // Filter Mode
+                    var dName = Path.GetFileName(d);
+                    bool nameMatches = !string.IsNullOrEmpty(dName) && dName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                    
+                    List<MasterNode> children = new();
+                    if (!nameMatches)
+                    {
+                        children = ScanDirectory(d, filter).ToList();
+                    }
+                    
+                    if (nameMatches || children.Any())
+                    {
+                        string childFilter = nameMatches ? "" : filter;
+                        var subNode = new MasterNode(d, true, (p) => ScanDirectory(p, childFilter));
+                        
+                        if (children.Any())
+                        {
+                            subNode.SetChildren(children);
+                            subNode.IsExpanded = true;
+                        }
+                        results.Add(subNode);
+                    }
                 }
             }
             
@@ -429,34 +668,58 @@ namespace BMachine.UI.ViewModels;
             {
                 var fName = Path.GetFileName(f);
                 
-                // Filter Logic:
-                // If filter is present, check filename OR if parent folder matched (implicit from recursive call structure?)
-                // Actually, if we want to filter, we need to know if this file matches.
-                
                 bool matches = string.IsNullOrEmpty(filter) || fName.Contains(filter, StringComparison.OrdinalIgnoreCase);
                 
                 if (matches)
                 {
-                    node.Children.Add(new MasterNode(f, false));
-                    hasContent = true;
+                    results.Add(new MasterNode(f, false));
                 }
             }
         }
         catch {}
 
-        // If filtering, only return node if it has content (files or subfolders with content)
-        if (!string.IsNullOrEmpty(filter) && !hasContent) return null;
-        
-        // If not filtering, we might want to return empty folders? 
-        // Requirement said: "only include folder that contains .psd/.psb (or subfolder with it)"
-        // So yes, strictly check hasContent.
-        if (!hasContent) return null;
-        
-        // Sort
-        // node.SortChildren(); // Can sort if needed, ObservableCollection doesn't sort automatically
-        
-        return node;
+        return results;
     }
+
+
+
+
+        [ObservableProperty]
+        private object? _selectedBatchItem;
+
+        partial void OnSelectedBatchItemChanged(object? value)
+        {
+            if (value is BatchNodeItem node)
+            {
+                // Update Target
+                _currentTargetNode = node;
+                
+                if (node.IsDirectory)
+                {
+                    MasterBrowserTargetPath = node.FullPath;
+                    MasterBrowserTargetName = node.Name;
+                }
+                else
+                {
+                    MasterBrowserTargetPath = Path.GetDirectoryName(node.FullPath) ?? "";
+                    MasterBrowserTargetName = Path.GetFileName(MasterBrowserTargetPath);
+                }
+
+                // Auto Switch to Master Browser (index 1)
+                SelectedActivityMode = 1;
+            }
+            else if (value is BatchFolderRoot root)
+            {
+                // Try to use SourceRoot if available, otherwise just set path
+                if (root.SourceRoot != null) _currentTargetNode = root.SourceRoot;
+                
+                MasterBrowserTargetPath = root.SourcePath;
+                MasterBrowserTargetName = root.DisplayName;
+                SelectedActivityMode = 1;
+            }
+            
+            _ = LoadMasterNodes();
+        }
 
     private void OpenMasterBrowser(BatchNodeItem target, string side)
     {
@@ -534,6 +797,9 @@ namespace BMachine.UI.ViewModels;
         try
         {
              // Copy in background
+             BusyMessage = $"Copying {item.Name}...";
+             IsBusy = true;
+             
              await Task.Run(() => File.Copy(source, dest));
              
              // Refresh Target Node Children
@@ -567,8 +833,113 @@ namespace BMachine.UI.ViewModels;
         finally
         {
             IsCopying = false;
+            IsBusy = false;
+            BusyMessage = "";
         }
     }
+
+    [RelayCommand]
+    private async Task SendToPhotoshop(MasterNode item)
+    {
+        if (item.IsDirectory) return;
+        
+        IsBusy = true;
+        BusyMessage = $"Placement {item.Name}..."; // "Placement" sounds cool? Or "Placing..."
+        
+        try
+        {
+             // Use Place Embedded Logic
+             // 1. Write target to temp
+             var tempFile = Path.Combine(Path.GetTempPath(), "bmachine_place_target.txt");
+             await File.WriteAllTextAsync(tempFile, item.FullPath);
+             
+             // 2. Resolve script path
+             var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", "place_on_layer.jsx");
+             
+             if (File.Exists(scriptPath))
+             {
+                 // 3. Run Jsx
+                 // We need a Photoshop Path.
+                 var psPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+                 if (!string.IsNullOrEmpty(psPath) && File.Exists(psPath))
+                 {
+                      _platformService.RunJsxInPhotoshop(scriptPath, psPath);
+                      _logService?.AddLog($"[INFO] Sent to Photoshop: {item.Name}");
+                 }
+                 else
+                 {
+                      // Fallback: Just open file if PS not found/configured
+                      _logService?.AddLog("[WARN] Photoshop path not configured. Opening file normally.");
+                      await SendFileToPhotoshop(item.FullPath, item.Name);
+                 }
+             }
+             else
+             {
+                 _logService?.AddLog("[ERROR] Script 'place_on_layer.jsx' not found.");
+                 // Fallback
+                 await SendFileToPhotoshop(item.FullPath, item.Name);
+             }
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Photoshop integration failed: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyMessage = "";
+        }
+    }
+
+    public async Task SendFileToPhotoshop(string fullPath, string name)
+    {
+        try 
+        {
+             // Log
+            _logService?.AddLog($"[INFO] Opening in Photoshop: {name}");
+            
+            await Task.Run(async () => 
+            {
+                // Fallback Reveal? Maybe not needed for direct open
+                // _platformService.RevealFileInExplorer(fullPath); 
+                
+                // Try to Find Photoshop executable or just Shell Execute
+                // 1. Try User Configured Path
+                string psPath = "";
+                if (_database != null)
+                {
+                     psPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath") ?? "";
+                }
+
+                // 2. Fallback to Helper
+                if (string.IsNullOrEmpty(psPath) || !File.Exists(psPath))
+                {
+                    var psPaths = _platformService.GetPhotoshopSearchPaths();
+                    psPath = psPaths.FirstOrDefault(p => File.Exists(p));
+                }
+                
+                if (!string.IsNullOrEmpty(psPath) && File.Exists(psPath))
+                {
+                     // Use specific Photoshop executable
+                     Process.Start(new ProcessStartInfo(psPath) { Arguments = $"\"{fullPath}\"", UseShellExecute = false });
+                }
+                else
+                {
+                    // Default Shell Execute (System Default)
+                    Process.Start(new ProcessStartInfo(fullPath) { UseShellExecute = true });
+                    if (string.IsNullOrEmpty(psPath)) 
+                    {
+                         _logService?.AddLog("[WARN] Photoshop path not found, using system default.");
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Failed to open: {ex.Message}");
+        }
+    }
+
 
     // --- SCRIPT EXECUTION CONTROLS ---
     
@@ -1213,6 +1584,13 @@ namespace BMachine.UI.ViewModels;
             LoadScripts(); // Reload immediately
         }
     }
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    [ObservableProperty]
+    private string _busyMessage = "";
 }
+
 
 

@@ -41,6 +41,7 @@ public interface IDatabase
     Task SetAsync<T>(string key, T value) where T : class;
     Task DeleteAsync(string key);
     Task<IEnumerable<T>> QueryAsync<T>(Func<T, bool> predicate) where T : class;
+    string DatabasePath { get; }
 }
 
 /// <summary>

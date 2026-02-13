@@ -10,6 +10,7 @@
     <Compile Update="**\*.axaml.cs" DependentUpon="%(Filename)" />
     <!-- <AvaloniaResource Include="**\*.axaml" /> Removed to avoid duplicates -->
     <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Styles\**\*.axaml" />
     <Content Include="Assets\Avatars\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

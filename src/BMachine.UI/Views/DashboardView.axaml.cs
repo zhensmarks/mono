@@ -222,9 +222,9 @@ public partial class DashboardView : UserControl
         {
             if (sender is Control control && control.DataContext is BatchNodeItem item)
             {
-                if (item.OpenTextCommand.CanExecute(null))
+                if (DataContext is DashboardViewModel vm)
                 {
-                    item.OpenTextCommand.Execute(null);
+                    HandleDoubleTap(item, vm);
                     e.Handled = true;
                 }
             }
@@ -253,4 +253,42 @@ public partial class DashboardView : UserControl
             }
         }
     }
+
+
+    private void HandleDoubleTap(BatchNodeItem item, DashboardViewModel vm)
+    {
+        if (item.IsDirectory) return;
+        
+        string ext = System.IO.Path.GetExtension(item.FullPath).ToLower();
+        if (string.IsNullOrEmpty(ext)) return;
+
+        // Text Files -> Console
+        string[] textExts = { ".txt", ".json", ".xml", ".log", ".md", ".jsx", ".js", ".csv", ".ini" };
+        if (textExts.Contains(ext))
+        {
+             if (item.OpenTextCommand.CanExecute(null)) 
+             {
+                 item.OpenTextCommand.Execute(null);
+                 vm.BatchVM.SelectedActivityMode = 0; // Switch to Console
+             }
+        }
+        // Photoshop Files -> Photoshop
+        else if (ext == ".psd" || ext == ".psb")
+        {
+             _ = vm.BatchVM.SendFileToPhotoshop(item.FullPath, item.Name);
+        }
+        // Images -> Default Viewer
+        else if (ext == ".jpg" || ext == ".png" || ext == ".jpeg" || ext == ".bmp" || ext == ".tiff" || ext == ".tif")
+        {
+             try 
+             {
+                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(item.FullPath) { UseShellExecute = true });
+             }
+             catch (Exception ex)
+             {
+                 System.Diagnostics.Debug.WriteLine($"Failed to open image: {ex.Message}");
+             }
+        }
+    }
 }
+

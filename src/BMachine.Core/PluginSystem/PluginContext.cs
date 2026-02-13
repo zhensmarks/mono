@@ -96,4 +96,6 @@ internal class ScopedDatabase : IDatabase
     
     public Task<IEnumerable<T>> QueryAsync<T>(Func<T, bool> predicate) where T : class 
         => _inner.QueryAsync(predicate);
+
+    public string DatabasePath => _inner.DatabasePath;
 }
