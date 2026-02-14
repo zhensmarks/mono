@@ -970,14 +970,6 @@ namespace BMachine.UI.ViewModels;
         }
     }
     
-    public class BatchScriptOption
-    {
-        public string Name { get; set; } = "";
-        public string OriginalName { get; set; } = ""; // Original Filename
-        public string Path { get; set; } = "";
-        public Avalonia.Media.StreamGeometry? IconGeometry { get; set; }
-    }
-
     [ObservableProperty]
     private ObservableCollection<BatchScriptOption> _masterScriptOptions = new();
 

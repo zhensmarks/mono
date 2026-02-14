@@ -101,14 +101,34 @@ public partial class MainWindow : Window
             var saved = await vm.GetSavedWindowState();
             if (saved != null)
             {
-                this.Width = saved.Value.W;
-                this.Height = saved.Value.H;
-                this.WindowState = saved.Value.State;
-                // Only restore position if valid (not 0,0 typically, unless intended)
-                // But 0,0 is valid. Maybe checks if screen bounds contain it?
-                // For now, trust the saved value.
-                this.Position = new Avalonia.PixelPoint(saved.Value.X, saved.Value.Y);
-                this.WindowStartupLocation = WindowStartupLocation.Manual;
+                // Validate Position (Ensure window is on screen)
+                bool isOnScreen = false;
+                var targetRect = new PixelRect(saved.Value.X, saved.Value.Y, (int)saved.Value.W, (int)saved.Value.H);
+                
+                foreach(var screen in this.Screens.All)
+                {
+                    if (screen.Bounds.Intersects(targetRect))
+                    {
+                        isOnScreen = true;
+                        break;
+                    }
+                }
+
+                if (isOnScreen)
+                {
+                    this.Width = saved.Value.W;
+                    this.Height = saved.Value.H;
+                    this.WindowState = saved.Value.State;
+                    this.Position = new Avalonia.PixelPoint(saved.Value.X, saved.Value.Y);
+                    this.WindowStartupLocation = WindowStartupLocation.Manual;
+                }
+                else
+                {
+                    // Fallback to CenterScreen if off-screen
+                    this.Width = saved.Value.W; // Keep size
+                    this.Height = saved.Value.H;
+                    this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
             }
         }
     }

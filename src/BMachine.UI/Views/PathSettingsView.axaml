@@ -9,9 +9,36 @@
 
     <ScrollViewer>
         <StackPanel Spacing="20" Margin="20">
-            <TextBlock Text="Script Master Paths" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextControlForeground}"/>
-            <TextBlock Text="Set location for Master Design folders used by Python scripts." 
+            <TextBlock Text="Explorer &amp; Paths Configuration" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextControlForeground}"/>
+            <TextBlock Text="Set default locations for Local Output, Photoshop, and Master Design assets." 
                        FontSize="14" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
+
+            <!-- Explorer Defaults (Global Settings - MOVED TO TOP) -->
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
+                    
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Default Local Output (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="If set, you only need to pick Input folder." FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" IsReadOnly="True" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="LocalOutput" Classes="Primary"/>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Master OKE BASE (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathOkeBase}" IsReadOnly="True" Watermark="Not Set (Fitur OKE BASE Non-aktif)" Margin="0,0,10,0"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OkeBase" Classes="Primary"/>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Photoshop Executable (.exe)" VerticalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Required for JSX Scripts" FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" IsReadOnly="True" Watermark="Select Photoshop.exe" Margin="0,0,10,0"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
 
             <!-- TAMBAHAN MASTER (New Feature) -->
             <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
@@ -80,32 +107,6 @@
                             <TextBlock Text="Tambah Folder Photoshop" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                </StackPanel>
-            </Border>
-
-            <!-- Global / General -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="Global Settings" FontWeight="SemiBold" FontSize="16"/>
-                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Master OKE BASE (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathOkeBase}" IsReadOnly="True" Watermark="Not Set (Fitur OKE BASE Non-aktif)" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OkeBase" Classes="Primary"/>
-                    </Grid>
-
-                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Default Local Output (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="If set, you only need to pick Input folder." FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" IsReadOnly="True" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="LocalOutput" Classes="Primary"/>
-                    </Grid>
-
-                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Photoshop Executable (.exe)" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Required for JSX Scripts" FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" IsReadOnly="True" Watermark="Select Photoshop.exe" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary"/>
-                    </Grid>
                 </StackPanel>
             </Border>
 

@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="BMachine.UI.Views.ExplorerSettingsView"
+             x:DataType="vm:ExplorerSettingsViewModel">
+
+    <ScrollViewer>
+        <StackPanel Spacing="20" Margin="0,0,20,20">
+            
+            <!-- Header -->
+            <TextBlock Text="Explorer Features" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+            <TextBlock Text="Customize the behavior and defaults of the Explorer." Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" Margin="0,-10,0,0"/>
+
+            <!-- Explorer Defaults (Moved from Paths) -->
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
+                    <TextBlock Text="Set default locations for the browser." FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Default Local Output (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" IsReadOnly="True" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="LocalOutput" Classes="Primary"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Shortcuts (Placeholder UI) -->
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Shortcuts" FontWeight="SemiBold" FontSize="16"/>
+                    <TextBlock Text="Customize keyboard shortcuts for common actions." FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                    
+                    <Grid ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto, Auto, Auto" Margin="0,5,0,0">
+                        <!-- New Folder -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="New Folder" VerticalAlignment="Center" Width="150"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ShortcutNewFolder}" IsReadOnly="True" Margin="0,0,10,10"/>
+                        <Button Grid.Row="0" Grid.Column="2" Content="Edit" IsEnabled="False" Classes="Secondary" Margin="0,0,0,10"/>
+
+                        <!-- New File -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="New File" VerticalAlignment="Center" Width="150"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ShortcutNewFile}" IsReadOnly="True" Margin="0,0,10,10"/>
+                        <Button Grid.Row="1" Grid.Column="2" Content="Edit" IsEnabled="False" Classes="Secondary" Margin="0,0,0,10"/>
+                        
+                         <!-- Focus Search -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Focus Address Bar" VerticalAlignment="Center" Width="150"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ShortcutFocusSearch}" IsReadOnly="True" Margin="0,0,10,0"/>
+                        <Button Grid.Row="2" Grid.Column="2" Content="Edit" IsEnabled="False" Classes="Secondary" Margin="0,0,0,0"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+            
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

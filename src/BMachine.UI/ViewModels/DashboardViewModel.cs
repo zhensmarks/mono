@@ -15,15 +15,17 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using BMachine.UI.Messages; // Ensure this is available or add if missing
+using BMachine.Core.Platform;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>, IRecipient<NavigateToPageMessage>
 {
     private readonly IActivityService _activityService;
     private readonly IDatabase _database;
     private readonly ILanguageService? _languageService;
     private readonly Services.IProcessLogService? _logService;
+    private readonly IPlatformService _platformService;
     private Services.FileOperationManager _fileManager; // Added
 
     public IDatabase Database => _database;
@@ -108,6 +110,20 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     partial void OnNavPixelcutTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Pixelcut", value);
     partial void OnNavBatchTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Batch", value);
     partial void OnNavLockerTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Locker", value);
+
+    public void Receive(NavigateToPageMessage message)
+    {
+        switch (message.PageName)
+        {
+             case "Dashboard": SelectedTabIndex = 0; break;
+             case "Batch": SelectedTabIndex = 1; break;
+             case "Locker": SelectedTabIndex = 2; break;
+             case "Pixelcut": SelectedTabIndex = 3; break;
+             case "Gdrive": SelectedTabIndex = 4; break;
+             case "Points": SelectedTabIndex = 5; break;
+             case "Explorer": SelectedTabIndex = 6; break;
+        }
+    }
 
     partial void OnIsOutputExplorerVisibleChanged(bool value)
     {
@@ -503,11 +519,13 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         IDatabase database,
         IActivityService activityService, 
         ILanguageService? languageService = null, 
-        Services.IProcessLogService? logService = null)
+        Services.IProcessLogService? logService = null,
+        IPlatformService? platformService = null)
     {
         try
         {
-            var logPath = System.IO.Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "startup_log.txt");
+            _platformService = platformService ?? PlatformServiceFactory.Get();
+            var logPath = System.IO.Path.Combine(_platformService.GetAppDataDirectory(), "startup_log.txt");
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] DashboardViewModel CTOR Started\n");
 
             StatPoints = "0";
@@ -560,7 +578,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             _folderLockerVM = new FolderLockerViewModel();
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init BatchVM...\n");
-            _batchVM = new BatchViewModel(database, logService);
+            _batchVM = new BatchViewModel(database, logService, _platformService);
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init PixelcutVM...\n");
             _pixelcutVM = new PixelcutViewModel(database);
@@ -578,7 +596,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             _fileManager = new BMachine.UI.Services.FileOperationManager(); // Init Manager
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init OutputExplorerVM...\n");
-            _outputExplorerVM = new OutputExplorerViewModel(database, new BMachine.UI.Services.NotificationService(), _fileManager); // Init Explorer
+            _outputExplorerVM = new OutputExplorerViewModel(database, new BMachine.UI.Services.NotificationService(), _fileManager, _platformService); // Init Explorer
             
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init ConnectivityTimer...\n");
             // Connectivity Check Timer

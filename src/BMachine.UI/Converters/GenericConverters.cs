@@ -88,3 +88,32 @@ public class StringEqualsConverter : IValueConverter
         return AvaloniaProperty.UnsetValue;
     }
 }
+
+public class EnumMatchConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value == null || parameter == null) return false;
+        
+        string checkValue = value.ToString() ?? "";
+        string targetValue = parameter.ToString() ?? "";
+        
+        return checkValue.Equals(targetValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool boolValue && boolValue && parameter != null)
+        {
+            try
+            {
+                if (targetType.IsEnum)
+                {
+                    return Enum.Parse(targetType, parameter.ToString()!);
+                }
+            }
+            catch {}
+        }
+        return AvaloniaProperty.UnsetValue;
+    }
+}

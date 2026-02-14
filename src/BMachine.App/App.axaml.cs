@@ -72,31 +72,59 @@ public partial class App : Application,
         base.OnFrameworkInitializationCompleted();
     }
 
+    private void Log(string message)
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.Personal), "BMachine_Startup.log");
+            System.IO.File.AppendAllText(path, $"[{DateTime.Now:HH:mm:ss}] {message}\n");
+        }
+        catch { }
+    }
+
     private async Task InitializeAppAsync(IClassicDesktopStyleApplicationLifetime desktop, Window splashWindow, SplashViewModel splashVm)
     {
+        Log("InitializeAppAsync Started");
         await Task.Delay(100); 
 
         try 
         {
             // 2. Initialize Services (Background)
+            Log("Creating DatabaseService...");
             _db = new DatabaseService();
+            Log("DatabaseService Created.");
+
             _logService = new ProcessLogService(); 
 
+            Log("Creating Bootstrapper...");
             var bootstrapper = new Bootstrapper(_db);
             var progress = new Progress<double>(p => splashVm.Progress = p);
-            IProgress<string> status = new Progress<string>(s => splashVm.StatusText = s);
+            IProgress<string> status = new Progress<string>(s => 
+            {
+                splashVm.StatusText = s;
+                Log($"[Bootstrapper] {s}");
+            });
 
             // Run initialization
+            Log("Running Bootstrapper.InitializeAsync...");
             await bootstrapper.InitializeAsync(progress, status);
+            Log("Bootstrapper Completed.");
 
             // 3. Create Main Window
+            Log("Creating MainWindow...");
             var mainWindow = new BMachine.App.Views.MainWindow(); 
+            Log("Creating MainWindowViewModel...");
             mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(_db, _logService);
+            Log("MainWindowViewModel Created.");
             
             // 4. Swap Windows
+            Log("Swapping to MainWindow...");
             desktop.MainWindow = mainWindow;
             mainWindow.Show();
+            Log("MainWindow.Show() called.");
+            
             splashWindow.Close();
+            Log("SplashWindow Closed.");
             _mainWindow = mainWindow;
             
             // Hook Focus Events
@@ -108,6 +136,7 @@ public partial class App : Application,
             // 5. Post-Init (Hooks)
             try
             {
+                Log("Initializing InputHook...");
                 _inputHook = new GlobalInputHookService();
                 _inputHook.OnTriggerDown += OnRadialTrigger;
                 _inputHook.OnTriggerUp += OnRadialRelease;
@@ -115,9 +144,11 @@ public partial class App : Application,
                 _inputHook.OnRecorded += OnShortcutRecorded;
                 
                 LoadInitialShortcutConfig();
+                Log("InputHook Initialized.");
             }
             catch(Exception ex)
             {
+                Log($"[Hook Error] Failed to init global hook: {ex.Message}");
                 _logService.AddLog($"[Hook Error] Failed to init global hook: {ex.Message}");
             }
 
@@ -128,9 +159,11 @@ public partial class App : Application,
             };
             
             WeakReferenceMessenger.Default.RegisterAll(this);
+            Log("Initialization Complete.");
         }
         catch (Exception ex)
         {
+             Log($"[CRITICAL ERROR] Launch Failed: {ex}");
              Console.WriteLine($"Error launching App: {ex.Message}");
              splashWindow.Close();
         }

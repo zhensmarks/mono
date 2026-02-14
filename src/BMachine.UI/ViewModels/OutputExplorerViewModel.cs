@@ -9,9 +9,11 @@ using System.Diagnostics;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
-
-using BMachine.UI.Messages;
-using Avalonia.Controls.ApplicationLifetimes; // Added for Clipboard access
+using Avalonia.Controls.ApplicationLifetimes;
+using System.Runtime.InteropServices;
+using BMachine.UI.Models;
+using BMachine.Core.Platform;
+using BMachine.UI.Views;
 
 namespace BMachine.UI.ViewModels;
 
@@ -20,6 +22,7 @@ public partial class OutputExplorerViewModel : ObservableObject
     private readonly IDatabase _database;
     private readonly INotificationService _notificationService;
     private readonly Services.FileOperationManager _fileManager;
+    private readonly IPlatformService _platformService;
 
     [ObservableProperty] private string _currentPath = "";
     [ObservableProperty] private ObservableCollection<object> _items = new(); // Changed to object to support Headers
@@ -39,13 +42,16 @@ public partial class OutputExplorerViewModel : ObservableObject
 
     public string RootPath { get; private set; } = "";
 
-    public OutputExplorerViewModel(IDatabase database, INotificationService notificationService, Services.FileOperationManager fileManager)
+    public OutputExplorerViewModel(IDatabase database, INotificationService notificationService, Services.FileOperationManager fileManager, IPlatformService platformService)
     {
         _database = database;
         _notificationService = notificationService;
         _fileManager = fileManager;
+        _platformService = platformService;
+        
         
         LoadRootPath();
+        LoadScripts(); // Ensure scripts are loaded on init
         
         // Listen for path changes
         WeakReferenceMessenger.Default.Register<MasterPathsChangedMessage>(this, (r, m) => 
@@ -193,6 +199,13 @@ public partial class OutputExplorerViewModel : ObservableObject
             if (double.TryParse(savedSidebarWidthStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double savedWidth) && savedWidth > 0)
             {
                 SidebarWidth = new Avalonia.Controls.GridLength(savedWidth);
+            }
+            
+            // Load Show Path Bar
+            var showPathStr = await _database.GetAsync<string>("Configs.Explorer.ShowPathBar");
+            if (!string.IsNullOrEmpty(showPathStr) && bool.TryParse(showPathStr, out bool showPath))
+            {
+                IsShowPathBar = showPath;
             }
 
             // Load Quick Access
@@ -437,25 +450,19 @@ public partial class OutputExplorerViewModel : ObservableObject
         if (localSettings != null)
         {
             // Apply Local
-            _isLocalSettings = true; 
-            OnPropertyChanged(nameof(IsLocalSettings));
+            IsLocalSettings = true; 
             
-            if (System.Enum.TryParse<ExplorerSortOption>(localSettings.SortBy, out var s)) _sortBy = s;
-            _isSortDescending = localSettings.IsSortDescending;
-            if (System.Enum.TryParse<ExplorerLayoutMode>(localSettings.LayoutMode, out var l)) _layoutMode = l;
-            if (System.Enum.TryParse<ExplorerGroupBy>(localSettings.GroupBy, out var g)) _groupBy = g;
+            if (System.Enum.TryParse<ExplorerSortOption>(localSettings.SortBy, out var s)) SortBy = s;
+            IsSortDescending = localSettings.IsSortDescending;
+            if (System.Enum.TryParse<ExplorerLayoutMode>(localSettings.LayoutMode, out var l)) LayoutMode = l;
+            if (System.Enum.TryParse<ExplorerGroupBy>(localSettings.GroupBy, out var g)) GroupBy = g;
             
-            OnPropertyChanged(nameof(SortBy));
-            OnPropertyChanged(nameof(IsSortDescending));
-            OnPropertyChanged(nameof(LayoutMode));
-            OnPropertyChanged(nameof(GroupBy));
             OnLayoutChanged_UI();
         }
         else
         {
             // Apply Global Defaults
-            _isLocalSettings = false;
-            OnPropertyChanged(nameof(IsLocalSettings));
+            IsLocalSettings = false;
 
             // Load Globals (Stored as Strings to satisfy 'where T : class')
             var gSort = await _database.GetAsync<string>("Configs.Explorer.SortBy");
@@ -463,22 +470,18 @@ public partial class OutputExplorerViewModel : ObservableObject
             var gMode = await _database.GetAsync<string>("Configs.Explorer.ViewMode");
             var gGroup = await _database.GetAsync<string>("Configs.Explorer.GroupBy");
 
-            if (!string.IsNullOrEmpty(gSort) && System.Enum.TryParse<ExplorerSortOption>(gSort, out var s)) _sortBy = s;
-            else _sortBy = ExplorerSortOption.Name;
+            if (!string.IsNullOrEmpty(gSort) && System.Enum.TryParse<ExplorerSortOption>(gSort, out var s)) SortBy = s;
+            else SortBy = ExplorerSortOption.Name;
 
-            if (!string.IsNullOrEmpty(gDescStr) && bool.TryParse(gDescStr, out var d)) _isSortDescending = d;
-            else _isSortDescending = false; // Default
+            if (!string.IsNullOrEmpty(gDescStr) && bool.TryParse(gDescStr, out var d)) IsSortDescending = d;
+            else IsSortDescending = false; // Default
 
-            if (!string.IsNullOrEmpty(gMode) && System.Enum.TryParse<ExplorerLayoutMode>(gMode, out var l)) _layoutMode = l;
-            else _layoutMode = ExplorerLayoutMode.Vertical;
+            if (!string.IsNullOrEmpty(gMode) && System.Enum.TryParse<ExplorerLayoutMode>(gMode, out var l)) LayoutMode = l;
+            else LayoutMode = ExplorerLayoutMode.Vertical;
 
-            if (!string.IsNullOrEmpty(gGroup) && System.Enum.TryParse<ExplorerGroupBy>(gGroup, out var g)) _groupBy = g;
-            else _groupBy = ExplorerGroupBy.Date;
+            if (!string.IsNullOrEmpty(gGroup) && System.Enum.TryParse<ExplorerGroupBy>(gGroup, out var g)) GroupBy = g;
+            else GroupBy = ExplorerGroupBy.Date;
 
-            OnPropertyChanged(nameof(SortBy));
-            OnPropertyChanged(nameof(IsSortDescending));
-            OnPropertyChanged(nameof(LayoutMode));
-            OnPropertyChanged(nameof(GroupBy));
             OnLayoutChanged_UI();
         }
         // Finally load items
@@ -682,11 +685,11 @@ try {{
         if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
              var clipboard = desktop.MainWindow?.Clipboard;
-             if (clipboard != null)
-             {
-                 await clipboard.SetDataObjectAsync(data);
-                 _notificationService.ShowSuccess($"Copied {items.Count} items to clipboard");
-             }
+            if (clipboard != null)
+            {
+                await clipboard.SetDataObjectAsync(data);
+                _notificationService.ShowSuccess($"Copied {items.Count} items to clipboard");
+            }
         }
     }
 
@@ -1089,12 +1092,491 @@ try {{
         }
     }
 
+    public string ShowInExplorerHeader => RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "Show in Finder" : "Show in Explorer";
+
     private bool IsSubfolderOf(string path, string root)
     {
         if (string.IsNullOrEmpty(root)) return false;
         var p = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
         var r = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
         return p.StartsWith(r, System.StringComparison.OrdinalIgnoreCase) && p.Length > r.Length;
+    }
+
+    // --- CONTEXT MENU EXTENSIONS & SCRIPT LOGIC ---
+
+
+    [RelayCommand]
+    public async Task CopyPath(object? parameter)
+    {
+        var items = GetSelectedItems(parameter);
+        if (!items.Any()) return;
+
+        var text = string.Join(Environment.NewLine, items.Select(x => x.FullPath));
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+             var clipboard = desktop.MainWindow?.Clipboard;
+             if (clipboard != null)
+             {
+                 await clipboard.SetTextAsync(text);
+                 _notificationService.ShowSuccess("Path copied to clipboard.");
+             }
+        }
+    }
+
+    [RelayCommand]
+    public async Task CopyName(object? parameter)
+    {
+        var items = GetSelectedItems(parameter);
+        if (!items.Any()) return;
+
+        var text = string.Join(Environment.NewLine, items.Select(x => x.Name));
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+             var clipboard = desktop.MainWindow?.Clipboard;
+             if (clipboard != null)
+             {
+                 await clipboard.SetTextAsync(text);
+                 _notificationService.ShowSuccess("Name copied to clipboard.");
+             }
+        }
+    }
+
+    [RelayCommand]
+    public void BatchAction(object? parameter)
+    {
+        var items = GetSelectedItems(parameter);
+        if (items.FirstOrDefault(x => x.IsDirectory) is { } folder)
+        {
+             WeakReferenceMessenger.Default.Send(new NavigateToPageMessage("Batch"));
+        }
+    }
+
+    [RelayCommand]
+    public async Task BatchScript(object? parameter)
+    {
+         if (parameter is not BatchScriptOption script) return;
+         await ExecuteFolderScript(script);
+    }
+    
+    // UI Toggles
+    [ObservableProperty] private bool _isShowPathBar = true;
+    
+    [RelayCommand]
+    public void ToggleShowPath()
+    {
+        IsShowPathBar = !IsShowPathBar;
+    }
+
+    partial void OnIsShowPathBarChanged(bool value)
+    {
+        _database.SetAsync("Configs.Explorer.ShowPathBar", value.ToString());
+    }
+
+    [RelayCommand]
+    public void ToggleLocalSettings()
+    {
+        IsLocalSettings = !IsLocalSettings;
+    }
+
+    [RelayCommand]
+    public void NewExplorerWindow()
+    {
+        string logPath = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), "BMachine_ExplorerWindow.log");
+        void Log(string msg) 
+        {
+            try { File.AppendAllText(logPath, $"{DateTime.Now}: {msg}\n"); } catch { }
+            System.Console.WriteLine(msg);
+        }
+
+        try 
+        {
+             Log("[NewExplorerWindow] Command Executed.");
+             // Create a new instance of the ViewModel for the new window
+             // Reuse the SAME services to share state (except maybe navigation state which is new)
+             var vm = new OutputExplorerViewModel(_database, _notificationService, _fileManager, _platformService);
+             
+             Log("[NewExplorerWindow] ViewModel Created.");
+
+             // Initial path: Should it match current path?
+             if (!string.IsNullOrEmpty(CurrentPath) && Directory.Exists(CurrentPath))
+             {
+                 // We could set it, but LoadRootPath is async and might overwrite. 
+                 // For now, let it load default. Deep linking can be added later if requested.
+             }
+
+             var win = new BMachine.UI.Views.ExplorerWindow
+             {
+                 DataContext = vm
+             };
+             
+             // Inject Database for persistence
+             win.Init(_database);
+             
+             Log("[NewExplorerWindow] Window Created. Calling Show().");
+             win.Show();
+             Log("[NewExplorerWindow] Window Shown.");
+        }
+        catch (System.Exception ex)
+        {
+            Log($"[NewExplorerWindow] ERROR: {ex.Message}");
+            Log(ex.StackTrace ?? "");
+            _notificationService.ShowError($"Failed to open new window: {ex.Message}");
+        }
+    }
+
+    // --- BATCH SCRIPT SUB-MENU LOGIC ---
+
+    [ObservableProperty]
+    private ObservableCollection<BatchScriptOption> _scriptOptions = new();
+
+    private Dictionary<string, ScriptConfig> _scriptAliases = new();
+    private string _metadataPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+
+    private void LoadMetadata()
+    {
+        try
+        {
+            if (File.Exists(_metadataPath))
+            {
+                var json = File.ReadAllText(_metadataPath);
+                try 
+                {
+                    _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ScriptConfig>>(json) ?? new();
+                }
+                catch
+                {
+                    _scriptAliases = new(); 
+                }
+            }
+        }
+        catch { _scriptAliases = new(); }
+    }
+
+    public void LoadScripts() 
+    {
+        try
+        {
+            LoadMetadata();
+            var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
+            var customScripts = _database.GetAsync<string>("Configs.System.ScriptsPath").Result; 
+             if (!string.IsNullOrEmpty(customScripts) && Directory.Exists(customScripts))
+            {
+                baseDir = customScripts;
+            }
+            
+            var masterDir = Path.Combine(baseDir, "Master");
+            if (Directory.Exists(masterDir))
+            {
+                var pyFiles = Directory.GetFiles(masterDir, "*.py");
+                var list = new List<(BatchScriptOption Option, int Order)>();
+
+                foreach(var f in pyFiles)
+                {
+                    var fname = Path.GetFileName(f);
+                    string display = Path.GetFileNameWithoutExtension(fname);
+                    int order = 9999;
+
+                    if (_scriptAliases.ContainsKey(fname))
+                    {
+                        var config = _scriptAliases[fname];
+                        display = config.Name;
+                        order = config.Order;
+                    }
+
+                    list.Add((new BatchScriptOption 
+                    { 
+                        Name = display, 
+                        OriginalName = fname,
+                        Path = f 
+                    }, order));
+                }
+
+                var sortedList = list.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
+                ScriptOptions = new ObservableCollection<BatchScriptOption>(sortedList);
+            }
+        }
+        catch { }
+    }
+
+    private async Task ExecuteFolderScript(BatchScriptOption script)
+    {
+        if (script == null) return;
+        
+        var items = GetSelectedItems(null); 
+        var folders = items.Where(x => x.IsDirectory).ToList();
+        
+        if (!folders.Any()) return;
+
+        var scriptName = Path.GetFileName(script.Path);
+        _notificationService.ShowSuccess($"Executing {script.Name} on {folders.Count} folders...");
+        
+        try
+        {
+            string masterPrimary = ""; 
+            string masterSecondary = ""; 
+            string okeBasePath = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? "";
+            string userName = await _database.GetAsync<string>("User.Name") ?? "USER";
+            string outputBasePath = RootPath; 
+
+            string lowerScript = scriptName.ToLower();
+
+            if (lowerScript.Contains("wisuda"))
+            {
+                masterPrimary = await _database.GetAsync<string>("Configs.Master.Wisuda10RP") ?? "";
+                masterSecondary = await _database.GetAsync<string>("Configs.Master.Wisuda8R") ?? "";
+            }
+            else if (lowerScript.Contains("manasik"))
+            {
+                masterPrimary = await _database.GetAsync<string>("Configs.Master.Manasik10RP") ?? "";
+                masterSecondary = await _database.GetAsync<string>("Configs.Master.Manasik8R") ?? "";
+            }
+            else if (lowerScript.Contains("profesi"))
+            {
+                 masterPrimary = await _database.GetAsync<string>("Configs.Master.Profesi") ?? "";
+                 masterSecondary = await _database.GetAsync<string>("Configs.Master.Sporty") ?? "";
+            }
+            else if (lowerScript.Contains("pasfoto") || lowerScript.Contains("pas_foto"))
+            {
+                 masterPrimary = await _database.GetAsync<string>("Configs.Master.PasFoto") ?? "";
+            }
+            else
+            {
+                 masterPrimary = await _database.GetAsync<string>("Configs.Master.LastTemplatePath") ?? "";
+            }
+
+            foreach (var folder in folders)
+            {
+                string CleanPath(string p) => string.IsNullOrEmpty(p) ? "" : p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                var args = new List<string>
+                {
+                    "Scripts/batch_wrapper.py",
+                    "--target", scriptName,
+                    "--pilihan", CleanPath(folder.FullPath), 
+                    "--master", CleanPath(masterPrimary),
+                    "--master2", CleanPath(masterSecondary),
+                    "--output", CleanPath(outputBasePath),
+                    "--okebase", CleanPath(okeBasePath)
+                };
+
+                var envVars = new Dictionary<string, string> { { "BMACHINE_USER_NAME", userName } };
+
+                await _platformService.RunPythonScriptAsync(
+                    "Scripts/batch_wrapper.py",
+                    args.Skip(1).ToList(), 
+                    envVars,
+                    onOutput: (s) => {},
+                    onError: (s) => {}
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            _notificationService.ShowError($"Script error: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    public async Task CreateNewFolder(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var path = Path.Combine(CurrentPath, name);
+        try 
+        {
+            Directory.CreateDirectory(path);
+            Refresh();
+        } 
+        catch (Exception ex)
+        {
+            _notificationService.ShowError($"Failed to create folder: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    public async Task CreateNewFile(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        if (!name.Contains(".")) name += ".txt";
+        
+        var path = Path.Combine(CurrentPath, name);
+        try 
+        {
+            await File.WriteAllTextAsync(path, "");
+            Refresh();
+        } 
+        catch (Exception ex)
+        {
+            _notificationService.ShowError($"Failed to create file: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    public async Task DuplicateItem(int count)
+    {
+        var items = GetSelectedItems(null);
+        if (!items.Any()) return;
+
+        foreach (var item in items)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(item.FullPath) ?? "";
+                string name = Path.GetFileNameWithoutExtension(item.FullPath);
+                string ext = Path.GetExtension(item.FullPath);
+
+                for(int i=1; i<=count; i++)
+                {
+                     string newName = $"{name} - Copy ({i}){ext}";
+                     string newPath = Path.Combine(dir, newName);
+                     if (item.IsDirectory)
+                     {
+                         // Directory Copy (Recursive) - simplified for now
+                         // Directory.CreateDirectory(newPath);
+                         // CopyRecursive(item.FullPath, newPath);
+                     }
+                     else
+                     {
+                         File.Copy(item.FullPath, newPath);
+                     }
+                }
+            }
+            catch {}
+        }
+        Refresh();
+    }
+    
+    [RelayCommand]
+    public async Task BatchRenameFromClipboard()
+    {
+        var items = GetSelectedItems(null);
+        if (!items.Any()) return;
+        
+        // order selection by name or original order?
+        // usually user wants to rename in the order they see.
+        // items is ObservableCollection or similar, usually preserving UI order if bound coupled with Sort.
+        // But SelectedItems might be arbitrary order of selection.
+        // We should sort them by current display order (SortBy).
+        // For now, sorting by Name is safe default or by Index if available.
+        // Let's sort by Name to be deterministic.
+        var roundedItems = items.OrderBy(x => x.Name).ToList();
+
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+             var clipboard = desktop.MainWindow?.Clipboard;
+             if (clipboard != null)
+             {
+                 var text = await clipboard.GetTextAsync();
+                 if (string.IsNullOrWhiteSpace(text)) return;
+                 
+                 var names = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                 
+                 if (names.Length == 0) return;
+                 
+                 int count = Math.Min(names.Length, roundedItems.Count);
+                 
+                 for (int i=0; i<count; i++)
+                 {
+                     var item = roundedItems[i];
+                     var newName = names[i].Trim();
+                     if (string.IsNullOrWhiteSpace(newName)) continue;
+                     
+                     // Keep extension if item is file and newName doesn't have it?
+                     // "Extreme Logic" usually implies full replacement or smart replacement.
+                     // If targeting files, usually we keep extension unless newName has one.
+                     if (!item.IsDirectory)
+                     {
+                         string originalExt = Path.GetExtension(item.FullPath);
+                         if (!newName.EndsWith(originalExt, StringComparison.OrdinalIgnoreCase))
+                         {
+                             newName += originalExt;
+                         }
+                     }
+                     
+                     // Rename
+                     try
+                     {
+                         var dir = Path.GetDirectoryName(item.FullPath);
+                         if (dir != null)
+                         {
+                             var newPath = Path.Combine(dir, newName);
+                             if (item.IsDirectory) Directory.Move(item.FullPath, newPath);
+                             else File.Move(item.FullPath, newPath);
+                         }
+                     }
+                     catch (Exception ex) 
+                     {
+                         _notificationService.ShowError($"Failed to rename {item.Name}: {ex.Message}");
+                     }
+                 }
+                 Refresh();
+                 _notificationService.ShowSuccess($"Batch Renamed {count} items.");
+             }
+        }
+    }
+
+    [RelayCommand]
+    public async Task CopyMasterBrowserHere()
+    {
+        // Placeholder
+    }
+
+    // --- POPUP STATE ---
+    [ObservableProperty] private bool _isNewFolderVisible;
+    [ObservableProperty] private bool _isNewFileVisible;
+    [ObservableProperty] private bool _isDuplicateVisible;
+    
+    [ObservableProperty] private string _newItemName = "";
+    [ObservableProperty] private int _duplicateCount = 1;
+
+    [RelayCommand]
+    public void OpenNewFolderPopup()
+    {
+        NewItemName = "New Folder";
+        IsNewFolderVisible = true;
+    }
+
+    [RelayCommand]
+    public void OpenNewFilePopup()
+    {
+        NewItemName = "New File.txt";
+        IsNewFileVisible = true;
+    }
+
+    [RelayCommand]
+    public void OpenDuplicatePopup()
+    {
+        DuplicateCount = 1;
+        IsDuplicateVisible = true;
+    }
+
+    [RelayCommand]
+    public void ClosePopups()
+    {
+        IsNewFolderVisible = false;
+        IsNewFileVisible = false;
+        IsDuplicateVisible = false;
+        NewItemName = "";
+    }
+    
+    [RelayCommand]
+    public async Task ConfirmNewFolder()
+    {
+        await CreateNewFolder(NewItemName);
+        ClosePopups();
+    }
+
+    [RelayCommand]
+    public async Task ConfirmNewFile()
+    {
+        await CreateNewFile(NewItemName);
+        ClosePopups();
+    }
+
+    [RelayCommand]
+    public async Task ConfirmDuplicate()
+    {
+        await DuplicateItem(DuplicateCount);
+        ClosePopups();
     }
 }
 

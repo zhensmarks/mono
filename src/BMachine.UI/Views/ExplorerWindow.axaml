@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="using:BMachine.UI.Views"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+        x:Class="BMachine.UI.Views.ExplorerWindow"
+        Title="Explorer"
+        Width="1000" Height="700"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackgroundBrush}"
+        TransparencyLevelHint="Mica"
+        Padding="0"
+        SystemDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        CanResize="True">
+    
+    <Grid RowDefinitions="Auto, *">
+        <!-- Custom Title Bar (Click to Drag) -->
+        <Grid Grid.Row="0" Height="45" Background="Transparent" PointerPressed="OnDragZonePointerPressed">
+            <!-- Text Removed as per user request -->
+            
+            <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Click="OnCloseWindow"
+                    Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="4" ToolTip.Tip="Close">
+                <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
+                          Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </Button>
+        </Grid>
+        
+        <!-- Content -->
+        <views:OutputExplorerView Grid.Row="1" /> 
+    </Grid>
+    
+</Window>

@@ -219,64 +219,67 @@ public partial class PathSettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task BrowsePath(string type)
+    private async Task BrowsePath(string key)
     {
-        var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
-        if (topLevel == null) return;
-
-        var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var buffer = "";
+        
+        var dialog = new Avalonia.Controls.OpenFolderDialog
         {
-            Title = $"Select Folder for {type}",
-            AllowMultiple = false
-        });
+            Title = "Select Folder"
+        };
 
-        if (result != null && result.Count > 0)
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var path = result[0].Path.LocalPath;
-            switch (type)
+            var result = await dialog.ShowAsync(desktop.MainWindow);
+            if (!string.IsNullOrWhiteSpace(result))
             {
-                case "Profesi":
-                    PathProfesi = path;
-                    await _database.SetAsync("Configs.Master.Profesi", path);
-                    break;
-                case "Sporty":
-                    PathSporty = path;
-                    await _database.SetAsync("Configs.Master.Sporty", path);
-                    break;
-                case "Manasik10RP":
-                    PathManasik10RP = path;
-                    await _database.SetAsync("Configs.Master.Manasik10RP", path);
-                    break;
-                case "Manasik8R":
-                    PathManasik8R = path;
-                    await _database.SetAsync("Configs.Master.Manasik8R", path);
-                    break;
-                case "PasFoto":
-                    PathPasFoto = path;
-                    await _database.SetAsync("Configs.Master.PasFoto", path);
-                    break;
-                case "Wisuda10RP":
-                    PathWisuda10RP = path;
-                    await _database.SetAsync("Configs.Master.Wisuda10RP", path);
-                    break;
-                case "Wisuda8R":
-                    PathWisuda8R = path;
-                    await _database.SetAsync("Configs.Master.Wisuda8R", path);
-                    break;
-                case "OkeBase":
-                    PathOkeBase = path;
-                    await _database.SetAsync("Configs.Master.OkeBase", path);
-                    break;
-                case "LocalOutput":
-                    PathLocalOutput = path;
-                    await _database.SetAsync("Configs.Master.LocalOutput", path);
-                    break;
-                case "OfflineStorage":
-                    OfflineStoragePath = path;
-                    await _database.SetAsync("Configs.Storage.OfflinePath", path);
-                    break;
+                 buffer = result;
             }
-            _notificationService?.ShowSuccess($"{type} Path Updated");
+        }
+
+        if (!string.IsNullOrEmpty(buffer))
+        {
+            if (key == "Manasik10R")
+            {
+                PathManasik10RP = buffer;
+                await _database.SetAsync("Configs.Master.Manasik10RP", buffer);
+            }
+            else if (key == "Manasik8R")
+            {
+                PathManasik8R = buffer;
+                await _database.SetAsync("Configs.Master.Manasik8R", buffer);
+            }
+            else if (key == "Wisuda10R")
+            {
+                PathWisuda10RP = buffer;
+                await _database.SetAsync("Configs.Master.Wisuda10RP", buffer);
+            }
+            else if (key == "Wisuda8R")
+            {
+                PathWisuda8R = buffer;
+                await _database.SetAsync("Configs.Master.Wisuda8R", buffer);
+            }
+            else if (key == "Profesi")
+            {
+                PathProfesi = buffer;
+                await _database.SetAsync("Configs.Master.Profesi", buffer);
+            }
+            else if (key == "Sporty")
+            {
+                PathSporty = buffer;
+                await _database.SetAsync("Configs.Master.Sporty", buffer);
+            }
+            else if (key == "PasFoto")
+            {
+                PathPasFoto = buffer;
+                await _database.SetAsync("Configs.Master.PasFoto", buffer);
+            }
+            // Scripts moved to Explorer/Scripts Manager
+            else if (key == "OkeBase")
+            {
+                PathOkeBase = buffer;
+                await _database.SetAsync("Configs.Master.OkeBase", buffer);
+            }
         }
     }
 }

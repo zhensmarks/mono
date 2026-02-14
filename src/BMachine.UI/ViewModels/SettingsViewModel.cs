@@ -356,8 +356,10 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsAppearanceSelected))]
     [NotifyPropertyChangedFor(nameof(IsAccountSelected))]
     [NotifyPropertyChangedFor(nameof(IsNotificationsSelected))]
-    [NotifyPropertyChangedFor(nameof(IsScriptsSelected))]
+    [NotifyPropertyChangedFor(nameof(IsScriptsManagerSelected))]
+    [NotifyPropertyChangedFor(nameof(IsExplorerSelected))]
     [NotifyPropertyChangedFor(nameof(IsPathsSelected))] 
+    [NotifyPropertyChangedFor(nameof(IsAboutSelected))] 
     private int _selectedMenuIndex = -1;
     
     partial void OnSelectedMenuIndexChanged(int value)
@@ -374,7 +376,8 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAccountSelected));
         OnPropertyChanged(nameof(IsNotificationsSelected));
         OnPropertyChanged(nameof(IsScriptsManagerSelected)); // New
-        OnPropertyChanged(nameof(IsScriptsSelected));
+        // OnPropertyChanged(nameof(IsScriptsManagerSelected)); // Removed duplicate/wrong name
+        OnPropertyChanged(nameof(IsExplorerSelected));
         OnPropertyChanged(nameof(IsPathsSelected));
         OnPropertyChanged(nameof(IsAboutSelected));
         
@@ -398,16 +401,17 @@ public partial class SettingsViewModel : ObservableObject
     public bool IsAccountSelected => SelectedMenuIndex == 2;
     public bool IsNotificationsSelected => SelectedMenuIndex == 3;
     public bool IsScriptsManagerSelected => SelectedMenuIndex == 4; // New
-    public bool IsScriptsSelected => SelectedMenuIndex == 6; // Moved to 6 (Shortcuts) due to insertion? 
-    // Wait, let's keep it simple. Index 4 matched UI.
+    // Let's keep it simple. Index 4 matched UI.
     // The previous code had "Scripts" at 4. I changed UI to "Script Manager" at 4.
     // "Shortcuts" (was Scripts?) is now likely 5 or removed?
     // Let's look at UI again.
-    public bool IsPathsSelected => SelectedMenuIndex == 5;
-    public bool IsAboutSelected => SelectedMenuIndex == 6; // New About Tab
+    public bool IsExplorerSelected => SelectedMenuIndex == 5;
+    public bool IsPathsSelected => SelectedMenuIndex == 6;
+    public bool IsAboutSelected => SelectedMenuIndex == 7; // New About Tab
 
     // Sub-ViewModels
     public PathSettingsViewModel? PathSettingsVM { get; private set; }
+    public ExplorerSettingsViewModel? ExplorerSettingsVM { get; private set; }
 
     // Theme Settings
     // Theme Settings
@@ -804,6 +808,7 @@ public partial class SettingsViewModel : ObservableObject
 
         // Initialize Path Settings VM
         PathSettingsVM = new PathSettingsViewModel(database, notificationService!);
+        ExplorerSettingsVM = new ExplorerSettingsViewModel(database);
 
         if (_languageService != null)
         {
@@ -2065,7 +2070,7 @@ public partial class SettingsViewModel : ObservableObject
     // --- Script Manager Logic ---
     
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsScriptsSelected))]
+    [NotifyPropertyChangedFor(nameof(IsScriptsManagerSelected))]
     private int _selectedScriptTabIndex = 0; // 0=Master, 1=Action, 2=Others
 
     // Duplicate removed

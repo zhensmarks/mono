@@ -1,0 +1,9 @@
+[?1h=[App] Framework Initialization Started
+[SettingsPreloadService] Preloaded 62 settings keys
+[UpdateService] Using Assembly: BMachine.App, Version: 5.0.0.0
+[UpdateService] Using Assembly: BMachine.App, Version: 5.0.0.0
+[App] Loaded Initial Shortcut: Ctrl + Spacebar
+[UpdateService] Checking Update: Local='5.0.0' (parsed 5.0.0), Remote='5.0.0' (parsed 5.0.0)
+[UpdateService] No update found (Remote <= Local).
+[MainWindow] SettingsViewModel pre-loaded successfully
+^C

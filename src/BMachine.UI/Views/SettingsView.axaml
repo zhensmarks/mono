@@ -132,13 +132,20 @@
                         </StackPanel>
                     </ListBoxItem> 
                     
-                    <!-- Paths Manager Item -->
-                    <ListBoxItem>
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                             <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                             <TextBlock Text="Paths" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </ListBoxItem>
+                    <!-- Paths / Explorer -->
+                    <ListBoxItem IsSelected="{Binding IsExplorerSelected}">
+                    <StackPanel Orientation="Horizontal" Spacing="15">
+                         <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                         <TextBlock Text="Explorer" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </ListBoxItem>
+                
+                <ListBoxItem IsSelected="{Binding IsPathsSelected}">
+                    <StackPanel Orientation="Horizontal" Spacing="15">
+                         <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                         <TextBlock Text="Paths" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </ListBoxItem>
 
                     <!-- About Item -->
                     <ListBoxItem>
@@ -1042,6 +1049,13 @@
             </ScrollViewer>
         </Border>
 
+
+
+        <!-- Content Area (Explorer) -->
+        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
+                IsVisible="{Binding IsExplorerSelected}">
+             <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" />
+        </Border>
 
         <!-- Content Area (Paths) -->
         <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
