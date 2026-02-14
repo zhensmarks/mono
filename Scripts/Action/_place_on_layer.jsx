@@ -13,16 +13,16 @@ function main() {
         // silently fail or alert if debugging
         return;
     }
-    
+
     file.open("r");
     var targetPath = file.read();
     file.close();
-    
+
     // Clean up temp file? Optional.
     // file.remove();
-    
+
     if (!targetPath) return;
-    
+
     var targetFile = new File(targetPath);
     if (targetFile.exists) {
         placeFile(targetFile);
@@ -30,23 +30,31 @@ function main() {
 }
 
 function placeFile(file) {
-    if (app.documents.length == 0) {
+    var hasActiveDoc = false;
+    try {
+        var doc = app.activeDocument;
+        hasActiveDoc = true;
+    } catch (e) {
+        hasActiveDoc = false;
+    }
+
+    if (!hasActiveDoc) {
         open(file);
         return;
     }
-    
+
     try {
-        var idOlac = charIDToTypeID( "Plc " ); 
-        var desc2 = new ActionDescriptor(); 
-        var idnull = charIDToTypeID( "null" ); 
-        desc2.putPath( idnull, file ); 
-        var idFTcs = charIDToTypeID( "FTcs" ); 
-        var idQCSt = charIDToTypeID( "QCSt" ); 
-        var idQcsa = charIDToTypeID( "Qcsa" ); 
-        desc2.putEnumerated( idFTcs, idQCSt, idQcsa ); 
+        var idOlac = charIDToTypeID("Plc ");
+        var desc2 = new ActionDescriptor();
+        var idnull = charIDToTypeID("null");
+        desc2.putPath(idnull, file);
+        var idFTcs = charIDToTypeID("FTcs");
+        var idQCSt = charIDToTypeID("QCSt");
+        var idQcsa = charIDToTypeID("Qcsa");
+        desc2.putEnumerated(idFTcs, idQCSt, idQcsa);
         // Offset logic omitted to place at center default
-        executeAction( idOlac, desc2, DialogModes.NO );
-    } catch(e) {
+        executeAction(idOlac, desc2, DialogModes.NO);
+    } catch (e) {
         alert("Error placing file: " + e);
     }
 }

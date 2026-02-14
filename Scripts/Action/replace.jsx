@@ -1,7 +1,5 @@
 // @target photoshop
 
-// @target photoshop
-
 // === Settings Persistence ===
 function loadSettings() {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
@@ -24,8 +22,6 @@ function saveSettings(x, y) {
         settingsFile.close();
     } catch (e) { }
 }
-
-
 
 function main() {
     // === BMachine Integration (Pre-load context if available) ===
@@ -61,7 +57,7 @@ function main() {
     // === UI CONFIG ===
     var settings = loadSettings();
 
-    var w = new Window("dialog", "Smart Object Replacer");
+    var w = new Window("dialog", "Smart Object Replacer (Queue Mode)");
     w.orientation = "column";
     w.alignChildren = ["fill", "top"];
     w.spacing = 15;
@@ -82,7 +78,7 @@ function main() {
 
     var btnClearMaster = grpMaster.add("button", undefined, "X");
     btnClearMaster.size = [30, 25];
-    btnClearMaster.helpTip = "Hapus & Fokus (Gunakan Win+V untuk Paste)";
+    btnClearMaster.helpTip = "Hapus & Fokus";
 
     var btnBrowseMaster = grpMaster.add("button", undefined, "Browse...");
     btnBrowseMaster.preferredSize.width = 80;
@@ -112,10 +108,15 @@ function main() {
 
     var btnClearInput = grpInput.add("button", undefined, "X");
     btnClearInput.size = [30, 25];
-    btnClearInput.helpTip = "Hapus & Fokus (Gunakan Win+V untuk Paste)";
+    btnClearInput.helpTip = "Hapus & Fokus";
 
     var btnBrowseInput = grpInput.add("button", undefined, "Browse...");
     btnBrowseInput.preferredSize.width = 80;
+
+    // Tombol (+) Add to Queue
+    var btnAddQueue = grpInput.add("button", undefined, "+");
+    btnAddQueue.size = [30, 25];
+    btnAddQueue.helpTip = "Tambahkan Job ke List Antrian (Queue)";
 
     btnBrowseInput.onClick = function () {
         var f = Folder.selectDialog("Pilih Folder Seleksi");
@@ -127,10 +128,81 @@ function main() {
         txtInput.active = true;
     };
 
+    // --- List Queue (Hidden by Default) ---
+    var grpQueue = w.add("group");
+    grpQueue.orientation = "column";
+    grpQueue.alignChildren = ["fill", "top"];
+    grpQueue.visible = false; // Default: Hidden (Single Mode)
+
+    grpQueue.add("statictext", undefined, "Antrian Job (Queue):");
+    var listQueue = grpQueue.add("listbox", undefined, [], { multiselect: true });
+    listQueue.preferredSize.height = 100;
+
+    var btnClearQueue = grpQueue.add("button", undefined, "Hapus Job Terpilih");
+    btnClearQueue.enabled = false;
+
+    // Logic Add Queue
+    var queueData = []; // Store real objects {master, input}
+
+    btnAddQueue.onClick = function () {
+        if (txtMaster.text == "" || txtInput.text == "") {
+            alert("Isi Folder Master dan Input dulu!");
+            return;
+        }
+
+        // Add to data
+        queueData.push({
+            master: txtMaster.text,
+            input: txtInput.text
+        });
+
+        // Add to UI
+        var label = "M: " + new File(txtMaster.text).displayName + " | I: " + new File(txtInput.text).displayName;
+        listQueue.add("item", label);
+
+        // Update UI state
+        grpQueue.visible = true;
+        w.layout.layout(true); // Refresh layout if possible
+
+        // Clear fields for next entry
+        txtInput.text = "";
+        txtMaster.text = "";
+    };
+
+    listQueue.onChange = function () {
+        btnClearQueue.enabled = (listQueue.selection != null);
+    };
+
+    btnClearQueue.onClick = function () {
+        if (!listQueue.selection) return;
+        // Remove from UI and Data (reverse loop)
+        // Since listbox selection is object, we need smart removal.
+        // Easier: Rebuild list from data? No.
+        // Standard removal:
+        var limits = listQueue.selection;
+        // Sort indices desc
+        var indices = [];
+        for (var i = 0; i < limits.length; i++) indices.push(limits[i].index);
+        indices.sort(function (a, b) { return b - a }); // Descending
+
+        for (var i = 0; i < indices.length; i++) {
+            var idx = indices[i];
+            listQueue.remove(idx);
+            queueData.splice(idx, 1);
+        }
+
+        if (listQueue.items.length == 0) {
+            grpQueue.visible = false;
+            w.layout.layout(true);
+        }
+    };
+
     // --- Buttons ---
     var grpBtn = w.add("group");
     grpBtn.alignment = "center";
     grpBtn.spacing = 10;
+
+    // Dynamic text update? "REPLACE (QUEUE)" vs "REPLACE"
     var btnRun = grpBtn.add("button", undefined, "REPLACE", { name: "ok" });
     btnRun.preferredSize.width = 120;
     var btnRevisi = grpBtn.add("button", undefined, "REPLACE REVISI");
@@ -140,42 +212,15 @@ function main() {
 
     // === EXECUTION LOGIC ===
     btnRun.onClick = function () {
-        if (txtMaster.text == "") { alert("Folder Master belum diisi!"); return; }
-        if (txtInput.text == "") { alert("Folder Seleksi belum diisi!"); return; }
-
-        var resultMasterFolder = new Folder(txtMaster.text);
-        var resultInputFolder = new Folder(txtInput.text);
-
-        if (!resultMasterFolder.exists) { alert("Folder Master tidak ditemukan!"); return; }
-        if (!resultInputFolder.exists) { alert("Folder Seleksi tidak ditemukan!"); return; }
-
-        // Save Window Position only
-        saveSettings(w.location.x, w.location.y);
-
-        w.close();
-        runReplacementLogic(resultMasterFolder, resultInputFolder);
+        w.close(1); // Standard Run
     };
 
-    // === REPLACE REVISI LOGIC ===
     btnRevisi.onClick = function () {
-        if (txtMaster.text == "") { alert("Folder Master belum diisi!"); return; }
-        if (txtInput.text == "") { alert("Folder Seleksi belum diisi!"); return; }
-
-        var resultMasterFolder = new Folder(txtMaster.text);
-        var resultInputFolder = new Folder(txtInput.text);
-
-        if (!resultMasterFolder.exists) { alert("Folder Master tidak ditemukan!"); return; }
-        if (!resultInputFolder.exists) { alert("Folder Seleksi tidak ditemukan!"); return; }
-
-        // Save Window Position only
-        saveSettings(w.location.x, w.location.y);
-
-        w.close();
-        runRevisiLogic(resultMasterFolder, resultInputFolder);
+        w.close(2); // Revisi Run
     };
 
     btnCancel.onClick = function () {
-        w.close();
+        w.close(0);
     };
 
     // Restore window position
@@ -185,8 +230,57 @@ function main() {
         w.center();
     }
 
-    w.show();
+    var result = w.show();
+    if (result != 1 && result != 2) return; // Cancel
 
+    saveSettings(w.location.x, w.location.y);
+
+    // --- COLLECT JOBS ---
+    var jobsToRun = [];
+
+    // 1. Add Queue items
+    for (var i = 0; i < queueData.length; i++) {
+        jobsToRun.push(queueData[i]);
+    }
+
+    // 2. Add Current Fields (if valid and not empty)
+    // NOTE: Only add if fields are filled. If Queue has items but fields empty, ignore fields.
+    // If Queue empty, fields MUST be filled.
+    if (txtMaster.text != "" && txtInput.text != "") {
+        // Optional: Check duplication?
+        jobsToRun.push({ master: txtMaster.text, input: txtInput.text });
+    }
+
+    if (jobsToRun.length == 0) {
+        alert("Tidak ada Job yang valid (Master & Input kosong)!");
+        return;
+    }
+
+    // --- EXECUTE JOBS ---
+    var totalSuccess = 0;
+    var totalFail = 0;
+    var totalReplaced = 0; // For revisi
+
+    for (var j = 0; j < jobsToRun.length; j++) {
+        var job = jobsToRun[j];
+        var mFolder = new Folder(job.master);
+        var iFolder = new Folder(job.input);
+
+        if (!mFolder.exists || !iFolder.exists) {
+            // Log error but continue
+            continue;
+        }
+
+        if (result == 1) {
+            // STANDARD REPLACE
+            runReplacementLogic(mFolder, iFolder); // This function has its own alerts/summary. 
+            // We should modify it to NOT alert per job if queue > 1?
+            // Or just let it run. User will see progress per job.
+        } else {
+            // REVISI REPLACE
+            runRevisiLogic(mFolder, iFolder);
+        }
+    }
 }
 
 // Global invocation
@@ -227,7 +321,7 @@ function runReplacementLogic(templateFolder, inputFolder) {
     var inputCount = inputFiles.length;
 
     if (templateCount == 0 || inputCount == 0) {
-        alert("Tidak ada file yang cocok.\nMaster: " + templateCount + "\nInput: " + inputCount);
+        alert("Job Skipped (No files).\nMaster: " + templateCount + "\nInput: " + inputCount);
         return;
     }
 
@@ -366,7 +460,7 @@ function runReplacementLogic(templateFolder, inputFolder) {
     f.write('{"type":"result","title":"Replacer Summary","lines":[' + escaped.join(',') + ']}');
     f.close();
 
-    alert("Selesai!\nBerhasil: " + successList.length + "\nGagal: " + failList.length);
+    alert("Job Selesai!\nMaster: " + decodeURI(templateFolder.name) + "\nBerhasil: " + successList.length + "\nGagal: " + failList.length);
 }
 
 // === Helpers ===
@@ -438,12 +532,12 @@ function runRevisiLogic(masterFolder, inputFolder) {
     var inputFiles = scanFolderForFiles(inputFolder, /\.(png|psd|jpe?g)$/i);
 
     if (masterFiles.length == 0) {
-        alert("Tidak ada file PSD/PSB di Folder Master!");
+        alert("Job Skipped (No PSD/PSB in Master)!");
         return;
     }
 
     if (inputFiles.length == 0) {
-        alert("Tidak ada file gambar di Folder Seleksi!");
+        alert("Job Skipped (No Image in Input)!");
         return;
     }
 
@@ -561,7 +655,7 @@ function runRevisiLogic(masterFolder, inputFolder) {
         report = report.concat(failList);
     }
 
-    alert("Selesai!\n\nSmart Object Replaced: " + replacedCount + "\nFile Berhasil: " + successList.length + "\nFile Gagal: " + failList.length);
+    alert("Job Selesai!\nMaster: " + decodeURI(masterFolder.name) + "\nSmart Object Replaced: " + replacedCount + "\nFile Berhasil: " + successList.length + "\nFile Gagal: " + failList.length);
 }
 
 // Find all Smart Objects in document (including nested in groups)

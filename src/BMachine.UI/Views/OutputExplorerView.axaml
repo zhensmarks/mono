@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:models="using:BMachine.UI.ViewModels"
              xmlns:services="using:BMachine.UI.Services"
              xmlns:converters="using:BMachine.UI.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -25,20 +26,34 @@
 
 
     <Grid>
-                <Grid.RowDefinitions>
-                     <RowDefinition Height="*"/>
-                     <RowDefinition Height="4"/>
-                     <RowDefinition Height="{Binding TaskMonitorHeight, Mode=TwoWay}"/>
-                </Grid.RowDefinitions>
-        <!-- TOP: EXPLORER -->
-        <!-- TOP: EXPLORER -->
-        <Grid Grid.Row="0" RowDefinitions="Auto, *">
-            <Border Grid.Row="0" Padding="2,4" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
-                <Grid ColumnDefinitions="Auto, *, Auto">
+        <Grid.RowDefinitions>
+             <RowDefinition Height="*"/>
+             <RowDefinition Height="4"/>
+             <RowDefinition Height="{Binding TaskMonitorHeight, Mode=TwoWay}"/>
+        </Grid.RowDefinitions>
+
+        <!-- TOP: EXPLORER MAIN AREA -->
+        <Grid Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Header (Breadcrumbs) -->
+                <RowDefinition Height="Auto"/> <!-- Options (Sort/View) -->
+                <RowDefinition Height="*"/>    <!-- Main Content (Sidebar | Splitter | Files) -->
+            </Grid.RowDefinitions>
+
+            <!-- 1. HEADER: Navigation & Breadcrumbs (Full Width) -->
+            <Border Grid.Row="0" Padding="8,4" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="Auto, *">
                     <!-- Left: Navigation -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <Button Command="{Binding NavigateUpCommand}" IsEnabled="{Binding CanNavigateUp}" Classes="Clear" ToolTip.Tip="Up" Padding="4">
-                             <PathIcon Data="{StaticResource IconArrowUp}" Width="14" Height="14"/>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                        <Button Command="{Binding GoBackCommand}" IsEnabled="{Binding CanGoBack}" Classes="Clear" ToolTip.Tip="Back (Backspace)" Padding="4">
+                             <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12" RenderTransform="rotate(180deg)"/>
+                        </Button>
+                        <Button Command="{Binding GoForwardCommand}" IsEnabled="{Binding CanGoForward}" Classes="Clear" ToolTip.Tip="Forward" Padding="4">
+                             <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12"/>
+                        </Button>
+                        <Rectangle Width="1" Height="16" Fill="{DynamicResource SeparatorBrush}" Margin="4,0"/>
+                        <Button Command="{Binding RefreshCommand}" Classes="Clear" ToolTip.Tip="Refresh" Padding="4">
+                             <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12"/>
                         </Button>
                     </StackPanel>
                     
@@ -60,156 +75,323 @@
                              </ItemsControl.ItemTemplate>
                          </ItemsControl>
                     </ScrollViewer>
-                    
-                    <!-- Right: Sorting -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="5,0">
-                        <ComboBox SelectedIndex="{Binding SortBy}" FontSize="11" Height="24" Padding="8,2" MinWidth="60" BorderThickness="0" Background="Transparent" PlaceholderText="Sort">
-                            <ComboBoxItem>Name</ComboBoxItem>
-                            <ComboBoxItem>Date</ComboBoxItem>
-                        </ComboBox>
-                        <Button Command="{Binding ToggleSortCommand}" CommandParameter="{Binding SortBy}" Classes="Clear" ToolTip.Tip="Toggle Sort Order" Padding="4">
-                            <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Classes.Spin="{Binding IsSortDescending}"/> 
-                        </Button>
-                    </StackPanel>
                 </Grid>
             </Border>
-            
-            <!-- ListBox RESTORED -->
-            <Grid Grid.Row="1">
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" IsVisible="{Binding IsEmpty}">
-                     <PathIcon Data="{StaticResource IconFolder}" Width="40" Height="40" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.5"/>
-                     <TextBlock Text="Folder kosong." Foreground="{DynamicResource TextSecondaryBrush}" 
-                                IsVisible="{Binding !IsRootPathMissing}" HorizontalAlignment="Center"/>
-                     <StackPanel Spacing="5" IsVisible="{Binding IsRootPathMissing}" HorizontalAlignment="Center">
-                         <TextBlock Text="Local Output belum disetting." Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                         <TextBlock Text="Silahkan atur di menu Settings > Paths" Foreground="{DynamicResource AccentBrush}" FontSize="12" HorizontalAlignment="Center" Cursor="Hand"/>
-                     </StackPanel>
-                </StackPanel>
 
-                <ListBox ItemsSource="{Binding Items}" 
-                         SelectedItems="{Binding SelectedItems}"
-                         SelectionMode="Multiple"
-                         Background="{DynamicResource AppBackgroundBrush}" 
-                         IsVisible="{Binding !IsEmpty}" 
-                         ClipToBounds="True">
-                    <ListBox.Styles>
-                        <Style Selector="ListBoxItem">
-                            <Setter Property="Padding" Value="4,0"/>
-                            <Setter Property="Margin" Value="0,1"/>
-                            <Setter Property="MinHeight" Value="28"/>
-                            <Setter Property="VerticalContentAlignment" Value="Center"/>
-                        </Style>
-                    </ListBox.Styles>
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="28" DoubleTapped="OnItemDoubleTapped">
-                             <Grid.ContextMenu>
-                                 <ContextMenu>
-                                     <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}"/>
-                                     <Separator/>
-                                     <MenuItem Header="Move to #OKE" Command="{Binding #ExplorerRoot.DataContext.MoveToOkeCommand}" CommandParameter="{Binding}">
-                                         <MenuItem.Icon>
-                                             <PathIcon Data="{StaticResource IconArrowRight}"/>
-                                         </MenuItem.Icon>
-                                     </MenuItem>
-                                     <MenuItem Header="Copy to #OKE" Command="{Binding #ExplorerRoot.DataContext.CopyToOkeCommand}" CommandParameter="{Binding}">
-                                           <MenuItem.Icon>
-                                             <PathIcon Data="{StaticResource IconCopy}"/>
-                                         </MenuItem.Icon>
-                                     </MenuItem>
-                                 </ContextMenu>
-                             </Grid.ContextMenu>
+            <!-- 2. OPTIONS: View & Sort Actions (Full Width) -->
+            <Border Grid.Row="1" Padding="8,2" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <!-- Group By -->
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="Group:" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ComboBox SelectedIndex="{Binding GroupBy}" FontSize="10" Height="22" Padding="6,0" BorderThickness="0" Background="Transparent">
+                           <ComboBoxItem>None</ComboBoxItem>
+                           <ComboBoxItem>Date</ComboBoxItem>
+                           <ComboBoxItem>Type</ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="12" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Center"/>
+
+                    <!-- Sort By -->
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="Sort:" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ComboBox SelectedIndex="{Binding SortBy}" FontSize="10" Height="22" Padding="6,0" BorderThickness="0" Background="Transparent">
+                           <ComboBoxItem>Name</ComboBoxItem>
+                           <ComboBoxItem>Date</ComboBoxItem>
+                        </ComboBox>
+                        <Button Command="{Binding ToggleSortCommand}" CommandParameter="{Binding SortBy}" Classes="Clear" ToolTip.Tip="Toggle Sort Order" Padding="2">
+                            <PathIcon Data="{StaticResource IconRefresh}" Width="10" Height="10" Classes.Spin="{Binding IsSortDescending}"/> 
+                        </Button>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="12" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Center"/>
+
+                    <!-- Layout -->
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="View:" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ComboBox SelectedIndex="{Binding LayoutMode}" FontSize="10" Height="22" Padding="6,0" BorderThickness="0" Background="Transparent">
+                           <ComboBoxItem>List</ComboBoxItem>
+                           <ComboBoxItem>Grid</ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="12" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Center"/>
+
+                    <!-- Only (Local Settings) -->
+                    <CheckBox IsChecked="{Binding IsLocalSettings}" VerticalAlignment="Center" Padding="4,0,0,0" ToolTip.Tip="Save settings for this folder only">
+                         <TextBlock Text="Only" FontSize="10" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </CheckBox>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. SPLIT CONTENT: Sidebar | Files -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding SidebarWidth, Mode=TwoWay}" MinWidth="32" MaxWidth="400"/>
+                    <ColumnDefinition Width="2"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- SIDEBAR (LEFT) -->
+                <Grid Grid.Column="0">
+                    <Grid RowDefinitions="*, Auto" Margin="0,4,0,0">
+                         <!-- Sidebar Items List -->
+                         <ListBox Grid.Row="0" ItemsSource="{Binding QuickAccessItems}" Background="Transparent" BorderThickness="0" Padding="0">
+                             <ListBox.ItemTemplate>
+                                 <DataTemplate x:DataType="models:SidebarItemViewModel">
+                                      <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="24" ToolTip.Tip="{Binding Path}">
+                                          <Grid.ContextMenu>
+                                              <ContextMenu>
+                                                  <MenuItem Header="Remove Pin" Command="{Binding #ExplorerRoot.DataContext.RemoveFromQuickAccessCommand}" CommandParameter="{Binding}"/>
+                                              </ContextMenu>
+                                          </Grid.ContextMenu>
+                                          <Interaction.Behaviors>
+                                              <EventTriggerBehavior EventName="PointerPressed">
+                                                  <InvokeCommandAction Command="{Binding #ExplorerRoot.DataContext.NavigateToQuickAccessCommand}" CommandParameter="{Binding}"/>
+                                              </EventTriggerBehavior>
+                                          </Interaction.Behaviors>
+                                          
+                                          <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="12" Height="12" Margin="8,0" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                          <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                      </Grid>
+                                 </DataTemplate>
+                             </ListBox.ItemTemplate>
+                             <ListBox.Styles>
+                                 <Style Selector="ListBoxItem">
+                                     <Setter Property="Padding" Value="0"/>
+                                     <Setter Property="Margin" Value="4,0"/>
+                                     <Setter Property="CornerRadius" Value="4"/>
+                                 </Style>
+                             </ListBox.Styles>
+                         </ListBox>
+                         
+                         <!-- Add Button Moved to Bottom -->
+                         <Button Grid.Row="1" Command="{Binding AddExternalFolderCommand}" 
+                                 Padding="6" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip.Tip="Pin External Folder" HorizontalAlignment="Center" Margin="0,4">
+                             <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                         </Button>
+                    </Grid>
+                    
+                    <!-- Vertical Separator Decor -->
+                    <Border HorizontalAlignment="Right" Width="1" Background="{DynamicResource SeparatorBrush}" Opacity="0.5" Margin="0,10"/>
+                </Grid>
+                
+                <!-- SPLITTER -->
+                <GridSplitter Grid.Column="1" Background="{DynamicResource SeparatorBrush}" ResizeDirection="Columns" Opacity="0.5"/>
+                
+                <!-- MAIN CONTENT (RIGHT) - FILES LIST -->
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- ListBox RESTORED -->
+                    <Grid Grid.Row="0">
+                        <!-- Empty State -->
+                        <Grid>
+                             <!-- 1. Normal Empty -->
+                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" 
+                                         IsVisible="{Binding IsEmpty}">
+                                  <PathIcon Data="{StaticResource IconFolder}" Width="40" Height="40" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.5"/>
+                                  <TextBlock Text="Folder kosong." Foreground="{DynamicResource TextSecondaryBrush}" 
+                                         IsVisible="{Binding !IsRootPathMissing}" HorizontalAlignment="Center"/>
+                             </StackPanel>
                              
-                             <!-- Explicit Icons without Converter -->
-                             <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" 
-                                       IsVisible="{Binding IsDirectory}"
-                                       Width="16" Height="16" Margin="8,0" Foreground="#fbbf24"/>
-                             
-                             <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" 
-                                       IsVisible="{Binding !IsDirectory}"
-                                       Width="14" Height="14" Margin="9,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                             
-                             <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" FontWeight="Medium" TextTrimming="CharacterEllipsis"/>
+                             <!-- 2. Config Missing -->
+                             <StackPanel Spacing="5" IsVisible="{Binding IsRootPathMissing}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                  <TextBlock Text="Local Output belum disetting." Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                                  <TextBlock Text="Silahkan atur di menu Settings > Paths" Foreground="{DynamicResource AccentBrush}" FontSize="12" HorizontalAlignment="Center" Cursor="Hand"/>
+                             </StackPanel>
                         </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-                </ListBox>
+                    </Grid>
+
+
+                    <!-- VERTICAL LIST VIEW (Standard) -->
+                    <ListBox ItemsSource="{Binding Items}" 
+                             SelectedItems="{Binding SelectedItems}"
+                             SelectionMode="Multiple"
+                             Background="{DynamicResource AppBackgroundBrush}" 
+                             IsVisible="{Binding IsVerticalLayoutAndNotEmpty}" 
+                             ClipToBounds="True">
+                        <ListBox.KeyBindings>
+                            <KeyBinding Gesture="Back" Command="{Binding GoBackCommand}"/>
+                        </ListBox.KeyBindings>
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="4,0"/>
+                                <Setter Property="Margin" Value="0,1"/>
+                                <Setter Property="MinHeight" Value="28"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.DataTemplates>
+                            <!-- HEADER TEMPLATE -->
+                            <DataTemplate x:DataType="vm:ExplorerGroupHeaderViewModel">
+                                 <Border Padding="10,5,0,2" Margin="0,10,0,5" Background="Transparent">
+                                     <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Opacity="0.8"/>
+                                 </Border>
+                            </DataTemplate>
+                            
+                            <!-- ITEM TEMPLATE -->
+                            <DataTemplate x:DataType="vm:ExplorerItemViewModel">
+                                 <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="28" DoubleTapped="OnItemDoubleTapped">
+                                      <!-- Compact Context Menu: Move, Copy, Delete only - Text Only -->
+                                      <Grid.ContextMenu>
+                                          <ContextMenu>
+                                              <MenuItem Header="Pin to Sidebar" Command="{Binding #ExplorerRoot.DataContext.AddToQuickAccessCommand}" CommandParameter="{Binding}"/>
+                                              <MenuItem Header="Move" Command="{Binding #ExplorerRoot.DataContext.MoveToOkeCommand}" CommandParameter="{Binding}"/>
+                                              <MenuItem Header="Copy" Command="{Binding #ExplorerRoot.DataContext.CopyToOkeCommand}" CommandParameter="{Binding}"/>
+                                              <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}"/>
+                                          </ContextMenu>
+                                      </Grid.ContextMenu>
+                                      <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="16" Height="16" Margin="8,0" Foreground="#6f7c94"/>
+                                      <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="14" Height="14" Margin="9,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                      <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" FontWeight="Medium" TextTrimming="CharacterEllipsis"/>
+                                 </Grid>
+                            </DataTemplate>
+                        </ListBox.DataTemplates>
+                    </ListBox>
+
+                    <!-- HORIZONTAL LIST VIEW (Columnar/Right Scroll) -->
+                    <ListBox ItemsSource="{Binding Items}" 
+                             SelectedItems="{Binding SelectedItems}"
+                             SelectionMode="Multiple"
+                             Background="{DynamicResource AppBackgroundBrush}" 
+                             IsVisible="{Binding IsHorizontalLayoutAndNotEmpty}" 
+                             ClipToBounds="True"
+                             ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             PointerWheelChanged="OnHorizontalListPointerWheelChanged">
+                        <ListBox.KeyBindings>
+                            <KeyBinding Gesture="Back" Command="{Binding GoBackCommand}"/>
+                        </ListBox.KeyBindings>
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Vertical" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.Styles>
+                             <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="4,0"/>
+                                <Setter Property="Margin" Value="0,1"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                
+                                <Setter Property="IsHitTestVisible" Value="{Binding IsSelectable, FallbackValue=True}"/>
+                                <Setter Property="Focusable" Value="{Binding IsSelectable, FallbackValue=True}"/>
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.DataTemplates>
+                            <!-- HEADER TEMPLATE -->
+                            <DataTemplate x:DataType="vm:ExplorerGroupHeaderViewModel">
+                                 <!-- Header: Invisible Column Break (Transparent Separator) -->
+                                 <Border Width="2" 
+                                         Height="{Binding $parent[ListBox].Bounds.Height}" 
+                                         Margin="0,0,8,0"
+                                         VerticalAlignment="Stretch"
+                                         Background="Transparent"
+                                         BorderThickness="0,0,2,0"
+                                         BorderBrush="Transparent"
+                                         IsHitTestVisible="False"
+                                         Focusable="False"/>
+                            </DataTemplate>
+
+                            <DataTemplate x:DataType="vm:ExplorerItemViewModel">
+                                <!-- Item: Fixed Size Card (Compact) -->
+                                 <Grid Width="130" MinHeight="20" ColumnDefinitions="Auto, *" Background="Transparent" DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}">
+                                       <Grid.ContextMenu>
+                                           <ContextMenu>
+                                               <MenuItem Header="Pin to Sidebar" Command="{Binding #ExplorerRoot.DataContext.AddToQuickAccessCommand}" CommandParameter="{Binding}"/>
+                                               <MenuItem Header="Move" Command="{Binding #ExplorerRoot.DataContext.MoveToOkeCommand}" CommandParameter="{Binding}"/>
+                                               <MenuItem Header="Copy" Command="{Binding #ExplorerRoot.DataContext.CopyToOkeCommand}" CommandParameter="{Binding}"/>
+                                               <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}"/>
+                                           </ContextMenu>
+                                       </Grid.ContextMenu>
+                                       <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="14" Height="14" Margin="6,0" Foreground="#6f7c94"/>
+                                       <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="12" Height="12" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                       <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" VerticalAlignment="Center" FontWeight="Medium" TextTrimming="CharacterEllipsis"/>
+                                 </Grid>
+                            </DataTemplate>
+                        </ListBox.DataTemplates>
+                    </ListBox>
+                </Grid>
             </Grid>
         </Grid>
 
-            <GridSplitter Grid.Row="1" Background="{DynamicResource SeparatorBrush}" ResizeDirection="Rows"/>
-            
-            <!-- Task Monitor Section -->
-            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
-                <Grid RowDefinitions="Auto, *">
-                    <Border Grid.Row="0" Padding="10,5" Background="{DynamicResource AppBackgroundBrush}">
-                        <Grid ColumnDefinitions="Auto, *, Auto">
-                            <!-- Left: Label -->
-                            <TextBlock Grid.Column="0" Text="TASK MONITOR" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            
-                            <!-- Center: Badge -->
-                            <Border Grid.Column="1" Background="{DynamicResource AccentBrush}" CornerRadius="10" Padding="8,2" HorizontalAlignment="Center" IsVisible="{Binding ActiveTasks.Count}">
-                                <TextBlock Text="{Binding ActiveTasks.Count, StringFormat='{}{0} Active'}" FontSize="10" Foreground="White" FontWeight="SemiBold"/>
-                            </Border>
-                            
-                            <!-- Right: Clear Button -->
-                            <Button Grid.Column="2" Classes="Clear" Command="{Binding ClearCompletedCommand}" ToolTip.Tip="Clear Completed">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12"/>
-                                    <TextBlock Text="Clear" FontSize="10" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                        </Grid>
-                    </Border>
-                    
-                    <ScrollViewer Grid.Row="1">
-                        <ItemsControl ItemsSource="{Binding ActiveTasks}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="services:FileTaskItem">
-                                    <Border Padding="10" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
-                                        <Grid ColumnDefinitions="40, *, Auto, 40">
-                                            <!-- Status Icon -->
-                                            <PathIcon Grid.Column="0" Data="{StaticResource IconRefresh}" IsVisible="{Binding !IsCompleted}" Classes="Spin" Width="16" Height="16"/>
-                                            <PathIcon Grid.Column="0" Data="{StaticResource IconCheck}" IsVisible="{Binding IsCompleted}" Foreground="Green" Width="16" Height="16"/>
-                                            <PathIcon Grid.Column="0" Data="{StaticResource IconX}" IsVisible="{Binding IsCancelled}" Foreground="Red" Width="16" Height="16"/>
+        <GridSplitter Grid.Row="1" Background="{DynamicResource SeparatorBrush}" ResizeDirection="Rows"/>
+        
+        <!-- Task Monitor Section -->
+        <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
+            <Grid RowDefinitions="Auto, *">
+                <Border Grid.Row="0" Padding="10,5" Background="{DynamicResource AppBackgroundBrush}">
+                    <Grid ColumnDefinitions="Auto, *, Auto">
+                        <!-- Left: Label -->
+                        <TextBlock Grid.Column="0" Text="TASK MONITOR" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        
+                        <!-- Center: Badge -->
+                        <Border Grid.Column="1" Background="{DynamicResource AccentBrush}" CornerRadius="10" Padding="8,2" HorizontalAlignment="Center" IsVisible="{Binding ActiveTasks.Count}">
+                            <TextBlock Text="{Binding ActiveTasks.Count, StringFormat='{}{0} Active'}" FontSize="10" Foreground="White" FontWeight="SemiBold"/>
+                        </Border>
+                        
+                        <!-- Right: Clear Button -->
+                        <Button Grid.Column="2" Classes="Clear" Command="{Binding ClearCompletedCommand}" ToolTip.Tip="Clear Completed">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12"/>
+                                <TextBlock Text="Clear" FontSize="10" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+                
+                <ScrollViewer Grid.Row="1">
+                    <ItemsControl ItemsSource="{Binding ActiveTasks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="services:FileTaskItem">
+                                <Border Padding="10" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
+                                    <Grid ColumnDefinitions="40, *, Auto, 40">
+                                        <!-- Status Icon -->
+                                        <PathIcon Grid.Column="0" Data="{StaticResource IconRefresh}" IsVisible="{Binding !IsCompleted}" Classes="Spin" Width="16" Height="16"/>
+                                        <PathIcon Grid.Column="0" Data="{StaticResource IconCheck}" IsVisible="{Binding IsCompleted}" Foreground="Green" Width="16" Height="16"/>
+                                        <PathIcon Grid.Column="0" Data="{StaticResource IconX}" IsVisible="{Binding IsCancelled}" Foreground="Red" Width="16" Height="16"/>
+                                        
+                                        <!-- Progress & Details -->
+                                        <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,10,0">
+                                            <Grid ColumnDefinitions="*, Auto">
+                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="5,0,0,0"/>
+                                            </Grid>
                                             
-                                            <!-- Progress & Details -->
-                                            <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,10,0">
-                                                <Grid ColumnDefinitions="*, Auto">
-                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding Status}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="5,0,0,0"/>
-                                                </Grid>
-                                                
-                                                <!-- Path Visual -->
-                                                <TextBlock FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis">
-                                                    <Run Text="{Binding SourcePath}"/>
-                                                    <Run Text=" ➜ " Foreground="{DynamicResource AccentBrush}" FontWeight="Bold"/>
-                                                    <Run Text="{Binding DestinationPath}"/>
-                                                </TextBlock>
-                                                
-                                                <ProgressBar Value="{Binding Progress}" Maximum="100" Height="4" IsIndeterminate="{Binding Status, Converter={x:Static converters:StringEqualsConverter.Instance}, ConverterParameter='Running...'}"/>
-                                            </StackPanel>
+                                            <!-- Path Visual -->
+                                            <TextBlock FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis">
+                                                <Run Text="{Binding SourcePath}"/>
+                                                <Run Text=" ➜ " Foreground="{DynamicResource AccentBrush}" FontWeight="Bold"/>
+                                                <Run Text="{Binding DestinationPath}"/>
+                                            </TextBlock>
                                             
-                                            <!-- Percentage -->
-                                            <TextBlock Grid.Column="2" Text="{Binding Progress, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" HorizontalAlignment="Right" FontWeight="Bold" Margin="0,0,10,0" MinWidth="40" TextAlignment="Right"/>
+                                            <ProgressBar Value="{Binding Progress}" Maximum="100" Height="4" IsIndeterminate="{Binding Status, Converter={x:Static converters:StringEqualsConverter.Instance}, ConverterParameter='Running...'}"/>
+                                        </StackPanel>
+                                        
+                                        <!-- Percentage -->
+                                        <TextBlock Grid.Column="2" Text="{Binding Progress, StringFormat='{}{0:0}%'}" VerticalAlignment="Center" HorizontalAlignment="Right" FontWeight="Bold" Margin="0,0,10,0" MinWidth="40" TextAlignment="Right"/>
 
-                                            <!-- Stop Button -->
-                                            <Button Grid.Column="3" Classes="Clear" 
-                                                    Command="{Binding #ExplorerRoot.DataContext.CancelTaskCommand}" 
-                                                    CommandParameter="{Binding}"
-                                                    IsVisible="{Binding !IsCompleted}"
-                                                    ToolTip.Tip="Cancel Task"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center">
-                                                <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="Red"/>
-                                            </Button>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
+                                        <!-- Stop Button -->
+                                        <Button Grid.Column="3" Classes="Clear" 
+                                                Command="{Binding #ExplorerRoot.DataContext.CancelTaskCommand}" 
+                                                CommandParameter="{Binding}"
+                                                IsVisible="{Binding !IsCompleted}"
+                                                ToolTip.Tip="Cancel Task"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="Red"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

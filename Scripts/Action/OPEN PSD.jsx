@@ -202,30 +202,149 @@ function main() {
     }
     populateList(allPsdFiles, false);
 
+    // --- LOGIC FILTER ---
+    // Helper: Cek apakah nama folder cocok dengan kontekstual tokens
+    function isFolderMatchContext(folderName, contextTokens) {
+        if (!contextTokens || contextTokens.length === 0) return true; // No context = match all
+        var nameUpper = folderName.toUpperCase();
+        for (var i = 0; i < contextTokens.length; i++) {
+            if (nameUpper.indexOf(contextTokens[i]) >= 0) return true;
+        }
+        return false;
+    }
+
+    // Helper: Cari nama folder unik dari file list untuk pre-scan
+    function getUniqueFolderKeywords(files) {
+        var folders = {};
+        for (var i = 0; i < files.length; i++) {
+            if (files[i].parent) {
+                var pName = decodeURI(files[i].parent.name).toUpperCase();
+                // Bersihkan nama folder: KELAS BILAL BIN RABBAH (B1) -> BILAL BIN RABBAH
+                // Buang kata "KELAS", "CLASS", dan tanda kurung "(B1)"
+                var clean = pName.replace(/KELAS|CLASS|\(B\d+\)|\(.*\)/g, "").replace(/^\s+|\s+$/g, "");
+
+                // Pastikan keyword cukup panjang (> 3 huruf) agar tidak false positive
+                if (clean.length > 3) folders[clean] = true;
+            }
+        }
+        var keywords = [];
+        for (var k in folders) keywords.push(k);
+        // Sort by length desc (dahulukan nama panjang agar tidak tertimpa nama pendek)
+        keywords.sort(function (a, b) { return b.length - a.length });
+        return keywords;
+    }
+
     btnApplyFilter.onClick = function () {
         var text = txtFilter.text;
         if (!text) { alert("Paste teks revisi dulu!"); return; }
 
-        var nums = parseRevisionNumbers(text);
-        if (nums.length === 0) { alert("Tidak ditemukan nomor revisi (format: NO/NOMOR X)!"); return; }
+        // PRE-PROCESS: Inject Newline sebelum Folder Keywords yang ditemukan di teks
+        // Ini menangani kasus teks menyambung tanpa enter: "...ANAKABU BAKAR..."
+        var folderKeywords = getUniqueFolderKeywords(allPsdFiles);
+        var processedText = text.toUpperCase().replace(/-\s/g, '\n'); // Normalize dash first
 
-        if (chkSort.value) nums.sort(function (a, b) { return a - b });
+        for (var k = 0; k < folderKeywords.length; k++) {
+            var kw = folderKeywords[k];
+            if (processedText.indexOf(kw) >= 0) {
+                // Ganti semua kemunculan KEYWORD dengan "\nKEYWORD\n"
+                // Gunakan split-join karena String.replace(string) hanya replace first match di extendscript standard
+                processedText = processedText.split(kw).join("\n" + kw + "\n");
+            }
+        }
 
+        var lines = processedText.split(/[\r\n]+/);
+
+
+        var currentContextTokens = [];
+        var foundAny = false;
         var filteredFiles = [];
-        for (var n = 0; n < nums.length; n++) {
-            var targetNum = nums[n];
-            for (var f = 0; f < allPsdFiles.length; f++) {
-                if (isFileMatchNumber(allPsdFiles[f], targetNum)) {
-                    var alreadyIn = false;
-                    for (var k = 0; k < filteredFiles.length; k++) {
-                        if (filteredFiles[k].fullName === allPsdFiles[f].fullName) alreadyIn = true;
+
+        // Loop baris per baris untuk maintain urutan dan konteks
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].replace(/^\s+/, '').replace(/\s+$/, '');
+            if (!line) continue;
+
+            // Cek apakah baris ini berisi angka revisi?
+            // Pola: "NO 1...", "1, 2...", "- 1...", "• 1..."
+            var isNumberLine = false;
+            var numbersInLine = [];
+
+            // Cek Keyword/Pola Angka
+            if (line.match(/^(?:NO\.?|NOMOR|NUM|#|[-*•]|\d)/i)) {
+                // Ini kemungkinan baris data, coba extract angka
+                // Logic extractNumbers manual di sini agar clean
+                var parts = line.split(/[,\s]+/);
+                for (var p = 0; p < parts.length; p++) {
+                    var clean = parts[p].replace(/\D/g, '');
+                    if (clean && parts[p].length < 5) { // Angka valid < 5 digit (thn 2024 skip)
+                        numbersInLine.push(parseInt(clean, 10));
                     }
-                    if (!alreadyIn) filteredFiles.push(allPsdFiles[f]);
+                }
+                if (numbersInLine.length > 0) isNumberLine = true;
+            }
+
+            if (!isNumberLine) {
+                // UPDATE CONTEXT HEADER
+                // Ambil kata-kata signifikan (> 2 huruf) dari baris ini sebagai konteks folder
+                // Contoh: "BILAL BIN RABAH" -> ["BILAL", "BIN", "RABAH"]
+                var tokens = line.toUpperCase().split(/[^A-Z0-9]+/);
+                var validTokens = [];
+                for (var t = 0; t < tokens.length; t++) {
+                    if (tokens[t].length > 2) validTokens.push(tokens[t]);
+                }
+
+                // Jika found valid tokens, update context. Kalau baris kosong/simbol, keep old context
+                if (validTokens.length > 0) {
+                    currentContextTokens = validTokens;
+                }
+            } else {
+                // PROCESS NUMBERS WITH CURRENT CONTEXT
+                for (var n = 0; n < numbersInLine.length; n++) {
+                    var targetNum = numbersInLine[n];
+                    var backupMatch = null;
+                    var foundContextMatch = false;
+
+                    // Cari file yang cocok dengan nomor ini
+                    for (var f = 0; f < allPsdFiles.length; f++) {
+                        if (isFileMatchNumber(allPsdFiles[f], targetNum)) {
+                            // Simpan match pertama sebagai cadangan (jika tidak ada context match)
+                            if (!backupMatch) backupMatch = allPsdFiles[f];
+
+                            var folderName = decodeURI(allPsdFiles[f].parent.name);
+                            // Cek Context
+                            if (isFolderMatchContext(folderName, currentContextTokens)) {
+                                var bestMatch = allPsdFiles[f];
+                                foundContextMatch = true;
+
+                                // Cek duplikat exact file path
+                                var already = false;
+                                for (var k = 0; k < filteredFiles.length; k++) {
+                                    if (filteredFiles[k].fullName === bestMatch.fullName) already = true;
+                                }
+                                if (!already) {
+                                    filteredFiles.push(bestMatch);
+                                }
+                            }
+                        }
+                    }
+
+                    // FALLBACK: Jika tidak ketemu context match, pakai backupMatch (first match)
+                    if (!foundContextMatch && backupMatch) {
+                        var already = false;
+                        for (var k = 0; k < filteredFiles.length; k++) {
+                            if (filteredFiles[k].fullName === backupMatch.fullName) already = true;
+                        }
+                        if (!already) filteredFiles.push(backupMatch);
+                    }
                 }
             }
         }
-        if (filteredFiles.length === 0) { alert("Nomor ditemukan tapi tidak ada file PSD yang cocok."); return; }
+
+        if (filteredFiles.length === 0) { alert("Tidak ada file PSD yang cocok dengan kriteria!"); return; }
+
+        // Sorting
         if (chkSort.value) filteredFiles.sort(naturalSort);
+
         populateList(filteredFiles, true);
     };
 
