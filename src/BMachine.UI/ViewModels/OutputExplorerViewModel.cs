@@ -54,11 +54,16 @@ public partial class OutputExplorerViewModel : ObservableObject
         _platformService = platformService;
         
         _fileManager.ActiveTasks.CollectionChanged += OnActiveTasksChanged;
-        SelectedItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSelection));
+        SelectedItems.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasSelection));
+            _ = UpdatePreviewAsync();
+        };
 
         // Default Sort (async, no blocking)
         LoadRootPath();
         _ = LoadScriptsAsync();
+        _ = LoadExplorerShortcutsAsync();
         
         // Listen for path changes
         WeakReferenceMessenger.Default.Register<MasterPathsChangedMessage>(this, (r, m) => 
@@ -68,7 +73,12 @@ public partial class OutputExplorerViewModel : ObservableObject
         // When shortcuts are changed in Settings, reload gestures so they apply without restart
         WeakReferenceMessenger.Default.Register<ExplorerShortcutsChangedMessage>(this, (r, m) =>
         {
-            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(LoadExplorerShortcutsAsync);
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await LoadExplorerShortcutsAsync();
+                // Notify the View AFTER gesture properties have been updated
+                WeakReferenceMessenger.Default.Send(new ExplorerShortcutsReadyMessage());
+            });
         });
         // Auto-refresh when master browser sync copy completes
         WeakReferenceMessenger.Default.Register<ExplorerRefreshRequestMessage>(this, (r, m) =>
@@ -102,6 +112,19 @@ public partial class OutputExplorerViewModel : ObservableObject
     [ObservableProperty] private string _shortcutFocusSearchBoxGesture = "Ctrl+F";
     [ObservableProperty] private string _shortcutAddressBarGesture = "Alt+D";
     [ObservableProperty] private string _shortcutSwitchTabGesture = "Ctrl+Tab";
+    [ObservableProperty] private string _shortcutRefreshGesture = "F5";
+
+    // Preview panel (right side): .txt content, .docx placeholder
+    [ObservableProperty] private bool _isPreviewPanelVisible;
+    [ObservableProperty] private string _previewPanelTitle = "";
+    [ObservableProperty] private string _previewPanelContent = "";
+
+    public Avalonia.Controls.GridLength PreviewPanelWidth => IsPreviewPanelVisible ? new Avalonia.Controls.GridLength(280) : new Avalonia.Controls.GridLength(0);
+
+    partial void OnIsPreviewPanelVisibleChanged(bool value) => OnPropertyChanged(nameof(PreviewPanelWidth));
+
+    [RelayCommand]
+    private void ClosePreviewPanel() => IsPreviewPanelVisible = false;
 
     partial void OnCurrentPathChanged(string value) => OnPropertyChanged(nameof(CurrentFolderName));
 
@@ -324,6 +347,8 @@ public partial class OutputExplorerViewModel : ObservableObject
         if (!string.IsNullOrEmpty(shortcutAddressBar)) ShortcutAddressBarGesture = shortcutAddressBar;
         var shortcutSwitchTab = await _database.GetAsync<string>("Configs.Explorer.ShortcutSwitchTab");
         if (!string.IsNullOrEmpty(shortcutSwitchTab)) ShortcutSwitchTabGesture = shortcutSwitchTab;
+        var shortcutRefresh = await _database.GetAsync<string>("Configs.Explorer.ShortcutRefresh");
+        if (!string.IsNullOrEmpty(shortcutRefresh)) ShortcutRefreshGesture = shortcutRefresh;
     }
 
     [RelayCommand]
@@ -437,7 +462,7 @@ public partial class OutputExplorerViewModel : ObservableObject
     }
 
     public enum ExplorerSortOption { Name, Date, Type }
-    public enum ExplorerLayoutMode { Vertical, Horizontal }
+    public enum ExplorerLayoutMode { Vertical, Horizontal, Thumbnail }
     public enum ExplorerGroupBy { None, Date, Type }
 
     [ObservableProperty] private ExplorerSortOption _sortBy = ExplorerSortOption.Name;
@@ -693,9 +718,11 @@ public partial class OutputExplorerViewModel : ObservableObject
     // Quick helpers for View Binding
     public bool IsVerticalLayout => LayoutMode == ExplorerLayoutMode.Vertical;
     public bool IsHorizontalLayout => LayoutMode == ExplorerLayoutMode.Horizontal;
+    public bool IsThumbnailLayout => LayoutMode == ExplorerLayoutMode.Thumbnail;
     
     public bool IsVerticalLayoutAndNotEmpty => IsVerticalLayout && !IsEmpty;
     public bool IsHorizontalLayoutAndNotEmpty => IsHorizontalLayout && !IsEmpty;
+    public bool IsThumbnailLayoutAndNotEmpty => IsThumbnailLayout && !IsEmpty;
 
     
     // partial void OnLayoutModeChanged(ExplorerLayoutMode value) // Removed duplicate partial method
@@ -707,8 +734,10 @@ public partial class OutputExplorerViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsVerticalLayout));
         OnPropertyChanged(nameof(IsHorizontalLayout));
+        OnPropertyChanged(nameof(IsThumbnailLayout));
         OnPropertyChanged(nameof(IsVerticalLayoutAndNotEmpty));
         OnPropertyChanged(nameof(IsHorizontalLayoutAndNotEmpty));
+        OnPropertyChanged(nameof(IsThumbnailLayoutAndNotEmpty));
         LoadItems_UIOnly();
     }
     
@@ -716,6 +745,7 @@ public partial class OutputExplorerViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsVerticalLayoutAndNotEmpty));
         OnPropertyChanged(nameof(IsHorizontalLayoutAndNotEmpty));
+        OnPropertyChanged(nameof(IsThumbnailLayoutAndNotEmpty));
     }
 
     [ObservableProperty] private ObservableCollection<ExplorerItemViewModel> _selectedItems = new();
@@ -732,6 +762,45 @@ public partial class OutputExplorerViewModel : ObservableObject
     partial void OnSelectedItemsChanged(ObservableCollection<ExplorerItemViewModel> value)
     {
         OnPropertyChanged(nameof(HasSelection));
+        _ = UpdatePreviewAsync();
+    }
+
+    private async Task UpdatePreviewAsync()
+    {
+        var first = GetSelectedItems(null).FirstOrDefault();
+        if (first == null || first.IsDirectory)
+        {
+            IsPreviewPanelVisible = false;
+            return;
+        }
+        var ext = Path.GetExtension(first.FullPath).ToLowerInvariant();
+        if (ext != ".txt" && ext != ".docx")
+        {
+            IsPreviewPanelVisible = false;
+            return;
+        }
+        PreviewPanelTitle = first.Name;
+        if (ext == ".txt")
+        {
+            try
+            {
+                var content = await Task.Run(() =>
+                {
+                    try { return File.ReadAllText(first.FullPath); }
+                    catch { return ""; }
+                });
+                PreviewPanelContent = content;
+            }
+            catch
+            {
+                PreviewPanelContent = "(Could not read file.)";
+            }
+        }
+        else
+        {
+            PreviewPanelContent = "(Preview for .docx: open with default app to view.)";
+        }
+        IsPreviewPanelVisible = true;
     }
 
     /// <summary>Call before showing context menu (e.g. on right-click) to refresh Paste visibility.</summary>
@@ -787,34 +856,46 @@ public partial class OutputExplorerViewModel : ObservableObject
 
     private void OpenFileOrShortcut(string path)
     {
-         // Check if .lnk
-        if (Path.GetExtension(path).Equals(".lnk", System.StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                    // Use ShellExecute to let Windows handle the shortcut (open target)
-                    var psi = new ProcessStartInfo { FileName = path, UseShellExecute = true };
-                    Process.Start(psi);
-                    return;
-            }
-            catch { }
-        }
-        
-        // Smart Photoshop Open for Images
+        // Shortcuts: open with default app (Windows .lnk, macOS/Linux .desktop etc.)
         var ext = Path.GetExtension(path).ToLowerInvariant();
-        if (new[] { ".jpg", ".jpeg", ".png", ".psd", ".tif", ".tiff", ".webp" }.Contains(ext))
+        if (IsShortcutExtension(ext))
+        {
+            try { _platformService.OpenWithDefaultApp(path); } catch { }
+            return;
+        }
+
+        // Bitmap images: always open with system default viewer (cross-platform)
+        if (new[] { ".jpg", ".jpeg", ".png" }.Contains(ext))
+        {
+            try { _platformService.OpenWithDefaultApp(path); } catch { }
+            return;
+        }
+
+        // Other images (.psd, .tif, .webp): try Photoshop if available, else default app
+        if (new[] { ".psd", ".tif", ".tiff", ".webp" }.Contains(ext))
         {
             OpenInPhotoshopSmart(path);
             return;
         }
 
-        // Open file logic (default)
-        try 
-        {
-            var psi = new ProcessStartInfo { FileName = path, UseShellExecute = true };
-            Process.Start(psi);
-        }
-        catch { }
+        // Everything else: default app
+        try { _platformService.OpenWithDefaultApp(path); } catch { }
+    }
+
+    /// <summary>"Open with…" — launches the OS application picker dialog.</summary>
+    [RelayCommand]
+    private void OpenWith(object? parameter)
+    {
+        var item = parameter as ExplorerItemViewModel ?? GetSelectedItems(null).FirstOrDefault();
+        if (item == null || item.IsDirectory) return;
+        try { _platformService.OpenWithDialog(item.FullPath); } catch { }
+    }
+
+    private static bool IsShortcutExtension(string ext)
+    {
+        return ext.Equals(".lnk", StringComparison.OrdinalIgnoreCase)  // Windows
+            || ext.Equals(".desktop", StringComparison.OrdinalIgnoreCase) // Linux
+            || ext.Equals(".webloc", StringComparison.OrdinalIgnoreCase); // macOS (optional)
     }
 
     private void OpenInPhotoshopSmart(string imagePath)
@@ -857,8 +938,7 @@ try {{
         catch (System.Exception ex)
         {
              _notificationService.ShowError($"Failed to open in Photoshop: {ex.Message}", "Error");
-             // Fallback to default open
-             try { Process.Start(new ProcessStartInfo { FileName = imagePath, UseShellExecute = true }); } catch { }
+             try { _platformService.OpenWithDefaultApp(imagePath); } catch { }
         }
     }
 
@@ -1260,7 +1340,7 @@ try {{
     [RelayCommand]
     public void DeleteItem(object? parameter)
     {
-        DeleteItemsInternal(parameter, useRecycleBin: false);
+        DeleteItemsInternal(parameter, useRecycleBin: true);
     }
 
     /// <summary>Permanent delete (bypass Recycle Bin). Shift+Delete.</summary>
@@ -1275,15 +1355,24 @@ try {{
         var items = GetSelectedItems(parameter);
         if (!items.Any()) return;
 
-        // Currently both use direct delete; useRecycleBin can be implemented later via platform API
         int deletedCount = 0;
         foreach (var item in items)
         {
             try
             {
-                if (item.IsDirectory) Directory.Delete(item.FullPath, true);
-                else File.Delete(item.FullPath);
-                deletedCount++;
+                if (useRecycleBin)
+                {
+                    if (_platformService.MoveToRecycleBin(item.FullPath))
+                        deletedCount++;
+                    else
+                        _notificationService.ShowError($"Could not move {item.Name} to Recycle Bin.");
+                }
+                else
+                {
+                    if (item.IsDirectory) Directory.Delete(item.FullPath, true);
+                    else File.Delete(item.FullPath);
+                    deletedCount++;
+                }
             }
             catch (System.Exception ex)
             {
@@ -1489,38 +1578,47 @@ try {{
                 // Natural sort comparer for Windows Explorer-style ordering (1, 2, 3, 10 not 1, 10, 11, 2)
                 var naturalComparer = new NaturalSortComparer();
 
+                // Shortcut files (.lnk, .desktop) kept separate from physical folders in sort order
+                static bool IsShortcutFile(ExplorerItemViewModel x) => !x.IsDirectory && IsShortcutExtension(Path.GetExtension(x.FullPath));
+
                 // Grouping & Sorting logic
                 if (GroupBy == ExplorerGroupBy.None)
                 {
                     if (SortBy == ExplorerSortOption.Name)
                     {
                          var allDirs = baseItems.Where(x => x.IsDirectory).ToList();
-                         var allFiles = baseItems.Where(x => !x.IsDirectory).ToList();
+                         var shortcutFiles = baseItems.Where(IsShortcutFile).ToList();
+                         var otherFiles = baseItems.Where(x => !x.IsDirectory && !IsShortcutFile(x)).ToList();
                          
                          allDirs.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
-                         allFiles.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
+                         shortcutFiles.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
+                         otherFiles.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
                          
-                         if (IsSortDescending) { allDirs.Reverse(); allFiles.Reverse(); }
+                         if (IsSortDescending) { allDirs.Reverse(); shortcutFiles.Reverse(); otherFiles.Reverse(); }
                          
                          foreach (var i in allDirs) Items.Add(i);
-                         foreach (var i in allFiles) Items.Add(i);
+                         foreach (var i in shortcutFiles) Items.Add(i);
+                         foreach (var i in otherFiles) Items.Add(i);
                     }
                     else if (SortBy == ExplorerSortOption.Type)
                     {
-                         // Explorer-style: folders first, then files by type (extension), then by name within type
+                         // Folders first, then shortcut files, then other files by type
                          var allDirs = baseItems.Where(x => x.IsDirectory).ToList();
-                         var allFiles = baseItems.Where(x => !x.IsDirectory).ToList();
+                         var shortcutFiles = baseItems.Where(IsShortcutFile).ToList();
+                         var otherFiles = baseItems.Where(x => !x.IsDirectory && !IsShortcutFile(x)).ToList();
                          allDirs.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
-                         allFiles.Sort((a, b) =>
+                         shortcutFiles.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
+                         otherFiles.Sort((a, b) =>
                          {
                              string typeA = GetSortTypeKey(a.Name);
                              string typeB = GetSortTypeKey(b.Name);
                              int typeCmp = string.Compare(typeA, typeB, StringComparison.OrdinalIgnoreCase);
                              return typeCmp != 0 ? typeCmp : naturalComparer.Compare(a.Name, b.Name);
                          });
-                         if (IsSortDescending) { allDirs.Reverse(); allFiles.Reverse(); }
+                         if (IsSortDescending) { allDirs.Reverse(); shortcutFiles.Reverse(); otherFiles.Reverse(); }
                          foreach (var i in allDirs) Items.Add(i);
-                         foreach (var i in allFiles) Items.Add(i);
+                         foreach (var i in shortcutFiles) Items.Add(i);
+                         foreach (var i in otherFiles) Items.Add(i);
                     }
                     else
                     {
@@ -1558,16 +1656,26 @@ try {{
                 }
                 else if (GroupBy == ExplorerGroupBy.Type)
                 {
-                     var grouped = baseItems
-                        .OrderBy(x => x.IsDirectory ? 0 : 1) // Folders first?
-                        .ThenBy(x => Path.GetExtension(x.FullPath))
-                        .GroupBy(x => x.IsDirectory ? "Folders" : (string.IsNullOrEmpty(Path.GetExtension(x.FullPath)) ? "Files" : Path.GetExtension(x.FullPath).ToUpperInvariant() + " Files"));
-                        
-                     foreach (var group in grouped.OrderBy(g => g.Key))
+                     string TypeGroupKey(ExplorerItemViewModel x)
+                     {
+                         if (x.IsDirectory) return "Folders";
+                         if (IsShortcutFile(x)) return "Shortcut";
+                         var ext = Path.GetExtension(x.FullPath);
+                         return string.IsNullOrEmpty(ext) ? "Files" : ext.TrimStart('.').ToUpperInvariant() + " Files";
+                     }
+                     int TypeGroupOrder(string key)
+                     {
+                         if (key == "Folders") return 0;
+                         if (key == "Shortcut") return 1;
+                         return 2;
+                     }
+                     var grouped = baseItems.GroupBy(TypeGroupKey);
+                     foreach (var group in grouped.OrderBy(g => TypeGroupOrder(g.Key)).ThenBy(g => g.Key))
                      {
                          Items.Add(new ExplorerGroupHeaderViewModel(group.Key));
                          var sortedGroupItems = group.ToList();
                          sortedGroupItems.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
+                         if (IsSortDescending) sortedGroupItems.Reverse();
                          foreach (var item in sortedGroupItems) Items.Add(item);
                      }
                 }
@@ -2178,21 +2286,46 @@ try {{
         // TODO: implement tabbed explorer
     }
 
-    /// <summary>Switch between tabs (stub: not implemented yet).</summary>
+    /// <summary>Switch to next tab (Ctrl+Tab). Sends message; the window handles cycling.</summary>
     [RelayCommand]
     private void SwitchTab()
     {
-        // TODO: implement tabbed explorer
+        WeakReferenceMessenger.Default.Send(new SwitchExplorerTabMessage());
     }
 
-    /// <summary>Cycle view mode (List/Grid) for Ctrl+Mouse Wheel.</summary>
+    /// <summary>Cycle view mode (List/Grid/Thumbnail) for Ctrl+Mouse Wheel.</summary>
     [RelayCommand]
     public void CycleViewMode(bool? wheelUp)
     {
         if (wheelUp == true)
-            LayoutMode = LayoutMode == ExplorerLayoutMode.Vertical ? ExplorerLayoutMode.Horizontal : ExplorerLayoutMode.Vertical;
+        {
+            LayoutMode = LayoutMode switch
+            {
+                ExplorerLayoutMode.Vertical => ExplorerLayoutMode.Horizontal,
+                ExplorerLayoutMode.Horizontal => ExplorerLayoutMode.Thumbnail,
+                ExplorerLayoutMode.Thumbnail => ExplorerLayoutMode.Vertical,
+                _ => ExplorerLayoutMode.Vertical
+            };
+        }
         else if (wheelUp == false)
-            LayoutMode = LayoutMode == ExplorerLayoutMode.Horizontal ? ExplorerLayoutMode.Vertical : ExplorerLayoutMode.Horizontal;
+        {
+            LayoutMode = LayoutMode switch
+            {
+                ExplorerLayoutMode.Vertical => ExplorerLayoutMode.Thumbnail,
+                ExplorerLayoutMode.Thumbnail => ExplorerLayoutMode.Horizontal,
+                ExplorerLayoutMode.Horizontal => ExplorerLayoutMode.Vertical,
+                _ => ExplorerLayoutMode.Vertical
+            };
+        }
+    }
+
+    /// <summary>Select all items in the current folder (Ctrl+A).</summary>
+    [RelayCommand]
+    private void SelectAll()
+    {
+        SelectedItems.Clear();
+        foreach (var item in Items.OfType<ExplorerItemViewModel>())
+            SelectedItems.Add(item);
     }
 
     [RelayCommand]
@@ -2249,6 +2382,42 @@ public partial class ExplorerItemViewModel : ObservableObject
     public bool IsSelectable => true;
 
     [ObservableProperty] private bool _isEditing;
+
+    // --- Thumbnail support ---
+    private static readonly string[] _imageExts = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tif", ".tiff" };
+    public bool IsImageFile => !IsDirectory && _imageExts.Contains(Path.GetExtension(FullPath).ToLowerInvariant());
+
+    private Avalonia.Media.Imaging.Bitmap? _thumbnailImage;
+    private bool _thumbnailLoaded;
+
+    /// <summary>Lazy-loaded thumbnail bitmap (150×150 decode), null for non-images or if load fails.</summary>
+    public Avalonia.Media.Imaging.Bitmap? ThumbnailImage
+    {
+        get
+        {
+            if (!_thumbnailLoaded)
+            {
+                _thumbnailLoaded = true;
+                if (IsImageFile)
+                    LoadThumbnailAsync();
+            }
+            return _thumbnailImage;
+        }
+    }
+
+    private async void LoadThumbnailAsync()
+    {
+        try
+        {
+            await System.Threading.Tasks.Task.Run(() =>
+            {
+                using var stream = System.IO.File.OpenRead(FullPath);
+                _thumbnailImage = Avalonia.Media.Imaging.Bitmap.DecodeToWidth(stream, 150);
+            });
+            OnPropertyChanged(nameof(ThumbnailImage));
+        }
+        catch { /* Corrupt or inaccessible image: leave null */ }
+    }
 
     // Helper
     private string BytesToString(long byteCount)

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -7,6 +8,26 @@ namespace BMachine.Core.Platform;
 
 public class WindowsPlatformService : IPlatformService
 {
+    // Recycle Bin via Shell API (cross-version Windows)
+    private const int FO_DELETE = 0x0003;
+    private const int FOF_ALLOWUNDO = 0x0040;
+    private const int FOF_SILENT = 0x0044; // No progress UI, allow undo
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern int SHFileOperation(ref ShFileOpStruct lpFileOp);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct ShFileOpStruct
+    {
+        public IntPtr hwnd;
+        public int wFunc;
+        public string pFrom;
+        public string pTo;
+        public short fFlags;
+        [MarshalAs(UnmanagedType.Bool)] public bool fAnyOperationsAborted;
+        public IntPtr hNameMappings;
+        public string lpszProgressTitle;
+    }
     public void RevealFileInExplorer(string filePath)
     {
         Process.Start("explorer", $"/select,\"{filePath}\"");
@@ -125,5 +146,41 @@ public class WindowsPlatformService : IPlatformService
             System.IO.Directory.CreateDirectory(path);
         }
         return path;
+    }
+
+    public void OpenWithDefaultApp(string fileOrFolderPath)
+    {
+        Process.Start(new ProcessStartInfo(fileOrFolderPath) { UseShellExecute = true });
+    }
+
+    public void OpenWithDialog(string filePath)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "rundll32.exe",
+                Arguments = $"shell32.dll,OpenAs_RunDLL \"{filePath}\"",
+                UseShellExecute = false
+            });
+        }
+        catch { }
+    }
+
+    public bool MoveToRecycleBin(string fileOrFolderPath)
+    {
+        if (string.IsNullOrEmpty(fileOrFolderPath) || (!System.IO.File.Exists(fileOrFolderPath) && !System.IO.Directory.Exists(fileOrFolderPath)))
+            return false;
+        // Double-null terminated path for SHFileOperation (marshaler adds one \0, we add one)
+        var pFrom = fileOrFolderPath + "\0";
+        var op = new ShFileOpStruct
+        {
+            wFunc = FO_DELETE,
+            pFrom = pFrom,
+            fFlags = FOF_SILENT,
+            lpszProgressTitle = ""
+        };
+        int result = SHFileOperation(ref op);
+        return result == 0;
     }
 }

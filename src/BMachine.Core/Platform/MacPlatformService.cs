@@ -129,4 +129,47 @@ public class MacPlatformService : IPlatformService
         }
         return path;
     }
+
+    public void OpenWithDefaultApp(string fileOrFolderPath)
+    {
+        Process.Start("open", $"\"{fileOrFolderPath}\"");
+    }
+
+    public void OpenWithDialog(string filePath)
+    {
+        // macOS: use "open -a" with a simple osascript to invoke the "choose application" dialog
+        try
+        {
+            var script = $"set theApp to (choose application with prompt \"Open with…\") \n " +
+                         $"do shell script \"open -a \" & quoted form of (POSIX path of (path to theApp)) & \" \" & quoted form of \"{filePath.Replace("\"", "\\\"")}\"";
+            Process.Start("osascript", $"-e '{script}'");
+        }
+        catch { }
+    }
+
+    public bool MoveToRecycleBin(string fileOrFolderPath)
+    {
+        if (string.IsNullOrEmpty(fileOrFolderPath) || (!System.IO.File.Exists(fileOrFolderPath) && !System.IO.Directory.Exists(fileOrFolderPath)))
+            return false;
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var trash = System.IO.Path.Combine(home, ".Trash");
+        if (!System.IO.Directory.Exists(trash))
+            return false;
+        var name = System.IO.Path.GetFileName(fileOrFolderPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+        var dest = System.IO.Path.Combine(trash, name);
+        if (System.IO.File.Exists(dest) || System.IO.Directory.Exists(dest))
+            dest = System.IO.Path.Combine(trash, $"{name} {DateTime.UtcNow:yyyy-MM-dd HHmmss}");
+        try
+        {
+            if (System.IO.Directory.Exists(fileOrFolderPath))
+                System.IO.Directory.Move(fileOrFolderPath, dest);
+            else
+                System.IO.File.Move(fileOrFolderPath, dest);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

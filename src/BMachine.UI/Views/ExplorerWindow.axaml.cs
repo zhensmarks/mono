@@ -29,32 +29,45 @@ public partial class ExplorerWindow : Window
             if (m.Value != this) return;
             Avalonia.Threading.Dispatcher.UIThread.Post(HandleAddTab);
         });
-        WeakReferenceMessenger.Default.Register<ExplorerShortcutsChangedMessage>(this, (_, _) =>
+        WeakReferenceMessenger.Default.Register<ExplorerShortcutsReadyMessage>(this, (_, _) =>
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(ApplyWindowExplorerShortcuts);
         });
+        WeakReferenceMessenger.Default.Register<SwitchExplorerTabMessage>(this, (_, _) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(HandleSwitchTab);
+        });
     }
 
+    /// <summary>Ctrl+W: close active tab only when there is more than one tab; do not close window when only one tab.</summary>
     public void HandleCloseTabOrWindow()
     {
-        if (DataContext is ExplorerWindowViewModel wvm && wvm.SelectedTab != null)
+        if (DataContext is not ExplorerWindowViewModel wvm || wvm.SelectedTab == null)
         {
-            wvm.CloseTab(wvm.SelectedTab);
-            if (wvm.Tabs.Count == 0)
-            {
-                SaveWindowSize();
-                Close();
-            }
+            SaveWindowSize();
+            Close();
             return;
         }
-        SaveWindowSize();
-        Close();
+        if (wvm.Tabs.Count > 1)
+        {
+            wvm.CloseTab(wvm.SelectedTab);
+            return;
+        }
+        // Single tab: do nothing (keep window open)
     }
 
     private void HandleAddTab()
     {
         if (DataContext is ExplorerWindowViewModel wvm)
             wvm.AddTabCommand.Execute(null);
+    }
+
+    private void HandleSwitchTab()
+    {
+        if (DataContext is not ExplorerWindowViewModel wvm || wvm.Tabs.Count < 2) return;
+        var idx = wvm.SelectedTab != null ? wvm.Tabs.IndexOf(wvm.SelectedTab) : -1;
+        var next = (idx + 1) % wvm.Tabs.Count;
+        wvm.SelectedTab = wvm.Tabs[next];
     }
 
     private void InitializeComponent()
@@ -105,6 +118,12 @@ public partial class ExplorerWindow : Window
         TryAdd(keyBindings, vm.ShortcutFocusSearchBoxGesture, vm.FocusSearchBoxCommand!, null);
         TryAdd(keyBindings, vm.ShortcutAddressBarGesture, vm.FocusPathBarCommand!, null);
         TryAdd(keyBindings, vm.ShortcutSwitchTabGesture, vm.SwitchTabCommand!, null);
+        TryAdd(keyBindings, vm.ShortcutRefreshGesture, vm.RefreshCommand!, null);
+        // Standard shortcuts (not customizable)
+        TryAdd(keyBindings, "Ctrl+A", vm.SelectAllCommand!, null);
+        TryAdd(keyBindings, "Ctrl+C", vm.CopyItemCommand!, vm.SelectedItems);
+        TryAdd(keyBindings, "Ctrl+X", vm.CutItemCommand!, vm.SelectedItems);
+        TryAdd(keyBindings, "Ctrl+V", vm.PasteItemCommand!, null);
     }
 
     private void TryAdd(IList<KeyBinding> keyBindings, string gestureStr, System.Windows.Input.ICommand command, object? parameter)

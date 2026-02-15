@@ -52,7 +52,7 @@ public partial class OutputExplorerView : UserControl
                     w.HandleCloseTabOrWindow();
             });
         });
-        WeakReferenceMessenger.Default.Register<ExplorerShortcutsChangedMessage>(this, (_, _) =>
+        WeakReferenceMessenger.Default.Register<ExplorerShortcutsReadyMessage>(this, (_, _) =>
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(ReapplyExplorerShortcuts);
         });
@@ -118,6 +118,13 @@ public partial class OutputExplorerView : UserControl
         TryAddKeyBinding(keyBindings, vm.ShortcutFocusSearchBoxGesture, vm.FocusSearchBoxCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutAddressBarGesture, vm.FocusPathBarCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutSwitchTabGesture, vm.SwitchTabCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, vm.ShortcutRefreshGesture, vm.RefreshCommand!, null, _explorerKeyBindings);
+        // Standard shortcuts (not customizable via Settings)
+        TryAddKeyBinding(keyBindings, "Ctrl+A", vm.SelectAllCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, "Ctrl+C", vm.CopyItemCommand!, vm.SelectedItems, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, "Ctrl+X", vm.CutItemCommand!, vm.SelectedItems, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, "Ctrl+V", vm.PasteItemCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, "Back", vm.GoBackCommand!, null, _explorerKeyBindings);
     }
 
     private static void TryAddKeyBinding(

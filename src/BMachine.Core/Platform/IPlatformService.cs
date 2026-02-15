@@ -63,4 +63,23 @@ public interface IPlatformService
     /// e.g. %AppData%\BMachine (Windows), ~/Library/Application Support/BMachine (macOS), ~/.config/BMachine (Linux)
     /// </summary>
     string GetAppDataDirectory();
+
+    /// <summary>
+    /// Open a file or folder with the system default application (cross-platform).
+    /// Windows: ShellExecute; macOS: open; Linux: xdg-open.
+    /// </summary>
+    void OpenWithDefaultApp(string fileOrFolderPath);
+
+    /// <summary>
+    /// Move a file or folder to the system recycle bin / trash (cross-platform).
+    /// Windows: Recycle Bin; macOS: Trash; Linux: XDG Trash.
+    /// Returns true if successful.
+    /// </summary>
+    bool MoveToRecycleBin(string fileOrFolderPath);
+
+    /// <summary>
+    /// Open the OS "Open with…" dialog for a file, allowing the user to pick an application.
+    /// Windows: rundll32 shell32.dll,OpenAs_RunDLL; macOS: open -a (Finder choose-app); Linux: xdg-open fallback.
+    /// </summary>
+    void OpenWithDialog(string filePath);
 }

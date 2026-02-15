@@ -56,6 +56,14 @@
                               IsVisible="{Binding IsHorizontalLayout}"/>
                 </MenuItem.Icon>
             </MenuItem>
+            <MenuItem Header="Thumbnails" 
+                      ToggleType="Radio"
+                      IsChecked="{Binding IsThumbnailLayout, Mode=TwoWay}">
+                <MenuItem.Icon>
+                    <PathIcon Data="{StaticResource IconCheck}" Width="12" Height="12"
+                              IsVisible="{Binding IsThumbnailLayout}"/>
+                </MenuItem.Icon>
+            </MenuItem>
         </MenuItem>
         
         <MenuItem Header="Sort by">
@@ -123,15 +131,22 @@
         
         <Separator/>
         
-        <MenuItem Header="Refresh" Command="{Binding RefreshCommand}"/>
+        <MenuItem Header="Select All" Command="{Binding SelectAllCommand}" InputGesture="Ctrl+A"/>
+        <MenuItem Header="Paste" Command="{Binding PasteItemCommand}" InputGesture="Ctrl+V"/>
         
         <Separator/>
-        <MenuItem Header="Paste" Command="{Binding PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding HasFileClipboard}"/>
-        <MenuItem Header="Copy" Command="{Binding CopyItemCommand}" CommandParameter="{Binding SelectedItems}" InputGesture="Ctrl+C" IsVisible="{Binding HasSelection}"/>
-        <MenuItem Header="Cut" Command="{Binding CutItemCommand}" CommandParameter="{Binding SelectedItems}" InputGesture="Ctrl+X" IsVisible="{Binding HasSelection}"/>
-        <MenuItem Header="New Folder" Command="{Binding OpenNewFolderPopupCommand}"/>
-        <MenuItem Header="New File (.txt)" Command="{Binding OpenNewFilePopupCommand}"/>
+        
+        <MenuItem Header="New">
+            <MenuItem Header="Folder" Command="{Binding OpenNewFolderPopupCommand}"/>
+            <MenuItem Header="Text File" Command="{Binding OpenNewFilePopupCommand}"/>
+        </MenuItem>
+        
         <Separator/>
+        
+        <MenuItem Header="Refresh" Command="{Binding RefreshCommand}" InputGesture="F5"/>
+        
+        <Separator/>
+        <MenuItem Header="Add Folder" Command="{Binding AddExternalFolderCommand}" ToolTip.Tip="Pin external folder to sidebar"/>
         <MenuItem Header="Master Browser Sync" Command="{Binding CopyMasterBrowserHereCommand}"/>
         <MenuItem Header="New Explorer Window" Command="{Binding NewExplorerWindowCommand}"/>
         <Separator/>
@@ -218,7 +233,7 @@
 
                 <!-- SIDEBAR (LEFT) -->
                 <Grid Grid.Column="0">
-                    <Grid RowDefinitions="*, Auto" Margin="0,4,0,0">
+                    <Grid RowDefinitions="*" Margin="0,4,0,0">
                          <!-- Sidebar Items List -->
                          <ListBox Grid.Row="0" ItemsSource="{Binding QuickAccessItems}" Background="Transparent" BorderThickness="0" Padding="0">
                              <ListBox.ItemTemplate>
@@ -248,12 +263,6 @@
                                  </Style>
                              </ListBox.Styles>
                          </ListBox>
-                         
-                         <!-- Add Button Moved to Bottom -->
-                         <Button Grid.Row="1" Command="{Binding AddExternalFolderCommand}" 
-                                 Padding="6" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip.Tip="Pin External Folder" HorizontalAlignment="Center" Margin="0,4">
-                             <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                         </Button>
                     </Grid>
                     
                     <!-- Vertical Separator Decor -->
@@ -263,9 +272,15 @@
                 <!-- SPLITTER -->
                 <GridSplitter Grid.Column="1" Background="{DynamicResource SeparatorBrush}" ResizeDirection="Columns" Opacity="0.5"/>
                 
-                <!-- MAIN CONTENT (RIGHT) - FILES LIST (context menu anywhere, like Windows Explorer) -->
-                <Grid Grid.Column="2"
-                      DragDrop.AllowDrop="True">
+                <!-- MAIN CONTENT (RIGHT) - FILES LIST + PREVIEW PANEL -->
+                <Grid Grid.Column="2" DragDrop.AllowDrop="True">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="{Binding PreviewPanelWidth}" MinWidth="0"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- File list area (left) -->
+                    <Grid Grid.Column="0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
@@ -302,14 +317,7 @@
                              PointerPressed="OnItemPointerPressed"
                              PointerMoved="OnItemPointerMoved"
                              PointerReleased="OnItemPointerReleased">
-                        <ListBox.KeyBindings>
-                            <KeyBinding Gesture="Back" Command="{Binding GoBackCommand}"/>
-                            <KeyBinding Gesture="Ctrl+C" Command="{Binding CopyItemCommand}" CommandParameter="{Binding SelectedItems}" />
-                            <KeyBinding Gesture="Ctrl+X" Command="{Binding CutItemCommand}" CommandParameter="{Binding SelectedItems}" />
-                            <KeyBinding Gesture="Ctrl+V" Command="{Binding PasteItemCommand}" />
-                            <KeyBinding Gesture="Delete" Command="{Binding DeleteItemCommand}" CommandParameter="{Binding SelectedItems}" />
-                            <KeyBinding Gesture="F2" Command="{Binding RenameItemCommand}" />
-                        </ListBox.KeyBindings>
+
                         <ListBox.Styles>
                             <Style Selector="ListBoxItem">
                                 <Setter Property="Padding" Value="4,0"/>
@@ -329,11 +337,16 @@
                                  </Border>
                             </DataTemplate>
                             
-                            <!-- ITEM TEMPLATE -->
+                            <!-- ITEM TEMPLATE (fit-to-content: name column has min width before ellipsis) -->
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                 <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="28" DoubleTapped="OnItemDoubleTapped">
+                                 <Grid ColumnDefinitions="Auto, *" MinWidth="200" Background="Transparent" Height="28" DoubleTapped="OnItemDoubleTapped">
                                       <Grid.ContextMenu>
                                           <ContextMenu>
+                                              <!-- Open actions -->
+                                              <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
+                                              <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
+                                              <Separator/>
+
                                               <!-- Top Row Buttons -->
                                               <MenuItem Header="{x:Null}">
                                                   <MenuItem.Template>
@@ -361,14 +374,12 @@
                                               <MenuItem Header="Pin to Sidebar" Command="{Binding #ExplorerRoot.DataContext.AddToQuickAccessCommand}" CommandParameter="{Binding}"/>
                                               <MenuItem Header="Master Browser Sync (Copy to this folder)" Command="{Binding #ExplorerRoot.DataContext.CopyMasterBrowserHereCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                               <MenuItem Header="Rename" Command="{Binding #ExplorerRoot.DataContext.RenameItemCommand}" CommandParameter="{Binding}" InputGesture="F2"/>
+                                              <MenuItem Header="Duplicate..." Command="{Binding #ExplorerRoot.DataContext.OpenDuplicatePopupCommand}"/>
                                               <MenuItem Header="Batch Rename (From Clipboard)" Command="{Binding #ExplorerRoot.DataContext.BatchRenameFromClipboardCommand}"/>
+                                              <Separator/>
                                               <MenuItem Header="Copy" Command="{Binding #ExplorerRoot.DataContext.CopyItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+C"/>
                                               <MenuItem Header="Cut" Command="{Binding #ExplorerRoot.DataContext.CutItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+X"/>
                                               <MenuItem Header="Paste" Command="{Binding #ExplorerRoot.DataContext.PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding #ExplorerRoot.DataContext.HasFileClipboard}"/>
-                                              <Separator/>
-                                              <MenuItem Header="New Folder" Command="{Binding #ExplorerRoot.DataContext.OpenNewFolderPopupCommand}"/>
-                                              <MenuItem Header="New File (.txt)" Command="{Binding #ExplorerRoot.DataContext.OpenNewFilePopupCommand}"/>
-                                              <MenuItem Header="Refresh" Command="{Binding #ExplorerRoot.DataContext.RefreshCommand}"/>
                                               <Separator/>
                                               <MenuItem Header="Copy Full Path" Command="{Binding #ExplorerRoot.DataContext.CopyPathCommand}" CommandParameter="{Binding}"/>
                                               <MenuItem Header="Copy Name Only" Command="{Binding #ExplorerRoot.DataContext.CopyNameCommand}" CommandParameter="{Binding}"/>
@@ -377,18 +388,14 @@
                                               <MenuItem Header="{Binding #ExplorerRoot.DataContext.ShowInExplorerHeader}" Command="{Binding #ExplorerRoot.DataContext.ShowInExplorerCommand}" CommandParameter="{Binding}"/>
                                               
                                               <Separator/>
-                                              <MenuItem Header="Duplicate..." Command="{Binding #ExplorerRoot.DataContext.OpenDuplicatePopupCommand}"/>
-                                               <!-- Note: OpenDuplicatePopupCommand is global, might need parameter if we want to dupe specific item. 
-                                                    Currently DuplicateItem iterates Selection. Selection updates on RightClick usually. -->
-
                                               <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
                                           </ContextMenu>
                                       </Grid.ContextMenu>
                                       <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="16" Height="16" Margin="8,0" Foreground="#6f7c94"/>
                                       <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="14" Height="14" Margin="9,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                       
-                                      <!-- Name / Edit Box -->
-                                      <Panel Grid.Column="1" VerticalAlignment="Center">
+                                      <!-- Name / Edit Box (min width to avoid premature ellipsis) -->
+                                      <Panel Grid.Column="1" VerticalAlignment="Center" MinWidth="120">
                                           <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Medium" TextTrimming="CharacterEllipsis"
                                                      IsVisible="{Binding !IsEditing}"/>
                                           
@@ -427,14 +434,7 @@
                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
                              PointerWheelChanged="OnHorizontalListPointerWheelChanged"
                              ContextMenu="{StaticResource BackgroundMenu}">
-                        <ListBox.KeyBindings>
-                            <KeyBinding Gesture="Back" Command="{Binding GoBackCommand}"/>
-                            <KeyBinding Gesture="Ctrl+C" Command="{Binding CopyItemCommand}" CommandParameter="{Binding SelectedItems}" />
-                            <KeyBinding Gesture="Ctrl+X" Command="{Binding CutItemCommand}" CommandParameter="{Binding SelectedItems}" />
-                            <KeyBinding Gesture="Ctrl+V" Command="{Binding PasteItemCommand}" />
-                            <KeyBinding Gesture="Delete" Command="{Binding DeleteItemCommand}" CommandParameter="{Binding SelectedItems}" />
-                            <KeyBinding Gesture="F2" Command="{Binding RenameItemCommand}" />
-                        </ListBox.KeyBindings>
+
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Vertical" />
@@ -523,9 +523,89 @@
                                        <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="12" Height="12" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" VerticalAlignment="Center" FontWeight="Medium" TextTrimming="CharacterEllipsis"/>
                                  </Grid>
+                                    </DataTemplate>
+                        </ListBox.DataTemplates>
+                    </ListBox>
+                    </Grid>
+
+                    <!-- THUMBNAIL VIEW (Medium Cards with Image Previews) -->
+                    <ListBox ItemsSource="{Binding Items}" 
+                             SelectedItems="{Binding SelectedItems}"
+                             SelectionMode="Multiple"
+                             Background="{DynamicResource AppBackgroundBrush}" 
+                             IsVisible="{Binding IsThumbnailLayoutAndNotEmpty}" 
+                             ClipToBounds="True"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ContextMenu="{StaticResource BackgroundMenu}">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="4"/>
+                                <Setter Property="Margin" Value="2"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="IsHitTestVisible" Value="{Binding IsSelectable, FallbackValue=True}"/>
+                                <Setter Property="Focusable" Value="{Binding IsSelectable, FallbackValue=True}"/>
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.DataTemplates>
+                            <!-- HEADER TEMPLATE (hidden in thumbnail view) -->
+                            <DataTemplate x:DataType="vm:ExplorerGroupHeaderViewModel">
+                                 <Border Height="0" Width="0" IsHitTestVisible="False" Focusable="False"/>
+                            </DataTemplate>
+
+                            <DataTemplate x:DataType="vm:ExplorerItemViewModel">
+                                <Border Width="140" Height="160" CornerRadius="6" ClipToBounds="True"
+                                        Background="{DynamicResource CardBackgroundBrush}" 
+                                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                        DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}">
+                                    <Grid RowDefinitions="*, Auto">
+                                        <!-- Thumbnail Image (for image files) -->
+                                        <Image Grid.Row="0" Source="{Binding ThumbnailImage}" 
+                                               Stretch="UniformToFill" IsVisible="{Binding IsImageFile}"
+                                               Margin="4,4,4,0"/>
+                                        <!-- Fallback icon for folders -->
+                                        <PathIcon Grid.Row="0" Data="{StaticResource IconFolder}" 
+                                                  IsVisible="{Binding IsDirectory}" 
+                                                  Width="40" Height="40" Foreground="#6f7c94"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <!-- Fallback icon for non-image files -->
+                                        <Panel Grid.Row="0" IsVisible="{Binding !IsDirectory}">
+                                            <PathIcon Data="{StaticResource IconFile}" 
+                                                      Width="36" Height="36" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      IsVisible="{Binding !IsImageFile}"/>
+                                        </Panel>
+                                        <!-- File name -->
+                                        <TextBlock Grid.Row="1" Text="{Binding Name}" 
+                                                   FontSize="11" FontWeight="Medium"
+                                                   TextTrimming="CharacterEllipsis" TextAlignment="Center"
+                                                   HorizontalAlignment="Center" Margin="4,2,4,4"
+                                                   MaxLines="2" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </Border>
                             </DataTemplate>
                         </ListBox.DataTemplates>
                     </ListBox>
+
+                    <!-- Preview panel (right): .txt content, .docx placeholder -->
+                    <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,0,0,0" MinWidth="0" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto, *" Margin="8">
+                            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,6">
+                                <TextBlock Grid.Column="0" Text="{Binding PreviewPanelTitle}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Command="{Binding ClosePreviewPanelCommand}" Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Close Preview">
+                                    <PathIcon Data="{StaticResource IconX}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                            </Grid>
+                            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                <TextBox Text="{Binding PreviewPanelContent, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" FontFamily="Consolas, monospace" FontSize="12"/>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </Grid>
             </Grid>
         </Grid>

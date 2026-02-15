@@ -90,6 +90,19 @@ public partial class ExplorerTabItemViewModel : ObservableObject
         ? "Output"
         : System.IO.Path.GetFileName(ExplorerViewModel.CurrentPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
 
+    /// <summary>Sub-text showing selection count, e.g. "3 items selected".</summary>
+    public string SelectionInfo
+    {
+        get
+        {
+            var count = ExplorerViewModel.SelectedItems?.Count ?? 0;
+            return count > 1 ? $"{count} items selected" : "";
+        }
+    }
+
+    /// <summary>True when SelectionInfo should be shown (multiple selection).</summary>
+    public bool HasSelectionInfo => (ExplorerViewModel.SelectedItems?.Count ?? 0) > 1;
+
     public ExplorerTabItemViewModel(OutputExplorerViewModel explorerViewModel)
     {
         ExplorerViewModel = explorerViewModel;
@@ -97,6 +110,11 @@ public partial class ExplorerTabItemViewModel : ObservableObject
         {
             if (e.PropertyName == nameof(OutputExplorerViewModel.CurrentPath))
                 OnPropertyChanged(nameof(Title));
+        };
+        ExplorerViewModel.SelectedItems.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(SelectionInfo));
+            OnPropertyChanged(nameof(HasSelectionInfo));
         };
     }
 }

@@ -22,11 +22,17 @@
         <!-- Title Bar: drag zone, single-tab title OR tab strip, window close -->
         <Grid Grid.Row="0" Height="38" Background="Transparent" PointerPressed="OnDragZonePointerPressed">
             <!-- Single tab: show folder name in center -->
-            <TextBlock Text="{Binding SelectedTab.ExplorerViewModel.CurrentFolderName, FallbackValue=Output}" 
-                       VerticalAlignment="Center" HorizontalAlignment="Center"
-                       FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" 
-                       TextTrimming="CharacterEllipsis" MaxWidth="400"
-                       IsVisible="{Binding ShowSingleTabTitle}"/>
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        IsVisible="{Binding ShowSingleTabTitle}">
+                <TextBlock Text="{Binding SelectedTab.ExplorerViewModel.CurrentFolderName, FallbackValue=Output}" 
+                           HorizontalAlignment="Center"
+                           FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" 
+                           TextTrimming="CharacterEllipsis" MaxWidth="400"/>
+                <TextBlock Text="{Binding SelectedTab.SelectionInfo}" 
+                           HorizontalAlignment="Center"
+                           FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"
+                           IsVisible="{Binding SelectedTab.HasSelectionInfo}"/>
+            </StackPanel>
 
             <!-- Tab strip using UniformGrid for stretch/fill behavior -->
             <Border IsVisible="{Binding ShowTabBar}" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1"
@@ -96,8 +102,14 @@
                                 </Border.Styles>
                                 
                                 <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                                    <TextBlock Grid.Column="0" Text="{Binding Title}" TextTrimming="CharacterEllipsis" 
-                                               FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0"/>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0">
+                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" 
+                                                   FontSize="12" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SelectionInfo}" 
+                                                   FontSize="9" HorizontalAlignment="Center"
+                                                   Opacity="0.7"
+                                                   IsVisible="{Binding HasSelectionInfo}"/>
+                                    </StackPanel>
                                     <Button Grid.Column="1" Width="20" Height="20" Padding="4" Margin="2,0,0,0"
                                             Background="Transparent" BorderThickness="0"
                                             Classes="TabCloseBtn" Click="OnCloseTabClick" ToolTip.Tip="Close tab">

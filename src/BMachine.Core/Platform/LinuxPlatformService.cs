@@ -113,4 +113,57 @@ public class LinuxPlatformService : IPlatformService
         }
         return path;
     }
+
+    public void OpenWithDefaultApp(string fileOrFolderPath)
+    {
+        Process.Start("xdg-open", $"\"{fileOrFolderPath}\"");
+    }
+
+    public void OpenWithDialog(string filePath)
+    {
+        // Linux: no universal "choose application" dialog; fall back to xdg-open
+        try { Process.Start("xdg-open", $"\"{filePath}\""); } catch { }
+    }
+
+    public bool MoveToRecycleBin(string fileOrFolderPath)
+    {
+        if (string.IsNullOrEmpty(fileOrFolderPath) || (!System.IO.File.Exists(fileOrFolderPath) && !System.IO.Directory.Exists(fileOrFolderPath)))
+            return false;
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var trashFiles = System.IO.Path.Combine(home, ".local", "share", "Trash", "files");
+        var trashInfo = System.IO.Path.Combine(home, ".local", "share", "Trash", "info");
+        try
+        {
+            if (!System.IO.Directory.Exists(trashFiles))
+                System.IO.Directory.CreateDirectory(trashFiles);
+            if (!System.IO.Directory.Exists(trashInfo))
+                System.IO.Directory.CreateDirectory(trashInfo);
+        }
+        catch
+        {
+            return false;
+        }
+        var name = System.IO.Path.GetFileName(fileOrFolderPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+        var dest = System.IO.Path.Combine(trashFiles, name);
+        if (System.IO.File.Exists(dest) || System.IO.Directory.Exists(dest))
+            dest = System.IO.Path.Combine(trashFiles, $"{name}_{DateTime.UtcNow:yyyyMMddHHmmss}");
+        try
+        {
+            if (System.IO.Directory.Exists(fileOrFolderPath))
+                System.IO.Directory.Move(fileOrFolderPath, dest);
+            else
+                System.IO.File.Move(fileOrFolderPath, dest);
+            // Optional: write .trashinfo for XDG Trash spec (restore with original path)
+            var baseName = System.IO.Path.GetFileName(dest);
+            var infoPath = System.IO.Path.Combine(trashInfo, baseName + ".trashinfo");
+            var origPath = fileOrFolderPath.Replace("\\", "/");
+            var content = $"[Trash Info]\nPath={Uri.EscapeDataString(origPath)}\nDeletionDate={DateTime.UtcNow:yyyy-MM-ddTHH:mm:ss}\n";
+            System.IO.File.WriteAllText(infoPath, content);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
