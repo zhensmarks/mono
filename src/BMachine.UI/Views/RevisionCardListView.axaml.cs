@@ -137,6 +137,24 @@ public partial class RevisionCardListView : UserControl
         WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.NavigateToNextTrelloViewMessage("Revisi", sourceWindow));
     }
 
+    private void OnOpenCommentWindowClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is BaseTrelloListViewModel vm)
+        {
+            var win = new CommentWindow
+            {
+                DataContext = vm
+            };
+            win.Show();
+            
+            // Optional: Close the inline panel if desired. 
+            // For now, let's keep it open or maybe close it to avoid confusion?
+            // "saat saya sedang kerjakan yang ada di komentar saya bisa langsung scroll tanpa harus di klik dulu untuk fokus atau dia kehilangan fokus setelah beberapa lama membuatnya menjadi harus ke atas lagi"
+            // The user wants a persistent window. Closing the panel seems appropriate to avoid clutter.
+            vm.IsCommentPanelOpen = false;
+        }
+    }
+
     private Vector _savedCommentScrollOffset;
 
     protected override void OnDataContextChanged(EventArgs e)

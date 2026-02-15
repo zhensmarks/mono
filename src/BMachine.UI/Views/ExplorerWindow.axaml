@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:views="using:BMachine.UI.Views"
+        xmlns:vm="using:BMachine.UI.ViewModels"
         mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
         x:Class="BMachine.UI.Views.ExplorerWindow"
         Title="Explorer"
@@ -14,22 +15,126 @@
         SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
-        CanResize="True">
+        CanResize="True"
+        x:DataType="vm:ExplorerWindowViewModel">
     
     <Grid RowDefinitions="Auto, *">
-        <!-- Custom Title Bar (Click to Drag) -->
-        <Grid Grid.Row="0" Height="45" Background="Transparent" PointerPressed="OnDragZonePointerPressed">
-            <!-- Text Removed as per user request -->
-            
-            <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Click="OnCloseWindow"
+        <!-- Title Bar: drag zone, single-tab title OR tab strip, window close -->
+        <Grid Grid.Row="0" Height="38" Background="Transparent" PointerPressed="OnDragZonePointerPressed">
+            <!-- Single tab: show folder name in center -->
+            <TextBlock Text="{Binding SelectedTab.ExplorerViewModel.CurrentFolderName, FallbackValue=Output}" 
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" 
+                       TextTrimming="CharacterEllipsis" MaxWidth="400"
+                       IsVisible="{Binding ShowSingleTabTitle}"/>
+
+            <!-- Tab strip using UniformGrid for stretch/fill behavior -->
+            <Border IsVisible="{Binding ShowTabBar}" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1"
+                    Margin="0" Padding="6,4,48,0" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                <ItemsControl ItemsSource="{Binding Tabs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ExplorerTabItemViewModel">
+                            <Border Padding="8,4" Cursor="Hand" Margin="0,0,1,0"
+                                    Classes.selected="{Binding IsSelected}"
+                                    PointerPressed="OnTabHeaderPointerPressed">
+                                <Border.Styles>
+                                    <Style Selector="Border">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+                                        <Setter Property="BorderThickness" Value="0,0,1,0"/>
+                                        <Setter Property="CornerRadius" Value="4,4,0,0"/>
+                                    </Style>
+                                    <Style Selector="Border.selected">
+                                        <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+                                        <!-- Connect to content area below -->
+                                        <Setter Property="Margin" Value="0,0,1,-1"/>
+                                        <Setter Property="CornerRadius" Value="4,4,0,0"/>
+                                    </Style>
+                                    <Style Selector="Border:pointerover">
+                                        <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+                                    </Style>
+                                    <Style Selector="Border.selected:pointerover">
+                                        <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+                                        <Setter Property="Opacity" Value="0.95"/>
+                                    </Style>
+                                    
+                                    <!-- Close Button Styles -->
+                                    <Style Selector="Border Button.TabCloseBtn">
+                                        <Setter Property="Opacity" Value="0"/>
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="CornerRadius" Value="2"/>
+                                    </Style>
+                                    <Style Selector="Border:pointerover Button.TabCloseBtn, Border.selected Button.TabCloseBtn">
+                                        <Setter Property="Opacity" Value="1"/>
+                                    </Style>
+                                    <Style Selector="Border Button.TabCloseBtn:pointerover">
+                                        <Setter Property="Background" Value="#40FFFFFF"/>
+                                    </Style>
+                                    
+                                    <!-- Text Styles -->
+                                    <Style Selector="Border TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                    </Style>
+                                    <Style Selector="Border.selected TextBlock">
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </Style>
+                                    
+                                    <!-- Icon Styles -->
+                                    <Style Selector="Border Button.TabCloseBtn PathIcon">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                    </Style>
+                                    <Style Selector="Border.selected Button.TabCloseBtn PathIcon">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Style>
+                                </Border.Styles>
+                                
+                                <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                    <TextBlock Grid.Column="0" Text="{Binding Title}" TextTrimming="CharacterEllipsis" 
+                                               FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0"/>
+                                    <Button Grid.Column="1" Width="20" Height="20" Padding="4" Margin="2,0,0,0"
+                                            Background="Transparent" BorderThickness="0"
+                                            Classes="TabCloseBtn" Click="OnCloseTabClick" ToolTip.Tip="Close tab">
+                                        <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
+                                                  Width="9" Height="9"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
+            <!-- Window close button -->
+            <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,10,0" Click="OnCloseWindow"
                     Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="4" ToolTip.Tip="Close">
                 <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
                           Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
             </Button>
         </Grid>
-        
-        <!-- Content -->
-        <views:OutputExplorerView Grid.Row="1" /> 
+
+        <!-- Content area -->
+        <Border Grid.Row="1" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="{DynamicResource AppBackgroundBrush}">
+            <ItemsControl ItemsSource="{Binding Tabs}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Grid/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ExplorerTabItemViewModel">
+                        <Border IsVisible="{Binding IsSelected}" Background="Transparent" ClipToBounds="True">
+                             <views:OutputExplorerView DataContext="{Binding ExplorerViewModel}"/>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
     </Grid>
-    
 </Window>

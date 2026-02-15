@@ -109,8 +109,9 @@ public partial class App : Application,
             Log("Running Bootstrapper.InitializeAsync...");
             await bootstrapper.InitializeAsync(progress, status);
             Log("Bootstrapper Completed.");
+            await Task.Delay(80);
 
-            // 3. Create Main Window
+            // 3. Create Main Window (light: Dashboard loads deferred)
             Log("Creating MainWindow...");
             var mainWindow = new BMachine.App.Views.MainWindow(); 
             Log("Creating MainWindowViewModel...");

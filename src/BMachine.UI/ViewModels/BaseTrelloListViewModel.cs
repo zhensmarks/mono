@@ -236,8 +236,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
     protected async Task LoadComments(string cardId)
     {
-        IsLoadingComments = true;
-        Comments.Clear();
+        // Don't set IsLoadingComments to true if we already have comments, 
+        // to prevent the UI from flickering or showing a spinner unnecessarily during updates.
+        // Only set it on first load.
+        if (Comments.Count == 0) IsLoadingComments = true;
+        
         try
         {
             var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
@@ -251,7 +254,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var json = await client.GetStringAsync(url);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             
-            var list = new List<TrelloComment>();
+            var fetchedComments = new List<TrelloComment>();
 
             foreach (var element in doc.RootElement.EnumerateArray())
             {
@@ -281,9 +284,47 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                         }
                     }
                 }
-                list.Add(comment);
+                fetchedComments.Add(comment);
             }
-            foreach(var c in list) Comments.Add(c);
+
+            // Sync/Merge Logic
+            // 1. Remove comments that are no longer present
+            var fetchedIds = new HashSet<string>(fetchedComments.Select(c => c.Id));
+            for (int i = Comments.Count - 1; i >= 0; i--)
+            {
+                if (!fetchedIds.Contains(Comments[i].Id))
+                {
+                    Comments.RemoveAt(i);
+                }
+            }
+
+            // 2. Add or Update comments
+            // Trello comments usually don't change text, but let's assume they might.
+            // Ideally order matters. Trello API returns newest first.
+            
+            int index = 0;
+            foreach (var fetched in fetchedComments)
+            {
+                // Find existing
+                var existing = Comments.FirstOrDefault(c => c.Id == fetched.Id);
+                if (existing != null)
+                {
+                    // Update content if changed
+                    if (existing.Text != fetched.Text) existing.Text = fetched.Text;
+                    // Move if order changed (simple: ensure it's at 'index')
+                    var oldIndex = Comments.IndexOf(existing);
+                    if (oldIndex != index)
+                    {
+                        Comments.Move(oldIndex, index);
+                    }
+                }
+                else
+                {
+                    // Insert new
+                    Comments.Insert(index, fetched);
+                }
+                index++;
+            }
         }
         catch (Exception ex)
         {
@@ -1122,9 +1163,25 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 if (element.TryGetProperty("labels", out var labelsProp))
                 {
                     var lbls = new List<string>();
+                    card.Labels.Clear();
+
                     foreach (var l in labelsProp.EnumerateArray())
                     {
-                         if(l.TryGetProperty("name", out var n)) lbls.Add(n.GetString() ?? "");
+                         string name = "";
+                         string color = "gray"; // default
+                         string id = "";
+
+                         if(l.TryGetProperty("name", out var n)) name = n.GetString() ?? "";
+                         if(l.TryGetProperty("color", out var c)) color = c.GetString() ?? "gray";
+                         if(l.TryGetProperty("id", out var i)) id = i.GetString() ?? "";
+                         
+                         // If name is empty, Trello sometimes sends just color. We can use color name as text if needed?
+                         // Or just skip empty named labels? Usually Trello shows empty labels as just color bars.
+                         // Let's keep them.
+                         
+                         card.Labels.Add(new TrelloLabel { Id = id, Name = name, Color = color });
+                         
+                         if (!string.IsNullOrEmpty(name)) lbls.Add(name);
                     }
                     card.LabelsText = string.Join(", ", lbls.Where(x => !string.IsNullOrEmpty(x)));
                 }

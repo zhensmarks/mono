@@ -83,6 +83,14 @@
             </Border>
         </Grid>
 
+        <!-- Loading overlay (shown while Dashboard is created after splash) -->
+        <Grid IsVisible="{Binding IsLoadingDashboard}" Background="{Binding WindowBackground}" ZIndex="1">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                <ProgressBar IsIndeterminate="True" Width="200" Height="4"/>
+                <TextBlock Text="Memuat Dashboard..." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+            </StackPanel>
+        </Grid>
+
         <!-- Main Content (Fills Window) -->
         <ContentControl Content="{Binding CurrentView}" Margin="0">
             <ContentControl.DataTemplates>

@@ -107,7 +107,26 @@ public class SettingsPreloadService
             "Configs.Window.Y",
             
             // Shortcut Config
-            "ShortcutConfig"
+            "ShortcutConfig",
+
+            // Explorer / Batch (avoid blocking when opening explorer)
+            "Configs.System.ScriptsPath",
+            "Configs.Master.LocalOutput",
+            "Configs.Explorer.ShortcutNewFolder",
+            "Configs.Explorer.ShortcutNewFile",
+            "Configs.Explorer.ShortcutFocusSearch",
+            "Configs.Explorer.ShortcutDelete",
+            "Configs.Explorer.ShortcutNewWindow",
+            "Configs.Explorer.ShortcutNewTab",
+            "Configs.Explorer.ShortcutCloseTab",
+            "Configs.Explorer.ShortcutNavigateUp",
+            "Configs.Explorer.ShortcutBack",
+            "Configs.Explorer.ShortcutForward",
+            "Configs.Explorer.ShortcutRename",
+            "Configs.Explorer.ShortcutPermanentDelete",
+            "Configs.Explorer.ShortcutFocusSearchBox",
+            "Configs.Explorer.ShortcutAddressBar",
+            "Configs.Explorer.ShortcutSwitchTab"
         };
 
         // Load all settings in parallel for maximum speed

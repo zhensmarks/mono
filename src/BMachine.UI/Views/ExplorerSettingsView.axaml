@@ -3,23 +3,20 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="700"
              x:Class="BMachine.UI.Views.ExplorerSettingsView"
-             x:DataType="vm:ExplorerSettingsViewModel">
+             x:DataType="vm:ExplorerSettingsViewModel"
+             Focusable="True">
 
     <ScrollViewer>
         <StackPanel Spacing="20" Margin="0,0,20,20">
-            
-            <!-- Header -->
             <TextBlock Text="Explorer Features" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
             <TextBlock Text="Customize the behavior and defaults of the Explorer." Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" Margin="0,-10,0,0"/>
 
-            <!-- Explorer Defaults (Moved from Paths) -->
+            <!-- Explorer Defaults -->
             <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
-                    <TextBlock Text="Set default locations for the browser." FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Default Local Output (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" IsReadOnly="True" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
@@ -28,31 +25,80 @@
                 </StackPanel>
             </Border>
 
-            <!-- Shortcuts (Placeholder UI) -->
+            <!-- Shortcuts: Record keyboard -->
             <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Shortcuts" FontWeight="SemiBold" FontSize="16"/>
-                    <TextBlock Text="Customize keyboard shortcuts for common actions." FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                    <TextBlock Text="Klik Record lalu tekan kombinasi tombol yang diinginkan." FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                    <TextBlock Text="LISTENING... Tekan tombol sekarang!" FontSize="12" Foreground="#ef4444" FontWeight="Bold" IsVisible="{Binding IsRecordingShortcut}" Margin="0,4,0,0"/>
                     
-                    <Grid ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto, Auto, Auto" Margin="0,5,0,0">
-                        <!-- New Folder -->
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="New Folder" VerticalAlignment="Center" Width="150"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ShortcutNewFolder}" IsReadOnly="True" Margin="0,0,10,10"/>
-                        <Button Grid.Row="0" Grid.Column="2" Content="Edit" IsEnabled="False" Classes="Secondary" Margin="0,0,0,10"/>
+                    <Grid ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="New Folder" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ShortcutNewFolder}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="0" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutNewFolder" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
 
-                        <!-- New File -->
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="New File" VerticalAlignment="Center" Width="150"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ShortcutNewFile}" IsReadOnly="True" Margin="0,0,10,10"/>
-                        <Button Grid.Row="1" Grid.Column="2" Content="Edit" IsEnabled="False" Classes="Secondary" Margin="0,0,0,10"/>
-                        
-                         <!-- Focus Search -->
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Focus Address Bar" VerticalAlignment="Center" Width="150"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ShortcutFocusSearch}" IsReadOnly="True" Margin="0,0,10,0"/>
-                        <Button Grid.Row="2" Grid.Column="2" Content="Edit" IsEnabled="False" Classes="Secondary" Margin="0,0,0,0"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="New File" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ShortcutNewFile}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="1" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutNewFile" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Delete" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ShortcutDelete}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="2" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutDelete" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="New Explorer Window" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ShortcutNewWindow}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="3" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutNewWindow" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="New Tab" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ShortcutNewTab}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="4" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutNewTab" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Close Tab/Window" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ShortcutCloseTab}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="5" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutCloseTab" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Navigate Up" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ShortcutNavigateUp}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="6" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutNavigateUp" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Back" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding ShortcutBack}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="7" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutBack" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="8" Grid.Column="0" Text="Forward" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ShortcutForward}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="8" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutForward" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="9" Grid.Column="0" Text="Rename" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding ShortcutRename}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="9" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutRename" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="10" Grid.Column="0" Text="Permanent Delete" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding ShortcutPermanentDelete}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="10" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutPermanentDelete" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="11" Grid.Column="0" Text="Focus Search Box" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding ShortcutFocusSearchBox}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="11" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutFocusSearchBox" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="12" Grid.Column="0" Text="Focus Address Bar (Alt+D)" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding ShortcutAddressBar}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="12" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutAddressBar" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="13" Grid.Column="0" Text="Focus Address Bar (Ctrl+L)" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="13" Grid.Column="1" Text="{Binding ShortcutFocusSearch}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="13" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutFocusSearch" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="14" Grid.Column="0" Text="Switch Tab" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="14" Grid.Column="1" Text="{Binding ShortcutSwitchTab}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="14" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutSwitchTab" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <StackPanel Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" IsVisible="{Binding IsRecordingShortcut}" Margin="0,8,0,0">
+                            <Button Content="Cancel (Esc)" Command="{Binding CancelRecordingCommand}" Classes="Secondary"/>
+                        </StackPanel>
                     </Grid>
                 </StackPanel>
             </Border>
-            
         </StackPanel>
     </ScrollViewer>
 </UserControl>

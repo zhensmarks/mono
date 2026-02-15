@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace BMachine.UI.Models;
@@ -100,5 +101,43 @@ public partial class TrelloCard : ObservableObject
         OnPropertyChanged(nameof(HasChecklist));
     }
 
+    public ObservableCollection<TrelloLabel> Labels { get; set; } = new();
+    
     public string Url => !string.IsNullOrEmpty(Id) ? $"https://trello.com/c/{Id}" : "";
+}
+
+public class TrelloLabel
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Color { get; set; } = ""; // Trello color name: green, yellow, etc.
+    public string ColorHex => GetColorHex(Color);
+    public string TextColorHex => GetTextColorHex(Color);
+
+    private string GetColorHex(string trelloColor)
+    {
+        return trelloColor switch
+        {
+            "green" => "#4bce97",
+            "yellow" => "#e2b203",
+            "orange" => "#faa53d",
+            "red" => "#f87168",
+            "purple" => "#9f8fef",
+            "blue" => "#579dff",
+            "sky" => "#6cc3e0",
+            "lime" => "#94c748",
+            "pink" => "#e774bb",
+            "black" => "#8590a2",
+            _ => "#626f86" // Default gray
+        };
+    }
+    
+    private string GetTextColorHex(string trelloColor)
+    {
+         // Most Trello labels use dark text on pastel backgrounds, or white on dark?
+         // Modern Trello uses dark text on these specific pastel shades, except maybe formatting.
+         // Actually, let's keep it simple: #1d2125 (Dark) for most, maybe White for others if needed.
+         // The hex codes above are standard Trello "light" tokens. Text is usually dark.
+         return "#1d2125"; 
+    }
 }

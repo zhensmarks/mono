@@ -23,15 +23,39 @@ public partial class FileTaskItem : ObservableObject
     public string Name { get; set; } = "";
     public string SourcePath { get; set; } = "";
     public string DestinationPath { get; set; } = "";
-    
+
+    /// <summary>Short display path for "From: ..." (e.g. folder name or path).</summary>
+    public string SourceFolderDisplay
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(SourcePath)) return "";
+            try
+            {
+                var dir = Path.GetDirectoryName(SourcePath);
+                if (string.IsNullOrEmpty(dir)) return SourcePath;
+                // Prefer short name for display; could use Path.GetFileName(dir) for just folder name
+                return dir.Length > 50 ? "..." + dir.Substring(dir.Length - 47) : dir;
+            }
+            catch { return ""; }
+        }
+    }
+
     [ObservableProperty] private double _progress; // 0 to 100
     [ObservableProperty] private string _status = "Pending";
     [ObservableProperty] private bool _isCompleted;
     [ObservableProperty] private bool _isFailed;
     [ObservableProperty] private bool _isCancelled;
     [ObservableProperty] private string _errorMessage = "";
-    
+
     public System.Threading.CancellationTokenSource? Cts { get; set; }
+
+    /// <summary>True when task is still running (not completed, failed, or cancelled).</summary>
+    public bool IsRunning => !IsCompleted && !IsFailed && !IsCancelled;
+
+    partial void OnIsCompletedChanged(bool value) => OnPropertyChanged(nameof(IsRunning));
+    partial void OnIsFailedChanged(bool value) => OnPropertyChanged(nameof(IsRunning));
+    partial void OnIsCancelledChanged(bool value) => OnPropertyChanged(nameof(IsRunning));
 }
 
 public class FileOperationManager
@@ -69,6 +93,32 @@ public class FileOperationManager
         {
             ActiveTasks.Remove(t);
         }
+    }
+
+    /// <summary>Remove a single task from the list (e.g. completed/failed item).</summary>
+    public void RemoveTask(FileTaskItem task)
+    {
+        if (task == null) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ActiveTasks.Contains(task))
+                ActiveTasks.Remove(task);
+        });
+    }
+
+    /// <summary>Re-queue a failed (or completed) task with same source and destination.</summary>
+    public void RetryTask(FileTaskItem task)
+    {
+        if (task == null || string.IsNullOrEmpty(task.SourcePath) || string.IsNullOrEmpty(task.DestinationPath)) return;
+        var newTask = new FileTaskItem
+        {
+            Type = task.Type,
+            Name = task.Name,
+            SourcePath = task.SourcePath,
+            DestinationPath = task.DestinationPath,
+            Status = "Pending"
+        };
+        QueueTask(newTask);
     }
     
     private async void ProcessQueue()

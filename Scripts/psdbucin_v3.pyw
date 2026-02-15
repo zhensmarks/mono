@@ -438,6 +438,8 @@ class BucinAppV3:
     def on_app_close(self):
         self.settings["window_width"] = self.root.winfo_width()
         self.settings["window_height"] = self.root.winfo_height()
+        self.settings["window_x"] = self.root.winfo_x()
+        self.settings["window_y"] = self.root.winfo_y()
         save_settings(self.settings)
         self.root.destroy()
             

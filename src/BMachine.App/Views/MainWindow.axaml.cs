@@ -16,20 +16,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         InitializeMessenger();
-        
-        // Exit Gesture: Double Right Click
-        this.PointerPressed += (s, e) =>
-        {
-            var point = e.GetCurrentPoint(this);
-            if (point.Properties.IsRightButtonPressed && e.ClickCount == 2)
-            {
-                if (DataContext is MainWindowViewModel vm)
-                {
-                    vm.OpenExitConfirmCommand.Execute(null);
-                    e.Handled = true;
-                }
-            }
-        };
     }
 
     // Custom Window Commands

@@ -39,7 +39,7 @@ function getPSDfiles(folder) {
         var f = files[i];
         if (f instanceof Folder) {
             psdFiles = psdFiles.concat(getPSDfiles(f));
-        } else if (f instanceof File && f.name.toLowerCase().match(/\.psd$/)) {
+        } else if (f instanceof File && f.name.toLowerCase().match(/\.(psd|psb)$/)) {
             psdFiles.push(f);
         }
     }
@@ -150,11 +150,11 @@ function main() {
     if (!folder.exists) { alert("Folder tidak ada!"); return; }
 
     var allPsdFiles = getPSDfiles(folder);
-    if (allPsdFiles.length === 0) { alert("Tidak ada PSD!"); return; }
+    if (allPsdFiles.length === 0) { alert("Tidak ada PSD/PSB!"); return; }
     allPsdFiles.sort(naturalSort);
 
     // === DIALOG 2: LIST FILE & FILTER ===
-    var dlg_list = new Window("dialog", "Pilih File PSD");
+    var dlg_list = new Window("dialog", "Pilih File PSD/PSB");
     dlg_list.orientation = "column";
     dlg_list.alignChildren = ["fill", "fill"];
 
@@ -167,7 +167,7 @@ function main() {
     grpContent.spacing = 15;
 
     // Kiri
-    var pnlLeft = grpContent.add("panel", undefined, "List File PSD");
+    var pnlLeft = grpContent.add("panel", undefined, "List File PSD/PSB");
     pnlLeft.orientation = "column";
     pnlLeft.alignChildren = ["fill", "fill"];
     pnlLeft.preferredSize = [350, 450];
@@ -340,7 +340,7 @@ function main() {
             }
         }
 
-        if (filteredFiles.length === 0) { alert("Tidak ada file PSD yang cocok dengan kriteria!"); return; }
+        if (filteredFiles.length === 0) { alert("Tidak ada file yang cocok dengan kriteria!"); return; }
 
         // Sorting
         if (chkSort.value) filteredFiles.sort(naturalSort);

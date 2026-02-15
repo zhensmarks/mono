@@ -145,6 +145,19 @@ public partial class EditingCardListView : UserControl
         WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.NavigateToNextTrelloViewMessage("Editing", sourceWindow));
     }
 
+    private void OnOpenCommentWindowClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is BaseTrelloListViewModel vm)
+        {
+            var win = new CommentWindow
+            {
+                DataContext = vm
+            };
+            win.Show();
+            vm.IsCommentPanelOpen = false;
+        }
+    }
+
     private Vector _savedCommentScrollOffset;
 
     protected override void OnDataContextChanged(EventArgs e)

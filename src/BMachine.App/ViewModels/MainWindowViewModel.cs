@@ -85,9 +85,10 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         _ = LoadBackgroundConfig();
         _ = LoadShortcutConfig();
 
-        // Start with Dashboard
-        NavigateToDashboard();
-        
+        // Defer Dashboard creation so MainWindow can render first (avoids "Not Responding")
+        _isLoadingDashboard = true;
+        _ = LoadDashboardDeferredAsync();
+
         // Register Messenger
         WeakReferenceMessenger.Default.RegisterAll(this);
 
@@ -195,6 +196,19 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     }
 
     private DashboardViewModel? _cachedDashboardVM;
+
+    [ObservableProperty]
+    private bool _isLoadingDashboard = true;
+
+    private async System.Threading.Tasks.Task LoadDashboardDeferredAsync()
+    {
+        await Task.Yield();
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            NavigateToDashboard();
+            IsLoadingDashboard = false;
+        }, DispatcherPriority.Background);
+    }
 
     private async void CheckForUpdatesBackground()
     {

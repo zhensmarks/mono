@@ -138,6 +138,19 @@ public partial class LateCardListView : UserControl
         WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.NavigateToNextTrelloViewMessage("Late", sourceWindow));
     }
 
+    private void OnOpenCommentWindowClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is BaseTrelloListViewModel vm)
+        {
+            var win = new CommentWindow
+            {
+                DataContext = vm
+            };
+            win.Show();
+            vm.IsCommentPanelOpen = false;
+        }
+    }
+
     private Vector _savedCommentScrollOffset;
 
     protected override void OnDataContextChanged(EventArgs e)

@@ -106,9 +106,7 @@ public class Bootstrapper
 
         status?.Report("Selesai!");
         progress?.Report(100);
-        
-        // Hold splashscreen for 2.5s so user can see the progress
-        await Task.Delay(2500);
+        await Task.Delay(300);
     }
 
     // Quick mock services to satisfy constructor if real ones aren't available yet

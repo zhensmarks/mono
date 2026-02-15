@@ -19,7 +19,7 @@ namespace BMachine.UI.ViewModels;
 /// <summary>
 /// ViewModel for the Batch Master feature - manages source folders and output paths for batch processing.
 /// </summary>
-    public partial class BatchViewModel : ObservableObject, IRecipient<FolderDeletedMessage>, IRecipient<OpenMasterBrowserMessage>, IRecipient<MasterPathsChangedMessage>
+    public partial class BatchViewModel : ObservableObject, IRecipient<FolderDeletedMessage>, IRecipient<OpenMasterBrowserMessage>, IRecipient<MasterPathsChangedMessage>, IRecipient<BatchAddFoldersMessage>, IRecipient<MasterBrowserSyncFromExplorerMessage>
     {
         private readonly IDatabase? _database;
         private readonly Services.IProcessLogService? _logService;
@@ -51,7 +51,7 @@ namespace BMachine.UI.ViewModels;
             // Register for Script Order Updates
             WeakReferenceMessenger.Default.Register<ScriptOrderChangedMessage>(this, (r, m) =>
             {
-                LoadScripts();
+                _ = LoadScriptsAsync();
             });
 
             // Register for Folder Deleted Message
@@ -71,6 +71,16 @@ namespace BMachine.UI.ViewModels;
             // Register Master Browser Messages
             WeakReferenceMessenger.Default.Register<OpenMasterBrowserMessage>(this);
             WeakReferenceMessenger.Default.Register<MasterPathsChangedMessage>(this);
+            WeakReferenceMessenger.Default.Register<BatchAddFoldersMessage>(this);
+            WeakReferenceMessenger.Default.Register<MasterBrowserSyncFromExplorerMessage>(this);
+        }
+
+        public void Receive(MasterBrowserSyncFromExplorerMessage message)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                AddFolderAndSelect(message.FolderPath);
+            });
         }
 
         public void Receive(OpenMasterBrowserMessage message)
@@ -108,6 +118,27 @@ namespace BMachine.UI.ViewModels;
                 {
                     // It's a subfolder, so we refresh all roots
                     Refresh();
+                }
+            });
+        }
+
+        public void Receive(BatchAddFoldersMessage message)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
+            {
+                AddFolders(message.Value);
+                
+                if (!string.IsNullOrEmpty(message.ScriptToSelect))
+                {
+                    // Try to find and select the script
+                    var script = MasterScriptOptions.FirstOrDefault(x => x.OriginalName != null && x.OriginalName.Equals(message.ScriptToSelect, StringComparison.OrdinalIgnoreCase));
+                    if (script != null)
+                    {
+                        SelectedMasterScript = script.Path;
+                        SelectedMasterOption = script;
+                        SelectedActivityMode = 0; // Switch to Console view to show log output
+                        await ExecuteMaster(); // Auto-execute
+                    }
                 }
             });
         }
@@ -229,12 +260,50 @@ namespace BMachine.UI.ViewModels;
         // 3. Atomic Assignment on UI Thread
         SourceFolders = newCollection;
         
-        // Ensure manual notification if needed (though ObservableProperty handles it)
         OnPropertyChanged(nameof(SourceFolders));
         OnPropertyChanged(nameof(HasFolders));
         OnPropertyChanged(nameof(ShowDropZone));
     }
 
+    private void AddFolderAndSelect(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
+        var effectivePath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var folderName = Path.GetFileName(effectivePath);
+        var relativePath = GetRelativePathFromMonth(effectivePath);
+        if (folderName.Equals("PILIHAN", StringComparison.OrdinalIgnoreCase))
+        {
+            relativePath = relativePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            relativePath = Path.GetDirectoryName(relativePath) ?? relativePath;
+        }
+        var outputPath = string.IsNullOrEmpty(OutputBasePath) ? "" : Path.Combine(OutputBasePath, relativePath);
+        var parentName = new DirectoryInfo(path).Parent?.Name ?? "";
+        string displayName, outputHeader;
+        if (folderName.Equals("PILIHAN", StringComparison.OrdinalIgnoreCase))
+        {
+            displayName = $"...\\{parentName}";
+            outputHeader = parentName;
+        }
+        else
+        {
+            displayName = string.IsNullOrEmpty(parentName) ? folderName : $"{folderName}\\{parentName}";
+            outputHeader = folderName;
+        }
+        var item = new BatchFolderRoot
+        {
+            SourcePath = path,
+            FolderName = folderName,
+            DisplayName = displayName,
+            OutputHeader = outputHeader,
+            OutputPath = outputPath,
+        };
+        item.RefreshSource();
+        item.SetupOutputWatcher();
+        SourceFolders.Add(item);
+        SelectedBatchItem = item;
+        SelectedActivityMode = 1;
+        _ = LoadMasterNodes();
+    }
 
     /// <summary>
     /// Refresh output folders - check if they exist after script execution.
@@ -811,7 +880,9 @@ namespace BMachine.UI.ViewModels;
                  });
              }
              
-             // Log Success
+             // Notify explorer instances to refresh their file list
+             WeakReferenceMessenger.Default.Send(new ExplorerRefreshRequestMessage());
+             
              if (_logService != null)
              {
                  await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
@@ -854,7 +925,7 @@ namespace BMachine.UI.ViewModels;
              await File.WriteAllTextAsync(tempFile, item.FullPath);
              
              // 2. Resolve script path
-             var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", "place_on_layer.jsx");
+             var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", "_place_on_layer.jsx");
              
              if (File.Exists(scriptPath))
              {
@@ -875,7 +946,7 @@ namespace BMachine.UI.ViewModels;
              }
              else
              {
-                 _logService?.AddLog("[ERROR] Script 'place_on_layer.jsx' not found.");
+                 _logService?.AddLog("[ERROR] Script '_place_on_layer.jsx' not found.");
                  // Fallback
                  await SendFileToPhotoshop(item.FullPath, item.Name);
              }
@@ -1031,133 +1102,110 @@ namespace BMachine.UI.ViewModels;
         }
     }
 
-    private void LoadScripts()
+    /// <summary>
+    /// Load script lists off the UI thread to avoid freezing. Icon resolution runs on UI thread.
+    /// </summary>
+    private async Task LoadScriptsAsync()
     {
+        var prevMaster = SelectedMasterScript;
+        var prevAction = SelectedActionScript;
+        List<BatchScriptOption>? sortedMasterList = null;
+        List<BatchScriptOption>? sortedActionList = null;
+
         try
         {
-            LoadMetadata();
-            var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
-            
-            // Override with Custom Path if set
-            if (!string.IsNullOrEmpty(CustomScriptsPath) && Directory.Exists(CustomScriptsPath))
+            await Task.Run(() =>
             {
-                baseDir = CustomScriptsPath;
-            }
-            
-            // 1. Master Scripts
-            var masterDir = Path.Combine(baseDir, "Master");
-            if (Directory.Exists(masterDir))
-            {
-                var pyFiles = Directory.GetFiles(masterDir, "*.*")
-                    .Where(f => f.EndsWith(".py"));
-                
-                var list = new List<(BatchScriptOption Option, int Order)>();
-                foreach(var f in pyFiles)
-                {
-                    var fname = Path.GetFileName(f);
-                    string display = Path.GetFileNameWithoutExtension(fname);
-                    int order = 9999;
-                    Avalonia.Media.StreamGeometry? iconGeom = null;
+                LoadMetadata();
+                var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
+                if (!string.IsNullOrEmpty(CustomScriptsPath) && Directory.Exists(CustomScriptsPath))
+                    baseDir = CustomScriptsPath;
 
-                    if (_scriptAliases.ContainsKey(fname))
+                // 1. Master Scripts (IconGeometry set on UI thread)
+                var masterList = new List<(BatchScriptOption Option, int Order)>();
+                var masterDir = Path.Combine(baseDir, "Master");
+                if (Directory.Exists(masterDir))
+                {
+                    foreach (var f in Directory.GetFiles(masterDir, "*.*").Where(f => f.EndsWith(".py")))
                     {
-                        var config = _scriptAliases[fname];
-                        display = config.Name;
-                        order = config.Order;
-                        
-                        // Resolve Icon
-                        if (!string.IsNullOrEmpty(config.IconKey))
+                        var fname = Path.GetFileName(f);
+                        string display = Path.GetFileNameWithoutExtension(fname);
+                        int order = 9999;
+                        if (_scriptAliases.TryGetValue(fname, out var config))
                         {
-                            if (Avalonia.Application.Current!.TryGetResource(config.IconKey, null, out var res) && res is Avalonia.Media.StreamGeometry g)
-                            {
-                                iconGeom = g;
-                            }
+                            display = config.Name;
+                            order = config.Order;
                         }
+                        masterList.Add((new BatchScriptOption
+                        {
+                            Name = display,
+                            OriginalName = fname,
+                            Path = f,
+                            IconGeometry = null
+                        }, order));
                     }
-
-                    // Fallback to generic icon if null
-                    if (iconGeom == null)
-                    {
-                         // Try generic fallback based on name? Or just leave null to let View handle it
-                         // View handles null with Failover generic icon
-                    }
-
-                    list.Add((new BatchScriptOption 
-                    { 
-                        Name = display, 
-                        OriginalName = fname,
-                        Path = f, 
-                        IconGeometry = iconGeom 
-                    }, order));
                 }
-                
-                // Sort: Order, then Alphabetical
-                var sortedList = list.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
+                sortedMasterList = masterList.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
 
-                MasterScriptOptions = new ObservableCollection<BatchScriptOption>(sortedList);
-                OnPropertyChanged(nameof(MasterScriptOrderList));
-                
-                // Set initial selection logic
-                if (MasterScriptOptions.Count > 0)
+                // 2. Action Scripts (JSX + PYW)
+                var actionList = new List<(BatchScriptOption Option, int Order)>();
+                var actionDir = Path.Combine(baseDir, "Action");
+                if (Directory.Exists(actionDir))
                 {
-                    // Try to restore previous selection or default
-                    var toSelect = MasterScriptOptions.FirstOrDefault(x => x.Path == SelectedMasterScript) ?? MasterScriptOptions[0];
-                    SelectedMasterOption = toSelect;
+                    foreach (var f in Directory.GetFiles(actionDir, "*.jsx"))
+                    {
+                        var fname = Path.GetFileName(f);
+                        string display = Path.GetFileNameWithoutExtension(fname);
+                        int order = 9999;
+                        if (_scriptAliases.TryGetValue(fname, out var ac))
+                        {
+                            display = ac.Name;
+                            order = ac.Order;
+                        }
+                        actionList.Add((new BatchScriptOption { Name = display, Path = f }, order));
+                    }
                 }
-            }
-
-            // 2. Action Scripts (JSX + PYW)
-            // (Similar logic if we were keeping Actions, but UI removed them. Keeping Logic won't hurt)
-             var actionList = new List<(BatchScriptOption Option, int Order)>();
-            
-            // A. Load JSX from Action folder
-            var actionDir = Path.Combine(baseDir, "Action");
-            if (Directory.Exists(actionDir))
-            {
-                var jsxFiles = Directory.GetFiles(actionDir, "*.jsx");
-                foreach(var f in jsxFiles)
+                foreach (var f in Directory.GetFiles(baseDir, "*.pyw"))
                 {
                     var fname = Path.GetFileName(f);
                     string display = Path.GetFileNameWithoutExtension(fname);
                     int order = 9999;
-
-                    if (_scriptAliases.ContainsKey(fname))
+                    if (_scriptAliases.TryGetValue(fname, out var ac))
                     {
-                        var config = _scriptAliases[fname];
-                        display = config.Name;
-                        order = config.Order;
+                        display = ac.Name;
+                        order = ac.Order;
                     }
-                    
                     actionList.Add((new BatchScriptOption { Name = display, Path = f }, order));
                 }
-            }
-             // B. Load PYW from Root Scripts folder
-            var pywFiles = Directory.GetFiles(baseDir, "*.pyw");
-            foreach (var f in pywFiles)
-            {
-                var fname = Path.GetFileName(f);
-                string display = Path.GetFileNameWithoutExtension(fname);
-                int order = 9999;
+                sortedActionList = actionList.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
+            });
 
-                if (_scriptAliases.ContainsKey(fname))
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (sortedMasterList == null || sortedActionList == null) return;
+                // Resolve icons on UI thread (TryGetResource requires it)
+                foreach (var opt in sortedMasterList)
                 {
-                    var config = _scriptAliases[fname];
-                    display = config.Name;
-                    order = config.Order;
+                    if (!string.IsNullOrEmpty(opt.OriginalName) && _scriptAliases.TryGetValue(opt.OriginalName, out var config) && !string.IsNullOrEmpty(config.IconKey))
+                    {
+                        if (Avalonia.Application.Current?.TryGetResource(config.IconKey, null, out var res) == true && res is Avalonia.Media.StreamGeometry g)
+                            opt.IconGeometry = g;
+                    }
                 }
-
-                actionList.Add((new BatchScriptOption { Name = display, Path = f }, order));
-            }
-            // Return sorted list
-            var sortedActionList = actionList.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
-
-            ActionScriptOptions = new ObservableCollection<BatchScriptOption>(sortedActionList);
-            
-            if (ActionScriptOptions.Count > 0)
-            {
-                 var toSelect = ActionScriptOptions.FirstOrDefault(x => x.Path == SelectedActionScript) ?? ActionScriptOptions[0];
-                 SelectedActionOption = toSelect;
-            }
+                MasterScriptOptions = new ObservableCollection<BatchScriptOption>(sortedMasterList);
+                OnPropertyChanged(nameof(MasterScriptOrderList));
+                if (MasterScriptOptions.Count > 0)
+                {
+                    var toSelect = MasterScriptOptions.FirstOrDefault(x => x.Path == prevMaster) ?? MasterScriptOptions[0];
+                    SelectedMasterOption = toSelect;
+                }
+                ActionScriptOptions = new ObservableCollection<BatchScriptOption>(sortedActionList);
+                if (ActionScriptOptions.Count > 0)
+                {
+                    var toSelect = ActionScriptOptions.FirstOrDefault(x => x.Path == prevAction) ?? ActionScriptOptions[0];
+                    SelectedActionOption = toSelect;
+                }
+            });
         }
         catch { }
     }
@@ -1545,7 +1593,7 @@ namespace BMachine.UI.ViewModels;
                 CustomScriptsPath = customScripts;
             }
         }
-        LoadScripts();
+        await LoadScriptsAsync();
     }
     
     [ObservableProperty]
@@ -1573,7 +1621,7 @@ namespace BMachine.UI.ViewModels;
                 await _database.SetAsync("Configs.System.ScriptsPath", CustomScriptsPath);
             
             _logService?.AddLog($"[INFO] Scripts Path updated: {CustomScriptsPath}");
-            LoadScripts(); // Reload immediately
+            await LoadScriptsAsync();
         }
     }
 

@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        xmlns:controls="using:BMachine.UI.Controls"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+        x:Class="BMachine.UI.Views.CommentWindow"
+        x:DataType="vm:BaseTrelloListViewModel"
+        Title="Comments"
+        Width="400" Height="600"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True"
+        Background="{DynamicResource CardBackgroundBrush}">
+
+
+    <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+            <StackPanel Spacing="5">
+                <TextBlock Text="Comments" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+            </StackPanel>
+            <!-- Close Button (Window Close) -->
+            <!-- Note: Default window chrome has close button, but we can keep this for consistency with panel if needed or remove it. 
+                 Let's keep it as an explicit 'Close' action effectively. -->
+        </Grid>
+
+        <!-- Comments List -->
+        <ScrollViewer Grid.Row="1" x:Name="CommentScrollViewer">
+            <StackPanel Spacing="15">
+                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingComments}" Margin="0,20"/>
+                <TextBlock Text="No comments yet." IsVisible="{Binding !Comments.Count}" 
+                           Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
+                
+                <ItemsControl ItemsSource="{Binding Comments}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#10FFFFFF" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                                <Grid ColumnDefinitions="Auto, *">
+                                    <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource AccentColorBrush}" Margin="0,0,12,0" VerticalAlignment="Top" ClipToBounds="True">
+                                        <Panel>
+                                            <TextBlock Text="{Binding MemberCreatorInitials}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                                        </Panel>
+                                    </Border>
+                                    
+                                    <StackPanel Grid.Column="1" Spacing="4">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Input Area -->
+        <Grid Grid.Row="2" ColumnDefinitions="*, Auto" Margin="0,20,0,0">
+            <TextBox Text="{Binding NewCommentText}" Watermark="Write a comment..." 
+                     Background="#1AFFFFFF" BorderThickness="0" CornerRadius="8" Padding="10"
+                     Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100">
+                <TextBox.KeyBindings>
+                    <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
+                </TextBox.KeyBindings>
+            </TextBox>
+            <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
+                    Width="40" Height="40" CornerRadius="20" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment">
+                <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
+            </Button>
+        </Grid>
+    </Grid>
+</Window>

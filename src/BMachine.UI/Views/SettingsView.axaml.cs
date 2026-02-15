@@ -83,23 +83,47 @@ public partial class SettingsView : UserControl
 
     private void OnRootPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        // 1. Check for Recording Mode FIRST
+        if (DataContext is SettingsViewModel vm && vm.IsRecordingShortcut)
+        {
+            var props = e.GetCurrentPoint(this).Properties;
+            
+            var trigger = new BMachine.UI.Models.TriggerConfig
+            {
+                Type = BMachine.UI.Models.TriggerType.Mouse,
+                Modifiers = (int)e.KeyModifiers
+            };
+
+            // 0=Left, 1=Right, 2=Middle, 3=X1, 4=X2
+            if (props.IsLeftButtonPressed) trigger.MouseButton = 0;
+            else if (props.IsRightButtonPressed) trigger.MouseButton = 1;
+            else if (props.IsMiddleButtonPressed) trigger.MouseButton = 2;
+            else if (props.IsXButton1Pressed) trigger.MouseButton = 3;
+            else if (props.IsXButton2Pressed) trigger.MouseButton = 4;
+            else return; 
+
+            e.Handled = true;
+            vm.OnShortcutRecorded(new Messages.TriggerRecordedMessage(trigger));
+            return;
+        }
+
         var properties = e.GetCurrentPoint(this).Properties;
         if (properties.IsRightButtonPressed)
         {
-            if (DataContext is SettingsViewModel vm)
+            if (DataContext is SettingsViewModel navVm)
             {
                 // If in Mobile View and Content is Open, Close Content (Back)
-                if (vm.IsMobileView && vm.IsMobileContentOpen)
+                if (navVm.IsMobileView && navVm.IsMobileContentOpen)
                 {
-                    vm.IsMobileContentOpen = false;
+                    navVm.IsMobileContentOpen = false;
                     e.Handled = true;
                     return;
                 }
                 
                 // Otherwise normal GoBack (Back to Dashboard)
-                if (vm.GoBackCommand.CanExecute(null))
+                if (navVm.GoBackCommand.CanExecute(null))
                 {
-                    vm.GoBackCommand.Execute(null);
+                    navVm.GoBackCommand.Execute(null);
                     e.Handled = true;
                 }
             }
@@ -109,24 +133,79 @@ public partial class SettingsView : UserControl
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+
+        // 1. Check for Recording Mode
+        if (DataContext is SettingsViewModel vm && vm.IsRecordingShortcut)
+        {
+            e.Handled = true;
+            
+            // Ignore Modifier keys being pressed alone
+            if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl ||
+                e.Key == Key.LeftAlt || e.Key == Key.RightAlt ||
+                e.Key == Key.LeftShift || e.Key == Key.RightShift ||
+                e.Key == Key.LWin || e.Key == Key.RWin)
+            {
+                return;
+            }
+
+            var sharpKey = MapAvaloniaKeyToSharpHook(e.Key);
+            if (sharpKey == 0) return; // Unknown key
+
+            var trigger = new BMachine.UI.Models.TriggerConfig
+            {
+                Type = BMachine.UI.Models.TriggerType.Keyboard,
+                Key = sharpKey,
+                Modifiers = (int)e.KeyModifiers
+            };
+
+            vm.OnShortcutRecorded(new Messages.TriggerRecordedMessage(trigger));
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
-             if (DataContext is SettingsViewModel vm)
+             if (DataContext is SettingsViewModel navVm)
              {
-                 if (vm.IsMobileView && vm.IsMobileContentOpen)
+                 if (navVm.IsMobileView && navVm.IsMobileContentOpen)
                  {
-                     vm.IsMobileContentOpen = false;
+                     navVm.IsMobileContentOpen = false;
                      e.Handled = true;
                      return;
                  }
                  
-                 if (vm.GoBackCommand.CanExecute(null))
+                 if (navVm.GoBackCommand.CanExecute(null))
                  {
-                     vm.GoBackCommand.Execute(null);
+                     navVm.GoBackCommand.Execute(null);
                      e.Handled = true;
                  }
              }
         }
+    }
+
+    private int MapAvaloniaKeyToSharpHook(Key key)
+    {
+        // SharpHook KeyCodes (from SharpHook.Native.KeyCode)
+        // Verified against SharpHook documentation/source
+        return key switch
+        {
+            Key.Escape => 1,
+            Key.F1 => 59, Key.F2 => 60, Key.F3 => 61, Key.F4 => 62,
+            Key.F5 => 63, Key.F6 => 64, Key.F7 => 65, Key.F8 => 66,
+            Key.F9 => 67, Key.F10 => 68, Key.F11 => 87, Key.F12 => 88,
+            Key.D0 => 11, Key.D1 => 2, Key.D2 => 3, Key.D3 => 4, Key.D4 => 5,
+            Key.D5 => 6, Key.D6 => 7, Key.D7 => 8, Key.D8 => 9, Key.D9 => 10,
+            Key.Back => 14, Key.Tab => 15, Key.Enter => 28, Key.Space => 57,
+            Key.A => 30, Key.B => 48, Key.C => 46, Key.D => 32, Key.E => 18,
+            Key.F => 33, Key.G => 34, Key.H => 35, Key.I => 23, Key.J => 36,
+            Key.K => 37, Key.L => 38, Key.M => 50, Key.N => 49, Key.O => 24,
+            Key.P => 25, Key.Q => 16, Key.R => 19, Key.S => 31, Key.T => 20,
+            Key.U => 22, Key.V => 47, Key.W => 17, Key.X => 45, Key.Y => 21, Key.Z => 44,
+            Key.Left => 57419, Key.Right => 57421, Key.Up => 57416, Key.Down => 57424,
+            Key.Delete => 57427, Key.Home => 57415, Key.End => 57423,
+            Key.PageUp => 57417, Key.PageDown => 57425,
+            Key.OemTilde => 41, // `
+            _ => 0
+        };
     }
 
     // --- Drag-and-Drop for Scripts ---

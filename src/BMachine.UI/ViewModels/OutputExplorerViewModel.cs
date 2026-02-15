@@ -25,6 +25,9 @@ public partial class OutputExplorerViewModel : ObservableObject
     private readonly IPlatformService _platformService;
 
     [ObservableProperty] private string _currentPath = "";
+
+    /// <summary>Display name of current folder (for title bar).</summary>
+    public string CurrentFolderName => string.IsNullOrEmpty(CurrentPath) ? "" : Path.GetFileName(CurrentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
     [ObservableProperty] private ObservableCollection<object> _items = new(); // Changed to object to support Headers
     [ObservableProperty] private ObservableCollection<BreadcrumbItem> _breadcrumbs = new();
     [ObservableProperty] private bool _canNavigateUp;
@@ -36,6 +39,7 @@ public partial class OutputExplorerViewModel : ObservableObject
     private readonly System.Collections.Generic.Stack<string> _backStack = new();
     private readonly System.Collections.Generic.Stack<string> _forwardStack = new();
     private bool _isNavigatingHistory;
+    private bool _isLoadingSettings;
     
     // Task Monitor
     public ObservableCollection<Services.FileTaskItem> ActiveTasks => _fileManager.ActiveTasks;
@@ -49,35 +53,57 @@ public partial class OutputExplorerViewModel : ObservableObject
         _fileManager = fileManager;
         _platformService = platformService;
         
-        
+        _fileManager.ActiveTasks.CollectionChanged += OnActiveTasksChanged;
+        SelectedItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSelection));
+
+        // Default Sort (async, no blocking)
         LoadRootPath();
-        LoadScripts(); // Ensure scripts are loaded on init
+        _ = LoadScriptsAsync();
         
         // Listen for path changes
         WeakReferenceMessenger.Default.Register<MasterPathsChangedMessage>(this, (r, m) => 
         {
-            // Ensure UI Thread
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(LoadRootPath);
+        });
+        // When shortcuts are changed in Settings, reload gestures so they apply without restart
+        WeakReferenceMessenger.Default.Register<ExplorerShortcutsChangedMessage>(this, (r, m) =>
+        {
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(LoadExplorerShortcutsAsync);
+        });
+        // Auto-refresh when master browser sync copy completes
+        WeakReferenceMessenger.Default.Register<ExplorerRefreshRequestMessage>(this, (r, m) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => Refresh());
         });
     }
 
     // Resilience
     [ObservableProperty] private Avalonia.Controls.GridLength _taskMonitorHeight = Avalonia.Controls.GridLength.Auto;
 
-    partial void OnTaskMonitorHeightChanged(Avalonia.Controls.GridLength value)
-    {
-        if (value.IsAbsolute)
-        {
-            _database.SetAsync("Configs.Explorer.TaskMonitorHeight", value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        }
-        else
-        {
-            _database.SetAsync("Configs.Explorer.TaskMonitorHeight", "Auto");
-        }
-    }
 
     // Sidebar Width Persistence
     [ObservableProperty] private Avalonia.Controls.GridLength _sidebarWidth = new Avalonia.Controls.GridLength(120);
+
+    /// <summary>Keyboard shortcut for New Folder (from Settings > Explorer). Used by the view to register KeyBinding.</summary>
+    [ObservableProperty] private string _shortcutNewFolderGesture = "Ctrl+Shift+N";
+    /// <summary>Keyboard shortcut for New File (from Settings > Explorer).</summary>
+    [ObservableProperty] private string _shortcutNewFileGesture = "Ctrl+Shift+T";
+    /// <summary>Keyboard shortcut for Focus Path Bar / Address Bar (from Settings > Explorer).</summary>
+    [ObservableProperty] private string _shortcutFocusSearchGesture = "Ctrl+L";
+    [ObservableProperty] private string _shortcutDeleteGesture = "Ctrl+D";
+    [ObservableProperty] private string _shortcutNewWindowGesture = "Ctrl+N";
+    [ObservableProperty] private string _shortcutNewTabGesture = "Ctrl+T";
+    [ObservableProperty] private string _shortcutCloseTabGesture = "Ctrl+W";
+    [ObservableProperty] private string _shortcutNavigateUpGesture = "Alt+Up";
+    [ObservableProperty] private string _shortcutBackGesture = "Alt+Left";
+    [ObservableProperty] private string _shortcutForwardGesture = "Alt+Right";
+    [ObservableProperty] private string _shortcutRenameGesture = "F2";
+    [ObservableProperty] private string _shortcutPermanentDeleteGesture = "Shift+Delete";
+    [ObservableProperty] private string _shortcutFocusSearchBoxGesture = "Ctrl+F";
+    [ObservableProperty] private string _shortcutAddressBarGesture = "Alt+D";
+    [ObservableProperty] private string _shortcutSwitchTabGesture = "Ctrl+Tab";
+
+    partial void OnCurrentPathChanged(string value) => OnPropertyChanged(nameof(CurrentFolderName));
 
     partial void OnSidebarWidthChanged(Avalonia.Controls.GridLength value)
     {
@@ -178,13 +204,41 @@ public partial class OutputExplorerViewModel : ObservableObject
         _fileManager.ClearCompletedTasks();
     }
 
+    [RelayCommand]
+    public void RemoveTask(Services.FileTaskItem? task)
+    {
+        if (task != null) _fileManager.RemoveTask(task);
+    }
+
+    [RelayCommand]
+    public void RetryTask(Services.FileTaskItem? task)
+    {
+        if (task != null) _fileManager.RetryTask(task);
+    }
+
     private async void LoadRootPath()
     {
         var path = await _database.GetAsync<string>("Configs.Master.LocalOutput") ?? "";
         var savedHeightStr = await _database.GetAsync<string>("Configs.Explorer.TaskMonitorHeight");
-        
+        // Load global view settings first so they apply before path (persist across restart)
+        var gSort = await _database.GetAsync<string>("Configs.Explorer.SortBy");
+        var gDescStr = await _database.GetAsync<string>("Configs.Explorer.IsSortDescending");
+        var gMode = await _database.GetAsync<string>("Configs.Explorer.ViewMode");
+        var gGroup = await _database.GetAsync<string>("Configs.Explorer.GroupBy");
+
         await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
         {
+            _isLoadingSettings = true;
+            try
+            {
+                if (!string.IsNullOrEmpty(gSort) && System.Enum.TryParse<ExplorerSortOption>(gSort, out var s)) SortBy = s;
+                if (!string.IsNullOrEmpty(gDescStr) && bool.TryParse(gDescStr, out var d)) IsSortDescending = d;
+                if (!string.IsNullOrEmpty(gMode) && System.Enum.TryParse<ExplorerLayoutMode>(gMode, out var l)) LayoutMode = l;
+                if (!string.IsNullOrEmpty(gGroup) && System.Enum.TryParse<ExplorerGroupBy>(gGroup, out var g)) GroupBy = g;
+                OnLayoutChanged_UI();
+            }
+            finally { _isLoadingSettings = false; }
+
             if (string.Equals(savedHeightStr, "Auto", System.StringComparison.OrdinalIgnoreCase))
             {
                 TaskMonitorHeight = Avalonia.Controls.GridLength.Auto;
@@ -207,6 +261,8 @@ public partial class OutputExplorerViewModel : ObservableObject
             {
                 IsShowPathBar = showPath;
             }
+
+            await LoadExplorerShortcutsAsync();
 
             // Load Quick Access
             await LoadQuickAccessAsync();
@@ -233,6 +289,41 @@ public partial class OutputExplorerViewModel : ObservableObject
             CanGoBack = false; 
             CanGoForward = false;
         });
+    }
+
+    /// <summary>Load shortcut gesture strings from DB (used on init and when Settings change).</summary>
+    private async Task LoadExplorerShortcutsAsync()
+    {
+        var shortcutNewFolder = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewFolder");
+        if (!string.IsNullOrEmpty(shortcutNewFolder)) ShortcutNewFolderGesture = shortcutNewFolder;
+        var shortcutNewFile = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewFile");
+        if (!string.IsNullOrEmpty(shortcutNewFile)) ShortcutNewFileGesture = shortcutNewFile;
+        var shortcutFocusSearch = await _database.GetAsync<string>("Configs.Explorer.ShortcutFocusSearch");
+        if (!string.IsNullOrEmpty(shortcutFocusSearch)) ShortcutFocusSearchGesture = shortcutFocusSearch;
+        var shortcutDelete = await _database.GetAsync<string>("Configs.Explorer.ShortcutDelete");
+        if (!string.IsNullOrEmpty(shortcutDelete)) ShortcutDeleteGesture = shortcutDelete;
+        var shortcutNewWindow = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewWindow");
+        if (!string.IsNullOrEmpty(shortcutNewWindow)) ShortcutNewWindowGesture = shortcutNewWindow;
+        var shortcutNewTab = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewTab");
+        if (!string.IsNullOrEmpty(shortcutNewTab)) ShortcutNewTabGesture = shortcutNewTab;
+        var shortcutCloseTab = await _database.GetAsync<string>("Configs.Explorer.ShortcutCloseTab");
+        if (!string.IsNullOrEmpty(shortcutCloseTab)) ShortcutCloseTabGesture = shortcutCloseTab;
+        var shortcutNavigateUp = await _database.GetAsync<string>("Configs.Explorer.ShortcutNavigateUp");
+        if (!string.IsNullOrEmpty(shortcutNavigateUp)) ShortcutNavigateUpGesture = shortcutNavigateUp;
+        var shortcutBack = await _database.GetAsync<string>("Configs.Explorer.ShortcutBack");
+        if (!string.IsNullOrEmpty(shortcutBack)) ShortcutBackGesture = shortcutBack;
+        var shortcutForward = await _database.GetAsync<string>("Configs.Explorer.ShortcutForward");
+        if (!string.IsNullOrEmpty(shortcutForward)) ShortcutForwardGesture = shortcutForward;
+        var shortcutRename = await _database.GetAsync<string>("Configs.Explorer.ShortcutRename");
+        if (!string.IsNullOrEmpty(shortcutRename)) ShortcutRenameGesture = shortcutRename;
+        var shortcutPermanentDelete = await _database.GetAsync<string>("Configs.Explorer.ShortcutPermanentDelete");
+        if (!string.IsNullOrEmpty(shortcutPermanentDelete)) ShortcutPermanentDeleteGesture = shortcutPermanentDelete;
+        var shortcutFocusSearchBox = await _database.GetAsync<string>("Configs.Explorer.ShortcutFocusSearchBox");
+        if (!string.IsNullOrEmpty(shortcutFocusSearchBox)) ShortcutFocusSearchBoxGesture = shortcutFocusSearchBox;
+        var shortcutAddressBar = await _database.GetAsync<string>("Configs.Explorer.ShortcutAddressBar");
+        if (!string.IsNullOrEmpty(shortcutAddressBar)) ShortcutAddressBarGesture = shortcutAddressBar;
+        var shortcutSwitchTab = await _database.GetAsync<string>("Configs.Explorer.ShortcutSwitchTab");
+        if (!string.IsNullOrEmpty(shortcutSwitchTab)) ShortcutSwitchTabGesture = shortcutSwitchTab;
     }
 
     [RelayCommand]
@@ -345,7 +436,7 @@ public partial class OutputExplorerViewModel : ObservableObject
         });
     }
 
-    public enum ExplorerSortOption { Name, Date }
+    public enum ExplorerSortOption { Name, Date, Type }
     public enum ExplorerLayoutMode { Vertical, Horizontal }
     public enum ExplorerGroupBy { None, Date, Type }
 
@@ -366,18 +457,21 @@ public partial class OutputExplorerViewModel : ObservableObject
 
     partial void OnSortByChanged(ExplorerSortOption value) 
     {
+        if (_isLoadingSettings) return;
         LoadItems();
         SaveViewSettings();
     }
 
     partial void OnIsSortDescendingChanged(bool value) 
     {
+        if (_isLoadingSettings) return;
         LoadItems();
         SaveViewSettings();
     }
 
     partial void OnGroupByChanged(ExplorerGroupBy value) 
     {
+        if (_isLoadingSettings) return;
         LoadItems();
         SaveViewSettings();
     }
@@ -385,21 +479,126 @@ public partial class OutputExplorerViewModel : ObservableObject
     partial void OnLayoutModeChanged(ExplorerLayoutMode value) 
     {
         OnLayoutChanged_UI();
+        if (_isLoadingSettings) return;
         SaveViewSettings();
     }
 
     partial void OnIsLocalSettingsChanged(bool value)
     {
-        SaveViewSettings();
+         if (_isLoadingSettings) return;
+
+         if (value)
+         {
+             // Switched TO Local -> Save current state as local settings immediately
+             SaveViewSettings();
+         }
+         else
+         {
+             // Switched TO Global -> Delete local settings and Revert to Global Defaults
+             if (!string.IsNullOrEmpty(CurrentPath))
+             {
+                 var normalizedPath = CurrentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                 var pathKey = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(normalizedPath.ToLowerInvariant()));
+                 _database.DeleteAsync($"Configs.Explorer.FolderSettings.{pathKey}");
+             }
+             
+             // Reload to apply global defaults
+             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => LoadViewSettingsForPath(CurrentPath));
+         }
     }
 
+    partial void OnTaskMonitorHeightChanged(Avalonia.Controls.GridLength value)
+    {
+        // Settings for this are removed as it's now a separate window
+    }
+
+    private TaskMonitorWindow? _taskMonitorWindow;
+
+    /// <summary>Single shared File Operations window for the whole app (all explorer windows).</summary>
+    private static TaskMonitorWindow? s_sharedTaskMonitorWindow;
+
+    private void OnActiveTasksChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && e.NewItems != null)
+        {
+            ShowTaskMonitor();
+            foreach (var item in e.NewItems)
+            {
+                if (item is Services.FileTaskItem task)
+                {
+                    task.PropertyChanged += OnFileTaskPropertyChanged;
+                }
+            }
+        }
+        else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove && e.OldItems != null)
+        {
+            foreach (var item in e.OldItems)
+            {
+                if (item is Services.FileTaskItem task)
+                {
+                    task.PropertyChanged -= OnFileTaskPropertyChanged;
+                }
+            }
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => LoadItems());
+        }
+        // Do NOT close the window when ActiveTasks becomes empty - only the X button closes it.
+        // "Clear All Completed" just clears history; window stays open.
+    }
+
+    private void OnFileTaskPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Services.FileTaskItem.Status) && e.PropertyName != nameof(Services.FileTaskItem.IsCompleted) && e.PropertyName != nameof(Services.FileTaskItem.IsFailed))
+            return;
+        if (sender is Services.FileTaskItem task && (task.IsCompleted || task.IsFailed))
+        {
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => LoadItems());
+        }
+    }
+
+    [RelayCommand]
+    public void ShowTaskMonitor()
+    {
+        // One File Operations window for the whole app (main + any New Explorer Window).
+        if (s_sharedTaskMonitorWindow != null)
+        {
+            try
+            {
+                s_sharedTaskMonitorWindow.Activate();
+                return;
+            }
+            catch { /* window may be closed */ }
+            s_sharedTaskMonitorWindow = null;
+        }
+
+        _taskMonitorWindow = new TaskMonitorWindow();
+        _taskMonitorWindow.DataContext = this;
+        _taskMonitorWindow.Closed += (s, e) =>
+        {
+            _taskMonitorWindow = null;
+            s_sharedTaskMonitorWindow = null;
+        };
+        s_sharedTaskMonitorWindow = _taskMonitorWindow;
+        _taskMonitorWindow.Show();
+    }
     private async void SaveViewSettings()
     {
-        if (string.IsNullOrEmpty(CurrentPath)) return;
+        // Always persist global defaults (Sort/Group/View) so they survive restart
+        if (string.IsNullOrEmpty(CurrentPath))
+        {
+            await _database.SetAsync("Configs.Explorer.SortBy", SortBy.ToString());
+            await _database.SetAsync("Configs.Explorer.IsSortDescending", IsSortDescending.ToString());
+            await _database.SetAsync("Configs.Explorer.ViewMode", LayoutMode.ToString());
+            await _database.SetAsync("Configs.Explorer.GroupBy", GroupBy.ToString());
+            return;
+        }
+
+        // Normalize path (no trailing slash) so "C:\A" and "C:\A\" are the same folder - settings apply to this folder only, not subfolders
+        var normalizedPath = CurrentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var pathKey = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(normalizedPath.ToLowerInvariant()));
 
         if (IsLocalSettings)
         {
-            // Save ONLY for this folder
+            // Save ONLY for this exact folder (subfolders will use their own or global settings)
             var settings = new FolderViewSettingsDto
             {
                 SortBy = SortBy.ToString(),
@@ -407,29 +606,11 @@ public partial class OutputExplorerViewModel : ObservableObject
                 LayoutMode = LayoutMode.ToString(),
                 GroupBy = GroupBy.ToString()
             };
-            // Use a specific key for this folder's settings. Hashing path might be safer against special chars.
-            // But simple key replacement works for now. 
-            // We use a prefix "Configs.Explorer.FolderSettings." + Path
-            // NOTE: Path can be long/invalid chars for some DB keys? 
-            // Assuming DB can handle arbitrary string keys or we encode. 
-            // Let's use Base64 of path to be safe.
-            var pathKey = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(CurrentPath.ToLowerInvariant()));
             await _database.SetAsync($"Configs.Explorer.FolderSettings.{pathKey}", settings);
         }
         else
         {
-            // Save as Global Defaults
-            // Remove local setting if exists? Or just update globals? 
-            // If user explicitly unchecked "Only", we should probably DELETE local setting so it reverts to global next time?
-            // Logic: If transitioning from Local -> Global (Unchecked), delete local.
-            // But here we are just saving whatever the current mode is. 
-            
-            // Check if we just unchecked it? value is already updated.
-            // If IsLocalSettings is FALSE, we verify if successful deletion of local key is needed?
-            // Actually, `ToggleLocalSettings` sets IsLocalSettings then calls this. 
-            // So if FALSE, likely we want to remove local override.
-            
-            var pathKey = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(CurrentPath.ToLowerInvariant()));
+            // Save as Global Defaults; remove this folder's override so it uses globals
             await _database.DeleteAsync($"Configs.Explorer.FolderSettings.{pathKey}");
 
             // Save Globals as Strings to satisfy generic constraint 'where T : class'
@@ -444,46 +625,53 @@ public partial class OutputExplorerViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(path)) return;
 
-        var pathKey = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(path.ToLowerInvariant()));
+        // Normalize so subfolders never inherit parent's "this folder only" settings
+        var normalizedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var pathKey = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(normalizedPath.ToLowerInvariant()));
         var localSettings = await _database.GetAsync<FolderViewSettingsDto>($"Configs.Explorer.FolderSettings.{pathKey}");
 
-        if (localSettings != null)
+        _isLoadingSettings = true;
+        try
         {
-            // Apply Local
-            IsLocalSettings = true; 
-            
-            if (System.Enum.TryParse<ExplorerSortOption>(localSettings.SortBy, out var s)) SortBy = s;
-            IsSortDescending = localSettings.IsSortDescending;
-            if (System.Enum.TryParse<ExplorerLayoutMode>(localSettings.LayoutMode, out var l)) LayoutMode = l;
-            if (System.Enum.TryParse<ExplorerGroupBy>(localSettings.GroupBy, out var g)) GroupBy = g;
-            
-            OnLayoutChanged_UI();
+            if (localSettings != null)
+            {
+                // Apply Local
+                IsLocalSettings = true; 
+                
+                if (System.Enum.TryParse<ExplorerSortOption>(localSettings.SortBy, out var s)) SortBy = s;
+                IsSortDescending = localSettings.IsSortDescending;
+                if (System.Enum.TryParse<ExplorerLayoutMode>(localSettings.LayoutMode, out var l)) LayoutMode = l;
+                if (System.Enum.TryParse<ExplorerGroupBy>(localSettings.GroupBy, out var g)) GroupBy = g;
+                
+                OnLayoutChanged_UI();
+            }
+            else
+            {
+                // Apply Global Defaults
+                IsLocalSettings = false;
+
+                // Load Globals (Stored as Strings to satisfy 'where T : class')
+                var gSort = await _database.GetAsync<string>("Configs.Explorer.SortBy");
+                var gDescStr = await _database.GetAsync<string>("Configs.Explorer.IsSortDescending");
+                var gMode = await _database.GetAsync<string>("Configs.Explorer.ViewMode");
+                var gGroup = await _database.GetAsync<string>("Configs.Explorer.GroupBy");
+
+                if (!string.IsNullOrEmpty(gSort) && System.Enum.TryParse<ExplorerSortOption>(gSort, out var s)) SortBy = s;
+                else SortBy = ExplorerSortOption.Name;
+
+                if (!string.IsNullOrEmpty(gDescStr) && bool.TryParse(gDescStr, out var d)) IsSortDescending = d;
+                else IsSortDescending = false; // Default
+
+                if (!string.IsNullOrEmpty(gMode) && System.Enum.TryParse<ExplorerLayoutMode>(gMode, out var l)) LayoutMode = l;
+                else LayoutMode = ExplorerLayoutMode.Vertical;
+
+                if (!string.IsNullOrEmpty(gGroup) && System.Enum.TryParse<ExplorerGroupBy>(gGroup, out var g)) GroupBy = g;
+                else GroupBy = ExplorerGroupBy.Date;
+
+                OnLayoutChanged_UI();
+            }
         }
-        else
-        {
-            // Apply Global Defaults
-            IsLocalSettings = false;
-
-            // Load Globals (Stored as Strings to satisfy 'where T : class')
-            var gSort = await _database.GetAsync<string>("Configs.Explorer.SortBy");
-            var gDescStr = await _database.GetAsync<string>("Configs.Explorer.IsSortDescending");
-            var gMode = await _database.GetAsync<string>("Configs.Explorer.ViewMode");
-            var gGroup = await _database.GetAsync<string>("Configs.Explorer.GroupBy");
-
-            if (!string.IsNullOrEmpty(gSort) && System.Enum.TryParse<ExplorerSortOption>(gSort, out var s)) SortBy = s;
-            else SortBy = ExplorerSortOption.Name;
-
-            if (!string.IsNullOrEmpty(gDescStr) && bool.TryParse(gDescStr, out var d)) IsSortDescending = d;
-            else IsSortDescending = false; // Default
-
-            if (!string.IsNullOrEmpty(gMode) && System.Enum.TryParse<ExplorerLayoutMode>(gMode, out var l)) LayoutMode = l;
-            else LayoutMode = ExplorerLayoutMode.Vertical;
-
-            if (!string.IsNullOrEmpty(gGroup) && System.Enum.TryParse<ExplorerGroupBy>(gGroup, out var g)) GroupBy = g;
-            else GroupBy = ExplorerGroupBy.Date;
-
-            OnLayoutChanged_UI();
-        }
+        finally { _isLoadingSettings = false; }
         // Finally load items
         LoadItems();
     }
@@ -532,9 +720,51 @@ public partial class OutputExplorerViewModel : ObservableObject
 
     [ObservableProperty] private ObservableCollection<ExplorerItemViewModel> _selectedItems = new();
 
+    /// <summary>Paths that were cut (move on paste). Cleared on Copy or after Paste.</summary>
+    private HashSet<string>? _cutPaths;
+
+    /// <summary>True when at least one item is selected. For context menu: show Copy/Cut only when true.</summary>
+    public bool HasSelection => SelectedItems?.Count > 0;
+
+    /// <summary>True when clipboard contains file(s). For context menu: show/enable Paste only when true.</summary>
+    [ObservableProperty] private bool _hasFileClipboard;
+
     partial void OnSelectedItemsChanged(ObservableCollection<ExplorerItemViewModel> value)
     {
-        // Optional: Update commands state if needed
+        OnPropertyChanged(nameof(HasSelection));
+    }
+
+    /// <summary>Call before showing context menu (e.g. on right-click) to refresh Paste visibility.</summary>
+    public async void UpdateClipboardStateAsync()
+    {
+        try
+        {
+            if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop ||
+                desktop.MainWindow?.Clipboard is not { } clipboard)
+            {
+                HasFileClipboard = false;
+                return;
+            }
+            var formats = await clipboard.GetFormatsAsync();
+            var hasFiles = formats.Contains(Avalonia.Input.DataFormats.FileNames) ||
+                          formats.Contains(Avalonia.Input.DataFormats.Files) ||
+                          formats.Contains("Files") ||
+                          (formats.Contains(Avalonia.Input.DataFormats.Text) && await HasFilePathsInClipboardTextAsync(clipboard));
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => HasFileClipboard = hasFiles);
+        }
+        catch { Avalonia.Threading.Dispatcher.UIThread.Post(() => HasFileClipboard = false); }
+    }
+
+    private static async Task<bool> HasFilePathsInClipboardTextAsync(Avalonia.Input.Platform.IClipboard clipboard)
+    {
+        try
+        {
+            var text = await clipboard.GetTextAsync();
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            return lines.Any(l => File.Exists(l.Trim()) || Directory.Exists(l.Trim()));
+        }
+        catch { return false; }
     }
 
     [RelayCommand]
@@ -674,74 +904,412 @@ try {{
     [RelayCommand]
     public async Task CopyItem(object? parameter)
     {
+        _cutPaths = null; // Copy clears cut intent
         var items = GetSelectedItems(parameter);
-        if (!items.Any()) return;
-        
+        if (!items.Any())
+        {
+            _notificationService.ShowError("No items selected.");
+            return;
+        }
+
         var paths = items.Select(x => x.FullPath).ToArray();
         var data = new Avalonia.Input.DataObject();
         data.Set(Avalonia.Input.DataFormats.FileNames, paths);
-        
-        // Fix: Access Clipboard via ApplicationLifetime
+        data.Set(Avalonia.Input.DataFormats.Text, string.Join(Environment.NewLine, paths));
+
         if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-             var clipboard = desktop.MainWindow?.Clipboard;
+            var clipboard = desktop.MainWindow?.Clipboard;
             if (clipboard != null)
             {
                 await clipboard.SetDataObjectAsync(data);
-                _notificationService.ShowSuccess($"Copied {items.Count} items to clipboard");
+                UpdateClipboardStateAsync();
             }
+            else
+            {
+                _notificationService.ShowError("Clipboard is null (CopyItem).");
+            }
+        }
+        else
+        {
+            _notificationService.ShowError("Not a Desktop App (CopyItem).");
+        }
+    }
+
+    [RelayCommand]
+    public async Task CutItem(object? parameter)
+    {
+        var items = GetSelectedItems(parameter);
+        if (!items.Any())
+        {
+            _notificationService.ShowError("No items selected.");
+            return;
+        }
+
+        _cutPaths = new HashSet<string>(items.Select(x => x.FullPath), StringComparer.OrdinalIgnoreCase);
+        var paths = items.Select(x => x.FullPath).ToArray();
+        var data = new Avalonia.Input.DataObject();
+        data.Set(Avalonia.Input.DataFormats.FileNames, paths);
+        data.Set(Avalonia.Input.DataFormats.Text, string.Join(Environment.NewLine, paths));
+
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var clipboard = desktop.MainWindow?.Clipboard;
+            if (clipboard != null)
+            {
+                await clipboard.SetDataObjectAsync(data);
+                UpdateClipboardStateAsync();
+            }
+            else
+            {
+                _notificationService.ShowError("Clipboard is null (CutItem).");
+            }
+        }
+        else
+        {
+            _notificationService.ShowError("Not a Desktop App (CutItem).");
+        }
+    }
+
+
+    [RelayCommand]
+    public async Task PasteItem()
+    {
+        if (string.IsNullOrEmpty(CurrentPath) || !Directory.Exists(CurrentPath))
+        {
+            _notificationService.ShowError("Tidak ada folder tujuan untuk paste.");
+            return;
+        }
+
+        try
+        {
+            if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                var clipboard = desktop.MainWindow?.Clipboard;
+                if (clipboard == null)
+                {
+                    _notificationService.ShowError("Clipboard tidak tersedia.");
+                    return;
+                }
+
+                var formats = await clipboard.GetFormatsAsync();
+                List<string>? fileList = null;
+
+                // Try FileNames first (what we set on Copy)
+                if (fileList == null && formats.Contains(Avalonia.Input.DataFormats.FileNames))
+                {
+                    var fileData = await clipboard.GetDataAsync(Avalonia.Input.DataFormats.FileNames);
+                    fileList = ClipboardDataToPathList(fileData);
+                }
+                // Try Files format (platform may expose file list under this)
+                if (fileList == null && formats.Contains(Avalonia.Input.DataFormats.Files))
+                {
+                    var fileData = await clipboard.GetDataAsync(Avalonia.Input.DataFormats.Files);
+                    fileList = ClipboardDataToPathList(fileData);
+                }
+                if (fileList == null && formats.Contains("Files"))
+                {
+                    var fileData = await clipboard.GetDataAsync("Files");
+                    fileList = ClipboardDataToPathList(fileData);
+                }
+                // Fallback: text (we also set this on Copy so our own copy always works)
+                if (fileList == null && formats.Contains(Avalonia.Input.DataFormats.Text))
+                {
+                    var text = await clipboard.GetTextAsync();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (lines.Any(l => File.Exists(l.Trim()) || Directory.Exists(l.Trim())))
+                            fileList = lines.Select(l => l.Trim()).ToList();
+                    }
+                }
+
+                if (fileList == null || !fileList.Any())
+                {
+                    _notificationService.ShowError("Tidak ada file atau folder di clipboard.");
+                    return;
+                }
+
+                var normalizedList = fileList.Select(f => f.Trim()).ToList();
+                bool isMove = _cutPaths != null && normalizedList.Count == _cutPaths.Count &&
+                             normalizedList.All(p => _cutPaths.Contains(p));
+
+                int count = 0;
+                foreach (var file in normalizedList)
+                {
+                    var cleanPath = file;
+                    if (!File.Exists(cleanPath) && !Directory.Exists(cleanPath)) continue;
+
+                    string fileName = Path.GetFileName(cleanPath);
+                    if (string.IsNullOrEmpty(fileName)) continue;
+
+                    string dest = Path.Combine(CurrentPath, fileName);
+
+                    if (cleanPath.Equals(dest, StringComparison.OrdinalIgnoreCase))
+                    {
+                        string nameNoExt = Path.GetFileNameWithoutExtension(fileName);
+                        string ext = Path.GetExtension(fileName);
+                        string newName = $"{nameNoExt} - Copy{ext}";
+                        dest = Path.Combine(CurrentPath, newName);
+                        int i = 2;
+                        while (File.Exists(dest) || Directory.Exists(dest))
+                        {
+                            newName = $"{nameNoExt} - Copy ({i}){ext}";
+                            dest = Path.Combine(CurrentPath, newName);
+                            i++;
+                        }
+                    }
+                    else if (File.Exists(dest) || Directory.Exists(dest))
+                    {
+                        string nameNoExt = Path.GetFileNameWithoutExtension(fileName);
+                        string ext = Path.GetExtension(fileName);
+                        int i = 1;
+                        while (File.Exists(dest) || Directory.Exists(dest))
+                        {
+                            string suffix = i == 1 ? " - Copy" : $" - Copy ({i})";
+                            dest = Path.Combine(CurrentPath, $"{nameNoExt}{suffix}{ext}");
+                            i++;
+                        }
+                    }
+
+                    if (isMove)
+                        _fileManager.MoveFileBackground(cleanPath, dest);
+                    else
+                        _fileManager.CopyFileBackground(cleanPath, dest);
+                    count++;
+                }
+
+                if (count > 0)
+                {
+                    if (isMove)
+                    {
+                        _cutPaths = null;
+                        // Clear file data from clipboard so paste elsewhere doesn't move again
+                        try
+                        {
+                            await clipboard.ClearAsync();
+                        }
+                        catch { /* ignore */ }
+                        UpdateClipboardStateAsync();
+                    }
+                }
+            }
+            else
+            {
+                _notificationService.ShowError("Not a Desktop App (PasteItem).");
+            }
+        }
+        catch (Exception ex)
+        {
+            _notificationService.ShowError($"Paste Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles files/folders dropped from external applications (e.g. Windows Explorer).
+    /// Copies them to the current folder.
+    /// </summary>
+    public void HandleDroppedFiles(System.Collections.Generic.IEnumerable<string> paths)
+    {
+        if (string.IsNullOrEmpty(CurrentPath) || !Directory.Exists(CurrentPath)) return;
+
+        int count = 0;
+        foreach (var sourcePath in paths)
+        {
+            if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath)) continue;
+
+            string fileName = Path.GetFileName(sourcePath);
+            if (string.IsNullOrEmpty(fileName)) continue;
+
+            string dest = Path.Combine(CurrentPath, fileName);
+
+            // Handle duplicate names
+            if (sourcePath.Equals(dest, StringComparison.OrdinalIgnoreCase)) continue; // Skip same file
+            if (File.Exists(dest) || Directory.Exists(dest))
+            {
+                string nameNoExt = Path.GetFileNameWithoutExtension(fileName);
+                string ext = Path.GetExtension(fileName);
+                int i = 1;
+                while (File.Exists(dest) || Directory.Exists(dest))
+                {
+                    string suffix = i == 1 ? " - Copy" : $" - Copy ({i})";
+                    dest = Path.Combine(CurrentPath, $"{nameNoExt}{suffix}{ext}");
+                    i++;
+                }
+            }
+
+            _fileManager.CopyFileBackground(sourcePath, dest);
+            count++;
+        }
+
+        if (count > 0) ShowTaskMonitor();
+    }
+
+    /// <summary>
+    /// Returns full paths of currently selected items (for drag-out to external apps).
+    /// </summary>
+    public System.Collections.Generic.List<string> GetSelectedFilePaths()
+    {
+        var paths = new System.Collections.Generic.List<string>();
+        foreach (var item in SelectedItems)
+        {
+            if (item is ExplorerItemViewModel evm && !string.IsNullOrEmpty(evm.FullPath))
+                paths.Add(evm.FullPath);
+        }
+        return paths;
+    }
+
+    /// <summary>
+    /// Converts clipboard data (various formats) to a list of local file/folder paths.
+    /// </summary>
+    private static List<string>? ClipboardDataToPathList(object? fileData)
+    {
+        if (fileData == null) return null;
+
+        if (fileData is IEnumerable<string> enumStr)
+            return enumStr.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToList();
+        if (fileData is string[] arr)
+            return arr.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).ToList();
+
+        if (fileData is System.Collections.IEnumerable enumerable)
+        {
+            var list = new List<string>();
+            foreach (var item in enumerable)
+            {
+                if (item == null) continue;
+                if (item is Avalonia.Platform.Storage.IStorageItem storageItem)
+                {
+                    var path = storageItem.TryGetLocalPath();
+                    if (!string.IsNullOrEmpty(path)) list.Add(path);
+                }
+                else if (item is FileInfo fi)
+                    list.Add(fi.FullName);
+                else if (item is DirectoryInfo di)
+                    list.Add(di.FullName);
+                else
+                {
+                    var str = item.ToString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(str)) list.Add(str);
+                }
+            }
+            if (list.Count > 0) return list;
+        }
+
+        return null;
+    }
+
+    [RelayCommand]
+    public void RenameItem(object? parameter)
+    {
+        ExplorerItemViewModel? toEdit = null;
+        if (parameter is ExplorerItemViewModel item)
+            toEdit = item;
+        else if (parameter is System.Collections.IList list && list.Count > 0 && list[0] is ExplorerItemViewModel first)
+            toEdit = first;
+        else
+            toEdit = GetSelectedItems(null).FirstOrDefault();
+        if (toEdit != null)
+            toEdit.IsEditing = true;
+    }
+
+    [RelayCommand]
+    public void CommitRename(object? parameter)
+    {
+        if (parameter is ExplorerItemViewModel item)
+        {
+            item.IsEditing = false;
+            if (string.IsNullOrWhiteSpace(item.Name)) return; // Revert?
+            
+            // Perform Rename
+            try
+            {
+                string oldPath = item.FullPath;
+                string newPath = Path.Combine(Path.GetDirectoryName(oldPath)!, item.Name);
+                
+                if (oldPath.Equals(newPath, System.StringComparison.OrdinalIgnoreCase)) return;
+
+                if (item.IsDirectory) Directory.Move(oldPath, newPath);
+                else File.Move(oldPath, newPath);
+                
+                // Update Model
+                item.FullPath = newPath;
+                // Refresh list or just item? Refresh is safer to resort
+                LoadItems(); 
+            }
+            catch (System.Exception ex)
+            {
+                _notificationService.ShowError($"Rename failed: {ex.Message}");
+                LoadItems(); // Revert UI
+            }
+        }
+    }
+
+    [RelayCommand]
+    public void CancelRename(object? parameter)
+    {
+         if (parameter is ExplorerItemViewModel item)
+        {
+            item.IsEditing = false;
+            // Name binding is TwoWay, so it might have changed. 
+            // Ideally we should revert to original name.  
+            // Since we reload items on LoadItems, maybe just Refresh.
+            LoadItems();
         }
     }
 
     [RelayCommand]
     public void DeleteItem(object? parameter)
     {
+        DeleteItemsInternal(parameter, useRecycleBin: false);
+    }
+
+    /// <summary>Permanent delete (bypass Recycle Bin). Shift+Delete.</summary>
+    [RelayCommand]
+    public void PermanentDeleteItem(object? parameter)
+    {
+        DeleteItemsInternal(parameter, useRecycleBin: false);
+    }
+
+    private void DeleteItemsInternal(object? parameter, bool useRecycleBin)
+    {
         var items = GetSelectedItems(parameter);
         if (!items.Any()) return;
 
-        // Simple delete for now, maybe add confirmation dialog later if requested specifically
+        // Currently both use direct delete; useRecycleBin can be implemented later via platform API
         int deletedCount = 0;
-        foreach(var item in items)
+        foreach (var item in items)
         {
-            try 
+            try
             {
-                if(item.IsDirectory) Directory.Delete(item.FullPath, true);
+                if (item.IsDirectory) Directory.Delete(item.FullPath, true);
                 else File.Delete(item.FullPath);
                 deletedCount++;
             }
-            catch(System.Exception ex)
+            catch (System.Exception ex)
             {
-                 _notificationService.ShowError($"Failed to delete {item.Name}: {ex.Message}");
+                _notificationService.ShowError($"Failed to delete {item.Name}: {ex.Message}");
             }
         }
-        
+
         if (deletedCount > 0)
-        {
-            _notificationService.ShowSuccess($"Deleted {deletedCount} items");
-            LoadItems(); // Refresh
-        }
+            LoadItems();
     }
 
     private System.Collections.Generic.List<ExplorerItemViewModel> GetSelectedItems(object? parameter)
     {
         var list = new System.Collections.Generic.List<ExplorerItemViewModel>();
-        
+        var validSelection = SelectedItems.OfType<ExplorerItemViewModel>().ToList();
+
         if (parameter is ExplorerItemViewModel singleItem)
         {
-            if (!SelectedItems.Contains(singleItem))
-            {
+            if (!validSelection.Contains(singleItem))
                 list.Add(singleItem);
-            }
             else
-            {
-                list.AddRange(SelectedItems);
-            }
+                list.AddRange(validSelection);
         }
-        else if (SelectedItems.Any())
-        {
-            list.AddRange(SelectedItems);
-        }
-        
+        else if (validSelection.Count > 0)
+            list.AddRange(validSelection);
+
         return list;
     }
 
@@ -918,79 +1486,74 @@ try {{
 
                 System.Collections.Generic.IEnumerable<ExplorerItemViewModel> baseItems = dirItems.Concat(fileItemList);
 
+                // Natural sort comparer for Windows Explorer-style ordering (1, 2, 3, 10 not 1, 10, 11, 2)
+                var naturalComparer = new NaturalSortComparer();
+
                 // Grouping & Sorting logic
                 if (GroupBy == ExplorerGroupBy.None)
                 {
-                     // Original Logic
-                    System.Func<ExplorerItemViewModel, object> keySelector = SortBy switch
-                    {
-                        ExplorerSortOption.Date => x => x.DateModified,
-                        _ => x => x.Name
-                    };
-                    
-                    if (IsSortDescending) baseItems = baseItems.OrderByDescending(keySelector);
-                    else baseItems = baseItems.OrderBy(keySelector);
-                    
-                    // Simple folder-first logic embedded? or strictly follow sort?
-                    // Usually folders are first relative to files in Windows, unless sorted strictly by date mixed.
-                    // Let's keep separate: Dirs, then Files (unless pure date sort requested?)
-                    // Current request: Group By Modified is priority.
-                    
-                    // If SortBy is Name, keep Folders First.
                     if (SortBy == ExplorerSortOption.Name)
                     {
-                         // Split and sort separately
-                         var sortedDirs = IsSortDescending ? dirItems.OrderByDescending(x => x.Name) : dirItems.OrderBy(x => x.Name);
-                         var sortedFiles = IsSortDescending ? fileItemList.Where(x => !x.IsDirectory).OrderByDescending(x => x.Name) : fileItemList.Where(x => !x.IsDirectory).OrderBy(x => x.Name);
-                         // LNK treated as dir are in fileItems list but marked IsDirectory... wait.
-                         // Correct: fileItemList contains lnk-dirs.
+                         var allDirs = baseItems.Where(x => x.IsDirectory).ToList();
+                         var allFiles = baseItems.Where(x => !x.IsDirectory).ToList();
                          
-                         var allDirs = baseItems.Where(x => x.IsDirectory);
-                         var allFiles = baseItems.Where(x => !x.IsDirectory);
+                         allDirs.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
+                         allFiles.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
                          
-                         if(IsSortDescending) 
+                         if (IsSortDescending) { allDirs.Reverse(); allFiles.Reverse(); }
+                         
+                         foreach (var i in allDirs) Items.Add(i);
+                         foreach (var i in allFiles) Items.Add(i);
+                    }
+                    else if (SortBy == ExplorerSortOption.Type)
+                    {
+                         // Explorer-style: folders first, then files by type (extension), then by name within type
+                         var allDirs = baseItems.Where(x => x.IsDirectory).ToList();
+                         var allFiles = baseItems.Where(x => !x.IsDirectory).ToList();
+                         allDirs.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
+                         allFiles.Sort((a, b) =>
                          {
-                             allDirs = allDirs.OrderByDescending(x => x.Name);
-                             allFiles = allFiles.OrderByDescending(x => x.Name);
-                         }
-                         else 
-                         {
-                             allDirs = allDirs.OrderBy(x => x.Name);
-                             allFiles = allFiles.OrderBy(x => x.Name);
-                         }
-                         
+                             string typeA = GetSortTypeKey(a.Name);
+                             string typeB = GetSortTypeKey(b.Name);
+                             int typeCmp = string.Compare(typeA, typeB, StringComparison.OrdinalIgnoreCase);
+                             return typeCmp != 0 ? typeCmp : naturalComparer.Compare(a.Name, b.Name);
+                         });
+                         if (IsSortDescending) { allDirs.Reverse(); allFiles.Reverse(); }
                          foreach (var i in allDirs) Items.Add(i);
                          foreach (var i in allFiles) Items.Add(i);
                     }
                     else
                     {
                          // Sort by Date Mixed
-                         foreach (var i in baseItems) Items.Add(i);
+                         var sorted = IsSortDescending 
+                             ? baseItems.OrderByDescending(x => x.DateModified) 
+                             : baseItems.OrderBy(x => x.DateModified);
+                         foreach (var i in sorted) Items.Add(i);
                     }
                 }
                 else if (GroupBy == ExplorerGroupBy.Date)
                 {
-                    // Date Grouping (Today, Yesterday, etc.)
-                    // First, sort by Date Descending always for grouping usually, or match SortBy?
-                    // User usually expects "Today" at top.
-                    
+                    // Date Grouping (OS Explorer order): Today, Yesterday, Earlier this week, Last week, Earlier this month, Last month, A long time ago
+                    var dateGroupOrder = new[] { "Today", "Yesterday", "Earlier this week", "Last week", "Earlier this month", "Last month", "A long time ago" };
                     var grouped = baseItems
-                        .OrderByDescending(x => x.DateModified) // Primary sort for grouping
-                        .GroupBy(x => GetDateGroupHeader(x.DateModified));
-                        
+                        .GroupBy(x => GetDateGroupHeader(x.DateModified))
+                        .OrderBy(g => Array.IndexOf(dateGroupOrder, g.Key) >= 0 ? Array.IndexOf(dateGroupOrder, g.Key) : dateGroupOrder.Length);
                     foreach (var group in grouped)
                     {
                         Items.Add(new ExplorerGroupHeaderViewModel(group.Key));
-                        
-                        // Secondary Sort within group
-                        System.Collections.Generic.IEnumerable<ExplorerItemViewModel> groupItems = group;
-                         if (SortBy == ExplorerSortOption.Name)
-                         {
-                             groupItems = IsSortDescending ? group.OrderByDescending(x => x.Name) : group.OrderBy(x => x.Name);
-                         }
-                         // If Date, it's already sorted by Date Desc (from primary) or we re-sort?
-                        
-                        foreach (var item in groupItems) Items.Add(item);
+                        var groupItemsList = group.ToList();
+                        if (SortBy == ExplorerSortOption.Name || SortBy == ExplorerSortOption.Type)
+                        {
+                            groupItemsList.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
+                            if (IsSortDescending) groupItemsList.Reverse();
+                        }
+                        else
+                        {
+                            groupItemsList.Sort((a, b) => IsSortDescending
+                                ? b.DateModified.CompareTo(a.DateModified)
+                                : a.DateModified.CompareTo(b.DateModified));
+                        }
+                        foreach (var item in groupItemsList) Items.Add(item);
                     }
                 }
                 else if (GroupBy == ExplorerGroupBy.Type)
@@ -1003,7 +1566,9 @@ try {{
                      foreach (var group in grouped.OrderBy(g => g.Key))
                      {
                          Items.Add(new ExplorerGroupHeaderViewModel(group.Key));
-                         foreach (var item in group.OrderBy(x => x.Name)) Items.Add(item);
+                         var sortedGroupItems = group.ToList();
+                         sortedGroupItems.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
+                         foreach (var item in sortedGroupItems) Items.Add(item);
                      }
                 }
 
@@ -1032,6 +1597,15 @@ try {{
         if (date.Date >= startOfLastMonth) return "Last month";
         
         return "A long time ago";
+    }
+
+    /// <summary>Sort-by-type key (Explorer-style: Shortcut, extension groups, etc.).</summary>
+    private static string GetSortTypeKey(string fileName)
+    {
+        var ext = Path.GetExtension(fileName);
+        if (string.IsNullOrEmpty(ext)) return " ";
+        if (ext.Equals(".lnk", StringComparison.OrdinalIgnoreCase)) return "Shortcut";
+        return ext.TrimStart('.').ToUpperInvariant();
     }
 
     private void UpdateBreadcrumbs()
@@ -1145,17 +1719,29 @@ try {{
     public void BatchAction(object? parameter)
     {
         var items = GetSelectedItems(parameter);
-        if (items.FirstOrDefault(x => x.IsDirectory) is { } folder)
+        var folders = items.Where(x => x.IsDirectory).Select(x => x.FullPath).ToArray();
+        
+        if (folders.Length > 0)
         {
+             WeakReferenceMessenger.Default.Send(new BatchAddFoldersMessage(folders));
              WeakReferenceMessenger.Default.Send(new NavigateToPageMessage("Batch"));
         }
     }
 
     [RelayCommand]
-    public async Task BatchScript(object? parameter)
+    public void BatchScript(object? parameter)
     {
          if (parameter is not BatchScriptOption script) return;
-         await ExecuteFolderScript(script);
+         
+         var items = GetSelectedItems(null); 
+         var folders = items.Where(x => x.IsDirectory).ToList();
+         
+         if (folders.Count == 0) return;
+
+         var paths = folders.Select(x => x.FullPath).ToArray();
+         var scriptFileName = Path.GetFileName(script.Path);
+         WeakReferenceMessenger.Default.Send(new BatchAddFoldersMessage(paths, scriptFileName));
+         WeakReferenceMessenger.Default.Send(new NavigateToPageMessage("Batch"));
     }
     
     // UI Toggles
@@ -1194,24 +1780,14 @@ try {{
              // Create a new instance of the ViewModel for the new window
              // Reuse the SAME services to share state (except maybe navigation state which is new)
              var vm = new OutputExplorerViewModel(_database, _notificationService, _fileManager, _platformService);
-             
              Log("[NewExplorerWindow] ViewModel Created.");
 
-             // Initial path: Should it match current path?
-             if (!string.IsNullOrEmpty(CurrentPath) && Directory.Exists(CurrentPath))
-             {
-                 // We could set it, but LoadRootPath is async and might overwrite. 
-                 // For now, let it load default. Deep linking can be added later if requested.
-             }
-
+             var windowVm = new ExplorerWindowViewModel(_database, _notificationService, _fileManager, _platformService, vm);
              var win = new BMachine.UI.Views.ExplorerWindow
              {
-                 DataContext = vm
+                 DataContext = windowVm
              };
-             
-             // Inject Database for persistence
              win.Init(_database);
-             
              Log("[NewExplorerWindow] Window Created. Calling Show().");
              win.Show();
              Log("[NewExplorerWindow] Window Shown.");
@@ -1252,48 +1828,48 @@ try {{
         catch { _scriptAliases = new(); }
     }
 
-    public void LoadScripts() 
+    public async Task LoadScriptsAsync()
     {
         try
         {
             LoadMetadata();
             var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
-            var customScripts = _database.GetAsync<string>("Configs.System.ScriptsPath").Result; 
-             if (!string.IsNullOrEmpty(customScripts) && Directory.Exists(customScripts))
-            {
+            var customScripts = await _database.GetAsync<string>("Configs.System.ScriptsPath");
+            if (!string.IsNullOrEmpty(customScripts) && Directory.Exists(customScripts))
                 baseDir = customScripts;
-            }
-            
+
             var masterDir = Path.Combine(baseDir, "Master");
-            if (Directory.Exists(masterDir))
+            if (!Directory.Exists(masterDir)) return;
+
+            var pyFiles = Directory.GetFiles(masterDir, "*.py");
+            var list = new List<(BatchScriptOption Option, int Order)>();
+
+            foreach (var f in pyFiles)
             {
-                var pyFiles = Directory.GetFiles(masterDir, "*.py");
-                var list = new List<(BatchScriptOption Option, int Order)>();
+                var fname = Path.GetFileName(f);
+                string display = Path.GetFileNameWithoutExtension(fname);
+                int order = 9999;
 
-                foreach(var f in pyFiles)
+                if (_scriptAliases.ContainsKey(fname))
                 {
-                    var fname = Path.GetFileName(f);
-                    string display = Path.GetFileNameWithoutExtension(fname);
-                    int order = 9999;
-
-                    if (_scriptAliases.ContainsKey(fname))
-                    {
-                        var config = _scriptAliases[fname];
-                        display = config.Name;
-                        order = config.Order;
-                    }
-
-                    list.Add((new BatchScriptOption 
-                    { 
-                        Name = display, 
-                        OriginalName = fname,
-                        Path = f 
-                    }, order));
+                    var config = _scriptAliases[fname];
+                    display = config.Name;
+                    order = config.Order;
                 }
 
-                var sortedList = list.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
-                ScriptOptions = new ObservableCollection<BatchScriptOption>(sortedList);
+                list.Add((new BatchScriptOption
+                {
+                    Name = display,
+                    OriginalName = fname,
+                    Path = f
+                }, order));
             }
+
+            var sortedList = list.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                ScriptOptions = new ObservableCollection<BatchScriptOption>(sortedList);
+            });
         }
         catch { }
     }
@@ -1515,9 +2091,42 @@ try {{
     }
 
     [RelayCommand]
-    public async Task CopyMasterBrowserHere()
+    public async Task CreateFolderShortcut()
     {
-        // Placeholder
+        string baseName = "New Folder";
+        string name = baseName;
+        int i = 2;
+        while (Directory.Exists(Path.Combine(CurrentPath, name)))
+        {
+            name = $"{baseName} ({i++})";
+        }
+        
+        await CreateNewFolder(name);
+        
+        // Find the new item
+        // Items is ObservableCollection<object> (header/item), so filter
+        var item = Items.OfType<ExplorerItemViewModel>().FirstOrDefault(x => x.Name == name);
+        if (item != null)
+        {
+            item.IsEditing = true;
+        }
+    }
+
+    [RelayCommand]
+    public void CopyMasterBrowserHere(object? parameter)
+    {
+        string? folderPath = null;
+        if (parameter is ExplorerItemViewModel item && item.IsDirectory)
+            folderPath = item.FullPath;
+        else
+        {
+            var first = GetSelectedItems(null).FirstOrDefault(x => x.IsDirectory);
+            folderPath = first?.FullPath;
+            if (string.IsNullOrEmpty(folderPath) && !string.IsNullOrEmpty(CurrentPath) && Directory.Exists(CurrentPath))
+                folderPath = CurrentPath;
+        }
+        if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath)) return;
+        WeakReferenceMessenger.Default.Send(new MasterBrowserSyncFromExplorerMessage(folderPath));
     }
 
     // --- POPUP STATE ---
@@ -1540,6 +2149,50 @@ try {{
     {
         NewItemName = "New File.txt";
         IsNewFileVisible = true;
+    }
+
+    [RelayCommand]
+    public void FocusPathBar()
+    {
+        WeakReferenceMessenger.Default.Send(new FocusExplorerPathBarMessage());
+    }
+
+    /// <summary>Focus search box (currently same as address bar until search UI exists).</summary>
+    [RelayCommand]
+    public void FocusSearchBox()
+    {
+        WeakReferenceMessenger.Default.Send(new FocusExplorerPathBarMessage());
+    }
+
+    /// <summary>Close current tab or window (Ctrl+W). Sends message; the window (or view) passes itself so the right window handles it.</summary>
+    [RelayCommand]
+    public void CloseTabOrWindow()
+    {
+        WeakReferenceMessenger.Default.Send(new RequestCloseExplorerWindowMessage(null));
+    }
+
+    /// <summary>New tab (stub: not implemented yet).</summary>
+    [RelayCommand]
+    private void NewTab()
+    {
+        // TODO: implement tabbed explorer
+    }
+
+    /// <summary>Switch between tabs (stub: not implemented yet).</summary>
+    [RelayCommand]
+    private void SwitchTab()
+    {
+        // TODO: implement tabbed explorer
+    }
+
+    /// <summary>Cycle view mode (List/Grid) for Ctrl+Mouse Wheel.</summary>
+    [RelayCommand]
+    public void CycleViewMode(bool? wheelUp)
+    {
+        if (wheelUp == true)
+            LayoutMode = LayoutMode == ExplorerLayoutMode.Vertical ? ExplorerLayoutMode.Horizontal : ExplorerLayoutMode.Vertical;
+        else if (wheelUp == false)
+            LayoutMode = LayoutMode == ExplorerLayoutMode.Horizontal ? ExplorerLayoutMode.Vertical : ExplorerLayoutMode.Horizontal;
     }
 
     [RelayCommand]
@@ -1582,7 +2235,7 @@ try {{
 
 public partial class ExplorerItemViewModel : ObservableObject
 {
-    public string Name { get; set; } = "";
+    [ObservableProperty] private string _name = "";
     public string FullPath { get; set; } = "";
     public string TargetPath { get; set; } = ""; // For .lnk resolving
     public bool IsDirectory { get; set; }
@@ -1594,6 +2247,8 @@ public partial class ExplorerItemViewModel : ObservableObject
     public string DisplaySize => IsDirectory ? $"{ItemsCount} items" : BytesToString(Size);
     
     public bool IsSelectable => true;
+
+    [ObservableProperty] private bool _isEditing;
 
     // Helper
     private string BytesToString(long byteCount)
@@ -1628,4 +2283,31 @@ public class SidebarItemDto
     public string Path { get; set; } = "";
     public string Icon { get; set; } = "";
     public bool IsDynamic { get; set; }
+}
+
+/// <summary>
+/// Natural sort comparer that mimics Windows Explorer ordering.
+/// Uses StrCmpLogicalW on Windows for correct "1, 2, 3, 10" ordering.
+/// </summary>
+public class NaturalSortComparer : System.Collections.Generic.IComparer<string?>
+{
+    [System.Runtime.InteropServices.DllImport("shlwapi.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern int StrCmpLogicalW(string psz1, string psz2);
+
+    public int Compare(string? x, string? y)
+    {
+        if (x == null && y == null) return 0;
+        if (x == null) return -1;
+        if (y == null) return 1;
+
+        try
+        {
+            return StrCmpLogicalW(x, y);
+        }
+        catch
+        {
+            // Fallback for non-Windows platforms
+            return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
+        }
+    }
 }

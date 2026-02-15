@@ -271,75 +271,74 @@
                          <StackPanel Spacing="8">
                              <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Bold" FontSize="18" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
                              
-                             <Button Classes="Clear" Padding="0" Background="Transparent" HorizontalAlignment="Left"
-                                   Command="{Binding CopyIdCommand}"
-                                   CommandParameter="{Binding SelectedCard.DisplayId}"
-                                   IsVisible="{Binding SelectedCard.HasDisplayId}"
-                                   Cursor="Hand" ToolTip.Tip="Click to Copy ID">
-                                  <Border Background="{DynamicResource AccentEditingBrush}" CornerRadius="4" Padding="8,4">
-                                      <StackPanel Orientation="Horizontal" Spacing="4">
-                                          <TextBlock Text="ID:" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0.8"/>
-                                          <TextBlock Text="{Binding SelectedCard.DisplayId}" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                              <WrapPanel Orientation="Horizontal">
+                                  <!-- ID Badge -->
+                                  <Button Classes="Clear" Padding="0" Background="Transparent" VerticalAlignment="Center" Margin="0,0,4,4"
+                                        Command="{Binding CopyIdCommand}"
+                                        CommandParameter="{Binding SelectedCard.DisplayId}"
+                                        IsVisible="{Binding SelectedCard.HasDisplayId}"
+                                        Cursor="Hand" ToolTip.Tip="Click to Copy ID">
+                                       <Border Background="{DynamicResource AccentEditingBrush}" CornerRadius="4" Height="26" Padding="8,0">
+                                           <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                               <TextBlock Text="ID:" FontSize="10" FontWeight="Bold" Foreground="White" Opacity="0.8"/>
+                                               <TextBlock Text="{Binding SelectedCard.DisplayId}" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                                           </StackPanel>
+                                       </Border>
+                                  </Button>
+                                  
+                                  <!-- Attachments Badge -->
+                                  <Button Classes="Clear" Padding="0" Background="Transparent" VerticalAlignment="Center" Margin="0,0,4,4"
+                                          Command="{Binding ShowAttachmentsCommand}"
+                                          CommandParameter="{Binding SelectedCard}"
+                                          IsVisible="{Binding SelectedCard.HasAttachments}"
+                                          Cursor="Hand" ToolTip.Tip="View Attachments">
+                                      <Border Background="#26FFFFFF" CornerRadius="4" Height="26" Padding="8,0">
+                                          <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                              <PathIcon Data="{StaticResource IconPaperclip}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                              <TextBlock Text="{Binding SelectedCard.AttachmentCount}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                          </StackPanel>
+                                      </Border>
+                                  </Button>
+
+                                  <!-- Due Date Badge -->
+                                  <Border Background="#26FFFFFF" CornerRadius="4" Height="26" Padding="8,0" Margin="0,0,4,4" VerticalAlignment="Center" IsVisible="{Binding SelectedCard.DueDateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                          <PathIcon Data="{StaticResource IconClock}" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                          <TextBlock Text="{Binding SelectedCard.DueDateText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                       </StackPanel>
                                   </Border>
-                             </Button>
-                         </StackPanel>
-                         
-                         <Border Height="1" Background="#FFFFFF" Opacity="0.1" Margin="0,5"/>
-                         
-                         <!-- Description -->
-                         <StackPanel Spacing="6">
-                             <TextBlock Text="Description" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                              <TextBox Text="{Binding SelectedCard.Description}" 
-                                      IsReadOnly="True" TextWrapping="Wrap"
-                                      Background="Transparent" BorderThickness="0" 
-                                      Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" Padding="0"/>
-                         </StackPanel>
-                         
-                         <!-- Due Date & Labels -->
-                         <Grid ColumnDefinitions="*, *" Margin="0,10,0,0">
-                             <StackPanel Grid.Column="0" Spacing="6">
-                                  <TextBlock Text="Due Date" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                                  <StackPanel Orientation="Horizontal" Spacing="6">
-                                      <PathIcon Data="{StaticResource IconClock}" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                      <TextBlock Text="{Binding SelectedCard.DueDateText}" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                  </StackPanel>
-                             </StackPanel>
-                             
-                             <StackPanel Grid.Column="1" Spacing="6" IsVisible="{Binding SelectedCard.LabelsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                  <TextBlock Text="Labels" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                                  <Border Background="#2600FF00" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" IsVisible="{Binding SelectedCard.LabelsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                      <TextBlock Text="{Binding SelectedCard.LabelsText}" Foreground="#4ade80" FontWeight="SemiBold" FontSize="12"/>
-                                  </Border>
-                             </StackPanel>
-                         </Grid>
-                         
-                         <Border Height="1" Background="#FFFFFF" Opacity="0.1" Margin="0,5"/>
-                         
-                         <!-- Attachments Preview (Mini) -->
-                         <StackPanel Spacing="10" IsVisible="{Binding SelectedCard.HasAttachments}"> 
-                              <Grid ColumnDefinitions="*, Auto">
-                                  <TextBlock Text="Attachments" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                                  <Button Content="View All" Command="{Binding ShowAttachmentsCommand}" CommandParameter="{Binding SelectedCard}"
-                                          Classes="Primary" FontSize="11" Margin="0" Padding="8,4"/>
-                              </Grid>
-                              
-                              <ItemsControl ItemsSource="{Binding Attachments}">
-                                  <ItemsControl.ItemsPanel>
-                                      <ItemsPanelTemplate>
-                                          <WrapPanel ItemWidth="80" ItemHeight="80"/>
-                                      </ItemsPanelTemplate>
-                                  </ItemsControl.ItemsPanel>
-                                  <ItemsControl.ItemTemplate>
-                                      <DataTemplate>
-                                          <Border Margin="4" CornerRadius="6" ClipToBounds="True" Background="#33FFFFFF">
-                                              <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
-                                          </Border>
-                                      </DataTemplate>
-                                  </ItemsControl.ItemTemplate>
-                              </ItemsControl>
-                         </StackPanel>
 
+                                  <!-- Labels (Inline) -->
+                                  <ItemsControl ItemsSource="{Binding SelectedCard.Labels}" VerticalAlignment="Center">
+                                       <ItemsControl.ItemsPanel>
+                                           <ItemsPanelTemplate>
+                                               <WrapPanel Orientation="Horizontal" />
+                                           </ItemsPanelTemplate>
+                                       </ItemsControl.ItemsPanel>
+                                       <ItemsControl.ItemTemplate>
+                                           <DataTemplate>
+                                               <Border Background="{Binding ColorHex}" CornerRadius="4" Height="26" Padding="8,0" Margin="0,0,4,4">
+                                                   <TextBlock Text="{Binding Name}" Foreground="{Binding TextColorHex}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
+                                               </Border>
+                                           </DataTemplate>
+                                       </ItemsControl.ItemTemplate>
+                                  </ItemsControl>
+
+                              </WrapPanel>
+                          </StackPanel>
+                          
+                          <Border Height="1" Background="#FFFFFF" Opacity="0.1" Margin="0,5"/>
+                          
+                          <!-- Description -->
+                          <StackPanel Spacing="6">
+                              <TextBlock Text="Description" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                               <TextBox Text="{Binding SelectedCard.Description}" 
+                                       IsReadOnly="True" TextWrapping="Wrap"
+                                       Background="Transparent" BorderThickness="0" 
+                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" Padding="0"/>
+                          </StackPanel>
+                          
+                          <!-- Bottom Section Removed (Due Date & Labels) -->
                      </StackPanel>
                  </ScrollViewer>
              </Grid>
@@ -393,8 +392,14 @@
                          <TextBlock Text="Comments" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding CloseCommentsPanelCommand}" Content="✕" 
-                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <Button Click="OnOpenCommentWindowClicked" 
+                                Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Open in New Window">
+                            <PathIcon Data="{StaticResource IconOpenWindow}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </Button>
+                        <Button Command="{Binding CloseCommentsPanelCommand}" Content="✕" 
+                                Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand"/>
+                    </StackPanel>
                 </Grid>
 
                 <ScrollViewer x:Name="Part_CommentScrollViewer" Grid.Row="1">
