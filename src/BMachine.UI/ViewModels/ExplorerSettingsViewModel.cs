@@ -32,6 +32,9 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [ObservableProperty] private string _shortcutAddressBar = "Alt+D";
     [ObservableProperty] private string _shortcutAddressBar2 = "Ctrl+L";
     [ObservableProperty] private string _shortcutSwitchTab = "Ctrl+Tab";
+    [ObservableProperty] private string _shortcutCopy = "Ctrl+C";
+    [ObservableProperty] private string _shortcutCut = "Ctrl+X";
+    [ObservableProperty] private string _shortcutPaste = "Ctrl+V";
 
     [ObservableProperty] private bool _isRecordingShortcut;
     [ObservableProperty] private string _recordingForKey = ""; // e.g. "ShortcutNewFolder"
@@ -61,6 +64,9 @@ public partial class ExplorerSettingsViewModel : ObservableObject
         ShortcutAddressBar = await _database.GetAsync<string>("Configs.Explorer.ShortcutAddressBar") ?? "Alt+D";
         ShortcutAddressBar2 = await _database.GetAsync<string>("Configs.Explorer.ShortcutAddressBar2") ?? "Ctrl+L";
         ShortcutSwitchTab = await _database.GetAsync<string>("Configs.Explorer.ShortcutSwitchTab") ?? "Ctrl+Tab";
+        ShortcutCopy = await _database.GetAsync<string>("Configs.Explorer.ShortcutCopy") ?? "Ctrl+C";
+        ShortcutCut = await _database.GetAsync<string>("Configs.Explorer.ShortcutCut") ?? "Ctrl+X";
+        ShortcutPaste = await _database.GetAsync<string>("Configs.Explorer.ShortcutPaste") ?? "Ctrl+V";
     }
 
     [RelayCommand]
@@ -101,6 +107,9 @@ public partial class ExplorerSettingsViewModel : ObservableObject
             case "ShortcutAddressBar": ShortcutAddressBar = gestureString; break;
             case "ShortcutAddressBar2": ShortcutAddressBar2 = gestureString; break;
             case "ShortcutSwitchTab": ShortcutSwitchTab = gestureString; break;
+            case "ShortcutCopy": ShortcutCopy = gestureString; break;
+            case "ShortcutCut": ShortcutCut = gestureString; break;
+            case "ShortcutPaste": ShortcutPaste = gestureString; break;
         }
         _ = SaveShortcutAsync($"Configs.Explorer.{RecordingForKey}", gestureString);
         IsRecordingShortcut = false;
@@ -123,6 +132,9 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     partial void OnShortcutAddressBarChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutAddressBar", value);
     partial void OnShortcutAddressBar2Changed(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutAddressBar2", value);
     partial void OnShortcutSwitchTabChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutSwitchTab", value);
+    partial void OnShortcutCopyChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCopy", value);
+    partial void OnShortcutCutChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCut", value);
+    partial void OnShortcutPasteChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutPaste", value);
 
     private async Task SaveShortcutAsync(string key, string value)
     {

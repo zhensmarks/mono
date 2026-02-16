@@ -106,24 +106,24 @@ public partial class OutputExplorerView : UserControl
         TryAddKeyBinding(keyBindings, vm.ShortcutNewFolderGesture, vm.OpenNewFolderPopupCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutNewFileGesture, vm.OpenNewFilePopupCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutFocusSearchGesture, vm.FocusPathBarCommand!, null, _explorerKeyBindings);
-        TryAddKeyBinding(keyBindings, vm.ShortcutDeleteGesture, vm.DeleteItemCommand!, vm.SelectedItems, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, vm.ShortcutDeleteGesture, vm.DeleteItemCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutNewWindowGesture, vm.NewExplorerWindowCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutNewTabGesture, _requestNewTabCommand, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutCloseTabGesture, _requestCloseTabOrWindowCommand, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutNavigateUpGesture, vm.NavigateUpCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutBackGesture, vm.GoBackCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutForwardGesture, vm.GoForwardCommand!, null, _explorerKeyBindings);
-        TryAddKeyBinding(keyBindings, vm.ShortcutRenameGesture, vm.RenameItemCommand!, vm.SelectedItems, _explorerKeyBindings);
-        TryAddKeyBinding(keyBindings, vm.ShortcutPermanentDeleteGesture, vm.PermanentDeleteItemCommand!, vm.SelectedItems, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, vm.ShortcutRenameGesture, vm.RenameItemCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, vm.ShortcutPermanentDeleteGesture, vm.PermanentDeleteItemCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutFocusSearchBoxGesture, vm.FocusSearchBoxCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutAddressBarGesture, vm.FocusPathBarCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutSwitchTabGesture, vm.SwitchTabCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutRefreshGesture, vm.RefreshCommand!, null, _explorerKeyBindings);
-        // Standard shortcuts (not customizable via Settings)
+        // Standard shortcuts (not customizable via Settings) -> Now Customizable!
         TryAddKeyBinding(keyBindings, "Ctrl+A", vm.SelectAllCommand!, null, _explorerKeyBindings);
-        TryAddKeyBinding(keyBindings, "Ctrl+C", vm.CopyItemCommand!, vm.SelectedItems, _explorerKeyBindings);
-        TryAddKeyBinding(keyBindings, "Ctrl+X", vm.CutItemCommand!, vm.SelectedItems, _explorerKeyBindings);
-        TryAddKeyBinding(keyBindings, "Ctrl+V", vm.PasteItemCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, vm.ShortcutCopyGesture, vm.CopyItemCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, vm.ShortcutCutGesture, vm.CutItemCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, vm.ShortcutPasteGesture, vm.PasteItemCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, "Back", vm.GoBackCommand!, null, _explorerKeyBindings);
     }
 
@@ -150,6 +150,9 @@ public partial class OutputExplorerView : UserControl
         {
             if (this.DataContext is OutputExplorerViewModel context)
             {
+                // Prevent opening if renaming
+                if (viewModel.IsEditing) return;
+
                 context.OpenItemCommand.Execute(viewModel);
             }
         }
@@ -209,6 +212,16 @@ public partial class OutputExplorerView : UserControl
         if (context == null) return;
 
         var props = e.GetCurrentPoint(this).Properties;
+
+        // Deselect on empty area click (if not handled by list item)
+        // Note: PointerPressed bubbles, but ListBoxItem usually handles it.
+        // If we reach here, it likely means we clicked the background.
+        // Only clear if Left click and no modifiers (to avoid clearing when context menu is requested or special actions)
+        if (props.IsLeftButtonPressed && e.KeyModifiers == KeyModifiers.None)
+        {
+             context.SelectedItems.Clear();
+        }
+
         if (props.IsRightButtonPressed)
             context.UpdateClipboardStateAsync();
         if (props.IsXButton1Pressed)
@@ -287,10 +300,14 @@ public partial class OutputExplorerView : UserControl
 
     public void OnItemPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (sender is Control control && control.DataContext is ExplorerItemViewModel)
         {
-            _dragStartPoint = e.GetPosition(this);
-            _isDragging = false;
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+               _dragStartPoint = e.GetPosition(this);
+               _isDragging = false;
+               // Don't set Handled=true to allow ListBox selection logic to run
+            }
         }
     }
 
@@ -299,55 +316,79 @@ public partial class OutputExplorerView : UserControl
         if (_dragStartPoint == null) return;
         if (_isDragging) return;
 
-        var currentPoint = e.GetPosition(this);
-        var diff = currentPoint - _dragStartPoint.Value;
-
-        if (System.Math.Abs(diff.X) > DragThreshold || System.Math.Abs(diff.Y) > DragThreshold)
+        try
         {
-            _isDragging = true;
-            _dragStartPoint = null;
+            var currentPoint = e.GetPosition(this);
+            var diff = currentPoint - _dragStartPoint.Value;
 
-            if (DataContext is not OutputExplorerViewModel vm) return;
-            var filePaths = vm.GetSelectedFilePaths();
-            if (filePaths.Count == 0) return;
-
-            var dataObject = new DataObject();
-            // Convert paths to IStorageItem for Avalonia DragDrop
-            var storageItems = new System.Collections.Generic.List<Avalonia.Platform.Storage.IStorageItem>();
-            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            if (System.Math.Abs(diff.X) > DragThreshold || System.Math.Abs(diff.Y) > DragThreshold)
             {
-                var storageProvider = desktop.MainWindow?.StorageProvider;
-                if (storageProvider != null)
+                if (DataContext is not OutputExplorerViewModel vm) return;
+                
+                // Get the item currently being dragged
+                ExplorerItemViewModel? draggedItem = null;
+                if (sender is Control c && c.DataContext is ExplorerItemViewModel item)
+                    draggedItem = item;
+
+                if (draggedItem == null) return; 
+
+                _isDragging = true;
+                _dragStartPoint = null;
+
+                var filePaths = vm.GetSelectedFilePaths();
+                
+                // If dragged item is not selected, force select it for the drag (or just use it)
+                if (!filePaths.Contains(draggedItem.FullPath))
                 {
-                    foreach (var path in filePaths)
+                    filePaths = new System.Collections.Generic.List<string> { draggedItem.FullPath };
+                }
+
+                if (filePaths.Count == 0) return;
+
+                var dataObject = new DataObject();
+                var storageItems = new System.Collections.Generic.List<Avalonia.Platform.Storage.IStorageItem>();
+                
+                if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    var storageProvider = desktop.MainWindow?.StorageProvider;
+                    if (storageProvider != null)
                     {
-                        try
+                        foreach (var path in filePaths)
                         {
-                            if (System.IO.Directory.Exists(path))
+                            try
                             {
-                                var folder = await storageProvider.TryGetFolderFromPathAsync(new System.Uri(path));
-                                if (folder != null) storageItems.Add(folder);
+                                if (System.IO.Directory.Exists(path))
+                                {
+                                    var folder = await storageProvider.TryGetFolderFromPathAsync(new System.Uri(path));
+                                    if (folder != null) storageItems.Add(folder);
+                                }
+                                else if (System.IO.File.Exists(path))
+                                {
+                                    var file = await storageProvider.TryGetFileFromPathAsync(new System.Uri(path));
+                                    if (file != null) storageItems.Add(file);
+                                }
                             }
-                            else if (System.IO.File.Exists(path))
-                            {
-                                var file = await storageProvider.TryGetFileFromPathAsync(new System.Uri(path));
-                                if (file != null) storageItems.Add(file);
-                            }
+                            catch { /* skip */ }
                         }
-                        catch { /* skip invalid paths */ }
                     }
                 }
-            }
 
-            if (storageItems.Count > 0)
-            {
-                dataObject.Set(Avalonia.Input.DataFormats.Files, storageItems);
-            }
-            // Also set as text for fallback
-            dataObject.Set(Avalonia.Input.DataFormats.Text, string.Join("\n", filePaths));
+                if (storageItems.Count > 0)
+                    dataObject.Set(Avalonia.Input.DataFormats.Files, storageItems);
+                
+                dataObject.Set(Avalonia.Input.DataFormats.Text, string.Join("\n", filePaths));
 
-            await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+                await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+                _isDragging = false;
+            }
+        }
+        catch (System.Exception ex)
+        {
             _isDragging = false;
+            _dragStartPoint = null;
+            System.Diagnostics.Debug.WriteLine($"Drag Drop Error: {ex.Message}");
+            // Optional: Show notification if notification service is available
+            //But here we are in View, so avoiding direct service call unless routed.
         }
     }
 
@@ -355,5 +396,27 @@ public partial class OutputExplorerView : UserControl
     {
         _dragStartPoint = null;
         _isDragging = false;
+    }
+
+    private void OnRenameTextBoxLoaded(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            tb.Focus();
+            tb.SelectAll();
+        }
+    }
+
+    private void OnRenameTextBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            // Handle Ctrl+A inside the text box so it doesn't Select All items
+            if (e.Key == Key.A && (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control)
+            {
+                tb.SelectAll();
+                e.Handled = true;
+            }
+        }
     }
 }

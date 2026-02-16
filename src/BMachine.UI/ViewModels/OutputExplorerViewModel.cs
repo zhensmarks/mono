@@ -113,6 +113,9 @@ public partial class OutputExplorerViewModel : ObservableObject
     [ObservableProperty] private string _shortcutAddressBarGesture = "Alt+D";
     [ObservableProperty] private string _shortcutSwitchTabGesture = "Ctrl+Tab";
     [ObservableProperty] private string _shortcutRefreshGesture = "F5";
+    [ObservableProperty] private string _shortcutCopyGesture = "Ctrl+C";
+    [ObservableProperty] private string _shortcutCutGesture = "Ctrl+X";
+    [ObservableProperty] private string _shortcutPasteGesture = "Ctrl+V";
 
     // Preview panel (right side): .txt content, .docx placeholder
     [ObservableProperty] private bool _isPreviewPanelVisible;
@@ -349,6 +352,13 @@ public partial class OutputExplorerViewModel : ObservableObject
         if (!string.IsNullOrEmpty(shortcutSwitchTab)) ShortcutSwitchTabGesture = shortcutSwitchTab;
         var shortcutRefresh = await _database.GetAsync<string>("Configs.Explorer.ShortcutRefresh");
         if (!string.IsNullOrEmpty(shortcutRefresh)) ShortcutRefreshGesture = shortcutRefresh;
+        
+        var shortcutCopy = await _database.GetAsync<string>("Configs.Explorer.ShortcutCopy");
+        if (!string.IsNullOrEmpty(shortcutCopy)) ShortcutCopyGesture = shortcutCopy;
+        var shortcutCut = await _database.GetAsync<string>("Configs.Explorer.ShortcutCut");
+        if (!string.IsNullOrEmpty(shortcutCut)) ShortcutCutGesture = shortcutCut;
+        var shortcutPaste = await _database.GetAsync<string>("Configs.Explorer.ShortcutPaste");
+        if (!string.IsNullOrEmpty(shortcutPaste)) ShortcutPasteGesture = shortcutPaste;
     }
 
     [RelayCommand]
@@ -716,9 +726,23 @@ public partial class OutputExplorerViewModel : ObservableObject
     }
     
     // Quick helpers for View Binding
-    public bool IsVerticalLayout => LayoutMode == ExplorerLayoutMode.Vertical;
-    public bool IsHorizontalLayout => LayoutMode == ExplorerLayoutMode.Horizontal;
-    public bool IsThumbnailLayout => LayoutMode == ExplorerLayoutMode.Thumbnail;
+    public bool IsVerticalLayout
+    {
+        get => LayoutMode == ExplorerLayoutMode.Vertical;
+        set { if (value) LayoutMode = ExplorerLayoutMode.Vertical; }
+    }
+
+    public bool IsHorizontalLayout
+    {
+        get => LayoutMode == ExplorerLayoutMode.Horizontal;
+        set { if (value) LayoutMode = ExplorerLayoutMode.Horizontal; }
+    }
+
+    public bool IsThumbnailLayout
+    {
+        get => LayoutMode == ExplorerLayoutMode.Thumbnail;
+        set { if (value) LayoutMode = ExplorerLayoutMode.Thumbnail; }
+    }
     
     public bool IsVerticalLayoutAndNotEmpty => IsVerticalLayout && !IsEmpty;
     public bool IsHorizontalLayoutAndNotEmpty => IsHorizontalLayout && !IsEmpty;
@@ -2323,6 +2347,10 @@ try {{
     [RelayCommand]
     private void SelectAll()
     {
+        // If any item is in rename mode, do NOT select all items.
+        // Let the TextBox handle Ctrl+A for text selection.
+        if (Items.OfType<ExplorerItemViewModel>().Any(x => x.IsEditing)) return;
+
         SelectedItems.Clear();
         foreach (var item in Items.OfType<ExplorerItemViewModel>())
             SelectedItems.Add(item);
@@ -2364,6 +2392,7 @@ try {{
         await DuplicateItem(DuplicateCount);
         ClosePopups();
     }
+
 }
 
 public partial class ExplorerItemViewModel : ObservableObject
