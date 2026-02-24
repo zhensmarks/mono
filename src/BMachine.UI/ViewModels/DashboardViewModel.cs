@@ -176,12 +176,20 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     }
 
     [RelayCommand]
-    private void ClearLog()
+    private async Task ClearLog()
     {
         _logService?.Clear();
         LogItems.Clear(); // Ensure UI is cleared too
         ProcessStatusText = "Console cleared";
         StatusColor = Brushes.Gray;
+        
+        await Task.Delay(2000);
+        
+        if (!IsProcessing)
+        {
+            ProcessStatusText = "Console";
+            StatusColor = Avalonia.Media.Brushes.Green;
+        }
     }
     
     [RelayCommand]

@@ -166,4 +166,9 @@ public class LinuxPlatformService : IPlatformService
             return false;
         }
     }
+
+    public string SilencePhotoshopWarnings(string photoshopPath)
+    {
+        return "Linux: Photoshop is not native. If running via Wine, use this feature on Windows to generate PSUserConfig.txt, then copy it to your Wine prefix: ~/.wine/drive_c/users/<name>/AppData/Roaming/Adobe/Adobe Photoshop <version> Settings/";
+    }
 }

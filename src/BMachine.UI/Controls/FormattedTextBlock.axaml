@@ -7,7 +7,7 @@
     <SelectableTextBlock Name="MainTextBlock" 
                          TextWrapping="Wrap" 
                          Background="Transparent" 
-                         Focusable="False"
+                         Focusable="True"
                          SelectionBrush="{DynamicResource AccentColorBrush}"
                          SelectionForegroundBrush="{x:Null}"/>
 </UserControl>

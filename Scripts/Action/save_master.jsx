@@ -47,11 +47,11 @@ function main() {
     dlg.spacing = 15;
     dlg.margins = 20;
 
-    // --- GROUP: STANDARD OUTPUT ---
+    // --- PANEL: STANDARD OUTPUT (2 Columns) ---
     var pnlStd = dlg.add("panel", undefined, "Standard Output (Same Folder)");
     pnlStd.orientation = "row";
     pnlStd.alignChildren = ["fill", "top"];
-    pnlStd.spacing = 15;
+    pnlStd.spacing = 20;
     pnlStd.margins = 15;
 
     // Col 1: JPG
@@ -59,33 +59,47 @@ function main() {
     col1.orientation = "column";
     col1.add("statictext", undefined, "--- JPG ---");
     var btnJpg = col1.add("button", undefined, "JPG - TUTUP");
-    btnJpg.preferredSize.width = 130;
-    var btnJpgOpen = col1.add("button", undefined, "JPG - TETAP");
-    btnJpgOpen.preferredSize.width = 130;
-    var btnOnlyJpg = col1.add("button", undefined, "JPG ONLY CLOSE");
-    btnOnlyJpg.preferredSize.width = 130;
+    btnJpg.preferredSize.width = 140;
 
-    // Col 2: PNG
+    var btnJpgOpen = col1.add("button", undefined, "JPG - TETAP");
+    btnJpgOpen.preferredSize.width = 140;
+
+    var btnSelectedJpg = col1.add("button", undefined, "TERPILIH");
+    btnSelectedJpg.preferredSize.width = 140;
+
+    // Separator small
+    var sepJpg = col1.add("panel");
+    sepJpg.alignment = "fill";
+    sepJpg.preferredSize.height = 1;
+
+    // --- SMART SAVE BUTTON ---
+    var btnSmartSave = col1.add("button", undefined, "SAVE ORIGINAL (AUTO)");
+    btnSmartSave.preferredSize.width = 140;
+    btnSmartSave.helpTip = "Otomatis update JPG/PNG yang sudah ada. Jika tidak ada, hanya Save PSD.";
+
+    // Col 2: PNG & PAS FOTO (Merged)
     var col2 = pnlStd.add("group");
     col2.orientation = "column";
-    col2.add("statictext", undefined, "--- PNG ---");
+    col2.add("statictext", undefined, "--- PNG & PAS FOTO ---");
+
+    // PNG
     var btnPng = col2.add("button", undefined, "PNG Standard");
-    btnPng.preferredSize.width = 130;
+    btnPng.preferredSize.width = 140;
 
-    // Col 3: PAS FOTO
-    var col3 = pnlStd.add("group");
-    col3.orientation = "column";
-    col3.add("statictext", undefined, "--- PAS FOTO ---");
-    var btnPasDefault = col3.add("button", undefined, "PAS FOTO (JPG)");
-    btnPasDefault.preferredSize.width = 130;
-    var btnPas2x3 = col3.add("button", undefined, "PAS FOTO (2x3)");
-    btnPas2x3.preferredSize.width = 130;
-    var btnPas4x6 = col3.add("button", undefined, "PAS FOTO (4x6)");
-    btnPas4x6.preferredSize.width = 130;
-    var btnPasKombi = col3.add("button", undefined, "PAS FOTO (KOMBI)");
-    btnPasKombi.preferredSize.width = 130;
+    // Separator small
+    var sep = col2.add("panel");
+    sep.alignment = "fill";
+    sep.preferredSize.height = 1;
 
-    // --- GROUP: CUSTOM FOLDER OUTPUT ---
+    // Pas Foto
+    var btnPas2x3 = col2.add("button", undefined, "PAS FOTO (2x3)");
+    btnPas2x3.preferredSize.width = 140;
+    var btnPas4x6 = col2.add("button", undefined, "PAS FOTO (4x6)");
+    btnPas4x6.preferredSize.width = 140;
+    var btnPasKombi = col2.add("button", undefined, "PAS FOTO (KOMBI)");
+    btnPasKombi.preferredSize.width = 140;
+
+    // --- PANEL: CUSTOM FOLDER OUTPUT ---
     var pnlCustom = dlg.add("panel", undefined, "Custom Folder Output");
     pnlCustom.orientation = "column";
     pnlCustom.alignChildren = ["fill", "top"];
@@ -97,40 +111,39 @@ function main() {
     grpPath.alignChildren = ["fill", "center"];
 
     var txtCustomPath = grpPath.add("edittext", undefined, "");
-    txtCustomPath.preferredSize.width = 300;
+    txtCustomPath.preferredSize.width = 250;
 
     var btnClearPath = grpPath.add("button", undefined, "X");
-    btnClearPath.size = [30, 25];
-    btnClearPath.helpTip = "Hapus text & Fokus";
+    btnClearPath.size = [25, 25];
 
     var btnBrowsePath = grpPath.add("button", undefined, "Browse...");
-    btnBrowsePath.preferredSize.width = 80;
+    btnBrowsePath.preferredSize.width = 70;
 
     var grpCustomBtns = pnlCustom.add("group");
     grpCustomBtns.orientation = "row";
     grpCustomBtns.alignChildren = ["center", "center"];
-    var btnJpgFolder = grpCustomBtns.add("button", undefined, "Export JPG to Folder");
-    var btnPngFolder = grpCustomBtns.add("button", undefined, "Export PNG to Folder");
-    btnJpgFolder.preferredSize.width = 150;
-    btnPngFolder.preferredSize.width = 150;
+    var btnJpgFolder = grpCustomBtns.add("button", undefined, "JPG to Folder");
+    var btnPngFolder = grpCustomBtns.add("button", undefined, "PNG to Folder");
+    btnJpgFolder.preferredSize.width = 130;
+    btnPngFolder.preferredSize.width = 130;
+
 
     // --- BOTTOM ---
     var btnCancel = dlg.add("button", undefined, "Cancel");
     btnCancel.alignment = "center";
 
     // --- EVENTS ---
-    // Helper to close with code
-    // Codes: 1=JPG, 2=PNG, 5=JPG_OPEN, 6=ONLY_JPG, 7=JPG_FOLDER, 8=PNG_FOLDER, 30x=PAS
-
     btnJpg.onClick = function () { dlg.close(1); };
     btnJpgOpen.onClick = function () { dlg.close(5); };
-    btnOnlyJpg.onClick = function () { dlg.close(6); };
+    btnSelectedJpg.onClick = function () { dlg.close(100); }; // Code 100 for Selected JPG
     btnPng.onClick = function () { dlg.close(2); };
 
-    btnPasDefault.onClick = function () { dlg.close(301); };
+    // Pas Foto (Kode 301 dihapus karena redundant dengan JPG Biasa)
     btnPas2x3.onClick = function () { dlg.close(302); };
     btnPas4x6.onClick = function () { dlg.close(303); };
     btnPasKombi.onClick = function () { dlg.close(304); };
+
+    btnSmartSave.onClick = function () { dlg.close(99); }; // Code 99 for Smart Save
 
     // Custom Path Events
     btnBrowsePath.onClick = function () {
@@ -172,6 +185,124 @@ function main() {
     if (choice == 0) return; // Cancelled
 
     // === PROCESSING LOGIC Setup ===
+
+    // --- SPECIAL MODE: SELECTED JPG (100) ---
+    if (choice == 100) {
+        // Show Document Selection Dialog
+        var selDlg = new Window("dialog", "Pilih Dokumen untuk di-Save & Close");
+        selDlg.orientation = "column";
+        selDlg.alignChildren = ["fill", "fill"];
+
+        var listGrp = selDlg.add("group");
+        listGrp.orientation = "column";
+        listGrp.alignChildren = ["fill", "fill"];
+        listGrp.preferredSize = [400, 300];
+
+        var lstDocs = listGrp.add("listbox", undefined, [], { multiselect: true });
+        lstDocs.preferredSize = [380, 280];
+
+        // Populate
+        var allDocs = [];
+        for (var i = 0; i < app.documents.length; i++) {
+            allDocs.push(app.documents[i]);
+            lstDocs.add("item", app.documents[i].name);
+        }
+
+        // Select all by default? Or none? Let's select all for convenience
+        for (var k = 0; k < lstDocs.items.length; k++) {
+            lstDocs.items[k].selected = true;
+        }
+
+        var btnGrp = selDlg.add("group");
+        btnGrp.orientation = "row";
+        btnGrp.alignment = "center";
+        var btnProcessJpg = btnGrp.add("button", undefined, "JPG");
+        var btnProcessPng = btnGrp.add("button", undefined, "PNG");
+        var btnSelCancel = btnGrp.add("button", undefined, "CANCEL");
+
+        btnProcessJpg.onClick = function () { selDlg.close(1); };
+        btnProcessPng.onClick = function () { selDlg.close(2); };
+        btnSelCancel.onClick = function () { selDlg.close(0); };
+
+        var selChoice = selDlg.show();
+        if (selChoice == 1 || selChoice == 2) {
+            // Process Selected Only
+            var selectedIndices = [];
+            for (var k = 0; k < lstDocs.items.length; k++) {
+                if (lstDocs.items[k].selected) {
+                    selectedIndices.push(k);
+                }
+            }
+
+            if (selectedIndices.length == 0) return;
+
+            var successList = [];
+            var failList = [];
+            // Iterate selected. 
+
+            var docsToProcess = [];
+            for (var m = 0; m < selectedIndices.length; m++) {
+                docsToProcess.push(allDocs[selectedIndices[m]]);
+            }
+
+            for (var d = 0; d < docsToProcess.length; d++) {
+                var docName = docsToProcess[d] ? docsToProcess[d].name : "Unknown Document";
+                try {
+                    var doc = docsToProcess[d];
+                    app.activeDocument = doc; // Activate
+
+                    if (!doc.path) {
+                        failList.push(docName + " (Belum disave/tidak ada path)");
+                        continue; // Skip unsaved
+                    }
+
+                    var baseName = doc.name.replace(/\.[^\.]+$/, "");
+                    var docPath = doc.path;
+
+                    // 1. Save PSD
+                    doc.save();
+
+                    // 2. Export
+                    if (selChoice == 1) {
+                        var dupDoc = doc.duplicate(baseName + "_temp");
+                        app.activeDocument = dupDoc;
+                        dupDoc.artLayers.add();
+                        dupDoc.flatten();
+
+                        try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+
+                        saveJPG(dupDoc, docPath + "/" + baseName + ".jpg", JPG_QUALITY);
+                        dupDoc.close(SaveOptions.DONOTSAVECHANGES);
+                    } else if (selChoice == 2) {
+                        var dupDoc = doc.duplicate(baseName + "_forPNG");
+                        app.activeDocument = dupDoc;
+                        dupDoc.artLayers.add();
+                        executeAction(stringIDToTypeID("mergeVisible"), undefined, DialogModes.NO);
+
+                        try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+
+                        savePNG(dupDoc, docPath + "/" + baseName + ".png");
+                        dupDoc.close(SaveOptions.DONOTSAVECHANGES);
+                    }
+
+                    // 3. Close Original
+                    doc.close(SaveOptions.DONOTSAVECHANGES);
+                    successList.push(docName);
+
+                } catch (e) {
+                    failList.push(docName + " (Error: " + e.message + ")");
+                }
+            }
+            var msg = "Sukses: " + successList.length + "\n";
+            if (successList.length > 0) msg += successList.join("\n") + "\n\n";
+            msg += "Gagal: " + failList.length + "\n";
+            if (failList.length > 0) msg += failList.join("\n");
+
+            showScrollableAlert("Laporan Proses Dokumen Terpilih", msg);
+        }
+        return; // Exit main
+    }
+
     var pasModeSub = 0;
     if (choice >= 300) {
         pasModeSub = choice - 300;
@@ -185,6 +316,7 @@ function main() {
     var MODE_PNG_FOLDER = (choice == 8);
     var MODE_PNG = (choice == 2 || MODE_PNG_FOLDER);
     var MODE_PAS = (choice == 3);
+    var MODE_SMART = (choice == 99);
 
     var customTargetFolder = null;
     if (MODE_JPG_FOLDER || MODE_PNG_FOLDER) {
@@ -233,6 +365,24 @@ function main() {
                 docPath = doc.path;
             }
             var baseName = doc.name.replace(/\.[^\.]+$/, "");
+
+            // --- SMART SAVE CHECK (Overrides Mode) ---
+            if (MODE_SMART) {
+                var jpgExists = new File(docPath + "/" + baseName + ".jpg").exists;
+                var pngExists = new File(docPath + "/" + baseName + ".png").exists;
+
+                if (jpgExists) {
+                    MODE_JPG = true;
+                } else if (pngExists) {
+                    MODE_PNG = true;
+                } else {
+                    // Hanya Save PSD
+                    doc.save();
+                    doc.close(SaveOptions.DONOTSAVECHANGES);
+                    successList.push(baseName + " (PSD Updated)");
+                    continue; // Skip rest of loop
+                }
+            }
 
             // A. Save Master (PSD/PSB) - Skip if Only JPG/Folder mode
             if (!MODE_ONLY_JPG && !MODE_JPG_FOLDER && !MODE_PNG_FOLDER) {
@@ -315,7 +465,11 @@ function main() {
     }
 
     // 5. Laporan Final
-    alert("Selesai!\nSukses: " + successList.length + "\nGagal: " + failList.length);
+    var msg = "Sukses: " + successList.length + "\n";
+    if (successList.length > 0) msg += successList.join("\n") + "\n\n";
+    msg += "Gagal: " + failList.length + "\n";
+    if (failList.length > 0) msg += failList.join("\n");
+    showScrollableAlert("Laporan Simpan Dokumen", msg);
 }
 
 // Global invocation
@@ -375,4 +529,20 @@ function createCroppedVersion(sourceDoc, targetFolder, widthCm, heightCm, qualit
     saveJPG(tempDoc, targetFolder + "/" + baseName + ".jpg", quality);
     tempDoc.close(SaveOptions.DONOTSAVECHANGES);
     return true;
+}
+
+function showScrollableAlert(title, message) {
+    var dialog = new Window("dialog", title);
+    dialog.orientation = "column";
+    dialog.alignChildren = ["fill", "fill"];
+    dialog.preferredSize = [400, 300];
+
+    var edittext = dialog.add("edittext", undefined, message, { multiline: true, scrolling: true, readonly: true });
+    edittext.preferredSize = [380, 250];
+
+    var btnOk = dialog.add("button", undefined, "OK");
+    btnOk.alignment = "center";
+    btnOk.onClick = function () { dialog.close(); };
+
+    dialog.show();
 }

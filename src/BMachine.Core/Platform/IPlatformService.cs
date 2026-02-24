@@ -82,4 +82,11 @@ public interface IPlatformService
     /// Windows: rundll32 shell32.dll,OpenAs_RunDLL; macOS: open -a (Finder choose-app); Linux: xdg-open fallback.
     /// </summary>
     void OpenWithDialog(string filePath);
+
+    /// <summary>
+    /// Automatically suppress Photoshop's "A script is attempting to..." security warning
+    /// by writing WarnRunningScripts 0 to PSUserConfig.txt in the Photoshop settings folder.
+    /// Returns a status message to show the user.
+    /// </summary>
+    string SilencePhotoshopWarnings(string photoshopPath);
 }

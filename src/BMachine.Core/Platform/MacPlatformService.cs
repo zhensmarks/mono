@@ -172,4 +172,45 @@ public class MacPlatformService : IPlatformService
             return false;
         }
     }
+
+    public string SilencePhotoshopWarnings(string photoshopPath)
+    {
+        try
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var prefsDir = Path.Combine(home, "Library", "Preferences");
+            if (!Directory.Exists(prefsDir))
+                return "~/Library/Preferences not found.";
+
+            var psFolders = Directory.GetDirectories(prefsDir, "Adobe Photoshop * Settings", SearchOption.TopDirectoryOnly);
+            if (psFolders.Length == 0)
+                return "Photoshop settings folder not found. Open Photoshop once first.";
+
+            int updated = 0;
+            foreach (var folder in psFolders)
+            {
+                WriteWarnRunningScripts(Path.Combine(folder, "PSUserConfig.txt"));
+                updated++;
+            }
+            return $"Done! Updated {updated} settings folder(s). Restart Photoshop to apply.";
+        }
+        catch (Exception ex) { return $"Error: {ex.Message}"; }
+    }
+
+    private static void WriteWarnRunningScripts(string configFile)
+    {
+        const string key = "WarnRunningScripts";
+        const string entry = "WarnRunningScripts 0";
+        if (System.IO.File.Exists(configFile))
+        {
+            var lines = System.IO.File.ReadAllLines(configFile).ToList();
+            int idx = lines.FindIndex(l => l.TrimStart().StartsWith(key, StringComparison.OrdinalIgnoreCase));
+            if (idx >= 0) lines[idx] = entry; else lines.Add(entry);
+            System.IO.File.WriteAllLines(configFile, lines);
+        }
+        else
+        {
+            System.IO.File.WriteAllText(configFile, entry + "\n");
+        }
+    }
 }

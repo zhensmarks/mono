@@ -298,11 +298,47 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
         }
     }
 
+    [RelayCommand]
+    private async Task BatchUnlink()
+    {
+        var selectedManuals = Cards.Where(c => c.IsSelected && c.IsManual).ToList();
+        if (!selectedManuals.Any()) return;
+
+        try
+        {
+            var manualIds = await _database.GetAsync<List<string>>("ManualCards.Editing") ?? new List<string>();
+            int removedCount = 0;
+
+            foreach (var card in selectedManuals)
+            {
+                if (manualIds.Contains(card.Id))
+                {
+                    manualIds.Remove(card.Id);
+                    Cards.Remove(card);
+                    removedCount++;
+                }
+            }
+
+            if (removedCount > 0)
+            {
+                await _database.SetAsync("ManualCards.Editing", manualIds);
+                StatusMessage = $"{removedCount} manual cards unlinked.";
+                // Clear selection if needed, or check if any selected remain
+                HasSelectedCards = Cards.Any(c => c.IsSelected);
+                HasSelectedManualCards = Cards.Any(c => c.IsSelected && c.IsManual);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error batch unlink: {ex.Message}";
+        }
+    }
+
     private async Task<TrelloCard?> FetchSingleCard(string cardId, string apiKey, string token)
     {
         using var client = new HttpClient();
-        // Added checklists=all to fetch checklist details
-        var url = $"https://api.trello.com/1/cards/{cardId}?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges&checklists=all";
+        // Added cover + attachments to get cover image URL
+        var url = $"https://api.trello.com/1/cards/{cardId}?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges,cover&checklists=all&attachments=true&attachment_fields=url,name";
         
         try 
         {
@@ -323,6 +359,59 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
                 {
                     card.DueDate = dt;
                     card.IsOverdue = dt < DateTime.Now; 
+                }
+            }
+
+            // Parse Cover - Trello API: cover.idAttachment -> URL dari array attachments
+            string coverAttachmentId = "";
+            if (element.TryGetProperty("cover", out var coverProp))
+            {
+                if (coverProp.TryGetProperty("color", out var cColor) && cColor.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    string colorName = cColor.GetString() ?? "";
+                    if (!string.IsNullOrEmpty(colorName))
+                    {
+                        card.CoverColor = colorName switch
+                        {
+                            "green" => "#4bce97",
+                            "yellow" => "#e2b203",
+                            "orange" => "#faa53d",
+                            "red" => "#f87168",
+                            "purple" => "#9f8fef",
+                            "blue" => "#579dff",
+                            "sky" => "#6cc3e0",
+                            "lime" => "#94c748",
+                            "pink" => "#e774bb",
+                            "black" => "#8590a2",
+                            _ => "#626f86"
+                        };
+                    }
+                }
+                
+                // Ambil idAttachment dari cover
+                if (coverProp.TryGetProperty("idAttachment", out var idAtt) && idAtt.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    coverAttachmentId = idAtt.GetString() ?? "";
+                }
+            }
+            
+            // Cari URL cover dari array attachments berdasarkan idAttachment
+            if (!string.IsNullOrEmpty(coverAttachmentId) && element.TryGetProperty("attachments", out var attachments))
+            {
+                foreach (var att in attachments.EnumerateArray())
+                {
+                    if (att.TryGetProperty("id", out var attId) && attId.GetString() == coverAttachmentId)
+                    {
+                        if (att.TryGetProperty("url", out var attUrl) && attUrl.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            card.CoverUrl = attUrl.GetString() ?? "";
+                        }
+                        if (att.TryGetProperty("name", out var attName) && attName.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            card.CoverAttachmentName = attName.GetString() ?? "";
+                        }
+                        break;
+                    }
                 }
             }
             
@@ -375,7 +464,7 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
             // Ensure badges attachments still parsed if outside checklists block
             if (element.TryGetProperty("badges", out var badges2))
             {
-                 if (badges2.TryGetProperty("attachments", out var att)) card.AttachmentCount = att.GetInt32();
+                    if (badges2.TryGetProperty("attachments", out var att)) card.AttachmentCount = att.GetInt32();
             }
 
             card.RefreshChecklistStatus(); // Update Tooltips

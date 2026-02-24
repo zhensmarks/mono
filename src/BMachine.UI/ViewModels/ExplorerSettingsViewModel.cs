@@ -35,6 +35,8 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [ObservableProperty] private string _shortcutCopy = "Ctrl+C";
     [ObservableProperty] private string _shortcutCut = "Ctrl+X";
     [ObservableProperty] private string _shortcutPaste = "Ctrl+V";
+    [ObservableProperty] private string _shortcutCopyPath = "Ctrl+Shift+C";
+    [ObservableProperty] private string _shortcutPastePath = "Ctrl+Shift+V";
 
     [ObservableProperty] private bool _isRecordingShortcut;
     [ObservableProperty] private string _recordingForKey = ""; // e.g. "ShortcutNewFolder"
@@ -67,6 +69,8 @@ public partial class ExplorerSettingsViewModel : ObservableObject
         ShortcutCopy = await _database.GetAsync<string>("Configs.Explorer.ShortcutCopy") ?? "Ctrl+C";
         ShortcutCut = await _database.GetAsync<string>("Configs.Explorer.ShortcutCut") ?? "Ctrl+X";
         ShortcutPaste = await _database.GetAsync<string>("Configs.Explorer.ShortcutPaste") ?? "Ctrl+V";
+        ShortcutCopyPath = await _database.GetAsync<string>("Configs.Explorer.ShortcutCopyPath") ?? "Ctrl+Shift+C";
+        ShortcutPastePath = await _database.GetAsync<string>("Configs.Explorer.ShortcutPastePath") ?? "Ctrl+Shift+V";
     }
 
     [RelayCommand]
@@ -110,6 +114,8 @@ public partial class ExplorerSettingsViewModel : ObservableObject
             case "ShortcutCopy": ShortcutCopy = gestureString; break;
             case "ShortcutCut": ShortcutCut = gestureString; break;
             case "ShortcutPaste": ShortcutPaste = gestureString; break;
+            case "ShortcutCopyPath": ShortcutCopyPath = gestureString; break;
+            case "ShortcutPastePath": ShortcutPastePath = gestureString; break;
         }
         _ = SaveShortcutAsync($"Configs.Explorer.{RecordingForKey}", gestureString);
         IsRecordingShortcut = false;
@@ -135,6 +141,8 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     partial void OnShortcutCopyChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCopy", value);
     partial void OnShortcutCutChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCut", value);
     partial void OnShortcutPasteChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutPaste", value);
+    partial void OnShortcutCopyPathChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCopyPath", value);
+    partial void OnShortcutPastePathChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutPastePath", value);
 
     private async Task SaveShortcutAsync(string key, string value)
     {

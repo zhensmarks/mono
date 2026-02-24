@@ -183,4 +183,45 @@ public class WindowsPlatformService : IPlatformService
         int result = SHFileOperation(ref op);
         return result == 0;
     }
+
+    public string SilencePhotoshopWarnings(string photoshopPath)
+    {
+        try
+        {
+            var appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var adobeDir = Path.Combine(appdata, "Adobe");
+            if (!Directory.Exists(adobeDir))
+                return "Adobe folder not found. Is Photoshop installed?";
+
+            var psFolders = Directory.GetDirectories(adobeDir, "Adobe Photoshop * Settings", SearchOption.TopDirectoryOnly);
+            if (psFolders.Length == 0)
+                return "Photoshop settings folder not found. Open Photoshop once first.";
+
+            int updated = 0;
+            foreach (var folder in psFolders)
+            {
+                WriteWarnRunningScripts(Path.Combine(folder, "PSUserConfig.txt"));
+                updated++;
+            }
+            return $"Done! Updated {updated} settings folder(s). Restart Photoshop to apply.";
+        }
+        catch (Exception ex) { return $"Error: {ex.Message}"; }
+    }
+
+    private static void WriteWarnRunningScripts(string configFile)
+    {
+        const string key = "WarnRunningScripts";
+        const string entry = "WarnRunningScripts 0";
+        if (File.Exists(configFile))
+        {
+            var lines = File.ReadAllLines(configFile).ToList();
+            int idx = lines.FindIndex(l => l.TrimStart().StartsWith(key, StringComparison.OrdinalIgnoreCase));
+            if (idx >= 0) lines[idx] = entry; else lines.Add(entry);
+            File.WriteAllLines(configFile, lines);
+        }
+        else
+        {
+            File.WriteAllText(configFile, entry + Environment.NewLine);
+        }
+    }
 }

@@ -4,6 +4,8 @@ using Avalonia.Controls.Documents;
 using Avalonia.Media;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 
 namespace BMachine.UI.Controls;
 
@@ -107,6 +109,40 @@ public partial class FormattedTextBlock : UserControl
         if (lastIndex < text.Length)
         {
             mainTextBlock.Inlines.Add(new Run(text.Substring(lastIndex)));
+        }
+    }
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        var tb = this.FindControl<SelectableTextBlock>("MainTextBlock");
+        if (tb != null)
+        {
+            tb.KeyDown += OnKeyDown;
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        var tb = this.FindControl<SelectableTextBlock>("MainTextBlock");
+        if (tb != null)
+        {
+            tb.KeyDown -= OnKeyDown;
+        }
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private async void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.C)
+        {
+            if (sender is SelectableTextBlock tb && !string.IsNullOrEmpty(tb.SelectedText))
+            {
+                 var topLevel = TopLevel.GetTopLevel(this);
+                 if (topLevel?.Clipboard != null)
+                 {
+                     await topLevel.Clipboard.SetTextAsync(tb.SelectedText);
+                 }
+            }
         }
     }
 }

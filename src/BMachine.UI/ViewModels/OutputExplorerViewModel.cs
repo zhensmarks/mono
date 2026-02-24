@@ -29,6 +29,8 @@ public partial class OutputExplorerViewModel : ObservableObject
     /// <summary>Display name of current folder (for title bar).</summary>
     public string CurrentFolderName => string.IsNullOrEmpty(CurrentPath) ? "" : Path.GetFileName(CurrentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
     [ObservableProperty] private ObservableCollection<object> _items = new(); // Changed to object to support Headers
+    [ObservableProperty] private ObservableCollection<ExplorerItemViewModel> _splitLeftItems = new();
+    [ObservableProperty] private ObservableCollection<ExplorerItemViewModel> _splitRightItems = new();
     [ObservableProperty] private ObservableCollection<BreadcrumbItem> _breadcrumbs = new();
     [ObservableProperty] private bool _canNavigateUp;
     [ObservableProperty] private bool _canGoBack;
@@ -105,6 +107,7 @@ public partial class OutputExplorerViewModel : ObservableObject
     [ObservableProperty] private string _shortcutNewTabGesture = "Ctrl+T";
     [ObservableProperty] private string _shortcutCloseTabGesture = "Ctrl+W";
     [ObservableProperty] private string _shortcutNavigateUpGesture = "Alt+Up";
+    // Changed from "Back" to "Alt+Left" to prevent interfering with TextBox editing
     [ObservableProperty] private string _shortcutBackGesture = "Alt+Left";
     [ObservableProperty] private string _shortcutForwardGesture = "Alt+Right";
     [ObservableProperty] private string _shortcutRenameGesture = "F2";
@@ -116,6 +119,18 @@ public partial class OutputExplorerViewModel : ObservableObject
     [ObservableProperty] private string _shortcutCopyGesture = "Ctrl+C";
     [ObservableProperty] private string _shortcutCutGesture = "Ctrl+X";
     [ObservableProperty] private string _shortcutPasteGesture = "Ctrl+V";
+    [ObservableProperty] private string _shortcutCopyPathGesture = "Ctrl+Shift+C";
+    [ObservableProperty] private string _shortcutPastePathGesture = "Ctrl+Shift+V";
+    
+    // View Layout Shortcuts (1-8)
+    [ObservableProperty] private string _shortcutLayout1Gesture = "Ctrl+Shift+D1"; // Extra Large
+    [ObservableProperty] private string _shortcutLayout2Gesture = "Ctrl+Shift+D2"; // Large
+    [ObservableProperty] private string _shortcutLayout3Gesture = "Ctrl+Shift+D3"; // Medium
+    [ObservableProperty] private string _shortcutLayout4Gesture = "Ctrl+Shift+D4"; // Split (was Small)
+    [ObservableProperty] private string _shortcutLayout5Gesture = "Ctrl+Shift+D5"; // List
+    [ObservableProperty] private string _shortcutLayout6Gesture = "Ctrl+Shift+D6"; // Details
+    [ObservableProperty] private string _shortcutLayout7Gesture = "Ctrl+Shift+D7"; // Tiles
+    [ObservableProperty] private string _shortcutLayout8Gesture = "Ctrl+Shift+D8"; // Content
 
     // Preview panel (right side): .txt content, .docx placeholder
     [ObservableProperty] private bool _isPreviewPanelVisible;
@@ -128,6 +143,38 @@ public partial class OutputExplorerViewModel : ObservableObject
 
     [RelayCommand]
     private void ClosePreviewPanel() => IsPreviewPanelVisible = false;
+
+    // Search Functionality
+    [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private bool _isSearchVisible;
+
+    [RelayCommand]
+    private void ToggleSearch()
+    {
+        IsSearchVisible = !IsSearchVisible;
+        if (!IsSearchVisible)
+        {
+            SearchText = "";
+            // Focus returns to list? Handled by View if needed.
+        }
+        else
+        {
+            // Request Focus on SearchBox via Messenger or View implementation
+            WeakReferenceMessenger.Default.Send(new FocusSearchBoxMessage());
+        }
+    }
+
+    [RelayCommand]
+    private void CloseSearch()
+    {
+        IsSearchVisible = false;
+        SearchText = "";
+    }
+
+    partial void OnSearchTextChanged(string value) 
+    {
+        LoadItems();
+    }
 
     partial void OnCurrentPathChanged(string value) => OnPropertyChanged(nameof(CurrentFolderName));
 
@@ -206,9 +253,15 @@ public partial class OutputExplorerViewModel : ObservableObject
                 QuickAccessItems.Clear();
                 foreach(var d in data)
                 {
+                    var name = d.Name;
+                    if (string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(d.Path))
+                    {
+                        name = System.IO.Path.GetFileName(d.Path.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+                    }
+                    
                     QuickAccessItems.Add(new SidebarItemViewModel 
                     { 
-                        Name = d.Name, 
+                        Name = name ?? "", 
                         Path = d.Path, 
                         IsDynamic = d.IsDynamic, 
                         Icon = d.Icon 
@@ -359,6 +412,10 @@ public partial class OutputExplorerViewModel : ObservableObject
         if (!string.IsNullOrEmpty(shortcutCut)) ShortcutCutGesture = shortcutCut;
         var shortcutPaste = await _database.GetAsync<string>("Configs.Explorer.ShortcutPaste");
         if (!string.IsNullOrEmpty(shortcutPaste)) ShortcutPasteGesture = shortcutPaste;
+        var shortcutCopyPath = await _database.GetAsync<string>("Configs.Explorer.ShortcutCopyPath");
+        if (!string.IsNullOrEmpty(shortcutCopyPath)) ShortcutCopyPathGesture = shortcutCopyPath;
+        var shortcutPastePath = await _database.GetAsync<string>("Configs.Explorer.ShortcutPastePath");
+        if (!string.IsNullOrEmpty(shortcutPastePath)) ShortcutPastePathGesture = shortcutPastePath;
     }
 
     [RelayCommand]
@@ -472,12 +529,16 @@ public partial class OutputExplorerViewModel : ObservableObject
     }
 
     public enum ExplorerSortOption { Name, Date, Type }
-    public enum ExplorerLayoutMode { Vertical, Horizontal, Thumbnail }
+    public enum ExplorerLayoutMode { Vertical, Horizontal, Thumbnail, Tiles, Split }
     public enum ExplorerGroupBy { None, Date, Type }
 
     [ObservableProperty] private ExplorerSortOption _sortBy = ExplorerSortOption.Name;
     [ObservableProperty] private bool _isSortDescending = false;
     [ObservableProperty] private ExplorerLayoutMode _layoutMode = ExplorerLayoutMode.Vertical;
+    [ObservableProperty] private double _thumbnailSize = 140; // Default Medium
+    public double ThumbnailHeight => ThumbnailSize + 40; 
+    partial void OnThumbnailSizeChanged(double value) => OnPropertyChanged(nameof(ThumbnailHeight));
+
     [ObservableProperty] private ExplorerGroupBy _groupBy = ExplorerGroupBy.Date; // Default to Date per user request
     [ObservableProperty] private bool _isLocalSettings = false; // "Only" Checkbox
 
@@ -743,10 +804,25 @@ public partial class OutputExplorerViewModel : ObservableObject
         get => LayoutMode == ExplorerLayoutMode.Thumbnail;
         set { if (value) LayoutMode = ExplorerLayoutMode.Thumbnail; }
     }
+
+    public bool IsTilesLayout
+    {
+        get => LayoutMode == ExplorerLayoutMode.Tiles;
+        set { if (value) LayoutMode = ExplorerLayoutMode.Tiles; }
+    }
+
+    public bool IsSplitLayout
+    {
+        get => LayoutMode == ExplorerLayoutMode.Split;
+        set { if (value) LayoutMode = ExplorerLayoutMode.Split; }
+    }
+
+    public bool IsSplitLayoutAndNotEmpty => IsSplitLayout && !IsEmpty;
     
     public bool IsVerticalLayoutAndNotEmpty => IsVerticalLayout && !IsEmpty;
     public bool IsHorizontalLayoutAndNotEmpty => IsHorizontalLayout && !IsEmpty;
     public bool IsThumbnailLayoutAndNotEmpty => IsThumbnailLayout && !IsEmpty;
+    public bool IsTilesLayoutAndNotEmpty => IsTilesLayout && !IsEmpty;
 
     
     // partial void OnLayoutModeChanged(ExplorerLayoutMode value) // Removed duplicate partial method
@@ -759,9 +835,13 @@ public partial class OutputExplorerViewModel : ObservableObject
         OnPropertyChanged(nameof(IsVerticalLayout));
         OnPropertyChanged(nameof(IsHorizontalLayout));
         OnPropertyChanged(nameof(IsThumbnailLayout));
+        OnPropertyChanged(nameof(IsTilesLayout));
         OnPropertyChanged(nameof(IsVerticalLayoutAndNotEmpty));
         OnPropertyChanged(nameof(IsHorizontalLayoutAndNotEmpty));
         OnPropertyChanged(nameof(IsThumbnailLayoutAndNotEmpty));
+        OnPropertyChanged(nameof(IsTilesLayoutAndNotEmpty));
+        OnPropertyChanged(nameof(IsSplitLayout));
+        OnPropertyChanged(nameof(IsSplitLayoutAndNotEmpty));
         LoadItems_UIOnly();
     }
     
@@ -1538,6 +1618,50 @@ try {{
         return "";
     }
 
+    private void UpdateSplitView(System.Collections.Generic.IEnumerable<ExplorerItemViewModel> items)
+    {
+        SplitLeftItems.Clear();
+        SplitRightItems.Clear();
+        
+        var list = items.ToList();
+        if (list.Count == 0) return;
+
+        // "Beda Extension" Logic
+        var extensions = list.Where(x => !x.IsDirectory)
+                             .Select(x => Path.GetExtension(x.FullPath).ToLowerInvariant())
+                             .Distinct()
+                             .ToList();
+        
+        if (extensions.Count >= 2)
+        {
+            // We have varied extensions. 
+            // Strategy: Group by extension, Sort by count.
+            // Take the most frequent extension (or primary grouping) for Left, rest for Right.
+            // Or if user meant "Split by type", maybe just 2 types? 
+            // Let's try: Left = most common extension, Right = everything else.
+            
+            var groups = list.GroupBy(x => x.IsDirectory ? "Folder" : Path.GetExtension(x.FullPath).ToLowerInvariant())
+                             .OrderByDescending(g => g.Count())
+                             .ToList();
+            
+            // Put first group in Left
+            foreach(var item in groups.First()) SplitLeftItems.Add(item);
+            
+            // Put rest in Right
+            foreach(var group in groups.Skip(1))
+            {
+                foreach(var item in group) SplitRightItems.Add(item);
+            }
+        }
+        else
+        {
+            // Single extension or just folders. Split in half.
+            int mid = (int)Math.Ceiling(list.Count / 2.0);
+            for(int i=0; i<mid; i++) SplitLeftItems.Add(list[i]);
+            for(int i=mid; i<list.Count; i++) SplitRightItems.Add(list[i]);
+        }
+    }
+
     private void LoadItems_UIOnly()
     {
          // Placeholder
@@ -1556,61 +1680,122 @@ try {{
                 var dirs = dirInfo.GetDirectories();
                 var files = dirInfo.GetFiles();
 
-                System.Collections.Generic.IEnumerable<ExplorerItemViewModel> dirItems = dirs.Select(d => new ExplorerItemViewModel 
-                { 
-                    Name = d.Name, 
-                    FullPath = d.FullName, 
-                    IsDirectory = true,
-                    DateModified = d.LastWriteTime,
-                    ItemsCount = 0 
-                });
+                System.Collections.Generic.IEnumerable<ExplorerItemViewModel> baseItems;
 
-                // Files mapping with LNK check
-                var fileItemList = new System.Collections.Generic.List<ExplorerItemViewModel>();
-                foreach(var f in files)
+                if (!string.IsNullOrWhiteSpace(SearchText))
                 {
-                    bool isLnk = f.Extension.Equals(".lnk", System.StringComparison.OrdinalIgnoreCase);
-                    bool treatAsDir = false;
-                    string target = "";
-
-                    if (isLnk)
+                    // DEEP SEARCH (Recursive)
+                    // We search for *SearchText* in AllDirectories. 
+                    // Note: This can be slow for very large trees, but usually fine for typical project usage.
+                    var searchPattern = "*" + SearchText + "*";
+                    
+                    var enumerationOptions = new EnumerationOptions
                     {
-                        try 
-                        {
-                            target = ResolveShortcutTarget(f.FullName);
-                            if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
-                            {
-                                treatAsDir = true;
-                            }
-                        }
-                        catch {}
+                        RecurseSubdirectories = true,
+                        IgnoreInaccessible = true,
+                        MatchCasing = MatchCasing.CaseInsensitive,
+                        ReturnSpecialDirectories = false
+                    };
+
+                    var matchedFiles = Directory.EnumerateFiles(CurrentPath, searchPattern, enumerationOptions);
+                    var matchedDirs = Directory.EnumerateDirectories(CurrentPath, searchPattern, enumerationOptions);
+
+                    var searchResults = new System.Collections.Generic.List<ExplorerItemViewModel>();
+
+                    foreach (var d in matchedDirs)
+                    {
+                         var info = new DirectoryInfo(d);
+                         searchResults.Add(new ExplorerItemViewModel 
+                         { 
+                             Name = info.Name, 
+                             FullPath = info.FullName, 
+                             IsDirectory = true,
+                             DateModified = info.LastWriteTime,
+                             ItemsCount = 0 
+                         });
                     }
 
-                    fileItemList.Add(new ExplorerItemViewModel 
-                    { 
-                        Name = f.Name, 
-                        FullPath = f.FullName, 
-                        IsDirectory = treatAsDir,
-                        TargetPath = target,
-                        DateModified = f.LastWriteTime,
-                        Size = f.Length
-                    });
+                    foreach (var f in matchedFiles)
+                    {
+                         var info = new FileInfo(f);
+                         searchResults.Add(new ExplorerItemViewModel 
+                         { 
+                             Name = info.Name, 
+                             FullPath = info.FullName, 
+                             IsDirectory = false,
+                             DateModified = info.LastWriteTime,
+                             Size = info.Length
+                         });
+                    }
+                    
+                    baseItems = searchResults;
                 }
+                else
+                {
+                    // NORMAL LOAD (Top Directory Only)
+                    var dirItems = dirs.Select(d => new ExplorerItemViewModel 
+                    { 
+                        Name = d.Name, 
+                        FullPath = d.FullName, 
+                        IsDirectory = true,
+                        DateModified = d.LastWriteTime,
+                        ItemsCount = 0 
+                    });
 
-                System.Collections.Generic.IEnumerable<ExplorerItemViewModel> baseItems = dirItems.Concat(fileItemList);
+                    // Files mapping with LNK check
+                    var fileItemList = new System.Collections.Generic.List<ExplorerItemViewModel>();
+                    foreach(var f in files)
+                    {
+                        bool isLnk = f.Extension.Equals(".lnk", System.StringComparison.OrdinalIgnoreCase);
+                        bool treatAsDir = false;
+                        string target = "";
+
+                        if (isLnk)
+                        {
+                            try 
+                            {
+                                target = ResolveShortcutTarget(f.FullName);
+                                if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
+                                {
+                                    treatAsDir = true;
+                                }
+                            }
+                            catch {}
+                        }
+
+                        fileItemList.Add(new ExplorerItemViewModel 
+                        { 
+                            Name = f.Name, 
+                            FullPath = f.FullName, 
+                            IsDirectory = treatAsDir,
+                            TargetPath = target,
+                            DateModified = f.LastWriteTime,
+                            Size = f.Length
+                        });
+                    }
+
+                    baseItems = dirItems.Concat(fileItemList);
+                }
 
                 // Natural sort comparer for Windows Explorer-style ordering (1, 2, 3, 10 not 1, 10, 11, 2)
                 var naturalComparer = new NaturalSortComparer();
 
                 // Shortcut files (.lnk, .desktop) kept separate from physical folders in sort order
-                static bool IsShortcutFile(ExplorerItemViewModel x) => !x.IsDirectory && IsShortcutExtension(Path.GetExtension(x.FullPath));
+                // CHANGED: Include ALL shortcuts here (even if they point to folders) to satisfy "Folders -> Links -> Files"
+                static bool IsShortcutFile(ExplorerItemViewModel x) => IsShortcutExtension(Path.GetExtension(x.FullPath));
 
                 // Grouping & Sorting logic
-                if (GroupBy == ExplorerGroupBy.None)
+                if (LayoutMode == ExplorerLayoutMode.Split)
+                {
+                    UpdateSplitView(baseItems);
+                    // Add all to Items so functionality like SelectAll works
+                    foreach(var i in baseItems) Items.Add(i);
+                }
+                else if (GroupBy == ExplorerGroupBy.None)
                 {
                     if (SortBy == ExplorerSortOption.Name)
                     {
-                         var allDirs = baseItems.Where(x => x.IsDirectory).ToList();
+                         var allDirs = baseItems.Where(x => x.IsDirectory && !IsShortcutFile(x)).ToList();
                          var shortcutFiles = baseItems.Where(IsShortcutFile).ToList();
                          var otherFiles = baseItems.Where(x => !x.IsDirectory && !IsShortcutFile(x)).ToList();
                          
@@ -1627,7 +1812,7 @@ try {{
                     else if (SortBy == ExplorerSortOption.Type)
                     {
                          // Folders first, then shortcut files, then other files by type
-                         var allDirs = baseItems.Where(x => x.IsDirectory).ToList();
+                         var allDirs = baseItems.Where(x => x.IsDirectory && !IsShortcutFile(x)).ToList();
                          var shortcutFiles = baseItems.Where(IsShortcutFile).ToList();
                          var otherFiles = baseItems.Where(x => !x.IsDirectory && !IsShortcutFile(x)).ToList();
                          allDirs.Sort((a, b) => naturalComparer.Compare(a.Name, b.Name));
@@ -1815,18 +2000,20 @@ try {{
     public async Task CopyPath(object? parameter)
     {
         var items = GetSelectedItems(parameter);
-        if (!items.Any()) return;
+        if (!items.Any())
+        {
+            // No selection: copy current folder path
+            if (!string.IsNullOrEmpty(CurrentPath))
+            {
+                await SetClipboardTextAsync(CurrentPath);
+                _notificationService.ShowSuccess("Path copied!");
+            }
+            return;
+        }
 
         var text = string.Join(Environment.NewLine, items.Select(x => x.FullPath));
-        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
-        {
-             var clipboard = desktop.MainWindow?.Clipboard;
-             if (clipboard != null)
-             {
-                 await clipboard.SetTextAsync(text);
-                 _notificationService.ShowSuccess("Path copied to clipboard.");
-             }
-        }
+        await SetClipboardTextAsync(text);
+        _notificationService.ShowSuccess($"{items.Count()} path(s) copied!");
     }
 
     [RelayCommand]
@@ -2000,6 +2187,15 @@ try {{
             var sortedList = list.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
+                // Resolve icons on UI thread (TryGetResource requires it)
+                foreach (var opt in sortedList)
+                {
+                    if (!string.IsNullOrEmpty(opt.OriginalName) && _scriptAliases.TryGetValue(opt.OriginalName, out var config) && !string.IsNullOrEmpty(config.IconKey))
+                    {
+                        if (Avalonia.Application.Current?.TryGetResource(config.IconKey, null, out var res) == true && res is Avalonia.Media.StreamGeometry g)
+                            opt.IconGeometry = g;
+                    }
+                }
                 ScriptOptions = new ObservableCollection<BatchScriptOption>(sortedList);
             });
         }
@@ -2296,6 +2492,48 @@ try {{
         WeakReferenceMessenger.Default.Send(new FocusExplorerPathBarMessage());
     }
 
+
+    /// <summary>Navigate to the path currently in the clipboard.</summary>
+    [RelayCommand]
+    public async Task PastePath()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var clipboard = desktop.MainWindow?.Clipboard;
+            if (clipboard == null) return;
+            var text = await clipboard.GetTextAsync();
+            if (string.IsNullOrWhiteSpace(text)) return;
+            var path = text.Trim().Trim('"');
+            if (Directory.Exists(path))
+            {
+                NavigateTo(path);
+            }
+            else if (File.Exists(path))
+            {
+                // Navigate to the parent folder and try to select the file
+                var dir = Path.GetDirectoryName(path);
+                if (dir != null && Directory.Exists(dir))
+                {
+                    NavigateTo(dir);
+                }
+            }
+            else
+            {
+                _notificationService.ShowError($"Path not found: {path}");
+            }
+        }
+    }
+
+    private async Task SetClipboardTextAsync(string text)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var clipboard = desktop.MainWindow?.Clipboard;
+            if (clipboard != null)
+                await clipboard.SetTextAsync(text);
+        }
+    }
+
     /// <summary>Close current tab or window (Ctrl+W). Sends message; the window (or view) passes itself so the right window handles it.</summary>
     [RelayCommand]
     public void CloseTabOrWindow()
@@ -2310,11 +2548,47 @@ try {{
         // TODO: implement tabbed explorer
     }
 
-    /// <summary>Switch to next tab (Ctrl+Tab). Sends message; the window handles cycling.</summary>
     [RelayCommand]
     private void SwitchTab()
     {
         WeakReferenceMessenger.Default.Send(new SwitchExplorerTabMessage());
+    }
+
+    [RelayCommand]
+    public void SetViewLayout(int mode)
+    {
+         switch (mode)
+         {
+             case 1: // Extra Large
+                 LayoutMode = ExplorerLayoutMode.Thumbnail;
+                 ThumbnailSize = 256;
+                 break;
+             case 2: // Large
+                 LayoutMode = ExplorerLayoutMode.Thumbnail;
+                 ThumbnailSize = 128;
+                 break;
+             case 3: // Medium
+                 LayoutMode = ExplorerLayoutMode.Thumbnail;
+                 ThumbnailSize = 96;
+                 break;
+             case 4: // Split (Ctrl+Shift+4)
+                 LayoutMode = ExplorerLayoutMode.Split;
+                 UpdateSplitView(Items.OfType<ExplorerItemViewModel>());
+                 break;
+             case 5: // List (Horizontal but Columnar)
+                 LayoutMode = ExplorerLayoutMode.Horizontal;
+                 break;
+             case 6: // Details (Vertical)
+                 LayoutMode = ExplorerLayoutMode.Vertical;
+                 break;
+             case 7: // Tiles (Tiles with medium icon)
+                 LayoutMode = ExplorerLayoutMode.Tiles;
+                 ThumbnailSize = 48;
+                 break;
+             case 8: // Content
+                 LayoutMode = ExplorerLayoutMode.Vertical;
+                 break;
+         }
     }
 
     /// <summary>Cycle view mode (List/Grid/Thumbnail) for Ctrl+Mouse Wheel.</summary>

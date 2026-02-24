@@ -103,6 +103,46 @@ public partial class TrelloCard : ObservableObject
 
     public ObservableCollection<TrelloLabel> Labels { get; set; } = new();
     
+    // --- Cover Logic ---
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCover))]
+    [NotifyPropertyChangedFor(nameof(IsCoverImage))]
+    private string _coverColor = ""; // Hex string
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCover))]
+    [NotifyPropertyChangedFor(nameof(IsCoverImage))]
+    private string _coverUrl = "";
+
+    // Attachment filename used as cover (e.g. "BOGOR_1_(NISSA).jpg")
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CoverDisplayName))]
+    [NotifyPropertyChangedFor(nameof(HasCoverDisplayName))]
+    private string _coverAttachmentName = "";
+
+    // Cleaned display name: no extension, underscores replaced with spaces
+    public string CoverDisplayName
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(CoverAttachmentName)) return "";
+            // Remove extension
+            var name = System.IO.Path.GetFileNameWithoutExtension(CoverAttachmentName);
+            // Replace underscores with spaces
+            name = name.Replace('_', ' ');
+            return name.Trim();
+        }
+    }
+
+    public bool HasCoverDisplayName => !string.IsNullOrEmpty(CoverDisplayName);
+
+    // Loaded Bitmap (Not persisted)
+    [ObservableProperty]
+    private Avalonia.Media.Imaging.Bitmap? _coverImage;
+
+    public bool HasCover => !string.IsNullOrEmpty(CoverColor) || !string.IsNullOrEmpty(CoverUrl);
+    public bool IsCoverImage => !string.IsNullOrEmpty(CoverUrl);
+
     public string Url => !string.IsNullOrEmpty(Id) ? $"https://trello.com/c/{Id}" : "";
 }
 

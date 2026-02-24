@@ -10,6 +10,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
+using BMachine.Core.Platform;
 
 
 namespace BMachine.UI.ViewModels;
@@ -18,11 +19,13 @@ public partial class PathSettingsViewModel : ObservableObject
 {
     private readonly IDatabase _database;
     private readonly INotificationService _notificationService;
+    private readonly IPlatformService _platformService;
 
     public PathSettingsViewModel(IDatabase database, INotificationService notificationService)
     {
         _database = database;
         _notificationService = notificationService;
+        _platformService = PlatformServiceFactory.Get();
         LoadPaths();
     }
 
@@ -216,6 +219,13 @@ public partial class PathSettingsViewModel : ObservableObject
              }
              _notificationService?.ShowSuccess($"{type} Path Updated");
          }
+    }
+
+    [RelayCommand]
+    private void FixPhotoshopWarning()
+    {
+        var result = _platformService.SilencePhotoshopWarnings(PathPhotoshop);
+        _notificationService?.ShowSuccess(result);
     }
 
     [RelayCommand]

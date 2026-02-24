@@ -61,15 +61,68 @@
 
         <!-- Input Area -->
         <Grid Grid.Row="2" ColumnDefinitions="*, Auto" Margin="0,20,0,0">
-            <TextBox Text="{Binding NewCommentText}" Watermark="Write a comment..." 
+            <StackPanel Grid.Column="0" VerticalAlignment="Bottom">
+             <!-- Presets Overlay (Above Textbox) -->
+            <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
+                    Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="10" Margin="0,0,0,8"
+                    IsVisible="{Binding IsPresetPanelOpen}">
+                <StackPanel Spacing="8">
+                        <TextBlock Text="Quick Replies (Max 5)" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        
+                        <ItemsControl ItemsSource="{Binding CommentPresets}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,4">
+                                        <Button Command="{Binding $parent[Window].DataContext.UsePresetCommand}" CommandParameter="{Binding}"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand">
+                                            <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding $parent[Window].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
+                                                Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
+                                            <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Add New Preset -->
+                        <Grid ColumnDefinitions="*, Auto" IsVisible="{Binding CommentPresets.Count, Converter={x:Static ObjectConverters.IsNotNull}}"> 
+                                <TextBox Text="{Binding NewPresetText}" Watermark="New preset... (Enter to save)" 
+                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="4" Padding="6" Margin="0,0,4,0">
+                                    <TextBox.KeyBindings>
+                                        <KeyBinding Gesture="Enter" Command="{Binding AddCommentPresetCommand}"/>
+                                    </TextBox.KeyBindings>
+                                </TextBox>
+                                <Button Grid.Column="1" Command="{Binding AddCommentPresetCommand}" 
+                                        Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Save Preset">
+                                    <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" Foreground="#22C55E"/>
+                                </Button>
+                        </Grid>
+                </StackPanel>
+            </Border>
+
+            <TextBox x:Name="Part_CommentTextBox" Text="{Binding NewCommentText}" Watermark="Write a comment..." 
                      Background="#1AFFFFFF" BorderThickness="0" CornerRadius="8" Padding="10"
                      Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100">
                 <TextBox.KeyBindings>
                     <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
                 </TextBox.KeyBindings>
+                        <TextBox.InnerRightContent>
+                            <Button Command="{Binding TogglePresetPanelCommand}"
+                                    Width="30" Height="30" CornerRadius="15"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                    ToolTip.Tip="Quick Replies">
+                                <PathIcon Data="{StaticResource IconChevronUp}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                        </TextBox.InnerRightContent>
             </TextBox>
+            </StackPanel>
+            
             <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
-                    Width="40" Height="40" CornerRadius="20" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment">
+                    Width="40" Height="40" CornerRadius="20" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment" VerticalAlignment="Bottom" Margin="0,0,0,5">
                 <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
             </Button>
         </Grid>

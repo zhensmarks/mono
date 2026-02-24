@@ -100,6 +100,65 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<TrelloComment> _comments = new();
     [ObservableProperty] private string _newCommentText = "";
     [ObservableProperty] private bool _isLoadingComments;
+    
+    // Preset Comments
+    [ObservableProperty] private ObservableCollection<string> _commentPresets = new();
+    [ObservableProperty] private bool _isPresetPanelOpen;
+    [ObservableProperty] private string _newPresetText = "";
+
+    [RelayCommand]
+    private async Task LoadCommentPresets()
+    {
+        var presets = await _database.GetAsync<List<string>>("CommentPresets") ?? new List<string>();
+        CommentPresets.Clear();
+        foreach (var p in presets) CommentPresets.Add(p);
+    }
+
+    [RelayCommand]
+    private async Task AddCommentPreset()
+    {
+         if (string.IsNullOrWhiteSpace(NewPresetText)) return;
+         if (CommentPresets.Count >= 5) return;
+         
+         CommentPresets.Add(NewPresetText);
+         await SaveCommentPresets();
+         NewPresetText = ""; // Clear input
+    }
+
+    [RelayCommand]
+    private async Task DeleteCommentPreset(string text)
+    {
+        if (CommentPresets.Contains(text))
+        {
+            CommentPresets.Remove(text);
+            await SaveCommentPresets();
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveCommentPresets()
+    {
+        await _database.SetAsync("CommentPresets", CommentPresets.ToList());
+    }
+
+    [RelayCommand]
+    private async Task UsePreset(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        NewCommentText = text;
+        await SendComment();
+        IsPresetPanelOpen = false;
+    }
+    
+    [RelayCommand]
+    private void TogglePresetPanel()
+    {
+        IsPresetPanelOpen = !IsPresetPanelOpen;
+        if (IsPresetPanelOpen && CommentPresets.Count == 0)
+        {
+             _ = LoadCommentPresets();
+        }
+    }
 
     [RelayCommand]
     protected async Task ShowComments(TrelloCard card)
@@ -139,6 +198,12 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         if (SelectedCard != null) SelectedCard.IsActive = true;
         
         IsDetailPanelOpen = true; // Open Detail Panel
+        
+        // Load Cover Image if needed
+        if (SelectedCard.HasCover && SelectedCard.CoverImage == null)
+        {
+             _ = LoadCardCover(SelectedCard);
+        }
     }
 
     [RelayCommand]
@@ -661,6 +726,59 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
     }
 
+
+
+    private async Task LoadCardCover(TrelloCard card)
+    {
+        if (string.IsNullOrEmpty(card.CoverUrl)) 
+        {
+             return;
+        }
+        
+        try
+        {
+             var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
+             var token = await _database.GetAsync<string>("Trello.Token") ?? "";
+             
+             using var client = new HttpClient();
+             if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token))
+             {
+                 client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
+             }
+
+             System.Diagnostics.Debug.WriteLine($"[LoadCardCover] URL: {card.CoverUrl}");
+
+             var response = await client.GetAsync(card.CoverUrl);
+             
+             // Fallback: coba dengan query params jika OAuth gagal
+             if (!response.IsSuccessStatusCode)
+             {
+                 System.Diagnostics.Debug.WriteLine($"[LoadCardCover] OAuth failed ({(int)response.StatusCode}), trying query params...");
+                 using var client2 = new HttpClient();
+                 var separator = card.CoverUrl.Contains("?") ? "&" : "?";
+                 var fallbackUrl = $"{card.CoverUrl}{separator}key={apiKey}&token={token}";
+                 response = await client2.GetAsync(fallbackUrl);
+             }
+             
+             if (!response.IsSuccessStatusCode)
+             {
+                 StatusMessage = $"Cover {(int)response.StatusCode}: {response.ReasonPhrase}";
+                 return;
+             }
+             
+             var bytes = await response.Content.ReadAsByteArrayAsync();
+             using var stream = new System.IO.MemoryStream(bytes);
+             card.CoverImage = new Avalonia.Media.Imaging.Bitmap(stream); 
+             StatusMessage = "";
+        }
+        catch (Exception ex)
+        {
+             StatusMessage = $"Cover err: {ex.Message}";
+             System.Diagnostics.Debug.WriteLine($"[LoadCardCover] Error: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
     private async Task LoadThumbnail(TrelloAttachment att)
     {
         try
@@ -760,12 +878,14 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // Batch Move Properties
     [ObservableProperty] private bool _isBatchMoveMode;
     [ObservableProperty] private bool _hasSelectedCards;
+    [ObservableProperty] private bool _hasSelectedManualCards;
     [ObservableProperty] private string _batchStatusMessage = "";
     
     [RelayCommand]
     private void SelectionChanged()
     {
         HasSelectedCards = Cards.Any(c => c.IsSelected);
+        HasSelectedManualCards = Cards.Any(c => c.IsSelected && c.IsManual);
     }
     
     [RelayCommand]
@@ -1060,6 +1180,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                  CloseMovePanel();
                  StatusMessage = $"Moved {successCount} of {total} cards to {targetListName}";
                  HasSelectedCards = false; // Reset selection visibility
+                 HasSelectedManualCards = false;
              }
              else if (SelectedCard != null)
              {
@@ -1094,6 +1215,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 existing.LabelsText = newC.LabelsText;
                 existing.HasChecklist = newC.HasChecklist;
                 existing.AttachmentCount = newC.AttachmentCount;
+                existing.CoverUrl = newC.CoverUrl;
+                existing.CoverColor = newC.CoverColor;
+                existing.CoverAttachmentName = newC.CoverAttachmentName;
             }
             else
             {
@@ -1108,8 +1232,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         var cacheKey = $"Cache.List.{listId}";
         
         using var client = new HttpClient();
-        client.Timeout = TimeSpan.FromSeconds(15); // Increased timeout to prevent false offline
-        var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges&checklists=all";
+        client.Timeout = TimeSpan.FromSeconds(15); 
+        // Added cover to fields, attachments=true to get cover image URL
+        var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges,cover&checklists=all&attachments=true&attachment_fields=url,name";
         
         string json = "";
         
@@ -1134,7 +1259,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             catch { /* Cache Read Error */ }
         }
 
-        if (string.IsNullOrEmpty(json)) return results; // No API and No Cache
+        if (string.IsNullOrEmpty(json)) return results; 
 
         try
         {
@@ -1160,6 +1285,46 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     }
                 }
                 
+                // Parse Cover - Trello API: cover.idAttachment -> URL dari array attachments
+                string coverAttachmentId = "";
+                if (element.TryGetProperty("cover", out var coverProp))
+                {
+                    if (coverProp.TryGetProperty("color", out var cColor) && cColor.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        string colorName = cColor.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(colorName))
+                        {
+                            card.CoverColor = GetCoverColorHex(colorName);
+                        }
+                    }
+                    
+                    // Ambil idAttachment dari cover
+                    if (coverProp.TryGetProperty("idAttachment", out var idAtt) && idAtt.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        coverAttachmentId = idAtt.GetString() ?? "";
+                    }
+                }
+                
+                // Cari URL cover dari array attachments berdasarkan idAttachment
+                if (!string.IsNullOrEmpty(coverAttachmentId) && element.TryGetProperty("attachments", out var attachments))
+                {
+                    foreach (var att in attachments.EnumerateArray())
+                    {
+                        if (att.TryGetProperty("id", out var attId) && attId.GetString() == coverAttachmentId)
+                        {
+                            if (att.TryGetProperty("url", out var attUrl) && attUrl.ValueKind == System.Text.Json.JsonValueKind.String)
+                            {
+                                card.CoverUrl = attUrl.GetString() ?? "";
+                            }
+                            if (att.TryGetProperty("name", out var attName) && attName.ValueKind == System.Text.Json.JsonValueKind.String)
+                            {
+                                card.CoverAttachmentName = attName.GetString() ?? "";
+                            }
+                            break;
+                        }
+                    }
+                }
+
                 if (element.TryGetProperty("labels", out var labelsProp))
                 {
                     var lbls = new List<string>();
@@ -1168,16 +1333,12 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     foreach (var l in labelsProp.EnumerateArray())
                     {
                          string name = "";
-                         string color = "gray"; // default
+                         string color = "gray"; 
                          string id = "";
 
                          if(l.TryGetProperty("name", out var n)) name = n.GetString() ?? "";
                          if(l.TryGetProperty("color", out var c)) color = c.GetString() ?? "gray";
                          if(l.TryGetProperty("id", out var i)) id = i.GetString() ?? "";
-                         
-                         // If name is empty, Trello sometimes sends just color. We can use color name as text if needed?
-                         // Or just skip empty named labels? Usually Trello shows empty labels as just color bars.
-                         // Let's keep them.
                          
                          card.Labels.Add(new TrelloLabel { Id = id, Name = name, Color = color });
                          
@@ -1202,7 +1363,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                         }
                     }
                 }
-                card.HasChecklist = card.ChecklistNames.Count > 0; // Simple boolean fallback
+                card.HasChecklist = card.ChecklistNames.Count > 0; 
 
                 results.Add(card);
             }
@@ -1214,6 +1375,25 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
         return results;
     }
+
+    private string GetCoverColorHex(string colorName)
+    {
+        return colorName switch
+        {
+            "green" => "#4bce97",
+            "yellow" => "#e2b203",
+            "orange" => "#faa53d",
+            "red" => "#f87168",
+            "purple" => "#9f8fef",
+            "blue" => "#579dff",
+            "sky" => "#6cc3e0",
+            "lime" => "#94c748",
+            "pink" => "#e774bb",
+            "black" => "#8590a2",
+            _ => "#626f86"
+        };
+    }
+
     protected async Task<bool> CheckForUpdates(string listId)
     {
         try

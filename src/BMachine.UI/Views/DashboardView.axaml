@@ -210,11 +210,11 @@
         <Border Grid.Column="0" Width="1" Background="#33FFFFFF" HorizontalAlignment="Right" Margin="0" ZIndex="10"/>
         
         <!-- MAIN DASHBOARD AREA (Content) -->
-        <Grid Grid.Column="1" RowDefinitions="Auto, *" MinWidth="479">
+        <Grid Grid.Column="1" RowDefinitions="Auto, *">
             <!-- NAVIGATION BAR (Horizontal, at top) -->
             <Border Grid.Row="0" HorizontalAlignment="Center" Background="{DynamicResource CardBackgroundBrush}" 
                     CornerRadius="12" Padding="4" Margin="12,12,12,6" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                <StackPanel Orientation="Horizontal" Spacing="0">
+                <WrapPanel Orientation="Horizontal">
                     <!-- GDrive Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
                                  IsVisible="{Binding IsGdriveVisible}"
@@ -409,21 +409,21 @@
                     </RadioButton>
 
 
-                </StackPanel>
+                </WrapPanel>
             </Border>
             
             <!-- MAIN CONTENT AREA -->
             <Grid Grid.Row="1" ClipToBounds="True">
                 
                 <!-- DASHBOARD TAB CONTENT -->
-                <Grid IsVisible="{Binding IsDashboardTabSelected}" Width="490" HorizontalAlignment="Center">
+                <Grid IsVisible="{Binding IsDashboardTabSelected}" HorizontalAlignment="Stretch" Margin="0,0,20,0">
                     <!-- StatsPanel -->
                     <Border x:Name="Part_Stats" 
                             CornerRadius="20" Padding="10"
                             VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                             Background="Transparent">
-                        <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Center">
-                            <Grid ColumnDefinitions="*,*" RowDefinitions="*,*" VerticalAlignment="Center">
+                        <Viewbox Stretch="Uniform" VerticalAlignment="Top" HorizontalAlignment="Stretch" MaxHeight="260">
+                            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto">
                                 <controls:StatWidget Grid.Row="0" Grid.Column="0" Margin="6" Width="220" Height="120" DisplayMode="Bar" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
                                                      Color="{DynamicResource AccentEditingBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenEditingListCommand}" WindowCommand="{Binding OpenEditingWindowCommand}"/>
@@ -989,14 +989,14 @@
                             IsVisible="{Binding BatchVM.HasFolders}">
                             <Grid ColumnDefinitions="*, Auto">
                                 <!-- Horizontal Scrollable Master Buttons -->
-                                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,10,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled" Margin="0,0,10,0">
+                                    <WrapPanel Orientation="Horizontal">
                                         
                                         <!-- Master ItemsControl -->
                                         <ItemsControl ItemsSource="{Binding BatchVM.MasterScriptOrderList}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
-                                                    <StackPanel Orientation="Horizontal" Spacing="8"/>
+                                                    <WrapPanel Orientation="Horizontal" />
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
@@ -1005,7 +1005,8 @@
                                                             CommandParameter="{Binding}"
                                                             Width="32" Height="32" Padding="0" CornerRadius="8" Cursor="Hand"
                                                             Background="#2A2A2A" BorderThickness="0"
-                                                            ToolTip.Tip="{Binding Name}">
+                                                            ToolTip.Tip="{Binding Name}"
+                                                            Margin="0,0,6,0">
                                                         <Button.Styles>
                                                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                                                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
@@ -1023,7 +1024,7 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                    </StackPanel>
+                                    </WrapPanel>
                                 </ScrollViewer>
                                 
                                 <!-- Utility Buttons (Right) -->

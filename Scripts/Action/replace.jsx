@@ -63,25 +63,31 @@ function main() {
     w.spacing = 15;
     w.margins = 20;
 
-    // --- Panel: Folder Master ---
-    var pnlMaster = w.add("panel", undefined, "Folder Master (.psd)");
-    pnlMaster.orientation = "column";
-    pnlMaster.alignChildren = ["fill", "top"];
-    pnlMaster.spacing = 8;
-    pnlMaster.margins = 12;
+    // --- PANEL: INPUT CONFIG ---
+    // Make it compact: 2 rows inside 1 panel
+    var pnlConfig = w.add("panel", undefined, "Konfigurasi Folder");
+    pnlConfig.orientation = "column";
+    pnlConfig.alignChildren = ["fill", "top"];
+    pnlConfig.spacing = 10;
+    pnlConfig.margins = 15;
 
-    var grpMaster = pnlMaster.add("group");
+    // Row 1: Master
+    var grpMaster = pnlConfig.add("group");
     grpMaster.orientation = "row";
     grpMaster.alignChildren = ["fill", "center"];
+
+    var lblMaster = grpMaster.add("statictext", undefined, "Master (.psd):");
+    lblMaster.preferredSize.width = 90;
+
     var txtMaster = grpMaster.add("edittext", undefined, defaultMasterPath);
-    txtMaster.preferredSize.width = 310;
+    txtMaster.preferredSize.width = 230;
 
     var btnClearMaster = grpMaster.add("button", undefined, "X");
-    btnClearMaster.size = [30, 25];
-    btnClearMaster.helpTip = "Hapus & Fokus";
+    btnClearMaster.size = [25, 25];
+    btnClearMaster.helpTip = "Hapus text";
 
     var btnBrowseMaster = grpMaster.add("button", undefined, "Browse...");
-    btnBrowseMaster.preferredSize.width = 80;
+    btnBrowseMaster.preferredSize.width = 70;
 
     btnBrowseMaster.onClick = function () {
         var f = Folder.selectDialog("Pilih Folder Master");
@@ -93,30 +99,32 @@ function main() {
         txtMaster.active = true;
     };
 
-    // --- Panel: Folder Seleksi ---
-    var pnlInput = w.add("panel", undefined, "Folder Seleksi (Input)");
-    pnlInput.orientation = "column";
-    pnlInput.alignChildren = ["fill", "top"];
-    pnlInput.spacing = 8;
-    pnlInput.margins = 12;
-
-    var grpInput = pnlInput.add("group");
+    // Row 2: Input (Seleksi)
+    var grpInput = pnlConfig.add("group");
     grpInput.orientation = "row";
     grpInput.alignChildren = ["fill", "center"];
+
+    var lblInput = grpInput.add("statictext", undefined, "Input (Img):");
+    lblInput.preferredSize.width = 90;
+
     var txtInput = grpInput.add("edittext", undefined, defaultInputPath);
-    txtInput.preferredSize.width = 310;
+    txtInput.preferredSize.width = 230;
 
     var btnClearInput = grpInput.add("button", undefined, "X");
-    btnClearInput.size = [30, 25];
-    btnClearInput.helpTip = "Hapus & Fokus";
+    btnClearInput.size = [25, 25];
+    btnClearInput.helpTip = "Hapus text";
 
     var btnBrowseInput = grpInput.add("button", undefined, "Browse...");
-    btnBrowseInput.preferredSize.width = 80;
+    btnBrowseInput.preferredSize.width = 70;
 
-    // Tombol (+) Add to Queue
-    var btnAddQueue = grpInput.add("button", undefined, "+");
-    btnAddQueue.size = [30, 25];
-    btnAddQueue.helpTip = "Tambahkan Job ke List Antrian (Queue)";
+    // Row 3: Tombol (+) Add to Queue - RIGHT ALIGNED
+    var grpAdd = pnlConfig.add("group");
+    grpAdd.orientation = "row";
+    grpAdd.alignChildren = ["right", "center"];
+
+    var btnAddQueue = grpAdd.add("button", undefined, "+");
+    btnAddQueue.size = [40, 25];
+    btnAddQueue.helpTip = "Tambahkan ke Antrian (Queue)";
 
     btnBrowseInput.onClick = function () {
         var f = Folder.selectDialog("Pilih Folder Seleksi");
@@ -128,17 +136,26 @@ function main() {
         txtInput.active = true;
     };
 
-    // --- List Queue (Hidden by Default) ---
+
+    // --- List Queue (Visible only if items exist) ---
     var grpQueue = w.add("group");
     grpQueue.orientation = "column";
     grpQueue.alignChildren = ["fill", "top"];
-    grpQueue.visible = false; // Default: Hidden (Single Mode)
+    grpQueue.visible = false;
+    grpQueue.spacing = 5;
 
-    grpQueue.add("statictext", undefined, "Antrian Job (Queue):");
+    var lblQueue = grpQueue.add("statictext", undefined, "Daftar Antrian (Queue):");
     var listQueue = grpQueue.add("listbox", undefined, [], { multiselect: true });
-    listQueue.preferredSize.height = 100;
+    listQueue.preferredSize.height = 120;
+    listQueue.preferredSize.width = 450;
 
-    var btnClearQueue = grpQueue.add("button", undefined, "Hapus Job Terpilih");
+    // Queue Controls (Small row below list)
+    var grpQueueControl = grpQueue.add("group");
+    grpQueueControl.orientation = "row";
+    grpQueueControl.alignChildren = ["left", "center"];
+
+    var btnClearQueue = grpQueueControl.add("button", undefined, "Hapus Terpilih");
+    btnClearQueue.size = [100, 24]; // Compact height
     btnClearQueue.enabled = false;
 
     // Logic Add Queue
@@ -353,7 +370,10 @@ function runReplacementLogic(templateFolder, inputFolder) {
             for (var j = 0; j < inputFiles.length; j++) {
                 var input = inputFiles[j];
                 var inputBaseName = input.displayName.replace(/\.[^\.]+$/, "");
-                if (inputBaseName === templateBaseName) {
+                // Juga cek nama tanpa suffix copy " (1)" atau spasi banyak "    (2)"
+                var inputBaseNameStripped = inputBaseName.replace(/\s*\(\d+\)$/, "");
+
+                if (inputBaseName === templateBaseName || inputBaseNameStripped === templateBaseName) {
                     var inputRelDir = decodeURI(input.parent.fullName).replace(decodeURI(inputFolder.fullName), "");
                     if (inputRelDir.indexOf("/") == 0) inputRelDir = inputRelDir.substring(1);
 
@@ -460,7 +480,12 @@ function runReplacementLogic(templateFolder, inputFolder) {
     f.write('{"type":"result","title":"Replacer Summary","lines":[' + escaped.join(',') + ']}');
     f.close();
 
-    alert("Job Selesai!\nMaster: " + decodeURI(templateFolder.name) + "\nBerhasil: " + successList.length + "\nGagal: " + failList.length);
+    var msg = "Master: " + decodeURI(templateFolder.name) + "\n\n";
+    msg += "Berhasil: " + successList.length + "\n";
+    if (successList.length > 0) msg += successList.join("\n") + "\n\n";
+    msg += "Gagal: " + failList.length + "\n";
+    if (failList.length > 0) msg += failList.join("\n");
+    showScrollableAlert("Laporan Replace (Standard)", msg);
 }
 
 // === Helpers ===
@@ -544,6 +569,7 @@ function runRevisiLogic(masterFolder, inputFolder) {
     // Build a lookup map: filename (without extension) -> ARRAY of file objects
     var inputMap = {};
 
+
     for (var i = 0; i < inputFiles.length; i++) {
         var file = inputFiles[i];
         var baseName = file.displayName.replace(/\.[^\.]+$/, "").toLowerCase();
@@ -552,6 +578,15 @@ function runRevisiLogic(masterFolder, inputFolder) {
             inputMap[baseName] = [];
         }
         inputMap[baseName].push(file);
+
+        // Tambahkan juga versi stripped (misal "foto    (1)" -> "foto") ke dalam map
+        var baseNameStripped = baseName.replace(/\s*\(\d+\)$/, "");
+        if (baseName !== baseNameStripped) {
+            if (!inputMap[baseNameStripped]) {
+                inputMap[baseNameStripped] = [];
+            }
+            inputMap[baseNameStripped].push(file);
+        }
     }
 
     var successList = [];
@@ -655,7 +690,13 @@ function runRevisiLogic(masterFolder, inputFolder) {
         report = report.concat(failList);
     }
 
-    alert("Job Selesai!\nMaster: " + decodeURI(masterFolder.name) + "\nSmart Object Replaced: " + replacedCount + "\nFile Berhasil: " + successList.length + "\nFile Gagal: " + failList.length);
+    var msg = "Master: " + decodeURI(masterFolder.name) + "\n";
+    msg += "Smart Object Replaced: " + replacedCount + "\n\n";
+    msg += "File Berhasil: " + successList.length + "\n";
+    if (successList.length > 0) msg += successList.join("\n") + "\n\n";
+    msg += "File Gagal: " + failList.length + "\n";
+    if (failList.length > 0) msg += failList.join("\n");
+    showScrollableAlert("Laporan Replace (Revisi)", msg);
 }
 
 // Find all Smart Objects in document (including nested in groups)
@@ -693,4 +734,20 @@ function findSmartObjectsInGroup(group) {
     }
 
     return result;
+}
+
+function showScrollableAlert(title, message) {
+    var dialog = new Window("dialog", title);
+    dialog.orientation = "column";
+    dialog.alignChildren = ["fill", "fill"];
+    dialog.preferredSize = [400, 300];
+
+    var edittext = dialog.add("edittext", undefined, message, { multiline: true, scrolling: true, readonly: true });
+    edittext.preferredSize = [380, 250];
+
+    var btnOk = dialog.add("button", undefined, "OK");
+    btnOk.alignment = "center";
+    btnOk.onClick = function () { dialog.close(); };
+
+    dialog.show();
 }
