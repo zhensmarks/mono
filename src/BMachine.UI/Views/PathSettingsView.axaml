@@ -31,11 +31,14 @@
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OkeBase" Classes="Primary"/>
                     </Grid>
 
-                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Photoshop Executable (.exe)" VerticalAlignment="Center" Margin="0,0,0,5"/>
+                    <Grid ColumnDefinitions="*, Auto, Auto" RowDefinitions="Auto, Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Photoshop Executable (.exe / .app)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Required for JSX Scripts" FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" IsReadOnly="True" Watermark="Select Photoshop.exe" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" IsReadOnly="True" Watermark="Select Photoshop.exe or .app" Margin="0,0,10,0"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary" Margin="0,0,6,0"/>
+                        <Button Grid.Row="1" Grid.Column="2" Content="FIX PS WARNING" Command="{Binding FixPhotoshopWarningCommand}"
+                                Background="#E07020" Foreground="White" CornerRadius="6" Padding="10,8"
+                                ToolTip.Tip="Automatically suppress the Photoshop script security warning by writing to PSUserConfig.txt"/>
                     </Grid>
                 </StackPanel>
             </Border>

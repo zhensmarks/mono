@@ -32,7 +32,7 @@
                     <TextBlock Text="Klik Record lalu tekan kombinasi tombol yang diinginkan." FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
                     <TextBlock Text="LISTENING... Tekan tombol sekarang!" FontSize="12" Foreground="#ef4444" FontWeight="Bold" IsVisible="{Binding IsRecordingShortcut}" Margin="0,4,0,0"/>
                     
-                    <Grid ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
+                    <Grid ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="New Folder" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ShortcutNewFolder}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
                         <Button Grid.Row="0" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutNewFolder" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
@@ -105,7 +105,15 @@
                         <TextBlock Grid.Row="17" Grid.Column="1" Text="{Binding ShortcutPaste}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
                         <Button Grid.Row="17" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutPaste" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
 
-                        <StackPanel Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" IsVisible="{Binding IsRecordingShortcut}" Margin="0,8,0,0">
+                        <TextBlock Grid.Row="18" Grid.Column="0" Text="Copy Path" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="18" Grid.Column="1" Text="{Binding ShortcutCopyPath}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="18" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutCopyPath" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="19" Grid.Column="0" Text="Paste Path" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
+                        <TextBlock Grid.Row="19" Grid.Column="1" Text="{Binding ShortcutPastePath}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,6"/>
+                        <Button Grid.Row="19" Grid.Column="2" Content="Record" Command="{Binding StartRecordingCommand}" CommandParameter="ShortcutPastePath" IsEnabled="{Binding !IsRecordingShortcut}" Classes="Secondary" Margin="0,0,0,6"/>
+
+                        <StackPanel Grid.Row="20" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" IsVisible="{Binding IsRecordingShortcut}" Margin="0,8,0,0">
                             <Button Content="Cancel (Esc)" Command="{Binding CancelRecordingCommand}" Classes="Secondary"/>
                         </StackPanel>
                     </Grid>

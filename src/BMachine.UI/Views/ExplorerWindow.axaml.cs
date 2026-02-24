@@ -111,14 +111,34 @@ public partial class ExplorerWindow : Window
         TryAdd(keyBindings, vm.ShortcutNewTabGesture, new CommunityToolkit.Mvvm.Input.RelayCommand(() => HandleAddTab()), null);
         TryAdd(keyBindings, vm.ShortcutCloseTabGesture, new CommunityToolkit.Mvvm.Input.RelayCommand(() => HandleCloseTabOrWindow()), null);
         TryAdd(keyBindings, vm.ShortcutNavigateUpGesture, vm.NavigateUpCommand!, null);
-        TryAdd(keyBindings, vm.ShortcutBackGesture, vm.GoBackCommand!, null);
+
+        
+        // Special Case: Do NOT add KeyBinding for "Back" key directly to Window.
+        // It conflicts with TextBox editing in the view.
+        if (!string.Equals(vm.ShortcutBackGesture, "Back", System.StringComparison.OrdinalIgnoreCase))
+        {
+            TryAdd(keyBindings, vm.ShortcutBackGesture, vm.GoBackCommand!, null);
+        }
+
         TryAdd(keyBindings, vm.ShortcutForwardGesture, vm.GoForwardCommand!, null);
+
         TryAdd(keyBindings, vm.ShortcutRenameGesture, vm.RenameItemCommand!, vm.SelectedItems);
         TryAdd(keyBindings, vm.ShortcutPermanentDeleteGesture, vm.PermanentDeleteItemCommand!, vm.SelectedItems);
         TryAdd(keyBindings, vm.ShortcutFocusSearchBoxGesture, vm.FocusSearchBoxCommand!, null);
         TryAdd(keyBindings, vm.ShortcutAddressBarGesture, vm.FocusPathBarCommand!, null);
         TryAdd(keyBindings, vm.ShortcutSwitchTabGesture, vm.SwitchTabCommand!, null);
         TryAdd(keyBindings, vm.ShortcutRefreshGesture, vm.RefreshCommand!, null);
+        
+        // View Layout Shortcuts (Ctrl+Shift+1..8)
+        TryAdd(keyBindings, vm.ShortcutLayout1Gesture, vm.SetViewLayoutCommand, 1);
+        TryAdd(keyBindings, vm.ShortcutLayout2Gesture, vm.SetViewLayoutCommand, 2);
+        TryAdd(keyBindings, vm.ShortcutLayout3Gesture, vm.SetViewLayoutCommand, 3);
+        TryAdd(keyBindings, vm.ShortcutLayout4Gesture, vm.SetViewLayoutCommand, 4);
+        TryAdd(keyBindings, vm.ShortcutLayout5Gesture, vm.SetViewLayoutCommand, 5);
+        TryAdd(keyBindings, vm.ShortcutLayout6Gesture, vm.SetViewLayoutCommand, 6);
+        TryAdd(keyBindings, vm.ShortcutLayout7Gesture, vm.SetViewLayoutCommand, 7);
+        TryAdd(keyBindings, vm.ShortcutLayout8Gesture, vm.SetViewLayoutCommand, 8);
+
         // Standard shortcuts (not customizable)
         TryAdd(keyBindings, "Ctrl+A", vm.SelectAllCommand!, null);
         TryAdd(keyBindings, "Ctrl+C", vm.CopyItemCommand!, vm.SelectedItems);

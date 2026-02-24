@@ -56,6 +56,24 @@ public partial class LateCardListView : UserControl
          }
     }
 
+    private void OnSubPanelPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+         var props = e.GetCurrentPoint(sender as Visual).Properties;
+         if (props.IsRightButtonPressed)
+         {
+             if (DataContext is LateCardListViewModel vm)
+             {
+                 // Close the sub-panel and return to Card Detail
+                 vm.IsCommentPanelOpen = false;
+                 vm.IsChecklistPanelOpen = false;
+                 vm.IsMovePanelOpen = false;
+                 vm.IsAttachmentPanelOpen = false;
+                 if (vm.SelectedCard != null) vm.IsDetailPanelOpen = true;
+                 e.Handled = true;
+             }
+         }
+    }
+
     private void OnRootGridSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         if (sender is not Grid grid) return;
@@ -186,5 +204,87 @@ public partial class LateCardListView : UserControl
                  }
              }
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        var textBox = this.FindControl<TextBox>("Part_CommentTextBox");
+        if (textBox != null)
+        {
+            textBox.KeyDown -= CommentTextBox_KeyDown;
+            textBox.KeyDown += CommentTextBox_KeyDown;
+        }
+
+        // Block ALL RequestBringIntoView events at the UserControl level.
+        // Using Tunnel ensures we catch it BEFORE any ScrollViewer processes it.
+        this.AddHandler(
+            Avalonia.Controls.Control.RequestBringIntoViewEvent,
+            OnRequestBringIntoView,
+            Avalonia.Interactivity.RoutingStrategies.Tunnel,
+            true);
+
+        // Save/restore scroll position on window switch
+        if (TopLevel.GetTopLevel(this) is Window window)
+        {
+            window.Deactivated -= OnWindowDeactivated;
+            window.Activated -= OnWindowActivated;
+            window.Deactivated += OnWindowDeactivated;
+            window.Activated += OnWindowActivated;
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        this.RemoveHandler(
+            Avalonia.Controls.Control.RequestBringIntoViewEvent,
+            OnRequestBringIntoView);
+        if (TopLevel.GetTopLevel(this) is Window window)
+        {
+            window.Deactivated -= OnWindowDeactivated;
+            window.Activated -= OnWindowActivated;
+        }
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnWindowDeactivated(object? sender, EventArgs e)
+    {
+        var scrollViewer = this.FindControl<ScrollViewer>("Part_CommentScrollViewer");
+        if (scrollViewer != null)
+            _savedCommentScrollOffset = scrollViewer.Offset;
+    }
+
+    private void OnWindowActivated(object? sender, EventArgs e)
+    {
+        if (_savedCommentScrollOffset.Y > 0)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var scrollViewer = this.FindControl<ScrollViewer>("Part_CommentScrollViewer");
+                if (scrollViewer != null)
+                    scrollViewer.Offset = _savedCommentScrollOffset;
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
+        }
+    }
+
+    private void OnRequestBringIntoView(object? sender, Avalonia.Controls.RequestBringIntoViewEventArgs e)
+    {
+        e.Handled = true;
+    }
+
+    private async void CommentTextBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.C)
+         {
+             if (sender is TextBox tb && !string.IsNullOrEmpty(tb.SelectedText))
+             {
+                 var topLevel = TopLevel.GetTopLevel(this);
+                 if (topLevel?.Clipboard != null)
+                 {
+                     await topLevel.Clipboard.SetTextAsync(tb.SelectedText);
+                     e.Handled = true;
+                 }
+             }
+         }
     }
 }
