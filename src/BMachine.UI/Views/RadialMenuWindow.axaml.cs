@@ -13,6 +13,27 @@ public partial class RadialMenuWindow : Window
     {
         InitializeComponent();
         this.Deactivated += (s, e) => this.Hide(); // Auto-hide on focus loss
+        
+        // Track mouse movement for highlight
+        this.PointerMoved += OnPointerMoved;
+        
+        // Reset page when window becomes visible
+        this.Opened += (s, e) =>
+        {
+            if (DataContext is RadialMenuViewModel vm)
+            {
+                vm.ResetPage();
+            }
+        };
+    }
+
+    private void OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (DataContext is RadialMenuViewModel vm)
+        {
+            var pos = e.GetPosition(this);
+            vm.UpdateHighlight(pos, new Size(this.Width, this.Height));
+        }
     }
 
     private void InitializeComponent()

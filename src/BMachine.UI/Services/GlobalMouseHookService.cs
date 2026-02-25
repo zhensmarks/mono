@@ -21,6 +21,7 @@ public class GlobalInputHookService : IDisposable
     private readonly TaskPoolGlobalHook _hook;
     private bool _isInteracting = false;
     private ModifierMask _currentModifiers = ModifierMask.None;
+    private Point _lastMousePos = new Point(0, 0); // Track last known cursor position
 
     // Recording Mode
     public bool IsRecording { get; set; } = false;
@@ -52,6 +53,7 @@ public class GlobalInputHookService : IDisposable
     private void OnHookMouseMove(object? sender, MouseHookEventArgs e)
     {
         var pos = new Point(e.Data.X, e.Data.Y);
+        _lastMousePos = pos; // Always track latest position
         
         if (_isInteracting)
         {
@@ -173,7 +175,7 @@ public class GlobalInputHookService : IDisposable
                 // Better: UI usually needs screen pos.
                 // Let's ignore pos for Keyboard trigger or fetch via Avalonia if possible?
                 // Or just use (0,0) since it's keyboard.
-                OnTriggerDown?.Invoke(new Point(0, 0));
+                OnTriggerDown?.Invoke(_lastMousePos); // Use last known cursor position
                 e.SuppressEvent = true;
             }
         }
@@ -190,7 +192,7 @@ public class GlobalInputHookService : IDisposable
             if (_isInteracting)
             {
                 _isInteracting = false;
-                OnTriggerUp?.Invoke(new Point(0, 0));
+                OnTriggerUp?.Invoke(_lastMousePos);
                 e.SuppressEvent = true;
             }
         }

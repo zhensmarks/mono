@@ -38,13 +38,54 @@ public partial class RadialMenuItem : ObservableObject
     [ObservableProperty]
     private bool _isHighlighted;
 
+    // Position on canvas
     [ObservableProperty] private double _x;
     [ObservableProperty] private double _y;
+    
+    // Angle for highlight detection (0 = North/Up)
     [ObservableProperty] private double _angle;
 
     [ObservableProperty] private int _order;
     
     [ObservableProperty] private Avalonia.Media.StreamGeometry? _icon;
+
+    // --- New properties for redesign ---
+
+    /// <summary>
+    /// Label position X (for hover label placement)
+    /// </summary>
+    [ObservableProperty] private double _labelX;
+    
+    /// <summary>
+    /// Label position Y (for hover label placement)
+    /// </summary>
+    [ObservableProperty] private double _labelY;
+
+    /// <summary>
+    /// Horizontal alignment hint for the label: "Left" or "Right"
+    /// Based on which side of the circle the item is on.
+    /// </summary>
+    [ObservableProperty] private string _labelSide = "Right";
+
+    /// <summary>
+    /// Start angle for the pie wedge highlight (in degrees, 0 = top)
+    /// </summary>
+    [ObservableProperty] private double _wedgeStartAngle;
+
+    /// <summary>
+    /// Sweep angle for the pie wedge highlight (in degrees)
+    /// </summary>
+    [ObservableProperty] private double _wedgeSweepAngle;
+
+    /// <summary>
+    /// Whether this is a special navigation item (More/Back)
+    /// </summary>
+    [ObservableProperty] private bool _isNavigation;
+
+    /// <summary>
+    /// Navigation type: "more" or "back"
+    /// </summary>
+    [ObservableProperty] private string _navigationType = string.Empty;
 
     /// <summary>
     /// Generate short name from full name automatically.

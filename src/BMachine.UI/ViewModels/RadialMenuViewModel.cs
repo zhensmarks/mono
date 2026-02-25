@@ -20,7 +20,14 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     private readonly IDatabase? _database;
     private readonly Services.IProcessLogService? _logService;
     private readonly BMachine.Core.Platform.IPlatformService _platformService;
-    // private Dictionary<string, string> _scriptAliases = new(); // Replaced by ScriptConfig version below
+    
+    private const int MaxVisibleItems = 7;
+    private const double CanvasSize = 200.0;
+    private const double CenterX = 100.0;
+    private const double CenterY = 100.0;
+    private const double ItemRadius = 58.0;    // Distance from center to item
+    private const double ButtonSize = 32.0;
+    private const double LabelOffset = 30.0;   // Extra distance for label from item center
     
     [ObservableProperty]
     private bool _isVisible;
@@ -30,19 +37,74 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
 
     public ObservableCollection<RadialMenuItem> MasterItems { get; } = new();
     public ObservableCollection<RadialMenuItem> ActionItems { get; } = new();
+    
+    /// <summary>
+    /// Items currently visible on screen (subset based on current page)
+    /// </summary>
+    public ObservableCollection<RadialMenuItem> VisibleItems { get; } = new();
 
-    [ObservableProperty]
-    private RadialMenuItem? _highlightedItem;
+    // Manual property — not using [ObservableProperty] because HighlightItem 
+    // needs direct field access to avoid MVVMTK0034 warnings
+    private RadialMenuItem? _currentHighlightedItem;
+    public RadialMenuItem? HighlightedItem
+    {
+        get => _currentHighlightedItem;
+        private set => SetProperty(ref _currentHighlightedItem, value);
+    }
 
     [ObservableProperty] private string _customScriptsPath = "";
+    
+    /// <summary>
+    /// Current page: 0 = main, 1 = more
+    /// </summary>
+    [ObservableProperty] private int _currentPage;
+    
+    /// <summary>
+    /// Whether the total item count exceeds MaxVisibleItems
+    /// </summary>
+    [ObservableProperty] private bool _hasMoreItems;
 
-    public RadialMenuViewModel(IDatabase? database, Services.IProcessLogService? logService = null, BMachine.Core.Platform.IPlatformService? platformService = null) // Modified constructor signature
+    /// <summary>
+    /// Start angle of the highlighted wedge (for PieWedge binding)
+    /// </summary>
+    [ObservableProperty] private double _wedgeStart;
+
+    /// <summary>
+    /// Sweep angle of the highlighted wedge (for PieWedge binding)
+    /// </summary>
+    [ObservableProperty] private double _wedgeSweep;
+
+    /// <summary>
+    /// Whether the pie wedge should be visible
+    /// </summary>
+    [ObservableProperty] private bool _isWedgeVisible;
+
+    /// <summary>
+    /// Label text for currently highlighted item
+    /// </summary>
+    [ObservableProperty] private string _highlightLabel = "";
+
+    /// <summary>
+    /// X position for the highlight label
+    /// </summary>
+    [ObservableProperty] private double _highlightLabelX;
+
+    /// <summary>
+    /// Y position for the highlight label
+    /// </summary>
+    [ObservableProperty] private double _highlightLabelY;
+
+    /// <summary>
+    /// Whether label is on left side (affects alignment)
+    /// </summary>
+    [ObservableProperty] private bool _isLabelOnLeft;
+
+    public RadialMenuViewModel(IDatabase? database, Services.IProcessLogService? logService = null, BMachine.Core.Platform.IPlatformService? platformService = null)
     {
         _database = database;
         _logService = logService;
-        _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get(); // Initialized _platformService
+        _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
         
-        // Register all messages this class implements IRecipient for
         CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.RegisterAll(this);
 
         LoadScripts();
@@ -66,9 +128,6 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
 
         var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
         
-        // Load All Scripts into temp collection or directly
-        // We'll add directly then sort
-        
         // Action Scripts Only (.jsx and .pyw)
         var actionPath = Path.Combine(baseDir, "Action");
         if (Directory.Exists(actionPath))
@@ -86,60 +145,282 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         ActionItems.Clear();
         foreach (var item in sorted) ActionItems.Add(item);
 
+        HasMoreItems = ActionItems.Count > MaxVisibleItems;
+        CurrentPage = 0;
+        BuildVisibleItems();
+    }
+
+    /// <summary>
+    /// Rebuild VisibleItems based on CurrentPage
+    /// </summary>
+    private void BuildVisibleItems()
+    {
+        VisibleItems.Clear();
+        HighlightItem(null);
+
+        if (ActionItems.Count <= MaxVisibleItems)
+        {
+            // All items fit — no More button needed
+            foreach (var item in ActionItems)
+            {
+                item.IsNavigation = false;
+                item.NavigationType = "";
+                VisibleItems.Add(item);
+            }
+        }
+        else if (CurrentPage == 0)
+        {
+            // Page 1: first 7 items + More button
+            for (int i = 0; i < Math.Min(MaxVisibleItems, ActionItems.Count); i++)
+            {
+                ActionItems[i].IsNavigation = false;
+                ActionItems[i].NavigationType = "";
+                VisibleItems.Add(ActionItems[i]);
+            }
+            
+            // Add "More" navigation item
+            VisibleItems.Add(new RadialMenuItem
+            {
+                FullName = "More",
+                ShortName = "⋯",
+                IsNavigation = true,
+                NavigationType = "more"
+            });
+        }
+        else
+        {
+            // Page 2: remaining items + Back button
+            for (int i = MaxVisibleItems; i < ActionItems.Count; i++)
+            {
+                ActionItems[i].IsNavigation = false;
+                ActionItems[i].NavigationType = "";
+                VisibleItems.Add(ActionItems[i]);
+            }
+            
+            // Add "Back" navigation item
+            VisibleItems.Add(new RadialMenuItem
+            {
+                FullName = "Back",
+                ShortName = "←",
+                IsNavigation = true,
+                NavigationType = "back"
+            });
+        }
+
         ArrangeItems();
     }
 
-
-
-
+    /// <summary>
+    /// Arrange items in a full circle (360°), evenly spaced.
+    /// The "More" / "Back" button is always placed at the bottom (270° in trig = South).
+    /// </summary>
     private void ArrangeItems()
     {
-        if (ActionItems.Count == 0) return;
+        if (VisibleItems.Count == 0) return;
 
-        double centerX = 100; 
-        double centerY = 100;
-        
-        // Unified "Tight Arc" Logic
-        // User requested: "buat dekat lagi" (closer/tighter) and "ke tengahkan" (centered on right).
-        // 40 degrees step provides a tight, cohesive arc that stays on the Right side 
-        // even with 5-6 items (-80..80 to -100..100).
-        double angleStep = 45.0; 
-        double radius = 50; 
+        int count = VisibleItems.Count;
+        double angleStep = 360.0 / count;
 
-        // If items exceed circle capacity (e.g. 9+ items @ 45deg), compress spacing
-        if (ActionItems.Count * angleStep > 360)
+        for (int i = 0; i < count; i++)
         {
-            angleStep = 360.0 / ActionItems.Count;
-        }
+            var item = VisibleItems[i];
+            double angleDeg;
 
-        // Calculate total span required
-        double totalSpan = (ActionItems.Count - 1) * angleStep;
+            if (item.IsNavigation)
+            {
+                // Navigation items (More/Back) always at bottom (180° in our 0=Top system)
+                angleDeg = 180.0;
+            }
+            else
+            {
+                // Distribute non-nav items evenly
+                // Start from top (0°), skip the slot reserved for nav if needed
+                if (HasMoreItems)
+                {
+                    // Reserve bottom slot for nav, distribute others across remaining space
+                    // Place items from -((count-2)*step/2) to +((count-2)*step/2) centered on top
+                    int nonNavCount = count - 1;
+                    double totalSpan = 360.0 - angleStep; // Leave one slot for nav
+                    double itemStep = totalSpan / nonNavCount;
+                    
+                    // Find this item's index among non-nav items
+                    int nonNavIndex = 0;
+                    for (int j = 0; j < i; j++)
+                    {
+                        if (!VisibleItems[j].IsNavigation) nonNavIndex++;
+                    }
+                    
+                    // Start from top, go clockwise, center the group
+                    double startAngle = -(nonNavCount - 1) * itemStep / 2.0;
+                    angleDeg = startAngle + nonNavIndex * itemStep;
+                }
+                else
+                {
+                    // No nav items — simple even distribution centered on top
+                    double totalSpan = (count - 1) * angleStep;
+                    double startAngle = -totalSpan / 2.0;
+                    angleDeg = startAngle + i * angleStep;
+                }
+            }
 
-        // Start Angle logic: Center the arc around 0 degrees (Right)
-        double startAngle = -totalSpan / 2.0;
-
-        for (int i = 0; i < ActionItems.Count; i++)
-        {
-            double angleDeg = startAngle + (i * angleStep);
-            
-            // Convert to Radians
-            double angleRad = angleDeg * (Math.PI / 180.0);
-
-            // Calculate Position
-            ActionItems[i].X = centerX + radius * Math.Cos(angleRad) - 16; 
-            ActionItems[i].Y = centerY + radius * Math.Sin(angleRad) - 16;
-            
-            // Normalize for Highlight Logic
-            // Transform standard trig angle (0=Right) to Logic angle (0=Top/North)
-            double normalizedAngle = (angleDeg + 90);
+            // Normalize angle
+            double normalizedAngle = angleDeg;
             while (normalizedAngle < 0) normalizedAngle += 360;
             while (normalizedAngle >= 360) normalizedAngle -= 360;
-            
-            ActionItems[i].Angle = normalizedAngle;
+            item.Angle = normalizedAngle;
+
+            // Convert "0=Top clockwise" to standard trig for position calculation
+            double trigAngleDeg = normalizedAngle - 90; // 0=Top → -90 in trig (Right=0)
+            double trigAngleRad = trigAngleDeg * (Math.PI / 180.0);
+
+            // Item position (center of button)
+            double itemCenterX = CenterX + ItemRadius * Math.Cos(trigAngleRad);
+            double itemCenterY = CenterY + ItemRadius * Math.Sin(trigAngleRad);
+            item.X = itemCenterX - ButtonSize / 2;
+            item.Y = itemCenterY - ButtonSize / 2;
+
+            // Label position (further out from center)
+            double labelDist = ItemRadius + LabelOffset;
+            double labelCenterX = CenterX + labelDist * Math.Cos(trigAngleRad);
+            double labelCenterY = CenterY + labelDist * Math.Sin(trigAngleRad);
+            item.LabelX = labelCenterX;
+            item.LabelY = labelCenterY;
+
+            // Determine label side based on angle
+            // Left side: angle 90-270 (items on the left half)
+            bool isLeftSide = normalizedAngle > 90 && normalizedAngle < 270;
+            item.LabelSide = isLeftSide ? "Left" : "Right";
+
+            // Wedge angles for pie highlight
+            item.WedgeStartAngle = normalizedAngle - angleStep / 2.0;
+            item.WedgeSweepAngle = angleStep;
         }
     }
 
-    // ...
+    public void UpdateHighlight(Point mousePos, Size windowSize)
+    {
+        double cx = windowSize.Width / 2;
+        double cy = windowSize.Height / 2;
+
+        double dx = mousePos.X - cx;
+        double dy = mousePos.Y - cy;
+        double dist = Math.Sqrt(dx * dx + dy * dy);
+
+        // Deadzone: center (< 15px) or outside window bounds (> 95px)
+        if (dist < 15 || dist > 95)
+        {
+            HighlightItem(null);
+            return;
+        }
+
+        // Calculate angle (0 = North/Top, clockwise)
+        double angle = Math.Atan2(dy, dx) * (180 / Math.PI);
+        angle += 90;
+        if (angle < 0) angle += 360;
+
+        // Find closest item
+        RadialMenuItem? closest = null;
+        double minDiff = double.MaxValue;
+
+        foreach (var item in VisibleItems)
+        {
+            double diff = Math.Abs(angle - item.Angle);
+            if (diff > 180) diff = 360 - diff;
+
+            if (diff < minDiff)
+            {
+                minDiff = diff;
+                closest = item;
+            }
+        }
+
+        // Check angular threshold
+        double threshold = (360.0 / VisibleItems.Count) / 2.0;
+        
+        if (closest != null && minDiff < threshold)
+        {
+            // Handle navigation items on hover
+            if (closest.IsNavigation && closest != _currentHighlightedItem)
+            {
+                if (closest.NavigationType == "more")
+                {
+                    CurrentPage = 1;
+                    BuildVisibleItems();
+                    return;
+                }
+                else if (closest.NavigationType == "back")
+                {
+                    CurrentPage = 0;
+                    BuildVisibleItems();
+                    return;
+                }
+            }
+
+            HighlightItem(closest);
+        }
+        else
+        {
+            HighlightItem(null);
+        }
+    }
+
+    private void HighlightItem(RadialMenuItem? item)
+    {
+        if (_currentHighlightedItem != item)
+        {
+            if (_currentHighlightedItem != null) _currentHighlightedItem.IsHighlighted = false;
+            _currentHighlightedItem = item;
+            
+            if (_currentHighlightedItem != null)
+            {
+                _currentHighlightedItem.IsHighlighted = true;
+                
+                // Update wedge
+                WedgeStart = _currentHighlightedItem.WedgeStartAngle;
+                WedgeSweep = _currentHighlightedItem.WedgeSweepAngle;
+                IsWedgeVisible = true;
+                
+                // Update label
+                HighlightLabel = _currentHighlightedItem.FullName;
+                HighlightLabelX = _currentHighlightedItem.LabelX;
+                HighlightLabelY = _currentHighlightedItem.LabelY;
+                IsLabelOnLeft = _currentHighlightedItem.LabelSide == "Left";
+            }
+            else
+            {
+                IsWedgeVisible = false;
+                HighlightLabel = "";
+            }
+            
+            OnPropertyChanged(nameof(HighlightedItem)); 
+        }
+    }
+
+    /// <summary>
+    /// Reset to page 1 when menu is shown
+    /// </summary>
+    public void ResetPage()
+    {
+        CurrentPage = 0;
+        BuildVisibleItems();
+    }
+
+    public void ExecuteHighlighted()
+    {
+        if (_currentHighlightedItem != null && !_currentHighlightedItem.IsNavigation)
+        {
+            _ = ExecuteScript(_currentHighlightedItem.ScriptPath);
+        }
+        else
+        {
+            // Missed selection -> Close
+            RequestClose?.Invoke();
+        }
+    }
+
+    // ============================================================
+    // Script Loading & Metadata (unchanged from original)
+    // ============================================================
 
     private Dictionary<string, ScriptConfig> _scriptAliases = new();
 
@@ -160,7 +441,6 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             displayName = config.Name;
             order = config.Order;
             
-            // Resolve Icon
             if (!string.IsNullOrEmpty(config.IconKey))
             {
                  if (Application.Current!.TryGetResource(config.IconKey, null, out var res) && res is Avalonia.Media.StreamGeometry geom)
@@ -169,7 +449,6 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                  }
             }
             
-            // Priority: Custom Code > Generated from Custom Name > Generated from Filename
             if (!string.IsNullOrEmpty(config.Code))
             {
                 shortName = config.Code;
@@ -191,8 +470,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             ShortName = shortName,
             ScriptPath = path,
             IsMaster = isMaster,
-            Order = order, // Store order
-            Icon = icon // Assign Icon
+            Order = order,
+            Icon = icon
         });
     }
 
@@ -226,7 +505,6 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                 }
                 catch
                 {
-                    // Fallback helpers if transition period?
                     _scriptAliases = new(); 
                 }
             }
@@ -234,90 +512,9 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         catch { _scriptAliases = new(); }
     }
 
+    // Kept for backward compat — no longer used in UI but still in logic
     [ObservableProperty]
     private string _centerText = "";
-
-    public void UpdateHighlight(Point mousePos, Size windowSize)
-    {
-        // 1. Calculate center of window
-        double cx = windowSize.Width / 2;
-        double cy = windowSize.Height / 2;
-
-        // 2. Vector from center
-        double dx = mousePos.X - cx;
-        double dy = mousePos.Y - cy;
-        double dist = Math.Sqrt(dx * dx + dy * dy);
-
-        // 3. Check Deadzone (Center) & Outer Limit
-        //    Compact: Center Zone Radius 20, Outer Limit 100
-        if (dist < 20 || dist > 90)
-        {
-             HighlightItem(null);
-             CenterText = ""; // Clear text
-             return;
-        }
-
-        // 4. Calculate Angle (0 is North/Up)
-        double angle = Math.Atan2(dy, dx) * (180 / Math.PI);
-        angle += 90; 
-        if (angle < 0) angle += 360;
-
-        // 5. Find closest item based on angle
-        RadialMenuItem? closest = null;
-        double minDiff = double.MaxValue;
-
-        foreach (var item in ActionItems)
-        {
-            // Simple angle diff
-            double diff = Math.Abs(angle - item.Angle);
-            if (diff > 180) diff = 360 - diff; // Wrap around
-
-            if (diff < minDiff)
-            {
-                minDiff = diff;
-                closest = item;
-            }
-        }
-
-        // 6. Highlight if within angular wedge (e.g. +/- 30 deg)
-        //    Adjust threshold based on count (360 / count / 2)
-        double threshold = (360.0 / ActionItems.Count) / 2.0;
-        
-        if (closest != null && minDiff < threshold)
-        {
-            HighlightItem(closest);
-            CenterText = closest.FullName; // Update Center Text
-        }
-        else
-        {
-            HighlightItem(null);
-            CenterText = "";
-        }
-    }
-
-    private void HighlightItem(RadialMenuItem? item)
-    {
-        if (_highlightedItem != item)
-        {
-            if (_highlightedItem != null) _highlightedItem.IsHighlighted = false;
-            _highlightedItem = item;
-            if (_highlightedItem != null) _highlightedItem.IsHighlighted = true;
-            OnPropertyChanged(nameof(HighlightedItem)); 
-        }
-    }
-
-    public void ExecuteHighlighted()
-    {
-        if (_highlightedItem != null)
-        {
-            _ = ExecuteScript(_highlightedItem.ScriptPath);
-        }
-        else
-        {
-            // Missed selection -> Close
-            RequestClose?.Invoke();
-        }
-    }
 
     [RelayCommand]
     public async Task ExecuteScript(string path)
@@ -327,10 +524,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             var fileName = Path.GetFileName(path);
             _logService?.AddLog($"[INFO] Menjalankan Action Script: {fileName}");
 
-            // 1. Write Context to Temp File (Standardizing with BatchViewModel)
-            // Even if empty, scripts might check for this file or shared libs might read it.
             var context = new { 
-                SourceFolders = new System.Collections.Generic.List<object>(), // No source folders in Radial mode
+                SourceFolders = new System.Collections.Generic.List<object>(),
                 OutputBasePath = "",
                 UseInput = false,
                 UseOutput = false
@@ -342,22 +537,18 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             
             _logService?.AddLog($"[INFO] Context written to: {tempPath}");
             
-            // 2. Launch Process
             var ext = Path.GetExtension(path).ToLower();
             
             if (ext == ".jsx")
             {
-                 // JSX Script -> Photoshop
                  _logService?.AddLog($"[INFO] Launching JSX: {fileName}");
                  
                  var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
                  if (string.IsNullOrEmpty(photoshopPath) || !_platformService.IsExecutableValid(photoshopPath))
                  {
                       _logService?.AddLog($"[ERROR] Photoshop path is invalid or not set. Please set it in Settings.\nPath checked: {photoshopPath}");
-                      
-                      // Request Close even on fail
                       RequestClose?.Invoke();
-                      return; // Halt execution instead of proceeding to run
+                      return;
                  }
                  
                  _platformService.RunJsxInPhotoshop(path, photoshopPath);
@@ -365,20 +556,14 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             }
             else if (ext == ".pyw")
             {
-                 // Python GUI Script
                  _logService?.AddLog($"[INFO] Launching Python Script: {fileName}");
-
-                  // Use platform service to run python script (it handles .pyw vs .py logic internally if needed, or we just pass it)
-                  // WindowsPlatformService handles .pyw via UseShellExecute=true usually, or specific pythonw launcher.
-                  // Linux/Mac need python3.
-                  _platformService.RunPythonScript(path, true);
+                 _platformService.RunPythonScript(path, true);
                  _logService?.AddLog("[SUCCESS] Python script launched.");
             }
             else
             {
-                 // Standard Python/Shell
                  _logService?.AddLog($"[INFO] Launching Script: {fileName}");
-                   _platformService.RunPythonScript(path, false);
+                 _platformService.RunPythonScript(path, false);
                  _logService?.AddLog("[SUCCESS] Script launched.");
             }
              
@@ -389,8 +574,6 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             _logService?.AddLog($"[ERROR] Action Launch Failed: {ex.Message}");
         }
     }
-
-
 
     public event Action? RequestClose;
 }

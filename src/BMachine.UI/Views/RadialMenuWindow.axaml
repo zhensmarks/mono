@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:BMachine.UI.ViewModels"
         xmlns:models="using:BMachine.UI.Models"
+        xmlns:controls="using:BMachine.UI.Controls"
         mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="400"
         x:Class="BMachine.UI.Views.RadialMenuWindow"
         x:DataType="vm:RadialMenuViewModel"
@@ -19,15 +20,17 @@
         Title="RadialMenu">
 
     <Window.Styles>
+        <!-- Item Button Style -->
         <Style Selector="Button.MenuButton">
             <Setter Property="Width" Value="32"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="CornerRadius" Value="16"/>
             <Setter Property="ClipToBounds" Value="False"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#20FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="Foreground" Value="#DDFFFFFF"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="8"/>
             <Setter Property="Template">
@@ -37,7 +40,7 @@
                                 Width="{TemplateBinding Width}"
                                 Height="{TemplateBinding Height}"
                                 CornerRadius="{TemplateBinding CornerRadius}"
-                                Background="#33FFFFFF" 
+                                Background="{TemplateBinding Background}" 
                                 BorderBrush="#20FFFFFF"
                                 BorderThickness="1">
                             <Border.Transitions>
@@ -65,35 +68,51 @@
              <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
              <Setter Property="BorderBrush" Value="White"/>
         </Style>
+
+        <!-- Navigation Button (More/Back) -->
+        <Style Selector="Button.NavButton">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="ClipToBounds" Value="False"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#20FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        
+        <Style Selector="Button.NavButton:pointerover">
+             <Setter Property="Background" Value="#44FFFFFF"/>
+             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
     </Window.Styles>
 
     <Border Background="Transparent">
         <Grid>
-             <!-- THE PLATE (Background Circle - Compact) -->
-             <Border Width="160" Height="160" CornerRadius="80"
-                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Background="#E6151515"
-                     BorderBrush="#30FFFFFF" BorderThickness="1"
-                     BoxShadow="0 8 30 0 #60000000">
-                 <!-- Optional: Inner ring or decorative element -->
-                 <Border Width="100" Height="100" CornerRadius="50" 
-                         BorderBrush="#10FFFFFF" BorderThickness="1"
-                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
-             </Border>
+             <!-- Ring area removed — fully transparent -->
 
-             <!-- Center Anchor / Cancel Zone -->
-             <Border Width="50" Height="50" CornerRadius="25" Background="#151515" 
-                     BorderBrush="#30FFFFFF" BorderThickness="1"
-                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                     BoxShadow="0 2 10 0 #40000000">
-                 <TextBlock Text="{Binding CenterText}" 
-                            Foreground="{DynamicResource AccentBlueBrush}" 
-                            FontWeight="Bold" FontSize="9"
-                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                            TextAlignment="Center" TextWrapping="Wrap"/>
-             </Border>
+             <!-- Pie Wedge Highlight -->
+             <controls:PieWedge Width="200" Height="200"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                StartAngle="{Binding WedgeStart}"
+                                SweepAngle="{Binding WedgeSweep}"
+                                InnerRadius="18"
+                                OuterRadius="72"
+                                Fill="#303b82f6"
+                                IsVisible="{Binding IsWedgeVisible}"/>
 
-             <ItemsControl ItemsSource="{Binding ActionItems}" ClipToBounds="False">
+             <!-- Inner Ring (decorative) -->
+             <Border Width="36" Height="36" CornerRadius="18" 
+                     BorderBrush="#15FFFFFF" BorderThickness="1"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+             <!-- Items on Canvas -->
+             <ItemsControl ItemsSource="{Binding VisibleItems}" ClipToBounds="False">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <Canvas Width="200" Height="200" ClipToBounds="False"/>
@@ -107,27 +126,59 @@
                 </ItemsControl.Styles>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:RadialMenuItem">
-                        <!-- Lock Grid size to Button size -->
                         <Grid Width="32" Height="32" ClipToBounds="False">
-                            <Button Classes="MenuButton" ToolTip.Tip="{Binding FullName}" 
+                            <!-- Regular script button -->
+                            <Button Classes="MenuButton" 
                                     Classes.highlighted="{Binding IsHighlighted}"
+                                    IsVisible="{Binding !IsNavigation}"
                                     Command="{Binding DataContext.ExecuteScript, ElementName=RadialRoot}" 
                                     CommandParameter="{Binding ScriptPath}">
                                 <Grid>
                                     <!-- Icon -->
                                     <Viewbox Width="16" Height="16" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                         <Path Data="{Binding Icon}" Fill="White" Stretch="Uniform"/>
+                                         <Path Data="{Binding Icon}" Fill="{DynamicResource TextPrimaryBrush}" Stretch="Uniform"/>
                                     </Viewbox>
                                     
-                                    <!-- Fallback Text (Smaller) -->
+                                    <!-- Fallback Text -->
                                     <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="8"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
                                                IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
                                 </Grid>
+                            </Button>
+
+                            <!-- Navigation button (More / Back) -->
+                            <Button Classes="NavButton"
+                                    IsVisible="{Binding IsNavigation}"
+                                    IsHitTestVisible="False">
+                                <TextBlock Text="{Binding ShortName}" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           FontSize="12" FontWeight="Bold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
                         </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
-            </ItemsControl>
+             </ItemsControl>
+
+             <!-- Hover Label (positioned further out to avoid overlapping icons) -->
+             <Canvas Width="200" Height="200" ClipToBounds="False" IsHitTestVisible="False"
+                     IsVisible="{Binding IsWedgeVisible}">
+                 <Border Canvas.Left="{Binding HighlightLabelX}" 
+                         Canvas.Top="{Binding HighlightLabelY}"
+                         Background="{DynamicResource CardBackgroundBrush}"
+                         BorderBrush="#30FFFFFF" BorderThickness="1"
+                         CornerRadius="10" Padding="8,3"
+                         BoxShadow="0 2 8 0 #40000000"
+                         Margin="-40,-12,0,0"
+                         MaxWidth="120">
+                     <TextBlock Text="{Binding HighlightLabel}" 
+                                Foreground="{DynamicResource TextPrimaryBrush}"
+                                FontSize="10" FontWeight="SemiBold"
+                                TextAlignment="Center"
+                                TextWrapping="Wrap"
+                                MaxLines="2"/>
+                 </Border>
+             </Canvas>
         </Grid>
     </Border>
 </Window>
