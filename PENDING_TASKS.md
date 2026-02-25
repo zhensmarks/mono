@@ -26,11 +26,12 @@
 ### 3. UI & Shortcuts
 - [x] **Drag to block-select**: Implementasi rubber-band selection (drag di area kosong untuk memilih beberapa item sekaligus).
 
-### 4. Advanced File Operations (Parallel & Batch UI) 🆕
+- [x] **Trello Sync**: Memastikan urutan kartu yang diubah di BMachine sinkron dengan benar di Trello.com. <!-- id: 37 -->
+- [x] **Terminal Responsiveness**: Memastikan panel log (terminal) menutup otomatis saat window dikecilkan dan tidak menabrak konten dashboard. <!-- id: 38 -->
 - [ ] **Peningkatan UI & Fitur Explorer:**
     - [ ] Aktifkan *copy-paste* di panel *preview* (txt/docx)
     - [ ] Perbaiki pintasan *copy* saat ganti nama file (F2)
-    - [ ] Fitur **Copy Path** (Ctrl+Shift+C) dan **Paste Path** (Ctrl+Shift+V) untuk navigasi cepat
+    - [x] Fitur **Copy Path** (Ctrl+Shift+C) dan **Paste Path** (Ctrl+Shift+V) untuk navigasi cepat <!-- id: 39 -->
     - [ ] Fitur **Reorder Tab** (Geser posisi tab kiri/kanan)
 - [ ] **Aksi Otomatis & Script Photoshop:**
     - [ ] Fitur **Auto REPLACE** (Inline Action Folder): Mencocokkan folder Output dengan Input secara otomatis dan menjalankan replace.
@@ -48,7 +49,7 @@
     - [x] Reposisi tombol aksi (Comment, Checklist, Move) di bawah judul kartu
     - [x] Ubah warna tombol aksi menjadi warna aksen aplikasi
 - [ ] **Dashboard UI:**
-    - [ ] Tambahkan jarak pada tombol script Python (.py) di footer agar tidak rapat
+    - [x] Tambahkan jarak pada tombol script Python (.py) di footer agar tidak rapat <!-- id: 36 -->
 - [ ] **Parallel Operation Queue**: Allows multiple file operations (Copy/Move) to be queued or run concurrently without blocking the UI.
     - Target: Background queue manager that accepts new tasks while others are running.
 - [ ] **Grouped Operation UI (Windows-like)**:

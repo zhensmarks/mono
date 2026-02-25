@@ -2125,18 +2125,33 @@ try {{
     private ObservableCollection<BatchScriptOption> _scriptOptions = new();
 
     private Dictionary<string, ScriptConfig> _scriptAliases = new();
-    private string _metadataPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+    private string _metadataPath => Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "scripts.json");
 
     private void LoadMetadata()
     {
         try
         {
+            var folder = Path.GetDirectoryName(_metadataPath);
+            if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+            
+            if (!File.Exists(_metadataPath))
+            {
+                var defaultPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+                if (File.Exists(defaultPath))
+                {
+                    File.Copy(defaultPath, _metadataPath);
+                }
+            }
+
             if (File.Exists(_metadataPath))
             {
                 var json = File.ReadAllText(_metadataPath);
-                try 
-                {
-                    _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ScriptConfig>>(json) ?? new();
+                
+                try
+                {    _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ScriptConfig>>(json) ?? new();
                 }
                 catch
                 {

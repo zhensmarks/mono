@@ -89,4 +89,10 @@ public interface IPlatformService
     /// Returns a status message to show the user.
     /// </summary>
     string SilencePhotoshopWarnings(string photoshopPath);
+
+    /// <summary>
+    /// Check if a given path is a valid executable for the current platform.
+    /// E.g. .app directories on macOS, .exe files on Windows.
+    /// </summary>
+    bool IsExecutableValid(string path);
 }

@@ -11,10 +11,11 @@ using BMachine.SDK;
 using BMachine.UI.Models;
 using Avalonia;
 using Avalonia.Controls;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class RadialMenuViewModel : ObservableObject
+public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mvvm.Messaging.IRecipient<BMachine.UI.Messages.ScriptOrderChangedMessage>
 {
     private readonly IDatabase? _database;
     private readonly Services.IProcessLogService? _logService;
@@ -41,6 +42,14 @@ public partial class RadialMenuViewModel : ObservableObject
         _logService = logService;
         _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get(); // Initialized _platformService
         
+        // Register all messages this class implements IRecipient for
+        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.RegisterAll(this);
+
+        LoadScripts();
+    }
+    
+    public void Receive(BMachine.UI.Messages.ScriptOrderChangedMessage message)
+    {
         LoadScripts();
     }
 
@@ -191,7 +200,23 @@ public partial class RadialMenuViewModel : ObservableObject
     {
         try
         {
-            var metaPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+            var metaPath = Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "scripts.json");
+            
+            var folder = Path.GetDirectoryName(metaPath);
+            if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+            
+            if (!File.Exists(metaPath))
+            {
+                var defaultPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+                if (File.Exists(defaultPath))
+                {
+                    File.Copy(defaultPath, metaPath);
+                }
+            }
+
             if (File.Exists(metaPath))
             {
                 var json = File.ReadAllText(metaPath);
@@ -326,13 +351,16 @@ public partial class RadialMenuViewModel : ObservableObject
                  _logService?.AddLog($"[INFO] Launching JSX: {fileName}");
                  
                  var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
-                 if (string.IsNullOrEmpty(photoshopPath))
+                 if (string.IsNullOrEmpty(photoshopPath) || !_platformService.IsExecutableValid(photoshopPath))
                  {
-                      // Try to find it? Or just warn
-                      _logService?.AddLog("[WARN] Photoshop path not set.");
+                      _logService?.AddLog($"[ERROR] Photoshop path is invalid or not set. Please set it in Settings.\nPath checked: {photoshopPath}");
+                      
+                      // Request Close even on fail
+                      RequestClose?.Invoke();
+                      return; // Halt execution instead of proceeding to run
                  }
                  
-                 _platformService.RunJsxInPhotoshop(path, photoshopPath ?? "");
+                 _platformService.RunJsxInPhotoshop(path, photoshopPath);
                  _logService?.AddLog("[SUCCESS] JSX sent to Photoshop.");
             }
             else if (ext == ".pyw")

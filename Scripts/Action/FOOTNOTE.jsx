@@ -69,6 +69,29 @@
         var btnAll = grpBtn.add("button", undefined, "Semua Dokumen");
         var btnCancel = grpBtn.add("button", undefined, "Batal", { name: "cancel" });
 
+        // === UTILS: Window Position Persistence ===
+        function loadWindowLocation() {
+            var f = new File(Folder.userData + "/bmachine_footnote_pos.json");
+            if (f.exists) {
+                f.open("r");
+                var data = f.read();
+                f.close();
+                try {
+                    var obj = eval("(" + data + ")");
+                    if (obj && typeof obj.x === 'number' && typeof obj.y === 'number') return obj;
+                } catch (e) { }
+            }
+            return null;
+        }
+
+        function saveWindowLocation(loc) {
+            if (!loc) return;
+            var f = new File(Folder.userData + "/bmachine_footnote_pos.json");
+            f.open("w");
+            f.write('{"x": ' + Math.round(loc.x) + ', "y": ' + Math.round(loc.y) + '}');
+            f.close();
+        }
+
         // === LOGIC ===
         function applyFootnote(doc, text, isBlack) {
             var layer = doc.artLayers.add();
@@ -115,13 +138,18 @@
             } else {
                 applyFootnote(app.activeDocument, fullText, isBlack);
             }
-            w.close();
+            w.close(1);
         }
 
         btnOk.onClick = function () { process(false); };
         btnAll.onClick = function () { process(true); };
-        btnCancel.onClick = function () { w.close(); };
+        btnCancel.onClick = function () { w.close(0); };
 
-        w.center();
-        w.show();
+        // Restore Position
+        var savedLoc = loadWindowLocation();
+        if (savedLoc) w.location = [savedLoc.x, savedLoc.y];
+        else w.center();
+
+        var res = w.show();
+        if (res != 0) saveWindowLocation(w.location);
     })();

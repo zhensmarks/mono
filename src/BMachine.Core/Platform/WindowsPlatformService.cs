@@ -208,6 +208,12 @@ public class WindowsPlatformService : IPlatformService
         catch (Exception ex) { return $"Error: {ex.Message}"; }
     }
 
+    public bool IsExecutableValid(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        return File.Exists(path);
+    }
+
     private static void WriteWarnRunningScripts(string configFile)
     {
         const string key = "WarnRunningScripts";

@@ -36,9 +36,11 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Required for JSX Scripts" FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" IsReadOnly="True" Watermark="Select Photoshop.exe or .app" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary" Margin="0,0,6,0"/>
-                        <Button Grid.Row="1" Grid.Column="2" Content="FIX PS WARNING" Command="{Binding FixPhotoshopWarningCommand}"
-                                Background="#E07020" Foreground="White" CornerRadius="6" Padding="10,8"
-                                ToolTip.Tip="Automatically suppress the Photoshop script security warning by writing to PSUserConfig.txt"/>
+                        <Button Grid.Row="1" Grid.Column="2" Command="{Binding FixPhotoshopWarningCommand}"
+                                Classes="Primary" Background="#E07020" Padding="8" CornerRadius="6"
+                                ToolTip.Tip="Fix PS Warning: Automatically suppress the Photoshop script security warning by writing to PSUserConfig.txt">
+                            <PathIcon Data="{StaticResource IconBolt}" Width="16" Height="16" Foreground="White" />
+                        </Button>
                     </Grid>
                 </StackPanel>
             </Border>

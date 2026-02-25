@@ -19,7 +19,7 @@
 
         // === UTILS: Window Position Persistence ===
         function loadWindowLocation() {
-            var f = new File(Folder.temp + "/bmachine_credaksi_pos.json");
+            var f = new File(Folder.userData + "/bmachine_credaksi_pos.json");
             if (f.exists) {
                 f.open("r");
                 var data = f.read();
@@ -34,7 +34,7 @@
 
         function saveWindowLocation(loc) {
             if (!loc) return;
-            var f = new File(Folder.temp + "/bmachine_credaksi_pos.json");
+            var f = new File(Folder.userData + "/bmachine_credaksi_pos.json");
             f.open("w");
             f.write('{"x": ' + Math.round(loc.x) + ', "y": ' + Math.round(loc.y) + '}');
             f.close();

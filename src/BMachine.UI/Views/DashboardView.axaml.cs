@@ -9,6 +9,9 @@ namespace BMachine.UI.Views;
 
 public partial class DashboardView : UserControl
 {
+    private double _previousWidth = 0;
+    private bool _isTogglingTerminal = false;
+
     public DashboardView()
     {
         InitializeComponent();
@@ -16,6 +19,76 @@ public partial class DashboardView : UserControl
         // Wire up Batch Drop Zone drag-drop handlers
         AddHandler(DragDrop.DropEvent, OnBatchDrop);
         AddHandler(DragDrop.DragOverEvent, OnBatchDragOver);
+
+        this.SizeChanged += OnDashboardSizeChanged;
+    }
+
+    private void OnDashboardSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        // Skip auto-close if we are mid-toggle (programmatic resize)
+        if (_isTogglingTerminal) return;
+
+        if (DataContext is DashboardViewModel vm)
+        {
+            // Auto close if window is manually resized smaller than 800
+            if (vm.IsLogPanelOpen && e.NewSize.Width < 800 && e.NewSize.Width < e.PreviousSize.Width)
+            {
+                vm.IsLogPanelOpen = false;
+                // Also shrink the window back
+                var window = TopLevel.GetTopLevel(this) as Window;
+                if (window != null && window.WindowState == WindowState.Normal)
+                {
+                    double curW = window.Bounds.Width;
+                    if (curW > 520) window.Width = Math.Max(520, curW - 279);
+                }
+            }
+
+            _previousWidth = e.NewSize.Width;
+        }
+    }
+
+    private void OnTerminalToggleClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm)
+        {
+            bool wasOpen = vm.IsLogPanelOpen;
+            
+            var window = TopLevel.GetTopLevel(this) as Window;
+            if (window != null && window.WindowState == WindowState.Normal)
+            {
+                double currentWidth = window.Bounds.Width;
+                if (currentWidth <= 0 || double.IsNaN(currentWidth))
+                    currentWidth = window.Width;
+
+                _isTogglingTerminal = true;
+
+                if (!wasOpen) // Opening: expand window FIRST, then show panel
+                {
+                    window.Width = currentWidth + 279;
+                    // Show panel on next layout pass so the window has already expanded
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        vm.IsLogPanelOpen = true;
+                        _isTogglingTerminal = false;
+                    }, Avalonia.Threading.DispatcherPriority.Render);
+                }
+                else // Closing: hide panel first, then shrink window
+                {
+                    vm.IsLogPanelOpen = false;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        double w = window.Bounds.Width;
+                        window.Width = Math.Max(520, w - 279);
+                        _isTogglingTerminal = false;
+                    }, Avalonia.Threading.DispatcherPriority.Render);
+                }
+            }
+            else
+            {
+                // Maximized or window not found, just toggle
+                vm.IsLogPanelOpen = !wasOpen;
+            }
+        }
     }
 
     private void OnBatchDragOver(object? sender, DragEventArgs e)

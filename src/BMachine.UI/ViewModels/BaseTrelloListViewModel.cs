@@ -1198,6 +1198,33 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     }
 
     // Helper for syncing cards
+    [RelayCommand]
+    public async Task UpdateCardPosition(TrelloCard card)
+    {
+        if (card == null) return;
+        
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            // Trello API uses PUT /1/cards/{id}?pos={pos}
+            var url = $"https://api.trello.com/1/cards/{card.Id}?pos={card.Pos}&key={apiKey}&token={token}";
+            var response = await client.PutAsync(url, null);
+            if (!response.IsSuccessStatusCode)
+            {
+                StatusMessage = $"Failed to update pos: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Pos Update Error: {ex.Message}";
+        }
+    }
+
+    // Helper for syncing cards
     protected void UpdateCardsCollection(List<TrelloCard> newCards)
     {
         var toRemove = Cards.Where(existing => !newCards.Any(newC => newC.Id == existing.Id)).ToList();
@@ -1218,6 +1245,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 existing.CoverUrl = newC.CoverUrl;
                 existing.CoverColor = newC.CoverColor;
                 existing.CoverAttachmentName = newC.CoverAttachmentName;
+                existing.Pos = newC.Pos;
             }
             else
             {
@@ -1233,8 +1261,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         
         using var client = new HttpClient();
         client.Timeout = TimeSpan.FromSeconds(15); 
-        // Added cover to fields, attachments=true to get cover image URL
-        var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges,cover&checklists=all&attachments=true&attachment_fields=url,name";
+        // Added cover to fields, attachments=true to get cover image URL, and pos
+        var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges,cover,pos&checklists=all&attachments=true&attachment_fields=url,name";
         
         string json = "";
         
@@ -1275,7 +1303,12 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     Name = element.GetProperty("name").GetString() ?? "",
                     Description = element.GetProperty("desc").GetString() ?? ""
                 };
-                
+
+                if (element.TryGetProperty("pos", out var posProp) && posProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    card.Pos = posProp.GetDouble();
+                }
+                                
                 if (element.TryGetProperty("due", out var dueProp) && dueProp.ValueKind != System.Text.Json.JsonValueKind.Null)
                 {
                     if (DateTime.TryParse(dueProp.GetString(), out var dt))

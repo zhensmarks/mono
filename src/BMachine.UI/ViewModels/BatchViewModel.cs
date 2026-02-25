@@ -932,7 +932,7 @@ namespace BMachine.UI.ViewModels;
                  // 3. Run Jsx
                  // We need a Photoshop Path.
                  var psPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
-                 if (!string.IsNullOrEmpty(psPath) && File.Exists(psPath))
+                 if (!string.IsNullOrEmpty(psPath) && _platformService.IsExecutableValid(psPath))
                  {
                       _platformService.RunJsxInPhotoshop(scriptPath, psPath);
                       _logService?.AddLog($"[INFO] Sent to Photoshop: {item.Name}");
@@ -983,13 +983,13 @@ namespace BMachine.UI.ViewModels;
                 }
 
                 // 2. Fallback to Helper
-                if (string.IsNullOrEmpty(psPath) || !File.Exists(psPath))
+                if (string.IsNullOrEmpty(psPath) || !_platformService.IsExecutableValid(psPath))
                 {
                     var psPaths = _platformService.GetPhotoshopSearchPaths();
-                    psPath = psPaths.FirstOrDefault(p => File.Exists(p));
+                    psPath = psPaths.FirstOrDefault(p => _platformService.IsExecutableValid(p));
                 }
                 
-                if (!string.IsNullOrEmpty(psPath) && File.Exists(psPath))
+                if (!string.IsNullOrEmpty(psPath) && _platformService.IsExecutableValid(psPath))
                 {
                      // Use specific Photoshop executable
                      Process.Start(new ProcessStartInfo(psPath) { Arguments = $"\"{fullPath}\"", UseShellExecute = false });
@@ -1075,17 +1075,31 @@ namespace BMachine.UI.ViewModels;
     }
 
     private Dictionary<string, ScriptConfig> _scriptAliases = new();
-    private string _metadataPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+    private string _metadataPath => Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "scripts.json");
 
     private void LoadMetadata()
     {
         try
         {
+            var folder = Path.GetDirectoryName(_metadataPath);
+            if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+            
+            if (!File.Exists(_metadataPath))
+            {
+                var defaultPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+                if (File.Exists(defaultPath))
+                {
+                    File.Copy(defaultPath, _metadataPath);
+                }
+            }
+
             if (File.Exists(_metadataPath))
             {
                 var json = File.ReadAllText(_metadataPath);
                 
-                // Load Dictionary
                 try 
                 {
                     _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ScriptConfig>>(json) ?? new();

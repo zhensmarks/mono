@@ -110,7 +110,8 @@
                                     
                                     <Border ClipToBounds="True" CornerRadius="6" 
                                             BorderThickness="1"
-                                            Classes.selected="{Binding IsActive}">
+                                            Classes.selected="{Binding IsActive}"
+                                            DragDrop.AllowDrop="True" DragDrop.DragOver="OnCardDragOver" DragDrop.Drop="OnCardDrop">
                                         <Border.Styles>
                                             <Style Selector="Border.selected">
                                                 <Setter Property="Background" Value="{DynamicResource AccentRevisionLowOpacityBrush}"/>
@@ -138,29 +139,36 @@
                                             </Border>
 
                                             <!-- Content Grid -->
-                                            <Grid Grid.Row="1" ColumnDefinitions="4, Auto, *, Auto" MinHeight="50" Margin="0,4">
+                                            <Grid Grid.Row="1" ColumnDefinitions="4, Auto, Auto, *, Auto" MinHeight="50" Margin="0,4">
                                             <!-- Accent Line (Left) -->
                                             <Border Grid.Column="0" Background="{DynamicResource AccentRevisionBrush}" 
                                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                                     IsVisible="{Binding !IsActive}"/>
+                                                    
+                                            <!-- Drag Handle -->
+                                            <PathIcon Grid.Column="1" Data="{StaticResource IconMenu}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                      Margin="10,0,0,0" VerticalAlignment="Center" Cursor="SizeAll"
+                                                      ToolTip.Tip="Drag to Reorder"
+                                                      PointerPressed="OnCardPointerPressed"/>
                                             
                                             <!-- Checkbox -->
-                                            <CheckBox Grid.Column="1" IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                            <CheckBox Grid.Column="2" IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                                       Margin="10,0,0,0" VerticalAlignment="Center"
                                                       Command="{Binding $parent[UserControl].DataContext.SelectionChangedCommand}"/>
                                             
                                             <!-- Name & Footer Actions -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,6" Spacing="4">
+                                            <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="10,6" Spacing="4">
                                                 <TextBlock Text="{Binding Name}" 
                                                            FontWeight="SemiBold" FontSize="14" 
                                                            Foreground="{DynamicResource TextPrimaryBrush}" 
+                                                           TextWrapping="Wrap" MaxLines="2"
                                                            TextTrimming="CharacterEllipsis"/>
 
 
                                             </StackPanel>
                                             
                                             <!-- Status Badges (Right Side) -->
-                                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0" Spacing="6">
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0" Spacing="6">
                                                 
                                                 <!-- Checklist Progress -->
                                                 <Border Grid.Column="3" CornerRadius="4" Padding="6,2" Margin="0,0,10,0" VerticalAlignment="Center"
@@ -194,14 +202,7 @@
                                                  </PathIcon>
                                             </Border>
 
-                                            <!-- Attachment Badge -->
-                                            <Border Grid.Column="4" Background="#26FFFFFF" CornerRadius="4" Padding="6,2" Margin="0,0,10,0"
-                                                    IsVisible="{Binding HasAttachments}" VerticalAlignment="Center">
-                                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <PathIcon Data="{StaticResource IconPaperclip}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <TextBlock Text="{Binding AttachmentCount}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                                </Border>
+
                                             </StackPanel>
 
                                         </Grid> <!-- End Content Grid -->
@@ -376,21 +377,13 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Background="#10FFFFFF" CornerRadius="8" Padding="12" Margin="0,0,0,10">
-                                        <Grid ColumnDefinitions="Auto, *">
-                                            <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource AccentColorBrush}" Margin="0,0,12,0" VerticalAlignment="Top" ClipToBounds="True">
-                                                <Panel>
-                                                    <TextBlock Text="{Binding MemberCreatorInitials}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
-                                                </Panel>
-                                            </Border>
-                                            
-                                            <StackPanel Grid.Column="1" Spacing="4">
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                    <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                                <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
+                                        <StackPanel Spacing="4">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                             </StackPanel>
-                                        </Grid>
+                                            <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -623,7 +616,8 @@
         <!-- Side Panel: Attachments -->
         <Border x:Name="Part_AttachmentPanel" Grid.Column="1" Width="400" Background="{DynamicResource CardBackgroundBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
-                IsVisible="{Binding IsAttachmentPanelOpen}">
+                IsVisible="{Binding IsAttachmentPanelOpen}"
+                PointerPressed="OnSubPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
                 <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
                     <StackPanel Spacing="5">

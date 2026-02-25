@@ -219,19 +219,35 @@ public partial class FloatingWidgetViewModel : ObservableObject
     // Metadata for Aliases and Priority
     private Dictionary<string, string> _scriptAliases = new();
     private List<string> _scriptPriorityList = new(); // Stores order of keys in JSON
-    private string _metadataPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
-
+    
     [ObservableProperty] private string _customScriptsPath = "";
+
+    private string _metadataPath => Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "scripts.json");
 
     private void LoadMetadata()
     {
         try
         {
+            var folder = Path.GetDirectoryName(_metadataPath);
+            if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+            
+            if (!File.Exists(_metadataPath))
+            {
+                var defaultPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+                if (File.Exists(defaultPath))
+                {
+                    File.Copy(defaultPath, _metadataPath);
+                }
+            }
+
             if (File.Exists(_metadataPath))
             {
                 var json = File.ReadAllText(_metadataPath);
                 
-                // 1. Load Dictionary for Display Names
+                // Try Parse New Format
                 _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
 
                 // 2. Load Keys List for Order Priority
@@ -568,9 +584,9 @@ public partial class FloatingWidgetViewModel : ObservableObject
             if (_database == null) return;
         
         var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
-        if (string.IsNullOrEmpty(photoshopPath) || !File.Exists(photoshopPath))
+        if (string.IsNullOrEmpty(photoshopPath) || !_platformService.IsExecutableValid(photoshopPath))
         {
-             _logService?.AddLog("[ERROR] Photoshop path not set or invalid. Please Config in Settings.");
+             _logService?.AddLog($"[ERROR] Photoshop path not set or invalid. Please Config in Settings. Path: {photoshopPath}");
              _platformService.RevealFileInExplorer(scriptPath); // Fallback: Show file
              return;
         }

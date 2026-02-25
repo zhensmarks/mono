@@ -159,7 +159,7 @@
                     </Button>
                     
                     <!-- Terminal/Log Button -->
-                    <ToggleButton Command="{Binding ToggleLogPanelCommand}" 
+                    <ToggleButton Click="OnTerminalToggleClick" 
                                   IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
                                   Width="36" Height="36" Padding="0"
                                   Background="Transparent" BorderThickness="0"
@@ -1078,11 +1078,11 @@
         </Grid>
     </Grid>
 
-    <!-- GRID SPLITTER (DISABLED) -->
+    <!-- GRID SPLITTER -->
     <GridSplitter Grid.Column="2" Width="0" HorizontalAlignment="Stretch" Background="Transparent" 
                   ResizeDirection="Columns" IsVisible="False"/>
 
-    <!-- LOG PANEL (NOW RIGHT) -->
+    <!-- LOG PANEL -->
     <views:LogPanelSidebar Grid.Column="3" Width="279"
                            IsVisible="{Binding IsLogPanelOpen}" 
                            VerticalAlignment="Stretch"/>

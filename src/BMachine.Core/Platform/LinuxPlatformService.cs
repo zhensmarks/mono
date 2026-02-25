@@ -171,4 +171,10 @@ public class LinuxPlatformService : IPlatformService
     {
         return "Linux: Photoshop is not native. If running via Wine, use this feature on Windows to generate PSUserConfig.txt, then copy it to your Wine prefix: ~/.wine/drive_c/users/<name>/AppData/Roaming/Adobe/Adobe Photoshop <version> Settings/";
     }
+
+    public bool IsExecutableValid(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        return System.IO.File.Exists(path);
+    }
 }

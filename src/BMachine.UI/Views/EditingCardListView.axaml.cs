@@ -301,4 +301,81 @@ public partial class EditingCardListView : UserControl
              }
          }
     }
+
+    private async void OnCardPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Control control && control.DataContext is BMachine.UI.Models.TrelloCard card)
+        {
+            var dragData = new DataObject();
+            dragData.Set("TrelloCard", card);
+            
+            var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+        }
+    }
+
+    private void OnCardDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = DragDropEffects.None;
+        
+        if (e.Data.Contains("TrelloCard") && sender is Control targetControl && targetControl.DataContext is BMachine.UI.Models.TrelloCard targetCard)
+        {
+             if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
+             {
+                 var draggedCard = e.Data.Get("TrelloCard") as BMachine.UI.Models.TrelloCard;
+                 if (draggedCard != null && draggedCard != targetCard && vm.Cards.Contains(draggedCard))
+                 {
+                     e.DragEffects = DragDropEffects.Move;
+                 }
+             }
+        }
+    }
+
+    private void OnCardDrop(object? sender, DragEventArgs e)
+    {
+        if (sender is not Control targetControl || 
+            targetControl.DataContext is not BMachine.UI.Models.TrelloCard targetCard ||
+            DataContext is not BMachine.UI.ViewModels.EditingCardListViewModel vm) return;
+
+        if (e.Data.Contains("TrelloCard") && e.Data.Get("TrelloCard") is BMachine.UI.Models.TrelloCard draggedCard)
+        {
+             if (vm.Cards.Contains(draggedCard))
+             {
+                 int oldIndex = vm.Cards.IndexOf(draggedCard);
+                 int newIndex = vm.Cards.IndexOf(targetCard);
+                 
+                 if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex)
+                 {
+                     vm.Cards.Move(oldIndex, newIndex);
+                     
+                     // Calculate new Pos for Trello
+                     double newPos = 10000;
+                     if (newIndex == 0)
+                     {
+                         if (vm.Cards.Count > 1) {
+                             newPos = vm.Cards[1].Pos / 2.0; // Half of the previous top item
+                         }
+                     }
+                     else if (newIndex == vm.Cards.Count - 1)
+                     {
+                         if (vm.Cards.Count > 1) {
+                             newPos = vm.Cards[newIndex - 1].Pos + 10000;
+                         } 
+                     }
+                     else
+                     {
+                         double prevPos = vm.Cards[newIndex - 1].Pos;
+                         double nextPos = vm.Cards[newIndex + 1].Pos;
+                         newPos = (prevPos + nextPos) / 2.0;
+                     }
+                     
+                     draggedCard.Pos = newPos;
+                     
+                     if (vm.UpdateCardPositionCommand.CanExecute(draggedCard))
+                     {
+                         vm.UpdateCardPositionCommand.Execute(draggedCard);
+                     }
+                 }
+             }
+        }
+    }
 }

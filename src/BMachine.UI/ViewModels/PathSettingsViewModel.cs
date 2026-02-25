@@ -197,25 +197,62 @@ public partial class PathSettingsViewModel : ObservableObject
     {
          var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
          if (topLevel == null) return;
-         
-         var result = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+         string selectedPath = null;
+
+         if (OperatingSystem.IsMacOS() && type == "Photoshop")
          {
-             Title = $"Select Executable for {type}",
-             AllowMultiple = false,
-             FileTypeFilter = new[] 
-             { 
-                 new FilePickerFileType("Executables") { Patterns = new[] { "*.exe", "*.app", "*.sh", "*.py" } },
-                 new FilePickerFileType("All Files") { Patterns = new[] { "*" } } 
+             var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+             {
+                 Title = $"Select Executable (.app) for {type}",
+                 AllowMultiple = false
+             });
+             
+             if (result != null && result.Count > 0)
+             {
+                 selectedPath = result[0].Path.LocalPath;
+                 
+                 // Auto-correct if user selected the parent folder instead of the .app bundle
+                 if (!selectedPath.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+                 {
+                     var appBundles = System.IO.Directory.GetDirectories(selectedPath, "*.app");
+                     if (appBundles.Length > 0)
+                     {
+                         // Pick the first .app bundle found inside the selected folder
+                         // Ideally "Adobe Photoshop 202x.app"
+                         selectedPath = appBundles.FirstOrDefault(p => p.Contains("Photoshop")) ?? appBundles[0];
+                     }
+                 }
              }
-         });
-         
-         if (result != null && result.Count > 0)
+         }
+         else
          {
-             var path = result[0].Path.LocalPath;
+             var result = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+             {
+                 Title = $"Select Executable for {type}",
+                 AllowMultiple = false,
+                 FileTypeFilter = new[] 
+                 { 
+                     new FilePickerFileType("Executables") 
+                     { 
+                         Patterns = new[] { "*.exe", "*.app", "*.sh", "*.py" },
+                         AppleUniformTypeIdentifiers = new[] { "com.apple.application-bundle", "public.executable" }
+                     },
+                     new FilePickerFileType("All Files") { Patterns = new[] { "*" } } 
+                 }
+             });
+             
+             if (result != null && result.Count > 0)
+             {
+                 selectedPath = result[0].Path.LocalPath;
+             }
+         }
+         
+         if (!string.IsNullOrEmpty(selectedPath))
+         {
              if (type == "Photoshop")
              {
-                 PathPhotoshop = path;
-                 await _database.SetAsync("Configs.Master.PhotoshopPath", path);
+                 PathPhotoshop = selectedPath;
+                 await _database.SetAsync("Configs.Master.PhotoshopPath", selectedPath);
              }
              _notificationService?.ShowSuccess($"{type} Path Updated");
          }

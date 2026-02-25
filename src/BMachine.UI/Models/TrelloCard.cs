@@ -11,6 +11,9 @@ public partial class TrelloCard : ObservableObject
     [NotifyPropertyChangedFor(nameof(DisplayId))]
     private string _name = "";
 
+    [ObservableProperty]
+    private double _pos;
+
     // ...
 
     // Computed property for logic ID (prefix before _)
