@@ -94,7 +94,10 @@
 
     <Border Background="Transparent">
         <Grid>
-             <!-- Ring area removed — fully transparent -->
+             <!-- Planet Orbit Ring -->
+             <Border Width="116" Height="116" CornerRadius="58"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     BorderBrush="#15FFFFFF" BorderThickness="1.5"/>
 
              <!-- Pie Wedge Highlight -->
              <controls:PieWedge Width="200" Height="200"
