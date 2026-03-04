@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TrelloCompact.ViewModels"
+             xmlns:conv="using:TrelloCompact.Converters"
+             x:Class="TrelloCompact.Views.AddTabDialog"
+             x:DataType="vm:AddTabViewModel">
+    <Border Background="#CC000000">
+        <Border Background="{DynamicResource ControlBackgroundBrush}" 
+                BorderBrush="{DynamicResource ControlBorderBrush}" 
+                BorderThickness="1" 
+                CornerRadius="8" 
+                MaxWidth="400" 
+                VerticalAlignment="Center" 
+                HorizontalAlignment="Center" 
+                Padding="20"
+                Margin="20">
+            
+            <StackPanel Spacing="12">
+                <TextBlock Text="Add New Tab" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                
+                <TextBlock Text="Tab Name:" FontWeight="SemiBold"/>
+                <TextBox Text="{Binding TabName}" Watermark="e.g. My Tasks"/>
+                
+                <TextBlock Text="1. Select Board:" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                <AutoCompleteBox ItemsSource="{Binding Boards}" 
+                                 SelectedItem="{Binding SelectedBoard}"
+                                 FilterMode="ContainsOrdinal"
+                                 Watermark="Type to search boards..."
+                                 HorizontalAlignment="Stretch"
+                                 IsEnabled="{Binding !IsLoading}"/>
+
+                <TextBlock Text="2. Select List:" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                <AutoCompleteBox ItemsSource="{Binding Lists}" 
+                                 SelectedItem="{Binding SelectedList}"
+                                 FilterMode="ContainsOrdinal"
+                                 Watermark="Type to search lists..."
+                                 HorizontalAlignment="Stretch"
+                                 IsEnabled="{Binding !IsLoading}"/>
+
+                <TextBlock Text="3. Accent Color:" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                <ItemsControl ItemsSource="{Binding PredefinedColors}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Margin="3" Padding="0" Background="Transparent" BorderThickness="0"
+                                    Command="{Binding $parent[UserControl].((vm:AddTabViewModel)DataContext).SetAccentColorCommand}"
+                                    CommandParameter="{Binding}">
+                                <Border Width="28" Height="28" CornerRadius="14" Background="{Binding}" BorderBrush="White" BorderThickness="0"/>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBox Text="{Binding AccentColor}" Watermark="#HexColor" Margin="0,2,0,0"/>
+
+                <TextBlock Text="Loading data..." Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center"/>
+
+                <Grid ColumnDefinitions="*, 10, *" Margin="0,15,0,0">
+                    <Button Grid.Column="0" Content="Cancel" Command="{Binding CancelCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                    <Button Grid.Column="2" Content="Add Tab" Command="{Binding SaveCommand}" Theme="{DynamicResource SolidButton}" Background="{Binding AccentColor}" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="Bold"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Border>
+</UserControl>

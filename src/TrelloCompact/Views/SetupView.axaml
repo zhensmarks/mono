@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TrelloCompact.ViewModels"
+             x:Class="TrelloCompact.Views.SetupView"
+             x:DataType="vm:SetupViewModel">
+    <Border Background="{DynamicResource AppBackgroundBrush}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel MaxWidth="400" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" Margin="20">
+                <TextBlock Text="Welcome to TrelloCompact" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                
+                <TextBlock Text="To get started, enter your Trello API Key and Token. Your data is stored locally on this machine." TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                
+                <TextBlock Text="API Key:" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                <Grid ColumnDefinitions="*, Auto">
+                    <TextBox Grid.Column="0" Text="{Binding ApiKey}" Watermark="Enter Trello API Key" />
+                    <Button Grid.Column="1" Content="Get API" Command="{Binding OpenApiKeyUrlCommand}" Margin="8,0,0,0" ToolTip.Tip="Opens browser to get your API Key"/>
+                </Grid>
+                
+                <TextBlock Text="Token:" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                <Grid ColumnDefinitions="*, Auto">
+                    <TextBox Grid.Column="0" Text="{Binding Token}" Watermark="Enter Trello Token" PasswordChar="*" />
+                    <Button Grid.Column="1" Content="Get Token" Command="{Binding OpenTokenUrlCommand}" Margin="8,0,0,0" ToolTip.Tip="Opens browser to generate token (Requires API Key)"/>
+                </Grid>
+                
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="#ef4444" TextWrapping="Wrap" IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                
+                <Button Content="Connect"
+                        Command="{Binding ConnectCommand}" 
+                        Theme="{DynamicResource SolidButton}" 
+                        Background="#3b82f6" 
+                        Foreground="White" 
+                        HorizontalAlignment="Stretch" 
+                        HorizontalContentAlignment="Center"
+                        Margin="0,15,0,0"
+                        IsEnabled="{Binding !IsLoading}"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>

@@ -1,0 +1,26 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:semi="https://irihi.tech/semi"
+             x:Class="TrelloCompact.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Styles>
+    <semi:SemiTheme Locale="en-US" />
+    <StyleInclude Source="avares://Semi.Avalonia.ColorPicker/Index.axaml" />
+  </Application.Styles>
+
+  <Application.Resources>
+    <!-- Backgrounds -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#000000" />
+    
+    <!-- Text Colors -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#ffffff" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A1A1AA" />
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#71717A" />
+
+    <!-- Control Colors -->
+    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#1E1E1E" />
+    <SolidColorBrush x:Key="ControlBorderBrush" Color="#333333" />
+    <SolidColorBrush x:Key="ControlHoverBrush" Color="#2D2D2D" />
+  </Application.Resources>
+</Application>

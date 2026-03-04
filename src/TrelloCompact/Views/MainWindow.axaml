@@ -1,0 +1,146 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TrelloCompact.ViewModels"
+        xmlns:v="using:TrelloCompact.Views"
+        x:Class="TrelloCompact.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="TrelloCompact"
+        Icon="avares://TrelloCompact/Assets/app.ico"
+        MinWidth="350" MinHeight="300"
+        Background="{DynamicResource AppBackgroundBrush}">
+
+    <Panel>
+        <!-- Setup Mode -->
+        <v:SetupView DataContext="{Binding SetupVm}" IsVisible="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsSetupMode}" />
+
+        <!-- Main App Mode -->
+        <Grid RowDefinitions="Auto, *, Auto" IsVisible="{Binding !IsSetupMode}">
+            
+            <!-- Header Tab Bar -->
+            <Border Grid.Row="0" Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="0,0,0,1">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <StackPanel Orientation="Horizontal" Spacing="0" Margin="5,0">
+                        <!-- Tabs -->
+                        <ItemsControl ItemsSource="{Binding Tabs}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="2" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:TabViewModel">
+                                    <Button Background="Transparent" BorderThickness="0,0,0,3" BorderBrush="{Binding AccentColor}" CornerRadius="4,4,0,0" Padding="10,8"
+                                            Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).SelectTabCommand}" CommandParameter="{Binding}">
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Edit Tab" Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).EditTabCommand}" CommandParameter="{Binding}"/>
+                                                <Separator/>
+                                                <MenuItem Header="Close Tab" Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).CloseTabCommand}" CommandParameter="{Binding}"/>
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                        <TextBlock Text="{Binding TabName}" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Add Tab Button -->
+                        <Button Content="+" Command="{Binding OpenAddTabDialogCommand}" Background="#2D2D2D" Foreground="White" VerticalAlignment="Center" CornerRadius="4" FontWeight="Bold" Padding="8,4" Margin="5,0,0,0"/>
+                        
+                        <!-- Settings Button -->
+                        <Button Content="⚙" Command="{Binding OpenSettingsCommand}" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" CornerRadius="4" FontSize="14" Padding="8,4" Margin="3,0,0,0" ToolTip.Tip="Settings"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Current Tab Content (or empty state) -->
+            <Panel Grid.Row="1">
+                <ContentControl Content="{Binding SelectedTab}" IsVisible="{Binding SelectedTab, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <ContentControl.DataTemplates>
+                        <DataTemplate DataType="vm:TabViewModel">
+                            <v:CardListView />
+                        </DataTemplate>
+                    </ContentControl.DataTemplates>
+                </ContentControl>
+
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10"
+                            IsVisible="{Binding SelectedTab, Converter={x:Static ObjectConverters.IsNull}}">
+                    <TextBlock Text="No tabs open" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Click + to add a new tab" FontSize="13" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Panel>
+
+            <!-- Status Bar -->
+            <Border Grid.Row="2" Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="0,1,0,0" Padding="10,4">
+                <Grid ColumnDefinitions="Auto, *, Auto">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <!-- Online indicator -->
+                        <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="#22c55e" IsVisible="{Binding SelectedTab.IsOnline}"/>
+                        <TextBlock Text="Online" FontSize="11" Foreground="#22c55e" VerticalAlignment="Center" IsVisible="{Binding SelectedTab.IsOnline}"/>
+                        <!-- Offline indicator -->
+                        <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="#ef4444" IsVisible="{Binding SelectedTab.IsOnline, Converter={x:Static BoolConverters.Not}, FallbackValue=False}"/>
+                        <TextBlock Text="Offline (Read Only)" FontSize="11" Foreground="#ef4444" VerticalAlignment="Center" IsVisible="{Binding SelectedTab.IsOnline, Converter={x:Static BoolConverters.Not}, FallbackValue=False}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="TrelloCompact" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Add Tab Modal -->
+        <v:AddTabDialog DataContext="{Binding AddTabVm}" IsVisible="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).IsAddTabDialogOpen}" />
+
+        <!-- Edit Tab Modal -->
+        <Border Background="#CC000000" IsVisible="{Binding IsEditTabDialogOpen}" ZIndex="200">
+            <Border Background="{DynamicResource ControlBackgroundBrush}" 
+                    BorderBrush="{DynamicResource ControlBorderBrush}" 
+                    BorderThickness="1" CornerRadius="8" 
+                    MaxWidth="350" VerticalAlignment="Center" HorizontalAlignment="Center" 
+                    Padding="20" Margin="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Edit Tab" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Tab Name:" FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding EditTabName}"/>
+                    <TextBlock Text="Accent Color:" FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding EditTabColor}" Watermark="#HexColor"/>
+                    <Grid ColumnDefinitions="*, 10, *" Margin="0,10,0,0">
+                        <Button Grid.Column="0" Content="Cancel" Command="{Binding CancelEditTabCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                        <Button Grid.Column="2" Content="Save" Command="{Binding SaveEditTabCommand}" Theme="{DynamicResource SolidButton}" Background="#3b82f6" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="Bold"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- Settings Modal -->
+        <Border Background="#CC000000" IsVisible="{Binding IsSettingsDialogOpen}" ZIndex="200">
+            <Border Background="{DynamicResource ControlBackgroundBrush}" 
+                    BorderBrush="{DynamicResource ControlBorderBrush}" 
+                    BorderThickness="1" CornerRadius="8" 
+                    MaxWidth="400" VerticalAlignment="Center" HorizontalAlignment="Center" 
+                    Padding="20" Margin="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="⚙ Settings" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    
+                    <!-- Display Name -->
+                    <TextBlock Text="Display Name:" FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding SettingsDisplayName}" Watermark="Your name"/>
+                    <TextBlock Text="Used for duplicate checklist naming" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    
+                    <Separator Background="{DynamicResource ControlBorderBrush}" Margin="0,5"/>
+                    
+                    <!-- Default Move -->
+                    <TextBlock Text="Default Move Target:" FontWeight="SemiBold"/>
+                    <Grid ColumnDefinitions="*, Auto">
+                        <TextBlock Text="{Binding SettingsDefaultMoveInfo}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
+                        <Button Grid.Column="1" Content="Clear" Command="{Binding ClearDefaultMoveCommand}" Padding="8,3" FontSize="11"/>
+                    </Grid>
+                    <TextBlock Text="Set default via the 'Set as default' checkbox in the Move panel" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                    
+                    <Grid ColumnDefinitions="*, 10, *" Margin="0,10,0,0">
+                        <Button Grid.Column="0" Content="Cancel" Command="{Binding CancelSettingsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                        <Button Grid.Column="2" Content="Save" Command="{Binding SaveSettingsCommand}" Theme="{DynamicResource SolidButton}" Background="#3b82f6" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="Bold"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Panel>
+</Window>

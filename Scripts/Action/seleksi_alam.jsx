@@ -8,6 +8,8 @@
         2. S-WS BARU ORTU
         3. S-PROFESI
         4. S-PROFESI ORTU
+        5. S-WS NO BG
+        6. S-PROFESI NO BG
     */
 
     (function () {
@@ -107,6 +109,18 @@
                 var list = ["REDAKSI SEKOLAH", "ASET", "KECIL", "BG", "BG ORTU", "KECIL ORTU"];
                 hideLayers(doc, list);
             }
+            else if (mode === 5) {
+                // S-WS NO BG
+                // Hide: REDAKSI SEKOLAH, ASET, KECIL, BG KECIL, PROP, KARPET
+                var list = ["REDAKSI SEKOLAH", "ASET", "KECIL", "BG KECIL", "PROP", "KARPET", "karpet"];
+                hideLayers(doc, list);
+            }
+            else if (mode === 6) {
+                // S-PROFESI NO BG
+                // Hide: REDAKSI SEKOLAH, ASET, KECIL
+                var list = ["REDAKSI SEKOLAH", "ASET", "KECIL"];
+                hideLayers(doc, list);
+            }
         }
 
         // === UI ===
@@ -126,12 +140,14 @@
         col1.orientation = "column";
         var btn1 = col1.add("button", [0, 0, 140, 40], "S-WS BARU");
         var btn3 = col1.add("button", [0, 0, 140, 40], "S-PROFESI");
+        var btn5 = col1.add("button", [0, 0, 140, 40], "S-WS NO BG");
 
         // Kolom 2
         var col2 = grp.add("group");
         col2.orientation = "column";
         var btn2 = col2.add("button", [0, 0, 140, 40], "S-WS BARU ORTU");
         var btn4 = col2.add("button", [0, 0, 140, 40], "S-PROFESI ORTU");
+        var btn6 = col2.add("button", [0, 0, 140, 40], "S-PROFESI NO BG");
 
         // Batch Checkbox
         var cbBatch = w.add("checkbox", undefined, "Batch (Semua File Terbuka)");
@@ -144,6 +160,8 @@
         btn2.onClick = function () { processDocument(2, cbBatch.value); w.close(); };
         btn3.onClick = function () { processDocument(3, cbBatch.value); w.close(); };
         btn4.onClick = function () { processDocument(4, cbBatch.value); w.close(); };
+        btn5.onClick = function () { processDocument(5, cbBatch.value); w.close(); };
+        btn6.onClick = function () { processDocument(6, cbBatch.value); w.close(); };
         btnCancel.onClick = function () { w.close(); };
 
         // Restore Position

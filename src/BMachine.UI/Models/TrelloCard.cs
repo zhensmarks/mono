@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace BMachine.UI.Models;
@@ -34,7 +35,24 @@ public partial class TrelloCard : ObservableObject
     public bool HasDisplayId => !string.IsNullOrEmpty(DisplayId);
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EventDateText))]
+    [NotifyPropertyChangedFor(nameof(HasEventDate))]
     private string _description = "";
+
+    /// <summary>
+    /// Extracts the event date from the description (e.g. "TANGGAL EVENT: SABTU 14 FEBRUARY 2026")
+    /// </summary>
+    public string EventDateText
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(Description)) return "";
+            var match = Regex.Match(Description, @"TANGGAL EVENT\s*:\s*(.+)", RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups[1].Value.Trim() : "";
+        }
+    }
+
+    public bool HasEventDate => !string.IsNullOrEmpty(EventDateText);
 
     [ObservableProperty]
     private DateTime? _dueDate;

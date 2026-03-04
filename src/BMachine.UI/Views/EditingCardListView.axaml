@@ -252,9 +252,15 @@
                           <!-- Header: Title + Close -->
                           <Grid ColumnDefinitions="*, Auto">
                               <StackPanel>
-                                  <TextBlock Text="{Binding SelectedCard.CoverDisplayName}" FontWeight="SemiBold" FontSize="13" 
-                                             Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"
-                                             IsVisible="{Binding SelectedCard.HasCoverDisplayName}"/>
+                                  <Grid ColumnDefinitions="*, Auto">
+                                      <TextBlock Text="{Binding SelectedCard.CoverDisplayName}" FontWeight="SemiBold" FontSize="13" 
+                                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                                 IsVisible="{Binding SelectedCard.HasCoverDisplayName}"/>
+                                      <TextBlock Grid.Column="1" Text="{Binding SelectedCard.EventDateText}" FontWeight="SemiBold" FontSize="11" 
+                                                 Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"
+                                                 VerticalAlignment="Center"
+                                                 IsVisible="{Binding SelectedCard.HasEventDate}"/>
+                                  </Grid>
                                   <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
                               </StackPanel>
                               <Button Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Content="✕"

@@ -1,0 +1,341 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TrelloCompact.ViewModels"
+             xmlns:models="using:TrelloCompact.Models"
+             xmlns:ctrl="using:TrelloCompact.Controls"
+             xmlns:conv="using:TrelloCompact.Converters"
+             x:Class="TrelloCompact.Views.CardListView"
+             x:DataType="vm:TabViewModel">
+    <Grid>
+        <!-- Main List Area -->
+        <Grid ColumnDefinitions="*, Auto">
+            
+            <DockPanel Grid.Column="0">
+                <!-- Header Stats -->
+                <Border DockPanel.Dock="Top" Background="#11ffffff" Padding="15,10" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorderBrush}">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="{Binding TabName}" FontWeight="Bold" FontSize="18" Foreground="{Binding AccentColor}"/>
+                            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                            <!-- Batch actions -->
+                            <Button Content="Copy Links" Command="{Binding BatchCopyLinkCommand}" IsVisible="{Binding HasSelectedCards}" Classes="Tertiary" Padding="10,5" Foreground="#60a5fa"/>
+                            <Button Content="Unlink Selected" Command="{Binding BatchUnlinkCommand}" IsVisible="{Binding CanUnlinkSelected}" Classes="Tertiary" Padding="10,5" Foreground="#ef4444"/>
+                            <Button Content="Move Selected" Command="{Binding ShowBatchMovePanelCommand}" IsVisible="{Binding HasSelectedCards}" Classes="Tertiary" Padding="10,5"/>
+                            <Button Content="📝 Notepad" Command="{Binding ToggleNotepadCommand}" Classes="Tertiary" Padding="10,5"/>
+                            <Button Content="Refresh" Command="{Binding FetchCardsCommand}" Classes="Tertiary" Padding="10,5"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Add Card via Link -->
+                <Border DockPanel.Dock="Top" Background="#08ffffff" Padding="10,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorderBrush}">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <TextBox Text="{Binding AddCardUrl}" Watermark="Paste Trello card URL to add..." FontSize="12"/>
+                        <Button Grid.Column="1" Content="Add" Command="{Binding AddCardFromLinkCommand}" Margin="5,0,0,0" Padding="10,4" IsEnabled="{Binding IsOnline}"/>
+                    </Grid>
+                </Border>
+                
+                <!-- Cards List -->
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding Cards}" Margin="10">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="models:TrelloCard">
+                                <Border Background="{DynamicResource ControlBackgroundBrush}" 
+                                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6" 
+                                        Margin="0,0,0,10"
+                                        Padding="0"
+                                        Cursor="Hand">
+                                    <Grid ColumnDefinitions="4, Auto, *, Auto">
+                                        <!-- Left Accent Color -->
+                                        <Border Grid.Column="0" Background="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).AccentColor}" CornerRadius="6,0,0,6"/>
+                                        
+                                        <!-- Batch selection checkbox -->
+                                        <CheckBox Grid.Column="1" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="6,0,0,0"
+                                                  Command="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).UpdateSelectionCommand}"/>
+                                        
+                                        <!-- Content -->
+                                        <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="15" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                Command="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).SelectCardCommand}" CommandParameter="{Binding}">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                </Style>
+                                            </Button.Styles>
+                                            <StackPanel Spacing="5">
+                                                <!-- Metadata Row -->
+                                                <Grid ColumnDefinitions="*, Auto">
+                                                    <TextBlock Text="{Binding CoverDisplayName}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding HasCoverDisplayName}"/>
+                                                </Grid>
+                                                
+                                                <!-- Title -->
+                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                
+                                                <!-- Stats Row -->
+                                                <StackPanel Orientation="Horizontal" Spacing="15" Margin="0,5,0,0">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasChecklist}">
+                                                        <TextBlock Text="☑" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <TextBlock Text="{Binding ChecklistCompleted}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <TextBlock Text="/" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <TextBlock Text="{Binding ChecklistTotal}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Button>
+                                        
+                                        <!-- Reorder Buttons -->
+                                        <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="0,0,4,0">
+                                            <Button Content="▲" FontSize="10" Padding="4,2" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                    Command="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).MoveCardUpCommand}" CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Move Up"/>
+                                            <Button Content="▼" FontSize="10" Padding="4,2" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                    Command="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).MoveCardDownCommand}" CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Move Down"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- RIGHT SIDE PANEL -->
+            <Border Grid.Column="1" Width="380" Background="{DynamicResource ControlBackgroundBrush}" BorderThickness="1,0,0,0" BorderBrush="{DynamicResource ControlBorderBrush}" 
+                    IsVisible="{Binding IsDetailPanelOpen}">
+                
+                <Grid RowDefinitions="Auto, *, Auto">
+                    <!-- Panel Header -->
+                    <Border Grid.Row="0" Padding="15" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorderBrush}">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBlock Text="Card Details" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="✕" Command="{Binding CloseDetailPanelCommand}" Classes="Tertiary"/>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Panel Content -->
+                    <ScrollViewer Grid.Row="1">
+                        <StackPanel Margin="15" Spacing="10">
+                            <!-- Card Name -->
+                            <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SelectedCard.CoverDisplayName}" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding SelectedCard.HasCoverDisplayName}"/>
+                            
+                            <!-- ID / Labels / Deadline Row -->
+                            <WrapPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <!-- ID Copy Button -->
+                                <Button Content="{Binding SelectedCard.DisplayId}" Command="{Binding CopyIdCommand}" 
+                                        Padding="8,3" FontSize="11" Margin="0,0,4,4" CornerRadius="4" MinHeight="26"
+                                        Background="#333" Foreground="#60a5fa" ToolTip.Tip="Copy ID"
+                                        IsVisible="{Binding SelectedCard.HasDisplayId}"/>
+                                
+                                <!-- Copy Link Button -->
+                                <Button Content="🔗 Link" Command="{Binding CopyLinkCommand}" 
+                                        Padding="8,3" FontSize="11" Margin="0,0,4,4" CornerRadius="4" MinHeight="26"
+                                        Background="#333" Foreground="#60a5fa" ToolTip.Tip="Copy Trello Link"
+                                        IsVisible="{Binding SelectedCard.ShortUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                
+                                <!-- Labels -->
+                                <ItemsControl ItemsSource="{Binding SelectedCard.Labels}" Margin="0,0,0,4">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding ColorHex}" CornerRadius="4" Padding="8,3" Margin="0,0,4,0" MinHeight="26">
+                                                <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding TextColorHex}" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                
+                                <!-- Deadline -->
+                                <Border Background="#332" CornerRadius="4" Padding="8,3" Margin="0,0,4,4" MinHeight="26"
+                                        IsVisible="{Binding SelectedCard.DueDate, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="📅" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SelectedCard.DueDateText}" FontSize="11" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </WrapPanel>
+                            
+                            <!-- Action Buttons -->
+                            <UniformGrid Columns="2" Rows="2">
+                                <Button Content="💬 Comments" Command="{Binding ShowCommentsCommand}" HorizontalAlignment="Stretch" Margin="2" IsEnabled="{Binding IsOnline}"/>
+                                <Button Content="☑ Checklists" Command="{Binding ShowChecklistsCommand}" HorizontalAlignment="Stretch" Margin="2"/>
+                                <Button Content="📎 Attachments" Command="{Binding ShowAttachmentsCommand}" HorizontalAlignment="Stretch" Margin="2"/>
+                                <Button Content="→ Move" Command="{Binding ShowMovePanelCommand}" HorizontalAlignment="Stretch" Margin="2" IsEnabled="{Binding IsOnline}"/>
+                            </UniformGrid>
+
+                            <Separator Background="{DynamicResource ControlBorderBrush}" Margin="0,2"/>
+                            
+                            <!-- Description -->
+                            <StackPanel IsVisible="{Binding IsDescriptionVisible}">
+                                <ctrl:FormattedTextBlock Text="{Binding SelectedCard.Description}" FontSize="13" IsVisible="{Binding SelectedCard.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            </StackPanel>
+
+                            <!-- Comments Panel -->
+                            <StackPanel IsVisible="{Binding IsCommentsPanelOpen}">
+                                <TextBlock Text="Comments" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <ItemsControl ItemsSource="{Binding Comments}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#11ffffff" CornerRadius="6" Padding="10" Margin="0,0,0,10">
+                                                <StackPanel Spacing="5">
+                                                    <Grid ColumnDefinitions="*, Auto">
+                                                        <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="12"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    </Grid>
+                                                    <ctrl:FormattedTextBlock Text="{Binding Text}" FontSize="13"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            
+                            <!-- Checklists Panel -->
+                            <StackPanel IsVisible="{Binding IsChecklistPanelOpen}">
+                                <TextBlock Text="Checklists" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <ItemsControl ItemsSource="{Binding Checklists}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,15">
+                                                <Grid ColumnDefinitions="*, Auto, Auto">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="1" Content="📋 Duplicate" FontSize="11" Padding="6,2" Margin="4,0"
+                                                            IsEnabled="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).IsOnline}"
+                                                            Command="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).DuplicateChecklistCommand}" CommandParameter="{Binding}"/>
+                                                    <Button Grid.Column="2" Content="🗑" FontSize="11" Padding="6,2" Foreground="#ef4444"
+                                                            IsEnabled="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).IsOnline}"
+                                                            Command="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).DeleteChecklistCommand}" CommandParameter="{Binding}"/>
+                                                </Grid>
+                                                <ItemsControl ItemsSource="{Binding CheckItems}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}" 
+                                                                    IsEnabled="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).IsOnline}"
+                                                                    Command="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).ToggleCheckItemCommand}" CommandParameter="{Binding}"
+                                                                    Margin="0,2"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <!-- Attachments Panel -->
+                            <StackPanel IsVisible="{Binding IsAttachmentPanelOpen}">
+                                <TextBlock Text="Attachments" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <ItemsControl ItemsSource="{Binding Attachments}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Background="Transparent" Padding="10" HorizontalAlignment="Stretch" Command="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).OpenAttachmentCommand}" CommandParameter="{Binding}">
+                                                <Grid ColumnDefinitions="Auto, *">
+                                                    <TextBlock Text="📄" Margin="0,0,10,0" FontSize="20" VerticalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding MimeType}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <!-- Move Panel -->
+                            <StackPanel IsVisible="{Binding IsMovePanelOpen}">
+                                <TextBlock Text="{Binding IsBatchMoveMode, StringFormat='Move Card'}" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <!-- Batch info -->
+                                <TextBlock IsVisible="{Binding IsBatchMoveMode}" Foreground="#f59e0b" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,5">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="Batch mode enabled">
+                                            <Binding Path="IsBatchMoveMode"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                                
+                                <TextBlock Text="Select Board:" Margin="0,5,0,0"/>
+                                <AutoCompleteBox ItemsSource="{Binding MoveBoards}" SelectedItem="{Binding SelectedMoveBoard}" FilterMode="ContainsOrdinal" Watermark="Type to search boards..." HorizontalAlignment="Stretch"/>
+                                <TextBlock Text="Select List:" Margin="0,10,0,0"/>
+                                <AutoCompleteBox ItemsSource="{Binding MoveLists}" SelectedItem="{Binding SelectedMoveList}" FilterMode="ContainsOrdinal" Watermark="Type to search lists..." HorizontalAlignment="Stretch"/>
+                                
+                                <CheckBox Content="Set as default" IsChecked="{Binding SetAsDefaultMove}" Margin="0,10,0,0" FontSize="12"/>
+                                
+                                <Button Content="Move Now" Command="{Binding MoveCardCommand}" Theme="{DynamicResource SolidButton}" Background="{Binding AccentColor}" Foreground="White" Margin="0,10,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                            </StackPanel>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                    
+                    <!-- Bottom input area (for comments) -->
+                    <Border Grid.Row="2" Background="#0Affffff" Padding="10" IsVisible="{Binding IsCommentsPanelOpen}">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBox Text="{Binding NewCommentText}" Watermark="Write a comment..." TextWrapping="Wrap" MaxHeight="100" AcceptsReturn="True"/>
+                            <Button Grid.Column="1" Content="Send" Command="{Binding SendCommentCommand}" Margin="10,0,0,0" VerticalAlignment="Bottom" Theme="{DynamicResource SolidButton}" Background="{Binding AccentColor}" Foreground="White" IsEnabled="{Binding IsOnline}"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Move Panel (standalone, for batch mode without card selected) -->
+            <Border Grid.Column="1" Width="380" Background="{DynamicResource ControlBackgroundBrush}" BorderThickness="1,0,0,0" BorderBrush="{DynamicResource ControlBorderBrush}" 
+                    IsVisible="{Binding IsBatchMoveMode}">
+                <Grid RowDefinitions="Auto, *">
+                    <Border Grid.Row="0" Padding="15" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorderBrush}">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBlock Text="Batch Move" FontWeight="Bold" FontSize="16" VerticalAlignment="Center" Foreground="#f59e0b"/>
+                            <Button Grid.Column="1" Content="✕" Classes="Tertiary">
+                                <!-- Close batch mode by toggling IsBatchMoveMode off would need a command; for now user uses move or close -->
+                            </Button>
+                        </Grid>
+                    </Border>
+                    <ScrollViewer Grid.Row="1">
+                        <StackPanel Margin="15" Spacing="10">
+                            <TextBlock Text="Select Board:" Margin="0,5,0,0"/>
+                            <AutoCompleteBox ItemsSource="{Binding MoveBoards}" SelectedItem="{Binding SelectedMoveBoard}" FilterMode="ContainsOrdinal" Watermark="Type to search boards..." HorizontalAlignment="Stretch"/>
+                            <TextBlock Text="Select List:" Margin="0,10,0,0"/>
+                            <AutoCompleteBox ItemsSource="{Binding MoveLists}" SelectedItem="{Binding SelectedMoveList}" FilterMode="ContainsOrdinal" Watermark="Type to search lists..." HorizontalAlignment="Stretch"/>
+                            <CheckBox Content="Set as default" IsChecked="{Binding SetAsDefaultMove}" Margin="0,10,0,0" FontSize="12"/>
+                            <Button Content="Move Selected Cards" Command="{Binding MoveCardCommand}" Theme="{DynamicResource SolidButton}" Background="#f59e0b" Foreground="White" Margin="0,10,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="Bold"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Notepad Panel (standalone) -->
+            <Border Grid.Column="1" Width="380" Background="{DynamicResource ControlBackgroundBrush}" BorderThickness="1,0,0,0" BorderBrush="{DynamicResource ControlBorderBrush}" 
+                    IsVisible="{Binding IsNotepadPanelOpen}">
+                <Grid RowDefinitions="Auto, *">
+                    <Border Grid.Row="0" Padding="15" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorderBrush}">
+                        <Grid ColumnDefinitions="*, Auto, Auto">
+                            <TextBlock Text="Notepad" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="💾 Save" Command="{Binding SaveNotepadCommand}" Classes="Tertiary" Margin="0,0,10,0"/>
+                            <Button Grid.Column="2" Content="✕" Command="{Binding ToggleNotepadCommand}" Classes="Tertiary"/>
+                        </Grid>
+                    </Border>
+                    <TextBox Grid.Row="1" Text="{Binding NotepadText}" AcceptsReturn="True" TextWrapping="Wrap" Margin="10" BorderThickness="0" Background="Transparent" VerticalAlignment="Stretch" VerticalContentAlignment="Top"/>
+                </Grid>
+            </Border>
+        </Grid>
+        
+        <!-- Loading overlay for tab operations -->
+        <Border Background="#CC000000" IsVisible="{Binding IsLoading}" ZIndex="100">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="Loading..." FontSize="18" FontWeight="Bold"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- Sub-panel Progress (so it doesn't block UI) -->
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsSubLoading}" Height="2" VerticalAlignment="Top" ZIndex="101" Foreground="{Binding AccentColor}"/>
+    </Grid>
+</UserControl>

@@ -122,10 +122,18 @@ function main() {
     var grpCustomBtns = pnlCustom.add("group");
     grpCustomBtns.orientation = "row";
     grpCustomBtns.alignChildren = ["center", "center"];
-    var btnJpgFolder = grpCustomBtns.add("button", undefined, "JPG to Folder");
-    var btnPngFolder = grpCustomBtns.add("button", undefined, "PNG to Folder");
+    var btnJpgFolder = grpCustomBtns.add("button", undefined, "JPG");
+    var btnPngFolder = grpCustomBtns.add("button", undefined, "PNG");
     btnJpgFolder.preferredSize.width = 130;
     btnPngFolder.preferredSize.width = 130;
+
+    var grpCustomBtns2 = pnlCustom.add("group");
+    grpCustomBtns2.orientation = "row";
+    grpCustomBtns2.alignChildren = ["center", "center"];
+    var btnJpgFolderOpen = grpCustomBtns2.add("button", undefined, "JPG TETAP");
+    var btnPngFolderOpen = grpCustomBtns2.add("button", undefined, "PNG TETAP");
+    btnJpgFolderOpen.preferredSize.width = 130;
+    btnPngFolderOpen.preferredSize.width = 130;
 
 
     // --- BOTTOM ---
@@ -166,6 +174,18 @@ function main() {
         if (txtCustomPath.text === "") { alert("Pilih folder tujuan dulu!"); return; }
         if (!new Folder(txtCustomPath.text).exists) { alert("Folder tidak ditemukan!"); return; }
         dlg.close(8);
+    };
+
+    btnJpgFolderOpen.onClick = function () {
+        if (txtCustomPath.text === "") { alert("Pilih folder tujuan dulu!"); return; }
+        if (!new Folder(txtCustomPath.text).exists) { alert("Folder tidak ditemukan!"); return; }
+        dlg.close(9);
+    };
+
+    btnPngFolderOpen.onClick = function () {
+        if (txtCustomPath.text === "") { alert("Pilih folder tujuan dulu!"); return; }
+        if (!new Folder(txtCustomPath.text).exists) { alert("Folder tidak ditemukan!"); return; }
+        dlg.close(10);
     };
 
     btnCancel.onClick = function () { dlg.close(0); };
@@ -309,17 +329,17 @@ function main() {
         choice = 3;
     }
 
-    var MODE_JPG = (choice == 1 || choice == 5 || choice == 6 || choice == 7);
-    var MODE_KEEP_OPEN = (choice == 5);
-    var MODE_ONLY_JPG = (choice == 6);
-    var MODE_JPG_FOLDER = (choice == 7);
-    var MODE_PNG_FOLDER = (choice == 8);
-    var MODE_PNG = (choice == 2 || MODE_PNG_FOLDER);
-    var MODE_PAS = (choice == 3);
+    var INIT_MODE_JPG = (choice == 1 || choice == 5 || choice == 6 || choice == 7 || choice == 9);
+    var INIT_MODE_KEEP_OPEN = (choice == 5 || choice == 9 || choice == 10);
+    var INIT_MODE_ONLY_JPG = (choice == 6);
+    var INIT_MODE_JPG_FOLDER = (choice == 7 || choice == 9);
+    var INIT_MODE_PNG_FOLDER = (choice == 8 || choice == 10);
+    var INIT_MODE_PNG = (choice == 2 || INIT_MODE_PNG_FOLDER);
+    var INIT_MODE_PAS = (choice == 3);
     var MODE_SMART = (choice == 99);
 
     var customTargetFolder = null;
-    if (MODE_JPG_FOLDER || MODE_PNG_FOLDER) {
+    if (INIT_MODE_JPG_FOLDER || INIT_MODE_PNG_FOLDER) {
         customTargetFolder = new Folder(txtCustomPath.text);
     }
 
@@ -337,6 +357,14 @@ function main() {
     for (var j = 0; j < docs.length; j++) {
         var doc = null;
         try {
+            var MODE_JPG = INIT_MODE_JPG;
+            var MODE_KEEP_OPEN = INIT_MODE_KEEP_OPEN;
+            var MODE_ONLY_JPG = INIT_MODE_ONLY_JPG;
+            var MODE_JPG_FOLDER = INIT_MODE_JPG_FOLDER;
+            var MODE_PNG_FOLDER = INIT_MODE_PNG_FOLDER;
+            var MODE_PNG = INIT_MODE_PNG;
+            var MODE_PAS = INIT_MODE_PAS;
+
             doc = docs[j];
             app.activeDocument = doc;
 
@@ -449,6 +477,21 @@ function main() {
 
                 savePNG(dupDoc, docPath + "/" + baseName + ".png");
                 dupDoc.close(SaveOptions.DONOTSAVECHANGES);
+
+                // Kembalikan Document Asli Menjadi Aktif
+                app.activeDocument = doc;
+
+                // SPECIAL LOGIC: Jika Mode PNG TETAP (choice == 10), jalankan _kembalikan_seleksi.jsx
+                if (choice == 10) {
+                    try {
+                        var scriptFile = new File(new File($.fileName).parent + "/_kembalikan_seleksi.jsx");
+                        if (scriptFile.exists) {
+                            $.evalFile(scriptFile);
+                        }
+                    } catch (err) {
+                        // Gagal eksekusi script, lewati saja
+                    }
+                }
 
                 successList.push(baseName + (MODE_PNG_FOLDER ? " (PNG Folder)" : " (PSD+PNG)"));
             }

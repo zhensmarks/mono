@@ -25,7 +25,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     private const double CanvasSize = 200.0;
     private const double CenterX = 100.0;
     private const double CenterY = 100.0;
-    private const double ItemRadius = 58.0;    // Distance from center to item
+    private const double ItemRadius = 48.0;    // Distance from center to item
     private const double ButtonSize = 32.0;
     private const double LabelOffset = 30.0;   // Extra distance for label from item center
     
@@ -219,7 +219,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         if (VisibleItems.Count == 0) return;
 
         int count = VisibleItems.Count;
-        double angleStep = 360.0 / count;
+        double baseAngleStep = 360.0 / count;
+        double angleStep = Math.Min(baseAngleStep, 45.0);
 
         for (int i = 0; i < count; i++)
         {
@@ -234,14 +235,11 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             else
             {
                 // Distribute non-nav items evenly
-                // Start from top (0°), skip the slot reserved for nav if needed
                 if (HasMoreItems)
                 {
                     // Reserve bottom slot for nav, distribute others across remaining space
-                    // Place items from -((count-2)*step/2) to +((count-2)*step/2) centered on top
                     int nonNavCount = count - 1;
-                    double totalSpan = 360.0 - angleStep; // Leave one slot for nav
-                    double itemStep = totalSpan / nonNavCount;
+                    double totalSpan = (nonNavCount - 1) * angleStep;
                     
                     // Find this item's index among non-nav items
                     int nonNavIndex = 0;
@@ -251,8 +249,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                     }
                     
                     // Start from top, go clockwise, center the group
-                    double startAngle = -(nonNavCount - 1) * itemStep / 2.0;
-                    angleDeg = startAngle + nonNavIndex * itemStep;
+                    double startAngle = -totalSpan / 2.0;
+                    angleDeg = startAngle + nonNavIndex * angleStep;
                 }
                 else
                 {
@@ -292,8 +290,9 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             item.LabelSide = isLeftSide ? "Left" : "Right";
 
             // Wedge angles for pie highlight
-            item.WedgeStartAngle = normalizedAngle - angleStep / 2.0;
-            item.WedgeSweepAngle = angleStep;
+            double highlightSweep = angleStep * 0.75; // Narrow the sweep width
+            item.WedgeStartAngle = normalizedAngle - highlightSweep / 2.0;
+            item.WedgeSweepAngle = highlightSweep;
         }
     }
 
@@ -335,7 +334,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         }
 
         // Check angular threshold
-        double threshold = (360.0 / VisibleItems.Count) / 2.0;
+        double angleStep = Math.Min(360.0 / VisibleItems.Count, 45.0);
+        double threshold = angleStep / 2.0;
         
         if (closest != null && minDiff < threshold)
         {
