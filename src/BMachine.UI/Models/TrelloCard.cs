@@ -82,6 +82,12 @@ public partial class TrelloCard : ObservableObject
     private bool _isManual;
 
     [ObservableProperty]
+    private bool _isAcc; // Flag to indicate if card is in ACC state
+
+    [ObservableProperty]
+    private bool _isSeparator; // Flag to indicate if this is a dummy separator card
+
+    [ObservableProperty]
     private bool _isSelected;
 
     [ObservableProperty]

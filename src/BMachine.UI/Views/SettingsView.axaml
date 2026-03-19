@@ -680,7 +680,7 @@
                 <StackPanel Spacing="15">
 
                         <TextBlock Text="Google Integration" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
+                        <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto">
                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Credentials JSON:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                                  <TextBox Grid.Column="0" Text="{Binding GoogleCredsPath}" Watermark="Path to json credentials"/>
@@ -711,8 +711,11 @@
 
                              
                              <!-- LEADERBOARD CONFIG -->
-                             <TextBlock Grid.Row="6" Grid.Column="0" Text="Leaderboard Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <TextBlock Grid.Row="6" Grid.Column="0" Text="LB Harian Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding LeaderboardRange}" Watermark="e.g. A2:C10" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                             
+                             <TextBlock Grid.Row="7" Grid.Column="0" Text="LB Bulanan Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding LeaderboardMonthlyRange}" Watermark="e.g. A2:C10" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         </Grid>
                     </StackPanel>
                     </Border>
@@ -725,7 +728,7 @@
                         
                         <!-- Board Configs (Only Visible if Connected) -->
                         <StackPanel IsVisible="{Binding IsTrelloConnected}">
-                             <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                             <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto">
                                    <!-- Editing -->
                                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Editing Board/List:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                   <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,10">
@@ -757,6 +760,13 @@
                                                 Watermark="Select Auto-Move Board"
                                                 FilterMode="Contains" MinimumPrefixLength="0"
                                                 GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                  </Grid>
+
+                                  <!-- ACC Board / List -->
+                                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Marketing ACC Board/List:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                  <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,10">
+                                      <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedAccBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                      <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding AccLists}" SelectedItem="{Binding SelectedAccList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="10,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
                                   </Grid>
                              </Grid>
                         </StackPanel>

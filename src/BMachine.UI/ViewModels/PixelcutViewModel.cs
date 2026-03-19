@@ -9,12 +9,18 @@ using System.Diagnostics;
 using BMachine.UI.Models;
 using BMachine.SDK;
 using BMachine.UI.Views;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
+using BMachine.UI.Services;
+using Avalonia;
+using System.Threading;
 
 namespace BMachine.UI.ViewModels;
 
 public partial class PixelcutViewModel : ObservableObject
 {
     private readonly IDatabase? _database;
+    private readonly PixelcutService _pixelcutService;
     
     [ObservableProperty] private ObservableCollection<PixelcutFileItem> _files = new();
     [ObservableProperty] private bool _hasFiles;
@@ -28,14 +34,25 @@ public partial class PixelcutViewModel : ObservableObject
     [ObservableProperty] private string _proxyAddress = "";
     [ObservableProperty] private int _skippedCount;
     
+    // OVPN Configurations
+    [ObservableProperty] private string _ovpnPath = "";
+    [ObservableProperty] private string _ovpnUsername = "";
+    [ObservableProperty] private string _ovpnPassword = "";
+    [ObservableProperty] private string _ovpnConfigStatus = "";
+    [ObservableProperty] private string _ovpnConfigColor = "Gray";
+    [ObservableProperty] private bool _isOvpnConfigured;
+    
     private bool _stopRequested;
     private CancellationTokenSource? _cts;
     [ObservableProperty] private bool _isPaused;
-    private System.Timers.Timer? _vpnCheckTimer; // Added timer field
+    private System.Timers.Timer? _vpnCheckTimer;
+    
+    private Process? _vpnProcess;
 
     public PixelcutViewModel(IDatabase? database)
     {
         _database = database;
+        _pixelcutService = new PixelcutService();
         CheckVpnStatus();
         LoadSettings();
         
@@ -53,11 +70,81 @@ public partial class PixelcutViewModel : ObservableObject
         if (_database != null)
         {
             ProxyAddress = await _database.GetAsync<string>("Configs.Pixelcut.Proxy") ?? "";
+            OvpnPath = await _database.GetAsync<string>("Configs.Pixelcut.OvpnPath") ?? "";
+            OvpnUsername = await _database.GetAsync<string>("Configs.Pixelcut.OvpnUsername") ?? "";
+            OvpnPassword = await _database.GetAsync<string>("Configs.Pixelcut.OvpnPassword") ?? "";
+            _pixelcutService.ManualProxy = ProxyAddress;
+            UpdateOvpnConfigStatus();
+        }
+    }
+
+    [RelayCommand]
+    private async Task PickOvpnFile()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(desktop.MainWindow);
+            if (topLevel == null) return;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Pilih Profil OpenVPN (.ovpn)",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("OpenVPN Config") { Patterns = new[] { "*.ovpn", "*.conf" } }
+                }
+            });
+
+            if (files != null && files.Count > 0)
+            {
+                OvpnPath = files[0].Path.LocalPath;
+            }
         }
     }
 
     partial void OnProxyAddressChanged(string value)
     {
+        _pixelcutService.ManualProxy = value;
+        CheckVpnStatus();
+    }
+
+    partial void OnOvpnPathChanged(string value) => UpdateOvpnConfigStatus();
+    partial void OnOvpnUsernameChanged(string value) => UpdateOvpnConfigStatus();
+    partial void OnOvpnPasswordChanged(string value) => UpdateOvpnConfigStatus();
+
+    private void UpdateOvpnConfigStatus()
+    {
+        bool hasPath = !string.IsNullOrEmpty(OvpnPath);
+        bool pathExists = hasPath && File.Exists(OvpnPath);
+        bool hasUser = !string.IsNullOrEmpty(OvpnUsername);
+        bool hasPass = !string.IsNullOrEmpty(OvpnPassword);
+
+        if (!hasPath && !hasUser && !hasPass)
+        {
+            OvpnConfigStatus = "";
+            OvpnConfigColor = "Gray";
+            IsOvpnConfigured = false;
+        }
+        else if (hasPath && !pathExists)
+        {
+            OvpnConfigStatus = "⚠️ File .ovpn tidak ditemukan";
+            OvpnConfigColor = "#EF4444";
+            IsOvpnConfigured = false;
+        }
+        else if (!hasPath || !hasUser || !hasPass)
+        {
+            OvpnConfigStatus = "⚠️ Lengkapi semua kolom untuk mengaktifkan VPN";
+            OvpnConfigColor = "#F59E0B";
+            IsOvpnConfigured = false;
+        }
+        else
+        {
+            OvpnConfigStatus = "✅ Konfigurasi lengkap — VPN akan aktif saat proses dimulai";
+            OvpnConfigColor = "#4ADE80";
+            IsOvpnConfigured = true;
+        }
+
         CheckVpnStatus();
     }
 
@@ -80,9 +167,10 @@ public partial class PixelcutViewModel : ObservableObject
         {
             // 2. Check for VPN by examining network interfaces
             var interfaces = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
+            var vpnKeywords = new[] { "vpn", "tap", "ppp", "wintun", "wireguard", "openvpn", "avira", "nordvpn", "expressvpn" };
             
-            // Common VPN interface patterns
-            var vpnKeywords = new[] { "vpn", "tun", "tap", "ppp", "wintun", "wireguard", "openvpn", "avira", "nordvpn", "expressvpn" };
+            // macOS system interfaces to EXCLUDE (iCloud Private Relay, etc.)
+            var macSystemInterfaces = new[] { "utun", "llw", "awdl", "bridge", "ap", "anpi", "gif", "stf", "ipsec" };
             
             foreach (var iface in interfaces)
             {
@@ -92,8 +180,19 @@ public partial class PixelcutViewModel : ObservableObject
                 var name = iface.Name.ToLower();
                 var desc = iface.Description.ToLower();
                 
-                // Check if interface name or description contains VPN keywords
+                // Skip known macOS system interfaces that are NOT real VPNs
+                if (OperatingSystem.IsMacOS() && macSystemInterfaces.Any(si => name.StartsWith(si)))
+                    continue;
+                
                 if (vpnKeywords.Any(kw => name.Contains(kw) || desc.Contains(kw)))
+                {
+                    IsVpnActive = true;
+                    VpnStatus = $"VPN Aktif ({iface.Name})";
+                    return;
+                }
+                
+                // Also detect tun/tap but only real tun devices (e.g., tun0) not utun
+                if (name == "tun0" || name == "tun1" || name == "tap0" || name == "tap1")
                 {
                     IsVpnActive = true;
                     VpnStatus = $"VPN Aktif ({iface.Name})";
@@ -101,7 +200,15 @@ public partial class PixelcutViewModel : ObservableObject
                 }
             }
             
-            // No VPN detected
+            // 3. Check if OVPN is configured (ready but not connected yet)
+            if (!string.IsNullOrEmpty(OvpnPath) && File.Exists(OvpnPath) 
+                && !string.IsNullOrEmpty(OvpnUsername) && !string.IsNullOrEmpty(OvpnPassword))
+            {
+                IsVpnActive = false;
+                VpnStatus = "OVPN Siap (Akan aktif saat proses)";
+                return;
+            }
+            
             IsVpnActive = false;
             VpnStatus = "Koneksi Langsung";
         }
@@ -121,7 +228,6 @@ public partial class PixelcutViewModel : ObservableObject
             await Task.Run(() =>
             {
                 var validPaths = new System.Collections.Generic.List<string>();
-                // Removed .png from allowed extensions to block it (User request)
                 var searchPattern = new System.Collections.Generic.HashSet<string> { ".jpg", ".jpeg", ".psd", ".webp" };
 
                 foreach (var path in paths)
@@ -137,7 +243,6 @@ public partial class PixelcutViewModel : ObservableObject
                             {
                                 if (new FileInfo(path).Length < 1024)
                                 {
-                                    // Check for source JPG
                                     var jpg = Path.ChangeExtension(path, ".jpg");
                                     if (File.Exists(jpg)) { validPaths.Add(jpg); continue; }
                                     var jpeg = Path.ChangeExtension(path, ".jpeg");
@@ -152,7 +257,6 @@ public partial class PixelcutViewModel : ObservableObject
                     }
                     else if (Directory.Exists(path))
                     {
-                         // Use Safe Walker
                          validPaths.AddRange(SafeGetFiles(path, searchPattern));
                     }
                 }
@@ -192,8 +296,7 @@ public partial class PixelcutViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-             Avalonia.Threading.Dispatcher.UIThread.Post(() => 
-                AppendLog($"Error processing drop: {ex.Message}"));
+             Avalonia.Threading.Dispatcher.UIThread.Post(() => AppendLog($"Error processing drop: {ex.Message}"));
         }
         finally
         {
@@ -213,66 +316,20 @@ public partial class PixelcutViewModel : ObservableObject
             var dir = stack.Pop();
             try
             {
-                // Files
                 foreach (var file in Directory.GetFiles(dir))
                 {
                     var ext = Path.GetExtension(file).ToLower();
-                    if (extensions.Contains(ext))
-                    {
-                         result.Add(file);
-                    }
+                    if (extensions.Contains(ext)) result.Add(file);
                 }
 
-                // Subdirectories
                 foreach (var subDir in Directory.GetDirectories(dir))
                 {
                     stack.Push(subDir);
                 }
             }
-            catch (Exception)
-            {
-                // Ignore Access Denied / Path Too Long / etc for this specific folder
-                // Continue with others
-            }
+            catch (Exception) { }
         }
         return result;
-    }
-
-    private string? CheckSmartPngReplacement(string path)
-    {
-        try 
-        {
-             var ext = Path.GetExtension(path).ToLower();
-             if (!IsSupportedExtension(ext)) return null;
-
-             if (ext == ".png")
-             {
-                 var info = new FileInfo(path);
-                 // Only accept PNG if it is a placeholder (<= 1KB)
-                 if (info.Length <= 1024)
-                 {
-                     var dir = Path.GetDirectoryName(path);
-                     if (string.IsNullOrEmpty(dir)) return null;
-
-                     var name = Path.GetFileNameWithoutExtension(path);
-                     var jpg = Path.Combine(dir, name + ".jpg");
-                     var jpeg = Path.Combine(dir, name + ".jpeg");
-
-                     if (File.Exists(jpg)) return jpg;
-                     if (File.Exists(jpeg)) return jpeg;
-                 }
-                 
-                 // If normal PNG or placeholder without JPG partner -> Ignore
-                 return null;
-             }
-             return path;
-        }
-        catch { return null; }
-    }
-    
-    private bool IsSupportedExtension(string ext)
-    {
-        return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".psd" || ext == ".webp";
     }
 
     private PixelcutFileItem? _lastSelectedItem;
@@ -300,21 +357,14 @@ public partial class PixelcutViewModel : ObservableObject
         var start = Math.Min(idx1, idx2);
         var end = Math.Max(idx1, idx2);
         
-        for (int i = start; i <= end; i++)
-        {
-            Files[i].IsSelected = true;
-        }
-        
+        for (int i = start; i <= end; i++) Files[i].IsSelected = true;
         _lastSelectedItem = item;
     }
 
     [RelayCommand]
     private void RemoveFile(PixelcutFileItem item)
     {
-        if (Files.Contains(item))
-        {
-            Files.Remove(item);
-        }
+        if (Files.Contains(item)) Files.Remove(item);
         HasFiles = Files.Count > 0;
         CheckRetryVisibility();
     }
@@ -324,11 +374,8 @@ public partial class PixelcutViewModel : ObservableObject
     {
         if (IsProcessing) return;
         
-        // Smart Clear: If items are selected, remove them. Else clear all.
         if (Files.Any(f => f.IsSelected))
-        {
             RemoveSelectedFiles();
-        }
         else
         {
             Files.Clear();
@@ -341,29 +388,19 @@ public partial class PixelcutViewModel : ObservableObject
 
     private void CheckRetryVisibility()
     {
-        if (IsProcessing) 
+        if (IsProcessing)
         {
             IsRetryVisible = false;
             return;
         }
-
-        // Retry if:
-        // 1. Files marked as Failed
-        // 2. Files marked as Done but Size < 100 bytes (e.g. 59B error)
         IsRetryVisible = Files.Any(x => x.IsFailed || (x.IsDone && x.ResultSize > 0 && x.ResultSize < 100));
     }
 
     [RelayCommand]
-    private async Task ProcessRemoveBg()
-    {
-        await ProcessQueue("remove_bg");
-    }
+    private async Task ProcessRemoveBg() => await ProcessQueue("remove_bg");
 
     [RelayCommand]
-    private async Task ProcessUpscale()
-    {
-        await ProcessQueue("upscale");
-    }
+    private async Task ProcessUpscale() => await ProcessQueue("upscale");
     
     [RelayCommand]
     private void Stop()
@@ -371,6 +408,7 @@ public partial class PixelcutViewModel : ObservableObject
         _stopRequested = true;
         _cts?.Cancel();
         AppendLog("Stop diminta...");
+        StopVpnProcess();
     }
     
     [RelayCommand]
@@ -381,19 +419,13 @@ public partial class PixelcutViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleLog()
-    {
-        ShowLogPanel = !ShowLogPanel;
-    }
+    private void ToggleLog() => ShowLogPanel = !ShowLogPanel;
 
     [RelayCommand]
     private void RemoveSelectedFiles()
     {
         var selected = Files.Where(x => x.IsSelected).ToList();
-        foreach (var item in selected)
-        {
-            Files.Remove(item);
-        }
+        foreach (var item in selected) Files.Remove(item);
         HasFiles = Files.Count > 0;
         CheckRetryVisibility();
     }
@@ -402,32 +434,18 @@ public partial class PixelcutViewModel : ObservableObject
     private async Task RetrySmallFiles()
     {
         if (IsProcessing) return;
-
-        // "59 B" is very small, likely an error response or empty file.
-        // We filter for "Selesai" but size is small (e.g. < 1KB or specifically around 59B).
-        // Let's use < 100 bytes to be safe.
-        var smallFiles = Files.Where(x => x.IsDone && x.ResultSize > 0 && x.ResultSize < 100).ToList();
-        
-        // OR files that explicitly failed
-        var failedFiles = Files.Where(x => x.IsFailed).ToList();
-        
-        var toRetry = smallFiles.Union(failedFiles).Distinct().ToList();
-
+        var toRetry = Files.Where(x => x.IsFailed || (x.IsDone && x.ResultSize > 0 && x.ResultSize < 100)).ToList();
         if (toRetry.Count == 0) return;
 
         AppendLog($"Mengulangi {toRetry.Count} file gagal/corrupt...");
-        
         foreach (var item in toRetry)
         {
-            // Reset Status
             item.Status = "Menunggu";
             item.IsDone = false;
             item.IsFailed = false;
             item.Progress = 0;
             item.ErrorMessage = "";
         }
-
-        // Trigger Queue again
         await ProcessQueue(_lastJobType);
     }
 
@@ -436,61 +454,82 @@ public partial class PixelcutViewModel : ObservableObject
     [ObservableProperty] private int _completionFailureCount;
 
     [RelayCommand]
-    private void CloseCompletionDialog()
-    {
-        ShowCompletionDialog = false;
-    }
+    private void CloseCompletionDialog() => ShowCompletionDialog = false;
 
-    private string _lastJobType = "remove_bg"; // Default
+    private string _lastJobType = "remove_bg";
 
     private async Task ProcessQueue(string job)
     {
         if (IsProcessing) return;
-        _lastJobType = job; // Store for Retry
+        _lastJobType = job;
         IsProcessing = true;
         _stopRequested = false;
         IsPaused = false;
-        AppendLog($"Memulai proses {job}...");
+        AppendLog($"Memulai proses {job} (C# Native)...");
         _cts = new CancellationTokenSource();
+
+        bool hasVpn = !string.IsNullOrEmpty(OvpnPath) && File.Exists(OvpnPath)
+                      && !string.IsNullOrEmpty(OvpnUsername) && !string.IsNullOrEmpty(OvpnPassword);
+        if (hasVpn)
+        {
+            VpnStatus = "🔄 Menyambungkan OpenVPN...";
+            IsVpnActive = false;
+            AppendLog("Memulai jalur OpenVPN Split-Tunneling...");
+            await StartVpnProcessAsync();
+            AppendLog("Menunggu rute jaringan stabil (5 detik)...");
+            await Task.Delay(5000); // Allow OS table routing to stabilize
+            
+            IsVpnActive = true;
+            VpnStatus = "🟢 VPN Aktif (OpenVPN)";
+            AppendLog("OpenVPN terhubung! Memulai antrean...");
+        }
 
         int success = 0;
         int failed = 0;
 
-        while (!_stopRequested)
+        try
         {
-            if (IsPaused) 
+            while (!_stopRequested)
             {
-                 await Task.Delay(500); 
-                 continue;
+                if (IsPaused) 
+                {
+                     await Task.Delay(500); 
+                     continue;
+                }
+
+                var item = Files.FirstOrDefault(x => x.Status == "Menunggu");
+                if (item == null) break;
+
+                await ProcessItem(item, job, _cts.Token);
+
+                if (item.IsDone && !item.IsFailed) success++;
+                else if (item.IsFailed) failed++;
             }
-
-            PixelcutFileItem? item = null;
-            item = Files.FirstOrDefault(x => x.Status == "Menunggu");
-
-            if (item == null)
-            {
-                // No more items ready.
-                break;
-            }
-
-            await ProcessItem(item, job, _cts.Token);
-
-            if (item.IsDone && !item.IsFailed) success++;
-            else if (item.IsFailed) failed++;
         }
-
-        IsProcessing = false;
-        _cts?.Dispose();
-        _cts = null;
-        AppendLog("Antrian selesai.");
-        CheckRetryVisibility();
-        
-        // Show Completion Dialog if not stopped manually
-        if (!_stopRequested && (success > 0 || failed > 0))
+        finally
         {
-            CompletionSuccessCount = success;
-            CompletionFailureCount = failed;
-            ShowCompletionDialog = true;
+            if (hasVpn)
+            {
+                VpnStatus = "🔌 Memutuskan OpenVPN...";
+                AppendLog("Membuang jalur OpenVPN...");
+                StopVpnProcess();
+                IsVpnActive = false;
+                AppendLog("OpenVPN terputus.");
+            }
+            
+            IsProcessing = false;
+            _cts?.Dispose();
+            _cts = null;
+            AppendLog("Antrian selesai.");
+            CheckRetryVisibility();
+            CheckVpnStatus(); // Refresh back to normal status
+            
+            if (!_stopRequested && (success > 0 || failed > 0))
+            {
+                CompletionSuccessCount = success;
+                CompletionFailureCount = failed;
+                ShowCompletionDialog = true;
+            }
         }
     }
 
@@ -501,7 +540,7 @@ public partial class PixelcutViewModel : ObservableObject
         item.Progress = 0;
         item.IsFailed = false;
 
-        // --- SKIP LOGIC ---
+        // SKIP LOGIC
         var expectedPath = GetResultPath(item.FilePath, job);
         bool isSameFile = string.Equals(item.FilePath, expectedPath, StringComparison.OrdinalIgnoreCase);
 
@@ -519,29 +558,48 @@ public partial class PixelcutViewModel : ObservableObject
                 return;
             }
         }
-        // ------------------
+
+        // Progress ticker: animate progress bar while HTTP request is running
+        using var progressCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var progressTask = Task.Run(async () =>
+        {
+            try
+            {
+                while (!progressCts.Token.IsCancellationRequested)
+                {
+                    await Task.Delay(300, progressCts.Token);
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (item.IsProcessing && item.Progress < 90)
+                        {
+                            item.Progress += 1;
+                            item.Status = item.Progress < 30 ? "Mengunggah..." : 
+                                          item.Progress < 60 ? "Memproses..." : "Mengunduh hasil...";
+                        }
+                    });
+                }
+            }
+            catch (OperationCanceledException) { }
+        }, progressCts.Token);
 
         try
         {
-            // Call Python Backend
-            await RunPythonWorker(item, job, ct);
+            AppendLog($"Memproses {item.FileName}...");
+            await _pixelcutService.ProcessImageAsync(item, job, ct);
+            progressCts.Cancel(); // Stop progress ticker
             
-            if (!item.IsFailed)
-            {
-                item.Status = "Selesai";
-                item.IsDone = true;
-                item.Progress = 100;
-                
-                // Check Result Size
-                var resultPath = GetResultPath(item.FilePath, job);
-                if (File.Exists(resultPath))
-                {
-                    item.ResultSize = new FileInfo(resultPath).Length;
-                }
-            }
+            item.Status = "Selesai";
+            item.IsDone = true;
+            item.Progress = 100;
+            
+            if (File.Exists(expectedPath))
+                item.ResultSize = new FileInfo(expectedPath).Length;
+            
+            AppendLog($"{item.FileName} selesai.");
         }
         catch (OperationCanceledException)
         {
+             progressCts.Cancel();
              item.Status = "Berhenti";
              item.IsFailed = true; 
              item.ErrorMessage = "Dibatalkan";
@@ -549,20 +607,21 @@ public partial class PixelcutViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            progressCts.Cancel();
             item.Status = "Gagal";
             item.IsFailed = true;
             
-            // Extract core error message for inline display
             var errorMsg = ex.Message;
-            if (errorMsg.Contains("No space left")) item.ErrorMessage = "Disk penuh!";
-            else if (errorMsg.Contains("Permission denied")) item.ErrorMessage = "Akses ditolak!";
-            else if (errorMsg.Contains("exit code")) item.ErrorMessage = "Proses gagal";
+            if (errorMsg.Contains("429")) item.ErrorMessage = "Limit (429)!";
+            else if (errorMsg.Contains("No space")) item.ErrorMessage = "Disk penuh!";
             else item.ErrorMessage = errorMsg.Length > 50 ? errorMsg.Substring(0, 50) + "..." : errorMsg;
             
-            AppendLog($"Gagal memproses {item.FileName}: {ex.Message}");
+            AppendLog($"Gagal memproses {item.FileName}: {errorMsg}");
         }
         finally
         {
+            progressCts.Cancel();
+            try { await progressTask; } catch { }
             item.IsProcessing = false;
         }
     }
@@ -570,9 +629,7 @@ public partial class PixelcutViewModel : ObservableObject
     [RelayCommand]
     private async Task RetryFile(PixelcutFileItem item)
     {
-        if (IsProcessing) return; // Prevent concurrent single-file retry if queue is running? Or allow parallelism?
-        // Let's allow it but set IsProcessing=true just for safety or manage it locally
-        
+        if (IsProcessing) return;
         IsProcessing = true;
         AppendLog($"Mengulangi {item.FileName} ({_lastJobType})...");
         _cts = new CancellationTokenSource();
@@ -591,173 +648,102 @@ public partial class PixelcutViewModel : ObservableObject
         return Path.Combine(dir, $"{name}.png");
     }
 
-    [RelayCommand]
-    private void ShowSettings()
-    {
-        // Simple toggle for now, or use a dialog service if available.
-        // For MVP, we can toggle visibility of a settings panel overlay in the View
-        IsSettingsOpen = !IsSettingsOpen;
-    }
-
     [ObservableProperty] private bool _isSettingsOpen;
+
+    [RelayCommand]
+    private void ShowSettings() => IsSettingsOpen = !IsSettingsOpen;
 
     [RelayCommand]
     private void CloseSettings()
     {
         IsSettingsOpen = false;
-        // Save Settings
         if (_database != null)
         {
             _database.SetAsync("Configs.Pixelcut.Proxy", ProxyAddress);
+            _database.SetAsync("Configs.Pixelcut.OvpnPath", OvpnPath);
+            _database.SetAsync("Configs.Pixelcut.OvpnUsername", OvpnUsername);
+            _database.SetAsync("Configs.Pixelcut.OvpnPassword", OvpnPassword);
         }
     }
 
-    private async Task RunPythonWorker(PixelcutFileItem item, string job, CancellationToken ct)
+    private async Task StartVpnProcessAsync()
     {
-        // Use relative path from application directory
-        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        var scriptPath = Path.Combine(baseDir, "Scripts", "Core", "pixelcut_cli.py");
-        
-        if (!File.Exists(scriptPath))
+        try
         {
-            throw new FileNotFoundException($"pixelcut_cli.py not found at {scriptPath}");
-        }
+            var tempAuth = Path.Combine(Path.GetTempPath(), "bma_vpn_auth.txt");
+            await File.WriteAllLinesAsync(tempAuth, new[] { OvpnUsername, OvpnPassword });
 
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "python",
-            Arguments = $"\"{scriptPath}\" --action {job} --input \"{item.FilePath}\"",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            WorkingDirectory = Path.GetDirectoryName(scriptPath)
-        };
-
-        if (!string.IsNullOrEmpty(ProxyAddress))
-        {
-            startInfo.Arguments += $" --proxy \"{ProxyAddress}\"";
-        }
-
-        var tcs = new TaskCompletionSource<bool>();
-        
-        using var process = new Process();
-        process.StartInfo = startInfo;
-        process.EnableRaisingEvents = true;
-
-        process.OutputDataReceived += (s, e) => 
-        {
-            if (string.IsNullOrEmpty(e.Data)) return;
-
-            // Handle Signals
-            if (e.Data.StartsWith("SIGNAL:"))
+            var isMac = OperatingSystem.IsMacOS();
+            
+            _vpnProcess = new Process();
+            
+            if (isMac)
             {
-                // SIGNAL:name:json_data
-                var parts = e.Data.Split(':', 3);
-                if (parts.Length == 3)
+                // Inject SPLIT TUNNELING: route-nopull prevents ALL traffic from going to VPN
+                // and route api2.pixelcut.app only maps Pixelcut API thru the tunnel.
+                var args = $"--config \\\"{OvpnPath}\\\" --auth-user-pass \\\"{tempAuth}\\\" --route-nopull --route api2.pixelcut.app";
+                var script = $"do shell script \"openvpn {args}\" with administrator privileges";
+                
+                _vpnProcess.StartInfo = new ProcessStartInfo
                 {
-                    var sigName = parts[1];
-                    var json = parts[2];
-                    
-                    // Update UI on Main Thread
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() => 
-                    {
-                        if (sigName == "process")
-                        {
-                            // Parse JSON for status
-                            // {"id":..., "item":..., "data": {"status": "message"}}
-                            try 
-                            {
-                                // Simple string match to avoid JSON parsing overhead for now
-                                // Or parse properly if complex
-                                if (json.Contains("\"status\":"))
-                                {
-                                    // Extract status value roughly or use JsonNode
-                                    // Let's just log it for now as proof of life
-                                    // AppendLog($"[Progress] {json}");
-                                    
-                                    // If status is percentage?
-                                    // The Python sends "100%" or "request to..."
-                                }
-                            }
-                            catch {}
-                        }
-                    });
-                }
+                    FileName = "osascript",
+                    Arguments = $"-e '{script}'",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
             }
             else
             {
-                AppendLog(e.Data);
+                _vpnProcess.StartInfo = new ProcessStartInfo
+                {
+                    FileName = "openvpn",
+                    Arguments = $"--config \"{OvpnPath}\" --auth-user-pass \"{tempAuth}\" --route-nopull --route api2.pixelcut.app",
+                    UseShellExecute = true, // for UAC prompt on Windows
+                    Verb = "runas"
+                };
             }
-        };
 
-        // Handle Cancellation
-        using var reg = ct.Register(() => 
-        {
-            try { process.Kill(); } catch {}
-        });
-
-        process.ErrorDataReceived += (s, e) => 
-        {
-             if (!string.IsNullOrEmpty(e.Data))
-             {
-                 AppendLog($"[Error] {e.Data}");
-                 // If error represents failure, we can flag it, but usually exit code tells us.
-             }
-        };
-
-        process.Exited += (s, e) => 
-        {
-            if (process.ExitCode == 0)
-                tcs.TrySetResult(true);
-            else
-                tcs.TrySetException(new Exception($"Process exited with code {process.ExitCode}"));
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        // Wait for exit or cancellation
-        while (!process.HasExited)
-        {
-             if (ct.IsCancellationRequested)
-             {
-                 // ensure kill handled by reg or here
-                 try { process.Kill(); } catch {}
-                 throw new OperationCanceledException();
-             }
-             if (IsPaused)
-             {
-                 item.Status = "Dijeda...";
-                 await Task.Delay(500);
-             }
-             else
-             {
-                 item.Status = "Berjalan..."; 
-                 // Simulated progress for responsiveness since pixelcut.py doesn't emit granular % during download
-                 if (item.Progress < 90) item.Progress += 1;
-                 
-                 await Task.Delay(100); 
-             }
-             
-             if (_stopRequested)
-             {
-                 process.Kill();
-                 throw new TaskCanceledException("Pengguna menghentikan proses.");
-             }
+            _vpnProcess.Start();
         }
-
-        await tcs.Task;
+        catch (Exception ex)
+        {
+            AppendLog($"Gagal menyalakan OpenVPN: {ex.Message}");
+        }
     }
-    
+
+    private void StopVpnProcess()
+    {
+        try
+        {
+            if (_vpnProcess != null && !_vpnProcess.HasExited)
+            {
+                _vpnProcess.Kill();
+            }
+            // Cleanup Auth File
+            var tempAuth = Path.Combine(Path.GetTempPath(), "bma_vpn_auth.txt");
+            if (File.Exists(tempAuth)) File.Delete(tempAuth);
+            
+            // For Mac, osascript spawns an OpenVPN daemon that might detach.
+            if (OperatingSystem.IsMacOS())
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "osascript",
+                    Arguments = $"-e 'do shell script \"killall openvpn\" with administrator privileges'",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+        }
+        catch {}
+    }
+
     [RelayCommand]
     private void OpenSeparateWindow()
     {
         try
         {
             var win = new Views.PixelcutWindow();
-            // Create a new instance for independent processing
             var newVm = new PixelcutViewModel(_database);
             win.DataContext = newVm; 
             win.Show();
@@ -767,11 +753,11 @@ public partial class PixelcutViewModel : ObservableObject
             AppendLog($"Error opening window: {ex.Message}");
         }
     }
-		
-	private void AppendLog(string message)
-	{
+        
+    private void AppendLog(string message)
+    {
         var msg = $"[{DateTime.Now:HH:mm:ss}] {message}";
         LogOutput += $"{msg}\n";
-        Console.WriteLine($"[Pixelcut] {msg}"); // Output to terminal
+        Console.WriteLine($"[Pixelcut] {msg}");
     }
 }

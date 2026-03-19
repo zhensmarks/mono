@@ -22,76 +22,7 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             
-            <!-- Header -->
-            <StackPanel Grid.Row="0" Margin="30" Spacing="12">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="LATE" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <Button x:Name="NextViewButton" Click="OnNextViewClicked"
-                                    Width="30" Height="30" CornerRadius="15"
-                                    Background="#1AFFFFFF" BorderThickness="0" Padding="0" Cursor="Hand"
-                                    ToolTip.Tip="Next View" VerticalAlignment="Center">
-                                <PathIcon Data="{StaticResource IconArrowRight}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </Button>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                            <!-- Status Dot -->
-                            <Ellipse Width="10" Height="10" VerticalAlignment="Center" ToolTip.Tip="{Binding ConnectionStatusText, StringFormat='{}Status: {0}'}">
-                                <Ellipse.Styles>
-                                    <Style Selector="Ellipse">
-                                        <Setter Property="Fill" Value="#EF4444"/> <!-- Red (Offline) -->
-                                    </Style>
-                                    <Style Selector="Ellipse.online">
-                                        <Setter Property="Fill" Value="#22C55E"/> <!-- Green (Online) -->
-                                    </Style>
-                                </Ellipse.Styles>
-                                <Classes.online>
-                                    <Binding Path="IsOnline"/>
-                                </Classes.online>
-                            </Ellipse>
-                            <TextBlock Text="{Binding StatusMessage}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        </StackPanel>
-                    </StackPanel>
-                    
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                         <!-- Batch Move Button -->
-                         <Button Command="{Binding ShowBatchMovePanelCommand}"
-                                 IsVisible="{Binding HasSelectedCards}"
-                                 IsEnabled="{Binding IsOnline}"
-                                 Classes="Primary" Padding="12,8" CornerRadius="6" Cursor="Hand">
-                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                 <PathIcon Data="{StaticResource IconArrowRight}" Width="16" Height="16"/>
-                                 <TextBlock Text="Move Batch"/>
-                             </StackPanel>
-                         </Button>
-
-                         <!-- Refresh Button (Mini FAB Style) -->
-                         <Panel>
-                             <Button Command="{Binding RefreshCommand}"
-                                     Width="36" Height="36" CornerRadius="18"
-                                     Background="{DynamicResource AccentBlueBrush}" 
-                                     BorderThickness="0" Padding="0" Cursor="Hand"
-                                     IsVisible="{Binding !IsRefreshing}"
-                                     ToolTip.Tip="Refresh">
-                                 <PathIcon Data="{StaticResource IconRefresh}" 
-                                           Width="16" Height="16" Foreground="White" 
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                             </Button>
-                             <!-- Loading Spinner -->
-                             <Border Width="36" Height="36" CornerRadius="18"
-                                     Background="{DynamicResource AccentBlueBrush}"
-                                     IsVisible="{Binding IsRefreshing}">
-                                  <ProgressBar IsIndeterminate="True" Width="20" Height="20" Foreground="White" Theme="{DynamicResource ProgressRing}"/>
-                             </Border>
-                         </Panel>
-                    </StackPanel>
-                </Grid>
-            </StackPanel>
+            <!-- Header (Removed for Unified Tab View) -->
             
             <!-- Cards List -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">

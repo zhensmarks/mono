@@ -6,32 +6,99 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="BMachine.UI.Views.PointLeaderboardView">
     <Grid>
-        <Grid RowDefinitions="Auto, *">
+        <Grid RowDefinitions="Auto, Auto, *">
             <!-- Header / Controls -->
-            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="20,0,20,10">
+            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="20,0,20,5">
                 <TextBlock Text="Leaderboard" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
                 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
                     <Button Command="{Binding LoadDataCommand}" ToolTip.Tip="Refresh" Classes="plainLink">
                         <PathIcon Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" Width="16" Height="16"/>
                     </Button>
-
                 </StackPanel>
             </Grid>
 
+            <!-- Tab Bar (Compact) -->
+            <Border Grid.Row="1" Margin="20,0,20,8" Background="{DynamicResource CardBackgroundBrush}" 
+                    CornerRadius="8" Padding="3" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                <Grid ColumnDefinitions="*, *">
+                    <Button Grid.Column="0" Command="{Binding SwitchToHarianCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Height="28" CornerRadius="6" BorderThickness="0" Cursor="Hand">
+                        <Button.Styles>
+                            <Style Selector="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            </Style>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                        </Button.Styles>
+                        <Panel>
+                            <Border CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" 
+                                    IsVisible="{Binding IsHarianSelected}" Opacity="0.15"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                            <TextBlock Text="HARIAN" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontWeight="Bold" FontSize="11">
+                                <TextBlock.Styles>
+                                    <Style Selector="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                    </Style>
+                                </TextBlock.Styles>
+                            </TextBlock>
+                            <TextBlock Text="HARIAN" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontWeight="Bold" FontSize="11"
+                                       Foreground="{DynamicResource AccentBlueBrush}"
+                                       IsVisible="{Binding IsHarianSelected}"/>
+                        </Panel>
+                    </Button>
+                    
+                    <Button Grid.Column="1" Command="{Binding SwitchToBulananCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Height="28" CornerRadius="6" BorderThickness="0" Cursor="Hand">
+                        <Button.Styles>
+                            <Style Selector="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            </Style>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                        </Button.Styles>
+                        <Panel>
+                            <Border CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" 
+                                    IsVisible="{Binding IsBulananSelected}" Opacity="0.15"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                            <TextBlock Text="BULANAN" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontWeight="Bold" FontSize="11">
+                                <TextBlock.Styles>
+                                    <Style Selector="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                    </Style>
+                                </TextBlock.Styles>
+                            </TextBlock>
+                            <TextBlock Text="BULANAN" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontWeight="Bold" FontSize="11"
+                                       Foreground="{DynamicResource AccentBlueBrush}"
+                                       IsVisible="{Binding IsBulananSelected}"/>
+                        </Panel>
+                    </Button>
+                </Grid>
+            </Border>
+
             <!-- List Content -->
-            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                 <Grid>
                     <TextBlock Text="Loading..." HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}"/>
                     
-                    <ListBox ItemsSource="{Binding Items}" Background="Transparent" IsVisible="{Binding !IsLoading}">
+                    <ListBox ItemsSource="{Binding ActiveItems}" Background="Transparent" IsVisible="{Binding !IsLoading}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid ColumnDefinitions="30, *, Auto" Margin="5">
                                     <TextBlock Text="{Binding Rank}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <Border Grid.Column="2" Background="{DynamicResource AccentPointsBrush}" CornerRadius="10" Padding="8,2">
-                                        <TextBlock Text="{Binding Points, StringFormat='{}{0} Pts'}" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                                        <TextBlock Text="{Binding FormattedPoints, StringFormat='{}{0} Pts'}" FontSize="12" FontWeight="Bold" Foreground="White"/>
                                     </Border>
                                 </Grid>
                             </DataTemplate>

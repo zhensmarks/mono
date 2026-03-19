@@ -70,6 +70,10 @@ public partial class RevisionCardListViewModel : BaseTrelloListViewModel, Commun
         {
              StatusMessage = "Memuat data...";
         }
+        else
+        {
+             StatusMessage = "Refreshing...";
+        }
         
         try 
         {
@@ -98,5 +102,7 @@ public partial class RevisionCardListViewModel : BaseTrelloListViewModel, Commun
             IsRefreshing = false;
         }
     }
+
+    public override void RequestRefresh() => RefreshCommand.Execute(null);
 
 }

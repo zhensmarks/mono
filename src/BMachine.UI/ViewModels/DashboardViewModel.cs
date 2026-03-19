@@ -363,11 +363,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         }
     }
 
+    [ObservableProperty]
+    private UnifiedTrelloViewModel _trelloVM;
 
-    // Persistent List ViewModels (Single Source for Stats & Lists)
-    private EditingCardListViewModel _editingListVM;
-    private RevisionCardListViewModel _revisionListVM;
-    private LateCardListViewModel _lateListVM;
+    [ObservableProperty]
+    private object _currentTrelloViewModel;
 
     [RelayCommand]
     private void OpenSettings()
@@ -378,27 +378,30 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [RelayCommand]
     private void OpenEditingList()
     {
-        _editingListVM.Title = "Editing List"; // Ensure title is set
-        _editingListVM.StartAutoRefresh();
-        var view = new BMachine.UI.Views.EditingCardListView { DataContext = _editingListVM };
+        if (_trelloVM == null) return;
+        _trelloVM.SelectedTab = 0; // Select Editing tab
+        _trelloVM.EditingVM?.StartAutoRefresh();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
     }
 
     [RelayCommand]
     private void OpenRevisionList()
     {
-        _revisionListVM.Title = "Revision List";
-        _revisionListVM.StartAutoRefresh();
-        var view = new BMachine.UI.Views.RevisionCardListView { DataContext = _revisionListVM };
+        if (_trelloVM == null) return;
+        _trelloVM.SelectedTab = 1; // Select Revision tab
+        _trelloVM.RevisionVM?.StartAutoRefresh();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
     }
 
     [RelayCommand]
     private void OpenLateList()
     {
-        _lateListVM.Title = "Late List";
-        _lateListVM.StartAutoRefresh();
-        var view = new BMachine.UI.Views.LateCardListView { DataContext = _lateListVM };
+        if (_trelloVM == null) return;
+        _trelloVM.SelectedTab = 2; // Select Late tab
+        _trelloVM.LateVM?.StartAutoRefresh();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
     }
 
@@ -410,13 +413,25 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     // So modifying OpenEditingListCommand is correct.
 
     [RelayCommand]
-    private void OpenEditingWindow() => OpenListWindow(_editingListVM, "Editing List");
+    private void OpenEditingWindow() => OpenUnifiedWindow(0, "Editing List");
 
     [RelayCommand]
-    private void OpenRevisionWindow() => OpenListWindow(_revisionListVM, "Revision List");
+    private void OpenRevisionWindow() => OpenUnifiedWindow(1, "Revision List");
 
     [RelayCommand]
-    private void OpenLateWindow() => OpenListWindow(_lateListVM, "Late List");
+    private void OpenLateWindow() => OpenUnifiedWindow(2, "Late List");
+
+    private void OpenUnifiedWindow(int tabIndex, string title)
+    {
+        if (_trelloVM == null) return;
+        _trelloVM.SelectedTab = tabIndex;
+        StartAutoRefresh(_trelloVM);
+        
+        var win = new BMachine.UI.Views.CardListWindow();
+        win.DataContext = _trelloVM; // Binding ContentControl to UnifiedTrelloViewModel
+        win.Title = title;
+        win.Show();
+    }
 
 
 
@@ -478,14 +493,26 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private void OpenListWindow(BaseTrelloListViewModel vm, string title)
     {
         vm.Title = title;
-        // Start AutoRefresh if available (Editing/Revision/Late usually have it public)
-        if (vm is EditingCardListViewModel evm) evm.StartAutoRefresh();
-        else if (vm is RevisionCardListViewModel rvm) rvm.StartAutoRefresh();
-        else if (vm is LateCardListViewModel lvm) lvm.StartAutoRefresh();
+        StartAutoRefresh(vm);
         
         var win = new BMachine.UI.Views.CardListWindow();
         win.DataContext = vm;
         win.Show();
+    }
+
+    private void StartAutoRefresh(object vm)
+    {
+        // if (vm is BaseTrelloListViewModel tvm) tvm.StartAutoRefresh(); // Base doesn't have this, it's in derived classes
+        if (vm is EditingCardListViewModel evm) evm.StartAutoRefresh();
+        if (vm is RevisionCardListViewModel rvm) rvm.StartAutoRefresh();
+        if (vm is LateCardListViewModel lvm) lvm.StartAutoRefresh();
+        
+        if (vm is UnifiedTrelloViewModel utvm)
+        {
+             utvm.EditingVM?.StartAutoRefresh();
+             utvm.RevisionVM?.StartAutoRefresh();
+             utvm.LateVM?.StartAutoRefresh();
+        }
     }
 
     [ObservableProperty]
@@ -631,33 +658,36 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         // Leaderboard will load in LoadData() async method
         
         // Initialize Persistent List VMs
-        _editingListVM = new EditingCardListViewModel(database);
-        _revisionListVM = new RevisionCardListViewModel(database);
-        _lateListVM = new LateCardListViewModel(database);
+        var editingListVM = new EditingCardListViewModel(database);
+        var revisionListVM = new RevisionCardListViewModel(database);
+        var lateListVM = new LateCardListViewModel(database);
+        
+        _trelloVM = new UnifiedTrelloViewModel(database, editingListVM, revisionListVM, lateListVM);
 
+        CurrentTrelloViewModel = _trelloVM;
         // SYNC: Listen to changes in lists to update Stats immediately (Thread-Safe)
-        _editingListVM.Cards.CollectionChanged += (s, e) => 
+        _trelloVM.EditingVM.Cards.CollectionChanged += (s, e) => 
         {
              Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
              {
-                 StatEditing = _editingListVM.Cards.Count.ToString();
-                 StatEditingPercentage = Math.Min(_editingListVM.Cards.Count / 10.0, 1.0);
+                 StatEditing = _trelloVM.EditingVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatEditingPercentage = Math.Min(_trelloVM.EditingVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
              });
         };
-        _revisionListVM.Cards.CollectionChanged += (s, e) => 
+        _trelloVM.RevisionVM.Cards.CollectionChanged += (s, e) => 
         {
              Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
              {
-                 StatRevision = _revisionListVM.Cards.Count.ToString();
-                 StatRevisionPercentage = Math.Min(_revisionListVM.Cards.Count / 10.0, 1.0);
+                 StatRevision = _trelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatRevisionPercentage = Math.Min(_trelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
              });
         };
-        _lateListVM.Cards.CollectionChanged += (s, e) => 
+        _trelloVM.LateVM.Cards.CollectionChanged += (s, e) => 
         {
              Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
              {
-                 StatLate = _lateListVM.Cards.Count.ToString();
-                 StatLatePercentage = Math.Min(_lateListVM.Cards.Count / 10.0, 1.0);
+                 StatLate = _trelloVM.LateVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatLatePercentage = Math.Min(_trelloVM.LateVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
              });
         };
 
@@ -665,35 +695,35 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         InitializationTask = LoadData();
 
         // START AUTO-REFRESH IMMEDIATELY (Don't wait for LoadData async)
-        _editingListVM.StartAutoRefresh();
-        _revisionListVM.StartAutoRefresh();
-        _lateListVM.StartAutoRefresh();
+        _trelloVM.EditingVM.StartAutoRefresh();
+        _trelloVM.RevisionVM.StartAutoRefresh();
+        _trelloVM.LateVM.StartAutoRefresh();
 
         // SAFETY: Fallback Timer to force sync UI if events fail
         var safetyTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         safetyTimer.Tick += (s, e) => 
         {
-             if (_editingListVM != null)
+             if (_trelloVM?.EditingVM != null)
              {
-                 int c = _editingListVM.Cards.Count;
+                 int c = _trelloVM.EditingVM.Cards.Count(c => !c.IsSeparator);
                  if (StatEditing != c.ToString()) 
                  {
                      StatEditing = c.ToString();
                      StatEditingPercentage = Math.Min(c / 10.0, 1.0);
                  }
              }
-             if (_revisionListVM != null)
+             if (_trelloVM?.RevisionVM != null)
              {
-                 int c = _revisionListVM.Cards.Count;
+                 int c = _trelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator);
                  if (StatRevision != c.ToString()) 
                  {
                      StatRevision = c.ToString();
                      StatRevisionPercentage = Math.Min(c / 10.0, 1.0);
                  }
              }
-             if (_lateListVM != null)
+             if (_trelloVM?.LateVM != null)
              {
-                 int c = _lateListVM.Cards.Count;
+                 int c = _trelloVM.LateVM.Cards.Count(c => !c.IsSeparator);
                  if (StatLate != c.ToString()) 
                  {
                      StatLate = c.ToString();
@@ -732,6 +762,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
          _pointLeaderboardVM = null!;
          _spreadsheetVM = null!;
          _outputExplorerVM = null!;
+         _trelloVM = new UnifiedTrelloViewModel(null!, new EditingCardListViewModel(null!), new RevisionCardListViewModel(null!), new LateCardListViewModel(null!));
+         CurrentTrelloViewModel = _trelloVM;
     }
 
     private Avalonia.Threading.DispatcherTimer? _timer;
@@ -1260,9 +1292,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              if (shouldSync || (DateTime.Now - _lastEditingSync).TotalSeconds >= EditingRefreshSeconds)
              {
                  _lastEditingSync = DateTime.Now;
-                 await _editingListVM.RefreshCommand.ExecuteAsync(null);
+                 await _trelloVM.EditingVM.RefreshCommand.ExecuteAsync(null);
                  
-                 int count = _editingListVM.Cards.Count;
+                 int count = _trelloVM.EditingVM.Cards.Count(c => !c.IsSeparator);
                  StatEditing = count.ToString();
                  StatEditingPercentage = Math.Min(count / MAX_CARDS, 1.0);
                  
@@ -1290,9 +1322,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              if (shouldSync || (DateTime.Now - _lastRevisionSync).TotalSeconds >= RevisionRefreshSeconds)
              {
                  _lastRevisionSync = DateTime.Now;
-                 await _revisionListVM.RefreshCommand.ExecuteAsync(null);
+                 await _trelloVM.RevisionVM.RefreshCommand.ExecuteAsync(null);
                  
-                 int count = _revisionListVM.Cards.Count;
+                 int count = _trelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator);
                  StatRevision = count.ToString();
                  StatRevisionPercentage = Math.Min(count / MAX_CARDS, 1.0);
                  
@@ -1314,9 +1346,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              if (shouldSync || (DateTime.Now - _lastLateSync).TotalSeconds >= LateRefreshSeconds)
              {
                  _lastLateSync = DateTime.Now;
-                 await _lateListVM.RefreshCommand.ExecuteAsync(null);
+                 await _trelloVM.LateVM.RefreshCommand.ExecuteAsync(null);
                  
-                 int count = _lateListVM.Cards.Count;
+                 int count = _trelloVM.LateVM.Cards.Count(c => !c.IsSeparator);
                  StatLate = count.ToString();
                  StatLatePercentage = Math.Min(count / MAX_CARDS, 1.0);
                  
@@ -1608,17 +1640,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     // --- Trello View Cycling ---
     public void Receive(NavigateToNextTrelloViewMessage message)
     {
-        switch (message.Value)
+        if (_trelloVM != null)
         {
-            case "Editing":
-                CycleTrelloView(message.SourceWindow, _revisionListVM, () => OpenRevisionList());
-                break;
-            case "Revisi":
-                CycleTrelloView(message.SourceWindow, _lateListVM, () => OpenLateList());
-                break;
-            case "Late":
-                CycleTrelloView(message.SourceWindow, _editingListVM, () => OpenEditingList());
-                break;
+            // Rotate tabs 0 -> 1 -> 2 -> 0
+            _trelloVM.SelectedTab = (_trelloVM.SelectedTab + 1) % 3;
+            CurrentTrelloViewModel = _trelloVM;
         }
     }
 

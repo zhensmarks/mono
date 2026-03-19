@@ -70,6 +70,10 @@ public partial class LateCardListViewModel : BaseTrelloListViewModel, CommunityT
         {
              StatusMessage = "Memuat data...";
         }
+        else
+        {
+             StatusMessage = "Refreshing...";
+        }
         
         try 
         {
@@ -98,4 +102,6 @@ public partial class LateCardListViewModel : BaseTrelloListViewModel, CommunityT
             IsRefreshing = false;
         }
     }
+
+    public override void RequestRefresh() => RefreshCommand.Execute(null);
 }

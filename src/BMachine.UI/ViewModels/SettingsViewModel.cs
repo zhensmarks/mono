@@ -55,6 +55,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<TrelloItem> _editingLists = new();
     [ObservableProperty] private ObservableCollection<TrelloItem> _revisionLists = new();
     [ObservableProperty] private ObservableCollection<TrelloItem> _lateLists = new();
+    [ObservableProperty] private ObservableCollection<TrelloItem> _accLists = new();
     
     // Script Ordering
     [ObservableProperty] private ObservableCollection<ScriptOrderItem> _scriptOrderList = new();
@@ -599,6 +600,7 @@ public partial class SettingsViewModel : ObservableObject
 
     // Leaderboard
     [ObservableProperty] private string _leaderboardRange = "A2:C10"; // Default Range
+    [ObservableProperty] private string _leaderboardMonthlyRange = ""; // Monthly Range
     
     // Trello Config
     [ObservableProperty] private string _editingBoardId = "";
@@ -608,6 +610,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _lateBoardId = "";
     [ObservableProperty] private string _lateListId = "";
     [ObservableProperty] private string _qcBoardId = ""; // QC Board for Auto-Move logic
+    [ObservableProperty] private string _accBoardId = "";
+    [ObservableProperty] private string _accListId = "";
     
     // --- Object-Based Properties for AutoCompleteBox ---
     [ObservableProperty] private TrelloItem? _selectedEditingBoard;
@@ -617,6 +621,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private TrelloItem? _selectedLateBoard;
     [ObservableProperty] private TrelloItem? _selectedLateList;
     [ObservableProperty] private TrelloItem? _selectedQcBoard;
+    [ObservableProperty] private TrelloItem? _selectedAccBoard;
+    [ObservableProperty] private TrelloItem? _selectedAccList;
 
     async partial void OnSelectedEditingBoardChanged(TrelloItem? value)
     {
@@ -641,42 +647,51 @@ public partial class SettingsViewModel : ObservableObject
         await _database.SetAsync("Trello.LateBoardId", value.Id);
         await FetchListsAsync(value.Id, LateLists);
     }
-    
-    partial void OnLeaderboardRangeChanged(string value) => _database?.SetAsync("Leaderboard.Range", value);
 
-    partial void OnSelectedQcBoardChanged(TrelloItem? value)
+    async partial void OnSelectedAccBoardChanged(TrelloItem? value)
+    {
+        if (value == null) return;
+        AccBoardId = value.Id;
+        await _database.SetAsync("Trello.AccBoardId", value.Id);
+        await FetchListsAsync(value.Id, AccLists);
+    }
+
+    async partial void OnSelectedQcBoardChanged(TrelloItem? value)
     {
         if (value == null) return;
         QcBoardId = value.Id;
-        _database.SetAsync("Trello.QcBoardId", value.Id);
+        await _database.SetAsync("Trello.QcBoardId", value.Id);
     }
 
     partial void OnSelectedEditingListChanged(TrelloItem? value)
     {
-        if (value != null)
-        {
-            EditingListId = value.Id;
-            _database.SetAsync("Trello.EditingListId", value.Id);
-        }
+         if (value == null) return;
+         EditingListId = value.Id;
+         _database.SetAsync("Trello.EditingListId", value.Id);
     }
 
     partial void OnSelectedRevisionListChanged(TrelloItem? value)
     {
-        if (value != null)
-        {
-            RevisionListId = value.Id;
-            _database.SetAsync("Trello.RevisionListId", value.Id);
-        }
+         if (value == null) return;
+         RevisionListId = value.Id;
+         _database.SetAsync("Trello.RevisionListId", value.Id);
     }
 
     partial void OnSelectedLateListChanged(TrelloItem? value)
     {
-        if (value != null)
-        {
-            LateListId = value.Id;
-            _database.SetAsync("Trello.LateListId", value.Id);
-        }
+         if (value == null) return;
+         LateListId = value.Id;
+         _database.SetAsync("Trello.LateListId", value.Id);
     }
+
+    partial void OnSelectedAccListChanged(TrelloItem? value)
+    {
+         if (value == null) return;
+         AccListId = value.Id;
+         _database.SetAsync("Trello.AccListId", value.Id);
+    }
+    partial void OnLeaderboardRangeChanged(string value) => _database?.SetAsync("Leaderboard.Range", value);
+    partial void OnLeaderboardMonthlyRangeChanged(string value) => _database?.SetAsync("Leaderboard.MonthlyRange", value);
     // ---------------------------------------------------
 
     [ObservableProperty] private string _statusMessage = "";
@@ -819,6 +834,7 @@ public partial class SettingsViewModel : ObservableObject
         EditingLists = new ObservableCollection<TrelloItem>();
         RevisionLists = new ObservableCollection<TrelloItem>();
         LateLists = new ObservableCollection<TrelloItem>();
+        AccLists = new ObservableCollection<TrelloItem>();
         
         InitializeAppearanceOptions();
         InitializeWidgetColors();
@@ -1364,6 +1380,9 @@ public partial class SettingsViewModel : ObservableObject
             var lbRange = await _database.GetAsync<string>("Leaderboard.Range");
             if (!string.IsNullOrEmpty(lbRange)) LeaderboardRange = lbRange;
             
+            var lbMonthly = await _database.GetAsync<string>("Leaderboard.MonthlyRange");
+            if (!string.IsNullOrEmpty(lbMonthly)) LeaderboardMonthlyRange = lbMonthly;
+            
             if (IsTrelloConnected && !string.IsNullOrEmpty(TrelloApiKey) && !string.IsNullOrEmpty(TrelloToken))
             {
                  // Static Cache Logic
@@ -1391,18 +1410,21 @@ public partial class SettingsViewModel : ObservableObject
             RevisionBoardId = await _database.GetAsync<string>("Trello.RevisionBoardId") ?? "";
             LateBoardId = await _database.GetAsync<string>("Trello.LateBoardId") ?? "";
             QcBoardId = await _database.GetAsync<string>("Trello.QcBoardId") ?? ""; 
+            AccBoardId = await _database.GetAsync<string>("Trello.AccBoardId") ?? ""; 
             
             if (IsTrelloConnected)
             {
                 if (!string.IsNullOrEmpty(EditingBoardId)) await FetchListsAsync(EditingBoardId, EditingLists);
                 if (!string.IsNullOrEmpty(RevisionBoardId)) await FetchListsAsync(RevisionBoardId, RevisionLists);
                 if (!string.IsNullOrEmpty(LateBoardId)) await FetchListsAsync(LateBoardId, LateLists);
+                if (!string.IsNullOrEmpty(AccBoardId)) await FetchListsAsync(AccBoardId, AccLists);
             }
 
 
             EditingListId = await _database.GetAsync<string>("Trello.EditingListId") ?? "";
             RevisionListId = await _database.GetAsync<string>("Trello.RevisionListId") ?? "";
             LateListId = await _database.GetAsync<string>("Trello.LateListId") ?? "";
+            AccListId = await _database.GetAsync<string>("Trello.AccListId") ?? "";
 
             // Sync Objects from IDs
             if (IsTrelloConnected)
@@ -1411,10 +1433,13 @@ public partial class SettingsViewModel : ObservableObject
                 SelectedRevisionBoard = MockBoards.FirstOrDefault(b => b.Id == RevisionBoardId);
                 SelectedLateBoard = MockBoards.FirstOrDefault(b => b.Id == LateBoardId);
                 SelectedQcBoard = MockBoards.FirstOrDefault(b => b.Id == QcBoardId);
+                SelectedAccBoard = MockBoards.FirstOrDefault(b => b.Id == AccBoardId);
 
+                // Wait lists pop
                 SelectedEditingList = EditingLists.FirstOrDefault(l => l.Id == EditingListId);
                 SelectedRevisionList = RevisionLists.FirstOrDefault(l => l.Id == RevisionListId);
                 SelectedLateList = LateLists.FirstOrDefault(l => l.Id == LateListId);
+                SelectedAccList = AccLists.FirstOrDefault(l => l.Id == AccListId);
             }
             
             await LoadWidgetColorAsync("Settings.Color.Revision", c => RevisionColor = c, hex => CustomRevisionColor = Color.Parse(hex));
@@ -1645,23 +1670,31 @@ public partial class SettingsViewModel : ObservableObject
             // Disconnect
             IsTrelloConnected = false;
             
+            // Clear Lists
+            EditingLists.Clear();
+            RevisionLists.Clear();
+            LateLists.Clear();
+            AccLists.Clear();
+            
             // Reset Selections
             EditingBoardId = ""; EditingListId = "";
             RevisionBoardId = ""; RevisionListId = "";
             LateBoardId = ""; LateListId = "";
             QcBoardId = "";
-
-            // Clear Lists
-            EditingLists.Clear();
-            RevisionLists.Clear();
-            LateLists.Clear();
-
+            AccBoardId = ""; AccListId = "";
+            
+            SelectedEditingBoard = null; SelectedEditingList = null;
+            SelectedRevisionBoard = null; SelectedRevisionList = null;
+            SelectedLateBoard = null; SelectedLateList = null;
+            SelectedQcBoard = null;
+            SelectedAccBoard = null; SelectedAccList = null;
+            
             StatusMessage = "Disconnected";
             IsStatusVisible = true;
             
             // Save state immediately
-             if (_database != null)
-             {
+            try 
+            {
                  await _database.SetAsync("Trello.IsConnected", "False");
                  await _database.SetAsync("Trello.EditingBoardId", "");
                  await _database.SetAsync("Trello.EditingListId", "");
@@ -1670,6 +1703,12 @@ public partial class SettingsViewModel : ObservableObject
                  await _database.SetAsync("Trello.LateBoardId", "");
                  await _database.SetAsync("Trello.LateListId", "");
                  await _database.SetAsync("Trello.QcBoardId", "");
+                 await _database.SetAsync("Trello.AccBoardId", "");
+                 await _database.SetAsync("Trello.AccListId", "");
+             }
+             catch (Exception ex)
+             {
+                 Console.WriteLine($"Error saving Trello disconnect state: {ex.Message}");
              }
         }
         else
@@ -2016,6 +2055,7 @@ public partial class SettingsViewModel : ObservableObject
             await _database.SetAsync("Google.SheetColumn", SheetColumn);
             await _database.SetAsync("Google.SheetRow", SheetRow);
             await _database.SetAsync("Leaderboard.Range", LeaderboardRange);
+            await _database.SetAsync("Leaderboard.MonthlyRange", LeaderboardMonthlyRange);
             
             await _database.SetAsync("Trello.EditingBoardId", EditingBoardId);
             await _database.SetAsync("Trello.EditingListId", EditingListId);

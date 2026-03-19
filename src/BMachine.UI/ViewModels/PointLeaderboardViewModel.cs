@@ -16,6 +16,28 @@ public partial class PointLeaderboardViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<LeaderboardItem> _items = new();
 
+    [ObservableProperty]
+    private ObservableCollection<LeaderboardItem> _monthlyItems = new();
+
+    // 0 = Harian, 1 = Bulanan
+    [ObservableProperty]
+    private int _selectedTab = 0;
+
+    public ObservableCollection<LeaderboardItem> ActiveItems => SelectedTab == 0 ? Items : MonthlyItems;
+    public int ActiveTotalPoints => ActiveItems.Sum(x => x.Points);
+    public string FormattedTotalPoints => ActiveTotalPoints.ToString("N0", new System.Globalization.CultureInfo("id-ID"));
+    public bool IsHarianSelected => SelectedTab == 0;
+    public bool IsBulananSelected => SelectedTab == 1;
+
+    partial void OnSelectedTabChanged(int value)
+    {
+        OnPropertyChanged(nameof(ActiveItems));
+        OnPropertyChanged(nameof(ActiveTotalPoints));
+        OnPropertyChanged(nameof(FormattedTotalPoints));
+        OnPropertyChanged(nameof(IsHarianSelected));
+        OnPropertyChanged(nameof(IsBulananSelected));
+    }
+
     public PointLeaderboardViewModel(IDatabase database)
     {
         _database = database;
@@ -30,29 +52,39 @@ public partial class PointLeaderboardViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void SwitchToHarian()
+    {
+        SelectedTab = 0;
+    }
+
+    [RelayCommand]
+    private void SwitchToBulanan()
+    {
+        SelectedTab = 1;
+    }
+
+    [RelayCommand]
     private async Task LoadData()
     {
         if (_database == null) return;
         IsLoading = true;
         Items.Clear();
+        MonthlyItems.Clear();
 
         try
         {
             var range = await _database.GetAsync<string>("Leaderboard.Range");
+            var monthlyRange = await _database.GetAsync<string>("Leaderboard.MonthlyRange");
             var sheetId = await _database.GetAsync<string>("Google.SheetId");
             var sheetName = await _database.GetAsync<string>("Google.SheetName");
             var credsPath = await _database.GetAsync<string>("Google.CredsPath");
 
-            if (string.IsNullOrEmpty(range) || string.IsNullOrEmpty(sheetId) || string.IsNullOrEmpty(credsPath))
+            if (string.IsNullOrEmpty(sheetId) || string.IsNullOrEmpty(credsPath))
             {
-                // Items.Add(new LeaderboardItem { Name = "Config Missing", Points = 0 }); // Optional: Show error
                 IsLoading = false;
                 return;
             }
 
-            // Simple Google Sheet Logic (Replicated to avoid Dependency Injection complexity for now)
-            // Ideally should use a shared Service.
-            
             Google.Apis.Auth.OAuth2.GoogleCredential credential;
             using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read))
             {
@@ -65,79 +97,16 @@ public partial class PointLeaderboardViewModel : ObservableObject
                 ApplicationName = "BMachine",
             });
 
-            var fullRange = $"{sheetName}!{range}";
-            var request = service.Spreadsheets.Values.Get(sheetId, fullRange);
-            var response = await request.ExecuteAsync();
-            var values = response.Values;
-
-             if (values != null && values.Count > 0)
+            // Load Harian (Daily)
+            if (!string.IsNullOrEmpty(range))
             {
-                 int rank = 1;
-                 bool isFirstRow = true;
-                 
-                 foreach (var row in values)
-                 {
-                     if (row.Count < 1) continue;
-                     
-                     // Auto-skip header row (check if 2nd column is non-numeric)
-                     if (isFirstRow)
-                     {
-                         isFirstRow = false;
-                         if (row.Count >= 2)
-                         {
-                             var testStr = row[1]?.ToString()?.Trim();
-                             // If 2nd column starts with letter or contains "TOTAL"/"POIN", it's likely a header
-                             if (!string.IsNullOrEmpty(testStr) && 
-                                 (!char.IsDigit(testStr[0]) || testStr.Contains("TOTAL") || testStr.Contains("POIN")))
-                             {
-                                 Console.WriteLine($"[Leaderboard] Skipping header row: {testStr}");
-                                 continue;
-                             }
-                         }
-                     }
-                     
-                     string name = row[0]?.ToString()?.Trim() ?? "Unknown";
-                     int points = 0;
-                     
-                     // Parse Points from 2nd column
-                     if (row.Count >= 2)
-                     {
-                         var pStr = row[1]?.ToString()?.Trim();
-                         if (!string.IsNullOrEmpty(pStr))
-                         {
-                             // Try parsing as double first (handles decimals from formulas)
-                             if (double.TryParse(pStr, System.Globalization.NumberStyles.Any, 
-                                                System.Globalization.CultureInfo.InvariantCulture, out double dPoints))
-                             {
-                                 points = (int)Math.Round(dPoints);
-                             }
-                             else
-                             {
-                                 // Fallback: remove thousand separators and try again
-                                 pStr = pStr.Replace(",", "").Replace(" ", "");
-                                 if (double.TryParse(pStr, System.Globalization.NumberStyles.Any,
-                                                    System.Globalization.CultureInfo.InvariantCulture, out dPoints))
-                                 {
-                                     points = (int)Math.Round(dPoints);
-                                 }
-                             }
-                             
-                             Console.WriteLine($"[Leaderboard] Parsed: {name} = {points} (Raw: '{row[1]}')");
-                         }
-                     }
+                await LoadRangeInto(service, sheetId, sheetName ?? "Sheet1", range, Items);
+            }
 
-                     Items.Add(new LeaderboardItem { Name = name, Points = points, Rank = rank++ });
-                 }
-                 
-                 // Sort by Points descending (terbesar ke terkecil), kemudian re-assign rank
-                 var sortedItems = Items.OrderByDescending(x => x.Points).ToList();
-                 Items.Clear();
-                 rank = 1;
-                 foreach (var item in sortedItems)
-                 {
-                     item.Rank = rank++;
-                     Items.Add(item);
-                 }
+            // Load Bulanan (Monthly)
+            if (!string.IsNullOrEmpty(monthlyRange))
+            {
+                await LoadRangeInto(service, sheetId, sheetName ?? "Sheet1", monthlyRange, MonthlyItems);
             }
         }
         catch (System.Exception ex)
@@ -147,6 +116,95 @@ public partial class PointLeaderboardViewModel : ObservableObject
         finally
         {
             IsLoading = false;
+            OnPropertyChanged(nameof(ActiveItems));
+            OnPropertyChanged(nameof(ActiveTotalPoints));
+            OnPropertyChanged(nameof(FormattedTotalPoints));
+        }
+    }
+
+    private async Task LoadRangeInto(
+        Google.Apis.Sheets.v4.SheetsService service, 
+        string sheetId, string sheetName, string range, 
+        ObservableCollection<LeaderboardItem> target)
+    {
+        var fullRange = $"{sheetName}!{range}";
+        var request = service.Spreadsheets.Values.Get(sheetId, fullRange);
+        var response = await request.ExecuteAsync();
+        var values = response.Values;
+
+        if (values != null && values.Count > 0)
+        {
+            int rank = 1;
+            bool isFirstRow = true;
+
+            foreach (var row in values)
+            {
+                if (row.Count < 1) continue;
+
+                // Auto-skip header row (check if 2nd column is non-numeric)
+                if (isFirstRow)
+                {
+                    isFirstRow = false;
+                    if (row.Count >= 2)
+                    {
+                        var testStr = row[1]?.ToString()?.Trim();
+                        if (!string.IsNullOrEmpty(testStr) && 
+                            (!char.IsDigit(testStr[0]) || testStr.Contains("TOTAL") || testStr.Contains("POIN")))
+                        {
+                            Console.WriteLine($"[Leaderboard] Skipping header row: {testStr}");
+                            continue;
+                        }
+                    }
+                }
+
+                string name = row[0]?.ToString()?.Trim() ?? "Unknown";
+                int points = 0;
+
+                // Parse Points from 2nd column
+                // Handle Indonesian locale: dots as thousand separators (e.g. 10.713 = 10713)
+                if (row.Count >= 2)
+                {
+                    var pStr = row[1]?.ToString()?.Trim();
+                    if (!string.IsNullOrEmpty(pStr))
+                    {
+                        // Normalize: remove spaces
+                        pStr = pStr.Replace(" ", "");
+                        
+                        // Detect Indonesian thousand-separator format: X.XXX or XX.XXX.XXX
+                        // Pattern: dot followed by exactly 3 digits (possibly repeated)
+                        if (System.Text.RegularExpressions.Regex.IsMatch(pStr, @"^\d{1,3}(\.\d{3})+$"))
+                        {
+                            // Dots are thousand separators — remove them
+                            pStr = pStr.Replace(".", "");
+                        }
+                        // Also handle comma as thousand separator: 10,713
+                        else if (System.Text.RegularExpressions.Regex.IsMatch(pStr, @"^\d{1,3}(,\d{3})+$"))
+                        {
+                            pStr = pStr.Replace(",", "");
+                        }
+                        
+                        if (double.TryParse(pStr, System.Globalization.NumberStyles.Any, 
+                                           System.Globalization.CultureInfo.InvariantCulture, out double dPoints))
+                        {
+                            points = (int)Math.Round(dPoints);
+                        }
+                        
+                        Console.WriteLine($"[Leaderboard] Parsed: {name} = {points} (Raw: '{row[1]}')");
+                    }
+                }
+
+                target.Add(new LeaderboardItem { Name = name, Points = points, Rank = rank++ });
+            }
+
+            // Sort by Points descending, re-assign rank
+            var sortedItems = target.OrderByDescending(x => x.Points).ToList();
+            target.Clear();
+            rank = 1;
+            foreach (var item in sortedItems)
+            {
+                item.Rank = rank++;
+                target.Add(item);
+            }
         }
     }
 }
@@ -157,4 +215,7 @@ public class LeaderboardItem
     public string Name { get; set; } = "";
     public int Points { get; set; }
     public string AvatarUrl { get; set; } = "";
+    
+    // Display with Indonesian thousand separator: 10713 → "10.713"
+    public string FormattedPoints => Points.ToString("N0", new System.Globalization.CultureInfo("id-ID"));
 }

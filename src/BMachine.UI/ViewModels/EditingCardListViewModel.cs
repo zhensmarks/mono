@@ -86,6 +86,10 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
         {
              StatusMessage = "Memuat data...";
         }
+        else
+        {
+             StatusMessage = "Refreshing...";
+        }
         
         try 
         {
@@ -133,19 +137,59 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
             
             _cachedManualCards = manualCards;
 
-            // 3. Merge
+            // 3. Fetch ACC Cards
+            var accIds = await _database.GetAsync<List<string>>("ManualCards.Acc") ?? new List<string>();
+            var accCards = new List<TrelloCard>();
+            
+            foreach (var aid in accIds)
+            {
+                var ac = await FetchSingleCard(aid, apiKey, token);
+                if (ac != null) 
+                {
+                    ac.IsAcc = true;
+                    // Usually we don't set IsManual = true for ACC so it doesn't get unlink regular button
+                    accCards.Add(ac);
+                }
+            }
+
+            // 4. Merge
             var allCards = new List<TrelloCard>();
-            allCards.AddRange(listCards);
+            // Exclude ACC cards from the main list so they don't duplicate/appear at the top 
+            // when Trello API hasn't synced the move yet.
+            foreach (var lc in listCards)
+            {
+                if (!accIds.Contains(lc.Id)) 
+                {
+                    allCards.Add(lc);
+                }
+            }
             
             // Avoid duplicates if card is already in list
             foreach(var mc in manualCards)
             {
-                if (!allCards.Any(c => c.Id == mc.Id)) allCards.Add(mc);
+                if (!allCards.Any(c => c.Id == mc.Id) && !accCards.Any(c => c.Id == mc.Id)) allCards.Add(mc);
+            }
+
+            // Add ACC at the bottom
+            if (accCards.Any())
+            {
+                // Add Separator
+                allCards.Add(new TrelloCard 
+                { 
+                    Id = "SEPARATOR", 
+                    Name = "Menunggu ACC Marketing", 
+                    IsSeparator = true 
+                });
+                
+                foreach(var ac in accCards)
+                {
+                    if (!allCards.Any(c => c.Id == ac.Id && c.IsSeparator == false)) allCards.Add(ac);
+                }
             }
 
             UpdateCardsCollection(allCards);
             
-            StatusMessage = $"Dimuat {Cards.Count} card";
+            StatusMessage = $"Dimuat {Cards.Count(c => !c.IsSeparator)} card";
         }
         catch (Exception ex)
         {
@@ -156,6 +200,8 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
             IsRefreshing = false;
         }
     }
+
+    public override void RequestRefresh() => RefreshCommand.Execute(null);
 
     // --- Manual Card Logic ---
 
@@ -331,6 +377,73 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
         catch (Exception ex)
         {
             StatusMessage = $"Error batch unlink: {ex.Message}";
+        }
+    }
+
+    protected override async Task BatchAcc()
+    {
+        var selectedRegulars = Cards.Where(c => c.IsSelected && !c.IsManual && !c.IsAcc).ToList();
+        if (!selectedRegulars.Any()) return;
+
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            var accBoardId = await _database.GetAsync<string>("Trello.AccBoardId");
+            var accListId = await _database.GetAsync<string>("Trello.AccListId");
+
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token) || string.IsNullOrEmpty(accBoardId) || string.IsNullOrEmpty(accListId))
+            {
+                StatusMessage = "Trello ACC target not configured in Settings.";
+                return;
+            }
+
+            var accIds = await _database.GetAsync<List<string>>("ManualCards.Acc") ?? new List<string>();
+            int movedCount = 0;
+            int failedCount = 0;
+
+            using var client = new HttpClient();
+
+            foreach (var card in selectedRegulars)
+            {
+                var url = $"https://api.trello.com/1/cards/{card.Id}?idList={accListId}&idBoard={accBoardId}&key={apiKey}&token={token}";
+                var response = await client.PutAsync(url, null);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    if (!accIds.Contains(card.Id))
+                    {
+                        accIds.Add(card.Id);
+                    }
+                    card.IsSelected = false; // Reset checklist immediately on success
+                    movedCount++;
+                }
+                else
+                {
+                    failedCount++;
+                }
+            }
+
+            if (movedCount > 0)
+            {
+                await _database.SetAsync("ManualCards.Acc", accIds);
+                StatusMessage = $"{movedCount} cards sent to ACC.";
+                await Refresh(); // Reload list to apply IsAcc
+                
+                // Track activity
+                await LogActivity("Editing", "Batch ACC", $"{movedCount} cards sent to approval.");
+            }
+            if (failedCount > 0)
+            {
+                StatusMessage = $"Sent {movedCount} cards to ACC, {failedCount} failed.";
+            }
+
+            // Clear Selection
+            HasSelectedCards = false;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error Batch ACC: {ex.Message}";
         }
     }
 

@@ -434,6 +434,12 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    protected virtual Task BatchAcc()
+    {
+         return Task.CompletedTask; // Implemented in EditingCardListViewModel
+    }
+
     // --- Checklist Logic ---
 
     [ObservableProperty] private bool _isChecklistPanelOpen;
@@ -697,6 +703,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         if (SelectedCard != null) IsDetailPanelOpen = true;
     }
 
+    public virtual void RequestRefresh() { }
+
     protected async Task LoadAttachments(string cardId)
     {
         IsLoadingAttachments = true;
@@ -932,12 +940,16 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<TrelloItem> _availableLists = new();
     [ObservableProperty] private TrelloItem? _selectedMoveBoard;
     [ObservableProperty] private TrelloItem? _selectedMoveList;
+    [ObservableProperty] private string _moveBoardSearchText = "";
+    [ObservableProperty] private string _moveListSearchText = "";
     [ObservableProperty] private bool _isLoadingMoveData;
     
     // Batch Move Properties
     [ObservableProperty] private bool _isBatchMoveMode;
     [ObservableProperty] private bool _hasSelectedCards;
     [ObservableProperty] private bool _hasSelectedManualCards;
+    [ObservableProperty] private bool _hasSelectedAccCards;
+    [ObservableProperty] private bool _hasSelectedRegularCards;
     [ObservableProperty] private string _batchStatusMessage = "";
     
     [RelayCommand]
@@ -945,6 +957,35 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         HasSelectedCards = Cards.Any(c => c.IsSelected);
         HasSelectedManualCards = Cards.Any(c => c.IsSelected && c.IsManual);
+        HasSelectedAccCards = Cards.Any(c => c.IsSelected && c.IsAcc);
+        HasSelectedRegularCards = Cards.Any(c => c.IsSelected && !c.IsManual && !c.IsAcc);
+        
+        // Update IsAllSelected state based on actual card selections
+        if (Cards.Count > 0)
+        {
+            _isAllSelected = Cards.All(c => c.IsSelected);
+            OnPropertyChanged(nameof(IsAllSelected));
+        }
+    }
+
+    // --- Select All Logic ---
+    [ObservableProperty] private bool _isAllSelected;
+
+    [RelayCommand]
+    private void ToggleSelectAllCards()
+    {
+        if (Cards == null || Cards.Count == 0) return;
+
+        // Toggle state based on current property value which is ALREADY updated by TwoWay binding of CheckBox/ToggleButton
+        bool targetState = IsAllSelected;
+        
+        foreach (var card in Cards)
+        {
+            card.IsSelected = targetState;
+        }
+
+        // Force check because simple property change inside list might not trigger generic CollectionChanged for bindings
+        SelectionChanged(); 
     }
     
     [RelayCommand]
@@ -986,26 +1027,31 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     }
     
     [RelayCommand]
-    private void CloseMovePanel()
+    protected void CloseMovePanel()
     {
         IsMovePanelOpen = false;
+        
+        // Cache the value before resetting it
+        bool wasBatchMove = IsBatchMoveMode;
+        IsBatchMoveMode = false;
         
         // Reset Dropdowns
         SelectedMoveBoard = null;
         SelectedMoveList = null;
-        
+        MoveBoardSearchText = "";
+        MoveListSearchText = "";
         AvailableBoards.Clear();
         AvailableLists.Clear();
+        StatusMessage = "";
         
         // If it was a batch move (dummy card), clear selection. Otherwise return to detail.
-        if (IsBatchMoveMode) 
+        if (wasBatchMove) 
         {
              SelectedCard = null;
-             IsBatchMoveMode = false;
         }
         else if (SelectedCard != null) 
         {
-            IsDetailPanelOpen = true;
+             IsDetailPanelOpen = true; // Returns to previous view
         }
     }
 
@@ -1039,6 +1085,17 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     StatusMessage = successMessage;
 
                 Cards.Remove(card); 
+                
+                // If the card was an ACC card, remove it from the ACC tracking
+                if (card.IsAcc)
+                {
+                    var accIds = await _database.GetAsync<List<string>>("ManualCards.Acc") ?? new List<string>();
+                    if (accIds.Contains(card.Id))
+                    {
+                        accIds.Remove(card.Id);
+                        await _database.SetAsync("ManualCards.Acc", accIds);
+                    }
+                }
                 
                 if (!isBatchMode)
                     CloseMovePanel();
@@ -1130,6 +1187,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         AvailableBoards.Clear();
         SelectedMoveBoard = null; // FORCE RESET to ensure we don't remember previous selection
         SelectedMoveList = null;  // Also reset list
+        MoveBoardSearchText = "";
+        MoveListSearchText = "";
         try
         {
             var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
@@ -1240,10 +1299,12 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                  StatusMessage = $"Moved {successCount} of {total} cards to {targetListName}";
                  HasSelectedCards = false; // Reset selection visibility
                  HasSelectedManualCards = false;
+                 RequestRefresh(); // Auto refresh
              }
              else if (SelectedCard != null)
              {
                  await DataMoveCard(SelectedCard, SelectedMoveBoard.Id, SelectedMoveList.Id, $"Moved to {SelectedMoveList.Name}", false);
+                 RequestRefresh(); // Auto refresh
              }
         }
         catch (Exception ex)
@@ -1305,10 +1366,30 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 existing.CoverColor = newC.CoverColor;
                 existing.CoverAttachmentName = newC.CoverAttachmentName;
                 existing.Pos = newC.Pos;
+                existing.IsAcc = newC.IsAcc;
+                existing.IsSeparator = newC.IsSeparator;
             }
             else
             {
                 Cards.Add(newC);
+            }
+        }
+
+        // Reorder Cards to match newCards exactly
+        for (int i = 0; i < newCards.Count; i++)
+        {
+            var targetId = newCards[i].Id;
+            if (Cards.Count > i && Cards[i].Id != targetId)
+            {
+                var targetItem = Cards.FirstOrDefault(c => c.Id == targetId);
+                if (targetItem != null)
+                {
+                    int oldIndex = Cards.IndexOf(targetItem);
+                    if (oldIndex != -1 && oldIndex != i)
+                    {
+                        Cards.Move(oldIndex, i);
+                    }
+                }
             }
         }
     }

@@ -80,7 +80,7 @@
             <Border.Effect>
                 <DropShadowEffect BlurRadius="8" OffsetX="2" OffsetY="0" Color="#20000000" Opacity="1"/>
             </Border.Effect>
-            <Grid RowDefinitions="Auto, *, Auto">
+            <Grid RowDefinitions="Auto, Auto, *">
                 <!-- Profile Picture (Top) -->
                 <Border Grid.Row="0" Width="25" Height="25" CornerRadius="6" 
                         Background="{DynamicResource CardBackgroundBrush}" 
@@ -99,11 +99,13 @@
                 <!-- Middle Spacer -->
                 <Border Grid.Row="1"/>
                 
-                <!-- Bottom Buttons -->
-                <StackPanel Grid.Row="2" Spacing="12" HorizontalAlignment="Center" Margin="0,0,0,16">
+                <!-- Bottom Buttons (Scrollable to prevent overflow) -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Padding="0">
+                <StackPanel Spacing="8" HorizontalAlignment="Center" Margin="0,0,0,12" VerticalAlignment="Bottom">
                     
                     <!-- EXPANDABLE TOOLS (Visible when Expanded) -->
-                    <StackPanel Spacing="12" IsVisible="{Binding IsToolsExpanded}">
+                    <StackPanel Spacing="8" IsVisible="{Binding IsToolsExpanded}">
                         <!-- GDrive Pop-out -->
                         <Button Click="OnGdriveClick" 
                                 Width="36" Height="36" Padding="0"
@@ -203,6 +205,7 @@
                                      Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
                     </Button>
                 </StackPanel>
+                </ScrollViewer>
             </Grid>
         </Border>
         

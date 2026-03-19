@@ -8,44 +8,112 @@
              x:DataType="vm:PointLeaderboardViewModel"
              Background="{DynamicResource AppBackgroundBrush}">
     
-    <Grid RowDefinitions="Auto, *" PointerPressed="OnRootPointerPressed" Background="Transparent">
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="30" Spacing="12">
-             <Grid ColumnDefinitions="*,Auto">
-                 <TextBlock Text="Leaderboard" FontWeight="Bold" FontSize="24" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                 <Button Grid.Column="1" Command="{Binding LoadDataCommand}" ToolTip.Tip="Refresh Data"
-                         Width="36" Height="36" CornerRadius="18"
-                         Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Padding="0" Cursor="Hand">
-                      <PathIcon Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" 
-                                Width="16" Height="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                 </Button>
-             </Grid>
-             <StackPanel Orientation="Horizontal" Spacing="8">
-                 <TextBlock Text="Total Points:" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                 <TextBlock Text="{Binding TotalPoints}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AccentPointsBrush}"/>
-             </StackPanel>
-        </StackPanel>
+    <Grid RowDefinitions="Auto, *, Auto" PointerPressed="OnRootPointerPressed" Background="Transparent">
+        <!-- Compact Tab Bar (Top) -->
+        <Border Grid.Row="0" Margin="20,15,20,10" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="8" Padding="3" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                HorizontalAlignment="Center" MinWidth="200">
+            <Grid ColumnDefinitions="*, *">
+                <!-- HARIAN Tab -->
+                <Button Grid.Column="0" Command="{Binding SwitchToHarianCommand}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Height="28" CornerRadius="6" BorderThickness="0" Cursor="Hand">
+                    <Button.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                    </Button.Styles>
+                    <Panel>
+                        <Border CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" 
+                                IsVisible="{Binding IsHarianSelected}" Opacity="0.15"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                        <TextBlock Text="HARIAN" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontWeight="Bold" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsVisible="{Binding !IsHarianSelected}"/>
+                        <TextBlock Text="HARIAN" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontWeight="Bold" FontSize="11"
+                                   Foreground="{DynamicResource AccentBlueBrush}"
+                                   IsVisible="{Binding IsHarianSelected}"/>
+                    </Panel>
+                </Button>
+                
+                <!-- BULANAN Tab -->
+                <Button Grid.Column="1" Command="{Binding SwitchToBulananCommand}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Height="28" CornerRadius="6" BorderThickness="0" Cursor="Hand">
+                    <Button.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                    </Button.Styles>
+                    <Panel>
+                        <Border CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" 
+                                IsVisible="{Binding IsBulananSelected}" Opacity="0.15"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                        <TextBlock Text="BULANAN" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontWeight="Bold" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsVisible="{Binding !IsBulananSelected}"/>
+                        <TextBlock Text="BULANAN" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontWeight="Bold" FontSize="11"
+                                   Foreground="{DynamicResource AccentBlueBrush}"
+                                   IsVisible="{Binding IsBulananSelected}"/>
+                    </Panel>
+                </Button>
+            </Grid>
+        </Border>
 
         <!-- List -->
-        <ScrollViewer Grid.Row="1" Margin="30,0,30,30">
-            <ItemsControl ItemsSource="{Binding Items}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15" Margin="0,0,0,10"
-                                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                            <Grid ColumnDefinitions="Auto, *, Auto">
-                                <TextBlock Text="{Binding Rank}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" 
-                                           VerticalAlignment="Center" Width="40" TextAlignment="Center"/>
-                                
-                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Bold" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" 
-                                           VerticalAlignment="Center" Margin="10,0,0,0"/>
-                                
-                                <TextBlock Grid.Column="2" Text="{Binding Points}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AccentPointsBrush}" VerticalAlignment="Center"/>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+        <ScrollViewer Grid.Row="1" Margin="20,0,20,0">
+            <Grid>
+                <TextBlock Text="Loading..." HorizontalAlignment="Center" VerticalAlignment="Center" 
+                           Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsLoading}"/>
+                <ItemsControl ItemsSource="{Binding ActiveItems}" IsVisible="{Binding !IsLoading}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15" Margin="0,0,0,10"
+                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                                <Grid ColumnDefinitions="Auto, *, Auto">
+                                    <TextBlock Text="{Binding Rank}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                               VerticalAlignment="Center" Width="40" TextAlignment="Center"/>
+                                    
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Bold" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" 
+                                               VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                    
+                                    <TextBlock Grid.Column="2" Text="{Binding FormattedPoints}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AccentPointsBrush}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
         </ScrollViewer>
+
+        <!-- Bottom Status Bar -->
+        <Border Grid.Row="2" Margin="20,8,20,15">
+            <Grid ColumnDefinitions="*, Auto">
+                <!-- Total Points (Left) -->
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="Total:" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding FormattedTotalPoints}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AccentPointsBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Pts" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <!-- Refresh FAB (Right) -->
+                <Button Grid.Column="1" Command="{Binding LoadDataCommand}" ToolTip.Tip="Refresh"
+                        Width="30" Height="30" CornerRadius="15"
+                        Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Padding="0" Cursor="Hand">
+                    <PathIcon Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" 
+                              Width="13" Height="13" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>
