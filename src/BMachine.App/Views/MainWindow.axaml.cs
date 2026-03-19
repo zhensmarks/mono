@@ -79,43 +79,29 @@ public partial class MainWindow : Window
         });
     }
 
-    protected override async void OnOpened(System.EventArgs e)
+    protected override void OnOpened(System.EventArgs e)
     {
         base.OnOpened(e);
         if (DataContext is BMachine.App.ViewModels.MainWindowViewModel vm)
         {
-            var saved = await vm.GetSavedWindowState();
-            if (saved != null)
+            // Initial log panel state has ALREADY been loaded by App.axaml.cs BEFORE Show()
+            // and placed into vm.InitialLogPanelOpen.
+            if (vm.CurrentView is BMachine.UI.ViewModels.DashboardViewModel dashVm)
             {
-                // Validate Position (Ensure window is on screen)
-                bool isOnScreen = false;
-                var targetRect = new PixelRect(saved.Value.X, saved.Value.Y, (int)saved.Value.W, (int)saved.Value.H);
-                
-                foreach(var screen in this.Screens.All)
-                {
-                    if (screen.Bounds.Intersects(targetRect))
-                    {
-                        isOnScreen = true;
-                        break;
-                    }
-                }
-
-                if (isOnScreen)
-                {
-                    this.Width = saved.Value.W;
-                    this.Height = saved.Value.H;
-                    this.WindowState = saved.Value.State;
-                    this.Position = new Avalonia.PixelPoint(saved.Value.X, saved.Value.Y);
-                    this.WindowStartupLocation = WindowStartupLocation.Manual;
-                }
-                else
-                {
-                    // Fallback to CenterScreen if off-screen
-                    this.Width = saved.Value.W; // Keep size
-                    this.Height = saved.Value.H;
-                    this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-                }
+                dashVm.IsLogPanelOpen = vm.InitialLogPanelOpen;
+                dashVm.MarkInitialLoadComplete();
             }
+
+            // Fallback forced layout update just in case
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                this.UpdateLayout();
+                var root = this.FindControl<Control>("MainRoot");
+                if (root != null)
+                {
+                    root.InvalidateMeasure();
+                    root.InvalidateArrange();
+                }
+            }, Avalonia.Threading.DispatcherPriority.Background);
         }
     }
 
@@ -124,8 +110,26 @@ public partial class MainWindow : Window
         base.OnClosing(e);
         if (DataContext is BMachine.App.ViewModels.MainWindowViewModel vm)
         {
-            // Fire and forget save
-            _ = vm.SaveWindowState(this.Width, this.Height, this.WindowState, this.Position.X, this.Position.Y);
+            // Get log panel state from Dashboard ViewModel
+            bool isLogPanelOpen = false;
+            if (vm.CurrentView is BMachine.UI.ViewModels.DashboardViewModel dashVm)
+            {
+                isLogPanelOpen = dashVm.IsLogPanelOpen;
+            }
+            
+            // Synchronous save to ensure data persists before process exits
+            try
+            {
+                double saveW = this.Bounds.Width > 0 ? this.Bounds.Width : this.Width;
+                double saveH = this.Bounds.Height > 0 ? this.Bounds.Height : this.Height;
+
+                vm.SaveWindowState(saveW, saveH, this.WindowState, this.Position.X, this.Position.Y, isLogPanelOpen)
+                    .GetAwaiter().GetResult();
+            }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving window state: {ex.Message}");
+            }
         }
     }
 }

@@ -16,6 +16,12 @@ public partial class LogPanelSidebar : UserControl
     public LogPanelSidebar()
     {
         InitializeComponent();
+        
+        // Register DragDrop handlers in constructor — must be done early for macOS
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragEnterEvent, OnDragOver, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        AddHandler(DragDrop.DropEvent, OnDrop, Avalonia.Interactivity.RoutingStrategies.Tunnel);
     }
 
 
@@ -80,8 +86,6 @@ public partial class LogPanelSidebar : UserControl
          base.OnDataContextChanged(e);
          if (DataContext is DashboardViewModel vm)
          {
-             Avalonia.Input.DragDrop.SetAllowDrop(this, true);
-             AddHandler(Avalonia.Input.DragDrop.DropEvent, OnDrop);
              // Subscribe to collection changes
             if (vm.LogItems != null)
             {
@@ -296,26 +300,104 @@ public partial class LogPanelSidebar : UserControl
         }
     }
 
+    // --- Panel Navigation Tab Handlers ---
+    private void OnConsoleTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+            vm.BatchVM.SelectedActivityMode = 0;
+    }
+    
+    private void OnMasterTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+            vm.BatchVM.SelectedActivityMode = 1;
+    }
+    
+    private void OnPhotoshopTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+            vm.BatchVM.SelectedActivityMode = 2;
+    }
+
+    private void OnDragOver(object? sender, Avalonia.Input.DragEventArgs e)
+    {
+        // Always accept drops — let OnDrop decide what to do with the data
+        e.DragEffects = Avalonia.Input.DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
+    // Text-based file extensions we support for drag & drop
+    private static readonly HashSet<string> _textExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".txt", ".docx", ".md", ".csv", ".log", ".json", ".xml", 
+        ".jsx", ".js", ".ini", ".cfg", ".yaml", ".yml", ".html",
+        ".css", ".py", ".cs", ".java", ".sh", ".bat", ".ps1",
+        ".sql", ".rtf", ".conf", ".toml", ".env", ".properties"
+    };
+
     private async void OnDrop(object? sender, Avalonia.Input.DragEventArgs e)
     {
-        if (DataContext is DashboardViewModel vm)
+        e.Handled = true;
+        if (DataContext is not DashboardViewModel vm) return;
+
+        string? filePath = null;
+
+        // Try 1: Standard IStorageItem (works on Windows, some Linux)
+        if (e.Data.Contains(Avalonia.Input.DataFormats.Files))
         {
-            if (e.Data.Contains(Avalonia.Input.DataFormats.Files))
+            var files = e.Data.GetFiles();
+            if (files != null)
             {
-                var files = e.Data.GetFiles();
-                if (files != null)
+                var first = files.FirstOrDefault();
+                if (first != null)
+                    filePath = first.Path.LocalPath;
+            }
+        }
+
+        // Try 2: Text data — macOS Finder often provides file paths as text
+        if (filePath == null && e.Data.Contains(Avalonia.Input.DataFormats.Text))
+        {
+            var text = e.Data.GetText();
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                // macOS may give file:// URI or plain path
+                var candidate = text.Trim();
+                if (candidate.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
                 {
-                    foreach (var file in files)
-                    {
-                        var path = file.Path.LocalPath;
-                        var ext = System.IO.Path.GetExtension(path);
-                        if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase) || 
-                            ext.Equals(".docx", StringComparison.OrdinalIgnoreCase))
-                        {
-                            await vm.HandleDroppedLogFile(path);
-                        }
-                    }
+                    try { candidate = new Uri(candidate).LocalPath; } catch { }
                 }
+                if (System.IO.File.Exists(candidate))
+                    filePath = candidate;
+            }
+        }
+
+        // Try 3: FileNames format (legacy, some platforms)
+        if (filePath == null)
+        {
+            try
+            {
+                var fileNames = e.Data.GetFileNames();
+                if (fileNames != null)
+                {
+                    var first = fileNames.FirstOrDefault();
+                    if (!string.IsNullOrEmpty(first) && System.IO.File.Exists(first))
+                        filePath = first;
+                }
+            }
+            catch { /* GetFileNames not supported on all platforms */ }
+        }
+
+        // Process the file if we found one
+        if (!string.IsNullOrEmpty(filePath))
+        {
+            var ext = System.IO.Path.GetExtension(filePath);
+            if (_textExtensions.Contains(ext))
+            {
+                // Switch to Console tab
+                if (vm.BatchVM != null)
+                    vm.BatchVM.SelectedActivityMode = 0;
+                
+                await vm.HandleDroppedLogFile(filePath);
             }
         }
     }

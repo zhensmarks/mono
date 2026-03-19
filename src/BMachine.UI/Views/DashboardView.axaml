@@ -416,14 +416,13 @@
             <Grid Grid.Row="1" ClipToBounds="True">
                 
                 <!-- DASHBOARD TAB CONTENT -->
-                <Grid IsVisible="{Binding IsDashboardTabSelected}" HorizontalAlignment="Stretch" Margin="0,0,20,0">
+                <Grid IsVisible="{Binding IsDashboardTabSelected}" HorizontalAlignment="Stretch" Margin="0,0,20,30">
                     <!-- StatsPanel -->
                     <Border x:Name="Part_Stats" 
                             CornerRadius="20" Padding="10"
                             VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                             Background="Transparent">
-                        <Viewbox Stretch="Uniform" VerticalAlignment="Top" HorizontalAlignment="Stretch" MaxHeight="260">
-                            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto">
+                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <controls:StatWidget Grid.Row="0" Grid.Column="0" Margin="6" Width="220" Height="120" DisplayMode="Bar" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
                                                      Color="{DynamicResource AccentEditingBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenEditingListCommand}" WindowCommand="{Binding OpenEditingWindowCommand}"/>
@@ -436,8 +435,7 @@
                                 <controls:StatWidget Grid.Row="1" Grid.Column="1" Margin="6" Width="220" Height="120" DisplayMode="Bar" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
                                                      Color="{DynamicResource AccentPointsBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}"
                                                      Command="{Binding OpenLeaderboardWindowCommand}" WindowCommand="{Binding OpenSpreadsheetWindowCommand}"/>
-                            </Grid>
-                        </Viewbox>
+                        </Grid>
                     </Border>
                 </Grid>
                     

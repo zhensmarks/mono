@@ -19,7 +19,6 @@ public class Bootstrapper
         // 1. Init Database
         status?.Report("Menghubungkan Database...");
         progress?.Report(10);
-        await Task.Delay(500); // Simulating work
 
         // 2. Load Core Settings
         status?.Report("Memuat Pengaturan Inti...");
@@ -51,13 +50,10 @@ public class Bootstrapper
             Console.WriteLine($"[WARNING] Stack: {ex.StackTrace}");
         }
 
-        await Task.Delay(200);
-
         // 3. Verify Scripts
         status?.Report("Memeriksa Script Python...");
         progress?.Report(55);
         // Check scripts existence...
-        await Task.Delay(500);
 
         // 4. Initialize Services
         status?.Report("Menyiapkan Layanan...");
@@ -66,8 +62,6 @@ public class Bootstrapper
         
         // Register Update Service (Singleton-ish via ServiceLocator pattern typically, but here we just ensure logic is ready)
         // For now, MainWindowViewModel creates it, so we might just log ready.
-        
-        await Task.Delay(500);
         
         // 5. Initialize Plugins
         status?.Report("Memuat Plugin...");
@@ -102,11 +96,9 @@ public class Bootstrapper
         // 6. Finalizing
         status?.Report("Membuka Antarmuka...");
         progress?.Report(90);
-        await Task.Delay(300);
 
         status?.Report("Selesai!");
         progress?.Report(100);
-        await Task.Delay(300);
     }
 
     // Quick mock services to satisfy constructor if real ones aren't available yet

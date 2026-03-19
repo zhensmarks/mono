@@ -34,10 +34,14 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [ObservableProperty] private bool _isLogPanelOpen;
     [ObservableProperty] private bool _isOnline = true; // General Online status
     [ObservableProperty] private bool _isSpreadsheetOnline = true; // Specific for Spreadsheet
+    
+    public Task InitializationTask { get; private set; }
 
     partial void OnIsLogPanelOpenChanged(bool value)
     {
-         _database?.SetAsync("Dashboard.IsLogPanelOpen", value.ToString());
+         // Don't save during initial window restore
+         if (!_isInitialLogPanelLoad)
+             _database?.SetAsync("Dashboard.IsLogPanelOpen", value.ToString());
     }
 
     [RelayCommand]
@@ -543,7 +547,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             _languageService = languageService; 
             _logService = logService;
             
-            LoadLogPanelState();
+            // NOTE: LoadLogPanelState() removed - MainWindow.OnOpened handles restore
             _ = LoadNavSettings();
             _ = LoadVisibilitySettings(); 
             
@@ -657,8 +661,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              });
         };
 
-        // Call LoadData directly (async fire-and-forget)
-        _ = LoadData(); // Direct call instead of Command.Execute
+        // Call LoadData directly
+        InitializationTask = LoadData();
 
         // START AUTO-REFRESH IMMEDIATELY (Don't wait for LoadData async)
         _editingListVM.StartAutoRefresh();
@@ -700,13 +704,15 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         safetyTimer.Start();
     }
 
-    private async void LoadLogPanelState()
+    private bool _isInitialLogPanelLoad = true;
+
+    /// <summary>
+    /// Call after MainWindow.OnOpened has restored IsLogPanelOpen from saved window state.
+    /// This enables subsequent changes to persist to the database.
+    /// </summary>
+    public void MarkInitialLoadComplete()
     {
-        if (_database != null) 
-        {
-            var str = await _database.GetAsync<string>("Dashboard.IsLogPanelOpen");
-            if (bool.TryParse(str, out var result)) IsLogPanelOpen = result;
-        }
+        _isInitialLogPanelLoad = false;
     }
     
     // Fallback constructor for Design-Time
@@ -853,10 +859,14 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                     ParseLogAndAdd(line.Trim());
                 }
                 AddLog("--- End of File ---", BMachine.UI.Models.LogLevel.System);
+                
+                // Update LogText (the TextBox is bound to LogText, not LogItems)
+                LogText = string.Join(Environment.NewLine, LogItems.Select(i => i.Message));
             }
             catch (Exception ex)
             {
                 AddLog($"Error reading file: {ex.Message}", BMachine.UI.Models.LogLevel.Error);
+                LogText = $"Error reading file: {ex.Message}";
             }
         }
     }

@@ -327,6 +327,19 @@ public partial class PathSettingsViewModel : ObservableObject
                 PathOkeBase = buffer;
                 await _database.SetAsync("Configs.Master.OkeBase", buffer);
             }
+            else if (key == "LocalOutput")
+            {
+                PathLocalOutput = buffer;
+                await _database.SetAsync("Configs.Master.LocalOutput", buffer);
+            }
+            else if (key == "OfflineStorage")
+            {
+                OfflineStoragePath = buffer;
+                await _database.SetAsync("Configs.Storage.OfflinePath", buffer);
+            }
+            
+            // Notify listeners to reload paths
+            WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
         }
     }
 }

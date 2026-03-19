@@ -11,6 +11,7 @@ public partial class DashboardView : UserControl
 {
     private double _previousWidth = 0;
     private bool _isTogglingTerminal = false;
+    private bool _isRestoringState = true; // Skip auto-close during initial restore
 
     public DashboardView()
     {
@@ -21,12 +22,33 @@ public partial class DashboardView : UserControl
         AddHandler(DragDrop.DragOverEvent, OnBatchDragOver);
 
         this.SizeChanged += OnDashboardSizeChanged;
+        
+        // Allow auto-close after initial layout settles (500ms delay)
+        Avalonia.Threading.DispatcherTimer.RunOnce(() =>
+        {
+            _isRestoringState = false;
+        }, TimeSpan.FromMilliseconds(1500));
+    }
+
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        
+        // FIX AV11 MACOS BUG: Force layout updates 100ms after attaching to visual tree.
+        // This ensures the Dashboard conforms to the restored window size instead of being clipped.
+        Avalonia.Threading.DispatcherTimer.RunOnce(() =>
+        {
+            this.InvalidateMeasure();
+            this.InvalidateArrange();
+            this.UpdateLayout();
+        }, TimeSpan.FromMilliseconds(100));
     }
 
     private void OnDashboardSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        // Skip auto-close if we are mid-toggle (programmatic resize)
-        if (_isTogglingTerminal) return;
+        // Skip auto-close if we are mid-toggle, restoring state, or on initial layout
+        if (_isTogglingTerminal || _isRestoringState) return;
+        if (e.PreviousSize.Width <= 0) return; // Skip initial layout pass
 
         if (DataContext is DashboardViewModel vm)
         {

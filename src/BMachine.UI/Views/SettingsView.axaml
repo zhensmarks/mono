@@ -53,11 +53,10 @@
         </Style>
     </UserControl.Styles>
     
-    <Grid x:Name="Part_RootGrid" RowDefinitions="Auto, *" ColumnDefinitions="300, *" Margin="30" SizeChanged="OnRootGridSizeChanged" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
+    <Grid x:Name="Part_RootGrid" RowDefinitions="Auto, *" ColumnDefinitions="240, *" Margin="25" SizeChanged="OnRootGridSizeChanged" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
         
         <!-- Header (Compact like Dashboard) -->
-        <!-- Header (Compact like Dashboard) -->
-        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="15" Margin="0,0,0,20">
+        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="12" Margin="0,0,0,15">
              <Button Command="{Binding NavigateBackCommand}" 
                      IsVisible="{Binding IsMobileContentOpen}" 
                      Background="Transparent" BorderThickness="0" Padding="5" Cursor="Hand">
@@ -79,11 +78,12 @@
                 <ListBox Background="Transparent" SelectedIndex="{Binding SelectedMenuIndex}">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
-                            <Setter Property="Padding" Value="15"/>
-                            <Setter Property="CornerRadius" Value="10"/>
-                            <Setter Property="Margin" Value="0,5"/>
-                            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                            <Setter Property="Padding" Value="12,10"/>
+                            <Setter Property="CornerRadius" Value="8"/>
+                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            <Setter Property="Cursor" Value="Hand"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected">
                             <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
@@ -97,61 +97,61 @@
                     </ListBox.Styles>
                     
                     <ListBoxItem>
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                            <PathIcon Data="{StaticResource IconSettings}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                            <TextBlock Text="{Binding Language[Nav.General]}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                            <TextBlock Text="{Binding Language[Nav.General]}" FontSize="13" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </ListBoxItem>
                     
                     <ListBoxItem>
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                            <PathIcon Data="{StaticResource IconImage}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                            <TextBlock Text="{Binding Language[Nav.Appearance]}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconImage}" Width="16" Height="16" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                            <TextBlock Text="{Binding Language[Nav.Appearance]}" FontSize="13" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </ListBoxItem>
                     
                     <ListBoxItem>
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                            <PathIcon Data="{StaticResource IconUser}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                            <TextBlock Text="{Binding Language[Nav.Account]}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconUser}" Width="16" Height="16" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                            <TextBlock Text="{Binding Language[Nav.Account]}" FontSize="13" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </ListBoxItem>
                     
                      <ListBoxItem>
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                            <PathIcon Data="{StaticResource IconExtension}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                            <TextBlock Text="{Binding Language[Nav.Extensions]}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconExtension}" Width="16" Height="16" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                            <TextBlock Text="{Binding Language[Nav.Extensions]}" FontSize="13" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </ListBoxItem>
 
                     <!-- Script Manager Item (Visible) -->
                      <ListBoxItem>
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                             <PathIcon Data="{StaticResource IconScript}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                             <TextBlock Text="Script Manager" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                             <PathIcon Data="{StaticResource IconScript}" Width="16" Height="16" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                             <TextBlock Text="Script Manager" FontSize="13" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </ListBoxItem> 
                     
                     <!-- Paths / Explorer -->
                     <ListBoxItem IsSelected="{Binding IsExplorerSelected}">
-                    <StackPanel Orientation="Horizontal" Spacing="15">
-                         <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                         <TextBlock Text="Explorer" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                         <PathIcon Data="{StaticResource IconFolder}" Width="16" Height="16" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                         <TextBlock Text="Explorer" FontSize="13" VerticalAlignment="Center" FontWeight="SemiBold"/>
                     </StackPanel>
                 </ListBoxItem>
                 
                 <ListBoxItem IsSelected="{Binding IsPathsSelected}">
-                    <StackPanel Orientation="Horizontal" Spacing="15">
-                         <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                         <TextBlock Text="Paths" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                         <PathIcon Data="{StaticResource IconFolder}" Width="16" Height="16" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                         <TextBlock Text="Paths" FontSize="13" VerticalAlignment="Center" FontWeight="SemiBold"/>
                     </StackPanel>
                 </ListBoxItem>
 
                     <!-- About Item -->
                     <ListBoxItem>
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                             <PathIcon Data="{StaticResource IconInfoCircle}" Width="18" Height="18" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                             <TextBlock Text="About" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                             <PathIcon Data="{StaticResource IconInfoCircle}" Width="16" Height="16" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                             <TextBlock Text="About" FontSize="13" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </ListBoxItem>
                 </ListBox>
@@ -162,14 +162,11 @@
         <!-- Content Area Wrapper -->
         <Grid x:Name="Part_ContentWrapper" Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsContentVisible}">
             <!-- Content Area (Appearance) -->
-            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True" 
-                    IsVisible="{Binding IsAppearanceSelected}">
-             <!-- ... Appearance Content ... -->
-             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="25" Margin="30">
-                    <!-- Header Removed -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" IsVisible="{Binding IsAppearanceSelected}">
+                <StackPanel Spacing="15" Margin="10,0,20,20">
                     
-                    <StackPanel Spacing="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
                          <!-- Theme Mode -->
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Spacing="5" Margin="0,0,10,0">
@@ -251,8 +248,11 @@
                                 </Grid>
                              </Grid>
                         </StackPanel>
-                        
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="0,10"/>
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
 
                         <!-- Global Accent Color -->
                         <StackPanel Spacing="10">
@@ -277,8 +277,11 @@
                                              Color="{Binding CustomAccentColor}" Margin="0,10,0,0"/>
                              </Grid>
                         </StackPanel>
-                        
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
 
                         <!-- Navigation Button Style -->
                         <StackPanel Spacing="15" Margin="0,10,0,0">
@@ -378,10 +381,12 @@
                             </ComboBox>
                         </Grid>
                     </StackPanel>
+                    </Border>
                     
-                    <Border Height="1" Background="#26282C"/>
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
 
-                    <!-- Widget Colors (Advanced) -->
+                        <!-- Widget Colors (Advanced) -->
                     <StackPanel Spacing="15">
                         <StackPanel Spacing="5">
                              <TextBlock Text="Warna Widget Statistik (Advanced)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -466,22 +471,19 @@
                         
                         <!-- Orb Settings Removed -->
                     </StackPanel>
+                    </StackPanel>
+                    </Border>
                     
-                    <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,20,0,0"/>
+                    <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,10,0,0"/>
                 </StackPanel>
              </ScrollViewer>
-        </Border>
 
-        <!-- Content Area (General) - Existing -->
-        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
-                IsVisible="{Binding IsGeneralSelected}">
-                <!-- ... General Content ... -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="25" Margin="30">
-                    <!-- Header Removed -->
-
-                    <!-- Settings Items -->
-                    <StackPanel Spacing="20">
+        <!-- Content Area (General) -->
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsGeneralSelected}">
+            <StackPanel Spacing="15" Margin="10,0,20,20">
+                
+                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                <StackPanel Spacing="15">
                         <!-- Language -->
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Spacing="5" Margin="0,0,10,0">
@@ -493,8 +495,11 @@
                                 <ComboBoxItem>Indonesia</ComboBoxItem>
                             </ComboBox>
                         </Grid>
-                        
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
 
                         <!-- Batch File Filter -->
                         <Grid ColumnDefinitions="*, Auto">
@@ -504,12 +509,12 @@
                              </StackPanel>
                              <TextBox Grid.Column="1" Text="{Binding BatchFileFilter}" Watermark="All (*)" Width="150" HorizontalContentAlignment="Right"/>
                         </Grid>
-                        
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
 
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
-                        
-
-                        
                         <!-- Storage -->
                         <Grid ColumnDefinitions="*, Auto">
                              <StackPanel Spacing="5" Margin="0,0,10,0">
@@ -518,8 +523,11 @@
                              </StackPanel>
                              <Button Grid.Column="1" Classes="Clear" Content=">" Foreground="#999"/>
                         </Grid>
-                        
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
 
                         <!-- Data Management -->
                         <Grid ColumnDefinitions="*, Auto">
@@ -532,7 +540,12 @@
                                  <Button Command="{Binding ImportDatabaseCommand}" Content="Import" Classes="Primary"/>
                              </StackPanel>
                         </Grid>
-                        
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
+
                         <!-- Dashboard Visibility -->
                         <StackPanel Spacing="10">
                             <TextBlock Text="Dashboard Visibility" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -561,9 +574,12 @@
                                 <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsPointVisible}"/>
                             </Grid> -->
                         </StackPanel>
-                        
-                        <!-- Refresh Interval Removed (Moved to Account) -->
-                        
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
+
                         <!-- Shortcut -->
                         <Grid ColumnDefinitions="*, Auto">
                              <StackPanel Spacing="5" Margin="0,0,10,0">
@@ -598,9 +614,12 @@
                              </StackPanel>
                              <Button Grid.Column="1" Command="{Binding SyncSystemTimeCommand}" Content="Sync Time" Classes="Primary"/>
                         </Grid>
-                        
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
-                        
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
+
                         <!-- Edit Profile -->
                         <Grid ColumnDefinitions="*, Auto">
                              <StackPanel Spacing="5" Margin="0,0,10,0">
@@ -623,22 +642,20 @@
                                    </Button>
                               </Grid>
                         </Grid>
-                         <Button Grid.Column="1" HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary"/>
-
                     </StackPanel>
-                </StackPanel>
+                    </Border>
+                    
+                    <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,10,0,0"/>
+                    </StackPanel>
             </ScrollViewer>
-        </Border>
 
         <!-- Content Area (Account / Advanced Integration) -->
-        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
-                IsVisible="{Binding IsAccountSelected}">
-                <!-- ... Account Content ... -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="25" Margin="30">
-                     <!-- Header Removed -->
-                    <StackPanel Spacing="15">
-                        <TextBlock Text="Trello Integration" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto" IsVisible="{Binding IsAccountSelected}">
+            <StackPanel Spacing="15" Margin="10,0,20,20">
+                
+                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="Trello Integration" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         
                         <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto">
                              <TextBlock Grid.Row="0" Grid.Column="0" Text="API Key:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -656,9 +673,13 @@
                                  <Button Grid.Column="1" Command="{Binding SmartTrelloActionCommand}" Content="{Binding SmartTrelloButtonText}" Classes="Primary" Margin="10,0,0,0"/>
                              </Grid>
                         </Grid>
-                        
-                        <TextBlock Text="Google Integration" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"/>
-                        
+                    </StackPanel>
+                    </Border>
+                
+                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                <StackPanel Spacing="15">
+
+                        <TextBlock Text="Google Integration" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Credentials JSON:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
@@ -693,8 +714,13 @@
                              <TextBlock Grid.Row="6" Grid.Column="0" Text="Leaderboard Range:" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding LeaderboardRange}" Watermark="e.g. A2:C10" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         </Grid>
-                        
-                        <TextBlock Text="Board Synchronization" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,10,0,0"/>
+                    </StackPanel>
+                    </Border>
+                
+                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                <StackPanel Spacing="15">
+
+                        <TextBlock Text="Board Synchronization" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                          <TextBlock Text="Simulated dropdown contents for now." FontSize="12" Foreground="Gray"/>
                         
                         <!-- Board Configs (Only Visible if Connected) -->
@@ -747,10 +773,13 @@
                              </StackPanel>
                         </Border>
 
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="0,20,0,10"/>
+                    </StackPanel>
+                    </Border>
+                    
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="15">
                         
-                        <TextBlock Text="Refresh Intervals (Seconds)" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="Atur interval update otomatis per detik." FontSize="12" Foreground="#999" Margin="0,0,0,10"/>
+                        <StackPanel Spacing="5">
 
                         <UniformGrid Columns="2" Rows="2">
                              <!-- Editing -->
@@ -778,17 +807,18 @@
                              </StackPanel>
                         </UniformGrid>
 
-                        <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,20,0,0"/>
+                        </StackPanel>
                     </StackPanel>
+                    </Border>
+                    
+                    <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,10,0,0"/>
                 </StackPanel>
             </ScrollViewer>
-        </Border>
 
         <!-- Content Area (Extensions) -->
-        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
-                IsVisible="{Binding IsNotificationsSelected}">
-             <!-- ... Extension Content ... -->
-             <Grid Margin="30"> <!-- Changed: Removed RowDefinitions (default *) -->
+        <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsNotificationsSelected}" Margin="10,0,20,20">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+                 <Grid Margin="20">
                  <!-- Empty State -->
                  <TextBlock Text="{Binding Language[Extensions.NoExtensions]}" 
                             Foreground="{DynamicResource TextSecondaryBrush}" 
@@ -847,13 +877,14 @@
                       </StackPanel>
                   </Button>
              </Grid>
-        </Border>
+             </Border>
+        </Grid>
 
         <!-- Script Manager UI -->
-        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
-                IsVisible="{Binding IsScriptsManagerSelected}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <Grid RowDefinitions="Auto, *, Auto" Margin="30">
+        <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsScriptsManagerSelected}" Margin="10,0,20,20">
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid RowDefinitions="Auto, *, Auto" Margin="20">
                     <!-- Header removed as requested -->
 
                     <Grid Grid.Row="1" RowDefinitions="Auto, Auto" ShowGridLines="False">
@@ -1046,28 +1077,31 @@
                     </Grid>
                     
                 </Grid>
-            </ScrollViewer>
-        </Border>
+                </ScrollViewer>
+            </Border>
+        </Grid>
 
 
 
         <!-- Content Area (Explorer) -->
-        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
-                IsVisible="{Binding IsExplorerSelected}">
-             <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" />
-        </Border>
+        <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsExplorerSelected}" Margin="10,0,20,20">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+                 <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" />
+             </Border>
+        </Grid>
 
         <!-- Content Area (Paths) -->
-        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
-                IsVisible="{Binding IsPathsSelected}">
-             <views:PathSettingsView DataContext="{Binding PathSettingsVM}" />
-        </Border>
+        <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsPathsSelected}" Margin="10,0,20,20">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+                 <views:PathSettingsView DataContext="{Binding PathSettingsVM}" />
+             </Border>
+        </Grid>
 
         <!-- Content Area (About) -->
-        <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ClipToBounds="True"
-                IsVisible="{Binding IsAboutSelected}">
-             <ScrollViewer>
-                 <StackPanel Spacing="30" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsAboutSelected}" Margin="10,0,20,20">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+                 <ScrollViewer>
+                     <StackPanel Spacing="30" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center">
                      
                      <!-- App Logo -->
                      <Image Source="/Assets/splash_logo.png" Width="100" Height="100" HorizontalAlignment="Center"/>
@@ -1131,7 +1165,7 @@
                      
                  </StackPanel>
              </ScrollViewer>
-        </Border>
+             </Border>
         </Grid>
         <!-- Notification Overlay -->
         <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Grid.ColumnSpan="2"
@@ -1141,5 +1175,6 @@
                 ZIndex="99">
             <TextBlock Text="{Binding StatusMessage}" Foreground="White" FontWeight="SemiBold"/>
         </Border>
+    </Grid>
     </Grid>
 </UserControl>

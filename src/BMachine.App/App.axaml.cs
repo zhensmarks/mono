@@ -111,13 +111,54 @@ public partial class App : Application,
             Log("Bootstrapper Completed.");
             await Task.Delay(80);
 
-            // 3. Create Main Window (light: Dashboard loads deferred)
+            // 3. Create Main Window
             Log("Creating MainWindow...");
             var mainWindow = new BMachine.App.Views.MainWindow(); 
             Log("Creating MainWindowViewModel...");
-            mainWindow.DataContext = new BMachine.App.ViewModels.MainWindowViewModel(_db, _logService);
+            var mainVm = new BMachine.App.ViewModels.MainWindowViewModel(_db, _logService);
+            mainWindow.DataContext = mainVm;
             Log("MainWindowViewModel Created.");
             
+            // MACOS STARTUP BUG FIX: Pre-load dimensions BEFORE the window is SHOWN!
+            // This prevents the OS from clipping the Avalonia layout due to programmatic resizing.
+            var saved = await mainVm.GetSavedWindowState();
+            if (saved != null)
+            {
+                bool isOnScreen = false;
+                var targetRect = new PixelRect(saved.Value.X, saved.Value.Y, (int)saved.Value.W, (int)saved.Value.H);
+                
+                foreach(var screen in mainWindow.Screens.All)
+                {
+                    if (screen.Bounds.Intersects(targetRect))
+                    {
+                        isOnScreen = true;
+                        break;
+                    }
+                }
+
+                if (isOnScreen)
+                {
+                    mainWindow.Width = saved.Value.W;
+                    mainWindow.Height = saved.Value.H;
+                    mainWindow.WindowState = saved.Value.State;
+                    mainWindow.Position = new Avalonia.PixelPoint(saved.Value.X, saved.Value.Y);
+                    mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+                }
+                else
+                {
+                    mainWindow.Width = saved.Value.W; 
+                    mainWindow.Height = saved.Value.H;
+                    mainWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+                mainVm.InitialLogPanelOpen = saved.Value.LogPanel;
+            }
+
+            // Wait for Dashboard to initialize while Splash Screen is visible
+            status?.Report("Memuat Antarmuka & Data Pengguna...");
+            Log("Awaiting Dashboard initialization...");
+            await mainVm.InitializeDashboardAsync();
+            Log("Dashboard initialized.");
+
             // 4. Swap Windows
             Log("Swapping to MainWindow...");
             desktop.MainWindow = mainWindow;

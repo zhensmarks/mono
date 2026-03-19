@@ -329,9 +329,42 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     Date = element.GetProperty("date").GetDateTime().ToLocalTime()
                 };
 
-                if (element.TryGetProperty("data", out var data) && data.TryGetProperty("text", out var txt))
+                if (element.TryGetProperty("data", out var data))
                 {
-                    comment.Text = txt.GetString() ?? "";
+                    if (data.TryGetProperty("text", out var txt))
+                    {
+                        var textStr = txt.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(textStr) && textStr.Contains("trello.com"))
+                        {
+                            textStr = System.Text.RegularExpressions.Regex.Replace(textStr, @"(https://trello\.com/[^\s\)]+)", match => 
+                            {
+                                var m = match.Value;
+                                var sep = m.Contains("?") ? "&" : "?";
+                                return $"{m}{sep}key={apiKey}&token={token}";
+                            });
+                        }
+                        comment.Text = textStr;
+                    }
+
+                    if (data.TryGetProperty("attachment", out var att))
+                    {
+                        var urlStr = "";
+                        if (att.TryGetProperty("previewUrl", out var pUrlProp) && pUrlProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            urlStr = pUrlProp.GetString() ?? "";
+                        }
+                        else if (att.TryGetProperty("url", out var urlProp) && urlProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            urlStr = urlProp.GetString() ?? "";
+                        }
+                        
+                        if (!string.IsNullOrEmpty(urlStr) && !comment.Text.Contains(urlStr))
+                        {
+                             var sep = urlStr.Contains("?") ? "&" : "?";
+                             var secureUrl = $"{urlStr}{sep}key={apiKey}&token={token}";
+                             comment.Text += $"\n\n![attachment]({secureUrl})";
+                        }
+                    }
                 }
 
                 if (element.TryGetProperty("memberCreator", out var creator))
@@ -804,12 +837,38 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenAttachment(TrelloAttachment att)
+    private async Task OpenAttachment(TrelloAttachment att)
     {
         if (att == null) return;
         try 
         {
-            _platformService.OpenUrl(att.Url);
+            if (att.IsImage)
+            {
+                var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
+                var token = await _database.GetAsync<string>("Trello.Token") ?? "";
+                var sep = att.Url.Contains("?") ? "&" : "?";
+                var secureUrl = $"{att.Url}{sep}key={apiKey}&token={token}";
+
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    var lightbox = new BMachine.UI.Views.ImageLightboxWindow(secureUrl);
+                    var app = Avalonia.Application.Current;
+                    var desktop = app?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                    var mainWindow = desktop?.MainWindow;
+                    if (mainWindow != null)
+                    {
+                        lightbox.ShowDialog(mainWindow);
+                    }
+                    else
+                    {
+                        lightbox.Show();
+                    }
+                });
+            }
+            else
+            {
+                _platformService.OpenUrl(att.Url);
+            }
         }
         catch (Exception ex)
         {

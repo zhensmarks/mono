@@ -85,11 +85,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         _ = LoadBackgroundConfig();
         _ = LoadShortcutConfig();
 
-        // Defer Dashboard creation so MainWindow can render first (avoids "Not Responding")
-        _isLoadingDashboard = true;
-        _ = LoadDashboardDeferredAsync();
-
-        // Register Messenger
+        // Remove deferred dashboard load, it will be controlled externally by splash screen
         WeakReferenceMessenger.Default.RegisterAll(this);
 
         // Listen to Theme Changes
@@ -181,6 +177,11 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     [ObservableProperty] private bool _isUpdateAvailable;
     [ObservableProperty] private string _latestVersion = "";
     [ObservableProperty] private string _updateUrl = "";
+    [ObservableProperty]
+    private string _greeting = "Hello";
+    
+    // Store the initial log panel state loaded from DB until Dashboard is ready
+    public bool InitialLogPanelOpen { get; set; } = false;
 
     [RelayCommand]
     private void OpenUpdatePage()
@@ -200,14 +201,29 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     [ObservableProperty]
     private bool _isLoadingDashboard = true;
 
-    private async System.Threading.Tasks.Task LoadDashboardDeferredAsync()
+    public async Task InitializeDashboardAsync()
     {
-        await Task.Yield();
+        _isLoadingDashboard = true;
+
+        if (_cachedDashboardVM == null)
+        {
+            _cachedDashboardVM = new DashboardViewModel(_database, _database, _languageService, _logService);
+            _cachedDashboardVM.OpenSettingsRequested += () => NavigateToSettings();
+            _cachedDashboardVM.OpenEditingListRequested += () => NavigateToEditingList();
+            _cachedDashboardVM.OpenRevisionListRequested += () => NavigateToRevisionList();
+            _cachedDashboardVM.OpenLateListRequested += () => NavigateToLateList();
+        }
+
+        if (_cachedDashboardVM.InitializationTask != null)
+        {
+            try { await _cachedDashboardVM.InitializationTask; } catch {}
+        }
+
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             NavigateToDashboard();
             IsLoadingDashboard = false;
-        }, DispatcherPriority.Background);
+        });
     }
 
     private async void CheckForUpdatesBackground()
@@ -235,6 +251,10 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             _cachedDashboardVM.OpenEditingListRequested += () => NavigateToEditingList();
             _cachedDashboardVM.OpenRevisionListRequested += () => NavigateToRevisionList();
             _cachedDashboardVM.OpenLateListRequested += () => NavigateToLateList();
+            
+            // Apply log panel state restored from MainWindow
+            _cachedDashboardVM.IsLogPanelOpen = InitialLogPanelOpen;
+            _cachedDashboardVM.MarkInitialLoadComplete();
         }
         
         CurrentView = _cachedDashboardVM;
@@ -276,22 +296,24 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         CurrentView = vm;
     }
 
-    public async System.Threading.Tasks.Task SaveWindowState(double width, double height, Avalonia.Controls.WindowState state, int x, int y)
+    public async System.Threading.Tasks.Task SaveWindowState(double width, double height, Avalonia.Controls.WindowState state, int x, int y, bool isLogPanelOpen)
     {
         await _database.SetAsync("Configs.Window.Width", width.ToString());
         await _database.SetAsync("Configs.Window.Height", height.ToString());
         await _database.SetAsync("Configs.Window.State", state.ToString());
         await _database.SetAsync("Configs.Window.X", x.ToString());
         await _database.SetAsync("Configs.Window.Y", y.ToString());
+        await _database.SetAsync("Configs.Window.LogPanel", isLogPanelOpen.ToString());
     }
 
-    public async System.Threading.Tasks.Task<(double W, double H, Avalonia.Controls.WindowState State, int X, int Y)?> GetSavedWindowState()
+    public async System.Threading.Tasks.Task<(double W, double H, Avalonia.Controls.WindowState State, int X, int Y, bool LogPanel)?> GetSavedWindowState()
     {
         var wStr = await _database.GetAsync<string>("Configs.Window.Width");
         var hStr = await _database.GetAsync<string>("Configs.Window.Height");
         var sStr = await _database.GetAsync<string>("Configs.Window.State");
         var xStr = await _database.GetAsync<string>("Configs.Window.X");
         var yStr = await _database.GetAsync<string>("Configs.Window.Y");
+        var lpStr = await _database.GetAsync<string>("Configs.Window.LogPanel");
 
         if (double.TryParse(wStr, out double w) && double.TryParse(hStr, out double h))
         {
@@ -301,8 +323,10 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             int x = 0, y = 0;
             int.TryParse(xStr, out x);
             int.TryParse(yStr, out y);
+            bool logPanel = false;
+            bool.TryParse(lpStr, out logPanel);
             
-            return (w, h, state, x, y);
+            return (w, h, state, x, y, logPanel);
         }
         return null; // No Saved Config
     }

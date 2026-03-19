@@ -4,10 +4,5 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="100"
              x:Class="BMachine.UI.Controls.FormattedTextBlock">
-    <SelectableTextBlock Name="MainTextBlock" 
-                         TextWrapping="Wrap" 
-                         Background="Transparent" 
-                         Focusable="True"
-                         SelectionBrush="{DynamicResource AccentColorBrush}"
-                         SelectionForegroundBrush="{x:Null}"/>
+    <StackPanel Name="RootPanel" Spacing="5" />
 </UserControl>
