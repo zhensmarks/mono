@@ -18,7 +18,8 @@
         ExtendClientAreaTitleBarHeightHint="40"
         SystemDecorations="Full"
         UseLayoutRounding="True"
-        Background="{Binding WindowBackground}">
+        Background="{Binding WindowBackground}"
+        PointerEntered="OnWindowPointerEntered">
 
     <Grid Name="MainRoot" RenderTransformOrigin="0.5,0.5" Classes.animated="{Binding IsAnimationEnabled}">
         <Grid.Styles>

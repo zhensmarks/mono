@@ -4,9 +4,13 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
              xmlns:models="using:BMachine.UI.Models"
+             xmlns:converters="using:BMachine.UI.Converters"
              mc:Ignorable="d" d:DesignWidth="290" d:DesignHeight="600"
              x:Class="BMachine.UI.Views.LogPanelSidebar"
              x:DataType="vm:DashboardViewModel">
+    <UserControl.Resources>
+        <converters:StringToUpperConverter x:Key="StringToUpperConverter"/>
+    </UserControl.Resources>
 
     <UserControl.DataTemplates>
         <TreeDataTemplate DataType="{x:Type models:MasterNode}" ItemsSource="{Binding Children}">
@@ -32,26 +36,17 @@
                         <Grid ColumnDefinitions="*,*,*">
                             <Button Grid.Column="0" Classes="panelTab" Click="OnConsoleTabClick"
                                     Tag="{Binding BatchVM.IsConsoleVisible}">
-                                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconTerminal}" Width="11" Height="11"/>
-                                    <TextBlock Text="Console" FontSize="11" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <TextBlock Text="{Binding BatchVM.IsConsoleVisible, Converter={StaticResource StringToUpperConverter}, ConverterParameter=Console}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                             </Button>
                             
                             <Button Grid.Column="1" Classes="panelTab" Click="OnMasterTabClick"
                                     Tag="{Binding BatchVM.IsMasterVisible}">
-                                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconFolder}" Width="11" Height="11"/>
-                                    <TextBlock Text="Master" FontSize="11" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <TextBlock Text="{Binding BatchVM.IsMasterVisible, Converter={StaticResource StringToUpperConverter}, ConverterParameter=Master}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                             </Button>
                             
                             <Button Grid.Column="2" Classes="panelTab" Click="OnPhotoshopTabClick"
                                     Tag="{Binding BatchVM.IsPhotoshopVisible}">
-                                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconLayers}" Width="11" Height="11"/>
-                                    <TextBlock Text="Photoshop" FontSize="11" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <TextBlock Text="{Binding BatchVM.IsPhotoshopVisible, Converter={StaticResource StringToUpperConverter}, ConverterParameter=Photoshop}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                             </Button>
                         </Grid>
                     </Border>
@@ -211,10 +206,10 @@
         </Style>
         <!-- Active state via Tag=True -->
         <Style Selector="Button.panelTab[Tag=True]">
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
         </Style>
         <Style Selector="Button.panelTab[Tag=True] /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#20FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
         </Style>
         
         <!-- Icon Button -->

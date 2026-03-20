@@ -117,3 +117,24 @@ public class EnumMatchConverter : IValueConverter
         return AvaloniaProperty.UnsetValue;
     }
 }
+
+public class StringToUpperConverter : IValueConverter
+{
+    public static readonly StringToUpperConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        // value = bool (isActive), parameter = string (tab label)
+        var label = parameter as string ?? "";
+        if (value is bool isActive && isActive)
+        {
+            return label.ToUpperInvariant();
+        }
+        return label;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return AvaloniaProperty.UnsetValue;
+    }
+}

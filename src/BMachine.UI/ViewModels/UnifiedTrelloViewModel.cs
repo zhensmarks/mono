@@ -20,6 +20,17 @@ public partial class UnifiedTrelloViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedTab = 0;
 
+    // When true, status bar appears at bottom (dashboard embedded mode)
+    [ObservableProperty]
+    private bool _isEmbedded;
+
+    public bool IsNotEmbedded => !IsEmbedded;
+
+    partial void OnIsEmbeddedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsNotEmbedded));
+    }
+
     public UnifiedTrelloViewModel(
         BMachine.SDK.IDatabase database, 
         EditingCardListViewModel editingVM, 

@@ -69,7 +69,7 @@ public partial class SpreadsheetView : UserControl
                 RowHeaderWidth = 30,
                 GridLinesVisibility = DataGridGridLinesVisibility.All,
                 HeadersVisibility = DataGridHeadersVisibility.Column,
-                IsReadOnly = true, // Default to ReadOnly to enable robust selection
+                IsReadOnly = false, // Allow direct cell editing
                 HorizontalGridLinesBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#40FFFFFF")),
                 VerticalGridLinesBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#40FFFFFF"))
             };
@@ -98,6 +98,17 @@ public partial class SpreadsheetView : UserControl
             _dataGrid.AddHandler(PointerPressedEvent, OnDataGridPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             _dataGrid.CellEditEnded += OnDataGridCellEditEnded;
             _dataGrid.CurrentCellChanged += OnDataGridCurrentCellChanged;
+
+            // Click on empty area to deselect
+            container.PointerPressed += (s, e) =>
+            {
+                // Only deselect if click is directly on the container (not on a DataGrid cell)
+                if (e.Source == container || e.Source is Border b && b.Name == "GridContainer")
+                {
+                    _dataGrid.SelectedItems.Clear();
+                    _dataGrid.SelectedItem = null;
+                }
+            };
         }
 
         _dataGrid.Columns.Clear();
@@ -128,10 +139,13 @@ public partial class SpreadsheetView : UserControl
                 templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
                     // Wrap in Border to capture clicks on full cell area and store Tag
-                    var border = new Border { Background = Avalonia.Media.Brushes.Transparent, Tag = col.Index };
+                    var border = new Border { Tag = col.Index };
+                    border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
                     
                     var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
                     textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
+                    textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
+                    textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
                     
                     border.Child = textBlock;
                     return border;
@@ -163,10 +177,13 @@ public partial class SpreadsheetView : UserControl
                 // Cell Template (Display)
                 templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
-                    var border = new Border { Background = Avalonia.Media.Brushes.Transparent, Tag = col.Index };
+                    var border = new Border { Tag = col.Index };
+                    border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
 
                     var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
                     textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
+                    textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
+                    textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
                     
                     border.Child = textBlock;
                     return border;
@@ -191,10 +208,13 @@ public partial class SpreadsheetView : UserControl
                 // Cell Template (Display)
                 templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
-                    var border = new Border { Background = Avalonia.Media.Brushes.Transparent, Tag = col.Index };
+                    var border = new Border { Tag = col.Index };
+                    border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
 
                     var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
                     textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
+                    textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
+                    textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
 
                     border.Child = textBlock;
                     return border;
@@ -241,26 +261,22 @@ public partial class SpreadsheetView : UserControl
         }
         else if (e.Key == Avalonia.Input.Key.Delete || e.Key == Avalonia.Input.Key.Back)
         {
-            if (DataContext is SpreadsheetViewModel vm && _dataGrid != null)
+            if (DataContext is SpreadsheetViewModel vm && _dataGrid != null && _focusedColumnIndex.HasValue)
             {
-                // Resolve current cell from DataGrid
-                var currentColumn = _dataGrid.CurrentColumn;
-                // Use SelectedItem (extended selection)
-                var currentRow = _dataGrid.SelectedItem as SpreadsheetRowViewModel;
-
-                if (currentColumn != null && currentRow != null)
+                var colIndex = _focusedColumnIndex.Value;
+                var selectedRows = _dataGrid.SelectedItems.Cast<SpreadsheetRowViewModel>().ToList();
+                
+                if (selectedRows.Count > 0)
                 {
-                    // Use Tag (Column Index) stored during column creation
-                    if (currentColumn.Tag is int colIndex && colIndex >= 0 && colIndex < currentRow.Cells.Count)
+                    foreach (var row in selectedRows)
                     {
-                        vm.SelectedCell = currentRow.Cells[colIndex];
-                        // Execute Command
-                        if (vm.ClearSelectedDateCommand.CanExecute(null))
+                        if (colIndex >= 0 && colIndex < row.Cells.Count)
                         {
-                            vm.ClearSelectedDateCommand.Execute(null);
-                            e.Handled = true;
+                            row.Cells[colIndex].Value = ""; // Clear content
                         }
                     }
+                    vm.StatusText = $"Cleared {selectedRows.Count} cells in focused column.";
+                    e.Handled = true;
                 }
             }
         }
@@ -340,9 +356,12 @@ public partial class SpreadsheetView : UserControl
         {
             if (visual is Control control && control.Tag is int tagIndex)
             {
-                _focusedColumnIndex = tagIndex;
-                System.Diagnostics.Debug.WriteLine($"PointerPressed: Forced Focus to Column {tagIndex}");
-                break;
+                if (DataContext is SpreadsheetViewModel vm && tagIndex >= 0 && tagIndex < vm.Columns.Count)
+                {
+                    _focusedColumnIndex = tagIndex;
+                    System.Diagnostics.Debug.WriteLine($"PointerPressed: Forced Focus to Column {tagIndex}");
+                    break;
+                }
             }
             // Stop if we hit the DataGrid itself (avoid finding unrelated tags)
             if (visual is DataGrid) break;
@@ -391,12 +410,9 @@ public partial class SpreadsheetView : UserControl
         
         // Track which column is currently focused
         var currentColumn = _dataGrid.CurrentColumn;
-        if (currentColumn != null)
+        if (currentColumn != null && currentColumn.Tag is int colIndex)
         {
-            // Find the column index by matching header
-            var header = currentColumn.Header?.ToString();
-            var colVM = vm.Columns.FirstOrDefault(c => c.Header == header);
-            _focusedColumnIndex = colVM?.Index;
+            _focusedColumnIndex = colIndex;
         }
         else
         {

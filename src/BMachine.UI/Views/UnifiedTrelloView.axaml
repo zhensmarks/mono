@@ -10,13 +10,14 @@
              
     <Grid x:Name="Part_RootGrid" SizeChanged="OnRootGridSizeChanged">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Status & Trello Icon -->
+            <RowDefinition Height="Auto"/> <!-- Status (top, window mode) -->
             <RowDefinition Height="Auto"/> <!-- Tab & Header Popup Area -->
             <RowDefinition Height="*"/>    <!-- Main Content List -->
+            <RowDefinition Height="Auto"/> <!-- Status (bottom, embedded mode) -->
         </Grid.RowDefinitions>
         
-        <!-- ROW 0: Top Status Bar (Minimalist) -->
-        <Border Grid.Row="0" Padding="20,10,20,0">
+        <!-- ROW 0: Top Status Bar (Window mode only) -->
+        <Border Grid.Row="0" Padding="20,10,20,0" IsVisible="{Binding IsNotEmbedded}">
             <Grid ColumnDefinitions="*, Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <!-- Status Dot of Active ViewModel -->
@@ -73,11 +74,11 @@
         <Panel Grid.Row="1" Margin="20,10,40,10">
             
             <!-- Standard Tab Bar -->
-            <Border Background="{DynamicResource CardBackgroundBrush}" 
-                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                    CornerRadius="20" HorizontalAlignment="Center" Padding="4"
+            <Border Background="#10FFFFFF" 
+                    CornerRadius="6" Padding="3"
+                    HorizontalAlignment="Center"
                     IsVisible="{Binding !ActiveViewModel.HasSelectedCards}">
-                <StackPanel Orientation="Horizontal" Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="0">
                     <!-- EDITING Tab -->
                     <RadioButton Classes="TabButton" Content="EDITING" IsChecked="{Binding IsEditingSelected}" Command="{Binding SwitchToEditingCommand}"/>
                     <!-- REVISI Tab -->
@@ -91,8 +92,8 @@
                     <Style Selector="RadioButton.TabButton">
                         <Setter Property="Template">
                             <ControlTemplate>
-                                <Border x:Name="TabBorder" Background="Transparent" CornerRadius="16" Padding="14,6">
-                                    <TextBlock Text="{TemplateBinding Content}" FontSize="12" FontWeight="SemiBold" 
+                                <Border x:Name="TabBorder" Background="Transparent" CornerRadius="4" Padding="6,5">
+                                    <TextBlock Text="{TemplateBinding Content}" FontSize="11" 
                                                Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                                 </Border>
                             </ControlTemplate>
@@ -102,11 +103,10 @@
                         <Setter Property="Background" Value="#10FFFFFF"/>
                     </Style>
                     <Style Selector="RadioButton.TabButton:checked /template/ Border#TabBorder">
-                         <Setter Property="Background" Value="#26FFFFFF"/> <!-- Subtle active glow background. Could use specific board accent color here later -->
-                         <Setter Property="BoxShadow" Value="0 2 10 0 #1A000000"/>
+                         <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
                     </Style>
                     <Style Selector="RadioButton.TabButton:checked /template/ TextBlock">
-                         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                         <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                     </Style>
                 </Border.Styles>
             </Border>
@@ -202,7 +202,7 @@
                      Foreground="{DynamicResource AccentColorBrush}"/>
 
         <!-- Global Overlay for Batch Move Panel -->
-        <Border x:Name="Part_MovePanel" Grid.RowSpan="3" HorizontalAlignment="Right" Width="400" 
+        <Border x:Name="Part_MovePanel" Grid.RowSpan="4" HorizontalAlignment="Right" Width="400" 
                 Background="{DynamicResource BackgroundDarkBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding ActiveViewModel.IsMovePanelOpen}"
@@ -268,6 +268,58 @@
                         </Button>
                     </StackPanel>
                 </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- ROW 3: Bottom Status Bar (Embedded/Dashboard mode only) -->
+        <Border Grid.Row="3" Padding="20,4,20,8" IsVisible="{Binding IsEmbedded}">
+            <Grid ColumnDefinitions="*, Auto">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <!-- Status Dot -->
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" ToolTip.Tip="{Binding ActiveViewModel.ConnectionStatusText, StringFormat='{}Status: {0}'}">
+                        <Ellipse.Styles>
+                            <Style Selector="Ellipse">
+                                <Setter Property="Fill" Value="#EF4444"/>
+                            </Style>
+                            <Style Selector="Ellipse.online">
+                                <Setter Property="Fill" Value="#22C55E"/>
+                            </Style>
+                        </Ellipse.Styles>
+                        <Classes.online>
+                            <Binding Path="ActiveViewModel.IsOnline"/>
+                        </Classes.online>
+                    </Ellipse>
+                    <TextBlock Text="{Binding ActiveViewModel.StatusMessage}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+
+                <!-- Action Toolbar (Bottom Right) -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                            IsVisible="{Binding !ActiveViewModel.HasSelectedCards}">
+                    <!-- Add Manual Card -->
+                    <Button Command="{Binding AddManualCardCommand}"
+                            IsVisible="{Binding IsEditingSelected}"
+                            Background="Transparent" BorderThickness="0" Padding="6" Cursor="Hand"
+                            ToolTip.Tip="Add Manual Cards">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover PathIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                        <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                    <!-- Refresh -->
+                    <Button Command="{Binding RefreshActiveListCommand}"
+                            IsEnabled="{Binding !ActiveViewModel.IsRefreshing}"
+                            Background="Transparent" BorderThickness="0" Padding="6" Cursor="Hand"
+                            ToolTip.Tip="Refresh Data">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover PathIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 

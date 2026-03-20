@@ -23,8 +23,11 @@ public partial class PointLeaderboardViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedTab = 0;
 
+    [ObservableProperty]
+    private string _userName = "USER";
+
     public ObservableCollection<LeaderboardItem> ActiveItems => SelectedTab == 0 ? Items : MonthlyItems;
-    public int ActiveTotalPoints => ActiveItems.Sum(x => x.Points);
+    public int ActiveTotalPoints => ActiveItems.Where(x => x.Name.Trim().Equals(UserName.Trim(), System.StringComparison.OrdinalIgnoreCase)).Sum(x => x.Points);
     public string FormattedTotalPoints => ActiveTotalPoints.ToString("N0", new System.Globalization.CultureInfo("id-ID"));
     public bool IsHarianSelected => SelectedTab == 0;
     public bool IsBulananSelected => SelectedTab == 1;
@@ -73,6 +76,9 @@ public partial class PointLeaderboardViewModel : ObservableObject
 
         try
         {
+            var storedName = await _database.GetAsync<string>("User.Name");
+            if (!string.IsNullOrEmpty(storedName)) UserName = storedName;
+            
             var range = await _database.GetAsync<string>("Leaderboard.Range");
             var monthlyRange = await _database.GetAsync<string>("Leaderboard.MonthlyRange");
             var sheetId = await _database.GetAsync<string>("Google.SheetId");

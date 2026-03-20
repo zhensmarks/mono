@@ -380,6 +380,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     {
         if (_trelloVM == null) return;
         _trelloVM.SelectedTab = 0; // Select Editing tab
+        _trelloVM.IsEmbedded = true;
         _trelloVM.EditingVM?.StartAutoRefresh();
         var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
@@ -390,6 +391,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     {
         if (_trelloVM == null) return;
         _trelloVM.SelectedTab = 1; // Select Revision tab
+        _trelloVM.IsEmbedded = true;
         _trelloVM.RevisionVM?.StartAutoRefresh();
         var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
@@ -400,6 +402,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     {
         if (_trelloVM == null) return;
         _trelloVM.SelectedTab = 2; // Select Late tab
+        _trelloVM.IsEmbedded = true;
         _trelloVM.LateVM?.StartAutoRefresh();
         var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
@@ -425,6 +428,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     {
         if (_trelloVM == null) return;
         _trelloVM.SelectedTab = tabIndex;
+        _trelloVM.IsEmbedded = false;
         StartAutoRefresh(_trelloVM);
         
         var win = new BMachine.UI.Views.CardListWindow();

@@ -37,6 +37,17 @@ public partial class MainWindow : Window
         this.Close();
     }
 
+    private void OnWindowPointerEntered(object? sender, PointerEventArgs e)
+    {
+        // Optimasi perbaikan bug 'scroll tanpa klik' di Windows:
+        // Saat mouse memasuki area jendela tapi aplikasinya tidak dalam keadaan fokus,
+        // paksa OS untuk mengaktifkannya agar scroll roda langsung berfungsi.
+        if (!this.IsActive)
+        {
+            this.Activate();
+        }
+    }
+
     // Constructor Continuation
     private void InitializeMessenger()
     {

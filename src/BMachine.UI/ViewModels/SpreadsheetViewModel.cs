@@ -24,6 +24,7 @@ public partial class SpreadsheetViewModel : ObservableObject
     private string? _range;
     private int _rangeStartRow = 1;
     private int _rangeStartCol = 0; // 0-based
+    private int? _sheetGid; // Numeric sheet ID for dimension updates
 
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private string _statusText = "Ready";
@@ -147,15 +148,17 @@ public partial class SpreadsheetViewModel : ObservableObject
                 ApplicationName = "BMachine",
             });
 
-            // Fetch Data
-            var fullRange = $"{_sheetName}!{_range}";
-            var request = _sheetsService.Spreadsheets.Values.Get(_sheetId, fullRange);
-            var response = await request.ExecuteAsync();
-            var values = response.Values;
+            // Step 1: Fetch raw values (FAST - no timeout)
+            var quotedSheetName = _sheetName.Contains(" ") ? $"'{_sheetName}'" : _sheetName;
+            var fullRange = $"{quotedSheetName}!{_range}";
+            
+            var valuesRequest = _sheetsService.Spreadsheets.Values.Get(_sheetId, fullRange);
+            var valuesResponse = await valuesRequest.ExecuteAsync();
+            var values = valuesResponse.Values;
 
             if (values != null && values.Count > 0)
             {
-                // Process Headers (Row 0)
+                // Process Headers (Row 0 of fetched values = the header row in the sheet)
                 var headers = values[0];
                 var columnViewModels = new List<SpreadsheetColumnViewModel>();
 
@@ -166,107 +169,101 @@ public partial class SpreadsheetViewModel : ObservableObject
                     
                     colVM.PropertyChanged += (s, e) =>
                     {
-                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.IsVisible))
-                        {
-                            SaveColumnSettings();
-                        }
+                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.IsVisible)) SaveColumnSettings();
                     };
                     
                     columnViewModels.Add(colVM);
                 }
 
-                // FETCH METADATA (Validation & Formats)
-                // We check the first data row (header + 1) to guess column types
-                // Range A2:Z2 (assuming header is row 1)
-                try 
+                // Step 2: Fetch metadata (LIGHTWEIGHT - only header + first data row for type detection)
+                try
                 {
-                    // Calculate range for first data row (e.g. A2:Z2)
-                    // If _range is "A1:Z", then Row 2 is typically the start of data.
-                    // We'll just ask for the specific Range of the first data row relative to the sheet.
-                    // Actually, simpler: Request the same sheet, but use 'ranges' param and 'fields'.
-                    
-                    // We need sheet GridProperties to know GridId if we were doing batchUpdate, 
-                    // but for Get we just need range A2:XX2.
-                    // Let's guess the range is row 2.
-                    // Quote sheet name if it contains spaces
-                    var quotedSheetName = _sheetName.Contains(" ") ? $"'{_sheetName}'" : _sheetName;
-                    var metadataRange = $"{quotedSheetName}!A2:{GetColumnName(columnViewModels.Count - 1)}2";
+                    // Build a small range: just 2 rows from the start of the range for type/validation detection
+                    var startCol = _range.Split(':')[0].TrimEnd('0','1','2','3','4','5','6','7','8','9');
+                    var endCol = GetColumnName(columnViewModels.Count - 1 + _rangeStartCol);
+                    var metaRange = $"{quotedSheetName}!{startCol}{_rangeStartRow}:{endCol}{_rangeStartRow + 1}";
                     
                     var metadataRequest = _sheetsService.Spreadsheets.Get(_sheetId);
-                    metadataRequest.Ranges = new List<string> { metadataRange };
-                    // Request effectiveFormat as well
-                    metadataRequest.Fields = "sheets(data(rowData(values(dataValidation,userEnteredFormat,effectiveFormat))))";
+                    metadataRequest.Ranges = new List<string> { metaRange };
+                    metadataRequest.Fields = "sheets(properties.sheetId,data(rowData(values(dataValidation,effectiveFormat,userEnteredFormat)),columnMetadata))";
                     
                     var metadataResponse = await metadataRequest.ExecuteAsync();
-                    var sheetData = metadataResponse.Sheets.FirstOrDefault()?.Data?.FirstOrDefault();
-                    var rowData = sheetData?.RowData?.FirstOrDefault();
+                    var sheetData = metadataResponse.Sheets?.FirstOrDefault()?.Data?.FirstOrDefault();
+                    var metaRowDataList = sheetData?.RowData;
+                    var colMetadata = sheetData?.ColumnMetadata;
 
-                    // HEURISTICS & METADATA PROCESSING
+                    // Apply Column Widths from metadata
+                    if (colMetadata != null)
+                    {
+                        for (int i = 0; i < columnViewModels.Count && i < colMetadata.Count; i++)
+                        {
+                            if (colMetadata[i].PixelSize.HasValue && colMetadata[i].PixelSize.Value > 0)
+                            {
+                                var px = colMetadata[i].PixelSize.Value;
+                                columnViewModels[i].Width = new Avalonia.Controls.DataGridLength(
+                                    px, Avalonia.Controls.DataGridLengthUnitType.Pixel);
+                                columnViewModels[i].OriginalWidthPixels = px;
+                            }
+                        }
+                    }
+
+                    // Fetch sheet GID for dimension update requests
+                    try
+                    {
+                        var sheetInfo = metadataResponse.Sheets?.FirstOrDefault();
+                        if (sheetInfo?.Properties?.SheetId != null)
+                            _sheetGid = sheetInfo.Properties.SheetId;
+                    }
+                    catch { /* non-critical */ }
+
+                    // Use first DATA row (meta row index 1, skipping header) for type detection
+                    var firstDataRowMeta = metaRowDataList != null && metaRowDataList.Count > 1 ? metaRowDataList[1] : null;
+
                     for (int i = 0; i < columnViewModels.Count; i++)
                     {
                         var colVM = columnViewModels[i];
-                        CellData? cellData = (rowData?.Values != null && i < rowData.Values.Count) ? rowData.Values[i] : null;
+                        CellData? cellData = (firstDataRowMeta?.Values != null && i < firstDataRowMeta.Values.Count) ? firstDataRowMeta.Values[i] : null;
 
-                        // 1. DATE DETECTION
-                        // Heuristic A: Header contains "TGL", "DATE", "TIME"
+                        // DATE DETECTION
                         var headerUpper = colVM.Header.ToUpperInvariant();
                         if (headerUpper.Contains("TGL") || headerUpper.Contains("DATE") || headerUpper.Contains("TIME") || headerUpper.Contains("DEADLINE"))
                         {
                             colVM.IsDate = true;
-                            System.Diagnostics.Debug.WriteLine($"Column {colVM.Header} detected as DATE (Header Keyword).");
                         }
-                        // Heuristic B: Metadata Format
                         else if (cellData != null)
                         {
                             var fmt = cellData.EffectiveFormat?.NumberFormat?.Type ?? cellData.UserEnteredFormat?.NumberFormat?.Type;
                             var pattern = cellData.EffectiveFormat?.NumberFormat?.Pattern ?? cellData.UserEnteredFormat?.NumberFormat?.Pattern ?? "";
-                            
-                            if (fmt == "DATE" || fmt == "DATE_TIME" || fmt == "TIME" || 
-                                pattern.Contains("dd") || pattern.Contains("yyyy") || pattern.Contains("MM"))
-                            {
+                            if (fmt == "DATE" || fmt == "DATE_TIME" || fmt == "TIME" || pattern.Contains("dd") || pattern.Contains("yyyy") || pattern.Contains("MM"))
                                 colVM.IsDate = true;
-                                System.Diagnostics.Debug.WriteLine($"Column {colVM.Header} detected as DATE (Format: {fmt}/{pattern}).");
-                            }
                         }
 
-                        // 2. DROPDOWN DETECTION
+                        // DROPDOWN DETECTION
                         bool isDropdown = false;
                         List<string> items = new();
 
                         if (cellData?.DataValidation != null)
                         {
-                            var type = cellData.DataValidation.Condition.Type;
-                            if (type == "ONE_OF_LIST")
+                            var type = cellData.DataValidation.Condition?.Type;
+                            if (type == "ONE_OF_LIST" && cellData.DataValidation.Condition?.Values != null)
                             {
                                 isDropdown = true;
-                                var val = cellData.DataValidation.Condition.Values;
-                                if (val != null) items = val.Select(v => v.UserEnteredValue).ToList();
+                                items = cellData.DataValidation.Condition.Values.Select(v => v.UserEnteredValue).ToList();
                             }
                             else if (type == "ONE_OF_RANGE")
                             {
                                 isDropdown = true;
-                                // For Range, values are not in metadata. We must scan the column data.
-                                // We'll do this below.
                             }
                         }
-                        
-                        // Heuristic C: Header contains "EDITOR" or "STATUS" or "HKS" -> Likely Dropdown?
-                        // User mentioned "EDITOR", "HKS ADMIN", "SELEKSI". These are likely dropdowns.
-                        if (headerUpper.Contains("EDITOR") || headerUpper.Contains("STATUS") || 
-                            headerUpper.Contains("SELEKSI") || headerUpper.Contains("HKS") || headerUpper.Contains("NR"))
-                        {
-                             isDropdown = true;
-                        }
+
+                        if (headerUpper.Contains("EDITOR") || headerUpper.Contains("STATUS") || headerUpper.Contains("SELEKSI") || headerUpper.Contains("HKS") || headerUpper.Contains("NR"))
+                            isDropdown = true;
 
                         if (isDropdown)
                         {
                             colVM.IsDropdown = true;
-                            
-                            // If items are empty (ONE_OF_RANGE or Heuristic), scan the Loaded Data (values)
-                            if (items.Count == 0 && values.Count > 1) 
+                            if (items.Count == 0 && values.Count > 1)
                             {
-                                // Skip header (row 0)
-                                // Scan column index 'i'
                                 var uniqueValues = new HashSet<string>();
                                 for (int r = 1; r < values.Count; r++)
                                 {
@@ -279,70 +276,60 @@ public partial class SpreadsheetViewModel : ObservableObject
                                 items = uniqueValues.OrderBy(x => x).ToList();
                             }
                             colVM.DropdownItems = items;
-                            System.Diagnostics.Debug.WriteLine($"Column {colVM.Header} detected as DROPDOWN with {items.Count} items.");
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception metaEx)
                 {
-                     System.Diagnostics.Debug.WriteLine($"Metadata Fetch Error: {ex.Message}");
-                     StatusText = $"Metadata/Heuristic Error: {ex.Message}";
+                    System.Diagnostics.Debug.WriteLine($"Metadata Fetch Error (non-fatal): {metaEx.Message}");
                 }
 
-                // Update Columns Collection (Preserve instance for View subscription)
+                // Build column & row collections
                 Columns.Clear();
                 foreach (var col in columnViewModels) Columns.Add(col);
-
-                // Load saved column visibility
                 await LoadColumnSettings();
-                
-                 // Load saved column widths
-                 var savedWidthsJson = await _database.GetAsync<string>("Configs.Spreadsheet.ColumnWidths");
-                 if (!string.IsNullOrEmpty(savedWidthsJson))
-                 {
-                     try 
-                     {
-                         var widths = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(savedWidthsJson);
-                         if (widths != null)
-                         {
-                             foreach (var col in Columns)
-                             {
-                                 if (widths.TryGetValue(col.Header, out var width))
-                                 {
-                                     col.Width = new Avalonia.Controls.DataGridLength(width, Avalonia.Controls.DataGridLengthUnitType.Pixel);
-                                 }
-                             }
-                         }
-                     }
-                     catch { /* ignore */ }
-                 }
 
-                // Process Rows (Row 1+)
+                // Load saved column widths (override metadata widths if user has custom ones)
+                var savedWidthsJson = await _database.GetAsync<string>("Configs.Spreadsheet.ColumnWidths");
+                if (!string.IsNullOrEmpty(savedWidthsJson))
+                {
+                    try
+                    {
+                        var widths = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(savedWidthsJson);
+                        if (widths != null)
+                        {
+                            foreach (var col in Columns)
+                            {
+                                if (widths.TryGetValue(col.Header, out var width))
+                                    col.Width = new Avalonia.Controls.DataGridLength(width, Avalonia.Controls.DataGridLengthUnitType.Pixel);
+                            }
+                        }
+                    }
+                    catch { /* ignore */ }
+                }
+
+                // Process Data Rows (simple & fast - no per-cell format mirroring for performance)
                 for (int i = 1; i < values.Count; i++)
                 {
-                    var rowData = values[i];
-                    var rowVM = new SpreadsheetRowViewModel(i); // 0-based index relative to data rows
-                    rowVM.OriginalRowIndex = i; // 0-based index in the values list (matches Sheet row index - 1 if range starts at A1)
+                    var rawRow = values[i];
+                    var rowVM = new SpreadsheetRowViewModel(i) { OriginalRowIndex = i };
 
                     for (int j = 0; j < Columns.Count; j++)
                     {
-                        var cellValue = j < rowData.Count ? rowData[j]?.ToString() ?? "" : "";
-                        var cellVM = new SpreadsheetCellViewModel 
-                        { 
-                            Value = cellValue, 
+                        var cellValue = j < rawRow.Count ? rawRow[j]?.ToString() ?? "" : "";
+                        var cellVM = new SpreadsheetCellViewModel
+                        {
+                            Value = cellValue,
                             OriginalValue = cellValue,
-                            ColumnIndex = j 
+                            ColumnIndex = j
                         };
-                        
-                        // Hook up change tracking
-                        cellVM.PropertyChanged += (s, e) => 
+
+                        cellVM.PropertyChanged += (s, e) =>
                         {
                             if (e.PropertyName == nameof(SpreadsheetCellViewModel.Value))
-                            {
                                 CheckHasChanges();
-                            }
                         };
-                        
+
                         rowVM.Cells.Add(cellVM);
                     }
                     Rows.Add(rowVM);
@@ -397,7 +384,8 @@ public partial class SpreadsheetViewModel : ObservableObject
                     
                     var sheetRowIndex = row.OriginalRowIndex + _rangeStartRow;
                     var colLetter = GetColumnName(cell.ColumnIndex + _rangeStartCol);
-                    var range = $"{_sheetName}!{colLetter}{sheetRowIndex}";
+                    var quotedSheetName = _sheetName.Contains(" ") ? $"'{_sheetName}'" : _sheetName;
+                    var range = $"{quotedSheetName}!{colLetter}{sheetRowIndex}";
 
                     var valueRange = new ValueRange
                     {
@@ -435,6 +423,12 @@ public partial class SpreadsheetViewModel : ObservableObject
             {
                 StatusText = "No changes to save.";
             }
+
+            // Save column widths to Google Sheets (regardless of cell changes)
+            await SaveColumnWidthsToSheetAsync();
+
+            // Also save column widths locally
+            await SaveColumnWidthsAsync();
         }
         catch (Exception ex)
         {
@@ -531,6 +525,55 @@ public partial class SpreadsheetViewModel : ObservableObject
         await _database.SetAsync("Configs.Spreadsheet.ColumnWidths", json);
     }
 
+    private async Task SaveColumnWidthsToSheetAsync()
+    {
+        if (_sheetsService == null || string.IsNullOrEmpty(_sheetId) || !_sheetGid.HasValue) return;
+
+        var requests = new List<Request>();
+        for (int i = 0; i < Columns.Count; i++)
+        {
+            var col = Columns[i];
+            if (!col.Width.IsAbsolute) continue;
+
+            var currentPx = col.Width.Value;
+            // Only send update if width actually changed from original
+            if (Math.Abs(currentPx - col.OriginalWidthPixels) < 1) continue;
+
+            requests.Add(new Request
+            {
+                UpdateDimensionProperties = new UpdateDimensionPropertiesRequest
+                {
+                    Range = new DimensionRange
+                    {
+                        SheetId = _sheetGid.Value,
+                        Dimension = "COLUMNS",
+                        StartIndex = i + _rangeStartCol,
+                        EndIndex = i + _rangeStartCol + 1
+                    },
+                    Properties = new DimensionProperties { PixelSize = (int)currentPx },
+                    Fields = "pixelSize"
+                }
+            });
+
+            // Update original so subsequent saves don't re-send
+            col.OriginalWidthPixels = currentPx;
+        }
+
+        if (requests.Count > 0)
+        {
+            try
+            {
+                var batchReq = new BatchUpdateSpreadsheetRequest { Requests = requests };
+                await _sheetsService.Spreadsheets.BatchUpdate(batchReq, _sheetId).ExecuteAsync();
+                StatusText += $" | {requests.Count} column widths synced.";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Column Width Sync Error: {ex.Message}");
+            }
+        }
+    }
+
     [RelayCommand]
     private void ShowAllColumns()
     {
@@ -615,6 +658,9 @@ public partial class SpreadsheetColumnViewModel : ObservableObject
     public List<string> DropdownItems { get; set; } = new();
     public bool IsDate { get; set; }
     
+    // Track original width for change detection
+    public double OriginalWidthPixels { get; set; } = 100;
+    
     // Width property for binding
     private Avalonia.Controls.DataGridLength _width = new(1, Avalonia.Controls.DataGridLengthUnitType.Star);
     public Avalonia.Controls.DataGridLength Width
@@ -627,6 +673,9 @@ public partial class SpreadsheetColumnViewModel : ObservableObject
 public partial class SpreadsheetRowViewModel : ObservableObject
 {
     public int OriginalRowIndex { get; set; }
+    
+    [ObservableProperty] private double _height = 36; // Default modern height
+
     public ObservableCollection<SpreadsheetCellViewModel> Cells { get; set; } = new();
 
     public SpreadsheetRowViewModel(int originalIndex)
@@ -642,4 +691,10 @@ public partial class SpreadsheetCellViewModel : ObservableObject
     public int ColumnIndex { get; set; }
 
     public bool IsChanged => Value != OriginalValue;
+
+    // Visual Formatting Properties
+    [ObservableProperty] private Avalonia.Media.IBrush? _background;
+    [ObservableProperty] private Avalonia.Media.IBrush? _foreground;
+    [ObservableProperty] private Avalonia.Media.FontWeight _fontWeight = Avalonia.Media.FontWeight.Normal;
+    [ObservableProperty] private Avalonia.Media.FontStyle _fontStyle = Avalonia.Media.FontStyle.Normal;
 }

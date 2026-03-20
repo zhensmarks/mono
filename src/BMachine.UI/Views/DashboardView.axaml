@@ -80,33 +80,39 @@
             <Border.Effect>
                 <DropShadowEffect BlurRadius="8" OffsetX="2" OffsetY="0" Color="#20000000" Opacity="1"/>
             </Border.Effect>
-            <Grid RowDefinitions="Auto, Auto, *">
-                <!-- Profile Picture (Top) -->
-                <Border Grid.Row="0" Width="25" Height="25" CornerRadius="6" 
-                        Background="{DynamicResource CardBackgroundBrush}" 
-                        ClipToBounds="True" Margin="10,16,10,16"
-                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                    <Panel>
-                        <shapes:Path Data="{StaticResource IconUser}" Width="16" Height="16" 
-                                   Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" 
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNull}}"/>
-                        <Image Source="{Binding UserAvatar}" Stretch="UniformToFill"
-                               IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                    </Panel>
-                </Border>
+            <Grid RowDefinitions="Auto, *, Auto">
                 
-                <!-- Middle Spacer -->
-                <Border Grid.Row="1"/>
-                
-                <!-- Bottom Buttons (Scrollable to prevent overflow) -->
-                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              Padding="0">
-                <StackPanel Spacing="8" HorizontalAlignment="Center" Margin="0,0,0,12" VerticalAlignment="Bottom">
+                <!-- TOP: Profile & Flyout/Accordion Menu -->
+                <StackPanel Grid.Row="0" Spacing="4" Margin="0,16,0,0" HorizontalAlignment="Center">
                     
-                    <!-- EXPANDABLE TOOLS (Visible when Expanded) -->
-                    <StackPanel Spacing="8" IsVisible="{Binding IsToolsExpanded}">
-                        <!-- GDrive Pop-out -->
+                    <!-- Profile Picture (Toggle Button) -->
+                    <Button Command="{Binding ToggleToolsExpandedCommand}" 
+                            Padding="0" Background="Transparent" BorderThickness="0" 
+                            CornerRadius="6" Cursor="Hand" 
+                            ToolTip.Tip="User Profile &amp; Tools">
+                         <Button.Styles>
+                            <Style Selector="Button:pointerover Border.ProfileBorder">
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                        <Border Classes="ProfileBorder" Width="26" Height="26" CornerRadius="6" 
+                                Background="{DynamicResource CardBackgroundBrush}" 
+                                ClipToBounds="True" 
+                                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Panel>
+                                <shapes:Path Data="{StaticResource IconUser}" Width="16" Height="16" 
+                                           Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                <Image Source="{Binding UserAvatar}" Stretch="UniformToFill"
+                                       IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            </Panel>
+                        </Border>
+                    </Button>
+                    
+                    <!-- EXPANDED TOOLS MENU -->
+                    <StackPanel Spacing="4" IsVisible="{Binding IsToolsExpanded}">
+                        <!-- 3. GDrive Tab -->
                         <Button Click="OnGdriveClick" 
                                 Width="36" Height="36" Padding="0"
                                 Background="Transparent" BorderThickness="0"
@@ -121,7 +127,7 @@
                                          Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
                         </Button>
 
-                        <!-- Pixelcut Pop-out -->
+                        <!-- 2. Pixelcut -->
                         <Button Click="OnPixelcutClick" 
                                 Width="36" Height="36" Padding="0"
                                 Background="Transparent" BorderThickness="0"
@@ -135,62 +141,47 @@
                             <shapes:Path Data="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" 
                                          Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
                         </Button>
-                    </StackPanel>
 
-                    <!-- Chevron Toggle -->
-                    <Button Command="{Binding ToggleToolsExpandedCommand}" 
-                            Width="36" Height="36" Padding="0"
-                            Background="Transparent" BorderThickness="0"
-                            CornerRadius="8" Cursor="Hand"
-                            ToolTip.Tip="Tools">
-                         <Button.Styles>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                            </Style>
-                        </Button.Styles>
-                        <Panel>
-                             <!-- Chevron Up (Show) -->
-                             <shapes:Path Data="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" 
-                                          Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
-                                          IsVisible="{Binding !IsToolsExpanded}"/>
-                             <!-- Chevron Down (Hide) -->
-                             <shapes:Path Data="M7.41,8.59L12,13.17L16.59,8.59L18,10L12,16L6,10L7.41,8.59Z" 
-                                          Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
-                                          IsVisible="{Binding IsToolsExpanded}"/>
-                        </Panel>
-                    </Button>
-                    
-                    <!-- Terminal/Log Button -->
-                    <ToggleButton Click="OnTerminalToggleClick" 
-                                  IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
-                                  Width="36" Height="36" Padding="0"
-                                  Background="Transparent" BorderThickness="0"
-                                  CornerRadius="8" Cursor="Hand"
-                                  ToolTip.Tip="Terminal">
-                        <ToggleButton.Styles>
-                            <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                            </Style>
-                        </ToggleButton.Styles>
-                        <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
-                                     Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </ToggleButton>
-                    
-                    <!-- Settings Button -->
-                    <Button Click="OnSettingsClick" 
-                            Width="36" Height="36" Padding="0" 
-                            Background="Transparent" BorderThickness="0" 
-                            CornerRadius="8" Cursor="Hand" 
-                            ToolTip.Tip="Settings">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                            </Style>
-                        </Button.Styles>
-                        <shapes:Path Data="{StaticResource IconSettings}" Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
-                    </Button>
-                    
-                    <!-- Logout Button -->
+                        <!-- 1. Terminal / Log Panel -->
+                        <ToggleButton Click="OnTerminalToggleClick" 
+                                      IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
+                                      Width="36" Height="36" Padding="0"
+                                      Background="Transparent" BorderThickness="0"
+                                      CornerRadius="8" Cursor="Hand"
+                                      ToolTip.Tip="Terminal">
+                            <ToggleButton.Styles>
+                                <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                </Style>
+                                <Style Selector="ToggleButton:checked PathIcon">
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                </Style>
+                            </ToggleButton.Styles>
+                            <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
+                                         Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </ToggleButton>
+                        
+                        <!-- 0. Settings -->
+                        <Button Click="OnSettingsClick" 
+                                Width="36" Height="36" Padding="0" 
+                                Background="Transparent" BorderThickness="0" 
+                                CornerRadius="8" Cursor="Hand" 
+                                ToolTip.Tip="Settings">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                </Style>
+                            </Button.Styles>
+                            <shapes:Path Data="{StaticResource IconSettings}" Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+                
+                <!-- MIDDLE: Empty Spacer -->
+                <Border Grid.Row="1"/>
+                
+                <!-- BOTTOM: Log Out Button (Red) -->
+                <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,16">
                     <Button Command="{Binding OpenLogoutDialogCommand}" 
                             Width="36" Height="36" Padding="0" 
                             Background="Transparent" BorderThickness="0" 
@@ -198,14 +189,13 @@
                             ToolTip.Tip="Log Out">
                         <Button.Styles>
                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                <Setter Property="Background" Value="#33FF3333"/>
                             </Style>
                         </Button.Styles>
                         <shapes:Path Data="M16.56,5.44L15.11,6.89C16.84,7.94 18,9.83 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,9.83 7.16,7.94 8.88,6.88L7.44,5.44C5.36,6.88 4,9.28 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.28 18.64,6.88 16.56,5.44M13,3H11V13H13" 
-                                     Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
+                                     Width="16" Height="16" Stretch="Uniform" Fill="#FF4444"/>
                     </Button>
                 </StackPanel>
-                </ScrollViewer>
             </Grid>
         </Border>
         
@@ -215,8 +205,8 @@
         <!-- MAIN DASHBOARD AREA (Content) -->
         <Grid Grid.Column="1" RowDefinitions="Auto, *">
             <!-- NAVIGATION BAR (Horizontal, at top) -->
-            <Border Grid.Row="0" HorizontalAlignment="Center" Background="{DynamicResource CardBackgroundBrush}" 
-                    CornerRadius="12" Padding="4" Margin="12,12,12,6" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            <Border Grid.Row="0" HorizontalAlignment="Center" Background="#10FFFFFF" 
+                    CornerRadius="6" Padding="3" Margin="12,12,12,6">
                 <WrapPanel Orientation="Horizontal">
                     <!-- GDrive Tab -->
                     <RadioButton GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
@@ -244,7 +234,7 @@
                             </Style>
                             <Style Selector="RadioButton:checked">
                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
                         </RadioButton.Styles>
@@ -276,7 +266,7 @@
                             </Style>
                             <Style Selector="RadioButton:checked">
                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
                         </RadioButton.Styles>
@@ -309,7 +299,7 @@
                             </Style>
                             <Style Selector="RadioButton:checked">
                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
                         </RadioButton.Styles>
@@ -340,7 +330,7 @@
                             </Style>
                             <Style Selector="RadioButton:checked">
                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
                         </RadioButton.Styles>
@@ -372,7 +362,7 @@
                             </Style>
                             <Style Selector="RadioButton:checked">
                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
                         </RadioButton.Styles>
@@ -405,7 +395,7 @@
                             </Style>
                             <Style Selector="RadioButton:checked">
                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                                 <Setter Property="Opacity" Value="1.0"/>
                             </Style>
                         </RadioButton.Styles>
