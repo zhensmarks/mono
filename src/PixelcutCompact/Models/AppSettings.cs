@@ -15,4 +15,7 @@ public class AppSettings
     public string AccentColor { get; set; } = "#3b82f6";
     public string? CustomDarkBackground { get; set; }
     public string? CustomLightBackground { get; set; }
+    public string? OvpnPath { get; set; }
+    public string? OvpnUsername { get; set; }
+    public string? OvpnPassword { get; set; }
 }

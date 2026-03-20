@@ -22,7 +22,6 @@ public partial class MainWindowViewModel : ObservableObject
 {
     private readonly PixelcutService _pixelcutService = new();
     private readonly SettingsService _settingsService = new();
-    private readonly BMachine.Core.Platform.IPlatformService _platformService;
     private CancellationTokenSource? _cts;
     
     [ObservableProperty] private ObservableCollection<PixelcutFileItem> _files = new();
@@ -40,6 +39,14 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _isDarkTheme; // Mapped to Theme
     [ObservableProperty] private string _accentColorHex = "#3b82f6";
     
+    // OVPN Configurations
+    [ObservableProperty] private string _ovpnPath = "";
+    [ObservableProperty] private string _ovpnUsername = "";
+    [ObservableProperty] private string _ovpnPassword = "";
+    [ObservableProperty] private string _ovpnConfigStatus = "";
+    [ObservableProperty] private string _ovpnConfigColor = "Gray";
+    [ObservableProperty] private bool _isOvpnConfigured;
+    
     // We bind the UI to this property. When user edits this, we verify which mode we are in and save to the correct field.
     [ObservableProperty] private string _currentBackgroundColorHex = ""; 
     
@@ -55,6 +62,7 @@ public partial class MainWindowViewModel : ObservableObject
     private bool _stopRequested;
     [ObservableProperty] private bool _isPaused;
     private System.Timers.Timer? _vpnCheckTimer;
+    private Process? _vpnProcess;
 
     // Gallery and Preview Pane
     [ObservableProperty] private ObservableCollection<GalleryItemViewModel> _galleryItems = new();
@@ -65,11 +73,13 @@ public partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel()
     {
-        _platformService = BMachine.Core.Platform.PlatformServiceFactory.Get();
         
         // Load Settings
         var settings = _settingsService.Load();
         ProxyAddress = settings.ProxyAddress ?? "";
+        OvpnPath = settings.OvpnPath ?? "";
+        OvpnUsername = settings.OvpnUsername ?? "";
+        OvpnPassword = settings.OvpnPassword ?? "";
         AccentColorHex = settings.AccentColor;
         IsDarkTheme = settings.Theme == "Dark";
         
@@ -82,6 +92,7 @@ public partial class MainWindowViewModel : ObservableObject
         // Initialize Service
         Task.Run(async () => await _pixelcutService.InitializeAsync());
         
+        UpdateOvpnConfigStatus();
         CheckVpnStatus();
         
         // Start periodic VPN check (every 3 seconds)
@@ -111,6 +122,71 @@ public partial class MainWindowViewModel : ObservableObject
         ApplyAccentColor(value);
         OnPropertyChanged(nameof(AccentColor)); // Notify UI
         OnPropertyChanged(nameof(TrashButtonBrush));
+        SaveSettings();
+    }
+
+    [RelayCommand]
+    private async Task PickOvpnFile()
+    {
+        if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(desktop.MainWindow);
+            if (topLevel == null) return;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = "Pilih Profil OpenVPN (.ovpn)",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("OpenVPN Config") { Patterns = new[] { "*.ovpn", "*.conf" } }
+                }
+            });
+
+            if (files != null && files.Count > 0)
+            {
+                OvpnPath = files[0].Path.LocalPath;
+            }
+        }
+    }
+
+    partial void OnOvpnPathChanged(string value) => UpdateOvpnConfigStatus();
+    partial void OnOvpnUsernameChanged(string value) => UpdateOvpnConfigStatus();
+    partial void OnOvpnPasswordChanged(string value) => UpdateOvpnConfigStatus();
+
+    private void UpdateOvpnConfigStatus()
+    {
+        bool hasPath = !string.IsNullOrEmpty(OvpnPath);
+        bool pathExists = hasPath && File.Exists(OvpnPath);
+        bool hasUser = !string.IsNullOrEmpty(OvpnUsername);
+        bool hasPass = !string.IsNullOrEmpty(OvpnPassword);
+
+        if (!hasPath && !hasUser && !hasPass)
+        {
+            OvpnConfigStatus = "";
+            OvpnConfigColor = "Gray";
+            IsOvpnConfigured = false;
+        }
+        else if (hasPath && !pathExists)
+        {
+            OvpnConfigStatus = "⚠️ File .ovpn tidak ditemukan";
+            OvpnConfigColor = "#EF4444";
+            IsOvpnConfigured = false;
+        }
+        else if (!hasPath || !hasUser || !hasPass)
+        {
+            OvpnConfigStatus = "⚠️ Lengkapi semua kolom untuk mengaktifkan VPN";
+            OvpnConfigColor = "#F59E0B";
+            IsOvpnConfigured = false;
+        }
+        else
+        {
+            OvpnConfigStatus = "✅ Konfigurasi lengkap — VPN akan aktif saat proses dimulai";
+            OvpnConfigColor = "#16A34A";
+            IsOvpnConfigured = true;
+        }
+
+        CheckVpnStatus();
         SaveSettings();
     }
 
@@ -229,6 +305,9 @@ public partial class MainWindowViewModel : ObservableObject
         settings.AccentColor = AccentColorHex;
         settings.CustomDarkBackground = _customDarkBackground;
         settings.CustomLightBackground = _customLightBackground;
+        settings.OvpnPath = OvpnPath;
+        settings.OvpnUsername = OvpnUsername;
+        settings.OvpnPassword = OvpnPassword;
         _settingsService.Save(settings);
     }
 
@@ -245,7 +324,10 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             var interfaces = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
-            var vpnKeywords = new[] { "vpn", "tun", "tap", "ppp", "wintun", "wireguard", "openvpn", "avira", "nordvpn", "expressvpn" };
+            var vpnKeywords = new[] { "vpn", "tap", "ppp", "wintun", "wireguard", "openvpn", "avira", "nordvpn", "expressvpn" };
+            
+            // macOS system interfaces to EXCLUDE
+            var macSystemInterfaces = new[] { "utun", "llw", "awdl", "bridge", "ap", "anpi", "gif", "stf", "ipsec" };
             
             foreach (var iface in interfaces)
             {
@@ -255,12 +337,30 @@ public partial class MainWindowViewModel : ObservableObject
                 var name = iface.Name.ToLower();
                 var desc = iface.Description.ToLower();
                 
+                if (OperatingSystem.IsMacOS() && macSystemInterfaces.Any(si => name.StartsWith(si)))
+                    continue;
+                
                 if (vpnKeywords.Any(kw => name.Contains(kw) || desc.Contains(kw)))
                 {
                     IsVpnActive = true;
                     VpnStatus = $"VPN Aktif ({iface.Name})";
                     return;
                 }
+                
+                if (name == "tun0" || name == "tun1" || name == "tap0" || name == "tap1")
+                {
+                    IsVpnActive = true;
+                    VpnStatus = $"VPN Aktif ({iface.Name})";
+                    return;
+                }
+            }
+            
+            if (!string.IsNullOrEmpty(OvpnPath) && File.Exists(OvpnPath) 
+                && !string.IsNullOrEmpty(OvpnUsername) && !string.IsNullOrEmpty(OvpnPassword))
+            {
+                IsVpnActive = false;
+                VpnStatus = "OVPN Siap (Akan aktif saat proses)";
+                return;
             }
             
             IsVpnActive = false;
@@ -488,6 +588,7 @@ public partial class MainWindowViewModel : ObservableObject
         AppendLog("Menghentikan proses...");
         _stopRequested = true;
         _cts?.Cancel();
+        StopVpnProcess();
     }
     
     [RelayCommand]
@@ -530,7 +631,24 @@ public partial class MainWindowViewModel : ObservableObject
         _stopRequested = false;
         IsPaused = false;
         _cts = new CancellationTokenSource();
-        
+        AppendLog($"Memulai proses {job} (C# Native)...");
+
+        bool hasVpn = !string.IsNullOrEmpty(OvpnPath) && File.Exists(OvpnPath)
+                      && !string.IsNullOrEmpty(OvpnUsername) && !string.IsNullOrEmpty(OvpnPassword);
+        if (hasVpn)
+        {
+            VpnStatus = "🔄 Menyambungkan OpenVPN...";
+            IsVpnActive = false;
+            AppendLog("Memulai jalur OpenVPN Split-Tunneling...");
+            await StartVpnProcessAsync();
+            AppendLog("Menunggu rute jaringan stabil (5 detik)...");
+            await Task.Delay(5000); // Allow OS table routing to stabilize
+            
+            IsVpnActive = true;
+            VpnStatus = "🟢 VPN Aktif (OpenVPN)";
+            AppendLog("OpenVPN terhubung! Memulai antrean...");
+        }
+
         try
         {
             // Simple loop
@@ -552,10 +670,20 @@ public partial class MainWindowViewModel : ObservableObject
         }
         finally
         {
+            if (hasVpn)
+            {
+                VpnStatus = "🔌 Memutuskan OpenVPN...";
+                AppendLog("Membuang jalur OpenVPN...");
+                StopVpnProcess();
+                IsVpnActive = false;
+                AppendLog("OpenVPN terputus.");
+            }
+            
             IsProcessing = false;
             _cts?.Dispose();
             _cts = null;
             CheckRetryVisibility();
+            CheckVpnStatus();
             
             if (!_stopRequested)
             {
@@ -701,6 +829,92 @@ public partial class MainWindowViewModel : ObservableObject
         Console.WriteLine($"[PixelcutCompact] {msg}");
     }
     
+    [RelayCommand]
+    private void OpenVpnBookLink()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://www.vpnbook.com/freevpn/openvpn",
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
+    private async Task StartVpnProcessAsync()
+    {
+        try
+        {
+            var tempAuth = Path.Combine(Path.GetTempPath(), "bma_vpn_auth.txt");
+            await File.WriteAllLinesAsync(tempAuth, new[] { OvpnUsername, OvpnPassword });
+
+            var isMac = OperatingSystem.IsMacOS();
+            
+            _vpnProcess = new Process();
+            
+            if (isMac)
+            {
+                // Inject SPLIT TUNNELING: route-nopull prevents ALL traffic from going to VPN
+                // and route api2.pixelcut.app only maps Pixelcut API thru the tunnel.
+                var args = $"--config \\\"{OvpnPath}\\\" --auth-user-pass \\\"{tempAuth}\\\" --route-nopull --route api2.pixelcut.app";
+                var script = $"do shell script \"openvpn {args}\" with administrator privileges";
+                
+                _vpnProcess.StartInfo = new ProcessStartInfo
+                {
+                    FileName = "osascript",
+                    Arguments = $"-e '{script}'",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+            }
+            else
+            {
+                _vpnProcess.StartInfo = new ProcessStartInfo
+                {
+                    FileName = "openvpn",
+                    Arguments = $"--config \"{OvpnPath}\" --auth-user-pass \"{tempAuth}\" --route-nopull --route api2.pixelcut.app",
+                    UseShellExecute = true, // for UAC prompt on Windows
+                    Verb = "runas"
+                };
+            }
+
+            _vpnProcess.Start();
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Gagal menyalakan OpenVPN: {ex.Message}", "ERROR");
+        }
+    }
+
+    private void StopVpnProcess()
+    {
+        try
+        {
+            if (_vpnProcess != null && !_vpnProcess.HasExited)
+            {
+                _vpnProcess.Kill();
+            }
+            // Cleanup Auth File
+            var tempAuth = Path.Combine(Path.GetTempPath(), "bma_vpn_auth.txt");
+            if (File.Exists(tempAuth)) File.Delete(tempAuth);
+            
+            // For Mac, osascript spawns an OpenVPN daemon that might detach.
+            if (OperatingSystem.IsMacOS())
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "osascript",
+                    Arguments = $"-e 'do shell script \"killall openvpn\" with administrator privileges'",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+        }
+        catch {}
+    }
+    
     // === NEW FEATURES ===
     
     [ObservableProperty] private bool _isGridView;
@@ -713,8 +927,34 @@ public partial class MainWindowViewModel : ObservableObject
         var path = item.HasResult ? item.ResultPath : item.FilePath;
         if (File.Exists(path))
         {
-            _platformService.RevealFileInExplorer(path);
+            RevealFileInExplorer(path);
         }
+    }
+
+    private void RevealFileInExplorer(string filePath)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{filePath}\"",
+                    UseShellExecute = true
+                });
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "open",
+                    Arguments = $"-R \"{filePath}\"",
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch { }
     }
     
     [RelayCommand]
@@ -797,7 +1037,7 @@ public partial class MainWindowViewModel : ObservableObject
             var path = File.Exists(result) ? result : original;
             if (File.Exists(path))
             {
-                  _platformService.RevealFileInExplorer(path);
+                  RevealFileInExplorer(path);
             }
         }
     }

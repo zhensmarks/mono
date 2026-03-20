@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -360,12 +360,54 @@
                                          
                                          <!-- Content (Scrollable) -->
                                          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,10,0">
-                                             <StackPanel Spacing="16">
-                                                 <!-- Proxy -->
+                                             <StackPanel Spacing="16">                                                 <!-- Proxy -->
                                                  <StackPanel Spacing="6">
                                                      <TextBlock Text="Manual Proxy" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                      <TextBox Text="{Binding ProxyAddress}" Watermark="http://127.0.0.1:8080" />
                                                  </StackPanel>
+                                                 
+                                                 <Border Height="1" Background="{DynamicResource CardBorderBrush}"/>
+                                                 
+                                                 <!-- OVPN Section -->
+                                                 <StackPanel Spacing="5">
+                                                     <TextBlock Text="OpenVPN Profile (.ovpn)" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                     <Grid ColumnDefinitions="*, Auto, Auto">
+                                                         <TextBox Grid.Column="0" Text="{Binding OvpnPath}" Watermark="Pilih file .ovpn..." IsReadOnly="True" FontSize="12" Margin="0,0,8,0"/>
+                                                         <Button Grid.Column="1" Command="{Binding PickOvpnFileCommand}" Content="Browse" FontSize="12" Padding="12,6" Margin="0,0,8,0"/>
+                                                         <Button Grid.Column="2" Command="{Binding OpenVpnBookLinkCommand}" Background="Transparent" ToolTip.Tip="Buka Website VPNBook" Padding="6">
+                                                             <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" 
+                                                                       Width="18" Height="18" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                         </Button>
+                                                     </Grid>
+                                                 </StackPanel>
+                                                 
+                                                 <!-- OVPN Auth -->
+                                                 <Grid ColumnDefinitions="*, *">
+                                                     <StackPanel Grid.Column="0" Spacing="5" Margin="0,0,5,0">
+                                                         <TextBlock Text="Username VPN" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                         <TextBox Text="{Binding OvpnUsername}" Watermark="vpnbook" FontSize="12" />
+                                                     </StackPanel>
+                                                     <StackPanel Grid.Column="1" Spacing="5" Margin="5,0,0,0">
+                                                         <TextBlock Text="Password VPN" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                         <TextBox Text="{Binding OvpnPassword}" PasswordChar="•" Watermark="password" FontSize="12"/>
+                                                     </StackPanel>
+                                                 </Grid>
+                                                 
+                                                 <!-- VPN Config Status Indicator -->
+                                                 <TextBlock Text="{Binding OvpnConfigStatus}" FontSize="11" FontWeight="SemiBold"
+                                                            Foreground="{Binding OvpnConfigColor}" 
+                                                            TextWrapping="Wrap" Margin="0,4,0,0"
+                                                            IsVisible="{Binding OvpnConfigStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                 
+                                                 <!-- VPNBook Password Note -->
+                                                 <Border Background="#1AF59E0B" CornerRadius="6" Padding="10,8" Margin="0,0,0,0"
+                                                         IsVisible="{Binding IsOvpnConfigured}">
+                                                     <StackPanel Spacing="3">
+                                                         <TextBlock Text="ℹ️ Catatan VPNBook" FontSize="11" FontWeight="Bold" Foreground="#F59E0B"/>
+                                                         <TextBlock Text="Password VPNBook diperbarui setiap beberapa hari. Jika proses gagal dengan error autentikasi, kunjungi vpnbook.com untuk mendapatkan password terbaru." 
+                                                                    FontSize="10" Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.8" TextWrapping="Wrap"/>
+                                                     </StackPanel>
+                                                 </Border>
  
                                                  <Border Height="1" Background="{DynamicResource CardBorderBrush}"/>
  
