@@ -101,10 +101,168 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [ObservableProperty] private string _newCommentText = "";
     [ObservableProperty] private bool _isLoadingComments;
     
+    // --- Pending Attachments (images to upload with comment) ---
+    [ObservableProperty] private ObservableCollection<PendingAttachmentItem> _pendingAttachments = new();
+    public bool HasPendingAttachments => PendingAttachments.Count > 0;
+    
+    /// <summary>Set by the View code-behind to provide file picker access.</summary>
+    public Func<Task<IReadOnlyList<string>>>? PickAttachmentFilesFunc { get; set; }
+
+    [RelayCommand]
+    private async Task AddAttachment()
+    {
+        if (PickAttachmentFilesFunc == null) return;
+        var paths = await PickAttachmentFilesFunc();
+        if (paths == null) return;
+        foreach (var p in paths)
+        {
+            if (PendingAttachments.Any(a => a.FilePath == p)) continue; // skip duplicates
+            var item = new PendingAttachmentItem(p);
+            PendingAttachments.Add(item);
+        }
+        OnPropertyChanged(nameof(HasPendingAttachments));
+    }
+
+    public void AddAttachmentFromPath(string path)
+    {
+        if (string.IsNullOrEmpty(path) || PendingAttachments.Any(a => a.FilePath == path)) return;
+        PendingAttachments.Add(new PendingAttachmentItem(path));
+        OnPropertyChanged(nameof(HasPendingAttachments));
+    }
+
+    [RelayCommand]
+    private void RemoveAttachment(PendingAttachmentItem item)
+    {
+        if (item == null) return;
+        item.Dispose();
+        PendingAttachments.Remove(item);
+        OnPropertyChanged(nameof(HasPendingAttachments));
+    }
+
+    private void ClearPendingAttachments()
+    {
+        foreach (var a in PendingAttachments) a.Dispose();
+        PendingAttachments.Clear();
+        OnPropertyChanged(nameof(HasPendingAttachments));
+    }
+
+    // --- @Mention Logic ---
+    [ObservableProperty] private ObservableCollection<TrelloMember> _boardMembers = new();
+    [ObservableProperty] private ObservableCollection<TrelloMember> _filteredMembers = new();
+    [ObservableProperty] private bool _isMentionPopupOpen;
+    [ObservableProperty] private string _mentionQuery = "";
+    private int _mentionStartIndex = -1;
+
+    public async Task LoadBoardMembers()
+    {
+        if (BoardMembers.Count > 0) return; // Already loaded
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            // Try to get board id from the current card context or settings
+            var boardId = await _database.GetAsync<string>("Trello.EditingBoardId") ?? "";
+            if (string.IsNullOrEmpty(boardId))
+                boardId = await _database.GetAsync<string>("Trello.RevisionBoardId") ?? "";
+            if (string.IsNullOrEmpty(boardId))
+                boardId = await _database.GetAsync<string>("Trello.LateBoardId") ?? "";
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token) || string.IsNullOrEmpty(boardId)) return;
+
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/boards/{boardId}/members?key={apiKey}&token={token}&fields=fullName,username,initials";
+            var json = await client.GetStringAsync(url);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+            BoardMembers.Clear();
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                BoardMembers.Add(new TrelloMember
+                {
+                    Id = el.GetProperty("id").GetString() ?? "",
+                    FullName = el.GetProperty("fullName").GetString() ?? "",
+                    Username = el.GetProperty("username").GetString() ?? "",
+                    Initials = el.TryGetProperty("initials", out var init) ? init.GetString() ?? "" : ""
+                });
+            }
+        }
+        catch { /* Ignore errors loading members */ }
+    }
+
+    public void FilterMembers(string query)
+    {
+        MentionQuery = query;
+        FilteredMembers.Clear();
+        if (string.IsNullOrEmpty(query))
+        {
+            foreach (var m in BoardMembers) FilteredMembers.Add(m);
+        }
+        else
+        {
+            var q = query.ToLowerInvariant();
+            foreach (var m in BoardMembers.Where(m => 
+                m.FullName.ToLowerInvariant().Contains(q) || 
+                m.Username.ToLowerInvariant().Contains(q)))
+            {
+                FilteredMembers.Add(m);
+            }
+        }
+        IsMentionPopupOpen = FilteredMembers.Count > 0;
+    }
+
+    [RelayCommand]
+    private void SelectMention(TrelloMember member)
+    {
+        if (member == null || _mentionStartIndex < 0) return;
+        // Replace @query with @username
+        var before = NewCommentText.Substring(0, _mentionStartIndex);
+        var afterEnd = _mentionStartIndex + MentionQuery.Length + 1; // +1 for '@'
+        var after = afterEnd < NewCommentText.Length ? NewCommentText.Substring(afterEnd) : "";
+        NewCommentText = $"{before}@{member.Username} {after}";
+        IsMentionPopupOpen = false;
+        _mentionStartIndex = -1;
+        MentionQuery = "";
+    }
+
+    public void HandleCommentTextChanged(string text, int caretIndex)
+    {
+        // Detect @ mention
+        if (string.IsNullOrEmpty(text) || caretIndex <= 0)
+        {
+            IsMentionPopupOpen = false;
+            return;
+        }
+
+        // Find the last '@' before the caret
+        int atIndex = -1;
+        for (int i = caretIndex - 1; i >= 0; i--)
+        {
+            if (text[i] == '@')
+            {
+                atIndex = i;
+                break;
+            }
+            if (text[i] == ' ' || text[i] == '\n') break; // stop at whitespace
+        }
+
+        if (atIndex >= 0)
+        {
+            _mentionStartIndex = atIndex;
+            var query = text.Substring(atIndex + 1, caretIndex - atIndex - 1);
+            FilterMembers(query);
+        }
+        else
+        {
+            IsMentionPopupOpen = false;
+            _mentionStartIndex = -1;
+        }
+    }
+
     // Preset Comments
     [ObservableProperty] private ObservableCollection<string> _commentPresets = new();
     [ObservableProperty] private bool _isPresetPanelOpen;
     [ObservableProperty] private string _newPresetText = "";
+
+    private string? _currentMemberId;
 
     [RelayCommand]
     private async Task LoadCommentPresets()
@@ -267,7 +425,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [RelayCommand]
     private async Task SendComment()
     {
-        if (SelectedCard == null || string.IsNullOrWhiteSpace(NewCommentText)) return;
+        if (SelectedCard == null || (string.IsNullOrWhiteSpace(NewCommentText) && !HasPendingAttachments)) return;
 
         var text = NewCommentText;
         NewCommentText = ""; 
@@ -280,23 +438,64 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
             using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/actions/comments?key={apiKey}&token={token}&text={Uri.EscapeDataString(text)}";
-            
-            var response = await client.PostAsync(url, null);
-            if (response.IsSuccessStatusCode)
+
+            // 1. Upload pending attachments first
+            if (HasPendingAttachments)
             {
-                await LoadComments(SelectedCard.Id);
-                await LogActivity("Comment", $"Comment on {SelectedCard.Name}", text);
+                foreach (var att in PendingAttachments.ToList())
+                {
+                    try
+                    {
+                        var attUrl = $"https://api.trello.com/1/cards/{SelectedCard.Id}/attachments?key={apiKey}&token={token}";
+                        using var form = new MultipartFormDataContent();
+                        var fileBytes = await System.IO.File.ReadAllBytesAsync(att.FilePath);
+                        var fileContent = new ByteArrayContent(fileBytes);
+                        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                            GetMimeType(att.FilePath));
+                        form.Add(fileContent, "file", System.IO.Path.GetFileName(att.FilePath));
+                        await client.PostAsync(attUrl, form);
+                    }
+                    catch { /* Skip failed attachments */ }
+                }
+                ClearPendingAttachments();
             }
-            else
+
+            // 2. Post comment text (if any)
+            if (!string.IsNullOrWhiteSpace(text))
             {
-                StatusMessage = "Failed to send comment.";
+                var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/actions/comments?key={apiKey}&token={token}&text={Uri.EscapeDataString(text)}";
+                var response = await client.PostAsync(url, null);
+                if (response.IsSuccessStatusCode)
+                {
+                    await LogActivity("Comment", $"Comment on {SelectedCard.Name}", text);
+                }
+                else
+                {
+                    StatusMessage = "Failed to send comment.";
+                }
             }
+
+            await LoadComments(SelectedCard.Id);
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error sending comment: {ex.Message}";
         }
+    }
+
+    private static string GetMimeType(string filePath)
+    {
+        var ext = System.IO.Path.GetExtension(filePath).ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".pdf" => "application/pdf",
+            _ => "application/octet-stream"
+        };
     }
 
     protected async Task LoadComments(string cardId)
@@ -382,6 +581,24 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                         }
                     }
                 }
+
+                if (_currentMemberId == null)
+                {
+                    try
+                    {
+                        var meUrl = $"https://api.trello.com/1/members/me?key={apiKey}&token={token}&fields=id";
+                        var meJson = await client.GetStringAsync(meUrl);
+                        using var meDoc = System.Text.Json.JsonDocument.Parse(meJson);
+                        _currentMemberId = meDoc.RootElement.GetProperty("id").GetString();
+                    }
+                    catch { /* Ignore if it fails */ }
+                }
+
+                if (!string.IsNullOrEmpty(_currentMemberId) && comment.MemberCreatorId == _currentMemberId)
+                {
+                    comment.IsMine = true;
+                }
+
                 fetchedComments.Add(comment);
             }
 
@@ -408,7 +625,14 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 if (existing != null)
                 {
                     // Update content if changed
-                    if (existing.Text != fetched.Text) existing.Text = fetched.Text;
+                    if (existing.Text != fetched.Text && !existing.IsEditing)
+                    {
+                        existing.Text = fetched.Text;
+                    }
+                    if (existing.IsMine != fetched.IsMine)
+                    {
+                        existing.IsMine = fetched.IsMine;
+                    }
                     // Move if order changed (simple: ensure it's at 'index')
                     var oldIndex = Comments.IndexOf(existing);
                     if (oldIndex != index)
@@ -431,6 +655,88 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         finally
         {
             IsLoadingComments = false;
+        }
+    }
+
+    // --- Comment Edit & Delete Commands ---
+    [RelayCommand]
+    public void BeginEditComment(TrelloComment comment)
+    {
+        if (comment == null || !comment.IsMine) return;
+        comment.EditText = comment.Text;
+        comment.IsEditing = true;
+    }
+
+    [RelayCommand]
+    public void CancelEditComment(TrelloComment comment)
+    {
+        if (comment == null) return;
+        comment.IsEditing = false;
+        comment.EditText = "";
+    }
+
+    [RelayCommand]
+    public async Task SaveEditComment(TrelloComment comment)
+    {
+        if (comment == null || !comment.IsMine || string.IsNullOrWhiteSpace(comment.EditText)) return;
+
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            // Trello API uses PUT /1/actions/{idAction}
+            var url = $"https://api.trello.com/1/actions/{comment.Id}?key={apiKey}&token={token}&text={Uri.EscapeDataString(comment.EditText)}";
+            
+            var response = await client.PutAsync(url, null);
+            if (response.IsSuccessStatusCode)
+            {
+                comment.Text = comment.EditText;
+                comment.IsEditing = false;
+                await LogActivity("Edit Comment", $"Edited comment on {SelectedCard?.Name}", comment.Text);
+            }
+            else
+            {
+                StatusMessage = "Failed to edit comment.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error editing comment: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    public async Task DeleteComment(TrelloComment comment)
+    {
+        if (comment == null || !comment.IsMine) return;
+
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            // Trello API uses DELETE /1/actions/{idAction}
+            var url = $"https://api.trello.com/1/actions/{comment.Id}?key={apiKey}&token={token}";
+            
+            var response = await client.DeleteAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                Comments.Remove(comment);
+                await LogActivity("Delete Comment", $"Deleted comment on {SelectedCard?.Name}", comment.Text);
+            }
+            else
+            {
+                StatusMessage = "Failed to delete comment.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error deleting comment: {ex.Message}";
         }
     }
 

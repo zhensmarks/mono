@@ -32,6 +32,14 @@
     - [ ] Aktifkan *copy-paste* di panel *preview* (txt/docx)
     - [ ] Perbaiki pintasan *copy* saat ganti nama file (F2)
     - [x] Fitur **Copy Path** (Ctrl+Shift+C) dan **Paste Path** (Ctrl+Shift+V) untuk navigasi cepat <!-- id: 39 -->
+    - [ ] **Explorer Perfection (Performance & UI):**
+        - [ ] **Virtualizing WrapPanel**: Optimasi Thumbnail & Tiles View agar handle 10.000+ item dengan ringan.
+        - [ ] **Asynchronous I/O Refactor**: Pindahkan `Directory.GetFiles` ke background thread agar UI tidak "Not Responding".
+        - [ ] **Real-Time Sync**: Implementasi `FileSystemWatcher` untuk update otomatis saat ada perubahan file dari luar.
+        - [ ] **Persistent Thumbnail Cache**: Simpan hasil render thumbnail ke disk (SQLite/File) agar loading folder instan.
+        - [ ] **Interactive Breadcrumbs**: Tambahkan dropdown subfolder pada setiap bagian path breadcrumb.
+        - [ ] **Quick Look (Spacebar)**: Preview file (gambar/teks/kode) secara instan saat menekan tombol Space.
+        - [ ] **Search Indexing**: Gunakan SQLite FTS5 untuk pencarian file instan di folder berukuran besar.
     - [ ] Fitur **Reorder Tab** (Geser posisi tab kiri/kanan)
 - [ ] **Aksi Otomatis & Script Photoshop:**
     - [ ] Fitur **Auto REPLACE** (Inline Action Folder): Mencocokkan folder Output dengan Input secara otomatis dan menjalankan replace.

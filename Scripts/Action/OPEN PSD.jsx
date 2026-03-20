@@ -183,7 +183,31 @@ function main() {
     txtFilter.preferredSize.height = 350;
     txtFilter.helpTip = "Paste revisi di sini (contoh: NO 1 revisi ini...)";
 
+    // Auto-format for pasted text that loses newlines
+    var prevText = "";
+    txtFilter.onChanging = function() {
+        var currentText = txtFilter.text;
+        
+        // Deteksi apakah user melakukan Paste (perubahan karakter banyak sekaligus)
+        var isPasted = Math.abs(currentText.length - prevText.length) > 5;
+        
+        if (isPasted) {
+            // Pisahkan teks yang menyatu seperti "lagi- 4 serabut" menjadi baris baru
+            var newText = currentText.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
+            
+            // Opsional: Pisahkan juga jika formatnya "lagi 4. serabut"
+            newText = newText.replace(/([^\s\r\n])\s+(\d+)\.\s+/g, "$1\r\n$2. ");
+
+            if (newText !== currentText) {
+                txtFilter.text = newText;
+                currentText = newText;
+            }
+        }
+        prevText = currentText;
+    };
+
     var grpFilterControls = pnlRight.add("group");
+
     grpFilterControls.orientation = "column";
     grpFilterControls.alignChildren = ["fill", "top"];
     var btnApplyFilter = grpFilterControls.add("button", undefined, "FILTER List");

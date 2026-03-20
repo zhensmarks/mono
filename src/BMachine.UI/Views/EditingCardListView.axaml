@@ -443,13 +443,49 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Background="#10FFFFFF" CornerRadius="8" Padding="12" Margin="0,0,0,10">
-                                        <StackPanel Spacing="4">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                            <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
-                                        </StackPanel>
+                                        <Grid RowDefinitions="Auto, *">
+                                            <!-- Header (Name, Date, Actions) -->
+                                            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,4">
+                                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                                </StackPanel>
+                                                
+                                                <!-- Action Bar -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsMine}">
+                                                    <Button Command="{Binding $parent[UserControl].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
+                                                            Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
+                                                            IsVisible="{Binding !IsEditing}">
+                                                        <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    </Button>
+                                                    <Button Command="{Binding $parent[UserControl].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
+                                                            Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
+                                                            IsVisible="{Binding !IsEditing}">
+                                                        <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Body -->
+                                            <Grid Grid.Row="1">
+                                                <!-- Read Mode -->
+                                                <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"
+                                                                             IsVisible="{Binding !IsEditing}"/>
+                                                
+                                                <!-- Edit Mode -->
+                                                <StackPanel IsVisible="{Binding IsEditing}" Spacing="6" Margin="0,4,0,0">
+                                                    <TextBox Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
+                                                             Background="#1AFFFFFF" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="6"
+                                                             Padding="8" FontSize="13"/>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                                        <Button Content="Cancel" Command="{Binding $parent[UserControl].DataContext.CancelEditCommentCommand}" CommandParameter="{Binding}"
+                                                                Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="4" Cursor="Hand" FontSize="12"/>
+                                                        <Button Content="Save" Command="{Binding $parent[UserControl].DataContext.SaveEditCommentCommand}" CommandParameter="{Binding}"
+                                                                Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="4" Cursor="Hand" FontSize="12" FontWeight="Bold"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -459,6 +495,44 @@
 
                 <Grid Grid.Row="2" ColumnDefinitions="*, Auto" Margin="0,20,0,0">
                     <StackPanel Grid.Column="0" VerticalAlignment="Bottom">
+
+                        <!-- Pending Attachments Preview -->
+                        <Border Background="#10FFFFFF" CornerRadius="8" Padding="8" Margin="0,0,0,8"
+                                IsVisible="{Binding HasPendingAttachments}">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Attachments" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <ItemsControl ItemsSource="{Binding PendingAttachments}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:PendingAttachmentItem">
+                                            <Border Background="#15FFFFFF" CornerRadius="6" Padding="4" Margin="0,0,6,6"
+                                                    Width="70" Height="70" ClipToBounds="True">
+                                                <Grid>
+                                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                                           IsVisible="{Binding IsImage}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel IsVisible="{Binding !IsImage}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="2">
+                                                        <PathIcon Data="{StaticResource IconFile}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <TextBlock Text="{Binding FileName}" FontSize="8" TextTrimming="CharacterEllipsis" 
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" MaxWidth="60"/>
+                                                    </StackPanel>
+                                                    <Button Command="{Binding $parent[UserControl].DataContext.RemoveAttachmentCommand}" CommandParameter="{Binding}"
+                                                            Width="16" Height="16" CornerRadius="8" Padding="0"
+                                                            Background="#CC000000" BorderThickness="0" Cursor="Hand"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                        <TextBlock Text="✕" FontSize="9" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Presets Overlay (Above Textbox) -->
                         <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                 CornerRadius="8" Padding="10" Margin="0,0,0,8"
@@ -499,22 +573,56 @@
                                  </Grid>
                             </StackPanel>
                         </Border>
+
+                        <!-- @Mention Popup -->
+                        <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                CornerRadius="8" Padding="6" Margin="0,0,0,4" MaxHeight="140"
+                                IsVisible="{Binding IsMentionPopupOpen}">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding FilteredMembers}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:TrelloMember">
+                                            <Button Command="{Binding $parent[UserControl].DataContext.SelectMentionCommand}" CommandParameter="{Binding}"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                    Background="Transparent" BorderThickness="0" Padding="6,4" Cursor="Hand">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <Border Width="22" Height="22" CornerRadius="11" Background="{DynamicResource AccentColorBrush}">
+                                                        <TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                                                   Foreground="White" FontWeight="Bold" FontSize="9"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding DisplayText}" VerticalAlignment="Center" FontSize="11" 
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
     
                         <!-- Comment Input Area -->
-                         <TextBox x:Name="Part_CommentTextBox" 
-                                  Text="{Binding NewCommentText}" Watermark="Write a comment..." 
-                                  Background="#1AFFFFFF" BorderThickness="0" CornerRadius="8" Padding="10"
-                                  Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100">
+                        <TextBox x:Name="Part_CommentTextBox" 
+                                 Text="{Binding NewCommentText}" Watermark="Write a comment... (@mention)" 
+                                 Background="#1AFFFFFF" BorderThickness="0" CornerRadius="8" Padding="10"
+                                 Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100">
                              <TextBox.KeyBindings>
                                  <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
                              </TextBox.KeyBindings>
+                             <TextBox.InnerLeftContent>
+                                 <Button x:Name="Part_InlineAttachButton"
+                                         Command="{Binding AddAttachmentCommand}"
+                                         Background="Transparent" BorderThickness="0" Padding="8,0,0,0" Margin="0" Cursor="Hand"
+                                         ToolTip.Tip="Attach Image">
+                                     <PathIcon Data="{StaticResource IconPaperclip}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 </Button>
+                             </TextBox.InnerLeftContent>
                              <TextBox.InnerRightContent>
                                   <Button Command="{Binding TogglePresetPanelCommand}" 
                                           Background="Transparent" BorderThickness="0" Padding="4" Margin="0,0,4,0" Cursor="Hand" ToolTip.Tip="Quick Replies">
                                       <PathIcon Data="{StaticResource IconChevronUp}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                   </Button>
                              </TextBox.InnerRightContent>
-                         </TextBox>
+                        </TextBox>
                     </StackPanel>
 
                      <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
