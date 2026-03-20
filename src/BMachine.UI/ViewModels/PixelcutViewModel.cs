@@ -29,6 +29,13 @@ public partial class PixelcutViewModel : ObservableObject
     [ObservableProperty] private bool _isVpnActive;
     [ObservableProperty] private string _logOutput = "";
     [ObservableProperty] private bool _showLogPanel;
+    [ObservableProperty] private bool _isLogViewVisible;
+    
+    // Toast Notification
+    [ObservableProperty] private string _toastMessage = "";
+    [ObservableProperty] private bool _isToastVisible;
+    [ObservableProperty] private string _toastIcon = "✅";
+    private System.Timers.Timer? _toastTimer;
     
     // Settings
     [ObservableProperty] private string _proxyAddress = "";
@@ -141,7 +148,7 @@ public partial class PixelcutViewModel : ObservableObject
         else
         {
             OvpnConfigStatus = "✅ Konfigurasi lengkap — VPN akan aktif saat proses dimulai";
-            OvpnConfigColor = "#4ADE80";
+            OvpnConfigColor = "#16A34A"; // Darker green for legibility on both Light and Dark mode
             IsOvpnConfigured = true;
         }
 
@@ -529,6 +536,11 @@ public partial class PixelcutViewModel : ObservableObject
                 CompletionSuccessCount = success;
                 CompletionFailureCount = failed;
                 ShowCompletionDialog = true;
+                
+                // Show Toast Notification
+                var toastMsg = $"✅ {success} berhasil";
+                if (failed > 0) toastMsg += $" / ❌ {failed} gagal";
+                ShowToast(toastMsg, failed > 0 ? "⚠️" : "✅");
             }
         }
     }
@@ -739,25 +751,58 @@ public partial class PixelcutViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenSeparateWindow()
+    private void ToggleLogView()
     {
-        try
-        {
-            var win = new Views.PixelcutWindow();
-            var newVm = new PixelcutViewModel(_database);
-            win.DataContext = newVm; 
-            win.Show();
-        }
-        catch (Exception ex)
-        {
-            AppendLog($"Error opening window: {ex.Message}");
-        }
+        IsLogViewVisible = !IsLogViewVisible;
     }
+
+    [RelayCommand]
+    private void CloseLogView()
+    {
+        IsLogViewVisible = false;
+    }
+
+    private void ShowToast(string message, string icon = "✅")
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            ToastMessage = message;
+            ToastIcon = icon;
+            IsToastVisible = true;
+            
+            _toastTimer?.Stop();
+            _toastTimer?.Dispose();
+            _toastTimer = new System.Timers.Timer(4000);
+            _toastTimer.AutoReset = false;
+            _toastTimer.Elapsed += (s, e) =>
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => IsToastVisible = false);
+            };
+            _toastTimer.Start();
+        });
+    }
+
+    [RelayCommand]
+    private void DismissToast() => IsToastVisible = false;
         
     private void AppendLog(string message)
     {
         var msg = $"[{DateTime.Now:HH:mm:ss}] {message}";
         LogOutput += $"{msg}\n";
         Console.WriteLine($"[Pixelcut] {msg}");
+    }
+
+    [RelayCommand]
+    private void OpenVpnBookLink()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://www.vpnbook.com/freevpn/openvpn",
+                UseShellExecute = true
+            });
+        }
+        catch { }
     }
 }

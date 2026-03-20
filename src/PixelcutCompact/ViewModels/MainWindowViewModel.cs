@@ -34,15 +34,6 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _statusText = "Siap";
     [ObservableProperty] private int _skippedCount;
     
-    // Log View Toggle
-    [ObservableProperty] private bool _isLogViewVisible;
-    [RelayCommand] private void ToggleLogView() => IsLogViewVisible = !IsLogViewVisible;
-    
-    // Toast Notification
-    [ObservableProperty] private bool _isNotificationVisible;
-    [ObservableProperty] private string _notificationMessage = "";
-    private System.Timers.Timer? _notificationTimer;
-    
     // Settings
     [ObservableProperty] private string _proxyAddress = "";
     [ObservableProperty] private bool _isDarkTheme; // Mapped to Theme
@@ -59,10 +50,16 @@ public partial class MainWindowViewModel : ObservableObject
     // We bind the UI to this property. When user edits this, we verify which mode we are in and save to the correct field.
     [ObservableProperty] private string _currentBackgroundColorHex = ""; 
     
-    // Alert Overlay (legacy, kept for compatibility)
+    // Alert Overlay
     [ObservableProperty] private bool _isAlertOpen;
     [ObservableProperty] private string _alertMessage = "";
     [RelayCommand] private void CloseAlert() => IsAlertOpen = false;
+
+    // Toast Notification
+    [ObservableProperty] private string _toastMessage = "";
+    [ObservableProperty] private bool _isToastVisible;
+    [ObservableProperty] private string _toastIcon = "✅";
+    private System.Timers.Timer? _toastTimer;
 
     
     private string? _customDarkBackground;
@@ -701,11 +698,20 @@ public partial class MainWindowViewModel : ObservableObject
                 var failed = Files.Count(x => x.IsFailed);
 
                 var sb = new System.Text.StringBuilder();
-                sb.Append($"✅ {success} berhasil");
-                if (small > 0) sb.Append($" · ⚠️ {small} kecil");
-                if (failed > 0) sb.Append($" · ❌ {failed} gagal");
+                sb.AppendLine("Proses Selesai!");
+                sb.AppendLine();
+                sb.AppendLine($"✅ Berhasil: {success}");
                 
-                ShowNotification(sb.ToString());
+                if (small > 0) sb.AppendLine($"⚠️ File Kecil (<500b): {small}");
+                if (failed > 0) sb.AppendLine($"❌ Gagal: {failed}");
+                
+                AlertMessage = sb.ToString().Trim();
+                IsAlertOpen = true;
+                
+                // Show Toast
+                var toastMsg = $"✅ {success} berhasil";
+                if (failed > 0) toastMsg += $" / ❌ {failed} gagal";
+                ShowToast(toastMsg, failed > 0 ? "⚠️" : "✅");
             }
         }
     }
@@ -744,7 +750,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            // Simulate progress for UI feedback with detailed status rotation
+            // Simulate progress for UI feedback
             var progressTask = Task.Run(async () => 
             {
                 while(item.IsProcessing && item.Progress < 90)
@@ -761,7 +767,7 @@ public partial class MainWindowViewModel : ObservableObject
                     Dispatcher.UIThread.Post(() =>
                     {
                         item.Progress += 2;
-                        item.Status = item.Progress < 30 ? "Mengunggah..." :
+                        item.Status = item.Progress < 30 ? "Mengunggah..." : 
                                       item.Progress < 60 ? "Memproses..." : "Mengunduh hasil...";
                     });
                 }
@@ -828,27 +834,8 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ToggleLog()
     {
-        // Redirects to the new log view toggle
-        IsLogViewVisible = !IsLogViewVisible;
-    }
-
-    private void ShowNotification(string message)
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            NotificationMessage = message;
-            IsNotificationVisible = true;
-            
-            _notificationTimer?.Stop();
-            _notificationTimer?.Dispose();
-            _notificationTimer = new System.Timers.Timer(4000); // 4 seconds
-            _notificationTimer.AutoReset = false;
-            _notificationTimer.Elapsed += (s, e) =>
-            {
-                Dispatcher.UIThread.Post(() => IsNotificationVisible = false);
-            };
-            _notificationTimer.Start();
-        });
+        // Deprecated by Tab UI
+        // ShowLogPanel = !ShowLogPanel;
     }
 
     private void AppendLog(string message, string level = "INFO")
@@ -871,6 +858,29 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch { }
     }
+
+    private void ShowToast(string message, string icon = "✅")
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            ToastMessage = message;
+            ToastIcon = icon;
+            IsToastVisible = true;
+            
+            _toastTimer?.Stop();
+            _toastTimer?.Dispose();
+            _toastTimer = new System.Timers.Timer(4000);
+            _toastTimer.AutoReset = false;
+            _toastTimer.Elapsed += (s, e) =>
+            {
+                Dispatcher.UIThread.Post(() => IsToastVisible = false);
+            };
+            _toastTimer.Start();
+        });
+    }
+
+    [RelayCommand]
+    private void DismissToast() => IsToastVisible = false;
 
     private async Task StartVpnProcessAsync()
     {
