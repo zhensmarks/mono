@@ -34,6 +34,15 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _statusText = "Siap";
     [ObservableProperty] private int _skippedCount;
     
+    // Log View Toggle
+    [ObservableProperty] private bool _isLogViewVisible;
+    [RelayCommand] private void ToggleLogView() => IsLogViewVisible = !IsLogViewVisible;
+    
+    // Toast Notification
+    [ObservableProperty] private bool _isNotificationVisible;
+    [ObservableProperty] private string _notificationMessage = "";
+    private System.Timers.Timer? _notificationTimer;
+    
     // Settings
     [ObservableProperty] private string _proxyAddress = "";
     [ObservableProperty] private bool _isDarkTheme; // Mapped to Theme
@@ -50,7 +59,7 @@ public partial class MainWindowViewModel : ObservableObject
     // We bind the UI to this property. When user edits this, we verify which mode we are in and save to the correct field.
     [ObservableProperty] private string _currentBackgroundColorHex = ""; 
     
-    // Alert Overlay
+    // Alert Overlay (legacy, kept for compatibility)
     [ObservableProperty] private bool _isAlertOpen;
     [ObservableProperty] private string _alertMessage = "";
     [RelayCommand] private void CloseAlert() => IsAlertOpen = false;
@@ -692,15 +701,11 @@ public partial class MainWindowViewModel : ObservableObject
                 var failed = Files.Count(x => x.IsFailed);
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine("Proses Selesai!");
-                sb.AppendLine();
-                sb.AppendLine($"✅ Berhasil: {success}");
+                sb.Append($"✅ {success} berhasil");
+                if (small > 0) sb.Append($" · ⚠️ {small} kecil");
+                if (failed > 0) sb.Append($" · ❌ {failed} gagal");
                 
-                if (small > 0) sb.AppendLine($"⚠️ File Kecil (<500b): {small}");
-                if (failed > 0) sb.AppendLine($"❌ Gagal: {failed}");
-                
-                AlertMessage = sb.ToString().Trim();
-                IsAlertOpen = true;
+                ShowNotification(sb.ToString());
             }
         }
     }
@@ -739,7 +744,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            // Simulate progress for UI feedback
+            // Simulate progress for UI feedback with detailed status rotation
             var progressTask = Task.Run(async () => 
             {
                 while(item.IsProcessing && item.Progress < 90)
@@ -753,7 +758,12 @@ public partial class MainWindowViewModel : ObservableObject
                     }
 
                     await Task.Delay(100);
-                    Dispatcher.UIThread.Post(() => item.Progress += 2);
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        item.Progress += 2;
+                        item.Status = item.Progress < 30 ? "Mengunggah..." :
+                                      item.Progress < 60 ? "Memproses..." : "Mengunduh hasil...";
+                    });
                 }
             }, ct);
 
@@ -818,8 +828,27 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ToggleLog()
     {
-        // Deprecated by Tab UI
-        // ShowLogPanel = !ShowLogPanel;
+        // Redirects to the new log view toggle
+        IsLogViewVisible = !IsLogViewVisible;
+    }
+
+    private void ShowNotification(string message)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            NotificationMessage = message;
+            IsNotificationVisible = true;
+            
+            _notificationTimer?.Stop();
+            _notificationTimer?.Dispose();
+            _notificationTimer = new System.Timers.Timer(4000); // 4 seconds
+            _notificationTimer.AutoReset = false;
+            _notificationTimer.Elapsed += (s, e) =>
+            {
+                Dispatcher.UIThread.Post(() => IsNotificationVisible = false);
+            };
+            _notificationTimer.Start();
+        });
     }
 
     private void AppendLog(string message, string level = "INFO")
