@@ -241,6 +241,12 @@ class DropZone(tk.Frame):
             
         self.set_path(self.path) # Init display
 
+    def destroy(self):
+        if HAS_DND:
+            try: self.drop_target_unregister()
+            except: pass
+        super().destroy()
+
     def on_hover(self, e):
         self.config(highlightbackground=COLOR_ACCENT_BLUE)
         
@@ -369,7 +375,7 @@ class BucinAppV3:
         self.root.after(10, self.set_app_window)
         
         # Resize Grip
-        self.grip = tk.Label(self.root, text="◢", bg=COLOR_BG, fg="#52525b", font=("Segoe UI", 12), cursor="size_nw_se")
+        self.grip = tk.Label(self.root, text="◢", bg=COLOR_BG, fg="#52525b", font=("Segoe UI", 12))
         self.grip.place(relx=1.0, rely=1.0, anchor="se")
         self.grip.bind("<ButtonPress-1>", self.start_resize)
         self.grip.bind("<B1-Motion>", self.do_resize)
@@ -406,8 +412,17 @@ class BucinAppV3:
         self.root.geometry(f"+{x}+{y}")
         
     def minimize_window(self):
-        self.root.state('iconic') # Can be buggy with overrideredirect, but try
-        self.root.iconify()
+        try:
+            self.root.overrideredirect(False)
+            self.root.iconify()
+            self.root.bind("<Map>", self._on_map)
+        except Exception:
+            self.root.withdraw()
+            
+    def _on_map(self, event):
+        if str(event.widget) == ".":
+            self.root.overrideredirect(True)
+            self.root.unbind("<Map>")
         
     def start_resize(self, event):
         self.x = event.x

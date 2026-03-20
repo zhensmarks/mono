@@ -370,10 +370,15 @@ function runReplacementLogic(templateFolder, inputFolder) {
             for (var j = 0; j < inputFiles.length; j++) {
                 var input = inputFiles[j];
                 var inputBaseName = input.displayName.replace(/\.[^\.]+$/, "");
-                // Juga cek nama tanpa suffix copy " (1)" atau spasi banyak "    (2)"
-                var inputBaseNameStripped = inputBaseName.replace(/\s*\(\d+\)$/, "");
+                // Hapus spasi di awal/akhir dan suffix " (1)" atau spasi banyak "    (2)"
+                var inputBaseNameStripped = inputBaseName.replace(/^\s+|\s+$/g, "").replace(/\s*\(\d+\)$/, "");
+                
+                // Coba cocokan kalau format master hanya angka misal "1" dan input " (1)"
+                var inputJustNumber = "";
+                var numberMatch = inputBaseName.match(/\((\d+)\)/) || inputBaseName.match(/(\d+)/);
+                if (numberMatch) inputJustNumber = numberMatch[1];
 
-                if (inputBaseName === templateBaseName || inputBaseNameStripped === templateBaseName) {
+                if (inputBaseName === templateBaseName || inputBaseNameStripped === templateBaseName || (inputJustNumber !== "" && inputJustNumber === templateBaseName)) {
                     var inputRelDir = decodeURI(input.parent.fullName).replace(decodeURI(inputFolder.fullName), "");
                     if (inputRelDir.indexOf("/") == 0) inputRelDir = inputRelDir.substring(1);
 
@@ -579,13 +584,23 @@ function runRevisiLogic(masterFolder, inputFolder) {
         }
         inputMap[baseName].push(file);
 
-        // Tambahkan juga versi stripped (misal "foto    (1)" -> "foto") ke dalam map
-        var baseNameStripped = baseName.replace(/\s*\(\d+\)$/, "");
+        // Tambahkan juga versi stripped (hilangkan spasi awal/akhir dan " (1)")
+        var baseNameStripped = baseName.replace(/^\s+|\s+$/g, "").replace(/\s*\(\d+\)$/, "");
         if (baseName !== baseNameStripped) {
             if (!inputMap[baseNameStripped]) {
                 inputMap[baseNameStripped] = [];
             }
             inputMap[baseNameStripped].push(file);
+        }
+        
+        // Tambahkan versi "hanya angka" jika nama formatnya "   (2)"
+        var numberMatch = baseName.match(/\((\d+)\)/) || baseName.match(/(\d+)/);
+        if (numberMatch) {
+            var justNumber = numberMatch[1];
+            if (baseName !== justNumber && baseNameStripped !== justNumber) {
+                if (!inputMap[justNumber]) inputMap[justNumber] = [];
+                inputMap[justNumber].push(file);
+            }
         }
     }
 
