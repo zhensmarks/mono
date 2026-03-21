@@ -99,6 +99,11 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     /// </summary>
     [ObservableProperty] private bool _isLabelOnLeft;
 
+    // Spotlight Effect Properties
+    [ObservableProperty] private double _spotlightX;
+    [ObservableProperty] private double _spotlightY;
+    [ObservableProperty] private bool _isSpotlightVisible;
+
     public RadialMenuViewModel(IDatabase? database, Services.IProcessLogService? logService = null, BMachine.Core.Platform.IPlatformService? platformService = null)
     {
         _database = database;
@@ -305,12 +310,19 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         double dy = mousePos.Y - cy;
         double dist = Math.Sqrt(dx * dx + dy * dy);
 
-        // Deadzone: center (< 15px) or outside window bounds (> 95px)
-        if (dist < 15 || dist > 95)
+        // Update spotlight position (centered on cursor)
+        SpotlightX = mousePos.X - 50; // Assuming a 100x100 spotlight size
+        SpotlightY = mousePos.Y - 50;
+
+        // Deadzone: center (< 25px) or outside window bounds (> 95px)
+        if (dist < 25 || dist > 95)
         {
             HighlightItem(null);
+            IsSpotlightVisible = dist >= 25 && dist <= 100; // Visible outside deadzone but within bounds
             return;
         }
+
+        IsSpotlightVisible = true;
 
         // Calculate angle (0 = North/Top, clockwise)
         double angle = Math.Atan2(dy, dx) * (180 / Math.PI);
