@@ -135,25 +135,33 @@
                  <Line StartPoint="120,20" EndPoint="20,120" Stroke="#10FFFFFF" StrokeThickness="1"/>
              </Canvas>
 
+             <!-- Hover Pie Wedge (Pizza Slice Highlight) with Gradient via OpacityMask -->
+             <controls:PieWedge Width="140" Height="140"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                StartAngle="{Binding WedgeStartAngle}" SweepAngle="{Binding WedgeSweepAngle}"
+                                InnerRadius="15" OuterRadius="70"
+                                Fill="{DynamicResource AccentBlueBrush}" Opacity="0.8"
+                                IsVisible="{Binding IsHighlighted, FallbackValue=False}"
+                                IsHitTestVisible="False">
+                 <controls:PieWedge.OpacityMask>
+                     <RadialGradientBrush Center="50%,50%" GradientOrigin="50%,50%" RadiusX="50%" RadiusY="50%">
+                         <GradientStop Color="#FFFFFFFF" Offset="0.2"/>
+                         <GradientStop Color="#40FFFFFF" Offset="0.7"/>
+                         <GradientStop Color="#00FFFFFF" Offset="1.0"/>
+                     </RadialGradientBrush>
+                 </controls:PieWedge.OpacityMask>
+             </controls:PieWedge>
+
              <!-- 4. Planet Orbit Ring (Inner Divider) -->
              <Border Width="70" Height="70" CornerRadius="35"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      BorderBrush="#15FFFFFF" BorderThickness="1.5"
-                     Background="#05000000"/>
+                     Background="Transparent" IsHitTestVisible="False"/>
 
-             <!-- Hover Pie Wedge (Pizza Slice Highlight) -->
-             <controls:PieWedge Width="140" Height="140"
-                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                                StartAngle="{Binding WedgeStart}" SweepAngle="{Binding WedgeSweep}"
-                                InnerRadius="15" OuterRadius="70"
-                                Fill="{DynamicResource AccentBlueBrush}" Opacity="0.5"
-                                IsVisible="{Binding IsWedgeVisible}"
-                                IsHitTestVisible="False"/>
-
-             <!-- 5. Blank Central Hub -->
+             <!-- 5. Blank Central Hub (Bolong/Transparent) -->
              <Border Width="30" Height="30" CornerRadius="15" 
                      BorderBrush="#25FFFFFF" BorderThickness="1.5"
-                     Background="{DynamicResource CardBackgroundBrush}" Opacity="0.8"
+                     Background="Transparent"
                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
              <!-- 6. Items on Canvas -->
@@ -171,7 +179,7 @@
                 </ItemsControl.Styles>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:RadialMenuItem">
-                        <Grid Width="32" Height="32" ClipToBounds="False">
+                        <Grid Width="36" Height="36" ClipToBounds="False">
                             <!-- Regular script button -->
                             <Button Classes="MenuButton" 
                                     Classes.highlighted="{Binding IsHighlighted}"
@@ -180,7 +188,7 @@
                                     CommandParameter="{Binding ScriptPath}">
                                 <Grid>
                                     <!-- Icon with Drop Shadow for legibility -->
-                                    <Viewbox Width="14" Height="14" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <Viewbox Width="18" Height="18" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
                                          <Path Data="{Binding Icon}" Fill="{DynamicResource TextPrimaryBrush}" Stretch="Uniform">
                                              <Path.Effect>
                                                  <DropShadowEffect BlurRadius="4" Opacity="0.5" OffsetX="0" OffsetY="2" Color="Black"/>
@@ -189,7 +197,7 @@
                                     </Viewbox>
                                     
                                     <!-- Fallback Text -->
-                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10" FontWeight="Bold"
+                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="11" FontWeight="Bold"
                                                Foreground="{DynamicResource TextPrimaryBrush}"
                                                IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
                                          <TextBlock.Effect>
