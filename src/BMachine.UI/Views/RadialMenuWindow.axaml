@@ -68,11 +68,9 @@
              <Setter Property="RenderTransform" Value="scale(1.15)"/>
         </Style>
 
-        <!-- Restore accent highlight effect -->
+        <!-- Restore accent highlight effect: handled by the PieWedge slice instead -->
         <Style Selector="Button.MenuButton.highlighted /template/ Border#PART_Bg">
-             <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-             <Setter Property="BorderBrush" Value="White"/>
-             <Setter Property="Opacity" Value="0.8"/>
+             <!-- Empty, let the PieWedge handle the glow beneath it -->
         </Style>
 
         <!-- Navigation Button (More/Back) -->
@@ -142,6 +140,15 @@
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      BorderBrush="#15FFFFFF" BorderThickness="1.5"
                      Background="#05000000"/>
+
+             <!-- Hover Pie Wedge (Pizza Slice Highlight) -->
+             <controls:PieWedge Width="140" Height="140"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                StartAngle="{Binding WedgeStart}" SweepAngle="{Binding WedgeSweep}"
+                                InnerRadius="15" OuterRadius="70"
+                                Fill="{DynamicResource AccentBlueBrush}" Opacity="0.5"
+                                IsVisible="{Binding IsWedgeVisible}"
+                                IsHitTestVisible="False"/>
 
              <!-- 5. Blank Central Hub -->
              <Border Width="30" Height="30" CornerRadius="15" 

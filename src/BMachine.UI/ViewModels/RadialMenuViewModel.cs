@@ -294,8 +294,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             bool isLeftSide = normalizedAngle > 90 && normalizedAngle < 270;
             item.LabelSide = isLeftSide ? "Left" : "Right";
 
-            // Wedge angles for pie highlight
-            double highlightSweep = angleStep * 0.75; // Narrow the sweep width
+            // Wedge angles for pie highlight (fill the entire slice)
+            double highlightSweep = angleStep; // Changed from * 0.75
             item.WedgeStartAngle = normalizedAngle - highlightSweep / 2.0;
             item.WedgeSweepAngle = highlightSweep;
         }
