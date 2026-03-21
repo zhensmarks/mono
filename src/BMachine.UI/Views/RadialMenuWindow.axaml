@@ -22,11 +22,12 @@
     <Window.Styles>
         <!-- Item Button Style -->
         <Style Selector="Button.MenuButton">
-            <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="40"/>
-            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="CornerRadius" Value="16"/>
             <Setter Property="ClipToBounds" Value="False"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -39,12 +40,25 @@
             </Setter>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Background="Transparent">
+                    <Grid>
+                        <Border Name="PART_Bg"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
                         <ContentPresenter Name="PART_Content"
                                           Content="{TemplateBinding Content}"
                                           HorizontalContentAlignment="Center"
                                           VerticalContentAlignment="Center"/>
-                    </Border>
+                    </Grid>
                 </ControlTemplate>
             </Setter>
         </Style>
@@ -54,8 +68,11 @@
              <Setter Property="RenderTransform" Value="scale(1.15)"/>
         </Style>
 
-        <Style Selector="Button.MenuButton.highlighted">
-             <!-- No background, glow handles highlight now -->
+        <!-- Restore accent highlight effect -->
+        <Style Selector="Button.MenuButton.highlighted /template/ Border#PART_Bg">
+             <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+             <Setter Property="BorderBrush" Value="White"/>
+             <Setter Property="Opacity" Value="0.8"/>
         </Style>
 
         <!-- Navigation Button (More/Back) -->
@@ -86,8 +103,8 @@
              <!-- 1. Main Background Plate (Glassmorphism Core) -->
              <Border Width="190" Height="190" CornerRadius="95"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Background="{DynamicResource CardBackgroundBrush}" Opacity="0.5"
-                     BorderBrush="#25FFFFFF" BorderThickness="1"/>
+                     Background="{DynamicResource AppBackgroundBrush}" Opacity="0.85"
+                     BorderBrush="#40FFFFFF" BorderThickness="1"/>
 
              <!-- 2. Spotlight Effect representing highlight over wedges -->
              <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -148,7 +165,7 @@
                 </ItemsControl.Styles>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:RadialMenuItem">
-                        <Grid Width="40" Height="40" ClipToBounds="False">
+                        <Grid Width="32" Height="32" ClipToBounds="False">
                             <!-- Regular script button -->
                             <Button Classes="MenuButton" 
                                     Classes.highlighted="{Binding IsHighlighted}"
@@ -157,20 +174,20 @@
                                     CommandParameter="{Binding ScriptPath}">
                                 <Grid>
                                     <!-- Icon with Drop Shadow for legibility -->
-                                    <Viewbox Width="20" Height="20" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <Viewbox Width="14" Height="14" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
                                          <Path Data="{Binding Icon}" Fill="{DynamicResource TextPrimaryBrush}" Stretch="Uniform">
                                              <Path.Effect>
-                                                 <DropShadowEffect BlurRadius="4" Opacity="0.4" OffsetX="0" OffsetY="2" Color="Black"/>
+                                                 <DropShadowEffect BlurRadius="4" Opacity="0.5" OffsetX="0" OffsetY="2" Color="Black"/>
                                              </Path.Effect>
                                          </Path>
                                     </Viewbox>
                                     
                                     <!-- Fallback Text -->
-                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" FontWeight="Bold"
+                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10" FontWeight="Bold"
                                                Foreground="{DynamicResource TextPrimaryBrush}"
                                                IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
                                          <TextBlock.Effect>
-                                             <DropShadowEffect BlurRadius="4" Opacity="0.4" OffsetX="0" OffsetY="2" Color="Black"/>
+                                             <DropShadowEffect BlurRadius="4" Opacity="0.5" OffsetX="0" OffsetY="2" Color="Black"/>
                                          </TextBlock.Effect>
                                     </TextBlock>
                                 </Grid>
