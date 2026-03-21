@@ -98,58 +98,57 @@
 
     <Border Background="Transparent">
         <Grid>
-             <!-- 1. Main Background Plate (Donut Shape / Bolong Tengah) -->
-             <Border Width="140" Height="140" CornerRadius="70"
+             <!-- 1. Main Background Plate (Theme Aware) -->
+             <Border Width="200" Height="200" CornerRadius="100"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                     BorderBrush="#40FFFFFF" BorderThickness="1"
-                     Background="Transparent">
-                  <Ellipse Width="85" Height="85"
-                           Stroke="{DynamicResource AppBackgroundBrush}"
-                           StrokeThickness="55" Opacity="0.6"/>
+                     Background="{DynamicResource AppBackgroundBrush}">
              </Border>
 
-             <!-- 2. Segmented Divider Lines -->
-             <Canvas Width="140" Height="140" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
-                 <!-- N -->
-                 <Line StartPoint="70,0" EndPoint="70,55" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- S -->
-                 <Line StartPoint="70,85" EndPoint="70,140" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- W -->
-                 <Line StartPoint="0,70" EndPoint="55,70" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- E -->
-                 <Line StartPoint="85,70" EndPoint="140,70" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- NW -->
-                 <Line StartPoint="20.5,20.5" EndPoint="59.4,59.4" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- SE -->
-                 <Line StartPoint="80.6,80.6" EndPoint="119.5,119.5" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- NE -->
-                 <Line StartPoint="119.5,20.5" EndPoint="80.6,59.4" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- SW -->
-                 <Line StartPoint="20.5,119.5" EndPoint="59.4,80.6" Stroke="#10FFFFFF" StrokeThickness="1"/>
+             <!-- 2. Segmented Divider Lines (Absolute 22.5 Degree Math Offsets to perfectly frame the 45-degree slices) -->
+             <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.4">
+                 <!-- 22.5° -->
+                 <Line StartPoint="116.84,59.35" EndPoint="138.27,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 67.5° -->
+                 <Line StartPoint="140.65,83.16" EndPoint="192.39,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 112.5° -->
+                 <Line StartPoint="140.65,116.84" EndPoint="192.39,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 157.5° -->
+                 <Line StartPoint="116.84,140.65" EndPoint="138.27,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 202.5° -->
+                 <Line StartPoint="83.16,140.65" EndPoint="61.73,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 247.5° -->
+                 <Line StartPoint="59.35,116.84" EndPoint="7.61,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 292.5° -->
+                 <Line StartPoint="59.35,83.16" EndPoint="7.61,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 337.5° -->
+                 <Line StartPoint="83.16,59.35" EndPoint="61.73,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
              </Canvas>
 
-             <!-- Hover Pie Wedge (Pizza Slice Highlight) -->
-             <controls:PieWedge Width="140" Height="140"
+             <!-- Hover Pie Wedge (Accent Glow Highlight with Custom Overlay Indicators) -->
+             <controls:PieWedge Width="200" Height="200"
                                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                                StartAngle="{Binding WedgeStartAngle}" SweepAngle="{Binding WedgeSweepAngle}"
-                                InnerRadius="15" OuterRadius="70"
-                                Fill="{DynamicResource AccentBlueBrush}" Opacity="0.6"
-                                IsVisible="{Binding IsHighlighted, FallbackValue=False}"
+                                StartAngle="{Binding WedgeStart}" SweepAngle="{Binding WedgeSweep}"
+                                InnerRadius="44" OuterRadius="100"
+                                Fill="{DynamicResource AccentBlueBrush}" Opacity="0.5"
+                                ShowHoverIndicators="True" HoverStroke="{DynamicResource TextPrimaryBrush}"
+                                IsVisible="{Binding IsWedgeVisible}"
                                 IsHitTestVisible="False"/>
 
-             <!-- 4. Planet Orbit Ring (Inner Divider) -->
-             <Border Width="70" Height="70" CornerRadius="35"
-                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                     BorderBrush="#15FFFFFF" BorderThickness="1.5"
-                     Background="Transparent" IsHitTestVisible="False"/>
+             <!-- 5. Solid Central Hub with Dynamic Text -->
+             <Border Width="88" Height="88" CornerRadius="44" 
+                     Background="{DynamicResource CardBackgroundBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,0">
+                     <TextBlock Text="{Binding CenterTextTitle}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="2" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" Width="70"/>
+                     <TextBlock Text="{Binding CenterTextSubtitle}" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                 </StackPanel>
+             </Border>
 
-             <!-- 5. Blank Central Hub (Bolong/Transparent) -->
-             <Border Width="30" Height="30" CornerRadius="15" 
-                     BorderBrush="#25FFFFFF" BorderThickness="1.5"
-                     Background="Transparent"
-                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+             <!-- 6. Foreground Structural Rings (Concentric borders drawn over the hub and wedges) -->
+             <Ellipse Width="200" Height="200" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+             <Ellipse Width="88" Height="88" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
 
-             <!-- 6. Items on Canvas -->
+             <!-- Radial Menu Items overlay... -->
              <ItemsControl ItemsSource="{Binding VisibleItems}" ClipToBounds="False">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -175,19 +174,13 @@
                                     <!-- Icon with Drop Shadow for legibility -->
                                     <Viewbox Width="18" Height="18" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
                                          <Path Data="{Binding Icon}" Fill="{DynamicResource TextPrimaryBrush}" Stretch="Uniform">
-                                             <Path.Effect>
-                                                 <DropShadowEffect BlurRadius="4" Opacity="0.5" OffsetX="0" OffsetY="2" Color="Black"/>
-                                             </Path.Effect>
                                          </Path>
                                     </Viewbox>
                                     
                                     <!-- Fallback Text -->
-                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="11" FontWeight="Bold"
+                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextPrimaryBrush}"
                                                IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
-                                         <TextBlock.Effect>
-                                             <DropShadowEffect BlurRadius="4" Opacity="0.5" OffsetX="0" OffsetY="2" Color="Black"/>
-                                         </TextBlock.Effect>
                                     </TextBlock>
                                 </Grid>
                             </Button>
@@ -205,26 +198,6 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
              </ItemsControl>
-
-             <!-- Hover Label (positioned further out to avoid overlapping icons) -->
-             <Canvas Width="200" Height="200" ClipToBounds="False" IsHitTestVisible="False"
-                     IsVisible="{Binding IsWedgeVisible}">
-                 <Border Canvas.Left="{Binding HighlightLabelX}" 
-                         Canvas.Top="{Binding HighlightLabelY}"
-                         Background="{DynamicResource CardBackgroundBrush}"
-                         BorderBrush="#30FFFFFF" BorderThickness="1"
-                         CornerRadius="10" Padding="8,3"
-                         BoxShadow="0 2 8 0 #40000000"
-                         Margin="-40,-12,0,0"
-                         MaxWidth="120">
-                     <TextBlock Text="{Binding HighlightLabel}" 
-                                Foreground="{DynamicResource TextPrimaryBrush}"
-                                FontSize="10" FontWeight="SemiBold"
-                                TextAlignment="Center"
-                                TextWrapping="Wrap"
-                                MaxLines="2"/>
-                 </Border>
-             </Canvas>
         </Grid>
     </Border>
 </Window>

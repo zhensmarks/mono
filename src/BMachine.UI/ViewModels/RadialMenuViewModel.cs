@@ -25,8 +25,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     private const double CanvasSize = 200.0;
     private const double CenterX = 100.0;
     private const double CenterY = 100.0;
-    private const double ItemRadius = 48.0;    // Distance from center to item
-    private const double ButtonSize = 32.0;
+    private const double ItemRadius = 72.0;    // Distance from center to item (Middle of 44 inward and 100 outward)
+    private const double ButtonSize = 36.0;
     private const double LabelOffset = 30.0;   // Extra distance for label from item center
     
     [ObservableProperty]
@@ -99,10 +99,9 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     /// </summary>
     [ObservableProperty] private bool _isLabelOnLeft;
 
-    // Spotlight Effect Properties
-    [ObservableProperty] private double _spotlightX;
-    [ObservableProperty] private double _spotlightY;
-    [ObservableProperty] private bool _isSpotlightVisible;
+    // Center Dynamic Texts
+    [ObservableProperty] private string _centerTextTitle = "";
+    [ObservableProperty] private string _centerTextSubtitle = "";
 
     public RadialMenuViewModel(IDatabase? database, Services.IProcessLogService? logService = null, BMachine.Core.Platform.IPlatformService? platformService = null)
     {
@@ -223,60 +222,34 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     {
         if (VisibleItems.Count == 0) return;
 
-        int count = VisibleItems.Count;
-        double baseAngleStep = 360.0 / count;
-        double angleStep = Math.Min(baseAngleStep, 45.0);
+        // We use a fixed 8-slot grid corresponding to 0, 45, 90, 135, 180, 225, 270, 315.
+        // Navigation item is ALWAYS at 180 (South).
+        // Other items fill slots closest to 0 (North) first.
+        int[] orderedSlots = new int[] { 0, 45, 315, 90, 270, 135, 225 };
 
-        for (int i = 0; i < count; i++)
+        var nonNavItems = VisibleItems.Where(i => !i.IsNavigation).ToList();
+        var sortedNonNav = nonNavItems.Take(orderedSlots.Length).ToList();
+        
+        // Assign slots 
+        for (int i = 0; i < sortedNonNav.Count; i++)
         {
-            var item = VisibleItems[i];
-            double angleDeg;
+            sortedNonNav[i].Angle = orderedSlots[i];
+        }
 
+        foreach (var item in VisibleItems)
+        {
             if (item.IsNavigation)
             {
-                // Navigation items (More/Back) always at bottom (180° in our 0=Top system)
-                angleDeg = 180.0;
-            }
-            else
-            {
-                // Distribute non-nav items evenly
-                if (HasMoreItems)
-                {
-                    // Reserve bottom slot for nav, distribute others across remaining space
-                    int nonNavCount = count - 1;
-                    double totalSpan = (nonNavCount - 1) * angleStep;
-                    
-                    // Find this item's index among non-nav items
-                    int nonNavIndex = 0;
-                    for (int j = 0; j < i; j++)
-                    {
-                        if (!VisibleItems[j].IsNavigation) nonNavIndex++;
-                    }
-                    
-                    // Start from top, go clockwise, center the group
-                    double startAngle = -totalSpan / 2.0;
-                    angleDeg = startAngle + nonNavIndex * angleStep;
-                }
-                else
-                {
-                    // No nav items — simple even distribution centered on top
-                    double totalSpan = (count - 1) * angleStep;
-                    double startAngle = -totalSpan / 2.0;
-                    angleDeg = startAngle + i * angleStep;
-                }
+                item.Angle = 180;
             }
 
-            // Normalize angle
-            double normalizedAngle = angleDeg;
-            while (normalizedAngle < 0) normalizedAngle += 360;
-            while (normalizedAngle >= 360) normalizedAngle -= 360;
-            item.Angle = normalizedAngle;
-
-            // Convert "0=Top clockwise" to standard trig for position calculation
-            double trigAngleDeg = normalizedAngle - 90; // 0=Top → -90 in trig (Right=0)
+            double angleDeg = item.Angle;
+            
+            // Convert "0=Top" system to standard trig
+            double trigAngleDeg = angleDeg - 90;
             double trigAngleRad = trigAngleDeg * (Math.PI / 180.0);
 
-            // Item position (center of button)
+            // Item position
             double itemCenterX = CenterX + ItemRadius * Math.Cos(trigAngleRad);
             double itemCenterY = CenterY + ItemRadius * Math.Sin(trigAngleRad);
             item.X = itemCenterX - ButtonSize / 2;
@@ -290,14 +263,11 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             item.LabelY = labelCenterY;
 
             // Determine label side based on angle
-            // Left side: angle 90-270 (items on the left half)
-            bool isLeftSide = normalizedAngle > 90 && normalizedAngle < 270;
-            item.LabelSide = isLeftSide ? "Left" : "Right";
-
-            // Wedge angles for pie highlight (fill the entire slice)
-            double highlightSweep = angleStep; // Changed from * 0.75
-            item.WedgeStartAngle = normalizedAngle - highlightSweep / 2.0;
-            item.WedgeSweepAngle = highlightSweep;
+            item.LabelSide = (angleDeg > 180 && angleDeg < 360) ? "Left" : "Right";
+            
+            // Assign wedge size for the highlight
+            item.WedgeSweepAngle = 45.0; // Fixed sweep for the 8-slice pie grid
+            item.WedgeStartAngle = angleDeg - 22.5; 
         }
     }
 
@@ -310,20 +280,14 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         double dy = mousePos.Y - cy;
         double dist = Math.Sqrt(dx * dx + dy * dy);
 
-        // Update spotlight position (centered on cursor)
-        SpotlightX = mousePos.X - 50; // Assuming a 100x100 spotlight size
-        SpotlightY = mousePos.Y - 50;
-
-        // Deadzone: center (< 25px) or outside window bounds (> 95px)
-        if (dist < 25 || dist > 95)
+        // Deadzone: center (< 40px) or outside window bounds (> 145px)
+        if (dist < 40 || dist > 145)
         {
             HighlightItem(null);
-            IsSpotlightVisible = dist >= 25 && dist <= 100; // Visible outside deadzone but within bounds
             return;
         }
 
-        IsSpotlightVisible = true;
-
+        // Calculate angle (0 = North/Top, clockwise)
         // Calculate angle (0 = North/Top, clockwise)
         double angle = Math.Atan2(dy, dx) * (180 / Math.PI);
         angle += 90;
@@ -397,11 +361,17 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                 HighlightLabelX = _currentHighlightedItem.LabelX;
                 HighlightLabelY = _currentHighlightedItem.LabelY;
                 IsLabelOnLeft = _currentHighlightedItem.LabelSide == "Left";
+                
+                // Update Center Text
+                CenterTextTitle = _currentHighlightedItem.FullName.ToUpper();
+                CenterTextSubtitle = "Select";
             }
             else
             {
                 IsWedgeVisible = false;
                 HighlightLabel = "";
+                CenterTextTitle = "";
+                CenterTextSubtitle = "";
             }
             
             OnPropertyChanged(nameof(HighlightedItem)); 
@@ -523,10 +493,6 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         }
         catch { _scriptAliases = new(); }
     }
-
-    // Kept for backward compat — no longer used in UI but still in logic
-    [ObservableProperty]
-    private string _centerText = "";
 
     [RelayCommand]
     public async Task ExecuteScript(string path)
