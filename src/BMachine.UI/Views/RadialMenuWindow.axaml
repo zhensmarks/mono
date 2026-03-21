@@ -101,17 +101,17 @@
     <Border Background="Transparent">
         <Grid>
              <!-- 1. Main Background Plate (Glassmorphism Core) -->
-             <Border Width="190" Height="190" CornerRadius="95"
+             <Border Width="140" Height="140" CornerRadius="70"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Background="{DynamicResource AppBackgroundBrush}" Opacity="0.85"
+                     Background="{DynamicResource AppBackgroundBrush}" Opacity="0.5"
                      BorderBrush="#40FFFFFF" BorderThickness="1"/>
 
              <!-- 2. Spotlight Effect representing highlight over wedges -->
              <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center"
                      IsHitTestVisible="False" ClipToBounds="True">
-                 <!-- Clip path to keep spotlight strictly inside the main circle -->
+                 <!-- Clip path to keep spotlight strictly inside the main circle (140x140 at center of 200x200 canvas) -->
                  <Canvas.Clip>
-                     <EllipseGeometry Rect="5,5,190,190" />
+                     <EllipseGeometry Rect="30,30,140,140" />
                  </Canvas.Clip>
                  <Ellipse Canvas.Left="{Binding SpotlightX}" Canvas.Top="{Binding SpotlightY}"
                           Width="100" Height="100" IsVisible="{Binding IsSpotlightVisible}">
@@ -126,26 +126,25 @@
              </Canvas>
 
              <!-- 3. Segmented Divider Lines -->
-             <!-- We draw 8 lines originating mostly from center to edges -->
-             <Canvas Width="190" Height="190" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+             <Canvas Width="140" Height="140" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
                  <!-- Line 1: North to South -->
-                 <Line StartPoint="95,20" EndPoint="95,170" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <Line StartPoint="70,0" EndPoint="70,140" Stroke="#10FFFFFF" StrokeThickness="1"/>
                  <!-- Line 2: East to West -->
-                 <Line StartPoint="20,95" EndPoint="170,95" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <Line StartPoint="0,70" EndPoint="140,70" Stroke="#10FFFFFF" StrokeThickness="1"/>
                  <!-- Line 3: Diagonal NW-SE -->
-                 <Line StartPoint="42,42" EndPoint="148,148" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <Line StartPoint="20,20" EndPoint="120,120" Stroke="#10FFFFFF" StrokeThickness="1"/>
                  <!-- Line 4: Diagonal NE-SW -->
-                 <Line StartPoint="148,42" EndPoint="42,148" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <Line StartPoint="120,20" EndPoint="20,120" Stroke="#10FFFFFF" StrokeThickness="1"/>
              </Canvas>
 
              <!-- 4. Planet Orbit Ring (Inner Divider) -->
-             <Border Width="90" Height="90" CornerRadius="45"
+             <Border Width="70" Height="70" CornerRadius="35"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      BorderBrush="#15FFFFFF" BorderThickness="1.5"
                      Background="#05000000"/>
 
              <!-- 5. Blank Central Hub -->
-             <Border Width="46" Height="46" CornerRadius="23" 
+             <Border Width="30" Height="30" CornerRadius="15" 
                      BorderBrush="#25FFFFFF" BorderThickness="1.5"
                      Background="{DynamicResource CardBackgroundBrush}" Opacity="0.8"
                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
