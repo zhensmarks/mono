@@ -98,59 +98,44 @@
 
     <Border Background="Transparent">
         <Grid>
-             <!-- 1. Main Background Plate (Glassmorphism Core) -->
+             <!-- 1. Main Background Plate (Donut Shape / Bolong Tengah) -->
              <Border Width="140" Height="140" CornerRadius="70"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Background="{DynamicResource AppBackgroundBrush}" Opacity="0.5"
-                     BorderBrush="#40FFFFFF" BorderThickness="1"/>
+                     BorderBrush="#40FFFFFF" BorderThickness="1"
+                     Background="Transparent">
+                  <Ellipse Width="85" Height="85"
+                           Stroke="{DynamicResource AppBackgroundBrush}"
+                           StrokeThickness="55" Opacity="0.6"/>
+             </Border>
 
-             <!-- 2. Spotlight Effect representing highlight over wedges -->
-             <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center"
-                     IsHitTestVisible="False" ClipToBounds="True">
-                 <!-- Clip path to keep spotlight strictly inside the main circle (140x140 at center of 200x200 canvas) -->
-                 <Canvas.Clip>
-                     <EllipseGeometry Rect="30,30,140,140" />
-                 </Canvas.Clip>
-                 <Ellipse Canvas.Left="{Binding SpotlightX}" Canvas.Top="{Binding SpotlightY}"
-                          Width="100" Height="100" IsVisible="{Binding IsSpotlightVisible}">
-                      <Ellipse.Fill>
-                          <RadialGradientBrush Center="50%,50%" GradientOrigin="50%,50%" RadiusX="50%" RadiusY="50%">
-                              <GradientStop Color="#40FFFFFF" Offset="0"/>
-                              <GradientStop Color="#15FFFFFF" Offset="0.5"/>
-                              <GradientStop Color="Transparent" Offset="1"/>
-                          </RadialGradientBrush>
-                      </Ellipse.Fill>
-                 </Ellipse>
-             </Canvas>
-
-             <!-- 3. Segmented Divider Lines -->
+             <!-- 2. Segmented Divider Lines -->
              <Canvas Width="140" Height="140" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
-                 <!-- Line 1: North to South -->
-                 <Line StartPoint="70,0" EndPoint="70,140" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- Line 2: East to West -->
-                 <Line StartPoint="0,70" EndPoint="140,70" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- Line 3: Diagonal NW-SE -->
-                 <Line StartPoint="20,20" EndPoint="120,120" Stroke="#10FFFFFF" StrokeThickness="1"/>
-                 <!-- Line 4: Diagonal NE-SW -->
-                 <Line StartPoint="120,20" EndPoint="20,120" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <!-- N -->
+                 <Line StartPoint="70,0" EndPoint="70,55" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <!-- S -->
+                 <Line StartPoint="70,85" EndPoint="70,140" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <!-- W -->
+                 <Line StartPoint="0,70" EndPoint="55,70" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <!-- E -->
+                 <Line StartPoint="85,70" EndPoint="140,70" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <!-- NW -->
+                 <Line StartPoint="20.5,20.5" EndPoint="59.4,59.4" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <!-- SE -->
+                 <Line StartPoint="80.6,80.6" EndPoint="119.5,119.5" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <!-- NE -->
+                 <Line StartPoint="119.5,20.5" EndPoint="80.6,59.4" Stroke="#10FFFFFF" StrokeThickness="1"/>
+                 <!-- SW -->
+                 <Line StartPoint="20.5,119.5" EndPoint="59.4,80.6" Stroke="#10FFFFFF" StrokeThickness="1"/>
              </Canvas>
 
-             <!-- Hover Pie Wedge (Pizza Slice Highlight) with Gradient via OpacityMask -->
+             <!-- Hover Pie Wedge (Pizza Slice Highlight) -->
              <controls:PieWedge Width="140" Height="140"
                                 HorizontalAlignment="Center" VerticalAlignment="Center"
                                 StartAngle="{Binding WedgeStartAngle}" SweepAngle="{Binding WedgeSweepAngle}"
                                 InnerRadius="15" OuterRadius="70"
-                                Fill="{DynamicResource AccentBlueBrush}" Opacity="0.8"
+                                Fill="{DynamicResource AccentBlueBrush}" Opacity="0.6"
                                 IsVisible="{Binding IsHighlighted, FallbackValue=False}"
-                                IsHitTestVisible="False">
-                 <controls:PieWedge.OpacityMask>
-                     <RadialGradientBrush Center="50%,50%" GradientOrigin="50%,50%" RadiusX="50%" RadiusY="50%">
-                         <GradientStop Color="#FFFFFFFF" Offset="0.2"/>
-                         <GradientStop Color="#40FFFFFF" Offset="0.7"/>
-                         <GradientStop Color="#00FFFFFF" Offset="1.0"/>
-                     </RadialGradientBrush>
-                 </controls:PieWedge.OpacityMask>
-             </controls:PieWedge>
+                                IsHitTestVisible="False"/>
 
              <!-- 4. Planet Orbit Ring (Inner Divider) -->
              <Border Width="70" Height="70" CornerRadius="35"
