@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using BMachine.UI.ViewModels;
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using Avalonia.Input;
@@ -16,12 +17,6 @@ public partial class LogPanelSidebar : UserControl
     public LogPanelSidebar()
     {
         InitializeComponent();
-        
-        // Register DragDrop handlers in constructor — must be done early for macOS
-        DragDrop.SetAllowDrop(this, true);
-        AddHandler(DragDrop.DragEnterEvent, OnDragOver, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        AddHandler(DragDrop.DragOverEvent, OnDragOver, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        AddHandler(DragDrop.DropEvent, OnDrop, Avalonia.Interactivity.RoutingStrategies.Tunnel);
     }
 
 
@@ -321,83 +316,51 @@ public partial class LogPanelSidebar : UserControl
 
     private void OnDragOver(object? sender, Avalonia.Input.DragEventArgs e)
     {
-        // Always accept drops — let OnDrop decide what to do with the data
         e.DragEffects = Avalonia.Input.DragDropEffects.Copy;
         e.Handled = true;
     }
 
-    // Text-based file extensions we support for drag & drop
-    private static readonly HashSet<string> _textExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".txt", ".docx", ".md", ".csv", ".log", ".json", ".xml", 
-        ".jsx", ".js", ".ini", ".cfg", ".yaml", ".yml", ".html",
-        ".css", ".py", ".cs", ".java", ".sh", ".bat", ".ps1",
-        ".sql", ".rtf", ".conf", ".toml", ".env", ".properties"
-    };
-
     private async void OnDrop(object? sender, Avalonia.Input.DragEventArgs e)
     {
-        e.Handled = true;
         if (DataContext is not DashboardViewModel vm) return;
 
-        string? filePath = null;
+        var paths = new List<string>();
 
-        // Try 1: Standard IStorageItem (works on Windows, some Linux)
         if (e.Data.Contains(Avalonia.Input.DataFormats.Files))
         {
             var files = e.Data.GetFiles();
             if (files != null)
             {
-                var first = files.FirstOrDefault();
-                if (first != null)
-                    filePath = first.Path.LocalPath;
-            }
-        }
-
-        // Try 2: Text data — macOS Finder often provides file paths as text
-        if (filePath == null && e.Data.Contains(Avalonia.Input.DataFormats.Text))
-        {
-            var text = e.Data.GetText();
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                // macOS may give file:// URI or plain path
-                var candidate = text.Trim();
-                if (candidate.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+                foreach (var file in files)
                 {
-                    try { candidate = new Uri(candidate).LocalPath; } catch { }
-                }
-                if (System.IO.File.Exists(candidate))
-                    filePath = candidate;
-            }
-        }
-
-        // Try 3: FileNames format (legacy, some platforms)
-        if (filePath == null)
-        {
-            try
-            {
-                var fileNames = e.Data.GetFileNames();
-                if (fileNames != null)
-                {
-                    var first = fileNames.FirstOrDefault();
-                    if (!string.IsNullOrEmpty(first) && System.IO.File.Exists(first))
-                        filePath = first;
+                    try
+                    {
+                        var path = file.Path?.LocalPath ?? file.Path?.ToString();
+                        if (!string.IsNullOrEmpty(path)) paths.Add(path);
+                    }
+                    catch { /* skip */ }
                 }
             }
-            catch { /* GetFileNames not supported on all platforms */ }
         }
 
-        // Process the file if we found one
-        if (!string.IsNullOrEmpty(filePath))
+        if (paths.Count == 0 && e.Data.Contains(Avalonia.Input.DataFormats.FileNames))
         {
-            var ext = System.IO.Path.GetExtension(filePath);
-            if (_textExtensions.Contains(ext))
+            var names = e.Data.GetFileNames();
+            if (names != null) paths.AddRange(names);
+        }
+
+        var textExtensions = new[] { ".txt", ".docx", ".lnk", ".log", ".md", ".json", ".xml", ".csv", ".ini", ".cfg" };
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) continue;
+            var ext = System.IO.Path.GetExtension(path);
+            if (textExtensions.Any(ext2 => ext.Equals(ext2, StringComparison.OrdinalIgnoreCase)))
             {
-                // Switch to Console tab
                 if (vm.BatchVM != null)
                     vm.BatchVM.SelectedActivityMode = 0;
-                
-                await vm.HandleDroppedLogFile(filePath);
+                await vm.HandleDroppedLogFile(path);
+                e.Handled = true;
+                return;
             }
         }
     }

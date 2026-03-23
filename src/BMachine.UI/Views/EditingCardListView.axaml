@@ -174,8 +174,10 @@
             <!-- FAB Refresh Button Removed -->
         </Grid>
 
+        <!-- Side Panels Container (hidden when panel is hosted by UnifiedTrelloView) -->
+        <Grid Grid.Column="1" IsVisible="{Binding !IsPanelHostedExternally}" x:Name="Part_PanelsContainer">
         <!-- Side Panel: Card Details -->
-        <Border x:Name="Part_DetailPanel" Grid.Column="1" Width="400" Background="{DynamicResource BackgroundDarkBrush}" 
+        <Border x:Name="Part_DetailPanel" Width="400" Background="{DynamicResource BackgroundDarkBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsDetailPanelOpen}"
                 PointerPressed="OnDetailPanelPointerPressed">
@@ -371,7 +373,7 @@
         </Border>
 
         <!-- Side Panel: Add Manual Card -->
-        <Border x:Name="Part_AddManualPanel" Grid.Column="1" Width="400" Background="#1E1E1E" 
+        <Border x:Name="Part_AddManualPanel" Width="400" Background="#1E1E1E" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsAddManualPanelOpen}">
             <Grid RowDefinitions="Auto, *">
@@ -413,7 +415,7 @@
         </Border>
 
         <!-- Side Panel: Comments -->
-        <Border x:Name="Part_CommentPanel" Grid.Column="1" Width="350" Background="{DynamicResource AppBackgroundBrush}" 
+        <Border x:Name="Part_CommentPanel" Width="350" Background="{DynamicResource AppBackgroundBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsCommentPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -634,7 +636,7 @@
         </Border>
 
         <!-- Side Panel: Checklist -->
-        <Border x:Name="Part_ChecklistPanel" Grid.Column="1" Width="400" Background="{DynamicResource AppBackgroundBrush}" 
+        <Border x:Name="Part_ChecklistPanel" Width="400" Background="{DynamicResource AppBackgroundBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsChecklistPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -732,7 +734,7 @@
 
 
         <!-- Side Panel: Attachments -->
-        <Border x:Name="Part_AttachmentPanel" Grid.Column="1" Width="400" Background="{DynamicResource AppBackgroundBrush}" 
+        <Border x:Name="Part_AttachmentPanel" Width="400" Background="{DynamicResource AppBackgroundBrush}" 
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsAttachmentPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -800,5 +802,6 @@
                 </ScrollViewer>
             </Grid>
         </Border>
+        </Grid> <!-- End Part_PanelsContainer -->
     </Grid>
 </UserControl>

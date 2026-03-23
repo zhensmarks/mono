@@ -21,9 +21,11 @@
         </TreeDataTemplate>
     </UserControl.DataTemplates>
 
-    <Border Background="{DynamicResource TerminalBackgroundBrush}" 
+        <Border x:Name="LogPanelDropZone" Background="{DynamicResource TerminalBackgroundBrush}" 
             BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0"
             DragDrop.AllowDrop="True"
+            DragDrop.DragOver="OnDragOver"
+            DragDrop.Drop="OnDrop"
             PointerPressed="OnRootPointerPressed">
         
         <Grid RowDefinitions="Auto, *, Auto">
@@ -81,19 +83,23 @@
                                  IsIndeterminate="{Binding !IsDeterminateProgress}"
                                  Background="Transparent" Foreground="{DynamicResource PrimaryBrush}"/>
 
-                    <TextBox Grid.Row="1" Text="{Binding LogText}" 
-                             Classes="console"
-                             IsReadOnly="True"
-                             TextWrapping="Wrap"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             FontFamily="Consolas, Monospace"
-                             FontSize="11"
-                             Margin="8,4"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             CaretBrush="Transparent"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding LogItems}" Margin="10,0,10,10">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <SelectableTextBlock Text="{Binding Message}" 
+                                               Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
+                                               Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
+                                               Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
+                                               Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
+                                               Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
+                                               Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                               FontSize="11" FontFamily="Consolas, Monospace" 
+                                               TextWrapping="Wrap" Margin="0,1"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </Grid>
 
                 <!-- 2. MASTER BROWSER VIEW -->
@@ -241,6 +247,14 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
         </Style>
+
+        <!-- Log Color Styles -->
+        <Style Selector="SelectableTextBlock.info"> <Setter Property="Foreground" Value="{DynamicResource TerminalInfoBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.system"> <Setter Property="Foreground" Value="{DynamicResource TerminalSystemBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.success"> <Setter Property="Foreground" Value="{DynamicResource TerminalSuccessBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.warning"> <Setter Property="Foreground" Value="{DynamicResource TerminalWarningBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.error"> <Setter Property="Foreground" Value="{DynamicResource TerminalErrorBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.debug"> <Setter Property="Foreground" Value="{DynamicResource TerminalDebugBrush}"/> </Style>
 
     </UserControl.Styles>
 </UserControl>

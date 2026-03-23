@@ -41,6 +41,17 @@ public partial class UnifiedTrelloViewModel : ObservableObject
         EditingVM = editingVM;
         RevisionVM = revisionVM;
         LateVM = lateVM;
+        editingVM.IsPanelHostedExternally = true;
+        revisionVM.IsPanelHostedExternally = true;
+        lateVM.IsPanelHostedExternally = true;
+        void RaiseShouldShowRightPanel(object? s, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(BaseTrelloListViewModel.IsAnyPanelOpen) or nameof(EditingCardListViewModel.IsAddManualPanelOpen))
+                OnPropertyChanged(nameof(ShouldShowRightPanel));
+        }
+        editingVM.PropertyChanged += RaiseShouldShowRightPanel;
+        revisionVM.PropertyChanged += RaiseShouldShowRightPanel;
+        lateVM.PropertyChanged += RaiseShouldShowRightPanel;
     }
 
     public BaseTrelloListViewModel ActiveViewModel
@@ -57,14 +68,18 @@ public partial class UnifiedTrelloViewModel : ObservableObject
         }
     }
 
+    /// <summary>True when the right-column panel should be visible (card detail, comment, etc., or Add Manual for Editing).</summary>
+    public bool ShouldShowRightPanel =>
+        ActiveViewModel?.IsAnyPanelOpen == true ||
+        (ActiveViewModel is EditingCardListViewModel e && e.IsAddManualPanelOpen);
+
     partial void OnSelectedTabChanged(int value)
     {
         OnPropertyChanged(nameof(ActiveViewModel));
         OnPropertyChanged(nameof(IsEditingSelected));
         OnPropertyChanged(nameof(IsRevisionSelected));
         OnPropertyChanged(nameof(IsLateSelected));
-        
-        // Trigger generic change so UI updates based on the new active viewmodel
+        OnPropertyChanged(nameof(ShouldShowRightPanel));
         OnPropertyChanged(nameof(ActiveViewModelTitle));
     }
 

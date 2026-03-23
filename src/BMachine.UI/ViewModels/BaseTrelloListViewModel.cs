@@ -97,6 +97,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // --- Comment Logic ---
 
     [ObservableProperty] private bool _isCommentPanelOpen;
+    partial void OnIsCommentPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyPanelOpen));
     [ObservableProperty] private ObservableCollection<TrelloComment> _comments = new();
     [ObservableProperty] private string _newCommentText = "";
     [ObservableProperty] private bool _isLoadingComments;
@@ -332,7 +333,14 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     }
 
     // --- Detail Panel Logic (Shared) ---
+    /// <summary>When true, the side panel is rendered by the parent (UnifiedTrelloView) at full height; this view should hide its built-in panel.</summary>
+    [ObservableProperty] private bool _isPanelHostedExternally;
+    
+    public bool IsAnyPanelOpen => IsDetailPanelOpen || IsCommentPanelOpen || IsChecklistPanelOpen || IsMovePanelOpen || IsAttachmentPanelOpen;
+
     [ObservableProperty] private bool _isDetailPanelOpen;
+    
+    partial void OnIsDetailPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyPanelOpen));
 
     [RelayCommand]
     protected virtual void SelectCard(TrelloCard card)
@@ -749,6 +757,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // --- Checklist Logic ---
 
     [ObservableProperty] private bool _isChecklistPanelOpen;
+    partial void OnIsChecklistPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyPanelOpen));
     [ObservableProperty] private ObservableCollection<TrelloChecklist> _checklists = new();
     [ObservableProperty] private bool _isLoadingChecklists;
 
@@ -1242,6 +1251,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // --- Move Card Logic ---
 
     [ObservableProperty] private bool _isMovePanelOpen;
+    partial void OnIsMovePanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyPanelOpen));
     [ObservableProperty] private ObservableCollection<TrelloItem> _availableBoards = new();
     [ObservableProperty] private ObservableCollection<TrelloItem> _availableLists = new();
     [ObservableProperty] private TrelloItem? _selectedMoveBoard;

@@ -836,12 +836,42 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             try
             {
                 var ext = System.IO.Path.GetExtension(path);
-                LogItems.Clear();
-                AddLog($"Reading log file: {System.IO.Path.GetFileName(path)}", BMachine.UI.Models.LogLevel.System);
+                
+                IsShowingCustomLog = true; // Prevent automatic log updates from clearing screen
+                
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    LogItems.Clear();
+                    AddLog($"Reading log file: {System.IO.Path.GetFileName(path)}", BMachine.UI.Models.LogLevel.System);
+                });
 
                 string[] lines = Array.Empty<string>();
 
-                if (ext.Equals(".docx", StringComparison.OrdinalIgnoreCase))
+                if (ext.Equals(".lnk", StringComparison.OrdinalIgnoreCase))
+                {
+                    await Task.Run(() => 
+                    {
+                        try 
+                        {
+                            var bytes = System.IO.File.ReadAllBytes(path);
+                            // LNK files use UTF-16 and ASCII. We look for a Windows-style path.
+                            var text = System.Text.Encoding.ASCII.GetString(bytes);
+                            var match = System.Text.RegularExpressions.Regex.Match(text, @"([a-zA-Z]:\\[^\0]+)");
+                            if (match.Success)
+                            {
+                                lines = new[] { $"[Shortcut LNK Terdeteksi]", $"Target: {match.Value}" };
+                            }
+                            else
+                            {
+                                lines = new[] { $"[Shortcut LNK Terdeteksi] (Target path tidak terbaca)", $"File Size: {bytes.Length} bytes" };
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            lines = new[] { $"Gagal membaca LNK: {ex.Message}" };
+                        }
+                    });
+                }
+                else if (ext.Equals(".docx", StringComparison.OrdinalIgnoreCase))
                 {
                     // DOCX Parsing (Simple Text Extraction)
                     await Task.Run(() => 
@@ -869,7 +899,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                                         // Decode XML entities
                                         textOnly = System.Net.WebUtility.HtmlDecode(textOnly);
                                         
-                                        lines = textOnly.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                                        lines = textOnly.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
                                     }
                                 }
                                 else 
@@ -890,19 +920,21 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                     lines = await System.IO.File.ReadAllLinesAsync(path);
                 }
 
-                foreach (var line in lines)
-                {
-                    ParseLogAndAdd(line.Trim());
-                }
-                AddLog("--- End of File ---", BMachine.UI.Models.LogLevel.System);
-                
-                // Update LogText (the TextBox is bound to LogText, not LogItems)
-                LogText = string.Join(Environment.NewLine, LogItems.Select(i => i.Message));
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    // Add full text as SINGLE LogItem so user can select across multiple lines
+                    // (SelectableTextBlock supports multi-line selection within one block)
+                    var fullText = string.Join(Environment.NewLine, lines);
+                    LogItems.Add(new LogItem(fullText, LogLevel.Standard));
+                    AddLog("--- End of File ---", LogLevel.System);
+                    LogText = fullText;
+                });
             }
             catch (Exception ex)
             {
-                AddLog($"Error reading file: {ex.Message}", BMachine.UI.Models.LogLevel.Error);
-                LogText = $"Error reading file: {ex.Message}";
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    AddLog($"Error reading file: {ex.Message}", BMachine.UI.Models.LogLevel.Error);
+                    LogText = $"Error reading file: {ex.Message}";
+                });
             }
         }
     }
@@ -918,6 +950,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         if (item != null) LogItems.Add(item);
     }
 
+    public bool IsShowingCustomLog { get; set; } = false;
+
     private void UpdateLogText()
     {
         if (_logService == null) return;
@@ -928,6 +962,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              return line.Replace("[DEBUG] ", "").Replace("[INFO] ", "").Replace("[SUCCESS] ", "").Replace("[ERROR] ", "");
         });
         LogText = string.Join(Environment.NewLine, cleanedLogs);
+        
+        if (IsShowingCustomLog) return;
         
         LogItems.Clear();
         foreach (var line in _logService.Logs)
@@ -1018,7 +1054,17 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         // Sanity check: if message became empty after cleaning, don't show it unless it was intentionally empty?
         if (string.IsNullOrWhiteSpace(msg)) return null;
 
-        return new LogItem(msg, level);
+        var color = level switch 
+        {
+            LogLevel.Error => Avalonia.Media.Brushes.OrangeRed,
+            LogLevel.Warning => Avalonia.Media.Brushes.Yellow,
+            LogLevel.Success => Avalonia.Media.Brushes.LimeGreen,
+            LogLevel.Info => Avalonia.Media.Brushes.Cyan,
+            LogLevel.Debug => Avalonia.Media.Brushes.Gray,
+            _ => null // Null will fallback to TextSecondaryBrush (set in XAML)
+        };
+
+        return new LogItem(msg, level) { Color = color };
     }
 
     private void RegisterMessages()
@@ -1051,7 +1097,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             if (m.Value && !string.IsNullOrEmpty(m.ProcessName)) ProcessStatusText = $"Running {m.ProcessName}...";
             
             // Auto open log panel on start? User preference. Maybe yes.
-            if (m.Value) IsLogPanelOpen = true;
+            if (m.Value) 
+            {
+                IsLogPanelOpen = true;
+                IsShowingCustomLog = false; // Reset to allow standard logs
+            }
         });
 
         // Register all messages (OpenTextFileMessage, AppFocusChangedMessage)
