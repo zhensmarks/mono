@@ -12,7 +12,7 @@
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
 
-    <Grid Background="Transparent" PointerPressed="OnBackgroundPointerPressed">
+    <Grid Background="{Binding $parent[Window].Background}" PointerPressed="OnBackgroundPointerPressed">
         <!-- Image Viewer with Zoom and Pan -->
         <ScrollViewer x:Name="ImageScroller" Margin="0" 
                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"

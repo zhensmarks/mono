@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System;
 using Avalonia.VisualTree;
+using ImageMagick;
 
 namespace BMachine.UI.Views;
 
@@ -31,8 +32,16 @@ public partial class ImageLightboxWindow : Window
 
         this.Opened += (s, e) =>
         {
-            var isDark = Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
-            this.Background = Avalonia.Media.SolidColorBrush.Parse(isDark ? "#E61A1A1A" : "#E6F3F4F6");
+            if (Avalonia.Application.Current?.TryFindResource("SolidBackgroundFillColorBaseBrush", null, out var themeBg) == true &&
+                themeBg is Avalonia.Media.IBrush brush)
+            {
+                this.Background = brush;
+            }
+            else
+            {
+                var isDark = Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
+                this.Background = Avalonia.Media.SolidColorBrush.Parse(isDark ? "#1A1A1A" : "#F3F4F6");
+            }
 
             if (_lastWindowPosition.HasValue)
                 this.Position = _lastWindowPosition.Value;
@@ -127,8 +136,7 @@ public partial class ImageLightboxWindow : Window
             }
 
             var bytes = await client.GetByteArrayAsync(cleanUrl);
-            using var stream = new MemoryStream(bytes);
-            var bitmap = new Bitmap(stream);
+            var bitmap = TryDecodeBitmap(bytes);
             
             if (imgControl != null)
             {
@@ -148,6 +156,14 @@ public partial class ImageLightboxWindow : Window
 
     private void OnBackgroundPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
+        var point = e.GetCurrentPoint(this);
+        if (point.Properties.IsRightButtonPressed)
+        {
+            Close();
+            e.Handled = true;
+            return;
+        }
+
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             this.BeginMoveDrag(e);
@@ -159,12 +175,40 @@ public partial class ImageLightboxWindow : Window
         var imgControl = this.FindControl<Image>("FullScreenImage");
         if (imgControl == null) return;
 
-        if (e.GetCurrentPoint(imgControl).Properties.IsLeftButtonPressed)
+        var point = e.GetCurrentPoint(imgControl);
+        if (point.Properties.IsRightButtonPressed)
+        {
+            Close();
+            e.Handled = true;
+            return;
+        }
+
+        if (point.Properties.IsLeftButtonPressed)
         {
             _isDragging = true;
             _lastDragPoint = e.GetPosition(this);
             e.Pointer.Capture(imgControl); 
             e.Handled = true;
+        }
+    }
+
+    private static Bitmap TryDecodeBitmap(byte[] bytes)
+    {
+        try
+        {
+            using var directStream = new MemoryStream(bytes);
+            return new Bitmap(directStream);
+        }
+        catch
+        {
+            using var magick = new MagickImage(bytes);
+            magick.AutoOrient();
+
+            using var output = new MemoryStream();
+            magick.Format = MagickFormat.Png;
+            magick.Write(output);
+            output.Position = 0;
+            return new Bitmap(output);
         }
     }
 
