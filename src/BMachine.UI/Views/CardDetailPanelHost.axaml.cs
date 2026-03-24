@@ -16,6 +16,27 @@ public partial class CardDetailPanelHost : UserControl
         InitializeComponent();
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        this.AddHandler(
+            Avalonia.Controls.Control.RequestBringIntoViewEvent,
+            OnRequestBringIntoView,
+            Avalonia.Interactivity.RoutingStrategies.Tunnel,
+            true);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        this.RemoveHandler(Avalonia.Controls.Control.RequestBringIntoViewEvent, OnRequestBringIntoView);
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnRequestBringIntoView(object? sender, Avalonia.Controls.RequestBringIntoViewEventArgs e)
+    {
+        e.Handled = true;
+    }
+
     private void OnDetailPanelPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var props = e.GetCurrentPoint(sender as Visual).Properties;

@@ -7,13 +7,13 @@
              x:DataType="vm:BaseTrelloListViewModel">
     <Grid>
         <!-- Side Panel: Card Details -->
-        <Border x:Name="Part_DetailPanel" Width="400" Background="{DynamicResource BackgroundDarkBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+        <Border x:Name="Part_DetailPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource BackgroundDarkBrush}"
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsDetailPanelOpen}"
                 PointerPressed="OnDetailPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="10">
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="10" Margin="0">
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel>
                                 <Grid ColumnDefinitions="*, Auto">
@@ -134,8 +134,8 @@
         </Border>
 
         <!-- Side Panel: Comments -->
-        <Border x:Name="Part_CommentPanel" Width="350" Background="{DynamicResource CardBackgroundBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+        <Border x:Name="Part_CommentPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsCommentPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
@@ -160,8 +160,25 @@
                         <TextBlock Text="No comments yet." IsVisible="{Binding !Comments.Count}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
 
-                        <ItemsControl ItemsSource="{Binding Comments}">
-                            <ItemsControl.ItemTemplate>
+                        <ListBox ItemsSource="{Binding Comments}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Vertical"/>
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemContainerTheme>
+                                <ControlTheme TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                </ControlTheme>
+                            </ListBox.ItemContainerTheme>
+                            <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Border Background="#10FFFFFF" CornerRadius="8" Padding="12" Margin="0,0,0,10">
                                         <Grid RowDefinitions="Auto, *">
@@ -204,8 +221,8 @@
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -346,8 +363,8 @@
         </Border>
 
         <!-- Side Panel: Checklist -->
-        <Border x:Name="Part_ChecklistPanel" Width="400" Background="{DynamicResource CardBackgroundBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+        <Border x:Name="Part_ChecklistPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsChecklistPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
@@ -366,8 +383,25 @@
                         <TextBlock Text="No checklists found." IsVisible="{Binding !Checklists.Count}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
 
-                        <ItemsControl ItemsSource="{Binding Checklists}">
-                            <ItemsControl.ItemTemplate>
+                        <ListBox ItemsSource="{Binding Checklists}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Vertical"/>
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemContainerTheme>
+                                <ControlTheme TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                </ControlTheme>
+                            </ListBox.ItemContainerTheme>
+                            <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Spacing="10" Margin="0,0,0,20">
                                         <Grid ColumnDefinitions="Auto, *, Auto">
@@ -395,8 +429,8 @@
                                         </ItemsControl>
                                     </StackPanel>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -440,8 +474,8 @@
         </Border>
 
         <!-- Side Panel: Move Card -->
-        <Border x:Name="Part_MovePanel" Width="400" Background="{DynamicResource CardBackgroundBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+        <Border x:Name="Part_MovePanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsMovePanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
@@ -496,8 +530,8 @@
         </Border>
 
         <!-- Side Panel: Attachments -->
-        <Border x:Name="Part_AttachmentPanel" Width="400" Background="{DynamicResource CardBackgroundBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+        <Border x:Name="Part_AttachmentPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsAttachmentPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
@@ -516,13 +550,25 @@
                         <TextBlock Text="No attachments." IsVisible="{Binding !Attachments.Count}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
 
-                        <ItemsControl ItemsSource="{Binding Attachments}">
-                            <ItemsControl.ItemsPanel>
+                        <ListBox ItemsSource="{Binding Attachments}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel ItemWidth="160" ItemHeight="160"/>
                                 </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemContainerTheme>
+                                <ControlTheme TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                </ControlTheme>
+                            </ListBox.ItemContainerTheme>
+                            <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Border Margin="5" Background="#1AFFFFFF" CornerRadius="8" ClipToBounds="True">
                                         <Grid RowDefinitions="*, Auto">
@@ -554,8 +600,8 @@
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>

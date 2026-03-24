@@ -25,9 +25,26 @@
             <!-- Header (Removed for Unified Tab View) -->
             
             <!-- Cards List -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Cards}" Margin="10,0,10,20">
-                        <ItemsControl.ItemTemplate>
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding Cards}"
+                     Margin="10,0,10,20"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Vertical"/>
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerTheme>
+                            <ControlTheme TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="0,0,0,4"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                            </ControlTheme>
+                        </ListBox.ItemContainerTheme>
+                        <ListBox.ItemTemplate>
                             <DataTemplate DataType="models:TrelloCard">
                                 <Panel>
                                 <!-- Separator View -->
@@ -167,9 +184,8 @@
                                 </Button>
                                 </Panel>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-            </ScrollViewer>
+                        </ListBox.ItemTemplate>
+            </ListBox>
 
             <!-- FAB Refresh Button Removed -->
         </Grid>

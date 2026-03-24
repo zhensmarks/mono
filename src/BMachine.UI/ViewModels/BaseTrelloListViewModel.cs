@@ -97,7 +97,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // --- Comment Logic ---
 
     [ObservableProperty] private bool _isCommentPanelOpen;
-    partial void OnIsCommentPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyPanelOpen));
+    partial void OnIsCommentPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
     [ObservableProperty] private ObservableCollection<TrelloComment> _comments = new();
     [ObservableProperty] private string _newCommentText = "";
     [ObservableProperty] private bool _isLoadingComments;
@@ -328,8 +332,12 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         
         SelectedCard = card;
         IsCommentPanelOpen = true;
-        
-        await LoadComments(card.Id);
+
+        if (_lastLoadedCommentsCardId != card.Id || Comments.Count == 0)
+        {
+            await LoadComments(card.Id);
+            _lastLoadedCommentsCardId = card.Id;
+        }
     }
 
     // --- Detail Panel Logic (Shared) ---
@@ -337,10 +345,16 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [ObservableProperty] private bool _isPanelHostedExternally;
     
     public bool IsAnyPanelOpen => IsDetailPanelOpen || IsCommentPanelOpen || IsChecklistPanelOpen || IsMovePanelOpen || IsAttachmentPanelOpen;
+    public bool IsShowingInlineSidePanel => IsAnyPanelOpen && !IsBatchMoveMode;
 
     [ObservableProperty] private bool _isDetailPanelOpen;
     
-    partial void OnIsDetailPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyPanelOpen));
+    partial void OnIsDetailPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
+    
 
     [RelayCommand]
     protected virtual void SelectCard(TrelloCard card)
@@ -425,7 +439,6 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     private void CloseCommentsPanel()
     {
         IsCommentPanelOpen = false;
-        Comments.Clear();
         // Return to Detail Panel if a card is selected
         if (SelectedCard != null) IsDetailPanelOpen = true;
     }
@@ -508,9 +521,6 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
     protected async Task LoadComments(string cardId)
     {
-        // Don't set IsLoadingComments to true if we already have comments, 
-        // to prevent the UI from flickering or showing a spinner unnecessarily during updates.
-        // Only set it on first load.
         if (Comments.Count == 0) IsLoadingComments = true;
         
         try
@@ -520,10 +530,26 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/cards/{cardId}/actions?filter=commentCard&key={apiKey}&token={token}&memberCreator=true&memberCreator_fields=fullName,initials,avatarHash";
-            
-            var json = await client.GetStringAsync(url);
+            string? json = null;
+            Exception? lastEx = null;
+            for (int attempt = 1; attempt <= 3; attempt++)
+            {
+                try
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                    var url = $"https://api.trello.com/1/cards/{cardId}/actions?filter=commentCard&key={apiKey}&token={token}&memberCreator=true&memberCreator_fields=fullName,initials,avatarHash";
+                    json = await client.GetStringAsync(url);
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    lastEx = ex;
+                    if (attempt >= 3) throw;
+                    await Task.Delay(300 * attempt);
+                }
+            }
+            if (string.IsNullOrEmpty(json)) throw lastEx ?? new InvalidOperationException("Failed to load comments");
+
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             
             var fetchedComments = new List<TrelloComment>();
@@ -594,8 +620,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 {
                     try
                     {
+                        using var meClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
                         var meUrl = $"https://api.trello.com/1/members/me?key={apiKey}&token={token}&fields=id";
-                        var meJson = await client.GetStringAsync(meUrl);
+                        var meJson = await meClient.GetStringAsync(meUrl);
                         using var meDoc = System.Text.Json.JsonDocument.Parse(meJson);
                         _currentMemberId = meDoc.RootElement.GetProperty("id").GetString();
                     }
@@ -757,7 +784,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // --- Checklist Logic ---
 
     [ObservableProperty] private bool _isChecklistPanelOpen;
-    partial void OnIsChecklistPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyPanelOpen));
+    partial void OnIsChecklistPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
     [ObservableProperty] private ObservableCollection<TrelloChecklist> _checklists = new();
     [ObservableProperty] private bool _isLoadingChecklists;
 
@@ -774,15 +805,18 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         
         SelectedCard = card;
         IsChecklistPanelOpen = true;
-        
-        await LoadChecklists(card.Id);
+
+        if (_lastLoadedChecklistsCardId != card.Id || Checklists.Count == 0)
+        {
+            await LoadChecklists(card.Id);
+            _lastLoadedChecklistsCardId = card.Id;
+        }
     }
 
     [RelayCommand]
     private void CloseChecklistPanel()
     {
         IsChecklistPanelOpen = false;
-        Checklists.Clear();
         SelectedSourceChecklist = null; // Explicit reset
         DuplicateChecklistName = ""; // Explicit reset
         if (SelectedCard != null) IsDetailPanelOpen = true;
@@ -994,6 +1028,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // --- Attachment Logic ---
 
     [ObservableProperty] private bool _isAttachmentPanelOpen;
+    partial void OnIsAttachmentPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
     [ObservableProperty] private ObservableCollection<TrelloAttachment> _attachments = new();
     [ObservableProperty] private bool _isLoadingAttachments;
 
@@ -1006,15 +1045,18 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         
         SelectedCard = card;
         IsAttachmentPanelOpen = true;
-        
-        await LoadAttachments(card.Id);
+
+        if (_lastLoadedAttachmentsCardId != card.Id || Attachments.Count == 0)
+        {
+            await LoadAttachments(card.Id);
+            _lastLoadedAttachmentsCardId = card.Id;
+        }
     }
 
     [RelayCommand]
     private void CloseAttachmentPanel()
     {
         IsAttachmentPanelOpen = false;
-        Attachments.Clear();
         if (SelectedCard != null) IsDetailPanelOpen = true;
     }
 
@@ -1251,7 +1293,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // --- Move Card Logic ---
 
     [ObservableProperty] private bool _isMovePanelOpen;
-    partial void OnIsMovePanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyPanelOpen));
+    partial void OnIsMovePanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
     [ObservableProperty] private ObservableCollection<TrelloItem> _availableBoards = new();
     [ObservableProperty] private ObservableCollection<TrelloItem> _availableLists = new();
     [ObservableProperty] private TrelloItem? _selectedMoveBoard;
@@ -1260,8 +1306,13 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [ObservableProperty] private string _moveListSearchText = "";
     [ObservableProperty] private bool _isLoadingMoveData;
     
+    private string? _lastLoadedCommentsCardId;
+    private string? _lastLoadedChecklistsCardId;
+    private string? _lastLoadedAttachmentsCardId;
+    
     // Batch Move Properties
     [ObservableProperty] private bool _isBatchMoveMode;
+    partial void OnIsBatchMoveModeChanged(bool value) => OnPropertyChanged(nameof(IsShowingInlineSidePanel));
     [ObservableProperty] private bool _hasSelectedCards;
     [ObservableProperty] private bool _hasSelectedManualCards;
     [ObservableProperty] private bool _hasSelectedAccCards;

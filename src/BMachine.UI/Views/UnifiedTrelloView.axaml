@@ -14,8 +14,8 @@
             <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
         
-        <!-- LEFT COLUMN: Status + Tabs + Card List + Bottom (Nav & Status only span card list area) -->
-        <Grid Grid.Column="0">
+        <!-- LEFT COLUMN / LIST SCREEN: Status + Tabs + Card List + Bottom (compact: hidden when panel open) -->
+        <Grid x:Name="Part_ListScreen" Grid.Column="0" IsVisible="{Binding IsListScreenVisible}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- Status (top, window mode) -->
                 <RowDefinition Height="Auto"/> <!-- Tab & Header Popup Area -->
@@ -262,10 +262,13 @@
 
         </Grid> <!-- End LEFT column -->
 
-        <!-- RIGHT COLUMN: Full-height Side Panel (Detail, Comment, Checklist, Move, Attachment, or Add Manual) -->
-        <Border Grid.Column="1" IsVisible="{Binding ShouldShowRightPanel}" Width="400" MinWidth="350" MaxWidth="500"
+        <!-- RIGHT COLUMN / PANEL SCREEN: Detail, Comment, etc. (compact: full-screen when panel open) -->
+        <Grid x:Name="Part_RightColumnContainer" Grid.Column="1" IsVisible="{Binding IsPanelScreenVisible}">
+            <!-- Panel content (Detail, Comment, Add Manual, etc.) - no Back bar, use mouse gesture -->
+            <Grid x:Name="Part_PanelContent">
+        <Border x:Name="Part_MainPanelBorder" IsVisible="{Binding ShouldShowRightPanel}" HorizontalAlignment="Stretch" MaxWidth="500"
                 Background="{DynamicResource BackgroundDarkBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0">
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0">
         <Grid>
             <!-- Add Manual Panel (Editing tab only) -->
             <Border IsVisible="{Binding EditingVM.IsAddManualPanelOpen}" Background="#1E1E1E">
@@ -300,7 +303,7 @@
             </Border>
             <!-- Card Detail Panel (when not Add Manual) -->
             <ContentControl Content="{Binding ActiveViewModel}"
-                            IsVisible="{Binding ActiveViewModel.IsAnyPanelOpen}">
+                            IsVisible="{Binding ActiveViewModel.IsShowingInlineSidePanel}">
                 <ContentControl.DataTemplates>
                     <DataTemplate DataType="{x:Type vm:EditingCardListViewModel}">
                         <views:CardDetailPanelHost DataContext="{Binding}"/>
@@ -316,11 +319,11 @@
         </Grid>
         </Border>
 
-        <!-- Global Overlay for Batch Move Panel (right column, full height) -->
-        <Border x:Name="Part_MovePanel" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Width="400"
+        <!-- Global Overlay for Batch Move Panel -->
+        <Border x:Name="Part_MovePanel" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Width="400"
                 Background="{DynamicResource BackgroundDarkBrush}"
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
-                IsVisible="{Binding ActiveViewModel.IsMovePanelOpen}"
+                IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"
                 ZIndex="20">
             <Border.Effect>
                  <DropShadowEffect BlurRadius="15" OffsetX="-5" OffsetY="0" Color="#40000000"/>
@@ -386,5 +389,7 @@
             </Grid>
         </Border>
 
-    </Grid>
+            </Grid> <!-- Part_PanelContent -->
+        </Grid> <!-- Part_RightColumnContainer -->
+    </Grid> <!-- Part_RootGrid -->
 </UserControl>

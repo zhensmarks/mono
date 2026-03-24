@@ -29,6 +29,15 @@ if (Test-Path $trelloPath) {
     dotnet publish $trelloPath -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $trelloOut
 }
 
+# Publish PixelcutCompact
+Write-Host "[3/4] Publishing PixelcutCompact..."
+$pixelcutPath = "src\PixelcutCompact\PixelcutCompact.csproj"
+$pixelcutOut = "publish\win-x64\PixelcutCompact"
+
+if (Test-Path $pixelcutPath) {
+    dotnet publish $pixelcutPath -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $pixelcutOut
+}
+
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Publish failed!"
 }

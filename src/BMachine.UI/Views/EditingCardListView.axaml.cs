@@ -102,7 +102,6 @@ public partial class EditingCardListView : UserControl
         
         if (isMobile)
         {
-            grid.ColumnDefinitions = ColumnDefinitions.Parse("*");
             UpdatePanelForMobile(commentPanel);
             UpdatePanelForMobile(checklistPanel);
             UpdatePanelForMobile(movePanel);
@@ -112,7 +111,6 @@ public partial class EditingCardListView : UserControl
         }
         else
         {
-            grid.ColumnDefinitions = ColumnDefinitions.Parse("*, Auto");
             UpdatePanelForDesktop(commentPanel);
             UpdatePanelForDesktop(checklistPanel);
             UpdatePanelForDesktop(movePanel);

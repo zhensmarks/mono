@@ -1,5 +1,6 @@
-﻿using Avalonia;
+using Avalonia;
 using System;
+using System.Threading.Tasks;
 
 namespace BMachine.App;
 
@@ -35,6 +36,24 @@ class Program
                 catch { }
             }
             catch { }
+        };
+
+        TaskScheduler.UnobservedTaskException += (sender, e) =>
+        {
+            try
+            {
+                var ex = e.Exception;
+                try
+                {
+                    var appData = BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory();
+                    var logPath = System.IO.Path.Combine(appData, "crash_report.txt");
+                    string crashMsg = $"[{DateTime.Now}] UNOBSERVED TASK EXCEPTION:\n{ex}\n\n";
+                    System.IO.File.AppendAllText(logPath, crashMsg);
+                }
+                catch { }
+            }
+            catch { }
+            e.SetObserved();
         };
 
         try 

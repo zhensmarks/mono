@@ -94,7 +94,6 @@ public partial class LateCardListView : UserControl
         
         if (isMobile)
         {
-            grid.ColumnDefinitions = ColumnDefinitions.Parse("*");
             UpdatePanelForMobile(commentPanel);
             UpdatePanelForMobile(checklistPanel);
             UpdatePanelForMobile(movePanel);
@@ -103,7 +102,6 @@ public partial class LateCardListView : UserControl
         }
         else
         {
-            grid.ColumnDefinitions = ColumnDefinitions.Parse("*, Auto");
             UpdatePanelForDesktop(commentPanel);
             UpdatePanelForDesktop(checklistPanel);
             UpdatePanelForDesktop(movePanel);

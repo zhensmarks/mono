@@ -379,9 +379,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private void OpenEditingList()
     {
         if (_trelloVM == null) return;
-        _trelloVM.SelectedTab = 0; // Select Editing tab
+        _trelloVM.SelectedTab = 0;
         _trelloVM.IsEmbedded = true;
-        _trelloVM.EditingVM?.StartAutoRefresh();
+        _trelloVM.EnsureActiveTabAutoRefreshStarted();
         var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
     }
@@ -390,9 +390,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private void OpenRevisionList()
     {
         if (_trelloVM == null) return;
-        _trelloVM.SelectedTab = 1; // Select Revision tab
+        _trelloVM.SelectedTab = 1;
         _trelloVM.IsEmbedded = true;
-        _trelloVM.RevisionVM?.StartAutoRefresh();
+        _trelloVM.EnsureActiveTabAutoRefreshStarted();
         var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
     }
@@ -401,9 +401,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private void OpenLateList()
     {
         if (_trelloVM == null) return;
-        _trelloVM.SelectedTab = 2; // Select Late tab
+        _trelloVM.SelectedTab = 2;
         _trelloVM.IsEmbedded = true;
-        _trelloVM.LateVM?.StartAutoRefresh();
+        _trelloVM.EnsureActiveTabAutoRefreshStarted();
         var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
         NavigateToView(view);
     }
@@ -429,12 +429,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         if (_trelloVM == null) return;
         _trelloVM.SelectedTab = tabIndex;
         _trelloVM.IsEmbedded = false;
-        StartAutoRefresh(_trelloVM);
-        
-        var win = new BMachine.UI.Views.CardListWindow();
-        win.DataContext = _trelloVM; // Binding ContentControl to UnifiedTrelloViewModel
-        win.Title = title;
-        win.Show();
+        _trelloVM.EnsureActiveTabAutoRefreshStarted();
+        OpenListWindow(_trelloVM, title);
     }
 
 
@@ -494,13 +490,16 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         window.Show();
     }
 
-    private void OpenListWindow(BaseTrelloListViewModel vm, string title)
+    private void OpenListWindow(object vm, string title)
     {
-        vm.Title = title;
+        if (vm is BaseTrelloListViewModel trelloVM)
+            trelloVM.Title = title;
         StartAutoRefresh(vm);
         
         var win = new BMachine.UI.Views.CardListWindow();
         win.DataContext = vm;
+        if (vm is UnifiedTrelloViewModel)
+            win.Title = title;
         win.Show();
     }
 
@@ -698,10 +697,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         // Call LoadData directly
         InitializationTask = LoadData();
 
-        // START AUTO-REFRESH IMMEDIATELY (Don't wait for LoadData async)
-        _trelloVM.EditingVM.StartAutoRefresh();
-        _trelloVM.RevisionVM.StartAutoRefresh();
-        _trelloVM.LateVM.StartAutoRefresh();
+        // Start only active tab auto-refresh to avoid burst load on startup.
+        _trelloVM.EnsureActiveTabAutoRefreshStarted();
 
         // SAFETY: Fallback Timer to force sync UI if events fail
         var safetyTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
