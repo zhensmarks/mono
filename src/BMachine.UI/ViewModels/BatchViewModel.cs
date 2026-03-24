@@ -473,9 +473,13 @@ namespace BMachine.UI.ViewModels;
     [ObservableProperty] private string _schoolLogoPath = "";
     [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _schoolLogoImage;
 
+    [ObservableProperty] private string _schoolLogoPath2 = "";
+    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _schoolLogoImage2;
+
     partial void OnSchoolNameChanged(string value) => SaveDocDataAsync();
     partial void OnSchoolAddressChanged(string value) => SaveDocDataAsync();
     partial void OnSchoolLogoPathChanged(string value) => SaveDocDataAsync();
+    partial void OnSchoolLogoPath2Changed(string value) => SaveDocDataAsync();
 
     private bool _isSavingDoc;
     private bool _isLoadingDoc;
@@ -489,6 +493,7 @@ namespace BMachine.UI.ViewModels;
             await _database.SetAsync("Doc.SchoolName", SchoolName);
             await _database.SetAsync("Doc.SchoolAddress", SchoolAddress);
             await _database.SetAsync("Doc.SchoolLogoPath", SchoolLogoPath);
+            await _database.SetAsync("Doc.SchoolLogoPath2", SchoolLogoPath2);
             await ExportDocJsonAsync();
         }
         catch (Exception ex)
@@ -513,8 +518,9 @@ namespace BMachine.UI.ViewModels;
             var name = SchoolName?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
             var address = SchoolAddress?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
             var logo = SchoolLogoPath?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
+            var logo2 = SchoolLogoPath2?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
             
-            var json = $"{{\n  \"name\": \"{name}\",\n  \"address\": \"{address}\",\n  \"logo\": \"{logo}\"\n}}";
+            var json = $"{{\n  \"name\": \"{name}\",\n  \"address\": \"{address}\",\n  \"logo\": \"{logo}\",\n  \"logo2\": \"{logo2}\"\n}}";
             await File.WriteAllTextAsync(jsonPath, json);
         }
         catch (Exception ex)
@@ -532,8 +538,8 @@ namespace BMachine.UI.ViewModels;
         {
             SchoolName = await _database.GetAsync<string>("Doc.SchoolName") ?? "";
             SchoolAddress = await _database.GetAsync<string>("Doc.SchoolAddress") ?? "";
-            var logoPath = await _database.GetAsync<string>("Doc.SchoolLogoPath") ?? "";
             
+            var logoPath = await _database.GetAsync<string>("Doc.SchoolLogoPath") ?? "";
             if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
             {
                 try 
@@ -548,6 +554,22 @@ namespace BMachine.UI.ViewModels;
                     SchoolLogoImage = null;
                 }
             }
+
+            var logoPath2 = await _database.GetAsync<string>("Doc.SchoolLogoPath2") ?? "";
+            if (!string.IsNullOrEmpty(logoPath2) && File.Exists(logoPath2))
+            {
+                try 
+                {
+                    SchoolLogoPath2 = logoPath2;
+                    using var fs2 = File.OpenRead(logoPath2);
+                    SchoolLogoImage2 = new Avalonia.Media.Imaging.Bitmap(fs2);
+                } 
+                catch 
+                {
+                    SchoolLogoPath2 = "";
+                    SchoolLogoImage2 = null;
+                }
+            }
         }
         finally
         {
@@ -559,13 +581,26 @@ namespace BMachine.UI.ViewModels;
     }
 
     [RelayCommand]
-    private void ResetDoc()
+    private void ResetDoc(string? slot)
     {
-        SchoolName = "";
-        SchoolAddress = "";
-        SchoolLogoPath = "";
-        SchoolLogoImage?.Dispose();
-        SchoolLogoImage = null;
+        var targetSlot = slot ?? "0";
+        if (targetSlot == "1" || targetSlot == "0")
+        {
+            SchoolLogoPath = "";
+            SchoolLogoImage?.Dispose();
+            SchoolLogoImage = null;
+        }
+        if (targetSlot == "2" || targetSlot == "0")
+        {
+            SchoolLogoPath2 = "";
+            SchoolLogoImage2?.Dispose();
+            SchoolLogoImage2 = null;
+        }
+        if (targetSlot == "0")
+        {
+            SchoolName = "";
+            SchoolAddress = "";
+        }
         SaveDocDataAsync();
     }
 
@@ -576,14 +611,16 @@ namespace BMachine.UI.ViewModels;
     private async Task CopySchoolAddress() => await CopyTextToClipboard(SchoolAddress);
 
     [RelayCommand]
-    private async Task CopySchoolLogo()
+    private async Task CopySchoolLogo(string? slot)
     {
-        if (string.IsNullOrEmpty(SchoolLogoPath) || !File.Exists(SchoolLogoPath)) return;
+        var targetSlot = slot ?? "1";
+        var path = targetSlot == "2" ? SchoolLogoPath2 : SchoolLogoPath;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
         
         try
         {
             // Use PowerShell to copy image to Windows clipboard natively
-            var escapedPath = SchoolLogoPath.Replace("'", "''");
+            var escapedPath = path.Replace("'", "''");
             var psScript = $"Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; " +
                            $"$img = [System.Drawing.Image]::FromFile('{escapedPath}'); " +
                            $"[System.Windows.Forms.Clipboard]::SetImage($img); " +
@@ -617,8 +654,9 @@ namespace BMachine.UI.ViewModels;
     }
 
     [RelayCommand]
-    private async Task PasteLogo()
+    private async Task PasteLogo(string? slot)
     {
+        var targetSlot = slot ?? "1";
         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
         {
             var window = desktop.MainWindow;
@@ -639,7 +677,7 @@ namespace BMachine.UI.ViewModels;
                             var ext = Path.GetExtension(firstFile.Path.LocalPath).ToLower();
                             if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp")
                             {
-                                await ProcessLogoFile(firstFile.Path.LocalPath);
+                                await ProcessLogoFile(firstFile.Path.LocalPath, targetSlot);
                                 return;
                             }
                         }
@@ -656,14 +694,14 @@ namespace BMachine.UI.ViewModels;
                         {
                             var tempFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
                             await File.WriteAllBytesAsync(tempFile, bytes);
-                            await ProcessLogoFile(tempFile);
+                            await ProcessLogoFile(tempFile, targetSlot);
                             return;
                         }
                         if (data is Avalonia.Media.Imaging.Bitmap bitmap)
                         {
                             var tempFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
                             bitmap.Save(tempFile);
-                            await ProcessLogoFile(tempFile);
+                            await ProcessLogoFile(tempFile, targetSlot);
                             return;
                         }
                     }
@@ -677,7 +715,7 @@ namespace BMachine.UI.ViewModels;
                         var ext = Path.GetExtension(text).ToLower();
                         if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp")
                         {
-                            await ProcessLogoFile(text);
+                            await ProcessLogoFile(text, targetSlot);
                             return;
                         }
                     }
@@ -688,18 +726,20 @@ namespace BMachine.UI.ViewModels;
     }
 
     [RelayCommand]
-    private async Task SendLogoToPhotoshop()
+    private async Task SendLogoToPhotoshop(string? slot)
     {
-        if (string.IsNullOrEmpty(SchoolLogoPath) || !File.Exists(SchoolLogoPath))
+        var targetSlot = slot ?? "1";
+        var path = targetSlot == "2" ? SchoolLogoPath2 : SchoolLogoPath;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
         {
-            _logService?.AddLog("[WARNING] No valid logo selected to send to Photoshop.");
+            _logService?.AddLog($"[WARNING] No valid logo selected in slot {targetSlot} to send to Photoshop.");
             return;
         }
 
         try
         {
             var tempPath = Path.Combine(Path.GetTempPath(), "bmachine_place_target.txt");
-            await File.WriteAllTextAsync(tempPath, SchoolLogoPath);
+            await File.WriteAllTextAsync(tempPath, path);
 
             var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", "_place_on_layer.jsx");
             if (!File.Exists(scriptPath)) 
@@ -712,8 +752,8 @@ namespace BMachine.UI.ViewModels;
                 var photoshopPath = "photoshop";
                 if (_database != null)
                 {
-                    var path = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
-                    if (!string.IsNullOrEmpty(path)) photoshopPath = path;
+                    var dbPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+                    if (!string.IsNullOrEmpty(dbPath)) photoshopPath = dbPath;
                 }
 
                 _platformService.RunJsxInPhotoshop(scriptPath, photoshopPath);
@@ -730,7 +770,7 @@ namespace BMachine.UI.ViewModels;
         }
     }
 
-    public async Task ProcessLogoFile(string sourcePath)
+    public async Task ProcessLogoFile(string sourcePath, string slot = "1")
     {
         try
         {
@@ -739,13 +779,22 @@ namespace BMachine.UI.ViewModels;
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
 
             var ext = Path.GetExtension(sourcePath);
-            var destPath = Path.Combine(folder, $"school_logo{ext}");
+            var destName = slot == "2" ? $"school_logo2{ext}" : $"school_logo{ext}";
+            var destPath = Path.Combine(folder, destName);
             
             File.Copy(sourcePath, destPath, true);
 
-            SchoolLogoPath = destPath;
             using var fs = File.OpenRead(destPath);
-            SchoolLogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
+            if (slot == "2")
+            {
+                SchoolLogoPath2 = destPath;
+                SchoolLogoImage2 = new Avalonia.Media.Imaging.Bitmap(fs);
+            }
+            else
+            {
+                SchoolLogoPath = destPath;
+                SchoolLogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
+            }
             
             SaveDocDataAsync();
         }

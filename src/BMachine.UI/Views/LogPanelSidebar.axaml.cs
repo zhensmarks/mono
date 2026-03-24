@@ -320,7 +320,10 @@ public partial class LogPanelSidebar : UserControl
             vm.BatchVM.SelectedActivityMode = 3;
     }
 
-    private void OnLogoDrop(object? sender, Avalonia.Input.DragEventArgs e)
+    private void OnLogo1Drop(object? sender, Avalonia.Input.DragEventArgs e) => HandleLogoDrop(e, "1");
+    private void OnLogo2Drop(object? sender, Avalonia.Input.DragEventArgs e) => HandleLogoDrop(e, "2");
+
+    private void HandleLogoDrop(Avalonia.Input.DragEventArgs e, string slot)
     {
         if (DataContext is not DashboardViewModel vm || vm.BatchVM == null) return;
 
@@ -356,13 +359,11 @@ public partial class LogPanelSidebar : UserControl
             var ext = System.IO.Path.GetExtension(path);
             if (imageExtensions.Any(ext2 => ext.Equals(ext2, StringComparison.OrdinalIgnoreCase)))
             {
-                _ = vm.BatchVM.ProcessLogoFile(path);
+                _ = vm.BatchVM.ProcessLogoFile(path, slot);
                 e.Handled = true; // Stop event from bubbling up to the generic log file dropper
                 return;
             }
         }
-        
-        // If not an image, let it bubble up or mark as unhandled so main drop handles it if it's text
     }
 
     private void OnDragOver(object? sender, Avalonia.Input.DragEventArgs e)
