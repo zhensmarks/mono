@@ -36,6 +36,7 @@
             <Setter Property="Transitions">
                 <Transitions>
                     <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
                 </Transitions>
             </Setter>
             <Setter Property="Template">
@@ -93,6 +94,14 @@
         <Style Selector="Button.NavButton:pointerover">
              <Setter Property="Background" Value="#44FFFFFF"/>
              <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.NavButton">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
         </Style>
     </Window.Styles>
 

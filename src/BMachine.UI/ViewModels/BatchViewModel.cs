@@ -488,6 +488,7 @@ namespace BMachine.UI.ViewModels;
             await _database.SetAsync("Doc.SchoolName", SchoolName);
             await _database.SetAsync("Doc.SchoolAddress", SchoolAddress);
             await _database.SetAsync("Doc.SchoolLogoPath", SchoolLogoPath);
+            await ExportDocJsonAsync();
         }
         catch (Exception ex)
         {
@@ -498,6 +499,29 @@ namespace BMachine.UI.ViewModels;
             _isSavingDoc = false;
         }
     }
+
+    private async Task ExportDocJsonAsync()
+    {
+        try 
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var folder = Path.Combine(appData, "BMachine.v2");
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+            
+            var jsonPath = Path.Combine(folder, "doc_info.json");
+            var name = SchoolName?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
+            var address = SchoolAddress?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
+            var logo = SchoolLogoPath?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
+            
+            var json = $"{{\n  \"name\": \"{name}\",\n  \"address\": \"{address}\",\n  \"logo\": \"{logo}\"\n}}";
+            await File.WriteAllTextAsync(jsonPath, json);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error ExportDocJsonAsync: {ex.Message}");
+        }
+    }
+
 
     public async Task LoadDocDataAsync()
     {
@@ -528,6 +552,9 @@ namespace BMachine.UI.ViewModels;
         {
             _isLoadingDoc = false;
         }
+
+        // Export data so Photoshop script can immediately use it
+        await ExportDocJsonAsync();
     }
 
     [RelayCommand]

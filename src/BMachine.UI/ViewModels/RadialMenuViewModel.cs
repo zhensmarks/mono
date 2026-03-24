@@ -58,6 +58,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     /// Current page: 0 = main, 1 = more
     /// </summary>
     [ObservableProperty] private int _currentPage;
+    private DateTime _lastPageSwitchTime = DateTime.MinValue;
     
     /// <summary>
     /// Whether the total item count exceeds MaxVisibleItems
@@ -315,22 +316,33 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         
         if (closest != null && minDiff < threshold)
         {
-            // Handle navigation items on hover
+            // Handle navigation items on hover with hysteresis
             if (closest.IsNavigation && closest != _currentHighlightedItem)
             {
+                // Debounce: ignore nav hover within 400ms of last page switch
+                var now = DateTime.UtcNow;
+                if ((now - _lastPageSwitchTime).TotalMilliseconds < 400)
+                    return;
+
                 if (closest.NavigationType == "more")
                 {
+                    _lastPageSwitchTime = now;
                     CurrentPage = 1;
                     BuildVisibleItems();
                     return;
                 }
                 else if (closest.NavigationType == "back")
                 {
+                    _lastPageSwitchTime = now;
                     CurrentPage = 0;
                     BuildVisibleItems();
                     return;
                 }
             }
+
+            // Don't highlight during cooldown after page switch
+            if ((DateTime.UtcNow - _lastPageSwitchTime).TotalMilliseconds < 250)
+                return;
 
             HighlightItem(closest);
         }
