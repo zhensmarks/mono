@@ -692,6 +692,7 @@
                                     Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Source Folder"
+                                    Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Source"
                                     Cursor="Hand">
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -702,20 +703,6 @@
                                         <Setter Property="Foreground" Value="White"/>
                                     </Style>
                                 </Button.Styles>
-                                <Button.Flyout>
-                                    <Flyout Placement="TopEdgeAlignedRight" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                        <!-- Solid Background Wrapper -->
-                                        <Border Background="{DynamicResource CardBackgroundBrush}" Padding="10" CornerRadius="8" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                                            <StackPanel Spacing="10" Width="200">
-                                                <TextBlock Text="New Source Folder" FontWeight="Bold" FontSize="12"/>
-                                                <TextBox Text="{Binding BatchVM.NewFolderName, Mode=TwoWay}" Watermark="Folder Name..." CornerRadius="6" FontSize="12"/>
-                                                <Button Command="{Binding BatchVM.CreateFolderCommand}" CommandParameter="Source"
-                                                        Content="Create" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                        Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="6"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </Flyout>
-                                </Button.Flyout>
                                 <PathIcon Data="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M11,15V12H9V15H6V17H9V20H11V17H14V15H11Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
                         </Grid>
@@ -943,6 +930,7 @@
                                     Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Output Folder"
+                                    Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Output"
                                     Cursor="Hand">
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -953,20 +941,6 @@
                                         <Setter Property="Foreground" Value="White"/>
                                     </Style>
                                 </Button.Styles>
-                                <Button.Flyout>
-                                    <Flyout Placement="TopEdgeAlignedRight" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                        <!-- Solid Background Wrapper -->
-                                        <Border Background="{DynamicResource CardBackgroundBrush}" Padding="10" CornerRadius="8" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                                            <StackPanel Spacing="10" Width="200">
-                                                <TextBlock Text="New Output Folder" FontWeight="Bold" FontSize="12"/>
-                                                <TextBox Text="{Binding BatchVM.NewFolderName, Mode=TwoWay}" Watermark="Folder Name..." CornerRadius="6" FontSize="12"/>
-                                                <Button Command="{Binding BatchVM.CreateFolderCommand}" CommandParameter="Output"
-                                                        Content="Create" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                        Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="6"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </Flyout>
-                                </Button.Flyout>
                                 <PathIcon Data="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M11,15V12H9V15H6V17H9V20H11V17H14V15H11Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
                         </Grid>
@@ -1065,6 +1039,120 @@
                 <Grid IsVisible="{Binding IsEmbeddedViewOpen}" Background="{DynamicResource AppBackgroundBrush}" ZIndex="100">
                     <ContentControl Content="{Binding CurrentEmbeddedView}" 
                                     PointerPressed="OnEmbeddedViewPointerPressed"/>
+                </Grid>
+
+                <!-- MINIMALIST FOLDER CREATION OVERLAY -->
+                <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="110">
+                    <!-- Glassmorphism Background (Click to close) -->
+                    <Button Background="#A0000000" CornerRadius="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            Command="{Binding BatchVM.CloseFolderOverlayCommand}">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="#A0000000"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                    
+                    <!-- Overlay Card -->
+                    <Border Background="{DynamicResource CardBackgroundBrush}" 
+                            BorderBrush="{DynamicResource CardBorderBrush}" 
+                            BorderThickness="1" 
+                            CornerRadius="12" 
+                            Padding="20" 
+                            Width="320" 
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Center"
+                            BoxShadow="0 10 30 0 #40000000">
+                        <StackPanel Spacing="16">
+                            <!-- Header -->
+                            <TextBlock Text="{Binding BatchVM.FolderOverlayTitle}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            
+                            <!-- Input Area -->
+                            <Grid ColumnDefinitions="*, Auto, Auto">
+                                <TextBox Grid.Column="0" 
+                                         x:Name="FolderInputBox"
+                                         Text="{Binding BatchVM.NewFolderName, Mode=TwoWay}" 
+                                         Watermark="Enter folder name..." 
+                                         CornerRadius="6,0,0,6" 
+                                         FontSize="13"
+                                         Padding="10,8">
+                                    <TextBox.KeyBindings>
+                                        <KeyBinding Gesture="Enter" Command="{Binding BatchVM.CreateFolderCommand}" CommandParameter="{Binding BatchVM.FolderOverlayType}"/>
+                                        <KeyBinding Gesture="Escape" Command="{Binding BatchVM.CloseFolderOverlayCommand}"/>
+                                    </TextBox.KeyBindings>
+                                </TextBox>
+                                
+                                <!-- Add Template Button (+) -->
+                                <Button Grid.Column="1" 
+                                        Command="{Binding BatchVM.AddFolderTemplateCommand}"
+                                        Background="#15FFFFFF" 
+                                        CornerRadius="0" 
+                                        Width="36" 
+                                        VerticalAlignment="Stretch"
+                                        ToolTip.Tip="Save as Template">
+                                    <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+
+                                <!-- Template Toggle Button (Chevron) -->
+                                <Button Grid.Column="2" 
+                                        Command="{Binding BatchVM.ToggleFolderTemplatesCommand}"
+                                        Background="#25FFFFFF" 
+                                        CornerRadius="0,6,6,0" 
+                                        Width="36" 
+                                        VerticalAlignment="Stretch"
+                                        ToolTip.Tip="Select Template">
+                                    <PathIcon Data="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                            </Grid>
+
+                            <!-- Templates List (Collapsible) -->
+                            <ItemsControl ItemsSource="{Binding BatchVM.FolderTemplates}" 
+                                          IsVisible="{Binding BatchVM.IsFolderTemplatesVisible}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" Margin="0,0,0,10"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#15FFFFFF" CornerRadius="4" Margin="0,0,6,6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="{Binding}" 
+                                                        Command="{Binding DataContext.BatchVM.ApplyFolderTemplateCommand, ElementName=Root}" 
+                                                        CommandParameter="{Binding}"
+                                                        Classes="iconBtn"
+                                                        FontSize="11" 
+                                                        Foreground="{DynamicResource TextPrimaryBrush}"
+                                                        Padding="8,4" 
+                                                        Background="Transparent" 
+                                                        CornerRadius="4,0,0,4"/>
+                                                <Button Command="{Binding DataContext.BatchVM.RemoveFolderTemplateCommand, ElementName=Root}" 
+                                                        CommandParameter="{Binding}"
+                                                        Classes="iconBtn"
+                                                        Padding="6,4" 
+                                                        Background="#B54845" 
+                                                        CornerRadius="0,4,4,0"
+                                                        ToolTip.Tip="Remove Template">
+                                                    <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Width="8" Height="8" Foreground="White"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Create Button -->
+                            <Button Command="{Binding BatchVM.CreateFolderCommand}" CommandParameter="{Binding BatchVM.FolderOverlayType}"
+                                    Content="Create Folder" 
+                                    HorizontalAlignment="Stretch" 
+                                    HorizontalContentAlignment="Center"
+                                    Background="{DynamicResource AccentBlueBrush}" 
+                                    Foreground="White" 
+                                    CornerRadius="6"
+                                    Padding="10,8"
+                                    FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
                 </Grid>
         </Grid>
     </Grid>

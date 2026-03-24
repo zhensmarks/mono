@@ -320,6 +320,51 @@ public partial class LogPanelSidebar : UserControl
             vm.BatchVM.SelectedActivityMode = 3;
     }
 
+    private void OnLogoDrop(object? sender, Avalonia.Input.DragEventArgs e)
+    {
+        if (DataContext is not DashboardViewModel vm || vm.BatchVM == null) return;
+
+        var paths = new List<string>();
+
+        if (e.Data.Contains(Avalonia.Input.DataFormats.Files))
+        {
+            var files = e.Data.GetFiles();
+            if (files != null)
+            {
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        var path = file.Path?.LocalPath ?? file.Path?.ToString();
+                        if (!string.IsNullOrEmpty(path)) paths.Add(path);
+                    }
+                    catch { /* skip */ }
+                }
+            }
+        }
+
+        if (paths.Count == 0 && e.Data.Contains(Avalonia.Input.DataFormats.FileNames))
+        {
+            var names = e.Data.GetFileNames();
+            if (names != null) paths.AddRange(names);
+        }
+        
+        var imageExtensions = new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp" };
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) continue;
+            var ext = System.IO.Path.GetExtension(path);
+            if (imageExtensions.Any(ext2 => ext.Equals(ext2, StringComparison.OrdinalIgnoreCase)))
+            {
+                _ = vm.BatchVM.ProcessLogoFile(path);
+                e.Handled = true; // Stop event from bubbling up to the generic log file dropper
+                return;
+            }
+        }
+        
+        // If not an image, let it bubble up or mark as unhandled so main drop handles it if it's text
+    }
+
     private void OnDragOver(object? sender, Avalonia.Input.DragEventArgs e)
     {
         e.DragEffects = Avalonia.Input.DragDropEffects.Copy;

@@ -104,8 +104,15 @@
         }
 
         // === PROCESS LOGIC ===
-        function processAction(mode, isBatch, useColorRange, useManasik) {
-            if (isBatch) {
+        function processAction(mode, isBatch, useColorRange, useManasik, selectedDocsIndex) {
+            if (selectedDocsIndex && selectedDocsIndex.length > 0) {
+                // REDAKSI TERPILIH dengan dokumen spesifik yang dipilih via dialog
+                for (var i = 0; i < selectedDocsIndex.length; i++) {
+                    var idx = selectedDocsIndex[i];
+                    app.activeDocument = app.documents[idx];
+                    doRedaksiAction(app.activeDocument, mode, useColorRange, useManasik);
+                }
+            } else if (isBatch) {
                 for (var i = 0; i < app.documents.length; i++) {
                     app.activeDocument = app.documents[i];
                     doRedaksiAction(app.activeDocument, mode, useColorRange, useManasik);
@@ -153,6 +160,79 @@
             } catch (err) { alert("Main Error: " + err); }
         }
 
+        // === DOCUMENT SELECTION DIALOG ===
+        function showDocumentSelectionDialog() {
+            var docDialog = new Window("dialog", "Pilih Dokumen untuk REDAKSI TERPILIH");
+            docDialog.orientation = "column";
+            docDialog.alignChildren = ["fill", "top"];
+            docDialog.spacing = 10;
+            docDialog.margins = 16;
+            
+            docDialog.add("statictext", undefined, "Pilih dokumen (Klik+Shift/Ctrl untuk multi-select):");
+            
+            var listbox = docDialog.add("listbox", [0, 0, 300, 200], [], {multiselect: true});
+            for (var i = 0; i < app.documents.length; i++) {
+                listbox.add("item", app.documents[i].name);
+            }
+            
+            // Default select active doc
+            for (var i = 0; i < app.documents.length; i++) {
+                if (app.documents[i] === app.activeDocument) {
+                    listbox.items[i].selected = true;
+                    break;
+                }
+            }
+            
+            var grpSelectBtns = docDialog.add("group");
+            grpSelectBtns.orientation = "row";
+            grpSelectBtns.alignChildren = ["center", "top"];
+            var btnSelectAll = grpSelectBtns.add("button", undefined, "Pilih Semua");
+            var btnDesellecAll = grpSelectBtns.add("button", undefined, "Batal Pilih");
+            
+            btnSelectAll.onClick = function() {
+                for (var i = 0; i < listbox.items.length; i++) {
+                    listbox.items[i].selected = true;
+                }
+            };
+            btnDesellecAll.onClick = function() {
+                for (var i = 0; i < listbox.items.length; i++) {
+                    listbox.items[i].selected = false;
+                }
+            };
+            
+            var grpBtns = docDialog.add("group");
+            grpBtns.orientation = "row";
+            grpBtns.alignChildren = ["center", "top"];
+            var btnOk = grpBtns.add("button", undefined, "OK");
+            var btnCancel = grpBtns.add("button", undefined, "Batal");
+            
+            var selectedIndices = [];
+            
+            btnOk.onClick = function() {
+                for (var i = 0; i < listbox.items.length; i++) {
+                    if (listbox.items[i].selected) {
+                        selectedIndices.push(i);
+                    }
+                }
+                
+                if (selectedIndices.length === 0) {
+                    alert("Pilih minimal satu dokumen!");
+                    return;
+                }
+                docDialog.close(1);
+            };
+            
+            btnCancel.onClick = function() {
+                docDialog.close(0);
+            };
+            
+            var result = docDialog.show();
+            if (result === 1) {
+                return selectedIndices;
+            }
+            return null;
+        }
+
         // === UI ===
         var w = new Window("dialog", "Redaksi & Color");
         w.orientation = "column";
@@ -169,6 +249,7 @@
         var col1 = grp.add("group");
         col1.orientation = "column";
         var btnRedaksi = col1.add("button", [0, 0, 140, 40], "REDAKSI");
+        var btnRedaksiTerpilih = col1.add("button", [0, 0, 140, 40], "REDAKSI TERPILIH");
 
         // Kolom 2
         var col2 = grp.add("group");
@@ -193,6 +274,18 @@
         btnRedaksi.onClick = function () {
             processAction(3, cbBatch.value, cbColorRange.value, cbManasik.value);
             w.close();
+        };
+
+        // REDAKSI TERPILIH (Replace in Selected Documents)
+        btnRedaksiTerpilih.onClick = function () {
+            w.hide(); // Sembunyikan main window sementara
+            var selectedDocs = showDocumentSelectionDialog();
+            if (selectedDocs) {
+                processAction(3, false, cbColorRange.value, cbManasik.value, selectedDocs);
+                w.close();
+            } else {
+                w.show(); // Tampilkan kembali jika batal
+            }
         };
 
         // Mode 2: HIDE REDAKSI

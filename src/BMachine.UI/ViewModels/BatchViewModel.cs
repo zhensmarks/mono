@@ -59,6 +59,7 @@ namespace BMachine.UI.ViewModels;
     
             _ = LoadOutputBasePathAsync();
             _ = LoadDocDataAsync();
+            _ = LoadFolderTemplatesAsync();
             
             // Ensure HasFolders updates when items are added/removed
             SourceFolders.CollectionChanged += (s, e) =>
@@ -686,7 +687,50 @@ namespace BMachine.UI.ViewModels;
         }
     }
 
-    private async Task ProcessLogoFile(string sourcePath)
+    [RelayCommand]
+    private async Task SendLogoToPhotoshop()
+    {
+        if (string.IsNullOrEmpty(SchoolLogoPath) || !File.Exists(SchoolLogoPath))
+        {
+            _logService?.AddLog("[WARNING] No valid logo selected to send to Photoshop.");
+            return;
+        }
+
+        try
+        {
+            var tempPath = Path.Combine(Path.GetTempPath(), "bmachine_place_target.txt");
+            await File.WriteAllTextAsync(tempPath, SchoolLogoPath);
+
+            var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", "_place_on_layer.jsx");
+            if (!File.Exists(scriptPath)) 
+            {
+                scriptPath = Path.Combine(Directory.GetCurrentDirectory(), "Scripts", "Action", "_place_on_layer.jsx"); 
+            }
+
+            if (File.Exists(scriptPath))
+            {
+                var photoshopPath = "photoshop";
+                if (_database != null)
+                {
+                    var path = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+                    if (!string.IsNullOrEmpty(path)) photoshopPath = path;
+                }
+
+                _platformService.RunJsxInPhotoshop(scriptPath, photoshopPath);
+                _logService?.AddLog("[INFO] Logo sent to Photoshop.");
+            }
+            else
+            {
+                 _logService?.AddLog("[ERROR] Script _place_on_layer.jsx not found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Failed to send logo to Photoshop: {ex.Message}");
+        }
+    }
+
+    public async Task ProcessLogoFile(string sourcePath)
     {
         try
         {
@@ -1793,6 +1837,115 @@ namespace BMachine.UI.ViewModels;
     [ObservableProperty]
     private string _newFolderName = "";
 
+    [ObservableProperty]
+    private bool _isFolderOverlayVisible = false;
+
+    [ObservableProperty]
+    private string _folderOverlayTitle = "New Folder";
+
+    [ObservableProperty]
+    private string _folderOverlayType = "Source";
+    
+    [ObservableProperty]
+    private bool _isFolderTemplatesVisible = false;
+
+    public System.Collections.ObjectModel.ObservableCollection<string> FolderTemplates { get; } = new();
+
+    [RelayCommand]
+    private void OpenFolderOverlay(string type)
+    {
+        FolderOverlayType = type;
+        FolderOverlayTitle = type.Equals("Source", StringComparison.OrdinalIgnoreCase) ? "New Source Folder" : "New Output Folder";
+        NewFolderName = "";
+        IsFolderTemplatesVisible = false;
+        IsFolderOverlayVisible = true;
+    }
+
+    [RelayCommand]
+    private void CloseFolderOverlay()
+    {
+        IsFolderOverlayVisible = false;
+        IsFolderTemplatesVisible = false;
+        NewFolderName = "";
+    }
+
+    [RelayCommand]
+    private void ToggleFolderTemplates()
+    {
+        IsFolderTemplatesVisible = !IsFolderTemplatesVisible;
+    }
+
+    [RelayCommand]
+    private async Task ApplyFolderTemplate(string template)
+    {
+        NewFolderName = template;
+        await CreateFolder(FolderOverlayType);
+    }
+    
+    [RelayCommand]
+    private async Task AddFolderTemplate()
+    {
+        if (string.IsNullOrWhiteSpace(NewFolderName)) return;
+        var t = NewFolderName.Trim().ToUpper();
+        if (!FolderTemplates.Contains(t))
+        {
+            FolderTemplates.Add(t);
+            await SaveFolderTemplatesAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveFolderTemplate(string template)
+    {
+        if (FolderTemplates.Contains(template))
+        {
+            FolderTemplates.Remove(template);
+            await SaveFolderTemplatesAsync();
+        }
+    }
+
+    private async Task LoadFolderTemplatesAsync()
+    {
+        if (_database == null) return;
+        var json = await _database.GetAsync<string>("Batch.FolderTemplates");
+        if (!string.IsNullOrEmpty(json))
+        {
+            try
+            {
+                var list = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
+                if (list != null && list.Count > 0)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        FolderTemplates.Clear();
+                        foreach (var i in list) FolderTemplates.Add(i);
+                    });
+                    return;
+                }
+            }
+            catch { }
+        }
+        
+        // Defaults
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            FolderTemplates.Clear();
+            FolderTemplates.Add("REVISI");
+            FolderTemplates.Add("FINAL");
+            FolderTemplates.Add("DESIGN");
+            FolderTemplates.Add("ASSETS");
+            FolderTemplates.Add("OUTPUT");
+            FolderTemplates.Add("EXPORT");
+        });
+    }
+
+    private async Task SaveFolderTemplatesAsync()
+    {
+        if (_database == null) return;
+        var json = System.Text.Json.JsonSerializer.Serialize(FolderTemplates.ToList());
+        await _database.SetAsync("Batch.FolderTemplates", json);
+    }
+
     [RelayCommand]
     private async Task CreateFolder(string targetType)
     {
@@ -1858,8 +2011,10 @@ namespace BMachine.UI.ViewModels;
                     Refresh();
                 }
                 
-                // Clear input
+                // Clear input and close overlay
                 NewFolderName = "";
+                IsFolderOverlayVisible = false;
+                IsFolderTemplatesVisible = false;
             }
             else
             {
