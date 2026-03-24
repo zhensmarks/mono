@@ -137,7 +137,7 @@ public partial class DashboardView : UserControl
             var folderPaths = files
                 .Where(f => f?.Path?.LocalPath != null)
                 .Select(f => f.Path.LocalPath)
-                .Where(p => !string.IsNullOrEmpty(p) && System.IO.Directory.Exists(p))
+                .Where(p => !string.IsNullOrEmpty(p) && (System.IO.Directory.Exists(p) || p.EndsWith(".lnk", System.StringComparison.OrdinalIgnoreCase)))
                 .ToArray();
 
             if (folderPaths.Length > 0)

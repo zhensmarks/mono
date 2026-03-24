@@ -314,6 +314,12 @@ public partial class LogPanelSidebar : UserControl
             vm.BatchVM.SelectedActivityMode = 2;
     }
 
+    private void OnDocTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+            vm.BatchVM.SelectedActivityMode = 3;
+    }
+
     private void OnDragOver(object? sender, Avalonia.Input.DragEventArgs e)
     {
         e.DragEffects = Avalonia.Input.DragDropEffects.Copy;
@@ -349,7 +355,7 @@ public partial class LogPanelSidebar : UserControl
             if (names != null) paths.AddRange(names);
         }
 
-        var textExtensions = new[] { ".txt", ".docx", ".lnk", ".log", ".md", ".json", ".xml", ".csv", ".ini", ".cfg" };
+        var textExtensions = new[] { ".txt", ".docx", ".log", ".md", ".json", ".xml", ".csv", ".ini", ".cfg" };
         foreach (var path in paths)
         {
             if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) continue;

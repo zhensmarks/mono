@@ -164,7 +164,8 @@ public partial class BatchNodeItem : ObservableObject
                      // Files
                      // Filter extensions if AllowedExtensions is set
                      IEnumerable<string> fileEnum = Directory.EnumerateFiles(FullPath, "*", opts)
-                         .Where(f => !Path.GetFileName(f).Equals("desktop.ini", StringComparison.OrdinalIgnoreCase));
+                         .Where(f => !Path.GetFileName(f).Equals("desktop.ini", StringComparison.OrdinalIgnoreCase))
+                         .Where(f => !Path.GetExtension(f).Equals(".lnk", StringComparison.OrdinalIgnoreCase));
                      
                      if (AllowedExtensions != null && AllowedExtensions.Count > 0)
                      {
@@ -193,6 +194,8 @@ public partial class BatchNodeItem : ObservableObject
 
     private async Task CopyPath()
     {
+         if (!IsDirectory) return; // Hanya menyalin path untuk folder (direktori)
+
          if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
          {
              var window = desktop.MainWindow;

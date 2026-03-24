@@ -58,6 +58,7 @@ namespace BMachine.UI.ViewModels;
             WeakReferenceMessenger.Default.Register<FolderDeletedMessage>(this);
     
             _ = LoadOutputBasePathAsync();
+            _ = LoadDocDataAsync();
             
             // Ensure HasFolders updates when items are added/removed
             SourceFolders.CollectionChanged += (s, e) =>
@@ -198,10 +199,24 @@ namespace BMachine.UI.ViewModels;
         {
             try 
             {
-                if (Directory.Exists(path))
+                var effectivePath = path;
+                if (effectivePath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+                {
+                    var target = ResolveShortcutTarget(effectivePath);
+                    if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
+                    {
+                        effectivePath = target;
+                    }
+                    else
+                    {
+                        continue; // Invalid shortcut or not a directory
+                    }
+                }
+
+                if (Directory.Exists(effectivePath))
                 {
                     // Ensure path doesn't have trailing slash for consistent name extraction
-                    var effectivePath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    effectivePath = effectivePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     var folderName = Path.GetFileName(effectivePath);
                     
                     // Smart Path Prediction
@@ -218,7 +233,7 @@ namespace BMachine.UI.ViewModels;
                         ? "" 
                         : Path.Combine(OutputBasePath, relativePath);
 
-                    var parentName = new DirectoryInfo(path).Parent?.Name ?? "";
+                    var parentName = new DirectoryInfo(effectivePath).Parent?.Name ?? "";
                     string displayName; 
                     string outputHeader; 
                     
@@ -235,7 +250,7 @@ namespace BMachine.UI.ViewModels;
 
                     var item = new BatchFolderRoot
                     {
-                        SourcePath = path,
+                        SourcePath = effectivePath,
                         FolderName = folderName,
                         DisplayName = displayName, 
                         OutputHeader = outputHeader,
@@ -267,8 +282,25 @@ namespace BMachine.UI.ViewModels;
 
     private void AddFolderAndSelect(string path)
     {
-        if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-        var effectivePath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.IsNullOrEmpty(path)) return;
+        
+        var effectivePath = path;
+        if (effectivePath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+        {
+            var target = ResolveShortcutTarget(effectivePath);
+            if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
+            {
+                effectivePath = target;
+            }
+            else
+            {
+                return; // Invalid shortcut or not a directory
+            }
+        }
+
+        if (!Directory.Exists(effectivePath)) return;
+        
+        effectivePath = effectivePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var folderName = Path.GetFileName(effectivePath);
         var relativePath = GetRelativePathFromMonth(effectivePath);
         if (folderName.Equals("PILIHAN", StringComparison.OrdinalIgnoreCase))
@@ -277,7 +309,7 @@ namespace BMachine.UI.ViewModels;
             relativePath = Path.GetDirectoryName(relativePath) ?? relativePath;
         }
         var outputPath = string.IsNullOrEmpty(OutputBasePath) ? "" : Path.Combine(OutputBasePath, relativePath);
-        var parentName = new DirectoryInfo(path).Parent?.Name ?? "";
+        var parentName = new DirectoryInfo(effectivePath).Parent?.Name ?? "";
         string displayName, outputHeader;
         if (folderName.Equals("PILIHAN", StringComparison.OrdinalIgnoreCase))
         {
@@ -291,7 +323,7 @@ namespace BMachine.UI.ViewModels;
         }
         var item = new BatchFolderRoot
         {
-            SourcePath = path,
+            SourcePath = effectivePath,
             FolderName = folderName,
             DisplayName = displayName,
             OutputHeader = outputHeader,
@@ -416,16 +448,240 @@ namespace BMachine.UI.ViewModels;
     [NotifyPropertyChangedFor(nameof(IsConsoleVisible))]
     [NotifyPropertyChangedFor(nameof(IsMasterVisible))]
     [NotifyPropertyChangedFor(nameof(IsPhotoshopVisible))]
-    private int _selectedActivityMode = 0; // 0=Console, 1=Master, 2=Photoshop
+    [NotifyPropertyChangedFor(nameof(IsDocVisible))]
+    [NotifyPropertyChangedFor(nameof(IsSearchVisible))]
+    [NotifyPropertyChangedFor(nameof(IsStatusVisible))]
+    private int _selectedActivityMode = 0; // 0=Console, 1=Master, 2=Photoshop, 3=Doc
 
     public bool IsConsoleVisible => SelectedActivityMode == 0;
     public bool IsMasterVisible => SelectedActivityMode == 1;
     public bool IsPhotoshopVisible => SelectedActivityMode == 2;
+    public bool IsDocVisible => SelectedActivityMode == 3;
+    public bool IsSearchVisible => SelectedActivityMode == 1 || SelectedActivityMode == 2;
+    public bool IsStatusVisible => SelectedActivityMode == 0 || SelectedActivityMode == 1;
 
     partial void OnSelectedActivityModeChanged(int value)
     {
         if (value == 1) _ = LoadMasterNodes();
         if (value == 2) _ = LoadPhotoshopNodes();
+    }
+
+    // --- DOC TAB PROPERTIES ---
+    [ObservableProperty] private string _schoolName = "";
+    [ObservableProperty] private string _schoolAddress = "";
+    [ObservableProperty] private string _schoolLogoPath = "";
+    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _schoolLogoImage;
+
+    partial void OnSchoolNameChanged(string value) => SaveDocDataAsync();
+    partial void OnSchoolAddressChanged(string value) => SaveDocDataAsync();
+    partial void OnSchoolLogoPathChanged(string value) => SaveDocDataAsync();
+
+    private bool _isSavingDoc;
+    private bool _isLoadingDoc;
+    private async void SaveDocDataAsync()
+    {
+        if (_database == null || _isSavingDoc || _isLoadingDoc) return;
+        _isSavingDoc = true;
+        try 
+        {
+            await Task.Delay(300);
+            await _database.SetAsync("Doc.SchoolName", SchoolName);
+            await _database.SetAsync("Doc.SchoolAddress", SchoolAddress);
+            await _database.SetAsync("Doc.SchoolLogoPath", SchoolLogoPath);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error SaveDocDataAsync: {ex.Message}");
+        }
+        finally 
+        {
+            _isSavingDoc = false;
+        }
+    }
+
+    public async Task LoadDocDataAsync()
+    {
+        if (_database == null) return;
+        _isLoadingDoc = true;
+        try
+        {
+            SchoolName = await _database.GetAsync<string>("Doc.SchoolName") ?? "";
+            SchoolAddress = await _database.GetAsync<string>("Doc.SchoolAddress") ?? "";
+            var logoPath = await _database.GetAsync<string>("Doc.SchoolLogoPath") ?? "";
+            
+            if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
+            {
+                try 
+                {
+                    SchoolLogoPath = logoPath;
+                    using var fs = File.OpenRead(logoPath);
+                    SchoolLogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
+                } 
+                catch 
+                {
+                    SchoolLogoPath = "";
+                    SchoolLogoImage = null;
+                }
+            }
+        }
+        finally
+        {
+            _isLoadingDoc = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ResetDoc()
+    {
+        SchoolName = "";
+        SchoolAddress = "";
+        SchoolLogoPath = "";
+        SchoolLogoImage?.Dispose();
+        SchoolLogoImage = null;
+        SaveDocDataAsync();
+    }
+
+    [RelayCommand]
+    private async Task CopySchoolName() => await CopyTextToClipboard(SchoolName);
+
+    [RelayCommand]
+    private async Task CopySchoolAddress() => await CopyTextToClipboard(SchoolAddress);
+
+    [RelayCommand]
+    private async Task CopySchoolLogo()
+    {
+        if (string.IsNullOrEmpty(SchoolLogoPath) || !File.Exists(SchoolLogoPath)) return;
+        
+        try
+        {
+            // Use PowerShell to copy image to Windows clipboard natively
+            var escapedPath = SchoolLogoPath.Replace("'", "''");
+            var psScript = $"Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; " +
+                           $"$img = [System.Drawing.Image]::FromFile('{escapedPath}'); " +
+                           $"[System.Windows.Forms.Clipboard]::SetImage($img); " +
+                           $"$img.Dispose()";
+            
+            var process = new System.Diagnostics.Process();
+            process.StartInfo.FileName = "powershell";
+            process.StartInfo.Arguments = $"-NoProfile -NonInteractive -Command \"{psScript}\"";
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.Start();
+            await process.WaitForExitAsync();
+            process.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error CopySchoolLogo: {ex.Message}");
+        }
+    }
+
+    private async Task CopyTextToClipboard(string text)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            if (desktop.MainWindow?.Clipboard != null && !string.IsNullOrEmpty(text))
+            {
+                await desktop.MainWindow.Clipboard.SetTextAsync(text);
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task PasteLogo()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var window = desktop.MainWindow;
+            if (window?.Clipboard == null) return;
+
+            try
+            {
+                var formats = await window.Clipboard.GetFormatsAsync();
+                
+                if (formats.Contains(Avalonia.Input.DataFormats.Files))
+                {
+                    var data = await window.Clipboard.GetDataAsync(Avalonia.Input.DataFormats.Files);
+                    if (data is IEnumerable<Avalonia.Platform.Storage.IStorageItem> storageItems)
+                    {
+                        var firstFile = storageItems.FirstOrDefault();
+                        if (firstFile != null && firstFile.Path.LocalPath != null)
+                        {
+                            var ext = Path.GetExtension(firstFile.Path.LocalPath).ToLower();
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp")
+                            {
+                                await ProcessLogoFile(firstFile.Path.LocalPath);
+                                return;
+                            }
+                        }
+                    }
+                }
+                
+                string[] imageFormats = { "PNG", "image/png", "JPEG", "image/jpeg", "public.png", "public.jpeg", "Avalonia.Media.Imaging.Bitmap" };
+                foreach (var format in imageFormats)
+                {
+                    if (formats.Contains(format))
+                    {
+                        var data = await window.Clipboard.GetDataAsync(format);
+                        if (data is byte[] bytes)
+                        {
+                            var tempFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
+                            await File.WriteAllBytesAsync(tempFile, bytes);
+                            await ProcessLogoFile(tempFile);
+                            return;
+                        }
+                        if (data is Avalonia.Media.Imaging.Bitmap bitmap)
+                        {
+                            var tempFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
+                            bitmap.Save(tempFile);
+                            await ProcessLogoFile(tempFile);
+                            return;
+                        }
+                    }
+                }
+
+                if (formats.Contains(Avalonia.Input.DataFormats.Text))
+                {
+                    var text = await window.Clipboard.GetTextAsync();
+                    if (!string.IsNullOrEmpty(text) && File.Exists(text))
+                    {
+                        var ext = Path.GetExtension(text).ToLower();
+                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp")
+                        {
+                            await ProcessLogoFile(text);
+                            return;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task ProcessLogoFile(string sourcePath)
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var folder = Path.Combine(appData, "BMachine.v2", "DocAssets");
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+
+            var ext = Path.GetExtension(sourcePath);
+            var destPath = Path.Combine(folder, $"school_logo{ext}");
+            
+            File.Copy(sourcePath, destPath, true);
+
+            SchoolLogoPath = destPath;
+            using var fs = File.OpenRead(destPath);
+            SchoolLogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
+            
+            SaveDocDataAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error copying logo: {ex.Message}");
+        }
     }
     
     // Copy Feedback
@@ -1644,6 +1900,45 @@ namespace BMachine.UI.ViewModels;
 
     [ObservableProperty]
     private string _busyMessage = "";
+
+    private string ResolveShortcutTarget(string shortcutPath)
+    {
+        try
+        {
+            if (!File.Exists(shortcutPath)) return "";
+
+            string tempVbs = Path.Combine(Path.GetTempPath(), $"resolve_lnk_{System.Guid.NewGuid()}.vbs");
+            string script = $@"
+                Set wshShell = CreateObject(""WScript.Shell"")
+                Set sc = wshShell.CreateShortcut(""{shortcutPath}"")
+                WScript.Echo sc.TargetPath
+            ";
+            
+            File.WriteAllText(tempVbs, script);
+
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "cscript",
+                Arguments = $"//Nologo \"{tempVbs}\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc != null)
+            {
+                string target = proc.StandardOutput.ReadToEnd().Trim();
+                proc.WaitForExit();
+                try { File.Delete(tempVbs); } catch {}
+                return target;
+            }
+            
+            try { File.Delete(tempVbs); } catch {}
+        }
+        catch { }
+        return "";
+    }
 }
 
 

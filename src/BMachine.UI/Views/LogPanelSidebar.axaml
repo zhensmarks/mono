@@ -35,20 +35,25 @@
                 <StackPanel Spacing="6">
                     <!-- Navigation Tab Buttons (same style as dashboard) -->
                     <Border Background="#10FFFFFF" CornerRadius="6" Padding="3">
-                        <Grid ColumnDefinitions="*,*,*">
+                        <Grid ColumnDefinitions="*,*,*,*">
                             <Button Grid.Column="0" Classes="panelTab" Click="OnConsoleTabClick"
-                                    Tag="{Binding BatchVM.IsConsoleVisible}">
-                                <TextBlock Text="{Binding BatchVM.IsConsoleVisible, Converter={StaticResource StringToUpperConverter}, ConverterParameter=Console}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    Tag="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Console">
+                                <PathIcon Data="{StaticResource IconTerminal}" Width="14" Height="14"/>
                             </Button>
                             
                             <Button Grid.Column="1" Classes="panelTab" Click="OnMasterTabClick"
-                                    Tag="{Binding BatchVM.IsMasterVisible}">
-                                <TextBlock Text="{Binding BatchVM.IsMasterVisible, Converter={StaticResource StringToUpperConverter}, ConverterParameter=Master}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    Tag="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Master">
+                                <PathIcon Data="{StaticResource IconGrid}" Width="14" Height="14"/>
                             </Button>
                             
                             <Button Grid.Column="2" Classes="panelTab" Click="OnPhotoshopTabClick"
-                                    Tag="{Binding BatchVM.IsPhotoshopVisible}">
-                                <TextBlock Text="{Binding BatchVM.IsPhotoshopVisible, Converter={StaticResource StringToUpperConverter}, ConverterParameter=Photoshop}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    Tag="{Binding BatchVM.IsPhotoshopVisible}" ToolTip.Tip="Photoshop">
+                                <PathIcon Data="{StaticResource IconImageSimple}" Width="14" Height="14"/>
+                            </Button>
+
+                            <Button Grid.Column="3" Classes="panelTab" Click="OnDocTabClick"
+                                    Tag="{Binding BatchVM.IsDocVisible}" ToolTip.Tip="DOC">
+                                <PathIcon Data="{StaticResource IconFileText}" Width="14" Height="14"/>
                             </Button>
                         </Grid>
                     </Border>
@@ -58,7 +63,7 @@
                              Watermark="Search..." Background="#10FFFFFF" BorderThickness="0"
                              CornerRadius="6" VerticalContentAlignment="Center" Padding="10,0"
                              Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}"
-                             IsVisible="{Binding !BatchVM.IsConsoleVisible}">
+                             IsVisible="{Binding BatchVM.IsSearchVisible}">
                         <TextBox.InnerRightContent>
                             <PathIcon Data="{DynamicResource IconSearch}" Width="10" Height="10" 
                                       Margin="0,0,8,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -128,10 +133,44 @@
                     </TreeView.Styles>
                 </TreeView>
                 
+                <!-- 4. DOC VIEW -->
+                <Grid IsVisible="{Binding BatchVM.IsDocVisible}" RowDefinitions="Auto, *, Auto" Margin="10,0,10,10">
+                    <StackPanel Grid.Row="0" Spacing="6" Margin="0,10,0,10">
+                        <TextBlock Text="INSTAN REDAKSI" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
+                        
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBox Grid.Column="0" Text="{Binding BatchVM.SchoolName, Mode=TwoWay}" Watermark="Nama Kelompok / Sekolah" FontSize="12" CornerRadius="4" Padding="6" Margin="0,0,6,0"/>
+                            <Button Grid.Column="1" Classes="iconBtn" Command="{Binding BatchVM.CopySchoolNameCommand}" ToolTip.Tip="Copy Nama" VerticalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBox Grid.Column="0" Text="{Binding BatchVM.SchoolAddress, Mode=TwoWay}" Watermark="Alamat Lengkap" FontSize="12" CornerRadius="4" MinHeight="60" AcceptsReturn="True" TextWrapping="Wrap" Padding="6" Margin="0,0,6,0"/>
+                            <Button Grid.Column="1" Classes="iconBtn" Command="{Binding BatchVM.CopySchoolAddressCommand}" ToolTip.Tip="Copy Alamat" VerticalAlignment="Top" Margin="0,4,0,0">
+                                <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="6" Padding="4">
+                         <Grid>
+                             <TextBlock Text="[Preview Logo]" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding BatchVM.SchoolLogoImage, Converter={x:Static ObjectConverters.IsNull}}"/>
+                             <Image Source="{Binding BatchVM.SchoolLogoImage}" Stretch="Uniform" Margin="4"/>
+                         </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <Button Content="Reset" Command="{Binding BatchVM.ResetDocCommand}" Background="#B54845" BorderThickness="0" Foreground="White" FontSize="11" Padding="12,6" CornerRadius="4" Cursor="Hand"/>
+                        <Button Content="Copy Image" Command="{Binding BatchVM.CopySchoolLogoCommand}" Background="Transparent" BorderThickness="1" BorderBrush="#30FFFFFF" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Padding="12,6" CornerRadius="4" Cursor="Hand"/>
+                        <Button Content="Paste Logo" Command="{Binding BatchVM.PasteLogoCommand}" Background="Transparent" BorderThickness="1" BorderBrush="#30FFFFFF" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="11" Padding="12,6" CornerRadius="4" Cursor="Hand"/>
+                    </StackPanel>
+                </Grid>
+                
             </Grid>
             
             <!-- FOOTER (Row 2) -->
-            <Border Grid.Row="2" Background="#08FFFFFF" Padding="10,6" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0">
+            <Border Grid.Row="2" Background="#08FFFFFF" Padding="10,6" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" IsVisible="{Binding BatchVM.IsStatusVisible}">
                 <Grid ColumnDefinitions="*, Auto">
                      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                          <!-- Status Dot -->

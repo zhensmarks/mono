@@ -843,32 +843,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
                 string[] lines = Array.Empty<string>();
 
-                if (ext.Equals(".lnk", StringComparison.OrdinalIgnoreCase))
-                {
-                    await Task.Run(() => 
-                    {
-                        try 
-                        {
-                            var bytes = System.IO.File.ReadAllBytes(path);
-                            // LNK files use UTF-16 and ASCII. We look for a Windows-style path.
-                            var text = System.Text.Encoding.ASCII.GetString(bytes);
-                            var match = System.Text.RegularExpressions.Regex.Match(text, @"([a-zA-Z]:\\[^\0]+)");
-                            if (match.Success)
-                            {
-                                lines = new[] { $"[Shortcut LNK Terdeteksi]", $"Target: {match.Value}" };
-                            }
-                            else
-                            {
-                                lines = new[] { $"[Shortcut LNK Terdeteksi] (Target path tidak terbaca)", $"File Size: {bytes.Length} bytes" };
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            lines = new[] { $"Gagal membaca LNK: {ex.Message}" };
-                        }
-                    });
-                }
-                else if (ext.Equals(".docx", StringComparison.OrdinalIgnoreCase))
+                if (ext.Equals(".docx", StringComparison.OrdinalIgnoreCase))
                 {
                     // DOCX Parsing (Simple Text Extraction)
                     await Task.Run(() => 
