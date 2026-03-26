@@ -13,6 +13,7 @@ public class GlobalInputHookService : IDisposable
     public event Action<Point>? OnTriggerDown;
     public event Action<Point>? OnTriggerUp;
     public event Action<Point>? OnMouseMove;
+    public event Action<Point, double, double>? OnMouseWheel;
     
     // Config
     private Models.TriggerConfig _config = new Models.TriggerConfig(); // Default: Shift + Middle Mouse
@@ -35,6 +36,7 @@ public class GlobalInputHookService : IDisposable
         // Subscribe to Events
         _hook.MouseMoved += OnHookMouseMove;
         _hook.MouseDragged += OnHookMouseMove; // Handle drag too
+        _hook.MouseWheel += OnHookMouseWheel;
         _hook.MousePressed += OnHookMouseDown;
         _hook.MouseReleased += OnHookMouseUp;
         _hook.KeyPressed += OnHookKeyPressed;
@@ -239,8 +241,15 @@ public class GlobalInputHookService : IDisposable
                key == KeyCode.VcLeftMeta || key == KeyCode.VcRightMeta;
     }
 
+    private void OnHookMouseWheel(object? sender, MouseWheelHookEventArgs e)
+    {
+        // Delta in libuiohook is often 1 or -1 for notched wheels
+        OnMouseWheel?.Invoke(new Point(e.Data.X, e.Data.Y), (double)e.Data.Rotation, (double)e.Data.Rotation);
+    }
+
     public void Dispose()
     {
+        _hook.MouseWheel -= OnHookMouseWheel;
         _hook.Dispose();
     }
 }

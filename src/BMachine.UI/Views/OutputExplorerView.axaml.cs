@@ -85,6 +85,12 @@ public partial class OutputExplorerView : UserControl
 
         // Wire up dynamic Batch items injection for all ContextMenus
         AddHandler(Control.ContextRequestedEvent, OnContextRequested, Avalonia.Interactivity.RoutingStrategies.Bubble, true);
+
+        // Manual Scroll Support (Fix for Windows Photoshop issue)
+        WeakReferenceMessenger.Default.Register<GlobalMouseWheelMessage>(this, (_, m) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => HandleGlobalScroll(m));
+        });
     }
 
     private void InitializeComponent()
@@ -379,6 +385,45 @@ public partial class OutputExplorerView : UserControl
         if (e.Delta.Y == 0) return;
         vm.CycleViewModeCommand.Execute(e.Delta.Y > 0);
         e.Handled = true;
+    }
+
+    private void HandleGlobalScroll(GlobalMouseWheelMessage m)
+    {
+        try
+        {
+            var root = this.GetVisualRoot() as Window;
+            if (root == null || !root.IsVisible) return;
+
+            // Convert screen position to local position
+            var screenPoint = new PixelPoint((int)m.ScreenPosition.X, (int)m.ScreenPosition.Y);
+            var clientPoint = root.PointToClient(screenPoint);
+            
+            // Check if mouse is over this control
+            var transform = this.TransformToVisual(root);
+            if (transform == null) return;
+            var localPoint = clientPoint * transform.Value.Invert();
+
+            if (this.Bounds.Contains(localPoint))
+            {
+                // Find visible ListBox/ScrollViewer
+                var scrollable = this.GetVisualDescendants()
+                    .OfType<ScrollViewer>()
+                    .FirstOrDefault(s => s.IsVisible && s.Bounds.Contains(clientPoint * s.TransformToVisual(root)!.Value.Invert()));
+
+                if (scrollable != null)
+                {
+                    var offset = scrollable.Offset;
+                    // Standard scroll is ~30-50px per notch. m.DeltaY is often 1 or -1.
+                    double scrollAmount = m.DeltaY * 60; 
+                    scrollable.Offset = new Vector(offset.X, Math.Max(0, offset.Y - scrollAmount));
+                    
+                    // Force Repaint to prevent "Freezing"
+                    this.InvalidateVisual();
+                    scrollable.InvalidateVisual();
+                }
+            }
+        }
+        catch { }
     }
 
     private void OnFileAreaPointerPressed(object? sender, PointerPressedEventArgs e)

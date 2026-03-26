@@ -12,12 +12,8 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Optimization: Reduce process priority
-        try 
-        { 
-            System.Diagnostics.Process.GetCurrentProcess().PriorityClass = System.Diagnostics.ProcessPriorityClass.BelowNormal; 
-        } 
-        catch { /* Ignore permission errors */ }
+        // Removed: Reduce process priority to Normal (default) to ensure UI responsiveness 
+        // when a heavy application like Photoshop is focused.
 
         // Global Exception Handler
         AppDomain.CurrentDomain.UnhandledException += (sender, e) =>

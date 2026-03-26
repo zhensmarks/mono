@@ -180,6 +180,11 @@ public partial class App : Application,
             {
                 Log("Initializing InputHook...");
                 _inputHook = new GlobalInputHookService();
+                _inputHook.OnMouseWheel += (pos, delX, delY) => {
+                    // Normalize delta: Most libs give 1/-1 for notch, but let's pass as is
+                    // and let the view decide multiplier. We also use InvalidateVisual to unfreeze.
+                    WeakReferenceMessenger.Default.Send(new GlobalMouseWheelMessage(pos, delX, delY));
+                };
                 _inputHook.OnTriggerDown += OnRadialTrigger;
                 _inputHook.OnTriggerUp += OnRadialRelease;
                 _inputHook.OnMouseMove += OnRadialMove;
