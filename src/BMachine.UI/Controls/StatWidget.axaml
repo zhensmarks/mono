@@ -28,8 +28,11 @@
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 Cursor="Hand">
-        <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="15,8,15,12">
-            <Panel>
+        <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="0" ClipToBounds="True">
+            <Grid ColumnDefinitions="2, *">
+                <Border Grid.Column="0" Background="{Binding #Root.Color}" VerticalAlignment="Stretch"/>
+                <Border Grid.Column="1" Padding="11,8,15,12">
+                    <Panel>
                 <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center"
                             IsVisible="{Binding #Root.IsCircularMode}">
                     
@@ -139,7 +142,9 @@
                                  Foreground="{Binding #Root.Color}"
                                  VerticalAlignment="Bottom"/>
                 </Grid>
-            </Panel>
+                    </Panel>
+                </Border>
+            </Grid>
         </Border>
         </Button>
     </Panel>

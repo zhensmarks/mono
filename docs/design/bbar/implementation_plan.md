@@ -62,13 +62,38 @@ Saya telah mengecek kodingan untuk memastikan tidak ada fitur ringan yang "menar
 *   Membuka jendela Log/Terminal mandiri.
 *   Proses background GDrive/Sync.
 
-## Strategi Jendela Modular
+## Desain Jendela Modular (Terminal vs Batch)
 
-Setiap item di launcher di atas (kecuali Dashboard) akan memiliki opsi untuk dibuka sebagai **Jendela Modular Terpisah**:
-*   Jika diklik biasa: Membuka Jendela Utama ke tab tersebut.
-*   Jika klik kanan/pilih opsi "Float": Membuka jendela kecil khusus untuk fitur tersebut agar tetap ringan (Deep Sleep Mode).
+Berdasarkan diskusi, kita akan memisahkan keduanya namun tetap terintegrasi:
 
-**Hasil**: Jendela bar tetap kecil dan hemat RAM, tapi Anda punya akses instan ke seluruh "kekuatan" BMachine.
+1.  **TerminalWindow.axaml (The Log Hub)**:
+    *   **Tujuan**: Menjadi pusat monitoring untuk seluruh aktivitas (termasuk script JSX dari Radial Menu).
+    *   **Tab System**: Memiliki 4 tab internal: `Console`, `Master`, `Photoshop`, dan `Doc`.
+    *   **UI**: Desain ala "Developer Console" yang clean dengan font Monospace.
+2.  **BatchWindow.axaml (The Action Hub)**:
+    *   **Tujuan**: Fokus pada antrean file dan eksekusi batch.
+    *   **Integrasi**: Memiliki tombol "Open Logs" yang akan memunculkan `TerminalWindow` jika belum terbuka.
+3.  **Standalone Benefit**:
+    *   Anda bisa membuka **hanya** Terminal untuk memantau script Photoshop tanpa harus membuka UI Batch yang lebih kompleks.
+    *   Jika Jendela Utama "Bangun", jendela-jendela modular ini akan otomatis menutup dan "kembali" menjadi tab di dalam Dashboard agar rapi.
+
+## Premium Polish & Fitur Lanjutan (Saran Tambahan)
+
+Untuk membuat B-Bar terasa sangat "Premium" dan bukan sekadar bar biasa:
+
+1.  **Micro-Animations**:
+    *   **Slide-Down Entry**: B-Bar muncul dengan animasi slide halus dari pinggir layar.
+    *   **Glow Hover**: Angka statistik (`12 | 5...`) memiliki efek glow cyan tipis saat kursor mendekat.
+2.  **Dynamic Task Monitor**:
+    *   Jika ada proses Batch berjalan, angka statistik bisa berganti sementara menjadi progress bar kecil atau teks: `🔄 Batch: 45%`.
+3.  **Status Connectivity**:
+    *   Indikator visual (titik kecil) jika Trello atau GDrive sedang offline atau sedang melakukan sinkronisasi aktif.
+4.  **Multi-Monitor "Follow Mouse"**:
+    *   Opsi agar B-Bar muncul di monitor mana pun kursor Anda berada (sangat berguna untuk setup 2-3 monitor).
+5.  **Smart Shortcuts (Action Hub)**:
+    *   Menambahkan tombol cepat untuk **Screenshot** atau **Color Picker** langsung di B-Bar tanpa harus membuka Dashboard.
+
+**Hasil**: B-Bar bukan lagi sekadar alat hemat RAM, tapi menjadi "Pusat Komando" produktivitas Anda.
 
 ## Potensi Penghalang (Obstacles) & Solusi
 
