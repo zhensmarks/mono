@@ -22,9 +22,6 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     private readonly BMachine.UI.Services.ProcessLogService _logService;
 
     [ObservableProperty]
-    private bool _isAnimationEnabled = true;
-
-    [ObservableProperty]
     private IBrush _windowBackground = Brushes.Transparent; // Default
 
     [ObservableProperty]
@@ -81,7 +78,6 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         _ = _languageService.InitializeAsync();
         
         // Load Configs
-        LoadAnimationConfig();
         _ = LoadBackgroundConfig();
         _ = LoadShortcutConfig();
 
@@ -165,12 +161,6 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             }
         }
         catch { }
-    }
-
-    private async void LoadAnimationConfig()
-    {
-         var animStr = await _database.GetAsync<string>("Settings.StartupAnim");
-         IsAnimationEnabled = string.IsNullOrEmpty(animStr) || bool.Parse(animStr);
     }
 
     // Update State

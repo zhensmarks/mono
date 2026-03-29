@@ -108,7 +108,7 @@
                  <Button Command="{Binding OpenSelectedInPhotoshopCommand}" 
                          IsVisible="{Binding SelectedCount, Converter={x:Static ObjectConverters.IsNotNull}}"
                          Classes="Accent" Theme="{DynamicResource SolidButtonTheme}"
-                         Padding="15,8" CornerRadius="6" Background="#200078D7" BorderBrush="#0078D7" BorderThickness="1">
+                         Padding="15,8" CornerRadius="0" Background="#200078D7" BorderBrush="#0078D7" BorderThickness="1">
                      <TextBlock Text="BUKA DI PHOTOSHOP" Foreground="#0078D7" FontSize="13" FontWeight="SemiBold"/>
                  </Button>
             </StackPanel>

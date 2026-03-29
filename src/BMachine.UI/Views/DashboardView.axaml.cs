@@ -385,5 +385,49 @@ public partial class DashboardView : UserControl
              }
         }
     }
-}
 
+    // ===== LOG PANEL MANUAL RESIZE =====
+    private bool _isResizingLogPanel = false;
+    private Point _resizeStartPoint;
+    private double _resizeStartWidth;
+
+    private void OnResizeHandlePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _isResizingLogPanel = true;
+            _resizeStartPoint = e.GetPosition(this);
+            var logPanel = this.FindControl<Control>("LogPanel");
+            _resizeStartWidth = logPanel?.Bounds.Width ?? 280;
+            e.Pointer.Capture((IInputElement)sender!);
+            e.Handled = true;
+        }
+    }
+
+    private void OnResizeHandleMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isResizingLogPanel) return;
+
+        var logPanel = this.FindControl<Control>("LogPanel");
+        if (logPanel == null) return;
+
+        var currentPos = e.GetPosition(this);
+        double delta = _resizeStartPoint.X - currentPos.X;
+        double newWidth = _resizeStartWidth + delta;
+
+        // Clamp
+        newWidth = Math.Max(180, Math.Min(600, newWidth));
+        logPanel.Width = newWidth;
+        e.Handled = true;
+    }
+
+    private void OnResizeHandleReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_isResizingLogPanel)
+        {
+            _isResizingLogPanel = false;
+            e.Pointer.Capture(null);
+            e.Handled = true;
+        }
+    }
+}

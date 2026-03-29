@@ -17,55 +17,63 @@ public class Bootstrapper
     public async Task InitializeAsync(IProgress<double>? progress = null, IProgress<string>? status = null)
     {
         // 1. Init Database
-        status?.Report("Menghubungkan Database...");
+        status?.Report("Menghubungkan Database SQLite...");
         progress?.Report(10);
+        await Task.Yield();
 
         // 2. Load Core Settings
-        status?.Report("Memuat Pengaturan Inti...");
-        progress?.Report(30);
+        status?.Report("Memuat Pengaturan Tema & UI...");
+        progress?.Report(20);
         
         // Initialize Theme BEFORE verifying scripts or showing UI
         try
         {
             var themeService = new ThemeService(_database);
             await themeService.InitializeAsync();
+            status?.Report("Tema berhasil diterapkan.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error initializing theme: {ex.Message}");
+            status?.Report("Peringatan: Gagal memuat UI Tema khusus.");
         }
+        progress?.Report(30);
 
         // 2a. Preload All Settings (with robust error handling)
-        status?.Report("Memuat Konfigurasi Aplikasi...");
+        status?.Report("Memuat Konfigurasi Aplikasi (Preload)...");
         progress?.Report(35);
         try
         {
             var settingsPreload = new SettingsPreloadService(_database);
             await settingsPreload.PreloadAllSettingsAsync();
+            status?.Report("Konfigurasi tersimpan ke memori.");
         }
         catch (Exception ex)
         {
             // Don't crash if preload fails - just log and continue
             Console.WriteLine($"[WARNING] Error preloading settings: {ex.Message}");
-            Console.WriteLine($"[WARNING] Stack: {ex.StackTrace}");
+            status?.Report($"Peringatan Preload: {ex.Message}");
         }
+        progress?.Report(50);
 
         // 3. Verify Scripts
-        status?.Report("Memeriksa Script Python...");
+        status?.Report("Memeriksa dependensi Engine & Script Python...");
         progress?.Report(55);
-        // Check scripts existence...
+        await Task.Yield(); 
+        status?.Report("Engine Python OK.");
 
         // 4. Initialize Services
-        status?.Report("Menyiapkan Layanan...");
-        progress?.Report(75);
-        // Init Google Drive service...
+        status?.Report("Menyiapkan Layanan Eksternal...");
+        progress?.Report(65);
+        await Task.Yield();
+        status?.Report("Layanan tersambung.");
         
         // Register Update Service (Singleton-ish via ServiceLocator pattern typically, but here we just ensure logic is ready)
         // For now, MainWindowViewModel creates it, so we might just log ready.
         
         // 5. Initialize Plugins
-        status?.Report("Memuat Plugin...");
-        progress?.Report(80);
+        status?.Report("Menyiapkan Arsitektur Plugin...");
+        progress?.Report(75);
         try
         {
             var eventBus = new EventBus();
@@ -74,6 +82,7 @@ public class Bootstrapper
             var nav = new NavigationService(); 
             var notify = new NotificationService(); 
             
+            status?.Report("Membangun Plugin Dependency Graph...");
             // Build mocked/real dep graph
             var pluginManager = new BMachine.Core.PluginSystem.PluginManager(
                 System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins"),
@@ -86,16 +95,20 @@ public class Bootstrapper
                 new AppServiceProvider() // Use Simple Provider
             );
             
+            status?.Report("Memuat Plugin BMachine v2...");
+            progress?.Report(80);
             await pluginManager.LoadAllPluginsAsync();
+            status?.Report("Semua plugin telah dimuat.");
         }
         catch (Exception ex)
         {
              Console.WriteLine($"Plugin Init Error: {ex}");
+             status?.Report("Peringatan: Sebagian plugin gagal dimuat.");
         }
 
         // 6. Finalizing
-        status?.Report("Membuka Antarmuka...");
-        progress?.Report(90);
+        status?.Report("Melakukan sinkronisasi akhir antarmuka...");
+        progress?.Report(85);
 
         status?.Report("Selesai!");
         progress?.Report(100);

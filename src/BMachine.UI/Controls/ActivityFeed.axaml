@@ -7,7 +7,7 @@
              x:Class="BMachine.UI.Controls.ActivityFeed"
              x:Name="Root">
     
-    <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+    <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
         <Grid RowDefinitions="Auto, *">
             <!-- Header -->
             <Grid ColumnDefinitions="*, Auto" Margin="20,20,20,20">
@@ -46,7 +46,7 @@
                                         IsVisible="{Binding !IsLast}" Opacity="0.3"/>
                                         
                                 <!-- Dot -->
-                                <Border Grid.Column="0" Width="8" Height="8" CornerRadius="4" 
+                                <Border Grid.Column="0" Width="8" Height="8" CornerRadius="0" 
                                         Background="{DynamicResource TextSecondaryBrush}" Margin="0,6,15,0"
                                         VerticalAlignment="Top" Opacity="0.6"/>
                                         

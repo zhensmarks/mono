@@ -12,7 +12,7 @@
         SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
-        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+        Background="{DynamicResource AppBackgroundBrush}"
         TransparencyLevelHint="Mica">
 
     <Grid>

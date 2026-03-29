@@ -20,11 +20,11 @@
 
             <!-- Tab Bar (Compact) -->
             <Border Grid.Row="1" Margin="20,0,20,8" Background="{DynamicResource CardBackgroundBrush}" 
-                    CornerRadius="8" Padding="3" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                    CornerRadius="0" Padding="3" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                 <Grid ColumnDefinitions="*, *">
                     <Button Grid.Column="0" Command="{Binding SwitchToHarianCommand}"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Height="28" CornerRadius="6" BorderThickness="0" Cursor="Hand">
+                            Height="28" CornerRadius="0" BorderThickness="0" Cursor="Hand">
                         <Button.Styles>
                             <Style Selector="Button">
                                 <Setter Property="Background" Value="Transparent"/>
@@ -35,7 +35,7 @@
                             </Style>
                         </Button.Styles>
                         <Panel>
-                            <Border CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" 
+                            <Border CornerRadius="0" Background="{DynamicResource AccentBlueBrush}" 
                                     IsVisible="{Binding IsHarianSelected}" Opacity="0.15"
                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                             <TextBlock Text="HARIAN" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -55,7 +55,7 @@
                     
                     <Button Grid.Column="1" Command="{Binding SwitchToBulananCommand}"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Height="28" CornerRadius="6" BorderThickness="0" Cursor="Hand">
+                            Height="28" CornerRadius="0" BorderThickness="0" Cursor="Hand">
                         <Button.Styles>
                             <Style Selector="Button">
                                 <Setter Property="Background" Value="Transparent"/>
@@ -66,7 +66,7 @@
                             </Style>
                         </Button.Styles>
                         <Panel>
-                            <Border CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" 
+                            <Border CornerRadius="0" Background="{DynamicResource AccentBlueBrush}" 
                                     IsVisible="{Binding IsBulananSelected}" Opacity="0.15"
                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                             <TextBlock Text="BULANAN" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -87,7 +87,7 @@
             </Border>
 
             <!-- List Content -->
-            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                 <Grid>
                     <TextBlock Text="Loading..." HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}"/>
                     
@@ -97,7 +97,7 @@
                                 <Grid ColumnDefinitions="30, *, Auto" Margin="5">
                                     <TextBlock Text="{Binding Rank}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <Border Grid.Column="2" Background="{DynamicResource AccentPointsBrush}" CornerRadius="10" Padding="8,2">
+                                    <Border Grid.Column="2" Background="{DynamicResource AccentPointsBrush}" CornerRadius="0" Padding="8,2">
                                         <TextBlock Text="{Binding FormattedPoints, StringFormat='{}{0} Pts'}" FontSize="12" FontWeight="Bold" Foreground="White"/>
                                     </Border>
                                 </Grid>

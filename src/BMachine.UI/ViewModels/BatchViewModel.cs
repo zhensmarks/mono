@@ -475,6 +475,7 @@ namespace BMachine.UI.ViewModels;
 
     [ObservableProperty] private string _schoolLogoPath2 = "";
     [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _schoolLogoImage2;
+    [ObservableProperty] private bool _isSecondLogoVisible = false;
 
     partial void OnSchoolNameChanged(string value) => SaveDocDataAsync();
     partial void OnSchoolAddressChanged(string value) => SaveDocDataAsync();
@@ -583,25 +584,30 @@ namespace BMachine.UI.ViewModels;
     [RelayCommand]
     private void ResetDoc(string? slot)
     {
-        var targetSlot = slot ?? "0";
-        if (targetSlot == "1" || targetSlot == "0")
-        {
-            SchoolLogoPath = "";
-            SchoolLogoImage?.Dispose();
-            SchoolLogoImage = null;
-        }
-        if (targetSlot == "2" || targetSlot == "0")
-        {
-            SchoolLogoPath2 = "";
-            SchoolLogoImage2?.Dispose();
-            SchoolLogoImage2 = null;
-        }
-        if (targetSlot == "0")
-        {
-            SchoolName = "";
-            SchoolAddress = "";
-        }
+        // Reset all fields
+        SchoolName = "";
+        SchoolAddress = "";
+        
+        // Reset Logo 1
+        SchoolLogoPath = "";
+        SchoolLogoImage?.Dispose();
+        SchoolLogoImage = null;
+        
+        // Reset Logo 2
+        SchoolLogoPath2 = "";
+        SchoolLogoImage2?.Dispose();
+        SchoolLogoImage2 = null;
+        
+        // Collapse back to 1 column
+        IsSecondLogoVisible = false;
+        
         SaveDocDataAsync();
+    }
+
+    [RelayCommand]
+    private void ToggleSecondLogo()
+    {
+        IsSecondLogoVisible = !IsSecondLogoVisible;
     }
 
     [RelayCommand]

@@ -34,9 +34,9 @@
                 <ItemsControl ItemsSource="{Binding Comments}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#10FFFFFF" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                            <Border Background="#10FFFFFF" CornerRadius="0" Padding="12" Margin="0,0,0,10">
                                 <Grid ColumnDefinitions="Auto, *">
-                                    <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource AccentColorBrush}" Margin="0,0,12,0" VerticalAlignment="Top" ClipToBounds="True">
+                                    <Border Width="32" Height="32" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Margin="0,0,12,0" VerticalAlignment="Top" ClipToBounds="True">
                                         <Panel>
                                             <TextBlock Text="{Binding MemberCreatorInitials}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
                                         </Panel>
@@ -74,13 +74,13 @@
                                             <!-- Edit Mode -->
                                             <StackPanel IsVisible="{Binding IsEditing}" Spacing="6" Margin="0,4,0,0">
                                                 <TextBox Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
-                                                         Background="#1AFFFFFF" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="6"
+                                                         Background="#1AFFFFFF" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="0"
                                                          Padding="8" FontSize="13"/>
                                                 <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
                                                     <Button Content="Cancel" Command="{Binding $parent[Window].DataContext.CancelEditCommentCommand}" CommandParameter="{Binding}"
-                                                            Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="4" Cursor="Hand" FontSize="12"/>
+                                                            Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="0" Cursor="Hand" FontSize="12"/>
                                                     <Button Content="Save" Command="{Binding $parent[Window].DataContext.SaveEditCommentCommand}" CommandParameter="{Binding}"
-                                                            Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="4" Cursor="Hand" FontSize="12" FontWeight="Bold"/>
+                                                            Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="0" Cursor="Hand" FontSize="12" FontWeight="Bold"/>
                                                 </StackPanel>
                                             </StackPanel>
                                         </Grid>
@@ -98,7 +98,7 @@
             <StackPanel Grid.Column="0" VerticalAlignment="Bottom">
 
              <!-- Pending Attachments Preview Panel -->
-             <Border Background="#10FFFFFF" CornerRadius="8" Padding="8" Margin="0,0,0,8"
+             <Border Background="#10FFFFFF" CornerRadius="0" Padding="8" Margin="0,0,0,8"
                      IsVisible="{Binding HasPendingAttachments}">
                  <StackPanel Spacing="6">
                      <TextBlock Text="Attachments" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -110,7 +110,7 @@
                          </ItemsControl.ItemsPanel>
                          <ItemsControl.ItemTemplate>
                              <DataTemplate x:DataType="models:PendingAttachmentItem">
-                                 <Border Background="#15FFFFFF" CornerRadius="6" Padding="4" Margin="0,0,6,6"
+                                 <Border Background="#15FFFFFF" CornerRadius="0" Padding="4" Margin="0,0,6,6"
                                          Width="80" Height="80" ClipToBounds="True">
                                      <Grid>
                                          <!-- Image Thumbnail -->
@@ -125,7 +125,7 @@
                                          </StackPanel>
                                          <!-- Remove Button -->
                                          <Button Command="{Binding $parent[Window].DataContext.RemoveAttachmentCommand}" CommandParameter="{Binding}"
-                                                 Width="18" Height="18" CornerRadius="9" Padding="0"
+                                                 Width="18" Height="18" CornerRadius="0" Padding="0"
                                                  Background="#CC000000" BorderThickness="0" Cursor="Hand"
                                                  HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0">
                                              <TextBlock Text="✕" FontSize="10" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -141,7 +141,7 @@
              <!-- Presets Overlay (Above Textbox) -->
             <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
                     Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                    CornerRadius="8" Padding="10" Margin="0,0,0,8"
+                    CornerRadius="0" Padding="10" Margin="0,0,0,8"
                     IsVisible="{Binding IsPresetPanelOpen}">
                 <StackPanel Spacing="8">
                         <TextBlock Text="Quick Replies (Max 5)" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -167,7 +167,7 @@
                         <!-- Add New Preset -->
                         <Grid ColumnDefinitions="*, Auto" IsVisible="{Binding CommentPresets.Count, Converter={x:Static ObjectConverters.IsNotNull}}"> 
                                 <TextBox Text="{Binding NewPresetText}" Watermark="New preset... (Enter to save)" 
-                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="4" Padding="6" Margin="0,0,4,0">
+                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="0" Padding="6" Margin="0,0,4,0">
                                     <TextBox.KeyBindings>
                                         <KeyBinding Gesture="Enter" Command="{Binding AddCommentPresetCommand}"/>
                                     </TextBox.KeyBindings>
@@ -182,7 +182,7 @@
 
             <!-- @Mention Popup (Above Textbox) -->
             <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                    CornerRadius="8" Padding="6" Margin="0,0,0,4" MaxHeight="160"
+                    CornerRadius="0" Padding="6" Margin="0,0,0,4" MaxHeight="160"
                     IsVisible="{Binding IsMentionPopupOpen}">
                 <ScrollViewer>
                     <ItemsControl ItemsSource="{Binding FilteredMembers}">
@@ -192,7 +192,7 @@
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Background="Transparent" BorderThickness="0" Padding="8,5" Cursor="Hand">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Border Width="24" Height="24" CornerRadius="12" Background="{DynamicResource AccentColorBrush}">
+                                        <Border Width="24" Height="24" CornerRadius="0" Background="{DynamicResource AccentColorBrush}">
                                             <TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" 
                                                        Foreground="White" FontWeight="Bold" FontSize="10"/>
                                         </Border>
@@ -207,7 +207,7 @@
             </Border>
 
             <TextBox x:Name="Part_CommentTextBox" Text="{Binding NewCommentText}" Watermark="Write a comment... (@mention)" 
-                     Background="#1AFFFFFF" BorderThickness="0" CornerRadius="8" Padding="10"
+                     Background="#1AFFFFFF" BorderThickness="0" CornerRadius="0" Padding="10"
                      Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100">
                 <TextBox.KeyBindings>
                     <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
@@ -222,7 +222,7 @@
                 </TextBox.InnerLeftContent>
                 <TextBox.InnerRightContent>
                     <Button Command="{Binding TogglePresetPanelCommand}"
-                            Width="30" Height="30" CornerRadius="15"
+                            Width="30" Height="30" CornerRadius="0"
                             Background="Transparent" BorderThickness="0" Cursor="Hand"
                             ToolTip.Tip="Quick Replies">
                         <PathIcon Data="{StaticResource IconChevronUp}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -232,7 +232,7 @@
             </StackPanel>
             
             <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
-                    Width="40" Height="40" CornerRadius="20" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment" VerticalAlignment="Bottom" Margin="0,0,0,5">
+                    Width="40" Height="40" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment" VerticalAlignment="Bottom" Margin="0,0,0,5">
                 <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
             </Button>
         </Grid>

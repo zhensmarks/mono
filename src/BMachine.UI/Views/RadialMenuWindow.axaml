@@ -108,7 +108,7 @@
     <Border Background="Transparent">
         <Grid>
              <!-- 1. Main Background Plate (Theme Aware) -->
-             <Border Width="200" Height="200" CornerRadius="100"
+             <Border Width="200" Height="200" CornerRadius="0"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      Background="{DynamicResource AppBackgroundBrush}">
              </Border>
@@ -144,7 +144,7 @@
                                 IsHitTestVisible="False"/>
 
              <!-- 5. Solid Central Hub with Dynamic Text -->
-             <Border Width="88" Height="88" CornerRadius="44" 
+             <Border Width="88" Height="88" CornerRadius="0" 
                      Background="{DynamicResource CardBackgroundBrush}"
                      HorizontalAlignment="Center" VerticalAlignment="Center">
                  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,0">

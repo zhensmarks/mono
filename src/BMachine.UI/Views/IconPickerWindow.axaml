@@ -32,7 +32,7 @@
         </Style>
     </Window.Styles>
 
-    <Border CornerRadius="12" ClipToBounds="True" 
+    <Border CornerRadius="0" ClipToBounds="True" 
             BorderThickness="1" BorderBrush="#30FFFFFF"
             BoxShadow="0 10 30 0 #80000000">
         <Border.Background>

@@ -568,7 +568,7 @@
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
                                 <Border Width="{Binding #ExplorerRoot.DataContext.ThumbnailSize}" 
                                         Height="{Binding #ExplorerRoot.DataContext.ThumbnailHeight}" 
-                                        CornerRadius="6" ClipToBounds="True"
+                                        CornerRadius="0" ClipToBounds="True"
                                         Background="{DynamicResource CardBackgroundBrush}" 
                                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
@@ -655,7 +655,7 @@
                             </DataTemplate>
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                <Border CornerRadius="4" ClipToBounds="True"
+                                <Border CornerRadius="0" ClipToBounds="True"
                                         Background="Transparent" 
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
                                         PointerPressed="OnItemPointerPressed"
@@ -915,7 +915,7 @@
                 Margin="0,0,24,24" 
                 IsVisible="{Binding IsSearchVisible}"
                 BoxShadow="0 4 12 0 #40000000"
-                CornerRadius="6"
+                CornerRadius="0"
                 BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
                 Background="{DynamicResource CardBackgroundBrush}"
                 Padding="6,4" Width="240">
@@ -936,7 +936,7 @@
 
         <!-- FLYOUT OVERLAYS (Z-Index Top) -->
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsNewFolderVisible}">
-            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
+            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="New Folder" FontWeight="Bold" FontSize="16"/>
                     <TextBox Text="{Binding NewItemName}" Watermark="Folder Name">
@@ -954,7 +954,7 @@
         </Grid>
 
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsNewFileVisible}">
-            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
+            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="New File" FontWeight="Bold" FontSize="16"/>
                     <TextBox Text="{Binding NewItemName}" Watermark="File Name (e.g. notes.txt)">
@@ -972,7 +972,7 @@
         </Grid>
         
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsDuplicateVisible}">
-            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
+            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Duplicate Items" FontWeight="Bold" FontSize="16"/>
                      <StackPanel Orientation="Horizontal" Spacing="10">

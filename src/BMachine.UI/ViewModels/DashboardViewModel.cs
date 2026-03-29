@@ -136,7 +136,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     partial void OnIsSpreadsheetOnlineChanged(bool value)
     {
-        if (_spreadsheetVM != null) _spreadsheetVM.IsOnline = value;
+        if (SpreadsheetVM != null) SpreadsheetVM.IsOnline = value;
     }
     partial void OnNavFontSizeChanged(double value) => _database?.SetAsync("Dashboard.Nav.FontSize", value.ToString());
 
@@ -378,33 +378,33 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [RelayCommand]
     private void OpenEditingList()
     {
-        if (_trelloVM == null) return;
-        _trelloVM.SelectedTab = 0;
-        _trelloVM.IsEmbedded = true;
-        _trelloVM.EnsureActiveTabAutoRefreshStarted();
-        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
+        if (TrelloVM == null) return;
+        TrelloVM.SelectedTab = 0;
+        TrelloVM.IsEmbedded = true;
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = TrelloVM };
         NavigateToView(view);
     }
 
     [RelayCommand]
     private void OpenRevisionList()
     {
-        if (_trelloVM == null) return;
-        _trelloVM.SelectedTab = 1;
-        _trelloVM.IsEmbedded = true;
-        _trelloVM.EnsureActiveTabAutoRefreshStarted();
-        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
+        if (TrelloVM == null) return;
+        TrelloVM.SelectedTab = 1;
+        TrelloVM.IsEmbedded = true;
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = TrelloVM };
         NavigateToView(view);
     }
 
     [RelayCommand]
     private void OpenLateList()
     {
-        if (_trelloVM == null) return;
-        _trelloVM.SelectedTab = 2;
-        _trelloVM.IsEmbedded = true;
-        _trelloVM.EnsureActiveTabAutoRefreshStarted();
-        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = _trelloVM };
+        if (TrelloVM == null) return;
+        TrelloVM.SelectedTab = 2;
+        TrelloVM.IsEmbedded = true;
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = TrelloVM };
         NavigateToView(view);
     }
 
@@ -426,11 +426,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     private void OpenUnifiedWindow(int tabIndex, string title)
     {
-        if (_trelloVM == null) return;
-        _trelloVM.SelectedTab = tabIndex;
-        _trelloVM.IsEmbedded = false;
-        _trelloVM.EnsureActiveTabAutoRefreshStarted();
-        OpenListWindow(_trelloVM, title);
+        if (TrelloVM == null) return;
+        TrelloVM.SelectedTab = tabIndex;
+        TrelloVM.IsEmbedded = false;
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+        OpenListWindow(TrelloVM, title);
     }
 
 
@@ -450,11 +450,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private async Task OpenSpreadsheetWindow()
     {
         // Refresh Data - DISABLED by user request (load manually)
-        // _spreadsheetVM.LoadDataCommand.Execute(null);
+        // SpreadsheetVM.LoadDataCommand.Execute(null);
 
         var window = new BMachine.UI.Views.SpreadsheetWindow
         {
-            DataContext = _spreadsheetVM
+            DataContext = SpreadsheetVM
         };
 
         // Restore Position & Size
@@ -632,7 +632,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             _pointLeaderboardVM = new PointLeaderboardViewModel(database);
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init SpreadsheetVM...\n");
-            _spreadsheetVM = new SpreadsheetViewModel(database);
+            SpreadsheetVM = new SpreadsheetViewModel(database);
             
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init FileOperationManager...\n");
             _fileManager = new BMachine.UI.Services.FileOperationManager(); // Init Manager
@@ -665,32 +665,32 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         var revisionListVM = new RevisionCardListViewModel(database);
         var lateListVM = new LateCardListViewModel(database);
         
-        _trelloVM = new UnifiedTrelloViewModel(database, editingListVM, revisionListVM, lateListVM);
+        TrelloVM = new UnifiedTrelloViewModel(database, editingListVM, revisionListVM, lateListVM);
 
-        CurrentTrelloViewModel = _trelloVM;
+        CurrentTrelloViewModel = TrelloVM;
         // SYNC: Listen to changes in lists to update Stats immediately (Thread-Safe)
-        _trelloVM.EditingVM.Cards.CollectionChanged += (s, e) => 
+        TrelloVM.EditingVM.Cards.CollectionChanged += (s, e) => 
         {
              Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
              {
-                 StatEditing = _trelloVM.EditingVM.Cards.Count(c => !c.IsSeparator).ToString();
-                 StatEditingPercentage = Math.Min(_trelloVM.EditingVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
+                 StatEditing = TrelloVM.EditingVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatEditingPercentage = Math.Min(TrelloVM.EditingVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
              });
         };
-        _trelloVM.RevisionVM.Cards.CollectionChanged += (s, e) => 
+        TrelloVM.RevisionVM.Cards.CollectionChanged += (s, e) => 
         {
              Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
              {
-                 StatRevision = _trelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator).ToString();
-                 StatRevisionPercentage = Math.Min(_trelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
+                 StatRevision = TrelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatRevisionPercentage = Math.Min(TrelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
              });
         };
-        _trelloVM.LateVM.Cards.CollectionChanged += (s, e) => 
+        TrelloVM.LateVM.Cards.CollectionChanged += (s, e) => 
         {
              Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
              {
-                 StatLate = _trelloVM.LateVM.Cards.Count(c => !c.IsSeparator).ToString();
-                 StatLatePercentage = Math.Min(_trelloVM.LateVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
+                 StatLate = TrelloVM.LateVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatLatePercentage = Math.Min(TrelloVM.LateVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
              });
         };
 
@@ -698,33 +698,33 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         InitializationTask = LoadData();
 
         // Start only active tab auto-refresh to avoid burst load on startup.
-        _trelloVM.EnsureActiveTabAutoRefreshStarted();
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
 
         // SAFETY: Fallback Timer to force sync UI if events fail
         var safetyTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         safetyTimer.Tick += (s, e) => 
         {
-             if (_trelloVM?.EditingVM != null)
+             if (TrelloVM?.EditingVM != null)
              {
-                 int c = _trelloVM.EditingVM.Cards.Count(c => !c.IsSeparator);
+                 int c = TrelloVM.EditingVM.Cards.Count(c => !c.IsSeparator);
                  if (StatEditing != c.ToString()) 
                  {
                      StatEditing = c.ToString();
                      StatEditingPercentage = Math.Min(c / 10.0, 1.0);
                  }
              }
-             if (_trelloVM?.RevisionVM != null)
+             if (TrelloVM?.RevisionVM != null)
              {
-                 int c = _trelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator);
+                 int c = TrelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator);
                  if (StatRevision != c.ToString()) 
                  {
                      StatRevision = c.ToString();
                      StatRevisionPercentage = Math.Min(c / 10.0, 1.0);
                  }
              }
-             if (_trelloVM?.LateVM != null)
+             if (TrelloVM?.LateVM != null)
              {
-                 int c = _trelloVM.LateVM.Cards.Count(c => !c.IsSeparator);
+                 int c = TrelloVM.LateVM.Cards.Count(c => !c.IsSeparator);
                  if (StatLate != c.ToString()) 
                  {
                      StatLate = c.ToString();
@@ -761,10 +761,10 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
          _gdriveVM = null!;
          _batchVM = null!;
          _pointLeaderboardVM = null!;
-         _spreadsheetVM = null!;
+         SpreadsheetVM = null!;
          _outputExplorerVM = null!;
-         _trelloVM = new UnifiedTrelloViewModel(null!, new EditingCardListViewModel(null!), new RevisionCardListViewModel(null!), new LateCardListViewModel(null!));
-         CurrentTrelloViewModel = _trelloVM;
+         TrelloVM = new UnifiedTrelloViewModel(null!, new EditingCardListViewModel(null!), new RevisionCardListViewModel(null!), new LateCardListViewModel(null!));
+         CurrentTrelloViewModel = TrelloVM;
     }
 
     private Avalonia.Threading.DispatcherTimer? _timer;
@@ -1318,9 +1318,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              if (shouldSync || (DateTime.Now - _lastEditingSync).TotalSeconds >= EditingRefreshSeconds)
              {
                  _lastEditingSync = DateTime.Now;
-                 await _trelloVM.EditingVM.RefreshCommand.ExecuteAsync(null);
+                 await TrelloVM.EditingVM.RefreshCommand.ExecuteAsync(null);
                  
-                 int count = _trelloVM.EditingVM.Cards.Count(c => !c.IsSeparator);
+                 int count = TrelloVM.EditingVM.Cards.Count(c => !c.IsSeparator);
                  StatEditing = count.ToString();
                  StatEditingPercentage = Math.Min(count / MAX_CARDS, 1.0);
                  
@@ -1348,9 +1348,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              if (shouldSync || (DateTime.Now - _lastRevisionSync).TotalSeconds >= RevisionRefreshSeconds)
              {
                  _lastRevisionSync = DateTime.Now;
-                 await _trelloVM.RevisionVM.RefreshCommand.ExecuteAsync(null);
+                 await TrelloVM.RevisionVM.RefreshCommand.ExecuteAsync(null);
                  
-                 int count = _trelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator);
+                 int count = TrelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator);
                  StatRevision = count.ToString();
                  StatRevisionPercentage = Math.Min(count / MAX_CARDS, 1.0);
                  
@@ -1372,9 +1372,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              if (shouldSync || (DateTime.Now - _lastLateSync).TotalSeconds >= LateRefreshSeconds)
              {
                  _lastLateSync = DateTime.Now;
-                 await _trelloVM.LateVM.RefreshCommand.ExecuteAsync(null);
+                 await TrelloVM.LateVM.RefreshCommand.ExecuteAsync(null);
                  
-                 int count = _trelloVM.LateVM.Cards.Count(c => !c.IsSeparator);
+                 int count = TrelloVM.LateVM.Cards.Count(c => !c.IsSeparator);
                  StatLate = count.ToString();
                  StatLatePercentage = Math.Min(count / MAX_CARDS, 1.0);
                  
@@ -1666,11 +1666,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     // --- Trello View Cycling ---
     public void Receive(NavigateToNextTrelloViewMessage message)
     {
-        if (_trelloVM != null)
+        if (TrelloVM != null)
         {
             // Rotate tabs 0 -> 1 -> 2 -> 0
-            _trelloVM.SelectedTab = (_trelloVM.SelectedTab + 1) % 3;
-            CurrentTrelloViewModel = _trelloVM;
+            TrelloVM.SelectedTab = (TrelloVM.SelectedTab + 1) % 3;
+            CurrentTrelloViewModel = TrelloVM;
         }
     }
 

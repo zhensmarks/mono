@@ -53,7 +53,7 @@
             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,15,15,0" ZIndex="10">
                  
                  <!-- Connection Status -->
-                 <Border Background="#22000000" CornerRadius="6" Padding="10,6" Margin="0,0,10,0" VerticalAlignment="Center"
+                 <Border Background="#22000000" CornerRadius="0" Padding="10,6" Margin="0,0,10,0" VerticalAlignment="Center"
                          BorderBrush="#22FFFFFF" BorderThickness="1">
                      <StackPanel Orientation="Horizontal" Spacing="6">
                          <Ellipse Width="6" Height="6" Fill="{Binding IsVpnActive, Converter={StaticResource BoolToGreenRedConverter}}"/>
@@ -78,7 +78,7 @@
             
             <!-- Empty State -->
             <Grid Grid.Column="0" IsVisible="{Binding !HasFiles}" DragDrop.AllowDrop="True" Margin="0,80,0,0">
-                <Border Margin="20" BorderBrush="#33FFFFFF" BorderThickness="2" CornerRadius="12" 
+                <Border Margin="20" BorderBrush="#33FFFFFF" BorderThickness="2" CornerRadius="0" 
                          Background="Transparent">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
                         <PathIcon Data="{StaticResource IconFolder}" Width="48" Height="48" Opacity="0.5" HorizontalAlignment="Center"/>
@@ -117,7 +117,7 @@
                     </ListBox.Styles>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Padding="10,8" CornerRadius="10" Background="#15FFFFFF" 
+                            <Border Padding="10,8" CornerRadius="0" Background="#15FFFFFF" 
                                     BorderBrush="#22FFFFFF" BorderThickness="1">
                                 <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
                                     <!-- Checkbox -->
@@ -131,7 +131,7 @@
                                         
                                         <!-- Progress Bar -->
                                         <ProgressBar Value="{Binding Progress}" Maximum="100" Height="6" 
-                                                     Background="#15FFFFFF" CornerRadius="3" VerticalAlignment="Center">
+                                                     Background="#15FFFFFF" CornerRadius="0" VerticalAlignment="Center">
                                             <ProgressBar.Foreground>
                                                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
                                                     <GradientStop Color="#66D1FF" Offset="0"/>
@@ -155,7 +155,7 @@
                                     </StackPanel>
                                     
                                     <!-- Status Badge -->
-                                    <Border Grid.Column="2" CornerRadius="6" Padding="12,6" Background="#22000000" 
+                                    <Border Grid.Column="2" CornerRadius="0" Padding="12,6" Background="#22000000" 
                                             Margin="15,0,0,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Status}" Foreground="{Binding StatusColor}" 
                                                    FontSize="12" FontWeight="Medium" HorizontalAlignment="Center"/>
@@ -212,12 +212,12 @@
                      <Button Content="BERSIHKAN" Command="{Binding ClearCommand}" 
                              Theme="{DynamicResource OutlinedButtonTheme}" 
                              BorderBrush="#553333" Foreground="#FF5555"
-                             Padding="14,8" CornerRadius="6"/>
+                             Padding="14,8" CornerRadius="0"/>
                      
                      <Button Content="HAPUS TERPILIH" Command="{Binding RemoveSelectedFilesCommand}" 
                              Theme="{DynamicResource OutlinedButtonTheme}" 
                              BorderBrush="#553333" Foreground="Orange"
-                             Padding="14,8" CornerRadius="6"/>
+                             Padding="14,8" CornerRadius="0"/>
 
 
                 </StackPanel>
@@ -228,7 +228,7 @@
                     <!-- Smart Retry -->
                     <Button Content="ULANGI (Error/Kecil)" Command="{Binding RetrySmallFilesCommand}" 
                             IsVisible="{Binding IsRetryVisible}" Background="#333" Foreground="LightYellow"
-                            Padding="14,8" CornerRadius="6"
+                            Padding="14,8" CornerRadius="0"
                             ToolTip.Tip="Ulangi file yang selesai tapi outputnya kecil/error (misal 59B)"/>
 
                     <!-- Action Buttons -->
@@ -243,10 +243,10 @@
                     <!-- Control Buttons (Visible when processing) -->
                     <Button Content="JEDA" Command="{Binding PauseCommand}" 
                             IsVisible="{Binding IsProcessing}"
-                            Padding="14,8" CornerRadius="6" Background="#555"/>
+                            Padding="14,8" CornerRadius="0" Background="#555"/>
                     <Button Content="STOP" Command="{Binding StopCommand}" 
                             IsVisible="{Binding IsProcessing}"
-                            Padding="14,8" CornerRadius="6" FontWeight="Bold">
+                            Padding="14,8" CornerRadius="0" FontWeight="Bold">
                         <Button.Background>
                             <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
                                 <GradientStop Color="#FF5C5C" Offset="0"/>
@@ -261,7 +261,7 @@
         
         <!-- Completion Notification Overlay -->
         <Grid Grid.RowSpan="3" IsVisible="{Binding ShowCompletionDialog}" Background="#88000000">
-            <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="12" 
+            <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="0" 
                     HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30" MinWidth="300"
                     BoxShadow="0 4 20 0 #000000">
                 <StackPanel Spacing="20">
@@ -281,7 +281,7 @@
                     
                     <Button Content="OK" Command="{Binding CloseCompletionDialogCommand}" 
                             HorizontalAlignment="Center" Width="100" HorizontalContentAlignment="Center"
-                            Padding="10" CornerRadius="6" Background="{DynamicResource AccentColorBrush}" Foreground="White" FontWeight="SemiBold"/>
+                            Padding="10" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -294,7 +294,7 @@
             <!-- Settings Modal (Solid Background) -->
             <Border Width="400" VerticalAlignment="Center" HorizontalAlignment="Center"
                     Background="#1E1E1E"
-                    CornerRadius="8" BorderBrush="#444" BorderThickness="1" Padding="20"
+                    CornerRadius="0" BorderBrush="#444" BorderThickness="1" Padding="20"
                     BoxShadow="0 10 20 0 #55000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Pengaturan" FontSize="18" FontWeight="SemiBold"/>

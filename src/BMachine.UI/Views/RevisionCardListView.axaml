@@ -50,14 +50,14 @@
                                         CommandParameter="{Binding}"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                         Padding="0" BorderThickness="0" Background="Transparent"
-                                        Margin="0,0,0,4" CornerRadius="6">
+                                        Margin="0,0,0,4" CornerRadius="0">
                                     <Button.Styles>
                                         <Style Selector="Button:pointerover /template/ ContentPresenter">
                                             <Setter Property="Background" Value="Transparent"/>
                                         </Style>
                                     </Button.Styles>
                                     
-                                    <Border ClipToBounds="True" CornerRadius="6" 
+                                    <Border ClipToBounds="True" CornerRadius="0" 
                                             BorderThickness="1"
                                             Classes.selected="{Binding IsActive}"
                                             DragDrop.AllowDrop="True" DragDrop.DragOver="OnCardDragOver" DragDrop.Drop="OnCardDrop">
@@ -79,7 +79,7 @@
                                         
                                         <Grid RowDefinitions="Auto, *">
                                             <!-- Cover Overlay Background -->
-                                            <Border Grid.RowSpan="2" CornerRadius="6" ClipToBounds="True"
+                                            <Border Grid.RowSpan="2" CornerRadius="0" ClipToBounds="True"
                                                     IsVisible="{Binding HasCover}" Opacity="0.15">
                                                 <Panel>
                                                     <Border Background="{Binding CoverColor}" IsVisible="{Binding !IsCoverImage}"/>
@@ -119,37 +119,35 @@
                                             <!-- Status Badges (Right Side) -->
                                             <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0" Spacing="6">
                                                 
-                                                <!-- Checklist Progress -->
-                                                <Border Grid.Column="3" CornerRadius="4" Padding="6,2" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                <!-- Checklist Progress (Modern Badge) -->
+                                                <Border CornerRadius="0" Padding="4,2" Margin="0,0,10,0" VerticalAlignment="Center"
                                                         IsVisible="{Binding HasChecklist}"
+                                                        Background="#1A1A1A"
                                                         ToolTip.Tip="{Binding ChecklistTooltip}">
-                                                <Border.Styles>
-                                                    <Style Selector="Border">
-                                                        <Setter Property="Background" Value="#26FFFFFF"/> <!-- Default Gray (Like Attachment) -->
-                                                    </Style>
-                                                    <Style Selector="Border.valid">
-                                                        <Setter Property="Background" Value="#2622C55E"/> <!-- Green (Valid Format) -->
-                                                    </Style>
-                                                </Border.Styles>
-                                                <Classes.valid>
-                                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                                        <Binding Path="HasEditingChecklist"/>
-                                                    </MultiBinding>
-                                                </Classes.valid>
-                                                
-                                                 <PathIcon Width="10" Height="10">
-                                                     <PathIcon.Styles>
-                                                         <Style Selector="PathIcon">
-                                                             <Setter Property="Data" Value="{StaticResource IconSquare}"/>
-                                                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                                                         </Style>
-                                                         <Style Selector="Border.valid PathIcon">
-                                                             <Setter Property="Data" Value="{StaticResource IconCheckSquare}"/>
-                                                             <Setter Property="Foreground" Value="#22C55E"/>
-                                                         </Style>
-                                                     </PathIcon.Styles>
-                                                 </PathIcon>
-                                            </Border>
+                                                 <Border.Styles>
+                                                     <Style Selector="Border.valid">
+                                                         <!-- Keep same background but icon will be green -->
+                                                     </Style>
+                                                 </Border.Styles>
+                                                 <Classes.valid>
+                                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                         <Binding Path="HasEditingChecklist"/>
+                                                     </MultiBinding>
+                                                 </Classes.valid>
+                                                 
+                                                  <PathIcon Width="12" Height="12" Data="{StaticResource IconChecklistBadge}">
+                                                      <PathIcon.Styles>
+                                                          <Style Selector="PathIcon">
+                                                              <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                                              <Setter Property="Opacity" Value="0.5"/>
+                                                          </Style>
+                                                          <Style Selector="Border.valid PathIcon">
+                                                              <Setter Property="Foreground" Value="#22C55E"/>
+                                                              <Setter Property="Opacity" Value="1.0"/>
+                                                          </Style>
+                                                      </PathIcon.Styles>
+                                                  </PathIcon>
+                                             </Border>
 
 
                                             </StackPanel>

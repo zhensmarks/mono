@@ -14,7 +14,7 @@
             <TextBlock Text="Customize the behavior and defaults of the Explorer." Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" Margin="0,-10,0,0"/>
 
             <!-- Explorer Defaults -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
@@ -26,7 +26,7 @@
             </Border>
 
             <!-- Shortcuts: Record keyboard -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Shortcuts" FontWeight="SemiBold" FontSize="16"/>
                     <TextBlock Text="Klik Record lalu tekan kombinasi tombol yang diinginkan." FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>

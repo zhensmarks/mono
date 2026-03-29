@@ -98,10 +98,11 @@ public partial class App : Application,
 
             Log("Creating Bootstrapper...");
             var bootstrapper = new Bootstrapper(_db);
-            var progress = new Progress<double>(p => splashVm.Progress = p);
+            IProgress<double> progress = new Progress<double>(p => splashVm.Progress = p);
             IProgress<string> status = new Progress<string>(s => 
             {
                 splashVm.StatusText = s;
+                splashVm.AddLog(s);
                 Log($"[Bootstrapper] {s}");
             });
 
@@ -154,19 +155,25 @@ public partial class App : Application,
             }
 
             // Wait for Dashboard to initialize while Splash Screen is visible
-            status?.Report("Memuat Antarmuka & Data Pengguna...");
             Log("Awaiting Dashboard initialization...");
+            splashVm.AddLog("Data Pengguna & Dashboard...");
+            progress.Report(90);
+            
             await mainVm.InitializeDashboardAsync();
-            Log("Dashboard initialized.");
+            
+            splashVm.AddLog("BMachine Siap Beroperasi.");
+            progress.Report(100);
+            Log("Dashboard is marked ready.");
+            
+            // Allow progress bar transition animation to finish visually (350ms) before snapping window shut
+            await Task.Delay(350);
 
             // 4. Swap Windows
-            Log("Swapping to MainWindow...");
-            desktop.MainWindow = mainWindow;
+            Log("Showing MainWindow and closing SplashWindow...");
             mainWindow.Show();
+            splashWindow.Close();
             Log("MainWindow.Show() called.");
             
-            splashWindow.Close();
-            Log("SplashWindow Closed.");
             _mainWindow = mainWindow;
             
             // Hook Focus Events

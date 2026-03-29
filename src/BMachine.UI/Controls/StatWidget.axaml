@@ -67,12 +67,13 @@
                                  IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
                                  VerticalAlignment="Bottom" HorizontalAlignment="Center"
                                  Margin="0,0,0,8"
-                                 Width="16" Height="16"
-                                 Background="Transparent" BorderThickness="0" Padding="2"
+                                 Width="24" Height="24"
+                                 Background="Transparent" BorderThickness="0" Padding="4"
+                                 CornerRadius="0"
                                  ToolTip.Tip="Open in New Window" Classes="Clear">
-                             <shapes:Path Data="{StaticResource IconOpenWindow}" 
+                             <shapes:Path Data="{StaticResource IconOpenWindowFilled}" 
                                           Fill="{Binding #Root.Color}"
-                                          Stretch="Uniform" Opacity="0.8"/>
+                                          Stretch="Uniform" Opacity="1.0"/>
                          </Button>
                                    
                          <!-- Icon -->
@@ -111,33 +112,41 @@
                         <Button Grid.Column="1" 
                                 Command="{Binding #Root.WindowCommand}"
                                 IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                Width="20" Height="20"
-                                Background="Transparent" BorderThickness="0" Padding="4"
+                                Width="28" Height="28"
+                                Background="Transparent" BorderThickness="0" Padding="6"
+                                CornerRadius="0"
                                 ToolTip.Tip="Open in New Window" Classes="Clear"
-                                Margin="4,0,-6,0"
                                 VerticalAlignment="Center"
                                 Cursor="Hand">
-                            <shapes:Path Data="{StaticResource IconOpenWindow}" 
+                            <shapes:Path Data="{StaticResource IconOpenWindowFilled}" 
                                          Fill="{Binding #Root.Color}"
-                                         Stretch="Uniform" Opacity="0.8"/>
+                                         Stretch="Uniform" Opacity="1.0"/>
                         </Button>
                     </Grid>
 
-                    <!-- Main Value -->
-                    <TextBlock Grid.Row="1" 
-                               Text="{Binding #Root.Value}"
-                               FontSize="32"
-                               FontWeight="Bold"
-                               Foreground="{DynamicResource TextPrimaryBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,0,4"/>
+                    <!-- Main Value & Suffix -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,0,0,4">
+                        <TextBlock Text="{Binding #Root.Value}"
+                                   FontSize="32"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                   
+                        <TextBlock Text="{Binding #Root.Suffix}"
+                                   IsVisible="{Binding #Root.Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   FontSize="14"
+                                   FontWeight="Black"
+                                   Foreground="{Binding #Root.Color}"
+                                   VerticalAlignment="Bottom"
+                                   LetterSpacing="1"
+                                   Margin="0,0,0,6"/>
+                    </StackPanel>
 
                     <!-- Progress Bar -->
                     <ProgressBar Grid.Row="2"
                                  Value="{Binding #Root.Percentage}"
                                  Maximum="1" Minimum="0"
                                  Height="4"
-                                 CornerRadius="2"
+                                 CornerRadius="0"
                                  Background="#22FFFFFF"
                                  Foreground="{Binding #Root.Color}"
                                  VerticalAlignment="Bottom"/>

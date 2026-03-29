@@ -68,31 +68,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
              IsVisible = m.IsVisible;
         });
         
-        // Subscribe to Color Change
-        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Register<OrbColorChangedMessage>(this, (r, m) =>
-        {
-             AccentColor = m.Value;
-        });
-        
-        // Subscribe to Speed Change
-        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Register<OrbSpeedChangedMessage>(this, (r, m) =>
-        {
-             OrbSpeedIndex = m.Value;
-        });
-        
-        // Subscribe to Breathing Toggle
-        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Register<OrbBreathingToggledMessage>(this, (r, m) =>
-        {
-             IsOrbBreathing = m.Value;
-        });
-        
-        // Subscribe to Button Size Change
-        CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Register<Messages.OrbButtonSizeChangedMessage>(this, (r, m) =>
-        {
-             OrbButtonWidth = m.Value.Width;
-             OrbButtonHeight = m.Value.Height;
-             // View subscribes to PropertyChanged of these, so it should rebuild automatically
-        });
+        // Legacy Orb subscriptions removed
         
         _ = LoadOrbSpeed();
         _ = LoadOrbBreathing();

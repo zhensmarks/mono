@@ -90,7 +90,6 @@ public class SettingsPreloadService
             "Settings.Dash.Point",
             
             // Visual Settings
-            "Settings.StartupAnim",
             "Settings.StatSpeed",
             "Settings.FloatingWidget",
             "Dashboard.IsFloatingWidgetVisible",

@@ -8,7 +8,7 @@
         <Border Background="{DynamicResource ControlBackgroundBrush}" 
                 BorderBrush="{DynamicResource ControlBorderBrush}" 
                 BorderThickness="1" 
-                CornerRadius="8" 
+                CornerRadius="0" 
                 MaxWidth="400" 
                 VerticalAlignment="Center" 
                 HorizontalAlignment="Center" 
@@ -49,7 +49,7 @@
                             <Button Margin="3" Padding="0" Background="Transparent" BorderThickness="0"
                                     Command="{Binding $parent[UserControl].((vm:AddTabViewModel)DataContext).SetAccentColorCommand}"
                                     CommandParameter="{Binding}">
-                                <Border Width="28" Height="28" CornerRadius="14" Background="{Binding}" BorderBrush="White" BorderThickness="0"/>
+                                <Border Width="28" Height="28" CornerRadius="0" Background="{Binding}" BorderBrush="White" BorderThickness="0"/>
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

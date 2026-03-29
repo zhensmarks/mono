@@ -27,7 +27,7 @@
     <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="Avalonia.Xaml.Behaviors" Version="11.2.0" />
     <PackageReference Include="SharpHook" Version="5.3.7" />
-    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.8.0" />
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.11.1" />
   </ItemGroup>
 
   <ItemGroup>

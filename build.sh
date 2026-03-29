@@ -23,10 +23,20 @@ esac
 echo "🖥️  Detected OS: $OS"
 
 if [ "$OS" == "Mac" ]; then
-    echo "🍏 Building for macOS (ARM64 & x64)..."
-    
-    # Define targets
-    TARGETS=("osx-arm64" "osx-x64")
+    ARCH="$(uname -m)"
+    if [ "$ARCH" == "arm64" ]; then
+        LOCAL_TARGET="osx-arm64"
+    else
+        LOCAL_TARGET="osx-x64"
+    fi
+
+    if [ "$1" == "all" ]; then
+        echo "🍏 Building for macOS (Full: ARM64 & x64)..."
+        TARGETS=("osx-arm64" "osx-x64")
+    else
+        echo "🍏 Building for macOS (Local: $LOCAL_TARGET)..."
+        TARGETS=("$LOCAL_TARGET")
+    fi
     
     for TARGET in "${TARGETS[@]}"; do
         echo "   🔨 Publishing $TARGET..."

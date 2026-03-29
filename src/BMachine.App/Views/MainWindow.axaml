@@ -20,66 +20,108 @@
         UseLayoutRounding="True"
         Background="{Binding WindowBackground}">
 
-    <Grid Name="MainRoot" RenderTransformOrigin="0.5,0.5" Classes.animated="{Binding IsAnimationEnabled}">
-        <Grid.Styles>
-            <Style Selector="Grid.animated#MainRoot">
-                <Style.Animations>
-                    <Animation Duration="0:0:2" IterationCount="1" Easing="QuadraticEaseOut">
-                        <KeyFrame Cue="0%">
-                            <Setter Property="Opacity" Value="0.0"/>
-                        </KeyFrame>
-                        <KeyFrame Cue="25%">
-                            <Setter Property="Opacity" Value="0.5"/>
-                        </KeyFrame>
-                        <KeyFrame Cue="50%">
-                            <Setter Property="Opacity" Value="1.0"/>
-                        </KeyFrame>
-                        <KeyFrame Cue="100%">
-                            <Setter Property="Opacity" Value="1.0"/>
-                        </KeyFrame>
-                    </Animation>
-                </Style.Animations>
-            </Style>
-        </Grid.Styles>
+    <Grid Name="MainRoot" RenderTransformOrigin="0.5,0.5">
 
-        <!-- Exit Confirmation Overlay (ZIndex 999) -->
-        <Grid ZIndex="999" IsVisible="{Binding IsExitConfirmOpen}" Background="#CC000000">
-            <Border Background="{DynamicResource CardBackgroundBrush}" 
-                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                    CornerRadius="12" Padding="20" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center"
-                    BoxShadow="0 8 32 0 #66000000">
-                <StackPanel Spacing="15">
-                    <!-- Warning Icon & Title -->
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                        <PathIcon Data="{StaticResource IconAlertCircle}" Foreground="{DynamicResource AccentRedBrush}" Width="24" Height="24"/>
-                        <TextBlock Text="WARNING" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    
-                    <TextBlock Text="Are you sure you want to close BMachine?" 
-                               TextAlignment="Center" TextWrapping="Wrap" Opacity="0.8"/>
-                    
-                    <!-- Buttons: Cancel (Safe) vs Exit (Danger) - Vertical Layout -->
-                    <Grid RowDefinitions="Auto,Auto,Auto" Margin="0,10,0,0">
-                        <!-- EXIT (Danger - Red) - TOP -->
-                        <Button Grid.Row="0" Command="{Binding ConfirmExitCommand}" 
-                                Content="YES" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                Background="{DynamicResource AccentRedBrush}" Foreground="White"
-                                Margin="0,0,0,10" CornerRadius="6" FontWeight="SemiBold" Height="36"/>
-
-                        <!-- CANCEL (Safe - Green) - BOTTOM -->
-                        <Button Grid.Row="1" Command="{Binding CancelExitCommand}" 
-                                Content="NO" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                Background="{DynamicResource AccentGreenBrush}" Foreground="White"
-                                Margin="0" CornerRadius="6" FontWeight="SemiBold" Height="36"/>
-                                
-                        <!-- RESTART - SPACED BELOW -->
-                        <Button Grid.Row="2" Command="{Binding RestartApplicationCommand}" 
-                                Content="RESTART" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                Background="{DynamicResource AccentColorBrush}" Foreground="White"
-                                Margin="0,15,0,0" CornerRadius="6" FontWeight="SemiBold" Height="36">
-                        </Button>
+        <!-- Exit Confirmation Overlay (ZIndex 999) - Suspended Glass & Outlined Buttons -->
+        <Grid ZIndex="999" IsVisible="{Binding IsExitConfirmOpen}">
+            
+            <!-- Global Industrial Overlay (Full Window) -->
+            <Border Background="#E6000000" CornerRadius="0" IsHitTestVisible="True"/>
+            
+            <!-- Logout Display (Industrial Terminal Style) -->
+            <Border Width="420" VerticalAlignment="Center" HorizontalAlignment="Center" 
+                    Background="#000000" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="0">
+                
+                <Grid RowDefinitions="Auto, *">
+                    <!-- Top Accent Header (Like Splash Screen) -->
+                    <Grid Grid.Row="0" Margin="15,10">
+                        <TextBlock Text="TERMINAL // ACTION: LOGOUT" 
+                                   Foreground="#475569" FontSize="9" FontFamily="Consolas, Courier New, monospace"
+                                   HorizontalAlignment="Left"/>
+                        <TextBlock Text="ID: BMACHINE.SYS" 
+                                   Foreground="#475569" FontSize="9" FontFamily="Consolas, Courier New, monospace"
+                                   HorizontalAlignment="Right"/>
                     </Grid>
-                </StackPanel>
+
+                    <StackPanel Grid.Row="1" Spacing="0" Margin="0,20,0,30">
+                        <!-- Power Icon (Redesigned Sharp) -->
+                        <Border Width="50" Height="50" HorizontalAlignment="Center" Margin="0,0,0,20"
+                                Background="#000000" BorderBrush="#ef4444" BorderThickness="1" CornerRadius="0">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#ef4444" BlurRadius="15" Opacity="0.3"/>
+                            </Border.Effect>
+                            <PathIcon Data="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" 
+                                      Foreground="#ef4444" Width="20" Height="20" 
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- Title -->
+                        <TextBlock Text="SYSTEM LOGOUT" FontWeight="Heavy" FontSize="20" 
+                                   HorizontalAlignment="Center" LetterSpacing="2" 
+                                   Foreground="{DynamicResource TextPrimaryBrush}" 
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   Margin="0,0,0,10"/>
+                        
+                        <!-- Body Text -->
+                        <TextBlock Text="Are you sure you want to terminate the current session?" 
+                                   TextAlignment="Center" Foreground="#94A3B8" 
+                                   FontSize="13" Margin="40,0,40,30" TextWrapping="Wrap"
+                                   FontFamily="Consolas, Courier New, monospace"/>
+                        
+                        <!-- Action Buttons (INDUSTRIAL SHARP) -->
+                        <StackPanel Spacing="10" Margin="40,0">
+                            <Grid ColumnDefinitions="*,10,*">
+                                <!-- CANCEL (Industrial Sharp Gray) -->
+                                <Button Grid.Column="0" Command="{Binding CancelExitCommand}" 
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                        Background="Transparent" Foreground="#F8FAFC"
+                                        BorderBrush="#475569" BorderThickness="1" 
+                                        CornerRadius="0" Height="38" Cursor="Hand" Classes="Clear">
+                                    <TextBlock Text="CANCEL" FontWeight="Bold" FontSize="13" LetterSpacing="1"
+                                               FontFamily="Consolas, Courier New, monospace"/>
+                                    <Button.Styles>
+                                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                            <Setter Property="Background" Value="#1E293B"/>
+                                            <Setter Property="BorderBrush" Value="#94A3B8"/>
+                                        </Style>
+                                    </Button.Styles>
+                                </Button>
+
+                                <!-- LOGOUT (Industrial Sharp Red) -->
+                                <Button Grid.Column="2" Command="{Binding ConfirmExitCommand}" 
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                        Background="Transparent" Foreground="#ef4444"
+                                        BorderBrush="#ef4444" BorderThickness="1" 
+                                        CornerRadius="0" Height="38" Cursor="Hand" Classes="Clear">
+                                    <TextBlock Text="LOGOUT" FontWeight="Bold" FontSize="13" LetterSpacing="1"
+                                               FontFamily="Consolas, Courier New, monospace"/>
+                                    <Button.Styles>
+                                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                            <Setter Property="Background" Value="#ef4444"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Style>
+                                    </Button.Styles>
+                                </Button>
+                            </Grid>
+
+                            <!-- REBOOT SYSTEM (Optional / Large Button) -->
+                            <Button Command="{Binding RestartApplicationCommand}"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                    Background="Transparent" Foreground="#38BDF8"
+                                    BorderBrush="#38BDF8" BorderThickness="1" 
+                                    CornerRadius="0" Height="38" Cursor="Hand" Classes="Clear" Margin="0,5,0,0">
+                                <TextBlock Text="REBOOT SYSTEM" FontWeight="Bold" FontSize="11" LetterSpacing="1.5"
+                                           FontFamily="Consolas, Courier New, monospace"/>
+                                <Button.Styles>
+                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="#38BDF8"/>
+                                        <Setter Property="Foreground" Value="Black"/>
+                                    </Style>
+                                </Button.Styles>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
 

@@ -7,7 +7,7 @@
         Title="BMachine List"
         Width="450" Height="600"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+        Background="{DynamicResource AppBackgroundBrush}"
         TransparencyLevelHint="Mica"
         SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"

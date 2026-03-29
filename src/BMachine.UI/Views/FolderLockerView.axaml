@@ -17,7 +17,7 @@
         </Grid.RowDefinitions>
 
         <!-- SETUP MODE -->
-        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="15"
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="15"
                 BoxShadow="0 4 20 0 #40000000" IsVisible="{Binding IsSetupMode}"
                 PointerPressed="OnSetupPointerPressed">
              <ScrollViewer>
@@ -43,7 +43,7 @@
                              <TextBlock Text="Scan this with Google Authenticator or Authy. This is your ONLY key to unlock files." 
                                         TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              
-                             <Border Background="White" CornerRadius="10" Padding="10" HorizontalAlignment="Center">
+                             <Border Background="White" CornerRadius="0" Padding="10" HorizontalAlignment="Center">
                                  <Image Source="{Binding SetupQrCode}" Width="200" Height="200"/>
                              </Border>
                              
@@ -60,7 +60,7 @@
         <Grid Grid.Row="1" IsVisible="{Binding !IsSetupMode}" RowDefinitions="*, Auto">
             
             <!-- Config Check Override -->
-            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="15" Grid.RowSpan="2"
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="15" Grid.RowSpan="2"
                     IsVisible="{Binding !IsConfigured}" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel Spacing="20">
                     <PathIcon Data="{StaticResource IconAlertTriangle}" Width="48" Height="48" Foreground="Orange" HorizontalAlignment="Center"/>
@@ -79,7 +79,7 @@
                          Background="{DynamicResource CardBackgroundBrush}" 
                          BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="2"
                          MinHeight="200"
-                         CornerRadius="20" Cursor="Hand" Padding="40">
+                         CornerRadius="0" Cursor="Hand" Padding="40">
                          <Button.Styles>
                              <Style Selector="Button:pointerover /template/ ContentPresenter">
                                  <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
@@ -97,7 +97,7 @@
 
                  <!-- STATE 2: FOLDER INFO & LIST -->
                  <Border Background="{DynamicResource CardBackgroundBrush}" 
-                         CornerRadius="15" Padding="10"
+                         CornerRadius="0" Padding="10"
                          BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                          IsVisible="{Binding IsFolderSelected}" VerticalAlignment="Stretch">
                      <Grid RowDefinitions="Auto, *">
@@ -114,7 +114,7 @@
                          </Grid>
 
                          <!-- File List -->
-                         <Border Grid.Row="1" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="5">
+                         <Border Grid.Row="1" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="0" Padding="5">
                              <ScrollViewer>
                                  <ItemsControl ItemsSource="{Binding FilePreviewList}">
                                      <ItemsControl.ItemsPanel>
@@ -140,7 +140,7 @@
             <!-- FOOTER (Action Bar) -->
             <Border Grid.Row="1" 
                     Background="{DynamicResource CardBackgroundBrush}" 
-                    CornerRadius="12,12,0,0" Padding="15,10"
+                    CornerRadius="0" Padding="15,10"
                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0"
                     IsVisible="{Binding IsFolderSelected}">
                 <Grid>
@@ -157,19 +157,19 @@
                          <Button Command="{Binding LockFolderCommand}" IsEnabled="{Binding CanLock}" 
                                  Content="LOCK FOLDER" FontWeight="Bold"
                                  Background="#1AFF0000" Foreground="#FF4444" BorderBrush="#FF4444" BorderThickness="1"
-                                 CornerRadius="4" Padding="15,0" Height="32" VerticalContentAlignment="Center"/>
+                                 CornerRadius="0" Padding="15,0" Height="32" VerticalContentAlignment="Center"/>
                                  
                          <Button Command="{Binding StartUnlockCommand}" IsEnabled="{Binding CanUnlock}"
                                  Content="UNLOCK FOLDER" FontWeight="Bold"
                                  Background="#1A00FF00" Foreground="#00FF00" BorderBrush="#00FF00" BorderThickness="1"
-                                 CornerRadius="4" Padding="15,0" Height="32" VerticalContentAlignment="Center"/>
+                                 CornerRadius="0" Padding="15,0" Height="32" VerticalContentAlignment="Center"/>
                     </StackPanel>
 
                     <!-- Options Button (Far Right) -->
                     <Button Command="{Binding EnterSetupCommand}" 
                             HorizontalAlignment="Right" VerticalAlignment="Center"
                             Background="Transparent" BorderThickness="0" Padding="0"
-                            CornerRadius="4" Height="32" Width="32"
+                            CornerRadius="0" Height="32" Width="32"
                             ToolTip.Tip="Settings">
                         <PathIcon Data="{StaticResource IconSettings}" 
                                   Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -181,12 +181,12 @@
             </Border>
             
             <!-- Unlock Overlay (Full Height) -->
-            <Border Grid.Row="0" Grid.RowSpan="2" Background="#E6000000" CornerRadius="20" IsVisible="{Binding IsUnlocking}" Margin="-20">
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="#E6000000" CornerRadius="0" IsVisible="{Binding IsUnlocking}" Margin="-20">
                  <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="15" Width="300">
                      <PathIcon Data="{StaticResource IconUnlock}" Width="40" Height="40" Foreground="{DynamicResource AccentGreenBrush}" HorizontalAlignment="Center"/>
                      <TextBlock Text="Enter Authenticator Code" FontWeight="Bold" FontSize="16" Foreground="White" HorizontalAlignment="Center"/>
                      
-                     <TextBox Text="{Binding OtpInput}" Watermark="000 000" HorizontalContentAlignment="Center" FontSize="20" FontWeight="Bold" CornerRadius="8"
+                     <TextBox Text="{Binding OtpInput}" Watermark="000 000" HorizontalContentAlignment="Center" FontSize="20" FontWeight="Bold" CornerRadius="0"
                               Background="#20FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Foreground="White" CaretBrush="White"/>
                      
                      <Grid ColumnDefinitions="*, *" Margin="0,10,0,0">

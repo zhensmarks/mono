@@ -46,13 +46,13 @@
                                 <Border Background="{DynamicResource ControlBackgroundBrush}" 
                                         BorderBrush="{DynamicResource ControlBorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="6" 
+                                        CornerRadius="0" 
                                         Margin="0,0,0,10"
                                         Padding="0"
                                         Cursor="Hand">
                                     <Grid ColumnDefinitions="4, Auto, *, Auto">
                                         <!-- Left Accent Color -->
-                                        <Border Grid.Column="0" Background="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).AccentColor}" CornerRadius="6,0,0,6"/>
+                                        <Border Grid.Column="0" Background="{Binding $parent[UserControl].((vm:TabViewModel)DataContext).AccentColor}" CornerRadius="0"/>
                                         
                                         <!-- Batch selection checkbox -->
                                         <CheckBox Grid.Column="1" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="6,0,0,0"
@@ -128,13 +128,13 @@
                             <WrapPanel Orientation="Horizontal" Margin="0,2,0,0">
                                 <!-- ID Copy Button -->
                                 <Button Content="{Binding SelectedCard.DisplayId}" Command="{Binding CopyIdCommand}" 
-                                        Padding="8,3" FontSize="11" Margin="0,0,4,4" CornerRadius="4" MinHeight="26"
+                                        Padding="8,3" FontSize="11" Margin="0,0,4,4" CornerRadius="0" MinHeight="26"
                                         Background="#333" Foreground="#60a5fa" ToolTip.Tip="Copy ID"
                                         IsVisible="{Binding SelectedCard.HasDisplayId}"/>
                                 
                                 <!-- Copy Link Button -->
                                 <Button Content="🔗 Link" Command="{Binding CopyLinkCommand}" 
-                                        Padding="8,3" FontSize="11" Margin="0,0,4,4" CornerRadius="4" MinHeight="26"
+                                        Padding="8,3" FontSize="11" Margin="0,0,4,4" CornerRadius="0" MinHeight="26"
                                         Background="#333" Foreground="#60a5fa" ToolTip.Tip="Copy Trello Link"
                                         IsVisible="{Binding SelectedCard.ShortUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                 
@@ -147,7 +147,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{Binding ColorHex}" CornerRadius="4" Padding="8,3" Margin="0,0,4,0" MinHeight="26">
+                                            <Border Background="{Binding ColorHex}" CornerRadius="0" Padding="8,3" Margin="0,0,4,0" MinHeight="26">
                                                 <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding TextColorHex}" VerticalAlignment="Center"/>
                                             </Border>
                                         </DataTemplate>
@@ -155,7 +155,7 @@
                                 </ItemsControl>
                                 
                                 <!-- Deadline -->
-                                <Border Background="#332" CornerRadius="4" Padding="8,3" Margin="0,0,4,4" MinHeight="26"
+                                <Border Background="#332" CornerRadius="0" Padding="8,3" Margin="0,0,4,4" MinHeight="26"
                                         IsVisible="{Binding SelectedCard.DueDate, Converter={x:Static ObjectConverters.IsNotNull}}">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <TextBlock Text="📅" FontSize="11" VerticalAlignment="Center"/>
@@ -186,7 +186,7 @@
                                 <ItemsControl ItemsSource="{Binding Comments}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="#11ffffff" CornerRadius="6" Padding="10" Margin="0,0,0,10">
+                                            <Border Background="#11ffffff" CornerRadius="0" Padding="10" Margin="0,0,0,10">
                                                 <StackPanel Spacing="5">
                                                     <Grid ColumnDefinitions="*, Auto">
                                                         <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="12"/>

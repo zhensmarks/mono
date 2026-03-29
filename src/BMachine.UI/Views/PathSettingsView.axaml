@@ -14,7 +14,7 @@
                        FontSize="14" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
 
             <!-- Explorer Defaults (Global Settings - MOVED TO TOP) -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
                     
@@ -37,7 +37,7 @@
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" IsReadOnly="True" Watermark="Select Photoshop.exe or .app" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary" Margin="0,0,6,0"/>
                         <Button Grid.Row="1" Grid.Column="2" Command="{Binding FixPhotoshopWarningCommand}"
-                                Classes="Primary" Background="#E07020" Padding="8" CornerRadius="6"
+                                Classes="Primary" Background="#E07020" Padding="8" CornerRadius="0"
                                 ToolTip.Tip="Fix PS Warning: Automatically suppress the Photoshop script security warning by writing to PSUserConfig.txt">
                             <PathIcon Data="{StaticResource IconBolt}" Width="16" Height="16" Foreground="White" />
                         </Button>
@@ -46,77 +46,85 @@
             </Border>
 
             <!-- TAMBAHAN MASTER (New Feature) -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="TAMBAHAN MASTER" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextControlForeground}"/>
-                     <TextBlock Text="Folder master tambahan yang akan muncul di Master File Browser." 
-                                FontSize="12" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
-                    
-                    <!-- List of Paths -->
-                    <ItemsControl ItemsSource="{Binding AdditionalMasterPaths}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,0,5">
-                                    <Grid ColumnDefinitions="*, Auto">
-                                        <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
-                                        <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.RemoveMasterPathCommand}" 
-                                                CommandParameter="{Binding}"
-                                                Classes="Clear" Margin="10,0,0,0" Padding="5">
-                                             <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
-                                        </Button>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    
-                    <!-- Add Button -->
-                    <Button Command="{Binding AddMasterPathCommand}" Classes="Primary" HorizontalAlignment="Left" Margin="0,5,0,0">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
-                            <TextBlock Text="Tambah Folder Master" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+                <Expander IsExpanded="False" Background="Transparent" BorderThickness="0" Padding="0">
+                    <Expander.Header>
+                        <TextBlock Text="TAMBAHAN MASTER" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextControlForeground}"/>
+                    </Expander.Header>
+                    <StackPanel Spacing="10" Margin="0,10,0,0">
+                         <TextBlock Text="Folder master tambahan yang akan muncul di Master File Browser." 
+                                    FontSize="12" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
+                        
+                        <!-- List of Paths -->
+                        <ItemsControl ItemsSource="{Binding AdditionalMasterPaths}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="10,5" Margin="0,0,0,5">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
+                                            <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.RemoveMasterPathCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Classes="Clear" Margin="10,0,0,0" Padding="5">
+                                                 <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        
+                        <!-- Add Button -->
+                        <Button Command="{Binding AddMasterPathCommand}" Classes="Primary" HorizontalAlignment="Left" Margin="0,5,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
+                                <TextBlock Text="Tambah Folder Master" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Expander>
             </Border>
 
             <!-- TAMBAHAN PHOTOSHOP (New Feature) -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="TAMBAHAN PHOTOSHOP" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextControlForeground}"/>
-                     <TextBlock Text="Folder khusus gambar (jpg/png) yang akan muncul di tab PHOTOSHOP." 
-                                FontSize="12" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
-                    
-                    <!-- List of Paths -->
-                    <ItemsControl ItemsSource="{Binding AdditionalPhotoshopPaths}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,0,5">
-                                    <Grid ColumnDefinitions="*, Auto">
-                                        <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
-                                        <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.RemovePhotoshopPathCommand}" 
-                                                CommandParameter="{Binding}"
-                                                Classes="Clear" Margin="10,0,0,0" Padding="5">
-                                             <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
-                                        </Button>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    
-                    <!-- Add Button -->
-                    <Button Command="{Binding AddPhotoshopPathCommand}" Classes="Primary" HorizontalAlignment="Left" Margin="0,5,0,0">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
-                            <TextBlock Text="Tambah Folder Photoshop" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+                <Expander IsExpanded="False" Background="Transparent" BorderThickness="0" Padding="0">
+                    <Expander.Header>
+                        <TextBlock Text="TAMBAHAN PHOTOSHOP" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextControlForeground}"/>
+                    </Expander.Header>
+                    <StackPanel Spacing="10" Margin="0,10,0,0">
+                         <TextBlock Text="Folder khusus gambar (jpg/png) yang akan muncul di tab PHOTOSHOP." 
+                                    FontSize="12" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
+                        
+                        <!-- List of Paths -->
+                        <ItemsControl ItemsSource="{Binding AdditionalPhotoshopPaths}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="10,5" Margin="0,0,0,5">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
+                                            <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.RemovePhotoshopPathCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Classes="Clear" Margin="10,0,0,0" Padding="5">
+                                                 <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        
+                        <!-- Add Button -->
+                        <Button Command="{Binding AddPhotoshopPathCommand}" Classes="Primary" HorizontalAlignment="Left" Margin="0,5,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
+                                <TextBlock Text="Tambah Folder Photoshop" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Expander>
             </Border>
 
             <!-- Storage Settings -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Storage Settings" FontWeight="SemiBold" FontSize="16"/>
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
@@ -129,7 +137,7 @@
             </Border>
 
             <!-- Profesi Group -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Profesi &amp; Sporty" FontWeight="SemiBold" FontSize="16"/>
                     
@@ -148,7 +156,7 @@
             </Border>
 
             <!-- Manasik Group -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Manasik" FontWeight="SemiBold" FontSize="16"/>
 
@@ -167,7 +175,7 @@
             </Border>
 
             <!-- Wisuda Group -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Wisuda" FontWeight="SemiBold" FontSize="16"/>
 
@@ -186,7 +194,7 @@
             </Border>
 
             <!-- Pas Foto Group -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Pas Foto" FontWeight="SemiBold" FontSize="16"/>
 

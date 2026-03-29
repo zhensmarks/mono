@@ -19,7 +19,7 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
@@ -53,7 +53,7 @@
         </Style>
     </UserControl.Styles>
     
-    <Grid x:Name="Part_RootGrid" RowDefinitions="Auto, *" ColumnDefinitions="240, *" Margin="25" SizeChanged="OnRootGridSizeChanged" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
+    <Grid x:Name="Part_RootGrid" RowDefinitions="Auto, *" ColumnDefinitions="240, *" Margin="25" SizeChanged="OnRootGridSizeChanged">
         
         <!-- Header (Compact like Dashboard) -->
         <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="12" Margin="0,0,0,15">
@@ -78,18 +78,37 @@
                 <ListBox Background="Transparent" SelectedIndex="{Binding SelectedMenuIndex}">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
-                            <Setter Property="Padding" Value="12,10"/>
-                            <Setter Property="CornerRadius" Value="8"/>
-                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="Padding" Value="16,12"/>
+                            <Setter Property="CornerRadius" Value="0"/>
+                            <Setter Property="Margin" Value="0,1"/>
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                             <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="BorderThickness" Value="4,0,0,0"/>
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Setter>
+                        </Style>
+                        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#10FFFFFF"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#1E1E1E"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected">
-                            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                            <Setter Property="Foreground" Value="White"/>
-                            <Setter Property="BorderThickness" Value="2,0,0,0"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                            <Setter Property="BorderThickness" Value="4,0,0,0"/>
                             <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected PathIcon">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected TextBlock">
+                            <Setter Property="FontWeight" Value="Bold"/>
                         </Style>
                         
                         <!-- Force Primary Button Style Locally -->
@@ -165,16 +184,16 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" IsVisible="{Binding IsAppearanceSelected}">
                 <StackPanel Spacing="15" Margin="10,0,20,20">
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
                          <!-- Theme Mode -->
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Spacing="5" Margin="0,0,10,0">
-                                 <TextBlock Text="{Binding Language[Appearance.Mode]}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="{Binding Language[Appearance.ModeDesc]}" FontSize="12" Foreground="#999"/>
+                                 <TextBlock Text="{Binding Language[Appearance.Mode]}" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="{Binding Language[Appearance.ModeDesc]}" FontSize="12" Classes="Light"/>
                             </StackPanel>
                             <!-- Theme Segmented Control -->
-                            <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2" Width="140" HorizontalAlignment="Right">
+                            <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2" Width="140" HorizontalAlignment="Right">
                                 <Grid ColumnDefinitions="*,*">
                                     <RadioButton Grid.Column="0" Content="Light" GroupName="ThemeGroup" 
                                                  IsChecked="{Binding SelectedThemeIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=0}"
@@ -188,7 +207,8 @@
 
                         <!-- Custom Backgrounds -->
                         <StackPanel Spacing="10" Margin="0,10,0,0">
-                             <TextBlock Text="Custom Background (Dark/Light)" FontWeight="SemiBold"/>
+                             <TextBlock Text="Custom App Background (Dark/Light)" Classes="Bold"/>
+                             <TextBlock Text="Warna latar belakang utama aplikasi." FontSize="12" Classes="Light"/>
                              <Grid ColumnDefinitions="*, *" ShowGridLines="False">
                                 <Grid Grid.Column="0" ColumnDefinitions="Auto, *" Margin="0,0,5,0">
                                     <TextBlock Text="Dark Mode" VerticalAlignment="Center" Width="80"/>
@@ -200,27 +220,11 @@
                                 </Grid>
                              </Grid>
                         </StackPanel>
-
-                        <!-- Custom Card Border -->
-                        <StackPanel Spacing="10" Margin="0,10,0,0">
-                             <TextBlock Text="Custom Card Border (Dark/Light)" FontWeight="SemiBold"/>
-                             <TextBlock Text="Pilih warna border untuk panel/kartu." FontSize="12" Foreground="#999"/>
-                             <Grid ColumnDefinitions="*, *" ShowGridLines="False">
-                                <Grid Grid.Column="0" ColumnDefinitions="Auto, *" Margin="0,0,5,0">
-                                    <TextBlock Text="Dark Mode" VerticalAlignment="Center" Width="80"/>
-                                    <ColorPicker Grid.Column="1" Color="{Binding CustomDarkBorderColor}" Margin="5,0,0,0" HorizontalAlignment="Stretch"/>
-                                </Grid>
-                                <Grid Grid.Column="1" ColumnDefinitions="Auto, *" Margin="5,0,0,0">
-                                    <TextBlock Text="Light Mode" VerticalAlignment="Center" Width="80"/>
-                                    <ColorPicker Grid.Column="1" Color="{Binding CustomLightBorderColor}" Margin="5,0,0,0" HorizontalAlignment="Stretch"/>
-                                </Grid>
-                             </Grid>
-                        </StackPanel>
-
+                        
                         <!-- Custom Card Background -->
                         <StackPanel Spacing="10" Margin="0,10,0,0">
-                             <TextBlock Text="Custom Card Background (Dark/Light)" FontWeight="SemiBold"/>
-                             <TextBlock Text="Pilih warna latar belakang kartu." FontSize="12" Foreground="#999"/>
+                             <TextBlock Text="Custom Card Background (Dark/Light)" Classes="Bold"/>
+                             <TextBlock Text="Warna latar belakang untuk panel/kartu." FontSize="12" Classes="Light"/>
                              <Grid ColumnDefinitions="*, *" ShowGridLines="False">
                                 <Grid Grid.Column="0" ColumnDefinitions="Auto, *" Margin="0,0,5,0">
                                     <TextBlock Text="Dark Mode" VerticalAlignment="Center" Width="80"/>
@@ -233,31 +237,16 @@
                              </Grid>
                         </StackPanel>
 
-                        <!-- Custom Terminal Background -->
-                        <StackPanel Spacing="10" Margin="0,10,0,0">
-                             <TextBlock Text="Custom Terminal Background (Dark/Light)" FontWeight="SemiBold"/>
-                             <TextBlock Text="Pilih warna latar belakang terminal." FontSize="12" Foreground="#999"/>
-                             <Grid ColumnDefinitions="*, *" ShowGridLines="False">
-                                <Grid Grid.Column="0" ColumnDefinitions="Auto, *" Margin="0,0,5,0">
-                                    <TextBlock Text="Dark Mode" VerticalAlignment="Center" Width="80"/>
-                                    <ColorPicker Grid.Column="1" Color="{Binding CustomDarkTerminalBgColor}" Margin="5,0,0,0" HorizontalAlignment="Stretch"/>
-                                </Grid>
-                                <Grid Grid.Column="1" ColumnDefinitions="Auto, *" Margin="5,0,0,0">
-                                    <TextBlock Text="Light Mode" VerticalAlignment="Center" Width="80"/>
-                                    <ColorPicker Grid.Column="1" Color="{Binding CustomLightTerminalBgColor}" Margin="5,0,0,0" HorizontalAlignment="Stretch"/>
-                                </Grid>
-                             </Grid>
-                        </StackPanel>
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Global Accent Color -->
                         <StackPanel Spacing="10">
-                             <TextBlock Text="Global Accent Color" FontWeight="SemiBold"/>
-                             <TextBlock Text="Warna utama aplikasi (Tombol, Link, Indikator)." FontSize="12" Foreground="#999"/>
+                             <TextBlock Text="Global Accent Color" Classes="Bold"/>
+                             <TextBlock Text="Warna utama aplikasi (Tombol, Link, Indikator)." FontSize="12" Classes="Light"/>
                              
                              <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                                  <TextBlock Grid.Row="0" Text="Accent Color" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -265,7 +254,7 @@
                                      <ComboBox.ItemTemplate>
                                          <DataTemplate>
                                              <StackPanel Orientation="Horizontal" Spacing="8">
-                                                 <Border Width="12" Height="12" CornerRadius="6" Background="{Binding Brush}"/>
+                                                 <Border Width="12" Height="12" CornerRadius="0" Background="{Binding Brush}"/>
                                                  <TextBlock Text="{Binding Name}"/>
                                              </StackPanel>
                                          </DataTemplate>
@@ -280,14 +269,14 @@
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Navigation Button Style -->
                         <StackPanel Spacing="15" Margin="0,10,0,0">
                              <StackPanel Spacing="5">
-                                 <TextBlock Text="Navigation Button Style" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="Sesuaikan tampilan tombol navigasi (Dashboard/Batch)." FontSize="12" Foreground="#999"/>
+                                 <TextBlock Text="Navigation Button Style" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="Sesuaikan tampilan tombol navigasi (Dashboard/Batch)." FontSize="12" Classes="Light"/>
                              </StackPanel>
 
                              <!-- Width -->
@@ -319,7 +308,7 @@
                                  <StackPanel>
                                      <TextBlock Text="Button Type" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                  </StackPanel>
-                                 <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2">
+                                 <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2">
                                      <Grid ColumnDefinitions="*,*">
                                          <RadioButton Grid.Column="0" Content="Icon" GroupName="NavStyleGroup" 
                                                      IsChecked="{Binding NavStyleIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=0}"
@@ -358,20 +347,12 @@
                              </Grid>
                         </StackPanel>
                         
-                        <!-- Toggle Startup -->
-                         <Grid ColumnDefinitions="*, Auto" Margin="0,10,0,0">
-                            <StackPanel Spacing="5" Margin="0,0,10,0">
-                                 <TextBlock Text="Startup Animation" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="Efek animasi intro saat aplikasi dibuka." FontSize="12" Foreground="#999"/>
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsStartupAnimationEnabled}" OnContent="On" OffContent="Off"/>
-                        </Grid>
                         
                         <!-- Widget Animation Speed -->
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Spacing="5" Margin="0,0,10,0">
-                                 <TextBlock Text="Kecepatan Animasi Widget" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="Durasi animasi lingkaran pada widget statistik." FontSize="12" Foreground="#999"/>
+                                 <TextBlock Text="Kecepatan Animasi Widget" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="Durasi animasi lingkaran pada widget statistik." FontSize="12" Classes="Light"/>
                             </StackPanel>
                             <ComboBox Grid.Column="1" SelectedIndex="{Binding SelectedStatSpeedIndex}" Width="150">
                                 <ComboBoxItem Content="Mati (Off)"/>
@@ -383,14 +364,14 @@
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Widget Colors (Advanced) -->
                     <StackPanel Spacing="15">
                         <StackPanel Spacing="5">
-                             <TextBlock Text="Warna Widget Statistik (Advanced)" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                             <TextBlock Text="Kustomisasi warna indikator untuk setiap widget statistik." FontSize="12" Foreground="#999"/>
+                             <TextBlock Text="Warna Widget Statistik (Advanced)" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                             <TextBlock Text="Kustomisasi warna indikator untuk setiap widget statistik." FontSize="12" Classes="Light"/>
                         </StackPanel>
                         
                         <!-- Editing -->
@@ -400,7 +381,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Border Width="16" Height="16" CornerRadius="8" Background="{Binding Brush}"/>
+                                            <Border Width="16" Height="16" CornerRadius="0" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -419,7 +400,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Border Width="16" Height="16" CornerRadius="8" Background="{Binding Brush}"/>
+                                            <Border Width="16" Height="16" CornerRadius="0" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -438,7 +419,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Border Width="16" Height="16" CornerRadius="8" Background="{Binding Brush}"/>
+                                            <Border Width="16" Height="16" CornerRadius="0" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -457,7 +438,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Border Width="16" Height="16" CornerRadius="8" Background="{Binding Brush}"/>
+                                            <Border Width="16" Height="16" CornerRadius="0" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -482,13 +463,13 @@
         <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsGeneralSelected}">
             <StackPanel Spacing="15" Margin="10,0,20,20">
                 
-                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                 <StackPanel Spacing="15">
                         <!-- Language -->
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Spacing="5" Margin="0,0,10,0">
-                                 <TextBlock Text="{Binding Language[General.Language]}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="{Binding Language[General.LanguageDesc]}" FontSize="12" Foreground="#999" TextWrapping="Wrap"/>
+                                 <TextBlock Text="{Binding Language[General.Language]}" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="{Binding Language[General.LanguageDesc]}" FontSize="12" Classes="Light" TextWrapping="Wrap"/>
                             </StackPanel>
                             <ComboBox Grid.Column="1" SelectedIndex="{Binding SelectedLanguageIndex}" Width="150">
                                 <ComboBoxItem>English</ComboBoxItem>
@@ -498,42 +479,42 @@
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Batch File Filter -->
                         <Grid ColumnDefinitions="*, Auto">
                              <StackPanel Spacing="5" Margin="0,0,10,0">
-                                 <TextBlock Text="File Extensions Filter" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="Masukan ekstensi yang ingin ditampilkan (contoh: .jpg, .png). Kosongkan untuk semua." FontSize="12" Foreground="#999" TextWrapping="Wrap"/>
+                                 <TextBlock Text="File Extensions Filter" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="Masukan ekstensi yang ingin ditampilkan (contoh: .jpg, .png). Kosongkan untuk semua." FontSize="12" Classes="Light" TextWrapping="Wrap"/>
                              </StackPanel>
                              <TextBox Grid.Column="1" Text="{Binding BatchFileFilter}" Watermark="All (*)" Width="150" HorizontalContentAlignment="Right"/>
                         </Grid>
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Storage -->
                         <Grid ColumnDefinitions="*, Auto">
                              <StackPanel Spacing="5" Margin="0,0,10,0">
-                                 <TextBlock Text="{Binding Language[General.Storage]}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="{Binding Language[General.StorageDesc]}" FontSize="12" Foreground="#999" TextWrapping="Wrap"/>
+                                 <TextBlock Text="{Binding Language[General.Storage]}" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="{Binding Language[General.StorageDesc]}" FontSize="12" Classes="Light" TextWrapping="Wrap"/>
                              </StackPanel>
                              <Button Grid.Column="1" Classes="Clear" Content=">" Foreground="#999"/>
                         </Grid>
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Data Management -->
                         <Grid ColumnDefinitions="*, Auto">
                              <StackPanel Spacing="5" Margin="0,0,10,0">
-                                 <TextBlock Text="Database Backup" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                 <TextBlock Text="Export untuk simpan pengaturan, Import untuk memulihkan." FontSize="12" Foreground="#999" TextWrapping="Wrap"/>
+                                 <TextBlock Text="Database Backup" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                 <TextBlock Text="Export untuk simpan pengaturan, Import untuk memulihkan." FontSize="12" Classes="Light" TextWrapping="Wrap"/>
                              </StackPanel>
                              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
                                  <Button Command="{Binding ExportDatabaseCommand}" Content="Export" Classes="Accent"/>
@@ -543,12 +524,12 @@
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Dashboard Visibility -->
                         <StackPanel Spacing="10">
-                            <TextBlock Text="Dashboard Visibility" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Dashboard Visibility" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show GDrive" VerticalAlignment="Center" Foreground="#999"/>
                                 <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsGdriveVisible}"/>
@@ -577,7 +558,7 @@
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Shortcut -->
@@ -617,7 +598,7 @@
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
 
                         <!-- Edit Profile -->
@@ -629,9 +610,9 @@
                              <Grid Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                                    <TextBox Grid.Column="0" Width="150" Text="{Binding UserName}" Watermark="Nama Anda" HorizontalContentAlignment="Center"/>
                                    <Button Grid.Column="1" Command="{Binding OpenAvatarSelectionCommand}" 
-                                           Width="40" Height="40" CornerRadius="20" Padding="0" Margin="10,0,0,0" 
+                                           Width="40" Height="40" CornerRadius="0" Padding="0" Margin="10,0,0,0" 
                                            Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip.Tip="Change Avatar">
-                                       <Border CornerRadius="20" ClipToBounds="True">
+                                       <Border CornerRadius="0" ClipToBounds="True">
                                             <Panel>
                                                 <PathIcon Data="{StaticResource IconUser}" Width="20" Height="20" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                              IsVisible="{Binding AvatarImage, Converter={x:Static ObjectConverters.IsNull}}"/>
@@ -653,7 +634,7 @@
         <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto" IsVisible="{Binding IsAccountSelected}">
             <StackPanel Spacing="15" Margin="10,0,20,20">
                 
-                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Trello Integration" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         
@@ -676,7 +657,7 @@
                     </StackPanel>
                     </Border>
                 
-                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                 <StackPanel Spacing="15">
 
                         <TextBlock Text="Google Integration" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -720,7 +701,7 @@
                     </StackPanel>
                     </Border>
                 
-                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                 <StackPanel Spacing="15">
 
                         <TextBlock Text="Board Synchronization" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -773,7 +754,7 @@
 
                         <!-- Disconnected State (Visible if Not Connected) -->
                         <Border IsVisible="{Binding !IsTrelloConnected}" 
-                                Background="#1A1A1A" CornerRadius="12" Padding="20" Margin="0,5,0,0" BorderBrush="#333" BorderThickness="1">
+                                Background="#1A1A1A" CornerRadius="0" Padding="20" Margin="0,5,0,0" BorderBrush="#333" BorderThickness="1">
                              <StackPanel Spacing="10" HorizontalAlignment="Center">
                                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
                                      <PathIcon Data="{StaticResource IconAlertTriangle}" Width="24" Height="24" Foreground="#FF5555"/>
@@ -786,7 +767,7 @@
                     </StackPanel>
                     </Border>
                     
-                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="20">
                     <StackPanel Spacing="15">
                         
                         <StackPanel Spacing="5">
@@ -827,7 +808,7 @@
 
         <!-- Content Area (Extensions) -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsNotificationsSelected}" Margin="10,0,20,20">
-             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True">
                  <Grid Margin="20">
                  <!-- Empty State -->
                  <TextBlock Text="{Binding Language[Extensions.NoExtensions]}" 
@@ -843,10 +824,10 @@
                      <ItemsControl ItemsSource="{Binding Extensions}" Margin="0,0,0,80">
                          <ItemsControl.ItemTemplate>
                              <DataTemplate>
-                                 <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" Padding="15" Margin="0,0,0,10">
+                                 <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="15" Margin="0,0,0,10">
                                      <Grid ColumnDefinitions="Auto, *, Auto, Auto" RowDefinitions="Auto, Auto">
                                          <!-- Icon -->
-                                         <Border Grid.RowSpan="2" Width="40" Height="40" CornerRadius="8" Background="{DynamicResource AccentColorBrush}" Margin="0,0,15,0">
+                                         <Border Grid.RowSpan="2" Width="40" Height="40" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Margin="0,0,15,0">
                                              <PathIcon Data="{StaticResource IconExtension}" Foreground="White" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                          </Border>
                                          
@@ -892,18 +873,73 @@
 
         <!-- Script Manager UI -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsScriptsManagerSelected}" Margin="10,0,20,20">
-            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <Grid RowDefinitions="Auto, *, Auto" Margin="20">
-                    <!-- Header removed as requested -->
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True">
+                <Grid RowDefinitions="Auto, *">
+                    
+                    <!-- Toggle Tabs (Master & Action) -->
+                    <Border Grid.Row="0" Margin="20,20,20,10" Background="#10FFFFFF" CornerRadius="0" Padding="3" HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="0">
+                            <RadioButton Classes="TabButton" Content="MASTER SCRIPTS (PYTHON)" IsChecked="{Binding IsScriptMasterSelected}" Command="{Binding SwitchToScriptMasterCommand}">
+                                <RadioButton.Styles>
+                                    <Style Selector="RadioButton /template/ Border#TabBorder">
+                                        <Setter Property="CornerRadius" Value="0"/>
+                                        <Setter Property="Padding" Value="15,6"/>
+                                        <Setter Property="Background" Value="Transparent"/>
+                                    </Style>
+                                    <Style Selector="RadioButton:pointerover /template/ Border#TabBorder">
+                                        <Setter Property="Background" Value="#10FFFFFF"/>
+                                    </Style>
+                                    <Style Selector="RadioButton:checked /template/ Border#TabBorder">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                    </Style>
+                                    <Style Selector="RadioButton:checked /template/ TextBlock">
+                                        <Setter Property="Foreground" Value="#0A0A0A"/>
+                                    </Style>
+                                </RadioButton.Styles>
+                                <RadioButton.Template>
+                                    <ControlTemplate>
+                                        <Border x:Name="TabBorder">
+                                            <TextBlock Text="{TemplateBinding Content}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </RadioButton.Template>
+                            </RadioButton>
 
-                    <Grid Grid.Row="1" RowDefinitions="Auto, Auto" ShowGridLines="False">
-                        
-                        <!-- Master Scripts (Python) -->
-                        <Grid Grid.Row="0" RowDefinitions="Auto, *" Margin="0,0,0,20">
-                            <TextBlock Grid.Row="0" Text="Master Scripts (Python)" FontWeight="SemiBold" Margin="0,0,0,10" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Left"/>
+                            <RadioButton Classes="TabButton" Content="ACTION SCRIPTS (RADIAL MENU)" IsChecked="{Binding IsScriptActionSelected}" Command="{Binding SwitchToScriptActionCommand}">
+                                <RadioButton.Styles>
+                                    <Style Selector="RadioButton /template/ Border#TabBorder">
+                                        <Setter Property="CornerRadius" Value="0"/>
+                                        <Setter Property="Padding" Value="15,6"/>
+                                        <Setter Property="Background" Value="Transparent"/>
+                                    </Style>
+                                    <Style Selector="RadioButton:pointerover /template/ Border#TabBorder">
+                                        <Setter Property="Background" Value="#10FFFFFF"/>
+                                    </Style>
+                                    <Style Selector="RadioButton:checked /template/ Border#TabBorder">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                    </Style>
+                                    <Style Selector="RadioButton:checked /template/ TextBlock">
+                                        <Setter Property="Foreground" Value="#0A0A0A"/>
+                                    </Style>
+                                </RadioButton.Styles>
+                                <RadioButton.Template>
+                                    <ControlTemplate>
+                                        <Border x:Name="TabBorder">
+                                            <TextBlock Text="{TemplateBinding Content}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </RadioButton.Template>
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="20,0,20,20">
+                        <!-- MASTER SCRIPTS -->
+                        <Grid IsVisible="{Binding IsScriptMasterSelected}" RowDefinitions="Auto, *" Margin="0,0,0,20">
+                            <!-- Title Removed for cleaner UI -->
                             
-                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                  <ItemsControl ItemsSource="{Binding MasterScripts}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -918,7 +954,7 @@
                                                               PointerPressed="OnHamburgerPointerPressed"/>
 
                                                     <!-- Icon Display / Picker -->
-                                                    <Border Grid.Column="1" Width="36" Height="36" CornerRadius="8" Margin="0,0,15,0" 
+                                                    <Border Grid.Column="1" Width="36" Height="36" CornerRadius="0" Margin="0,0,15,0" 
                                                             Background="#15FFFFFF" BorderBrush="#333" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Top">
                                                          <Panel>
                                                              <!-- View Mode -->
@@ -950,7 +986,7 @@
                                                     <Grid Grid.Column="2" IsVisible="{Binding !IsEditing}" RowDefinitions="Auto, Auto">
                                                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                            <Border Background="#333" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding ShortCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                                            <Border Background="#333" CornerRadius="0" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding ShortCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                                                 <TextBlock Text="{Binding ShortCode}" FontSize="12" Foreground="#AAA" FontWeight="Bold"/>
                                                             </Border>
                                                         </StackPanel>
@@ -991,16 +1027,24 @@
                                 </ItemsControl>
                             </Border>
                         </Grid>
-
-                        <!-- Action Scripts (JSX/PYW) -->
-                        <Grid Grid.Row="1" RowDefinitions="Auto, *">
-                            <TextBlock Grid.Row="0" Text="Action Scripts (JSX / PYW)" FontWeight="SemiBold" Margin="0,0,0,10" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Left"/>
+                        <!-- ACTION SCRIPTS -->
+                        <Grid IsVisible="{Binding IsScriptActionSelected}" RowDefinitions="Auto, *">
+                            <!-- Title Removed for cleaner UI -->
                             
-                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                     <ItemsControl ItemsSource="{Binding ActionScripts}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Padding="15" Margin="0,0,0,1" Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1"
+                                                <StackPanel>
+                                                    <!-- Dynamic Page 2 Separator -->
+                                                    <Border IsVisible="{Binding IsPage2Start}" 
+                                                            Background="#15FFFFFF" CornerRadius="0" Padding="15,4" Margin="10,10,10,5" HorizontalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                                            <TextBlock Text="PAGE 2 BEGINS HERE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="1"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    
+                                                    <Border Padding="15" Margin="0,0,0,1" Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1"
                                                         DragDrop.AllowDrop="True" DragDrop.DragOver="OnItemDragOver" DragDrop.Drop="OnItemDrop"
                                                         Tag="Action">
                                                     <Grid ColumnDefinitions="Auto, Auto, *, Auto">
@@ -1011,7 +1055,7 @@
                                                                   PointerPressed="OnHamburgerPointerPressed"/>
 
                                                         <!-- Icon Display / Picker -->
-                                                        <Border Grid.Column="1" Width="36" Height="36" CornerRadius="8" Margin="0,0,15,0" 
+                                                        <Border Grid.Column="1" Width="36" Height="36" CornerRadius="0" Margin="0,0,15,0" 
                                                                 Background="#15FFFFFF" BorderBrush="#333" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Top">
                                                              <Panel>
                                                                  <!-- View Mode -->
@@ -1043,7 +1087,7 @@
                                                         <Grid Grid.Column="2" IsVisible="{Binding !IsEditing}" RowDefinitions="Auto, Auto">
                                                             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                                <Border Background="#333" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding ShortCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                                                <Border Background="#333" CornerRadius="0" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding ShortCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                                                     <TextBlock Text="{Binding ShortCode}" FontSize="12" Foreground="#AAA" FontWeight="Bold"/>
                                                                 </Border>
                                                             </StackPanel>
@@ -1076,18 +1120,17 @@
                                                         <Button Grid.Column="3" Command="{Binding ToggleEditCommand}" Classes="Clear" IsVisible="{Binding !IsEditing}" Margin="10,0,0,0" ToolTip.Tip="Edit Script">
                                                             <PathIcon Data="{StaticResource IconEdit}" Width="16" Height="16" Foreground="#888"/>
                                                         </Button>
-
                                                     </Grid>
                                                 </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                            </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                        </Border>
                         </Grid>
                     </Grid>
-                    
-                </Grid>
                 </ScrollViewer>
+                </Grid>
             </Border>
         </Grid>
 
@@ -1095,21 +1138,21 @@
 
         <!-- Content Area (Explorer) -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsExplorerSelected}" Margin="10,0,20,20">
-             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True">
                  <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" />
              </Border>
         </Grid>
 
         <!-- Content Area (Paths) -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsPathsSelected}" Margin="10,0,20,20">
-             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True">
                  <views:PathSettingsView DataContext="{Binding PathSettingsVM}" />
              </Border>
         </Grid>
 
         <!-- Content Area (About) -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsAboutSelected}" Margin="10,0,20,20">
-             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" ClipToBounds="True">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True">
                  <ScrollViewer>
                      <StackPanel Spacing="30" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center">
                      
@@ -1120,7 +1163,7 @@
                      <StackPanel Spacing="5" HorizontalAlignment="Center">
                          <TextBlock Text="BMachine" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
                          <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                              <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="4" Padding="6,2">
+                              <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="0" Padding="6,2">
                                   <TextBlock Text="{Binding CurrentVersion, StringFormat='v{0}'}" Foreground="White" FontWeight="Bold" FontSize="12"/>
                               </Border>
                               <TextBlock Text="Photo Editing Workflow" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
@@ -1180,7 +1223,7 @@
         <!-- Notification Overlay -->
         <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Grid.ColumnSpan="2"
                 HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,50"
-                Background="#333333" CornerRadius="8" Padding="15,10"
+                Background="#333333" CornerRadius="0" Padding="15,10"
                 IsVisible="{Binding IsStatusVisible}"
                 ZIndex="99">
             <TextBlock Text="{Binding StatusMessage}" Foreground="White" FontWeight="SemiBold"/>

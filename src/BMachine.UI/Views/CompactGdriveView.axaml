@@ -19,14 +19,14 @@
                        Foreground="{DynamicResource TextPrimaryBrush}" IsHitTestVisible="False"/>
             
             <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Click="OnCloseWindow"
-                    Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="4" ToolTip.Tip="Close">
+                    Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="0" ToolTip.Tip="Close">
                 <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
                           Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
             </Button>
         </Grid>
         <!-- Main Content Area -->
         <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="20" Padding="0" ClipToBounds="True"
+                CornerRadius="0" Padding="0" ClipToBounds="True"
                 BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
             
             <Grid>
@@ -34,9 +34,9 @@
                 <Grid IsVisible="{Binding !IsSettingsOpen}" DragDrop.AllowDrop="True" Background="Transparent">
                     <!-- Empty State (Drop Zone - Visual Only) -->
                     <Grid IsVisible="{Binding !HasFiles}">
-                        <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
+                        <Border Margin="20" Background="Transparent" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
-                                 <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
+                                 <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="24"
                                          HorizontalAlignment="Center" Width="80" Height="64">
                                      <!-- Cloud Upload Icon -->
                                      <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" 
@@ -80,7 +80,7 @@
                         </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
+                                <Border Padding="10,8" CornerRadius="0" Background="{DynamicResource CardBackgroundBrush}"
                                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                         Margin="0,0,0,4"
                                         Cursor="Hand"
@@ -142,7 +142,7 @@
                                  <!-- Login Section -->
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="Google Account" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="15">
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="0" Padding="15">
                                         <Grid ColumnDefinitions="*, Auto">
                                             <StackPanel Spacing="4">
                                                 <TextBlock Text="{Binding UserEmail}" VerticalAlignment="Center" FontWeight="Medium" FontSize="14"/>
@@ -151,7 +151,7 @@
                                             </StackPanel>
                                             
                                             <Button Grid.Column="1" Command="{Binding LoginCommand}" Content="Login" IsVisible="{Binding !IsLoggedIn}" Classes="accent"/>
-                                            <Button Grid.Column="1" Command="{Binding LogoutCommand}" Content="Logout" IsVisible="{Binding IsLoggedIn}" Background="#EF4444" Foreground="White" CornerRadius="6"/>
+                                            <Button Grid.Column="1" Command="{Binding LogoutCommand}" Content="Logout" IsVisible="{Binding IsLoggedIn}" Background="#EF4444" Foreground="White" CornerRadius="0"/>
                                         </Grid>
                                     </Border>
                                 </StackPanel>
@@ -190,22 +190,22 @@
 
         <!-- Footer / Controls -->
         <Border Grid.Row="2" Margin="0,10,0,0" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="12" Padding="15,8.5" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0">
+                CornerRadius="0" Padding="15,8.5" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 
                 <!-- Left: Utils -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                      <!-- Login Status Indicator (Transparent) -->
-                      <Border Background="Transparent" CornerRadius="4" Padding="8,4" ToolTip.Tip="{Binding UserEmail}" VerticalAlignment="Center">
+                      <Border Background="Transparent" CornerRadius="0" Padding="8,4" ToolTip.Tip="{Binding UserEmail}" VerticalAlignment="Center">
                           <Panel Width="6" Height="6">
-                              <Border CornerRadius="3" Background="#4ade80" IsVisible="{Binding IsLoggedIn}"/>
-                              <Border CornerRadius="3" Background="#ef4444" IsVisible="{Binding !IsLoggedIn}"/>
+                              <Border CornerRadius="0" Background="#4ade80" IsVisible="{Binding IsLoggedIn}"/>
+                              <Border CornerRadius="0" Background="#ef4444" IsVisible="{Binding !IsLoggedIn}"/>
                           </Panel>
                       </Border>
                       
                       <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" 
                               Background="Transparent" BorderThickness="0" Padding="0"
-                              Height="32" Width="32" CornerRadius="4">
+                              Height="32" Width="32" CornerRadius="0">
                           <!-- IconSettings (Gear) -->
                           <PathIcon Data="{StaticResource IconSettings}" 
                                     Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -216,7 +216,7 @@
                               IsVisible="{Binding !IsWindowMode, RelativeSource={RelativeSource AncestorType=UserControl}}"
                               ToolTip.Tip="Open in New Window" 
                               Background="Transparent" BorderThickness="0" Padding="0"
-                              Height="32" Width="32" CornerRadius="4">
+                              Height="32" Width="32" CornerRadius="0">
                           <PathIcon Data="{StaticResource IconOpenWindow}" 
                                     Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
                       </Button>
@@ -232,7 +232,7 @@
 
                     <!-- Upload -->
                     <Button Command="{Binding StartUploadCommand}" IsVisible="{Binding !IsProcessing}"
-                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="8" Padding="15,8" BorderThickness="0">
+                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="0" Padding="15,8" BorderThickness="0">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" Width="14" Height="14"/>
                             <TextBlock Text="Upload" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -242,7 +242,7 @@
                      <!-- Pause -->
                      <Button Command="{Binding PauseCommand}" IsVisible="{Binding IsProcessing}"
                             Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1"
-                            Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="8" Padding="15,8">
+                            Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="0" Padding="15,8">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <PathIcon Data="M6 4h4v16H6z M14 4h4v16h-4z" Width="12" Height="12" IsVisible="{Binding !IsPaused}"/>
                             <PathIcon Data="M5 3 L19 12 L5 21 L5 3 Z" Width="12" Height="12" IsVisible="{Binding IsPaused}"/>
@@ -253,7 +253,7 @@
                     </Button>
                     
                      <Button Command="{Binding StopCommand}" IsVisible="{Binding IsProcessing}"
-                            Background="#EF4444" Foreground="White" CornerRadius="8" Padding="15,8" BorderThickness="0">
+                            Background="#EF4444" Foreground="White" CornerRadius="0" Padding="15,8" BorderThickness="0">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="M3 3h18v18H3z" Width="12" Height="12"/>
                             <TextBlock Text="STOP" FontWeight="Bold" VerticalAlignment="Center"/>

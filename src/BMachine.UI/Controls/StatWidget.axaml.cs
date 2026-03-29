@@ -58,6 +58,15 @@ public partial class StatWidget : UserControl
         set => SetValue(LabelProperty, value);
     }
 
+    public static readonly StyledProperty<string> SuffixProperty =
+        AvaloniaProperty.Register<StatWidget, string>(nameof(Suffix), string.Empty);
+
+    public string Suffix
+    {
+        get => GetValue(SuffixProperty);
+        set => SetValue(SuffixProperty, value);
+    }
+
     public IBrush Color
     {
         get => GetValue(ColorProperty);

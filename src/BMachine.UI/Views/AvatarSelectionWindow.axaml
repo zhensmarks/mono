@@ -14,7 +14,7 @@
         ExtendClientAreaTitleBarHeightHint="-1"
         Background="Transparent">
 
-    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" BorderBrush="#33FFFFFF" BorderThickness="1" ClipToBounds="True">
+    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="#33FFFFFF" BorderThickness="1" ClipToBounds="True">
         <Grid RowDefinitions="Auto, *, Auto" Margin="20">
             <!-- Header Removed -->
             
@@ -30,9 +30,9 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Button Command="{Binding #Root.DataContext.SelectAvatarCommand}" CommandParameter="{Binding}"
-                                        Width="60" Height="60" CornerRadius="30" Padding="0" Margin="5"
+                                        Width="60" Height="60" CornerRadius="0" Padding="0" Margin="5"
                                         Background="Transparent" BorderThickness="0" Cursor="Hand">
-                                    <Border CornerRadius="30" ClipToBounds="True">
+                                    <Border CornerRadius="0" ClipToBounds="True">
                                         <Image Source="{Binding Image}" Stretch="UniformToFill"/>
                                     </Border>
                                 </Button>
@@ -44,7 +44,7 @@
                 <!-- Preview & Upload -->
                 <StackPanel Grid.Column="1" Spacing="15" Margin="20,0,0,0" VerticalAlignment="Top">
                     <TextBlock Text="Preview" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <Border Width="120" Height="120" CornerRadius="60" ClipToBounds="True" Background="#1A1A1A">
+                    <Border Width="120" Height="120" CornerRadius="0" ClipToBounds="True" Background="#1A1A1A">
                         <Image Source="{Binding PreviewImage}" Stretch="UniformToFill"/>
                     </Border>
                     

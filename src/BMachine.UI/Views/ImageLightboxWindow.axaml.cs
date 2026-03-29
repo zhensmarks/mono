@@ -32,7 +32,7 @@ public partial class ImageLightboxWindow : Window
 
         this.Opened += (s, e) =>
         {
-            if (Avalonia.Application.Current?.TryFindResource("SolidBackgroundFillColorBaseBrush", null, out var themeBg) == true &&
+            if (Avalonia.Application.Current?.TryFindResource("AppBackgroundBrush", null, out var themeBg) == true &&
                 themeBg is Avalonia.Media.IBrush brush)
             {
                 this.Background = brush;

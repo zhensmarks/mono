@@ -81,8 +81,8 @@
         <Panel Grid.Row="1" Margin="20,10,40,10">
             
             <!-- Standard Tab Bar -->
-            <Border Background="#10FFFFFF" 
-                    CornerRadius="6" Padding="3"
+            <Border Background="Transparent" 
+                    CornerRadius="0" Padding="0"
                     HorizontalAlignment="Center"
                     IsVisible="{Binding !ActiveViewModel.HasSelectedCards}">
                 <StackPanel Orientation="Horizontal" Spacing="0">
@@ -97,23 +97,29 @@
                 <!-- Style for the compact rounded tabs -->
                 <Border.Styles>
                     <Style Selector="RadioButton.TabButton">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,3"/>
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Cursor" Value="Hand"/>
                         <Setter Property="Template">
                             <ControlTemplate>
-                                <Border x:Name="TabBorder" Background="Transparent" CornerRadius="4" Padding="6,5">
+                                <Border x:Name="TabBorder" Background="{TemplateBinding Background}" CornerRadius="0" Padding="12,8" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                                     <TextBlock Text="{TemplateBinding Content}" FontSize="11" 
-                                               Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                                               Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center"/>
                                 </Border>
                             </ControlTemplate>
                         </Setter>
                     </Style>
-                    <Style Selector="RadioButton.TabButton:pointerover /template/ Border#TabBorder">
+                    <Style Selector="RadioButton.TabButton:pointerover">
                         <Setter Property="Background" Value="#10FFFFFF"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                     </Style>
-                    <Style Selector="RadioButton.TabButton:checked /template/ Border#TabBorder">
-                         <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                    </Style>
-                    <Style Selector="RadioButton.TabButton:checked /template/ TextBlock">
-                         <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
+                    <Style Selector="RadioButton.TabButton:checked">
+                         <Setter Property="Background" Value="#1E1E1E"/>
+                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                         <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
                     </Style>
                 </Border.Styles>
             </Border>
@@ -121,7 +127,7 @@
              <!-- OVERLAY: Top Header Action Bar (Shows when cards are selected) -->
              <Border Background="{DynamicResource CardBackgroundBrush}"
                      BorderBrush="{DynamicResource AccentColorBrush}" BorderThickness="1"
-                     CornerRadius="10" HorizontalAlignment="Center" Padding="8,4"
+                     CornerRadius="0" HorizontalAlignment="Center" Padding="8,4"
                      IsVisible="{Binding ActiveViewModel.HasSelectedCards}"
                      BoxShadow="0 2 10 0 #33000000" ZIndex="10">
                   <StackPanel Orientation="Horizontal" Spacing="16">
@@ -130,7 +136,7 @@
                           <!-- Select All / Deselect Toolbar Toggle -->
                           <ToggleButton IsChecked="{Binding ActiveViewModel.IsAllSelected, Mode=TwoWay}"
                                         Command="{Binding ActiveViewModel.ToggleSelectAllCardsCommand}"
-                                        Classes="Clear" Padding="2" Background="Transparent" CornerRadius="4" Cursor="Hand" ToolTip.Tip="Select All">
+                                        Classes="Clear" Padding="2" Background="Transparent" CornerRadius="0" Cursor="Hand" ToolTip.Tip="Select All">
                                 <ToggleButton.Styles>
                                     <Style Selector="ToggleButton:checked PathIcon">
                                          <Setter Property="Data" Value="{StaticResource IconCheckSquare}"/>
@@ -153,7 +159,7 @@
                            <Button Command="{Binding ActiveViewModel.BatchUnlinkCommand}"
                                    IsVisible="{Binding ActiveViewModel.HasSelectedManualCards}"
                                    ToolTip.Tip="Putus Tautan"
-                                   Background="#D32F2F" Foreground="White" Padding="8,4" CornerRadius="8" Cursor="Hand" FontSize="11">
+                                   Background="#D32F2F" Foreground="White" Padding="8,4" CornerRadius="0" Cursor="Hand" FontSize="11">
                                <StackPanel Orientation="Horizontal" Spacing="4">
                                    <PathIcon Data="{StaticResource IconTrash}" Width="10" Height="10" Foreground="White"/>
                                    <TextBlock Text="Unlink" FontWeight="Bold"/>
@@ -164,7 +170,7 @@
                                <Button Command="{Binding ActiveViewModel.BatchAccCommand}"
                                        IsVisible="{Binding ActiveViewModel.HasSelectedRegularCards}"
                                        ToolTip.Tip="ACC Marketing"
-                                       Background="#0078D7" Foreground="White" Padding="8,4" CornerRadius="8" Cursor="Hand" FontSize="11">
+                                       Background="#0078D7" Foreground="White" Padding="8,4" CornerRadius="0" Cursor="Hand" FontSize="11">
                                    <StackPanel Orientation="Horizontal" Spacing="4">
                                        <TextBlock Text="🕒" FontSize="11" VerticalAlignment="Center"/>
                                        <TextBlock Text="ACC" FontWeight="Bold"/>
@@ -173,7 +179,7 @@
 
                            <Button Command="{Binding ActiveViewModel.ShowBatchMovePanelCommand}"
                                    ToolTip.Tip="Pindah Massal"
-                                   Classes="Primary" Padding="8,4" CornerRadius="8" Cursor="Hand" FontSize="11">
+                                   Classes="Primary" Padding="8,4" CornerRadius="0" Cursor="Hand" FontSize="11">
                                <StackPanel Orientation="Horizontal" Spacing="4">
                                    <PathIcon Data="{StaticResource IconArrowRight}" Width="10" Height="10"/>
                                    <TextBlock Text="Move" FontWeight="Bold"/>
@@ -267,11 +273,11 @@
             <!-- Panel content (Detail, Comment, Add Manual, etc.) - no Back bar, use mouse gesture -->
             <Grid x:Name="Part_PanelContent">
         <Border x:Name="Part_MainPanelBorder" IsVisible="{Binding ShouldShowRightPanel}" HorizontalAlignment="Stretch" MaxWidth="500"
-                Background="{DynamicResource BackgroundDarkBrush}"
+                Background="{DynamicResource AppBackgroundBrush}"
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0">
         <Grid>
             <!-- Add Manual Panel (Editing tab only) -->
-            <Border IsVisible="{Binding EditingVM.IsAddManualPanelOpen}" Background="#1E1E1E">
+            <Border IsVisible="{Binding EditingVM.IsAddManualPanelOpen}" Background="{DynamicResource CardBackgroundBrush}">
                 <Grid RowDefinitions="Auto, *" DataContext="{Binding EditingVM}">
                     <Border Grid.Row="0" Padding="20,15" BorderThickness="0,0,0,1" BorderBrush="#333333">
                         <Grid ColumnDefinitions="*, Auto">
@@ -285,7 +291,7 @@
                     </Border>
                     <ScrollViewer Grid.Row="1">
                         <StackPanel Spacing="20" Margin="20">
-                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                 <TextBox Text="{Binding ManualCardLinkInput}" AcceptsReturn="True" 
                                          Watermark="https://trello.com/c/..."
                                          Background="Transparent" BorderThickness="0" 
@@ -296,7 +302,7 @@
                                     Background="{DynamicResource AccentBlueBrush}" Foreground="White"
                                     IsEnabled="{Binding !IsLoadingManualAdd}"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                    CornerRadius="8" Padding="15,12" FontWeight="Bold" FontSize="14" Cursor="Hand"/>
+                                    CornerRadius="0" Padding="15,12" FontWeight="Bold" FontSize="14" Cursor="Hand"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
@@ -321,7 +327,7 @@
 
         <!-- Global Overlay for Batch Move Panel -->
         <Border x:Name="Part_MovePanel" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Width="400"
-                Background="{DynamicResource BackgroundDarkBrush}"
+                Background="{DynamicResource AppBackgroundBrush}"
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"
                 ZIndex="20">
@@ -377,7 +383,7 @@
                         <Button Command="{Binding ActiveViewModel.MoveCardCommand}" 
                                 HorizontalAlignment="Stretch"
                                 Background="{DynamicResource AccentBlueBrush}" Foreground="White"
-                                Padding="15,10" CornerRadius="8" Margin="0,20,0,0"
+                                Padding="15,10" CornerRadius="0" Margin="0,20,0,0"
                                 IsEnabled="{Binding ActiveViewModel.SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}">
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
                                  <TextBlock Text="Konfirmasi Pindah" FontWeight="Bold"/>

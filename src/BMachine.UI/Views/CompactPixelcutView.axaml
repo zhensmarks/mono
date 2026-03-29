@@ -19,22 +19,22 @@
                        Foreground="{DynamicResource TextPrimaryBrush}" IsHitTestVisible="False"/>
             
             <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" Click="OnCloseWindow"
-                    Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="4" ToolTip.Tip="Close">
+                    Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="0" ToolTip.Tip="Close">
                 <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
                           Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
             </Button>
         </Grid>
         <!-- Main Content Area -->
         <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="20" Padding="0" ClipToBounds="True"
+                CornerRadius="0" Padding="0" ClipToBounds="True"
                 BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
             
             <Grid DragDrop.AllowDrop="True" Background="Transparent">
                 <!-- Empty State (Drop Zone - Visual Only) -->
                 <Grid IsVisible="{Binding !HasFiles}">
-                    <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
+                    <Border Margin="20" Background="Transparent" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
-                             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
+                             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="24"
                                      HorizontalAlignment="Center" Width="80" Height="64">
                                  <!-- Box Icon -->
                                  <PathIcon Data="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5M12 4.15L6.04 7.5L12 10.85L17.96 7.5L12 4.15M5 15.91L11 19.29V12.58L5 9.21V15.91M19 15.91V9.21L13 12.58V19.29L19 15.91Z" 
@@ -79,7 +79,7 @@
                     </ListBox.ItemsPanel>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
+                            <Border Padding="10,8" CornerRadius="0" Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                     Margin="0,0,0,4"
                                     Cursor="Hand"
@@ -147,7 +147,7 @@
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                     <Border Width="380" VerticalAlignment="Center" HorizontalAlignment="Center"
                             Background="{DynamicResource CardBackgroundBrush}"
-                            CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="20"
+                            CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="20"
                             Margin="10">
                         <StackPanel Spacing="15">
                             <TextBlock Text="Settings (Network &amp; VPN)" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -190,7 +190,7 @@
                                        IsVisible="{Binding OvpnConfigStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                             
                             <!-- VPNBook Password Note -->
-                            <Border Background="#1AF59E0B" CornerRadius="6" Padding="10,8" Margin="0,5,0,0"
+                            <Border Background="#1AF59E0B" CornerRadius="0" Padding="10,8" Margin="0,5,0,0"
                                     IsVisible="{Binding IsOvpnConfigured}">
                                 <StackPanel Spacing="3">
                                     <TextBlock Text="ℹ️ Catatan VPNBook" FontSize="11" FontWeight="Bold" Foreground="#F59E0B"/>
@@ -210,7 +210,7 @@
                 </Border>
 
                 <!-- Log View Overlay -->
-                <Border IsVisible="{Binding IsLogViewVisible}" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" ZIndex="50">
+                <Border IsVisible="{Binding IsLogViewVisible}" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ZIndex="50">
                     <Grid RowDefinitions="Auto, *">
                         <!-- Log Header -->
                         <Grid Grid.Row="0" Margin="15,12,15,0" ColumnDefinitions="Auto, *, Auto">
@@ -220,7 +220,7 @@
                                 <TextBlock Text="Terminal Log" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </StackPanel>
                             <Button Grid.Column="2" Command="{Binding CloseLogViewCommand}"
-                                    Background="Transparent" BorderThickness="0" Padding="6" CornerRadius="4"
+                                    Background="Transparent" BorderThickness="0" Padding="6" CornerRadius="0"
                                     ToolTip.Tip="Kembali ke File List">
                                 <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
                                           Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -241,23 +241,23 @@
 
         <!-- Footer / Controls -->
         <Border Grid.Row="2" Margin="0,10,0,0" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="12" Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0">
+                CornerRadius="0" Padding="15,10" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 
                 <!-- Left: Utils -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                      <!-- VPN Indicator (Moved Here) -->
-                      <Border Background="Transparent" CornerRadius="4" Padding="8,4" ToolTip.Tip="{Binding VpnStatus}" VerticalAlignment="Center">
+                      <Border Background="Transparent" CornerRadius="0" Padding="8,4" ToolTip.Tip="{Binding VpnStatus}" VerticalAlignment="Center">
                           <Panel Width="6" Height="6">
-                              <Border CornerRadius="3" Background="#4ade80" IsVisible="{Binding IsVpnActive}"/>
-                              <Border CornerRadius="3" Background="#ef4444" IsVisible="{Binding !IsVpnActive}"/>
+                              <Border CornerRadius="0" Background="#4ade80" IsVisible="{Binding IsVpnActive}"/>
+                              <Border CornerRadius="0" Background="#ef4444" IsVisible="{Binding !IsVpnActive}"/>
                           </Panel>
                       </Border>
                       
                       <!-- Settings -->
                       <Button Command="{Binding ShowSettingsCommand}" ToolTip.Tip="Settings" 
                               Background="Transparent" BorderThickness="0" Padding="0"
-                              Height="32" Width="32" CornerRadius="4">
+                              Height="32" Width="32" CornerRadius="0">
                           <!-- IconSettings (Gear) -->
                           <PathIcon Data="{StaticResource IconSettings}" 
                                     Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -267,7 +267,7 @@
                       <Button Command="{Binding ToggleLogViewCommand}" 
                               ToolTip.Tip="Terminal Log" 
                               Background="Transparent" BorderThickness="0" Padding="0"
-                              Height="32" Width="32" CornerRadius="4">
+                              Height="32" Width="32" CornerRadius="0">
                           <!-- Terminal Icon -->
                           <PathIcon Data="M20 19V7H4v12h16m0-16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16M7 10l3 3-3 3m4 0h6" 
                                     Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -282,21 +282,21 @@
                              IsVisible="{Binding IsRetryVisible}"
                              ToolTip.Tip="Retry Failed/Small Files (59b)" 
                              Background="Transparent" BorderThickness="0" Padding="0"
-                             Height="32" Width="32" CornerRadius="4">
+                             Height="32" Width="32" CornerRadius="0">
                         <PathIcon Data="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
                      </Button>
                      
                     <!-- Clear Button (Moved Here) -->
                      <Button Command="{Binding ClearCommand}" ToolTip.Tip="Clear All (or Selected)" 
                              Background="Transparent" BorderThickness="0" Padding="0"
-                             Height="32" Width="32" CornerRadius="4">
+                             Height="32" Width="32" CornerRadius="0">
                          <!-- IconTrash -->
                          <PathIcon Data="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" Width="14" Height="14" Foreground="#EF4444"/>
                      </Button>
                      
                     <!-- Main Actions -->
                     <Button Command="{Binding ProcessRemoveBgCommand}" IsVisible="{Binding !IsProcessing}"
-                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="8" Padding="15,0" BorderThickness="0" Height="32">
+                            Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="0" Padding="15,0" BorderThickness="0" Height="32">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <!-- IconLayers (Remove BG) -->
                             <PathIcon Data="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" Width="14" Height="14"/>
@@ -306,7 +306,7 @@
                     
                     <Button Command="{Binding ProcessUpscaleCommand}" IsVisible="{Binding !IsProcessing}"
                             Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
-                            Foreground="{DynamicResource AccentBlueBrush}" CornerRadius="8" Padding="0" Height="32" Width="42"
+                            Foreground="{DynamicResource AccentBlueBrush}" CornerRadius="0" Padding="0" Height="32" Width="42"
                             ToolTip.Tip="Upscale">
                         <PathIcon Data="M16 4h-2l-4 4-4-4H4v16h2V8l4 4 4-4v12h2V4z M20 4h-2v16h2V4z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
                     </Button>
@@ -314,7 +314,7 @@
                     <!-- Processing Controls -->
                      <Button Command="{Binding PauseCommand}" IsVisible="{Binding IsProcessing}"
                             Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1"
-                            Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="8" Padding="15,0" Height="32">
+                            Foreground="{DynamicResource TextPrimaryBrush}" CornerRadius="0" Padding="15,0" Height="32">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <!-- IconPause / IconPlay -->
                             <PathIcon Data="M6 4h4v16H6z M14 4h4v16h-4z" Width="12" Height="12" IsVisible="{Binding !IsPaused}"/>
@@ -326,7 +326,7 @@
                     </Button>
                 
                      <Button Command="{Binding StopCommand}" IsVisible="{Binding IsProcessing}"
-                            Background="#EF4444" Foreground="White" CornerRadius="8" Padding="15,0" BorderThickness="0" Height="32">
+                            Background="#EF4444" Foreground="White" CornerRadius="0" Padding="15,0" BorderThickness="0" Height="32">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <!-- IconSquare (Stop) -->
                             <PathIcon Data="M3 3h18v18H3z" Width="12" Height="12"/>
@@ -340,7 +340,7 @@
         <!-- Toast Notification (Floating above footer) -->
         <Border Grid.Row="2" Margin="10,0,10,55" IsVisible="{Binding IsToastVisible}" ZIndex="200"
                 Background="{DynamicResource CardBackgroundBrush}"
-                CornerRadius="10" Padding="12,8" 
+                CornerRadius="0" Padding="12,8" 
                 BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
                 BoxShadow="0 4 20 0 #40000000"
                 HorizontalAlignment="Center" VerticalAlignment="Bottom">

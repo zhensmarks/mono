@@ -20,7 +20,7 @@
                 <ToggleButton Command="{Binding ToggleLogCommand}" 
                               IsChecked="{Binding ShowLogPanel, Mode=TwoWay}"
                               Background="Transparent" BorderThickness="1" BorderBrush="#555"
-                              CornerRadius="6" Padding="10" FontSize="14">
+                              CornerRadius="0" Padding="10" FontSize="14">
                     <Path Data="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M7,7H17V9H7V7M7,11H17V13H7V11M7,15H14V17H7V15Z" 
                           Width="16" Height="16" Stretch="Uniform" Fill="White"/>
                 </ToggleButton>
@@ -28,14 +28,14 @@
                 <!-- Settings Button -->
                 <Button Command="{Binding ShowSettingsCommand}"
                         Background="Transparent" BorderThickness="1" BorderBrush="#555"
-                        CornerRadius="6" Padding="10" FontSize="14">
+                        CornerRadius="0" Padding="10" FontSize="14">
                     <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16"/>
                 </Button>
             </StackPanel>
             
             <!-- Empty State -->
             <Grid Grid.Column="0" IsVisible="{Binding !HasFiles}" DragDrop.AllowDrop="True" Margin="0,80,0,0">
-                <Border Background="#111" CornerRadius="16" Margin="40" BorderBrush="#333" BorderThickness="2">
+                <Border Background="#111" CornerRadius="0" Margin="40" BorderBrush="#333" BorderThickness="2">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
                         <PathIcon Data="{StaticResource IconUploadCloud}" Width="64" Height="64" HorizontalAlignment="Center" Opacity="0.5" Foreground="#666"/>
                         <TextBlock Text="Drag &amp; Drop File atau Folder" FontSize="18" FontWeight="SemiBold" 
@@ -51,7 +51,7 @@
                 <ItemsControl ItemsSource="{Binding Files}" Margin="10">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#1A1A1A" CornerRadius="10" Padding="14" Margin="0,6" 
+                            <Border Background="#1A1A1A" CornerRadius="0" Padding="14" Margin="0,6" 
                                     BorderBrush="#2A2A2A" BorderThickness="1">
                                 <Grid ColumnDefinitions="*, Auto, Auto, Auto">
                                     
@@ -63,7 +63,7 @@
                                         
                                         <!-- Progress Bar -->
                                         <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}" 
-                                                     Height="6" CornerRadius="3">
+                                                     Height="6" CornerRadius="0">
                                             <ProgressBar.Foreground>
                                                 <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
                                                     <GradientStop Color="#66D1FF" Offset="0"/>
@@ -82,7 +82,7 @@
                                     </StackPanel>
                                     
                                     <!-- Status Badge -->
-                                    <Border Grid.Column="1" CornerRadius="6" Padding="12,6" Background="#22000000" 
+                                    <Border Grid.Column="1" CornerRadius="0" Padding="12,6" Background="#22000000" 
                                             Margin="15,0,0,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="Medium" 
                                                    HorizontalAlignment="Center" Foreground="#888"/>
@@ -131,21 +131,21 @@
         </Grid>
 
         <!-- Footer Actions -->
-        <Border Grid.Row="2" Padding="18" BorderBrush="#333" BorderThickness="0,1,0,0" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
+        <Border Grid.Row="2" Padding="18" BorderBrush="#333" BorderThickness="0,1,0,0" Background="{DynamicResource AppBackgroundBrush}">
             <DockPanel LastChildFill="False">
                 <!-- Left Buttons -->
                 <StackPanel Orientation="Horizontal" Spacing="12" DockPanel.Dock="Left">
                      <Button Command="{Binding ClearCommand}" 
                              Theme="{DynamicResource OutlinedButtonTheme}" 
                              BorderBrush="#553333" Foreground="#FF5555"
-                             Padding="14,8" CornerRadius="6">
+                             Padding="14,8" CornerRadius="0">
                          <StackPanel Orientation="Horizontal" Spacing="6">
                              <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
                              <TextBlock Text="BERSIHKAN"/>
                          </StackPanel>
                      </Button>
                      <ToggleButton IsChecked="{Binding ShowLogPanel}" 
-                                   Padding="14,8" CornerRadius="6">
+                                   Padding="14,8" CornerRadius="0">
                          <StackPanel Orientation="Horizontal" Spacing="6">
                              <PathIcon Data="{StaticResource IconList}" Width="14" Height="14"/>
                              <TextBlock Text="LOG"/>
@@ -158,11 +158,11 @@
                     <Button Content="STOP" Command="{Binding StopCommand}" 
                             IsVisible="{Binding IsProcessing}"
                             Foreground="#FF5555" Background="Transparent" BorderThickness="1" BorderBrush="#553333"
-                            Padding="16,10" CornerRadius="6" FontWeight="SemiBold"/>
+                            Padding="16,10" CornerRadius="0" FontWeight="SemiBold"/>
                     
                     <Button Content="MULAI UPLOAD" Command="{Binding StartUploadCommand}" 
                             IsVisible="{Binding !IsProcessing}"
-                            Padding="16,10" CornerRadius="6" FontWeight="SemiBold">
+                            Padding="16,10" CornerRadius="0" FontWeight="SemiBold">
                         <Button.Background>
                             <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
                                 <GradientStop Color="#2B7BE9" Offset="0"/>
@@ -176,7 +176,7 @@
         
         <!-- Completion Notification Overlay -->
         <Grid Grid.RowSpan="3" IsVisible="{Binding ShowCompletionDialog}" Background="#88000000">
-            <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="12" 
+            <Border Background="#1E1E1E" BorderBrush="#333" BorderThickness="1" CornerRadius="0" 
                     HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30" MinWidth="300"
                     BoxShadow="0 4 20 0 #000000">
                 <StackPanel Spacing="20">
@@ -196,7 +196,7 @@
                     
                     <Button Content="OK" Command="{Binding CloseCompletionDialogCommand}" 
                             HorizontalAlignment="Center" Width="100" HorizontalContentAlignment="Center"
-                            Padding="10" CornerRadius="6" Background="{DynamicResource AccentBlueBrush}" Foreground="White" FontWeight="SemiBold"/>
+                            Padding="10" CornerRadius="0" Background="{DynamicResource AccentBlueBrush}" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -204,7 +204,7 @@
         <!-- Settings Overlay -->
         <Grid Grid.Row="0" Grid.RowSpan="2" IsVisible="{Binding IsSettingsOpen}">
             <Border Background="#AA000000" PointerPressed="SettingsOverlay_PointerPressed"/>
-            <Border Background="#1A1A1A" CornerRadius="16" Padding="24" 
+            <Border Background="#1A1A1A" CornerRadius="0" Padding="24" 
                     HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="400"
                     BorderBrush="#333" BorderThickness="1">
                 <StackPanel Spacing="16">
@@ -215,9 +215,9 @@
                         <TextBlock Text="{Binding UserEmail}" FontWeight="SemiBold" Foreground="White"/>
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                             <Button Content="Login" Command="{Binding LoginCommand}" IsVisible="{Binding !IsLoggedIn}"
-                                    Padding="12,6" CornerRadius="6" Background="{DynamicResource AccentBlueBrush}"/>
+                                    Padding="12,6" CornerRadius="0" Background="{DynamicResource AccentBlueBrush}"/>
                             <Button Content="Logout" Command="{Binding LogoutCommand}" IsVisible="{Binding IsLoggedIn}"
-                                    Padding="12,6" CornerRadius="6" Background="#443333" Foreground="#FF5555"/>
+                                    Padding="12,6" CornerRadius="0" Background="#443333" Foreground="#FF5555"/>
                         </StackPanel>
                     </StackPanel>
                     
@@ -226,7 +226,7 @@
                     <StackPanel Spacing="8">
                         <TextBlock Text="ID Folder Google Drive:" FontSize="12" Foreground="#888"/>
                         <TextBox Text="{Binding DriveFolderId}" Watermark="Paste ID folder tujuan di sini..." 
-                                 Padding="10" CornerRadius="6"/>
+                                 Padding="10" CornerRadius="0"/>
                         <TextBlock Text="Bisa didapat dari URL folder: drive.google.com/drive/folders/[ID_FOLDER]" 
                                    FontSize="10" Foreground="#555" TextWrapping="Wrap"/>
                     </StackPanel>
@@ -236,20 +236,20 @@
                         <Grid ColumnDefinitions="*,Auto,Auto">
                             <TextBox Grid.Column="0" Text="{Binding BaseFolderPath}" IsReadOnly="True"
                                      Watermark="Opsional: folder dasar lokal..." 
-                                     Padding="10" CornerRadius="6"/>
+                                     Padding="10" CornerRadius="0"/>
                             <Button Grid.Column="1" Command="{Binding SelectBaseFolderCommand}"
-                                    Padding="10" CornerRadius="6" ToolTip.Tip="Browse Folder" Margin="8,0,0,0">
+                                    Padding="10" CornerRadius="0" ToolTip.Tip="Browse Folder" Margin="8,0,0,0">
                                 <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14"/>
                             </Button>
                             <Button Grid.Column="2" Command="{Binding ClearBaseFolderCommand}"
-                                    Padding="10" CornerRadius="6" Foreground="#FF5555" ToolTip.Tip="Clear Path" Margin="8,0,0,0">
+                                    Padding="10" CornerRadius="0" Foreground="#FF5555" ToolTip.Tip="Clear Path" Margin="8,0,0,0">
                                 <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
                             </Button>
                         </Grid>
                     </StackPanel>
                     
                     <Button Content="Simpan" Command="{Binding SaveSettingsCommandCommand}" 
-                            HorizontalAlignment="Right" Padding="16,8" CornerRadius="6" 
+                            HorizontalAlignment="Right" Padding="16,8" CornerRadius="0" 
                             Background="{DynamicResource AccentBlueBrush}" FontWeight="SemiBold"/>
                 </StackPanel>
             </Border>

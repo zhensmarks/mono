@@ -15,7 +15,7 @@
         ExtendClientAreaTitleBarHeightHint="-1"
         WindowStartupLocation="CenterScreen"
         CanResize="True"
-        CornerRadius="10"
+        CornerRadius="0"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent">
 
@@ -48,7 +48,7 @@
     </Window.Styles>
 
     <!-- Main Border for Window Outline -->
-    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" BorderBrush="#33000000" BorderThickness="1" ClipToBounds="True">
+    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="#33000000" BorderThickness="1" ClipToBounds="True">
       <Panel>  
         <Grid RowDefinitions="Auto, *, Auto">
             <!-- Custom Title Bar -->
@@ -80,7 +80,7 @@
                      </Button>
 
                      <Button Click="OnCloseWindow" 
-                             Width="46" Height="32" CornerRadius="0,10,0,0" 
+                             Width="46" Height="32" CornerRadius="0" 
                              Background="Transparent" BorderThickness="0"
                              VerticalAlignment="Top" HorizontalAlignment="Right">
                          <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
@@ -135,9 +135,9 @@
                             <Grid Grid.Column="0">
                                 <!-- Empty State -->
                                 <Grid IsVisible="{Binding !HasFiles}">
-                                    <Border Margin="20" Background="Transparent" CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
+                                    <Border Margin="20" Background="Transparent" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0">
                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
-                                             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="24"
+                                             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="24"
                                                      HorizontalAlignment="Center" Width="80" Height="64">
                                                  <PathIcon Data="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5M12 4.15L6.04 7.5L12 10.85L17.96 7.5L12 4.15M5 15.91L11 19.29V12.58L5 9.21V15.91M19 15.91V9.21L13 12.58V19.29L19 15.91Z" 
                                                            Width="32" Height="32" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -182,7 +182,7 @@
                                     </ListBox.Styles>
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Padding="10,8" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
+                                            <Border Padding="10,8" CornerRadius="0" Background="{DynamicResource CardBackgroundBrush}"
                                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                                     Margin="0,0,0,4"
                                                     PointerPressed="OnFileItemPointerPressed"> 
@@ -299,7 +299,7 @@
                                         <ScrollViewer Grid.Row="1" Padding="15,0">
                                             <StackPanel Spacing="15">
                                                 <!-- Result -->
-                                                <Border CornerRadius="8" ClipToBounds="True" Background="#10000000" IsVisible="{Binding SelectedPreviewItem.HasResult}">
+                                                <Border CornerRadius="0" ClipToBounds="True" Background="#10000000" IsVisible="{Binding SelectedPreviewItem.HasResult}">
                                                     <StackPanel>
                                                         <Image Source="{Binding SelectedPreviewItem.ResultPath, Converter={StaticResource PathToBitmapConverter}}" Stretch="Uniform" MaxHeight="250"/>
                                                         <Border Background="#20000000" Padding="5">
@@ -309,7 +309,7 @@
                                                 </Border>
                                                 
                                                 <!-- Original -->
-                                                <Border CornerRadius="8" ClipToBounds="True" Background="#10000000">
+                                                <Border CornerRadius="0" ClipToBounds="True" Background="#10000000">
                                                     <StackPanel>
                                                         <Image Source="{Binding SelectedPreviewItem.FilePath, Converter={StaticResource PathToBitmapConverter}}" Stretch="Uniform" MaxHeight="250"/>
                                                         <Border Background="#20000000" Padding="5">
@@ -349,7 +349,7 @@
                                  
                                  <Border Width="340" Height="280" VerticalAlignment="Center" HorizontalAlignment="Center"
                                          Background="{DynamicResource CardBackgroundBrush}"
-                                         CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" 
+                                         CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" 
                                          Padding="24,20"
                                          BoxShadow="0 10 40 0 #55000000">
                                      <Grid RowDefinitions="Auto, *, Auto">
@@ -401,7 +401,7 @@
                                                             IsVisible="{Binding OvpnConfigStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                                  
                                                  <!-- VPNBook Password Note -->
-                                                 <Border Background="#1AF59E0B" CornerRadius="6" Padding="10,8" Margin="0,0,0,0"
+                                                 <Border Background="#1AF59E0B" CornerRadius="0" Padding="10,8" Margin="0,0,0,0"
                                                          IsVisible="{Binding IsOvpnConfigured}">
                                                      <StackPanel Spacing="3">
                                                          <TextBlock Text="ℹ️ Catatan VPNBook" FontSize="11" FontWeight="Bold" Foreground="#F59E0B"/>
@@ -462,7 +462,7 @@
                                 
                                 <Border Width="300" VerticalAlignment="Center" HorizontalAlignment="Center"
                                         Background="{DynamicResource CardBackgroundBrush}"
-                                        CornerRadius="16" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" 
+                                        CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" 
                                         Padding="24"
                                         BoxShadow="0 10 40 0 #55000000">
                                     <StackPanel Spacing="20">
@@ -473,7 +473,7 @@
                                                 Content="OK" Margin="0,5,0,0"
                                                 Background="{DynamicResource AccentBlueBrush}" 
                                                 Foreground="{Binding AccentColor, Converter={StaticResource LuminanceToBrushConverter}}" 
-                                                FontWeight="SemiBold" CornerRadius="8"/>
+                                                FontWeight="SemiBold" CornerRadius="0"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -523,7 +523,7 @@
                          <Button Command="{Binding OpenSelectedInPhotoshopCommand}" 
                                  IsVisible="{Binding HasSelectedWithResult}"
                                  Background="#001E36" BorderBrush="#31A8FF" BorderThickness="1"
-                                 CornerRadius="8" Padding="10,0" Height="32"
+                                 CornerRadius="0" Padding="10,0" Height="32"
                                  ToolTip.Tip="Buka di Photoshop (Multi-Select)">
                              <StackPanel Orientation="Horizontal" Spacing="6">
                                  <PathIcon Data="M4,2C2.89,2 2,2.89 2,4V20C2,21.11 2.89,22 4,22H20C21.11,22 22,21.11 22,20V4C22,2.89 21.11,2 20,2H4M4,4H20V20H4V4M6.5,7V10H9V12H6.5V17H11V14.5H8.5V13H12V9H9.5V8.5H12V7H6.5M13,9V14H14.5V12.5H16A1.5,1.5 0 0,0 17.5,11A1.5,1.5 0 0,0 16,9.5H13M14.5,10.5H16V11H14.5V10.5Z"
@@ -537,7 +537,7 @@
                                 Background="{DynamicResource CardBackgroundBrush}" 
                                 BorderBrush="#EF4444" 
                                 BorderThickness="1" 
-                                CornerRadius="8" Padding="0" Height="32" Width="42"
+                                CornerRadius="0" Padding="0" Height="32" Width="42"
                                 ToolTip.Tip="Ulangi (Error)">
                              <PathIcon Data="{StaticResource IconRetry}" 
                                        Width="16" Height="16" 
@@ -554,7 +554,7 @@
                                 Background="{DynamicResource CardBackgroundBrush}" 
                                 BorderBrush="{Binding TrashButtonBrush}" 
                                 BorderThickness="1" 
-                                CornerRadius="8" Padding="0" Height="32" Width="42"
+                                CornerRadius="0" Padding="0" Height="32" Width="42"
                                 ToolTip.Tip="Hapus Semua">
                              <PathIcon Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,19V6H17V19H7M9,8V17H11V8H9M13,8V17H15V8H13Z" 
                                        Width="14" Height="14" 
@@ -565,7 +565,7 @@
                         <Button Command="{Binding ProcessRemoveBgCommand}"
                                 IsVisible="{Binding !IsProcessing}"
                                 IsEnabled="{Binding HasFiles}"
-                                Background="{DynamicResource AccentBlueBrush}" Padding="15,8" CornerRadius="8" BorderThickness="0"
+                                Background="{DynamicResource AccentBlueBrush}" Padding="15,8" CornerRadius="0" BorderThickness="0"
                                 ToolTip.Tip="Mulai Hapus Background">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <PathIcon Data="{StaticResource IconProcess}" Width="14" Height="14" 
@@ -578,7 +578,7 @@
                         <!-- Pause/Resume Button (Processing) -->
                         <Button Command="{Binding PauseCommand}" 
                                 IsVisible="{Binding IsProcessing}"
-                                Background="{DynamicResource AccentBlueBrush}" Padding="15,8" CornerRadius="8" BorderThickness="0"
+                                Background="{DynamicResource AccentBlueBrush}" Padding="15,8" CornerRadius="0" BorderThickness="0"
                                 ToolTip.Tip="Jeda / Lanjut Proses">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <!-- Explicit Icons to avoid converter failure -->
@@ -599,7 +599,7 @@
                         <!-- Stop Button -->
                         <Button Command="{Binding StopCommand}" 
                                 IsVisible="{Binding IsProcessing}"
-                                Background="#E53935" Padding="15,8" CornerRadius="8" BorderThickness="0"
+                                Background="#E53935" Padding="15,8" CornerRadius="0" BorderThickness="0"
                                 ToolTip.Tip="Hentikan Proses">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <PathIcon Data="M18,18H6V6H18V18Z" Width="14" Height="14" Foreground="White" />
@@ -613,7 +613,7 @@
                                BorderBrush="{Binding AccentColor, Converter={StaticResource ColorToBrushConverter}}" 
                                BorderThickness="1"
                                Foreground="{Binding AccentColor, Converter={StaticResource ColorToBrushConverter}}" 
-                               CornerRadius="8" Padding="0" Height="32" Width="42"
+                               CornerRadius="0" Padding="0" Height="32" Width="42"
                                ToolTip.Tip="UPSCALE">
                              <PathIcon Data="M16 4h-2l-4 4-4-4H4v16h2V8l4 4 4-4v12h2V4z M20 4h-2v16h2V4z" Width="14" Height="14" 
                                        Foreground="{Binding AccentColor, Converter={StaticResource ColorToBrushConverter}}"/>
@@ -626,7 +626,7 @@
         <!-- Toast Notification (Floating) -->
         <Border Margin="20,0,20,60" IsVisible="{Binding IsToastVisible}" ZIndex="200"
                 Background="{DynamicResource CardBackgroundBrush}"
-                CornerRadius="10" Padding="12,8" 
+                CornerRadius="0" Padding="12,8" 
                 BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
                 BoxShadow="0 4 20 0 #40000000"
                 HorizontalAlignment="Center" VerticalAlignment="Bottom">

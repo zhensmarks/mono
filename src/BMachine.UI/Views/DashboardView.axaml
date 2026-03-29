@@ -70,7 +70,7 @@
     </UserControl.Styles>
 
     
-    <Grid ColumnDefinitions="Auto, *, 0, Auto">
+    <Grid ColumnDefinitions="Auto, *, Auto, Auto">
         <!-- COMPACT SIDEBAR (LEFT) -->
         <Border Grid.Column="0" 
                 Background="{DynamicResource BackgroundBrush}"
@@ -88,14 +88,14 @@
                     <!-- Profile Picture (Toggle Button) -->
                     <Button Command="{Binding ToggleToolsExpandedCommand}" 
                             Padding="0" Background="Transparent" BorderThickness="0" 
-                            CornerRadius="6" Cursor="Hand" 
+                            CornerRadius="0" Cursor="Hand" 
                             ToolTip.Tip="User Profile &amp; Tools">
                          <Button.Styles>
                             <Style Selector="Button:pointerover Border.ProfileBorder">
                                 <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <Border Classes="ProfileBorder" Width="26" Height="26" CornerRadius="6" 
+                        <Border Classes="ProfileBorder" Width="26" Height="26" CornerRadius="0" 
                                 Background="{DynamicResource CardBackgroundBrush}" 
                                 ClipToBounds="True" 
                                 BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
@@ -116,7 +116,7 @@
                         <Button Click="OnGdriveClick" 
                                 Width="36" Height="36" Padding="0"
                                 Background="Transparent" BorderThickness="0"
-                                CornerRadius="8" Cursor="Hand"
+                                CornerRadius="0" Cursor="Hand"
                                 ToolTip.Tip="GDrive Window">
                              <Button.Styles>
                                 <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -131,7 +131,7 @@
                         <Button Click="OnPixelcutClick" 
                                 Width="36" Height="36" Padding="0"
                                 Background="Transparent" BorderThickness="0"
-                                CornerRadius="8" Cursor="Hand"
+                                CornerRadius="0" Cursor="Hand"
                                 ToolTip.Tip="Pixelcut Window">
                              <Button.Styles>
                                 <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -142,50 +142,56 @@
                                          Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
                         </Button>
 
-                        <!-- 1. Terminal / Log Panel -->
-                        <ToggleButton Click="OnTerminalToggleClick" 
-                                      IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
-                                      Width="36" Height="36" Padding="0"
-                                      Background="Transparent" BorderThickness="0"
-                                      CornerRadius="8" Cursor="Hand"
-                                      ToolTip.Tip="Terminal">
-                            <ToggleButton.Styles>
-                                <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                                </Style>
-                                <Style Selector="ToggleButton:checked PathIcon">
-                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-                                </Style>
-                            </ToggleButton.Styles>
-                            <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
-                                         Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </ToggleButton>
+                        <!-- 1. Terminal / Log Panel (Moved to Bottom) -->
                         
-                        <!-- 0. Settings -->
-                        <Button Click="OnSettingsClick" 
-                                Width="36" Height="36" Padding="0" 
-                                Background="Transparent" BorderThickness="0" 
-                                CornerRadius="8" Cursor="Hand" 
-                                ToolTip.Tip="Settings">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                                </Style>
-                            </Button.Styles>
-                            <shapes:Path Data="{StaticResource IconSettings}" Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
-                        </Button>
+                        <!-- 0. Settings (Moved to Bottom) -->
                     </StackPanel>
                 </StackPanel>
                 
                 <!-- MIDDLE: Empty Spacer -->
                 <Border Grid.Row="1"/>
                 
-                <!-- BOTTOM: Log Out Button (Red) -->
-                <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,16">
+                <!-- BOTTOM: Terminal, Settings, Log Out -->
+                <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,16" Spacing="4">
+                    
+                    <!-- 1. Terminal / Log Panel -->
+                    <ToggleButton Click="OnTerminalToggleClick" 
+                                  IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
+                                  Width="36" Height="36" Padding="0"
+                                  Background="Transparent" BorderThickness="0"
+                                  CornerRadius="0" Cursor="Hand"
+                                  ToolTip.Tip="Terminal">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                            </Style>
+                            <Style Selector="ToggleButton:checked PathIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                            </Style>
+                        </ToggleButton.Styles>
+                        <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
+                                     Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                    
+                    <!-- 0. Settings -->
+                    <Button Click="OnSettingsClick" 
+                            Width="36" Height="36" Padding="0" 
+                            Background="Transparent" BorderThickness="0" 
+                            CornerRadius="0" Cursor="Hand" 
+                            ToolTip.Tip="Settings">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                            </Style>
+                        </Button.Styles>
+                        <shapes:Path Data="{StaticResource IconSettings}" Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"/>
+                    </Button>
+
+                    <!-- Log Out Button (Red) -->
                     <Button Command="{Binding OpenLogoutDialogCommand}" 
                             Width="36" Height="36" Padding="0" 
                             Background="Transparent" BorderThickness="0" 
-                            CornerRadius="8" Cursor="Hand" 
+                            CornerRadius="0" Cursor="Hand" 
                             ToolTip.Tip="Log Out">
                         <Button.Styles>
                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -204,203 +210,101 @@
         
         <!-- MAIN DASHBOARD AREA (Content) -->
         <Grid Grid.Column="1" RowDefinitions="Auto, *">
-            <!-- NAVIGATION BAR (Horizontal, at top) -->
+            <!-- NAVIGATION BAR (Horizontal, at top) - SHARP TERMINAL STYLE -->
             <Border Grid.Row="0" HorizontalAlignment="Center" Background="#10FFFFFF" 
-                    CornerRadius="6" Padding="3" Margin="12,12,12,6">
-                <WrapPanel Orientation="Horizontal">
-                    <!-- GDrive Tab -->
-                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
+                    CornerRadius="0" BorderBrush="#33FFFFFF" BorderThickness="1" Padding="2" Margin="12,12,12,6">
+                <WrapPanel Orientation="Horizontal" Margin="0,0,0,0">
+                    <WrapPanel.Styles>
+                        <Style Selector="RadioButton.NavTab">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="10"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Padding" Value="12,8"/>
+                            <Setter Property="BorderThickness" Value="0,0,0,0"/>
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Setter>
+                            <Setter Property="Template">
+                                <ControlTemplate>
+                                    <Border Background="{TemplateBinding Background}" 
+                                            CornerRadius="0"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter Content="{TemplateBinding Content}" 
+                                                          HorizontalAlignment="Center" 
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter>
+                        </Style>
+                        <Style Selector="RadioButton.NavTab:pointerover">
+                            <Setter Property="Background" Value="#10FFFFFF"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                        </Style>
+                        <Style Selector="RadioButton.NavTab:checked">
+                            <Setter Property="Background" Value="#1E1E1E"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                            <Setter Property="BorderThickness" Value="0,0,0,3"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                        </Style>
+                        <Style Selector="RadioButton.NavTab:checked PathIcon">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                        </Style>
+                    </WrapPanel.Styles>
+
+                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsGdriveTabSelected}"
                                  IsVisible="{Binding IsGdriveVisible}"
-                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                        <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
-                        <RadioButton.Template>
-                            <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </RadioButton.Template>
-                        <RadioButton.Styles>
-                            <Style Selector="RadioButton">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="RadioButton:checked">
-                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                        </RadioButton.Styles>
+                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 ToolTip.Tip="GDrive">
+                        <PathIcon Data="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
                     </RadioButton>
 
                     <!-- Pixelcut Tab -->
-                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsPixelcutTabSelected}"
+                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsPixelcutTabSelected}"
                                  IsVisible="{Binding IsPixelcutVisible}"
-                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                        <PathIcon Data="M20,6 L18.59,4.59 L14.73,8.45 L13.32,7.04 L17.18,3.18 L15.76,1.76 L13.64,3.88 C13.06,3.33 12.29,3 11.5,3 C9.57,3 8,4.57 8,6.5 C8,7.29 8.27,8.03 8.74,8.63 L6,11.37 C5.53,10.9 5.25,10.27 5.25,9.58 C5.25,8.13 6.42,6.96 7.88,6.96 C8.4,6.96 8.82,6.54 8.82,6.02 C8.82,5.5 8.4,5.08 7.88,5.08 C5.39,5.08 3.37,7.1 3.37,9.58 C3.37,10.79 3.86,11.9 4.66,12.71 L2.25,15.12 L3.66,16.54 L7.52,12.68 L8.93,14.09 L5.07,17.95 L6.49,19.36 L9.29,16.56 C10.1,17.37 11.21,17.86 12.42,17.86 C14.91,17.86 16.92,15.84 16.92,13.36 C16.92,12.83 16.5,12.41 15.98,12.41 C15.46,12.41 15.04,12.83 15.04,13.36 C15.04,14.81 13.86,15.98 12.42,15.98 C11.72,15.98 11.09,15.7 10.63,15.22 L13.37,12.48 C13.97,12.95 14.71,13.23 15.5,13.23 C17.43,13.23 19,11.66 19,9.73 C19,8.94 18.73,8.2 18.26,7.6 L20.38,5.48 L20.4,5.5 L20,6 M11.5,4.88 C12.4,4.88 13.12,5.6 13.12,6.5 C13.12,7.4 12.4,8.12 11.5,8.12 C10.6,8.12 9.88,7.4 9.88,6.5 C9.88,5.6 10.6,4.88 11.5,4.88 M15.5,11.35 C14.6,11.35 13.88,10.63 13.88,9.73 C13.88,8.83 14.6,8.11 15.5,8.11 C16.4,8.11 17.12,8.83 17.12,9.73 C17.12,10.63 16.4,11.35 15.5,11.35" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
-                        <RadioButton.Template>
-                            <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </RadioButton.Template>
-                        <RadioButton.Styles>
-                            <Style Selector="RadioButton">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="RadioButton:checked">
-                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                        </RadioButton.Styles>
+                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 ToolTip.Tip="Pixelcut">
+                        <PathIcon Data="M20,6 L18.59,4.59 L14.73,8.45 L13.32,7.04 L17.18,3.18 L15.76,1.76 L13.64,3.88 C13.06,3.33 12.29,3 11.5,3 C9.57,3 8,4.57 8,6.5 C8,7.29 8.27,8.03 8.74,8.63 L6,11.37 C5.53,10.9 5.25,10.27 5.25,9.58 C5.25,8.13 6.42,6.96 7.88,6.96 C8.4,6.96 8.82,6.54 8.82,6.02 C8.82,5.5 8.4,5.08 7.88,5.08 C5.39,5.08 3.37,7.1 3.37,9.58 C3.37,10.79 3.86,11.9 4.66,12.71 L2.25,15.12 L3.66,16.54 L7.52,12.68 L8.93,14.09 L5.07,17.95 L6.49,19.36 L9.29,16.56 C10.1,17.37 11.21,17.86 12.42,17.86 C14.91,17.86 16.92,15.84 16.92,13.36 C16.92,12.83 16.5,12.41 15.98,12.41 C15.46,12.41 15.04,12.83 15.04,13.36 C15.04,14.81 13.86,15.98 12.42,15.98 C11.72,15.98 11.09,15.7 10.63,15.22 L13.37,12.48 C13.97,12.95 14.71,13.23 15.5,13.23 C17.43,13.23 19,11.66 19,9.73 C19,8.94 18.73,8.2 18.26,7.6 L20.38,5.48 L20.4,5.5 L20,6 M11.5,4.88 C12.4,4.88 13.12,5.6 13.12,6.5 C13.12,7.4 12.4,8.12 11.5,8.12 C10.6,8.12 9.88,7.4 9.88,6.5 C9.88,5.6 10.6,4.88 11.5,4.88 M15.5,11.35 C14.6,11.35 13.88,10.63 13.88,9.73 C13.88,8.83 14.6,8.11 15.5,8.11 C16.4,8.11 17.12,8.83 17.12,9.73 C17.12,10.63 16.4,11.35 15.5,11.35" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
                     </RadioButton>
 
-                    <!-- Link to Explorer Tab (Moved) -->
-                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}"
+                    <!-- Explorer Tab -->
+                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}"
                                  IsVisible="{Binding IsOutputExplorerVisible}"
-                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
                                  ToolTip.Tip="Output Explorer">
-                        <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
-                        <RadioButton.Template>
-                            <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </RadioButton.Template>
-                        <RadioButton.Styles>
-                            <Style Selector="RadioButton">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="RadioButton:checked">
-                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                        </RadioButton.Styles>
+                        <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
                     </RadioButton>
 
                     <!-- Dashboard Tab -->
-                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}"
-                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                        <PathIcon Data="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
-                        <RadioButton.Template>
-                            <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </RadioButton.Template>
-                        <RadioButton.Styles>
-                            <Style Selector="RadioButton">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="RadioButton:checked">
-                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                        </RadioButton.Styles>
+                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}"
+                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 ToolTip.Tip="Dashboard">
+                        <PathIcon Data="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
                     </RadioButton>
 
                     <!-- Batch Tab -->
-                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}"
+                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}"
                                  IsVisible="{Binding IsBatchVisible}"
-                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                         <PathIcon Data="M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
-                        <RadioButton.Template>
-                            <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </RadioButton.Template>
-                        <RadioButton.Styles>
-                            <Style Selector="RadioButton">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="RadioButton:checked">
-                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                        </RadioButton.Styles>
+                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 ToolTip.Tip="Batch Processing">
+                         <PathIcon Data="M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
                     </RadioButton>
 
                     <!-- Locker Tab -->
-                    <RadioButton GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}"
+                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}"
                                  IsVisible="{Binding IsFolderLockerVisible}"
-                                 Padding="0" Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Bold" Opacity="0.6" Cursor="Hand"
-                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
+                                 ToolTip.Tip="Locker">
                         <PathIcon Data="M12,17C10.89,17 10,16.1 10,15C10,13.89 10.89,13 12,13A2,2 0 0,1 14,15A2,2 0 0,1 12,17M18,20V10H6V20H18M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V10C4,8.89 4.89,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"
-                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" />
-                        <RadioButton.Template>
-                            <ControlTemplate>
-                                <Border Background="{TemplateBinding Background}" CornerRadius="{Binding DataContext.NavCornerRadiusStruct, ElementName=Root}" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </RadioButton.Template>
-                        <RadioButton.Styles>
-                            <Style Selector="RadioButton">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                        <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="RadioButton:checked">
-                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
-                                <Setter Property="Opacity" Value="1.0"/>
-                            </Style>
-                        </RadioButton.Styles>
+                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
                     </RadioButton>
-
 
                 </WrapPanel>
             </Border>
@@ -409,27 +313,25 @@
             <Grid Grid.Row="1" ClipToBounds="True">
                 
                 <!-- DASHBOARD TAB CONTENT -->
-                <Grid IsVisible="{Binding IsDashboardTabSelected}" HorizontalAlignment="Stretch" Margin="0,0,20,30">
-                    <!-- StatsPanel -->
-                    <Border x:Name="Part_Stats" 
-                            CornerRadius="20" Padding="10"
-                            VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
-                            Background="Transparent">
-                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <controls:StatWidget Grid.Row="0" Grid.Column="0" Margin="6" Width="220" Height="120" DisplayMode="Bar" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Percentage="{Binding StatEditingPercentage}" 
+                <Grid IsVisible="{Binding IsDashboardTabSelected}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="20,0,20,30">
+                    <!-- StatsPanel - 2x2 Grid that stretches -->
+                    <Grid x:Name="Part_Stats" 
+                          RowDefinitions="*,*" ColumnDefinitions="*,*" 
+                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          MaxWidth="600" MaxHeight="400">
+                                <controls:StatWidget Grid.Row="0" Grid.Column="0" Margin="6" MinWidth="140" MinHeight="80" DisplayMode="Bar" Label="{Binding Language[Stats.Editing]}" Value="{Binding StatEditing}" Suffix="CARD" Percentage="{Binding StatEditingPercentage}" 
                                                      Color="{DynamicResource AccentEditingBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenEditingListCommand}" WindowCommand="{Binding OpenEditingWindowCommand}"/>
-                                <controls:StatWidget Grid.Row="0" Grid.Column="1" Margin="6" Width="220" Height="120" DisplayMode="Bar" Label="{Binding Language[Stats.Revision]}" Value="{Binding StatRevision}" Percentage="{Binding StatRevisionPercentage}" 
+                                <controls:StatWidget Grid.Row="0" Grid.Column="1" Margin="6" MinWidth="140" MinHeight="80" DisplayMode="Bar" Label="{Binding Language[Stats.Revision]}" Value="{Binding StatRevision}" Suffix="CARD" Percentage="{Binding StatRevisionPercentage}" 
                                                      Color="{DynamicResource AccentRevisionBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenRevisionListCommand}" WindowCommand="{Binding OpenRevisionWindowCommand}"/>
-                                <controls:StatWidget Grid.Row="1" Grid.Column="0" Margin="6" Width="220" Height="120" DisplayMode="Bar" Label="{Binding Language[Stats.Late]}" Value="{Binding StatLate}" Percentage="{Binding StatLatePercentage}" 
+                                <controls:StatWidget Grid.Row="1" Grid.Column="0" Margin="6" MinWidth="140" MinHeight="80" DisplayMode="Bar" Label="{Binding Language[Stats.Late]}" Value="{Binding StatLate}" Suffix="CARD" Percentage="{Binding StatLatePercentage}" 
                                                      Color="{DynamicResource AccentLateBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}" 
                                                      Command="{Binding OpenLateListCommand}" WindowCommand="{Binding OpenLateWindowCommand}"/>
-                                <controls:StatWidget Grid.Row="1" Grid.Column="1" Margin="6" Width="220" Height="120" DisplayMode="Bar" Label="{Binding Language[Stats.Points]}" Value="{Binding StatPoints}" Percentage="{Binding StatPointsPercentage}" 
+                                <controls:StatWidget Grid.Row="1" Grid.Column="1" Margin="6" MinWidth="140" MinHeight="80" DisplayMode="Bar" Label="SPREADSHEET" Value="{Binding StatPoints}" Suffix="POIN" Percentage="{Binding StatPointsPercentage}" 
                                                      Color="{DynamicResource AccentPointsBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}"
                                                      Command="{Binding OpenLeaderboardWindowCommand}" WindowCommand="{Binding OpenSpreadsheetWindowCommand}"/>
-                        </Grid>
-                    </Border>
+                    </Grid>
                 </Grid>
                     
                 <!-- OUTPUT EXPLORER TAB CONTENT -->
@@ -444,7 +346,7 @@
                     <Border Grid.Row="0" x:Name="BatchDropZone"
                             IsVisible="{Binding BatchVM.ShowDropZone}"
                             Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="20" Padding="40"
+                            CornerRadius="0" Padding="40"
                             BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="2"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             MinHeight="200"
@@ -452,10 +354,10 @@
                         <StackPanel Spacing="15" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <shapes:Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2Z" 
                                          Width="64" Height="64" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" HorizontalAlignment="Center" Opacity="0.5"/>
-                            <TextBlock Text="DRAG FOLDERS HERE" FontSize="16" FontWeight="Bold" 
+                            <TextBlock Text="DRAG FOLDERS HERE" FontSize="16" Classes="Bold" 
                                        Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                             <TextBlock Text="Drop source folders to begin batch processing" FontSize="12" 
-                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.7"/>
+                                       Classes="Light" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                     
@@ -463,8 +365,11 @@
                     <Grid Grid.Row="0" ColumnDefinitions="*,*" IsVisible="{Binding BatchVM.HasFolders}">
                          
                         <!-- SOURCE PANEL -->
-                        <Grid Grid.Column="0" Margin="0,0,5,0">
-                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="10" Margin="0,8,0,14" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                        <Grid Grid.Column="0" Margin="0,0,5,0" RowDefinitions="Auto, *">
+                            <!-- Header Area -->
+                            <TextBlock Grid.Row="0" Text="SOURCE" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="10,0,0,5"/>
+                            
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
@@ -481,28 +386,28 @@
                                                            <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            <Button.Flyout>
                                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="6" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                                                        <StackPanel Spacing="8">
                                                                            <TextBlock Text="Folder Options" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                            <!-- Create Subfolder (Horizontal) -->
                                                                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder..." Width="140" FontSize="11" CornerRadius="4" Padding="6,4">
+                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder..." Width="140" FontSize="11" CornerRadius="0" Padding="6,4">
                                                                                    <TextBox.KeyBindings>
                                                                                        <KeyBinding Gesture="Enter" Command="{Binding CreateSubFolderCommand}"/>
                                                                                    </TextBox.KeyBindings>
                                                                                </TextBox>
-                                                                               <Button Command="{Binding CreateSubFolderCommand}" Content="Add" HorizontalContentAlignment="Center" FontSize="11" Padding="8,4" Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="4"/>
+                                                                               <Button Command="{Binding CreateSubFolderCommand}" Content="Add" HorizontalContentAlignment="Center" FontSize="11" Padding="8,4" Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="0"/>
                                                                            </StackPanel>
                                                                            <Separator Height="1" Background="{DynamicResource CardBorderBrush}"/>
                                                                            <!-- Delete -->
-                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="4"/>
+                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="0"/>
                                                                        </StackPanel>
                                                                    </Border>
                                                                </Flyout>
                                                            </Button.Flyout>
                                                        </Button>
                                                        
-                                                       <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand"/>
+                                                       <TextBlock Text="{Binding DisplayName}" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand"/>
                                                   </StackPanel>
                                               </TreeDataTemplate>
     
@@ -685,10 +590,10 @@
                                     </Grid>
                                 </Grid>
                             </Border>
-                            
+
                             <!-- Add Folder Button (Source) - Left Aligned -->
-                            <Button VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="20,0,0,0"
-                                    Width="28" Height="28" CornerRadius="6" Padding="0"
+                            <Button Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,0"
+                                    Width="28" Height="28" CornerRadius="0" Padding="0"
                                     Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Source Folder"
@@ -708,9 +613,12 @@
                         </Grid>
                         
                         <!-- OUTPUT PANEL -->
-                        <Grid Grid.Column="1" Margin="5,0,0,0">
-                            <!-- Adjusted margin bottom to 14 to allow button overlap -->
-                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="20" Padding="10" Margin="0,8,0,14" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                        <Grid Grid.Column="1" Margin="5,0,0,0" RowDefinitions="Auto, *">
+                            <!-- Header Area -->
+                            <TextBlock Grid.Row="0" Text="OUTPUT" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="0,0,10,5" HorizontalAlignment="Right"/>
+
+                            <!-- Main Output Area -->
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
@@ -727,17 +635,17 @@
                                                            <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            <Button.Flyout>
                                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="6" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                                                                        <StackPanel Spacing="8" Width="160">
                                                                            <TextBlock Text="Folder Options" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                            <!-- Create Subfolder -->
                                                                            <StackPanel Spacing="4">
-                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder Name..." FontSize="11" CornerRadius="4"/>
+                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder Name..." FontSize="11" CornerRadius="0"/>
                                                                                <Button Content="Add Subfolder" Command="{Binding CreateSubFolderCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11"/>
                                                                            </StackPanel>
                                                                            <Separator Height="1" Background="{DynamicResource CardBorderBrush}"/>
                                                                            <!-- Delete -->
-                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="4"/>
+                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="0"/>
                                                                        </StackPanel>
                                                                    </Border>
                                                                </Flyout>
@@ -924,14 +832,14 @@
                                 </Grid>
                             </Border>
 
-                            <!-- Add Folder Button (Output) - Right Aligned -->
-                            <Button VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,20,0"
-                                    Width="28" Height="28" CornerRadius="6" Padding="0"
+                            <!-- Add Folder Button (Output) - Right Aligned Overlapping Bottom -->
+                            <Button Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,0"
+                                    Width="32" Height="32" CornerRadius="0" Padding="0"
                                     Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Output Folder"
                                     Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Output"
-                                    Cursor="Hand">
+                                    ZIndex="5" Cursor="Hand">
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                                         <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
@@ -941,7 +849,8 @@
                                         <Setter Property="Foreground" Value="White"/>
                                     </Style>
                                 </Button.Styles>
-                                <PathIcon Data="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M11,15V12H9V15H6V17H9V20H11V17H14V15H11Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <PathIcon Data="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M11,15V12H9V15H6V17H9V20H11V17H14V15H11Z" 
+                                          Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
                         </Grid>
                     </Grid>
@@ -949,7 +858,7 @@
                     <!-- NEW FOOTER LAYOUT (REDESIGNED) -->
                     <Border Grid.Row="1" Margin="0,10,0,0" 
                             Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="12,12,0,0" Padding="15,10"
+                            CornerRadius="0" Padding="15,10"
                             BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0"
                             IsVisible="{Binding BatchVM.HasFolders}">
                             <Grid ColumnDefinitions="*, Auto">
@@ -968,7 +877,7 @@
                                                 <DataTemplate>
                                                     <Button Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
                                                             CommandParameter="{Binding}"
-                                                            Width="32" Height="32" Padding="0" CornerRadius="8" Cursor="Hand"
+                                                            Width="32" Height="32" Padding="0" CornerRadius="0" Cursor="Hand"
                                                             Background="#2A2A2A" BorderThickness="0"
                                                             ToolTip.Tip="{Binding Name}"
                                                             Margin="0,0,6,0">
@@ -998,7 +907,7 @@
                                     <Button Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
                                             Width="32" Height="32" Padding="0"
                                             Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                            CornerRadius="4" ToolTip.Tip="Set Scripts Folder">
+                                            CornerRadius="0" ToolTip.Tip="Set Scripts Folder">
                                         <shapes:Path Data="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" 
                                                      Width="14" Height="14" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
                                     </Button>
@@ -1007,7 +916,7 @@
                                     <Button Command="{Binding BatchVM.ClearCommand}" 
                                             Width="32" Height="32" Padding="0"
                                             Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                            CornerRadius="4" ToolTip.Tip="Clear All">
+                                            CornerRadius="0" ToolTip.Tip="Clear All">
                                         <PathIcon Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="{DynamicResource AccentRedBrush}"/>
                                     </Button>
                                 </StackPanel>
@@ -1041,23 +950,23 @@
                                     PointerPressed="OnEmbeddedViewPointerPressed"/>
                 </Grid>
 
-                <!-- MINIMALIST FOLDER CREATION OVERLAY -->
-                <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="110">
-                    <!-- Glassmorphism Background (Click to close) -->
-                    <Button Background="#A0000000" CornerRadius="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Command="{Binding BatchVM.CloseFolderOverlayCommand}">
+                <!-- NEW FOLDER OVERLAY -->
+                <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="500">
+                    <!-- Solid Backdrop (No transparency) -->
+                    <Button Background="#FF121212" CornerRadius="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            Command="{Binding BatchVM.CloseFolderOverlayCommand}" BorderThickness="0">
                         <Button.Styles>
                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="#A0000000"/>
+                                <Setter Property="Background" Value="#FF121212"/>
                             </Style>
                         </Button.Styles>
                     </Button>
                     
                     <!-- Overlay Card -->
                     <Border Background="{DynamicResource CardBackgroundBrush}" 
-                            BorderBrush="{DynamicResource CardBorderBrush}" 
+                            BorderBrush="{DynamicResource AccentBlueBrush}" 
                             BorderThickness="1" 
-                            CornerRadius="12" 
+                            CornerRadius="0" 
                             Padding="20" 
                             Width="320" 
                             HorizontalAlignment="Center" 
@@ -1073,7 +982,7 @@
                                          x:Name="FolderInputBox"
                                          Text="{Binding BatchVM.NewFolderName, Mode=TwoWay}" 
                                          Watermark="Enter folder name..." 
-                                         CornerRadius="6,0,0,6" 
+                                         CornerRadius="0" 
                                          FontSize="13"
                                          Padding="10,8">
                                     <TextBox.KeyBindings>
@@ -1097,7 +1006,7 @@
                                 <Button Grid.Column="2" 
                                         Command="{Binding BatchVM.ToggleFolderTemplatesCommand}"
                                         Background="#25FFFFFF" 
-                                        CornerRadius="0,6,6,0" 
+                                        CornerRadius="0" 
                                         Width="36" 
                                         VerticalAlignment="Stretch"
                                         ToolTip.Tip="Select Template">
@@ -1115,7 +1024,7 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="#15FFFFFF" CornerRadius="4" Margin="0,0,6,6">
+                                        <Border Background="#15FFFFFF" CornerRadius="0" Margin="0,0,6,6">
                                             <StackPanel Orientation="Horizontal">
                                                 <Button Content="{Binding}" 
                                                         Command="{Binding DataContext.BatchVM.ApplyFolderTemplateCommand, ElementName=Root}" 
@@ -1125,13 +1034,13 @@
                                                         Foreground="{DynamicResource TextPrimaryBrush}"
                                                         Padding="8,4" 
                                                         Background="Transparent" 
-                                                        CornerRadius="4,0,0,4"/>
+                                                        CornerRadius="0"/>
                                                 <Button Command="{Binding DataContext.BatchVM.RemoveFolderTemplateCommand, ElementName=Root}" 
                                                         CommandParameter="{Binding}"
                                                         Classes="iconBtn"
                                                         Padding="6,4" 
                                                         Background="#B54845" 
-                                                        CornerRadius="0,4,4,0"
+                                                        CornerRadius="0"
                                                         ToolTip.Tip="Remove Template">
                                                     <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Width="8" Height="8" Foreground="White"/>
                                                 </Button>
@@ -1148,7 +1057,7 @@
                                     HorizontalContentAlignment="Center"
                                     Background="{DynamicResource AccentBlueBrush}" 
                                     Foreground="White" 
-                                    CornerRadius="6"
+                                    CornerRadius="0"
                                     Padding="10,8"
                                     FontWeight="SemiBold"/>
                         </StackPanel>
@@ -1157,12 +1066,24 @@
         </Grid>
     </Grid>
 
-    <!-- GRID SPLITTER -->
-    <GridSplitter Grid.Column="2" Width="0" HorizontalAlignment="Stretch" Background="Transparent" 
-                  ResizeDirection="Columns" IsVisible="False"/>
+    <!-- RESIZE HANDLE (Manual drag) -->
+    <Border Grid.Column="2" Width="6" Background="Transparent" 
+            Cursor="SizeWestEast"
+            IsVisible="{Binding IsLogPanelOpen}"
+            x:Name="LogPanelResizeHandle"
+            PointerPressed="OnResizeHandlePressed"
+            PointerMoved="OnResizeHandleMoved"
+            PointerReleased="OnResizeHandleReleased">
+        <Border.Styles>
+            <Style Selector="Border#LogPanelResizeHandle:pointerover">
+                <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+                <Setter Property="Opacity" Value="0.4"/>
+            </Style>
+        </Border.Styles>
+    </Border>
 
     <!-- LOG PANEL -->
-    <views:LogPanelSidebar Grid.Column="3" Width="279"
+    <views:LogPanelSidebar Grid.Column="3" x:Name="LogPanel" Width="280" MinWidth="180"
                            IsVisible="{Binding IsLogPanelOpen}" 
                            VerticalAlignment="Stretch"/>
 </Grid>

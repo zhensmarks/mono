@@ -1176,6 +1176,14 @@ public partial class SettingsViewModel : ObservableObject
         catch { }
     }
     
+    private void UpdateActionScriptPagination()
+    {
+        for (int i = 0; i < ActionScripts.Count; i++)
+        {
+            ActionScripts[i].IsPage2Start = (i == 7);
+        }
+    }
+
     // --- End Update System ---
 
     public string CustomEditingHex
@@ -2120,6 +2128,24 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<ScriptItem> _masterScripts = new();
     [ObservableProperty] private ObservableCollection<ScriptItem> _actionScripts = new();
     [ObservableProperty] private ObservableCollection<ScriptItem> _otherScripts = new();
+
+    // Script Tab Selection (Master vs Action)
+    [ObservableProperty] private bool _isScriptMasterSelected = true;
+    [ObservableProperty] private bool _isScriptActionSelected = false;
+
+    [RelayCommand]
+    public void SwitchToScriptMaster()
+    {
+        IsScriptMasterSelected = true;
+        IsScriptActionSelected = false;
+    }
+
+    [RelayCommand]
+    public void SwitchToScriptAction()
+    {
+        IsScriptMasterSelected = false;
+        IsScriptActionSelected = true;
+    }
     
     // File Picker for Scripts
     public Func<Task<string?>>? PickScriptFileFunc { get; set; }
@@ -2207,8 +2233,11 @@ public partial class SettingsViewModel : ObservableObject
             // Action Scripts: Load .jsx and .pyw from "Scripts/Action"
             await LoadScriptsForAsync(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action"), "*.jsx;*.pyw");
             
-            // Action Scripts: ALSO Load .pyw from "Scripts/" (Root)
-            await LoadScriptsForAsync(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts"), "*.pyw", append: true);
+            // Sort ActionItems and mark pagination (Page 1 vs Page 2 for Radial Menu)
+            var sortedAction = ActionScripts.OrderBy(x => _scriptAliases.ContainsKey(x.OriginalName) ? _scriptAliases[x.OriginalName].Order : 9999).ThenBy(x => x.Name).ToList();
+            ActionScripts.Clear();
+            foreach (var item in sortedAction) ActionScripts.Add(item);
+            UpdateActionScriptPagination();
 
             await LoadScriptsForAsync(OtherScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Others"), "*.*");
             
@@ -2385,6 +2414,11 @@ public partial class SettingsViewModel : ObservableObject
             config.Order = i; // 0-based index is the new order
 
             _scriptAliases[script.OriginalName] = config;
+        }
+
+        if (!isMaster)
+        {
+            UpdateActionScriptPagination();
         }
 
         SaveMetadata();
@@ -2718,6 +2752,9 @@ public partial class ScriptItem : ObservableObject
     [ObservableProperty] private string _originalName = ""; // Real Filename
     [ObservableProperty] private string _fullPath = "";
     [ObservableProperty] private string _type = "";
+    
+    // Pagination synced with Radial Menu
+    [ObservableProperty] private bool _isPage2Start;
     
     // External Picker Function
     public Func<Task<string?>>? PickIconFunc { get; set; }
