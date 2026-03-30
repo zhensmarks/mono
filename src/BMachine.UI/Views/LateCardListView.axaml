@@ -381,11 +381,12 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <Grid Grid.Row="2" ColumnDefinitions="*, Auto" Margin="0,20,0,0">
-                    <StackPanel Grid.Column="0" VerticalAlignment="Bottom">
+                <Grid Grid.Row="2" Margin="0,20,0,0">
+                    <StackPanel VerticalAlignment="Bottom" Spacing="8">
 
                         <!-- Pending Attachments Preview -->
-                        <Border Background="#10FFFFFF" CornerRadius="0" Padding="8" Margin="0,0,0,8"
+                        <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                CornerRadius="0" Padding="8" Margin="0,0,0,8"
                                 IsVisible="{Binding HasPendingAttachments}">
                             <StackPanel Spacing="6">
                                 <TextBlock Text="Attachments" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -489,10 +490,12 @@
                             </ScrollViewer>
                         </Border>
 
-                        <!-- Comment Input Area -->
-                        <TextBox x:Name="Part_CommentTextBox" Text="{Binding NewCommentText}" Watermark="Write a comment... (@mention)" 
-                                 Background="#1AFFFFFF" BorderThickness="0" CornerRadius="0" Padding="10"
-                                 Margin="0,0,10,0" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="100">
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="48">
+                            <TextBox x:Name="Part_CommentTextBox" Grid.Column="0"
+                                     Text="{Binding NewCommentText}" Watermark="Write a comment... (@mention)" 
+                                     Background="#1AFFFFFF" BorderThickness="0" CornerRadius="0" Padding="10"
+                                     Margin="0,0,8,0" AcceptsReturn="True" TextWrapping="Wrap"
+                                     MinHeight="48" MaxHeight="100" VerticalAlignment="Stretch">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
                             </TextBox.KeyBindings>
@@ -512,13 +515,14 @@
                                     <PathIcon Data="{StaticResource IconChevronUp}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Button>
                             </TextBox.InnerRightContent>
-                        </TextBox>
+                            </TextBox>
+                            <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
+                                    MinWidth="48" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment"
+                                    VerticalAlignment="Stretch" HorizontalAlignment="Right">
+                                <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
+                            </Button>
+                        </Grid>
                     </StackPanel>
-                    
-                    <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
-                            Width="40" Height="40" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment" VerticalAlignment="Bottom" Margin="0,0,0,5">
-                        <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
-                    </Button>
                 </Grid>
             </Grid>
         </Border>

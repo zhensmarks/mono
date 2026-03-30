@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using BMachine.SDK;
 using BMachine.UI.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -403,18 +404,49 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         if (string.IsNullOrEmpty(id)) return;
         
         var clipboard = GetClipboard();
-        if (clipboard == null) return;
-        
-        await clipboard.SetTextAsync(id);
-        StatusMessage = "ID Copied!";
-        await LogActivity("System", "Copied", id);
+        if (clipboard != null)
+        {
+            try
+            {
+                await clipboard.SetTextAsync(id);
+                StatusMessage = "ID Copied!";
+                await LogActivity("System", "Copied", id);
+                return;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CopyId] Avalonia clipboard failed: {ex.Message}");
+            }
+        }
+
+        // Fallback: use native Win clipboard via PowerShell (helps when Avalonia clipboard is unavailable).
+        try
+        {
+            await LogActivity("System", "ClipboardFallback", id);
+            var escaped = id.Replace("'", "''");
+            var psScript = $"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::SetText('{escaped}');";
+            var ps = new Process();
+            ps.StartInfo.FileName = "powershell";
+            ps.StartInfo.Arguments = $"-NoProfile -NonInteractive -Command \"{psScript}\"";
+            ps.StartInfo.UseShellExecute = false;
+            ps.StartInfo.CreateNoWindow = true;
+            ps.Start();
+            await ps.WaitForExitAsync();
+            ps.Dispose();
+            StatusMessage = "ID Copied!";
+        }
+        catch (Exception fallbackEx)
+        {
+            StatusMessage = $"Copy failed: {fallbackEx.Message}";
+        }
     }
     
     private Avalonia.Input.Platform.IClipboard? GetClipboard()
     {
         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
         {
-            return desktop.MainWindow?.Clipboard;
+            var win = desktop.MainWindow ?? desktop.Windows.FirstOrDefault();
+            return win?.Clipboard;
         }
         // Fallback for SingleView (Mobile/Web) if needed, though likely not for this desktop app
         else if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.ISingleViewApplicationLifetime single)
@@ -1211,22 +1243,34 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             {
                 var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
                 var token = await _database.GetAsync<string>("Trello.Token") ?? "";
-                var sep = att.Url.Contains("?") ? "&" : "?";
-                var secureUrl = $"{att.Url}{sep}key={apiKey}&token={token}";
 
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
-                    var lightbox = new BMachine.UI.Views.ImageLightboxWindow(secureUrl);
-                    var app = Avalonia.Application.Current;
-                    var desktop = app?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-                    var mainWindow = desktop?.MainWindow;
-                    if (mainWindow != null)
+                    try
                     {
-                        lightbox.ShowDialog(mainWindow);
+                        var lightbox = new BMachine.UI.Views.ImageLightboxWindow(att.Url, apiKey, token);
+                        var app = Avalonia.Application.Current;
+                        var desktop = app?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                        
+                        // Find a visible owner window (MainWindow may be closed/stale in embedded mode)
+                        var owner = desktop?.MainWindow;
+                        if (owner == null || !owner.IsVisible)
+                            owner = desktop?.Windows.FirstOrDefault(w => w.IsVisible);
+                        
+                        if (owner != null)
+                        {
+                            lightbox.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                            lightbox.Show(owner);
+                        }
+                        else
+                        {
+                            lightbox.Show();
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        lightbox.Show();
+                        System.Diagnostics.Debug.WriteLine($"[Lightbox] Failed to open: {ex.Message}");
+                        StatusMessage = $"Could not open image: {ex.Message}";
                     }
                 });
             }

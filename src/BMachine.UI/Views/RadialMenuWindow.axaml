@@ -107,10 +107,11 @@
 
     <Border Background="Transparent">
         <Grid>
-             <!-- 1. Main Background Plate (Theme Aware) -->
-             <Border Width="200" Height="200" CornerRadius="0"
+             <!-- 1. Main background plate: circular clip (ring + wedges), not a square card -->
+             <Border Width="200" Height="200" CornerRadius="100"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Background="{DynamicResource AppBackgroundBrush}">
+                     Background="{DynamicResource AppBackgroundBrush}"
+                     ClipToBounds="True">
              </Border>
 
              <!-- 2. Segmented Divider Lines (Absolute 22.5 Degree Math Offsets to perfectly frame the 45-degree slices) -->
@@ -143,8 +144,8 @@
                                 IsVisible="{Binding IsWedgeVisible}"
                                 IsHitTestVisible="False"/>
 
-             <!-- 5. Solid Central Hub with Dynamic Text -->
-             <Border Width="88" Height="88" CornerRadius="0" 
+             <!-- 5. Solid central hub (circular to match inner ring) -->
+             <Border Width="88" Height="88" CornerRadius="44"
                      Background="{DynamicResource CardBackgroundBrush}"
                      HorizontalAlignment="Center" VerticalAlignment="Center">
                  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,0">

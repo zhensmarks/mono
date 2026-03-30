@@ -6,73 +6,51 @@
         x:Class="BMachine.UI.Views.ImageLightboxWindow"
         Title="Image Viewer"
         Width="800" Height="600"
-        WindowStartupLocation="CenterOwner"
-        Topmost="True"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="-1">
+        WindowStartupLocation="CenterScreen"
+        Topmost="False"
+        SystemDecorations="None"
+        Background="#1A1A1A">
 
-    <Grid Background="{Binding $parent[Window].Background}" PointerPressed="OnBackgroundPointerPressed">
-        <!-- Image Viewer with Zoom and Pan -->
+        <Grid Background="Transparent">
         <ScrollViewer x:Name="ImageScroller" Margin="0" 
-                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                      Gestures.Pinch="OnImagePinch">
-            <Border MinWidth="{Binding #ImageScroller.Viewport.Width}" MinHeight="{Binding #ImageScroller.Viewport.Height}">
-                <LayoutTransformControl x:Name="ImageTransformControl" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <LayoutTransformControl.LayoutTransform>
-                        <ScaleTransform ScaleX="1" ScaleY="1" />
-                    </LayoutTransformControl.LayoutTransform>
-                    <Image x:Name="FullScreenImage" Stretch="Uniform" 
-                           PointerPressed="OnImagePointerPressed"
-                           PointerMoved="OnImagePointerMoved"
-                           PointerReleased="OnImagePointerReleased"/>
-                </LayoutTransformControl>
-            </Border>
+                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <Image x:Name="FullScreenImage"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   PointerPressed="OnImagePointerPressed"
+                   PointerMoved="OnImagePointerMoved"
+                   PointerReleased="OnImagePointerReleased"
+                   PointerWheelChanged="OnImagePointerWheelChanged">
+                <Image.RenderTransform>
+                    <ScaleTransform/>
+                </Image.RenderTransform>
+            </Image>
         </ScrollViewer>
 
-        <Border x:Name="LoadingSpinner" Classes="spinner" IsVisible="False" Width="50" Height="50" 
-                HorizontalAlignment="Center" VerticalAlignment="Center"
-                CornerRadius="0" BorderThickness="4" BorderBrush="{DynamicResource AccentColorBrush}" ClipToBounds="True">
-            <Border.Styles>
-                <Style Selector="Border.spinner">
-                    <Style.Animations>
-                        <Animation Duration="0:0:1" IterationCount="INFINITE">
-                            <KeyFrame Cue="0%">
-                                <Setter Property="RotateTransform.Angle" Value="0" />
-                            </KeyFrame>
-                            <KeyFrame Cue="100%">
-                                <Setter Property="RotateTransform.Angle" Value="360" />
-                            </KeyFrame>
-                        </Animation>
-                    </Style.Animations>
-                </Style>
-            </Border.Styles>
-            <Border.RenderTransform>
-                <RotateTransform />
-            </Border.RenderTransform>
-            <Border.OpacityMask>
-                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                    <GradientStop Offset="0" Color="Transparent" />
-                    <GradientStop Offset="1" Color="White" />
-                </LinearGradientBrush>
-            </Border.OpacityMask>
-        </Border>
+        <ProgressBar x:Name="LoadingSpinner" IsVisible="False" Width="120" Height="4"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     IsIndeterminate="True"
+                     Foreground="{DynamicResource AccentColorBrush}"
+                     Background="#33FFFFFF"/>
 
         <!-- Floating Action Buttons (Top Right) -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="20" Spacing="10" ZIndex="10">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Spacing="6" ZIndex="10">
             <!-- Download Button -->
-            <Button Width="40" Height="40" CornerRadius="0"
-                    Background="#99000000" BorderThickness="1" BorderBrush="#44FFFFFF"
+            <Button Width="36" Height="36" CornerRadius="4"
+                    Background="#1A1A1A" BorderThickness="1" BorderBrush="#555555"
                     Cursor="Hand" Click="OnDownloadClick"
-                    Foreground="White" FontSize="18" FontWeight="Bold" Content="↓"
+                    Foreground="White" FontSize="16" FontWeight="Bold" Content="↓"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                     ToolTip.Tip="Download Image">
             </Button>
             <!-- Close Button -->
-            <Button Width="40" Height="40" CornerRadius="0"
-                    Background="#99000000" BorderThickness="1" BorderBrush="#44FFFFFF"
+            <Button Width="36" Height="36" CornerRadius="4"
+                    Background="#1A1A1A" BorderThickness="1" BorderBrush="#555555"
                     Cursor="Hand" Click="OnCloseClick"
-                    Foreground="White" FontSize="20" FontWeight="Bold" Content="✕"
-                    ToolTip.Tip="Close Viewer">
+                    Foreground="White" FontSize="18" FontWeight="Bold" Content="✕"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    ToolTip.Tip="Close Viewer (Esc / Right Click)">
             </Button>
         </StackPanel>
     </Grid>

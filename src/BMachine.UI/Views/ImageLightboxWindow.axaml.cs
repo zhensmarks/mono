@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.IO;
@@ -16,45 +18,51 @@ public partial class ImageLightboxWindow : Window
     private static double? _lastWindowWidth;
     private static double? _lastWindowHeight;
 
+    private static readonly object _logLock = new object();
+    private static readonly string _logPath =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BMachine", "lightbox.log");
+
+    private static void Log(string message)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(_logPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            lock (_logLock)
+            {
+                File.AppendAllText(_logPath, $"{DateTime.Now:O} {message}{Environment.NewLine}");
+            }
+        }
+        catch
+        {
+            // ignore logging failures
+        }
+    }
+
     private bool _isDragging = false;
+    private bool _isClosing;
     private Avalonia.Point _lastDragPoint;
     private Avalonia.Media.ScaleTransform? _scaleTransform;
+    private string _apiKey = "";
+    private string _token = "";
 
     public ImageLightboxWindow()
     {
         InitializeComponent();
-        
-        var transformControl = this.FindControl<Avalonia.Controls.Control>("ImageTransformControl") as Avalonia.Controls.LayoutTransformControl;
-        if (transformControl != null)
-        {
-            _scaleTransform = transformControl.LayoutTransform as Avalonia.Media.ScaleTransform;
-        }
+        Log("ctor");
 
-        this.Opened += (s, e) =>
-        {
-            if (Avalonia.Application.Current?.TryFindResource("AppBackgroundBrush", null, out var themeBg) == true &&
-                themeBg is Avalonia.Media.IBrush brush)
-            {
-                this.Background = brush;
-            }
-            else
-            {
-                var isDark = Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
-                this.Background = Avalonia.Media.SolidColorBrush.Parse(isDark ? "#1A1A1A" : "#F3F4F6");
-            }
+        // Initialize _scaleTransform from AXAML-defined RenderTransform
+        var imgControl = this.FindControl<Image>("FullScreenImage");
+        if (imgControl?.RenderTransform is Avalonia.Media.ScaleTransform st)
+            _scaleTransform = st;
 
-            if (_lastWindowPosition.HasValue)
-                this.Position = _lastWindowPosition.Value;
-            
-            if (_lastWindowWidth.HasValue && _lastWindowHeight.HasValue)
-            {
-                this.Width = _lastWindowWidth.Value;
-                this.Height = _lastWindowHeight.Value;
-            }
-        };
+        this.Opened += OnWindowOpened;
 
         this.Closing += (s, e) =>
         {
+            _isClosing = true;
             if (this.WindowState == WindowState.Normal)
             {
                 _lastWindowPosition = this.Position;
@@ -66,9 +74,52 @@ public partial class ImageLightboxWindow : Window
         var scroller = this.FindControl<ScrollViewer>("ImageScroller");
         if (scroller != null)
         {
-            scroller.AddHandler(Avalonia.Input.InputElement.PointerWheelChangedEvent, OnImagePointerWheelChanged, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-            // scroller.SizeChanged += (s, e) => UpdateCenterMargin(); - Removed, now using XAML declarative centering
+            // De-risk: no pointer wheel zoom and no viewport size syncing.
         }
+    }
+
+    private void OnWindowOpened(object? sender, EventArgs e)
+    {
+        Log("opened");
+        if (Avalonia.Application.Current?.TryFindResource("AppBackgroundBrush", null, out var themeBg) == true &&
+            themeBg is Avalonia.Media.IBrush brush)
+        {
+            this.Background = brush;
+        }
+        else
+        {
+            var isDark = Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
+            this.Background = Avalonia.Media.SolidColorBrush.Parse(isDark ? "#1A1A1A" : "#F3F4F6");
+        }
+
+        if (_lastWindowPosition.HasValue)
+            this.Position = _lastWindowPosition.Value;
+
+        if (_lastWindowWidth.HasValue && _lastWindowHeight.HasValue)
+        {
+            this.Width = _lastWindowWidth.Value;
+            this.Height = _lastWindowHeight.Value;
+        }
+
+    }
+
+    /// <summary>
+    /// Keeps scroll content at least viewport-sized (centers small images) without markup bindings to Viewport
+    /// (those bindings can create layout feedback loops and crash on Windows).
+    /// </summary>
+    private void SyncViewportHostSize()
+    {
+        var scroller = this.FindControl<ScrollViewer>("ImageScroller");
+        var host = this.FindControl<Border>("ViewportHost");
+        if (scroller == null || host == null) return;
+
+        double w = scroller.Viewport.Width;
+        double h = scroller.Viewport.Height;
+        if (w <= 1 || double.IsNaN(w) || double.IsInfinity(w)) w = 400;
+        if (h <= 1 || double.IsNaN(h) || double.IsInfinity(h)) h = 300;
+
+        host.MinWidth = w;
+        host.MinHeight = h;
     }
 
     public ImageLightboxWindow(Bitmap image) : this()
@@ -77,12 +128,18 @@ public partial class ImageLightboxWindow : Window
         if (imgControl != null)
         {
             imgControl.Source = image;
-            InitInitialScale(image.Size);
         }
     }
 
     public ImageLightboxWindow(string imageUrl) : this()
     {
+        _ = LoadImageAsync(imageUrl);
+    }
+
+    public ImageLightboxWindow(string imageUrl, string apiKey, string token) : this()
+    {
+        _apiKey = apiKey ?? "";
+        _token = token ?? "";
         _ = LoadImageAsync(imageUrl);
     }
 
@@ -116,93 +173,203 @@ public partial class ImageLightboxWindow : Window
 
         try
         {
-            var cleanUrl = url;
-            string apiKey = "";
-            string token = "";
+            Log($"load-start len={(url?.Length ?? 0)}");
 
-            var matchKey = System.Text.RegularExpressions.Regex.Match(url, @"[?&]key=([^&]+)");
-            var matchToken = System.Text.RegularExpressions.Regex.Match(url, @"[?&]token=([^&]+)");
-
-            if (matchKey.Success && matchToken.Success)
+            // Download on a background thread to avoid native HTTP crashes on UI thread
+            Log("download-bg-start");
+            var bytes = await Task.Run(async () =>
             {
-                apiKey = matchKey.Groups[1].Value;
-                token = matchToken.Groups[1].Value;
-            }
-
-            using var client = new HttpClient();
-            if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token) && url.Contains("trello.com"))
-            {
-                client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
-            }
-
-            var bytes = await client.GetByteArrayAsync(cleanUrl);
-            var bitmap = TryDecodeBitmap(bytes);
+                try
+                {
+                    using var handler = new System.Net.Http.HttpClientHandler
+                    {
+                        AllowAutoRedirect = true
+                    };
+                    using var client = new HttpClient(handler);
+                    client.Timeout = TimeSpan.FromSeconds(30);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("BMachine/1.0");
+                    
+                    // Use OAuth Authorization header for Trello (query params get stripped on redirects)
+                    if (!string.IsNullOrEmpty(_apiKey) && !string.IsNullOrEmpty(_token))
+                    {
+                        client.DefaultRequestHeaders.Add("Authorization", 
+                            $"OAuth oauth_consumer_key=\"{_apiKey}\", oauth_token=\"{_token}\"");
+                    }
+                    
+                    Log("getasync-start");
+                    // Use default ResponseContentRead (NOT ResponseHeadersRead which causes native crashes)
+                    using var response = await client.GetAsync(url);
+                    Log($"getasync-status={response.StatusCode}");
+                    
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        Log($"http-fail: {(int)response.StatusCode} {response.ReasonPhrase}");
+                        return null;
+                    }
+                    
+                    var data = await response.Content.ReadAsByteArrayAsync();
+                    Log($"downloaded bytes={data.Length}");
+                    return data;
+                }
+                catch (Exception httpEx)
+                {
+                    Log($"http-error: {httpEx.Message}");
+                    return null;
+                }
+            });
             
-            if (imgControl != null)
+            if (_isClosing || bytes == null || bytes.Length == 0) return;
+
+            // Limit download size
+            const int maxDownloadBytes = 20_000_000; // 20MB
+            if (bytes.Length > maxDownloadBytes)
             {
-                imgControl.Source = bitmap;
-                InitInitialScale(bitmap.Size);
+                Log($"too-large: {bytes.Length}");
+                return;
             }
+
+            Log("decode-start");
+            Bitmap bitmap;
+            try
+            {
+                bitmap = await Task.Run(() => TryDecodeBitmap(bytes));
+            }
+            catch (Exception dex)
+            {
+                Log($"decode-managed-error: {dex}");
+                throw;
+            }
+            Log($"decode-done px={bitmap.PixelSize.Width}x{bitmap.PixelSize.Height}");
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_isClosing) return;
+                try
+                {
+                    Log("set-image-start");
+                    if (imgControl != null)
+                    {
+                        imgControl.Source = bitmap;
+                        // Auto-fit image to window viewport
+                        InitInitialScale(new Avalonia.Size(bitmap.PixelSize.Width, bitmap.PixelSize.Height));
+                    }
+                    Log("set-image-ok");
+                }
+                catch (Exception setEx)
+                {
+                    Console.WriteLine($"[Lightbox] Set image failed: {setEx.Message}");
+                    Log($"set-image-failed: {setEx}");
+                }
+            });
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[Lightbox] Error loading image: {ex.Message}");
+            Log($"load-error: {ex}");
         }
         finally
         {
-            if (spinner != null) spinner.IsVisible = false;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (spinner != null) spinner.IsVisible = false;
+            });
         }
     }
 
     private void OnBackgroundPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
-        var point = e.GetCurrentPoint(this);
-        if (point.Properties.IsRightButtonPressed)
+        try
         {
-            Close();
-            e.Handled = true;
-            return;
-        }
+            var point = e.GetCurrentPoint(this);
+            if (point.Properties.IsRightButtonPressed)
+            {
+                Close();
+                e.Handled = true;
+                return;
+            }
 
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            // Only allow window drag from the Grid background, not from child controls
+            if (point.Properties.IsLeftButtonPressed && e.Source == sender)
+            {
+                try
+                {
+                    this.BeginMoveDrag(e);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Lightbox] BeginMoveDrag: {ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
         {
-            this.BeginMoveDrag(e);
+            System.Diagnostics.Debug.WriteLine($"[Lightbox] OnBackgroundPointerPressed: {ex.Message}");
         }
     }
 
     private void OnImagePointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
-        var imgControl = this.FindControl<Image>("FullScreenImage");
-        if (imgControl == null) return;
-
-        var point = e.GetCurrentPoint(imgControl);
-        if (point.Properties.IsRightButtonPressed)
+        try
         {
-            Close();
-            e.Handled = true;
-            return;
+            var imgControl = this.FindControl<Image>("FullScreenImage");
+            if (imgControl == null) return;
+
+            var point = e.GetCurrentPoint(imgControl);
+            if (point.Properties.IsRightButtonPressed)
+            {
+                Close();
+                e.Handled = true;
+                return;
+            }
+
+            if (point.Properties.IsLeftButtonPressed)
+            {
+                _isDragging = true;
+                _lastDragPoint = e.GetPosition(this);
+                e.Pointer.Capture(imgControl); 
+                e.Handled = true;
+            }
         }
-
-        if (point.Properties.IsLeftButtonPressed)
+        catch (Exception ex)
         {
-            _isDragging = true;
-            _lastDragPoint = e.GetPosition(this);
-            e.Pointer.Capture(imgControl); 
-            e.Handled = true;
+            System.Diagnostics.Debug.WriteLine($"[Lightbox] OnImagePointerPressed: {ex.Message}");
         }
     }
 
     private static Bitmap TryDecodeBitmap(byte[] bytes)
     {
+        // De-risk decode: try Avalonia direct decode first, then fallback to ImageMagick.
+        // If ImageMagick or direct decode triggers a native crash, logs around decode-start/decode-done will show where it happens.
+        const int maxBytesForReducedEdge = 12_000_000;
+        const int edgeMax = 2048;
+        const int edgeReduced = 1536;
+        int edge = bytes.Length > maxBytesForReducedEdge ? edgeReduced : edgeMax;
+
         try
         {
             using var directStream = new MemoryStream(bytes);
-            return new Bitmap(directStream);
+            var bmp = new Bitmap(directStream);
+            if (bmp.PixelSize.Width > edge || bmp.PixelSize.Height > edge)
+            {
+                double w = bmp.PixelSize.Width;
+                double h = bmp.PixelSize.Height;
+                double scale = Math.Min(edge / w, edge / h);
+                int nw = Math.Max(1, (int)(w * scale));
+                int nh = Math.Max(1, (int)(h * scale));
+                var scaled = bmp.CreateScaledBitmap(new PixelSize(nw, nh), BitmapInterpolationMode.HighQuality);
+                bmp.Dispose();
+                return scaled;
+            }
+            return bmp;
         }
         catch
         {
             using var magick = new MagickImage(bytes);
             magick.AutoOrient();
+            if (magick.Width > edge || magick.Height > edge)
+            {
+                magick.Resize(new MagickGeometry((uint)edge, (uint)edge) { Greater = true });
+            }
 
             using var output = new MemoryStream();
             magick.Format = MagickFormat.Png;
@@ -248,32 +415,30 @@ public partial class ImageLightboxWindow : Window
 
     private void OnImagePointerWheelChanged(object? sender, Avalonia.Input.PointerWheelEventArgs e)
     {
-        var scroller = this.FindControl<ScrollViewer>("ImageScroller");
-        if (_scaleTransform == null || scroller == null) return;
-
-        bool isZoomModifier = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control) || 
-                              e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Meta) ||
-                              e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Alt);
-
-        if (!isZoomModifier)
+        try
         {
-            return;
+            var scroller = this.FindControl<ScrollViewer>("ImageScroller");
+            if (_scaleTransform == null || scroller == null) return;
+
+            bool isZoomModifier = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control) || 
+                                  e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Meta) ||
+                                  e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Alt);
+
+            if (!isZoomModifier)
+            {
+                return;
+            }
+
+            double zoomFactor = e.Delta.Y > 0 ? 1.15 : (1.0 / 1.15);
+            var imgControl = this.FindControl<Image>("FullScreenImage");
+            if (imgControl == null) return;
+            PerformZoom(zoomFactor, e.GetPosition(imgControl));
+            e.Handled = true;
         }
-
-        double zoomFactor = e.Delta.Y > 0 ? 1.15 : (1.0 / 1.15);
-        PerformZoom(zoomFactor, e.GetPosition(this.FindControl<Control>("ImageTransformControl")));
-        e.Handled = true; 
-    }
-
-    private void OnImagePinch(object? sender, Avalonia.Input.PinchEventArgs e)
-    {
-        var scroller = this.FindControl<ScrollViewer>("ImageScroller");
-        var transformControl = this.FindControl<Control>("ImageTransformControl");
-        if (scroller == null || transformControl == null) return;
-
-        var originTranslated = new Avalonia.Point(e.ScaleOrigin.X + scroller.Offset.X, e.ScaleOrigin.Y + scroller.Offset.Y);
-        PerformZoom(e.Scale, originTranslated);
-        e.Handled = true;
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Lightbox] OnImagePointerWheelChanged: {ex.Message}");
+        }
     }
 
     private void PerformZoom(double zoomFactor, Avalonia.Point cursorRelativePosition)

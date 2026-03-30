@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -185,12 +186,44 @@ public partial class TabViewModel : ViewModelBase
         try
         {
             var clipboard = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow?.Clipboard : null;
-            if (clipboard != null)
-                await clipboard.SetTextAsync(SelectedCard.DisplayId);
+                ? (desktop.MainWindow ?? desktop.Windows.FirstOrDefault())?.Clipboard
+                : null;
+
+            if (clipboard == null)
+            {
+                StatusMessage = "Clipboard unavailable";
+                return;
+            }
+
+            await clipboard.SetTextAsync(SelectedCard.DisplayId);
             ShowTemporaryStatus($"Copied ID: {SelectedCard.DisplayId}");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Copy failed: {ex.Message}";
+
+            // Fallback: native Win clipboard via PowerShell (helps when Avalonia clipboard is unavailable).
+            try
+            {
+                var id = SelectedCard?.DisplayId ?? "";
+                var escaped = id.Replace("'", "''");
+                var psScript = $"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::SetText('{escaped}');";
+                var ps = new Process();
+                ps.StartInfo.FileName = "powershell";
+                ps.StartInfo.Arguments = $"-NoProfile -NonInteractive -Command \"{psScript}\"";
+                ps.StartInfo.UseShellExecute = false;
+                ps.StartInfo.CreateNoWindow = true;
+                ps.Start();
+                await ps.WaitForExitAsync();
+                ps.Dispose();
+
+                ShowTemporaryStatus($"Copied ID: {id} (native clipboard)");
+            }
+            catch (Exception fallbackEx)
+            {
+                StatusMessage = $"Copy failed: {fallbackEx.Message}";
+            }
+        }
     }
 
     [RelayCommand]

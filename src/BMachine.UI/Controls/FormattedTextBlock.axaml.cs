@@ -176,11 +176,11 @@ public partial class FormattedTextBlock : UserControl
         btn.Click += (s, e) =>
         {
             var lightbox = new ImageLightboxWindow(url);
-            
             var topLevel = TopLevel.GetTopLevel(this);
             if (topLevel is Window win)
             {
-                lightbox.ShowDialog(win);
+                lightbox.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                lightbox.Show(win);
             }
             else
             {

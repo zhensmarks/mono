@@ -95,8 +95,8 @@
                                TextAlignment="Center"/>
                 </StackPanel>
 
-                <!-- MODE: BAR (New Design) -->
-                <Grid RowDefinitions="24,*,Auto" 
+                <!-- MODE: BAR: value + bar grouped (avoids huge vertical gap on tall cards / 1440p+) -->
+                <Grid RowDefinitions="Auto,*" 
                       IsVisible="{Binding #Root.IsBarMode}">
                     
                     <!-- Header: Label + Open Button (Right aligned) -->
@@ -124,32 +124,31 @@
                         </Button>
                     </Grid>
 
-                    <!-- Main Value & Suffix -->
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,0,0,4">
-                        <TextBlock Text="{Binding #Root.Value}"
-                                   FontSize="32"
-                                   FontWeight="Bold"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                   
-                        <TextBlock Text="{Binding #Root.Suffix}"
-                                   IsVisible="{Binding #Root.Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                   FontSize="14"
-                                   FontWeight="Black"
-                                   Foreground="{Binding #Root.Color}"
-                                   VerticalAlignment="Bottom"
-                                   LetterSpacing="1"
-                                   Margin="0,0,0,6"/>
+                    <StackPanel Grid.Row="1" VerticalAlignment="Bottom" Spacing="6">
+                        <!-- Value + suffix: spacing and font sizes updated from code-behind for card size -->
+                        <Grid ColumnDefinitions="Auto,Auto" VerticalAlignment="Center">
+                            <TextBlock x:Name="PART_BarValue" Grid.Column="0"
+                                       Text="{Binding #Root.Value}"
+                                       FontSize="32"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock x:Name="PART_BarSuffix" Grid.Column="1"
+                                       Text="{Binding #Root.Suffix}"
+                                       IsVisible="{Binding #Root.Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       FontSize="14"
+                                       FontWeight="Black"
+                                       Foreground="{Binding #Root.Color}"
+                                       VerticalAlignment="Bottom"
+                                       LetterSpacing="1.2"
+                                       Margin="14,0,0,6"/>
+                        </Grid>
+                        <ProgressBar Value="{Binding #Root.Percentage}"
+                                     Maximum="1" Minimum="0"
+                                     Height="5"
+                                     CornerRadius="0"
+                                     Background="#22FFFFFF"
+                                     Foreground="{Binding #Root.Color}"/>
                     </StackPanel>
-
-                    <!-- Progress Bar -->
-                    <ProgressBar Grid.Row="2"
-                                 Value="{Binding #Root.Percentage}"
-                                 Maximum="1" Minimum="0"
-                                 Height="4"
-                                 CornerRadius="0"
-                                 Background="#22FFFFFF"
-                                 Foreground="{Binding #Root.Color}"
-                                 VerticalAlignment="Bottom"/>
                 </Grid>
                     </Panel>
                 </Border>

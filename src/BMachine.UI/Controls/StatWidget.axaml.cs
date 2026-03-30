@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using System;
 
@@ -111,10 +112,14 @@ public partial class StatWidget : UserControl
     }
 
     private Avalonia.Controls.Shapes.Arc? _progressArc;
+    private TextBlock? _barValue;
+    private TextBlock? _barSuffix;
 
     public StatWidget()
     {
         InitializeComponent();
+        Loaded += OnStatWidgetLoaded;
+        SizeChanged += OnStatWidgetSizeChanged;
         
         // Update SweepAngle when Percentage changes
         PropertyChanged += (sender, e) => 
@@ -133,8 +138,37 @@ public partial class StatWidget : UserControl
             {
                 RaisePropertyChanged(IsBarModeProperty, !IsBarMode, IsBarMode);
                 RaisePropertyChanged(IsCircularModeProperty, !IsCircularMode, IsCircularMode);
+                UpdateBarTypography(Bounds.Size);
             }
         };
+    }
+
+    private void OnStatWidgetLoaded(object? sender, RoutedEventArgs e)
+    {
+        _barValue = this.FindControl<TextBlock>("PART_BarValue");
+        _barSuffix = this.FindControl<TextBlock>("PART_BarSuffix");
+        UpdateBarTypography(Bounds.Size);
+    }
+
+    private void OnStatWidgetSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        UpdateBarTypography(e.NewSize);
+    }
+
+    /// <summary>Scale bar-mode value/suffix with card size so 2K layouts don’t look empty.</summary>
+    private void UpdateBarTypography(Size size)
+    {
+        if (!IsBarMode || size.Width <= 10 || size.Height <= 10) return;
+        _barValue ??= this.FindControl<TextBlock>("PART_BarValue");
+        _barSuffix ??= this.FindControl<TextBlock>("PART_BarSuffix");
+        if (_barValue == null) return;
+
+        double valueFont = Math.Clamp(Math.Min(size.Height * 0.26, size.Width * 0.22), 28, 56);
+        double suffixFont = Math.Clamp(valueFont * 0.44, 12, 20);
+
+        _barValue.FontSize = valueFont;
+        if (_barSuffix != null)
+            _barSuffix.FontSize = suffixFont;
     }
     
     protected override void OnApplyTemplate(Avalonia.Controls.Primitives.TemplateAppliedEventArgs e)

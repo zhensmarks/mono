@@ -397,8 +397,13 @@ public partial class DashboardView : UserControl
         {
             _isResizingLogPanel = true;
             _resizeStartPoint = e.GetPosition(this);
-            var logPanel = this.FindControl<Control>("LogPanel");
-            _resizeStartWidth = logPanel?.Bounds.Width ?? 280;
+            if (DataContext is ViewModels.DashboardViewModel vm)
+                _resizeStartWidth = vm.LogPanelWidth;
+            else
+            {
+                var logPanel = this.FindControl<Control>("LogPanel");
+                _resizeStartWidth = logPanel?.Bounds.Width ?? 280;
+            }
             e.Pointer.Capture((IInputElement)sender!);
             e.Handled = true;
         }
@@ -408,16 +413,12 @@ public partial class DashboardView : UserControl
     {
         if (!_isResizingLogPanel) return;
 
-        var logPanel = this.FindControl<Control>("LogPanel");
-        if (logPanel == null) return;
+        if (DataContext is not ViewModels.DashboardViewModel vm) return;
 
         var currentPos = e.GetPosition(this);
         double delta = _resizeStartPoint.X - currentPos.X;
-        double newWidth = _resizeStartWidth + delta;
-
-        // Clamp
-        newWidth = Math.Max(180, Math.Min(600, newWidth));
-        logPanel.Width = newWidth;
+        double newWidth = Math.Max(180, Math.Min(600, _resizeStartWidth + delta));
+        vm.LogPanelWidth = newWidth;
         e.Handled = true;
     }
 

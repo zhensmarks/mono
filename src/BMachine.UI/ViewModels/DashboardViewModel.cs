@@ -32,6 +32,12 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     public ILanguageService? Language => _languageService;
 
     [ObservableProperty] private bool _isLogPanelOpen;
+    
+    /// <summary>Terminal / log sidebar width (persisted).</summary>
+    [ObservableProperty] private double _logPanelWidth = 280;
+    
+    private bool _loadingLogPanelWidth;
+
     [ObservableProperty] private bool _isOnline = true; // General Online status
     [ObservableProperty] private bool _isSpreadsheetOnline = true; // Specific for Spreadsheet
     
@@ -42,6 +48,18 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
          // Don't save during initial window restore
          if (!_isInitialLogPanelLoad)
              _database?.SetAsync("Dashboard.IsLogPanelOpen", value.ToString());
+    }
+
+    partial void OnLogPanelWidthChanged(double value)
+    {
+        if (_loadingLogPanelWidth) return;
+        var clamped = Math.Clamp(value, 180, 600);
+        if (System.Math.Abs(clamped - value) > 0.5)
+        {
+            LogPanelWidth = clamped;
+            return;
+        }
+        _database?.SetAsync("Dashboard.LogPanelWidth", clamped.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [RelayCommand]
@@ -177,6 +195,18 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         
         var navLocker = await _database.GetAsync<string>("Dashboard.Nav.Text.Locker");
         if (!string.IsNullOrEmpty(navLocker)) NavLockerText = navLocker;
+
+        _loadingLogPanelWidth = true;
+        try
+        {
+            var lw = await _database.GetAsync<string>("Dashboard.LogPanelWidth");
+            if (double.TryParse(lw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double dLw))
+                LogPanelWidth = Math.Clamp(dLw, 180, 600);
+        }
+        finally
+        {
+            _loadingLogPanelWidth = false;
+        }
     }
 
     [RelayCommand]

@@ -952,18 +952,18 @@
 
                 <!-- NEW FOLDER OVERLAY -->
                 <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="500">
-                    <!-- Solid Backdrop (No transparency) -->
-                    <Button Background="#FF121212" CornerRadius="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    <!-- Dimmed transparent backdrop: content behind stays visible -->
+                    <Button Background="#55000000" CornerRadius="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             Command="{Binding BatchVM.CloseFolderOverlayCommand}" BorderThickness="0">
                         <Button.Styles>
                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="#FF121212"/>
+                                <Setter Property="Background" Value="#55000000"/>
                             </Style>
                         </Button.Styles>
                     </Button>
                     
-                    <!-- Overlay Card -->
-                    <Border Background="{DynamicResource CardBackgroundBrush}" 
+                    <!-- Overlay card: solid app background (not translucent CardBackgroundBrush) -->
+                    <Border Background="{DynamicResource AppBackgroundBrush}" 
                             BorderBrush="{DynamicResource AccentBlueBrush}" 
                             BorderThickness="1" 
                             CornerRadius="0" 
@@ -971,7 +971,8 @@
                             Width="320" 
                             HorizontalAlignment="Center" 
                             VerticalAlignment="Center"
-                            BoxShadow="0 10 30 0 #40000000">
+                            Opacity="1"
+                            BoxShadow="0 8 24 0 #28000000">
                         <StackPanel Spacing="16">
                             <!-- Header -->
                             <TextBlock Text="{Binding BatchVM.FolderOverlayTitle}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1083,7 +1084,7 @@
     </Border>
 
     <!-- LOG PANEL -->
-    <views:LogPanelSidebar Grid.Column="3" x:Name="LogPanel" Width="280" MinWidth="180"
+    <views:LogPanelSidebar Grid.Column="3" x:Name="LogPanel" Width="{Binding LogPanelWidth}" MinWidth="180"
                            IsVisible="{Binding IsLogPanelOpen}" 
                            VerticalAlignment="Stretch"/>
 </Grid>

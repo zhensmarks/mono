@@ -65,6 +65,7 @@ public class SettingsPreloadService
             "Settings.Color.Points",
             
             // Dashboard Navigation
+            "Dashboard.LogPanelWidth",
             "Dashboard.Nav.Width",
             "Dashboard.Nav.Height",
             "Dashboard.Nav.Radius",
