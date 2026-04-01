@@ -14,6 +14,7 @@ import json
 import threading
 import time
 import tempfile
+import winreg
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from PIL import Image, ImageTk
@@ -30,21 +31,67 @@ SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".psdbucin_v3_settings.jso
 DEFAULT_WIDTH = 1000
 DEFAULT_HEIGHT = 700
 
-# Theme Constants
-COLOR_BG = "#18181b"          # Zinc-950
-COLOR_SURFACE = "#27272a"     # Zinc-800
-COLOR_SURFACE_HOVER = "#3f3f46" # Zinc-700
-COLOR_FG = "#f4f4f5"          # Zinc-100
-COLOR_ACCENT_BLUE = "#3b82f6" # Blue-500
-COLOR_ACCENT_GREEN = "#22c55e"# Green-500
-COLOR_ACCENT_RED = "#ef4444"  # Red-500
-COLOR_BORDER = "#52525b"      # Zinc-600
+# Theme & Typography Dictionary
+THEME = {
+    "dark": {
+        "bg": "#121212",          # Pure Dark
+        "surface": "#1e1e1e",     # Surface Dark
+        "surface_hover": "#2d2d2d", # Hover Dark
+        "fg": "#ffffff",          # White text
+        "text_muted": "#a1a1aa",  # Gray text
+        "accent": "#38bdf8",      # Sky 400 (Terminal Blue)
+        "accent_text": "#000000", # Black text on accent
+        "success": "#10b981",     # Emerald 500
+        "error": "#ef4444",       # Red 500
+        "border": "#2d2d2d"       # Border Dark
+    },
+    "light": {
+        "bg": "#f8fafc",          # Slate 50
+        "surface": "#ffffff",     # White
+        "surface_hover": "#e2e8f0", # Slate 200
+        "fg": "#0f172a",          # Slate 900
+        "text_muted": "#475569",  # Slate 600
+        "accent": "#0284c7",      # Sky 600
+        "accent_text": "#ffffff", # White text on accent
+        "success": "#059669",     # Emerald 600
+        "error": "#dc2626",       # Red 600
+        "border": "#cbd5e1"       # Slate 300
+    }
+}
 
-FONT_MAIN = ("Segoe UI", 10)
-FONT_BOLD = ("Segoe UI", 10, "bold")
-FONT_TITLE = ("Segoe UI", 16, "bold")
-FONT_BIG = ("Segoe UI", 24, "bold")
-FONT_HINT = ("Segoe UI", 9)
+# Variabel Warna Global (menyesuaikan instansi pertama)
+COLOR_BG = THEME["dark"]["bg"]
+COLOR_SURFACE = THEME["dark"]["surface"]
+COLOR_SURFACE_HOVER = THEME["dark"]["surface_hover"]
+COLOR_FG = THEME["dark"]["fg"]
+COLOR_ACCENT_BLUE = THEME["dark"]["accent"]
+COLOR_ACCENT_GREEN = THEME["dark"]["success"]
+COLOR_ACCENT_RED = THEME["dark"]["error"]
+COLOR_BORDER = THEME["dark"]["border"]
+
+FONT_MAIN = ("Consolas", 10)
+FONT_BOLD = ("Consolas", 10, "bold")
+FONT_TITLE = ("Consolas", 16, "bold")
+FONT_BIG = ("Consolas", 24, "bold")
+FONT_HINT = ("Consolas", 9)
+
+def is_windows_dark_mode():
+    try:
+        registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+        key = winreg.OpenKey(registry, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        val, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+        return val == 0
+    except Exception:
+        pass
+    try:
+        # Fallback to system theme if Apps theme is missing
+        registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+        key = winreg.OpenKey(registry, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        val, _ = winreg.QueryValueEx(key, "SystemUseLightTheme")
+        return val == 0
+    except Exception:
+        return True # Default dark
+
 
 # Regex
 ONLY_PAREN = re.compile(r'^\(\s*(\d+)\s*\)$')
@@ -83,7 +130,8 @@ def load_settings():
         "is_maximized": False,
         "shortcuts": [str(i+1) for i in range(9)],
         "last_master": "",
-        "last_pilihan": ""
+        "last_pilihan": "",
+        "ui_manual_mode": "autocomplete"
     }
     try:
         if os.path.exists(SETTINGS_FILE):
@@ -340,21 +388,21 @@ class BucinAppV3:
         tk.Label(self.title_bar, text="PSD Bucin V3.0", font=("Segoe UI", 10, "bold"), bg=COLOR_BG, fg="#a1a1aa", padx=15, pady=10).pack(side="left")
         
         # Window Controls
-        btn_close = tk.Button(self.title_bar, text="✕", width=5, bg=COLOR_BG, fg="#a1a1aa", relief="flat", command=self.on_app_close)
-        btn_close.pack(side="right", fill="y")
+        self.btn_close = tk.Button(self.title_bar, text="✕", width=5, bg=COLOR_BG, fg="#a1a1aa", relief="flat", command=self.on_app_close)
+        self.btn_close.pack(side="right", fill="y")
         
         self.btn_max = tk.Button(self.title_bar, text="☐", width=5, bg=COLOR_BG, fg="#a1a1aa", relief="flat", command=self.toggle_maximize)
         self.btn_max.pack(side="right", fill="y")
 
-        btn_min = tk.Button(self.title_bar, text="─", width=5, bg=COLOR_BG, fg="#a1a1aa", relief="flat", command=self.minimize_window)
-        btn_min.pack(side="right", fill="y")
+        self.btn_min = tk.Button(self.title_bar, text="─", width=5, bg=COLOR_BG, fg="#a1a1aa", relief="flat", command=self.minimize_window)
+        self.btn_min.pack(side="right", fill="y")
         
         # Hover events for buttons
-        for btn in [btn_close, self.btn_max, btn_min]:
-             btn.bind("<Enter>", lambda e, b=btn: b.config(bg=COLOR_SURFACE_HOVER, fg="white"))
+        for btn in [self.btn_close, self.btn_max, self.btn_min]:
+             btn.bind("<Enter>", lambda e, b=btn: b.config(bg=COLOR_SURFACE_HOVER, fg=COLOR_FG))
              btn.bind("<Leave>", lambda e, b=btn: b.config(bg=COLOR_BG, fg="#a1a1aa"))
         # Exception for close red hover
-        btn_close.bind("<Enter>", lambda e: btn_close.config(bg=COLOR_ACCENT_RED, fg="white"))
+        self.btn_close.bind("<Enter>", lambda e: self.btn_close.config(bg=COLOR_ACCENT_RED, fg="white"))
         
         # Drag Logic
         self.title_bar.bind("<ButtonPress-1>", self.start_move)
@@ -382,6 +430,133 @@ class BucinAppV3:
         
         self.is_maximized_full = False
         self.prev_geom = None
+        
+        # Start Live Theme Tracking
+        self.start_theme_poll()
+
+    def start_theme_poll(self):
+        current_dark = is_windows_dark_mode()
+        if not hasattr(self, 'active_theme_dark') or self.active_theme_dark != current_dark:
+            self.active_theme_dark = current_dark
+            self.apply_live_theme()
+        # Periksa lagi tiap 1.5 detik secara non-blocking
+        self.root.after(1500, self.start_theme_poll)
+
+    def apply_live_theme(self):
+        global COLOR_BG, COLOR_SURFACE, COLOR_SURFACE_HOVER, COLOR_FG
+        global COLOR_ACCENT_BLUE, COLOR_ACCENT_GREEN, COLOR_ACCENT_RED, COLOR_BORDER
+        theme_key = "dark" if self.active_theme_dark else "light"
+        t = THEME[theme_key]
+        
+        color_map = {
+            THEME["light"]["bg"].lower(): t["bg"],
+            THEME["dark"]["bg"].lower(): t["bg"],
+            "#18181b": t["bg"], "black": t["bg"], "#000000": t["bg"],
+            
+            THEME["light"]["surface"].lower(): t["surface"],
+            THEME["dark"]["surface"].lower(): t["surface"],
+            "#27272a": t["surface"], "#1e1e1e": t["surface"],
+            
+            THEME["light"]["surface_hover"].lower(): t["surface_hover"],
+            THEME["dark"]["surface_hover"].lower(): t["surface_hover"],
+            "#3f3f46": t["surface_hover"],
+            
+            THEME["light"]["fg"].lower(): t["fg"],
+            THEME["dark"]["fg"].lower(): t["fg"],
+            "#f4f4f5": t["fg"], "white": t["fg"], "#ffffff": t["fg"], "#d4d4d8": t["fg"],
+            
+            THEME["light"]["accent"].lower(): t["accent"],
+            THEME["dark"]["accent"].lower(): t["accent"],
+            "#3b82f6": t["accent"], "#0ea5e9": t["accent"], "#0284c7": t["accent"],
+            
+            THEME["light"]["success"].lower(): t["success"],
+            THEME["dark"]["success"].lower(): t["success"],
+            "#22c55e": t["success"], "#10b981": t["success"], "#059669": t["success"],
+            
+            THEME["light"]["error"].lower(): t["error"],
+            THEME["dark"]["error"].lower(): t["error"],
+            "#ef4444": t["error"], "red": t["error"], "#dc2626": t["error"],
+            
+            THEME["light"]["border"].lower(): t["border"],
+            THEME["dark"]["border"].lower(): t["border"],
+            "#52525b": t["border"], "#cbd5e1": t["border"], "#334155": t["border"],
+            
+            "#a1a1aa": t["text_muted"],
+            "#71717a": t["text_muted"],
+            THEME["light"]["text_muted"].lower(): t["text_muted"],
+            THEME["dark"]["text_muted"].lower(): t["text_muted"]
+        }
+        
+        COLOR_BG = t["bg"]
+        COLOR_SURFACE = t["surface"]
+        COLOR_SURFACE_HOVER = t["surface_hover"]
+        COLOR_FG = t["fg"]
+        COLOR_ACCENT_BLUE = t["accent"]
+        COLOR_ACCENT_GREEN = t["success"]
+        COLOR_ACCENT_RED = t["error"]
+        COLOR_BORDER = t["border"]
+        
+        def safe_color_swap(c):
+            if not c: return c
+            if isinstance(c, str):
+                ci = c.lower()
+                if ci in color_map: return color_map[ci]
+            return c
+            
+        def convert_font(fn):
+            if isinstance(fn, str):
+                if "Segoe UI" in fn: return fn.replace("Segoe UI", "Consolas")
+            elif isinstance(fn, tuple) or isinstance(fn, list):
+                if fn[0] == "Segoe UI":
+                    return ("Consolas",) + tuple(fn[1:])
+            return fn
+            
+        def update_w(w):
+            keys = w.keys()
+            for prop in ['bg', 'background', 'fg', 'foreground', 'activebackground', 'activeforeground', 
+                         'insertbackground', 'selectbackground', 'highlightbackground', 'highlightcolor']:
+                if prop in keys:
+                    try: 
+                        val = w.cget(prop)
+                        new_val = safe_color_swap(val)
+                        if new_val != val: w.config(**{prop: new_val})
+                    except: pass
+            
+            if 'font' in keys:
+                try:
+                    val = w.cget('font')
+                    new_val = convert_font(val)
+                    if new_val != val: w.config(font=new_val)
+                except: pass
+                
+            for child in w.winfo_children():
+                update_w(child)
+                
+        update_w(self.root)
+        
+        # Override special custom components
+        if hasattr(self, 'spinner') and getattr(self, 'spinner', None):
+            try:
+                # LoadingSpinner Custom
+                self.spinner.itemconfig("arc", outline=COLOR_ACCENT_BLUE)
+            except: pass
+            
+        style = ttk.Style()
+        style.configure('TRadiobutton', background=COLOR_BG, foreground=COLOR_FG, font=FONT_MAIN)
+        style.configure('TScrollbar', background=COLOR_SURFACE, troughcolor=COLOR_BG)
+        style.configure('Treeview', background=COLOR_BG, foreground=COLOR_FG, fieldbackground=COLOR_BG, font=FONT_MAIN)
+        style.configure('Treeview.Heading', background=COLOR_SURFACE, foreground=t["text_muted"], font=FONT_BOLD)
+
+        # Titlebar tweaks
+        if hasattr(self, 'btn_close'):
+            self.btn_close.bind("<Enter>", lambda e: self.btn_close.config(bg=COLOR_ACCENT_RED, fg=COLOR_FG))
+            self.btn_close.bind("<Leave>", lambda e: self.btn_close.config(bg=COLOR_BG, fg=t["text_muted"]))
+        if hasattr(self, 'btn_min'):
+            self.btn_min.bind("<Enter>", lambda e: self.btn_min.config(bg=COLOR_SURFACE_HOVER, fg=COLOR_FG))
+            self.btn_min.bind("<Leave>", lambda e: self.btn_min.config(bg=COLOR_BG, fg=t["text_muted"]))
+        if hasattr(self, 'btn_max'):
+            self.btn_max.bind("<Enter>", lambda e: self.btn_max.config(bg=COLOR_SURFACE_HOVER, fg=COLOR_FG))
+            self.btn_max.bind("<Leave>", lambda e: self.btn_max.config(bg=COLOR_BG, fg=t["text_muted"]))
 
     def toggle_maximize(self):
         if self.is_maximized_full:
@@ -593,13 +768,20 @@ class BucinAppV3:
         
         self.master_dir = m
 
-    # --- Mode: Manual ---
     def start_manual_mode(self):
         try:
             self.prepare_data()
             self.setup_ui_manual_processing(self.master_dir)
+            self.root.bind("r", self.rotate_manual)
+            self.root.bind("R", self.rotate_manual)
         except Exception as e:
             messagebox.showerror("Gagal Memulai", str(e))
+            
+    def rotate_manual(self, event=None):
+        if hasattr(self, 'original_image') and self.original_image:
+            from PIL import Image
+            self.original_image = self.original_image.transpose(Image.ROTATE_270)
+            self.update_image_display()
 
     def setup_ui_manual_processing(self, master_dir):
         # ... Similar to advanced v2 processing UI ...
@@ -644,22 +826,143 @@ class BucinAppV3:
         tk.Label(self.overlay, text="MEMPROSES...", bg="#000000", fg="white", font=FONT_HINT).place(relx=0.5, rely=0.6, anchor="center")
         
         
-        # Bottom Bar
-        self.bottom_bar = tk.Frame(self.ui_root, bg=COLOR_BG)
-        self.bottom_bar.grid(row=2, column=0, sticky="ew", padx=20, pady=20)
-        
-        self.btn_container = tk.Frame(self.bottom_bar, bg=COLOR_BG)
-        self.btn_container.pack(anchor="center")
-        
-        tk.Label(self.bottom_bar, text="Key: 1-9 Pilih • ESC Skip • Enter Auto", font=FONT_HINT, bg=COLOR_BG, fg="#71717a").pack(pady=(10,0))
-        
+        self.build_bottom_bar()
         self.root.bind("<Configure>", self.on_resize)
-        self.root.bind("<Escape>", lambda e: self.skip_current())
-        self.root.bind("<Return>", lambda e: self.select_first_psd_manual())
-        self.bind_shortcuts()
-        
-        self.render_buttons()
         self.load_next_image()
+        
+    def build_bottom_bar(self):
+        if hasattr(self, 'bottom_bar') and self.bottom_bar.winfo_exists():
+            self.bottom_bar.destroy()
+            
+        self.bottom_bar = tk.Frame(self.ui_root, bg=COLOR_BG)
+        self.bottom_bar.grid(row=2, column=0, sticky="ew", padx=20, pady=10)
+        
+        self.psd_map = {name: path for name, path in self.psd_masters}
+        cur_mode = self.settings.get("ui_manual_mode", "autocomplete")
+        
+        # Reset alias agar aman saat toggle
+        self.psd_buttons = []
+        if hasattr(self, 'psd_combobox'): del self.psd_combobox
+        if hasattr(self, 'btn_skip'): del self.btn_skip
+        
+        self.root.unbind("<Return>")
+        self.root.unbind_all("<MouseWheel>")
+        
+        if cur_mode == "autocomplete":
+            self.all_psd_names = sorted(list(self.psd_map.keys()))
+            
+            container = tk.Frame(self.bottom_bar, bg=COLOR_BG)
+            container.pack(pady=5)
+            
+            input_grid = tk.Frame(container, bg=COLOR_BG)
+            input_grid.pack()
+            
+            tk.Label(input_grid, text="KETIK NAMA PSD:", font=FONT_BOLD, bg=COLOR_BG, fg="white").grid(row=0, column=0, padx=5)
+            
+            self.psd_entry = tk.Entry(input_grid, font=FONT_TITLE, width=30)
+            self.psd_entry.grid(row=0, column=1, padx=5)
+            
+            self.btn_skip = tk.Button(input_grid, text="SKIP [ESC]", font=FONT_BOLD, bg=COLOR_ACCENT_RED, fg="white", 
+                                 relief="flat", activebackground=COLOR_ACCENT_RED, activeforeground="white", cursor="hand2", padx=20, pady=5, command=self.skip_current)
+            self.btn_skip.grid(row=0, column=2, padx=10)
+            
+            # Murni Listbox pasif di bawah kotak ketik
+            self.psd_listbox = tk.Listbox(input_grid, font=FONT_MAIN, height=5, bg=COLOR_SURFACE, fg="white", selectbackground=COLOR_ACCENT_BLUE, relief="flat", highlightthickness=1, highlightcolor=COLOR_BORDER)
+            self.psd_listbox.grid(row=1, column=1, sticky="ew", padx=5, pady=(5,0))
+            
+            self.psd_buttons = [] # Keep empty for toggle_inputs compatibility
+            self.psd_combobox = self.psd_entry # alias dummy untuk toggle_inputs dan focus_set agar tetap jalan
+            
+            def update_listbox(filtered_names):
+                self.psd_listbox.delete(0, tk.END)
+                for name in filtered_names:
+                    self.psd_listbox.insert(tk.END, name)
+                if filtered_names:
+                    self.psd_listbox.selection_set(0) # Highlight opsi teratas dengan aman (pasif)
+                    
+            update_listbox(self.all_psd_names)
+            
+            def handle_keyrelease(event):
+                if event.keysym in ("Return", "Escape", "Tab", "Up", "Down"):
+                    return
+                    
+                typed = self.psd_entry.get().lower()
+                if not typed:
+                    update_listbox(self.all_psd_names)
+                else:
+                    filtered = [n for n in self.all_psd_names if typed in n.lower()]
+                    update_listbox(filtered)
+                    
+            def move_selection(event):
+                sel = self.psd_listbox.curselection()
+                if not sel: return "break"
+                idx = sel[0]
+                if event.keysym == 'Up' and idx > 0:
+                    idx -= 1
+                elif event.keysym == 'Down' and idx < self.psd_listbox.size() - 1:
+                    idx += 1
+                self.psd_listbox.selection_clear(0, tk.END)
+                self.psd_listbox.selection_set(idx)
+                self.psd_listbox.see(idx)
+                return "break"
+                
+            def on_enter(event):
+                selected = None
+                sel = self.psd_listbox.curselection()
+                
+                if sel:
+                    selected = self.psd_listbox.get(sel[0])
+                else:
+                    typed = self.psd_entry.get().lower()
+                    filtered = [n for n in self.all_psd_names if typed in n.lower()]
+                    if filtered: selected = filtered[0]
+                    
+                if selected:
+                    self.psd_entry.delete(0, tk.END)
+                    update_listbox(self.all_psd_names)
+                    self.manual_process_init(selected, self.psd_map[selected])
+                    
+                return "break"
+                
+            def on_listbox_click(event):
+                sel = self.psd_listbox.curselection()
+                if sel:
+                    selected = self.psd_listbox.get(sel[0])
+                    self.psd_entry.delete(0, tk.END)
+                    update_listbox(self.all_psd_names)
+                    self.manual_process_init(selected, self.psd_map[selected])
+            
+            self.psd_entry.bind('<KeyRelease>', handle_keyrelease)
+            self.psd_entry.bind('<Up>', move_selection)
+            self.psd_entry.bind('<Down>', move_selection)
+            self.psd_entry.bind('<Return>', on_enter)
+            self.psd_listbox.bind('<Double-Button-1>', on_listbox_click)
+            
+            tk.Label(self.bottom_bar, text="Ketik nama template lalu Enter • ESC Skip • R Putar Gambar • 1-9 Shortcut Murni", font=FONT_HINT, bg=COLOR_BG, fg="#71717a").pack(pady=(5,10))
+            self.psd_entry.focus_set()
+            
+        else:
+            # Mode "button"
+            self.btn_scroll_canvas = tk.Canvas(self.bottom_bar, bg=COLOR_BG, bd=0, highlightthickness=0, height=220)
+            self.btn_scroll_canvas.pack(side="top", fill="x", expand=True)
+            
+            self.btn_container = tk.Frame(self.btn_scroll_canvas, bg=COLOR_BG)
+            self.btn_scroll_window = self.btn_scroll_canvas.create_window((0, 0), window=self.btn_container, anchor="nw")
+            
+            self.btn_container.bind("<Configure>", lambda e: self.btn_scroll_canvas.configure(scrollregion=self.btn_scroll_canvas.bbox("all")))
+            self.btn_scroll_canvas.bind("<Configure>", lambda e: self.btn_scroll_canvas.itemconfig(self.btn_scroll_window, width=e.width))
+            
+            def _on_mousewheel(event):
+                try: self.btn_scroll_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                except: pass
+            self.root.bind_all("<MouseWheel>", _on_mousewheel)
+            
+            tk.Label(self.bottom_bar, text="Key: 1-9 Pilih • ESC Skip • R Putar Gambar • Enter Auto", font=FONT_HINT, bg=COLOR_BG, fg="#71717a").pack(side="bottom", pady=(5,0))
+            self.render_buttons()
+            self.root.bind("<Return>", lambda e: self.select_first_psd_manual())
+            
+        self.root.bind("<Escape>", lambda e: self.skip_current())
+        self.bind_shortcuts()
         
     # ... Manual Mode Handlers (Same as v2) ...
     def bind_shortcuts(self):
@@ -674,6 +977,10 @@ class BucinAppV3:
             self._resize_job = self.root.after(100, self.update_image_display)
 
     def update_image_display(self):
+        mode = self.settings.get("ui_manual_mode", "autocomplete")
+        if mode == "button" and hasattr(self, 'reflow_buttons'):
+            self.reflow_buttons()
+            
         if not hasattr(self, 'canvas') or self.original_image is None: return
         self.root.update_idletasks()
         cw = self.canvas.winfo_width()
@@ -692,8 +999,12 @@ class BucinAppV3:
 
     def toggle_inputs(self, enable):
         state = "normal" if enable else "disabled"
-        for btn in self.psd_buttons + [self.btn_skip]: 
-            btn.config(state=state, cursor="hand2" if enable else "arrow")
+        if hasattr(self, 'psd_combobox'):
+            self.psd_combobox.config(state=state)
+            if enable: self.psd_combobox.focus_set()
+            
+        for btn in getattr(self, 'psd_buttons', []) + [getattr(self, 'btn_skip', None)]: 
+            if btn: btn.config(state=state, cursor="hand2" if enable else "arrow")
         
         if enable:
             self.spinner.stop()
@@ -717,35 +1028,89 @@ class BucinAppV3:
         self.lbl_filename.config(text=rel_jpg)
         
         try:
+            from PIL import ImageOps
             self.original_image = Image.open(full_jpg)
+            self.original_image = ImageOps.exif_transpose(self.original_image)
+            
+            # Memaksa Potrait pintar berdasarkan Rasio Gambar
+            if self.original_image.width > self.original_image.height:
+                ratio = self.original_image.width / float(self.original_image.height)
+                # Jika rasio sangat lebar (> 1.35 atau lebih dari 4:3), kemungkinan besar ini Grup Foto (Landscape aseli).
+                # Jika rasio mepet (<= 1.35), kemungkinan ini potret diabadikan menyimpang (misal 4:3 sideways phone).
+                if ratio < 1.35:
+                    self.original_image = self.original_image.transpose(Image.ROTATE_90)
+                
             self.update_image_display()
+            if hasattr(self, 'psd_combobox'):
+                self.psd_combobox.focus_set()
         except Exception as e:
             self.canvas.delete("all")
             self.canvas.create_text(self.canvas.winfo_width()//2, self.canvas.winfo_height()//2, 
                                     text=f"Error: {e}", fill="red", font=FONT_TITLE)
 
-    def render_buttons(self):
-        for btn in self.psd_buttons: btn.destroy()
-        self.psd_buttons.clear()
-        if hasattr(self, 'btn_skip'): self.btn_skip.destroy()
+    def reflow_buttons(self, force=False):
+        if not hasattr(self, 'psd_masters') or not hasattr(self, 'btn_container'): return
+        try:
+            geom = self.root.geometry()
+            gw = int(geom.split('x')[0])
+        except:
+            gw = self.root.winfo_width()
+        available_w = max(gw, 800) - 80
         
+        if hasattr(self, '_last_flow_w') and abs(self._last_flow_w - available_w) < 50 and not force:
+            return
+        self._last_flow_w = available_w
+        
+        if hasattr(self, 'psd_buttons'):
+            self.psd_buttons.clear()
+        else:
+            self.psd_buttons = []
+            
+        for child in self.btn_container.winfo_children():
+            child.destroy()
+            
         colors = [COLOR_ACCENT_BLUE, COLOR_ACCENT_GREEN, "#eab308", "#db2777", "#8b5cf6"]
         
+        current_row = tk.Frame(self.btn_container, bg=COLOR_BG)
+        current_row.pack(pady=5)
+        current_w = 0
+        
+        def add_btn(text, cmd, color, is_skip=False):
+            nonlocal current_row, current_w
+            extra_pad = 15 if is_skip else 5
+            est_w = (len(text) * 9) + 40 + (extra_pad * 2)
+            
+            if current_w + est_w > available_w and current_w > 0:
+                current_row = tk.Frame(self.btn_container, bg=COLOR_BG)
+                current_row.pack(pady=5)
+                current_w = 0
+                
+            st = "disabled" if getattr(self, "is_processing", False) else "normal"
+            crs = "arrow" if st == "disabled" else "hand2"
+            
+            btn = tk.Button(current_row, text=text, font=FONT_BOLD, state=st,
+                           bg=color, fg="white", relief="flat", activebackground=color, activeforeground="white",
+                           cursor=crs, padx=20, pady=10, command=cmd)
+            btn.pack(side="left", padx=extra_pad)
+            current_w += est_w
+            return btn
+            
         for i, (name, path) in enumerate(self.psd_masters):
             key = self.shortcuts[i] if i < len(self.shortcuts) else "?"
-            color = colors[i % len(colors)]
+            c = colors[i % len(colors)]
+            text = f"{name} [{key.upper()}]"
+            b = add_btn(text, lambda n=name, p=path: self.manual_process_init(n, p), c)
+            self.psd_buttons.append(b)
             
-            btn = tk.Button(self.btn_container, text=f"{name} [{key.upper()}]", font=FONT_BOLD, 
-                           bg=color, fg="white", relief="flat", activebackground=color, activeforeground="white",
-                           cursor="hand2", padx=20, pady=10,
-                           command=lambda n=name, p=path: self.manual_process_init(n, p))
-            btn.pack(side="left", padx=5)
-            self.psd_buttons.append(btn)
-            
-        self.btn_skip = tk.Button(self.btn_container, text="SKIP [ESC]", font=FONT_BOLD,
-                                 bg=COLOR_ACCENT_RED, fg="white", relief="flat", activebackground=COLOR_ACCENT_RED, activeforeground="white",
-                                 cursor="hand2", padx=20, pady=10, command=self.skip_current)
-        self.btn_skip.pack(side="left", padx=15)
+        self.btn_skip = add_btn("SKIP [ESC]", self.skip_current, COLOR_ACCENT_RED, is_skip=True)
+        
+        self.root.update_idletasks()
+        if hasattr(self, 'btn_scroll_canvas'):
+            rh = self.btn_container.winfo_reqheight()
+            self.btn_scroll_canvas.configure(height=max(50, min(rh, 240)))
+
+    def render_buttons(self):
+        self.reflow_buttons(force=True)
 
     def manual_process_init(self, name, path):
         if self.is_processing: return
@@ -796,13 +1161,34 @@ class BucinAppV3:
         self.load_next_image()
         
     def open_settings(self):
-        SettingsDialogV3(self.root, self.psd_masters, self.shortcuts, self.on_settings_saved)
+        if hasattr(self, 'settings_overlay') and self.settings_overlay.winfo_exists():
+            return
+            
+        current_mode = self.settings.get("ui_manual_mode", "autocomplete")
+        self.settings_overlay = SettingsOverlay(self.ui_root, self.psd_masters, self.shortcuts, current_mode, self.on_settings_saved)
+        self.settings_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.settings_overlay.lift()
 
-    def on_settings_saved(self, new_shortcuts):
+    def on_settings_saved(self, new_shortcuts, new_mode):
         self.shortcuts = new_shortcuts
         self.settings["shortcuts"] = new_shortcuts
-        self.render_buttons()
-        self.bind_shortcuts()
+        
+        old_mode = self.settings.get("ui_manual_mode", "autocomplete")
+        self.settings["ui_manual_mode"] = new_mode
+        save_settings(self.settings)
+        
+        # Hot reload untuk mode manual jika jendela sedang terbuka
+        if hasattr(self, 'bottom_bar') and self.bottom_bar.winfo_exists():
+            if new_mode != old_mode:
+                self.build_bottom_bar()
+                if hasattr(self, 'update_image_display'):
+                    self.update_image_display()
+            else:
+                self.bind_shortcuts()
+                if new_mode == "button" and hasattr(self, 'render_buttons'):
+                    self.render_buttons()
+        else:
+            self.bind_shortcuts()
 
     # --- Mode: Automatic ---
     def start_auto_mode(self):
@@ -982,29 +1368,94 @@ class BucinAppV3:
         tk.Button(footer, text="KEMBALI KE MENU", command=self.setup_ui_setup, 
                   bg=COLOR_SURFACE, fg="white", font=FONT_BOLD, relief="flat", padx=20, pady=10).pack(side="right")
 
-class SettingsDialogV3(tk.Toplevel):
-    def __init__(self, parent, masters, shortcuts, callback):
+class SettingsOverlay(tk.Frame):
+    def __init__(self, parent, masters, shortcuts, current_mode, callback):
         super().__init__(parent, bg=COLOR_BG)
-        self.title("Settings")
         self.callback = callback
         self.entries = []
-        center_window(self)
-        tk.Label(self, text="Atur Shortcut", font=FONT_TITLE, bg=COLOR_BG, fg="white").pack(pady=15)
-        f = tk.Frame(self, bg=COLOR_BG)
+        
+        # Header Navigasi Pengaturan
+        header = tk.Frame(self, bg=COLOR_SURFACE)
+        header.pack(side="top", fill="x")
+        tk.Label(header, text="PENGATURAN", font=FONT_TITLE, bg=COLOR_SURFACE, fg="white").pack(side="left", padx=20, pady=15)
+        tk.Button(header, text="TUTUP / BATAL", command=self.close_without_save, bg=COLOR_BORDER, fg="white", font=FONT_BOLD, relief="flat", padx=15, pady=5, cursor="hand2").pack(side="right", padx=20, pady=15)
+        
+        # Container frame membungkus canvas
+        container = tk.Frame(self, bg=COLOR_BG)
+        container.pack(fill="both", expand=True, padx=20, pady=20)
+
+        self.canvas = tk.Canvas(container, bg=COLOR_BG, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(container, orient="vertical", command=self.canvas.yview)
+        
+        self.scrollable_frame = tk.Frame(self.canvas, bg=COLOR_BG)
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
+        
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        
+        def on_canvas_configure(event):
+            if event.widget == self.canvas:
+                self.canvas.itemconfig(self.canvas_window, width=event.width)
+                
+        self.canvas.bind("<Configure>", on_canvas_configure)
+        
+        def _on_mousewheel(event):
+            try: self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            except: pass
+            
+        self.bind("<MouseWheel>", _on_mousewheel)
+        self.canvas.bind("<MouseWheel>", _on_mousewheel)
+        self.scrollable_frame.bind("<MouseWheel>", _on_mousewheel)
+        
+        pf = self.scrollable_frame
+        
+        # Mode UI Selection
+        tk.Label(pf, text="Mode Visual Manual", font=FONT_TITLE, bg=COLOR_BG, fg="white").pack(pady=(15, 5))
+        
+        # SANGAT PENTING: deklarasikan 'self' sebagai parent var_mode agar memory scope aman
+        self.var_mode = tk.StringVar(self, value=current_mode) 
+        
+        mode_frame = tk.Frame(pf, bg=COLOR_BG)
+        mode_frame.pack(fill="x", padx=20, pady=5)
+        
+        style = ttk.Style()
+        style.configure('TRadiobutton', background=COLOR_BG, foreground='white', font=FONT_MAIN)
+        ttk.Radiobutton(mode_frame, text="Autocomplete TextBox (Ketik & Enter)", variable=self.var_mode, value="autocomplete", style="TRadiobutton").pack(anchor="w", pady=2)
+        ttk.Radiobutton(mode_frame, text="Tombol Klasik (Deret Bawah)", variable=self.var_mode, value="button", style="TRadiobutton").pack(anchor="w", pady=2)
+        
+        tk.Label(pf, text="Atur Shortcut Keyboard", font=FONT_TITLE, bg=COLOR_BG, fg="white").pack(pady=(30,10))
+        f = tk.Frame(pf, bg=COLOR_BG)
         f.pack(fill="both", padx=20)
+        
         for i, (name, _) in enumerate(masters):
             val = shortcuts[i] if i < len(shortcuts) else "?"
             r = tk.Frame(f, bg=COLOR_BG)
             r.pack(fill="x", pady=2)
-            tk.Label(r, text=name, width=20, anchor="w", bg=COLOR_BG, fg="white").pack(side="left")
-            e = tk.Entry(r, width=5, justify="center")
+            tk.Label(r, text=name, width=28, anchor="w", bg=COLOR_BG, fg="#d4d4d8", font=FONT_MAIN).pack(side="left")
+            e = tk.Entry(r, width=5, justify="center", font=FONT_BOLD)
             e.insert(0, val)
             e.pack(side="right")
+            e.bind("<MouseWheel>", _on_mousewheel)
             self.entries.append(e)
-        tk.Button(self, text="SIMPAN", command=self.save, bg=COLOR_ACCENT_BLUE, fg="white", padx=15).pack(pady=20)
+            
+        tk.Button(pf, text="SIMPAN PENGATURAN", command=self.save, bg=COLOR_ACCENT_BLUE, fg="white", font=FONT_BOLD, padx=40, pady=10, cursor="hand2").pack(pady=40)
+        
+        self.update_idletasks()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        
+    def close_without_save(self):
+        self.destroy()
+        
     def save(self):
         res = [e.get().strip() or "?" for e in self.entries]
-        self.callback(res)
+        selected_mode = self.var_mode.get()
+        self.callback(res, selected_mode)
         self.destroy()
 
 if __name__ == "__main__":
