@@ -1252,10 +1252,10 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                         var app = Avalonia.Application.Current;
                         var desktop = app?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
                         
-                        // Find a visible owner window (MainWindow may be closed/stale in embedded mode)
-                        var owner = desktop?.MainWindow;
-                        if (owner == null || !owner.IsVisible)
-                            owner = desktop?.Windows.FirstOrDefault(w => w.IsVisible);
+                        // Find the currently active window, or the most recently created visible window
+                        var owner = desktop?.Windows.FirstOrDefault(w => w.IsActive) 
+                                 ?? desktop?.Windows.LastOrDefault(w => w.IsVisible) 
+                                 ?? desktop?.MainWindow;
                         
                         if (owner != null)
                         {

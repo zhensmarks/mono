@@ -142,7 +142,7 @@ public partial class SpreadsheetView : UserControl
                     var border = new Border { Tag = col.Index };
                     border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
                     
-                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
+                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, TextAlignment = Avalonia.Media.TextAlignment.Center, Margin = new Thickness(4, 0) };
                     textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
                     textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
                     textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
@@ -180,7 +180,7 @@ public partial class SpreadsheetView : UserControl
                     var border = new Border { Tag = col.Index };
                     border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
 
-                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
+                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, TextAlignment = Avalonia.Media.TextAlignment.Center, Margin = new Thickness(4, 0) };
                     textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
                     textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
                     textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
@@ -211,7 +211,7 @@ public partial class SpreadsheetView : UserControl
                     var border = new Border { Tag = col.Index };
                     border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
 
-                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Margin = new Thickness(10, 0) };
+                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, TextAlignment = Avalonia.Media.TextAlignment.Center, Margin = new Thickness(4, 0) };
                     textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
                     textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
                     textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });

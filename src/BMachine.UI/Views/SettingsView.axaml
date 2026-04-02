@@ -94,10 +94,10 @@
                             </Setter>
                         </Style>
                         <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#10FFFFFF"/>
+                            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#1E1E1E"/>
+                            <Setter Property="Background" Value="{DynamicResource MenuSelectedBrush}"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected">
                             <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
@@ -532,27 +532,27 @@
                             <TextBlock Text="Dashboard Visibility" Classes="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show GDrive" VerticalAlignment="Center" Foreground="#999"/>
-                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsGdriveVisible}"/>
+                                <ToggleButton Grid.Column="1" Classes="Switch" IsChecked="{Binding IsGdriveVisible}"/>
                             </Grid>
                             <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show Pixelcut" VerticalAlignment="Center" Foreground="#999"/>
-                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsPixelcutVisible}"/>
+                                <ToggleButton Grid.Column="1" Classes="Switch" IsChecked="{Binding IsPixelcutVisible}"/>
                             </Grid>
                             <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show Batch" VerticalAlignment="Center" Foreground="#999"/>
-                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsBatchVisible}"/>
+                                <ToggleButton Grid.Column="1" Classes="Switch" IsChecked="{Binding IsBatchVisible}"/>
                             </Grid>
                              <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show Folder Locker" VerticalAlignment="Center" Foreground="#999"/>
-                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsFolderLockVisible}"/>
+                                <ToggleButton Grid.Column="1" Classes="Switch" IsChecked="{Binding IsFolderLockVisible}"/>
                             </Grid>
                              <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show Output Explorer" VerticalAlignment="Center" Foreground="#999"/>
-                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsOutputExplorerVisible}"/>
+                                <ToggleButton Grid.Column="1" Classes="Switch" IsChecked="{Binding IsOutputExplorerVisible}"/>
                             </Grid>
                              <!-- <Grid ColumnDefinitions="*, Auto" Margin="10,0,0,0">
                                 <TextBlock Text="Show Points" VerticalAlignment="Center" Foreground="#999"/>
-                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsPointVisible}"/>
+                                <ToggleButton Grid.Column="1" Classes="Switch" IsChecked="{Binding IsPointVisible}"/>
                             </Grid> -->
                         </StackPanel>
                     </StackPanel>
@@ -845,7 +845,7 @@
                                          </StackPanel>
 
                                          <!-- Toggle -->
-                                         <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsEnabled}" Command="{Binding ToggleCommand}" VerticalAlignment="Center" Margin="10,0"/>
+                                         <ToggleButton Grid.Column="2" Classes="Switch" IsChecked="{Binding IsEnabled}" Command="{Binding ToggleCommand}" VerticalAlignment="Center" Margin="10,0"/>
                                          
                                          <!-- Delete -->
                                          <Button Grid.Column="3" Classes="Clear" Command="{Binding DeleteCommand}" Foreground="#EF4444" VerticalAlignment="Center">

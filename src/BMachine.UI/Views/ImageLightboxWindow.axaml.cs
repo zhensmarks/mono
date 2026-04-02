@@ -41,22 +41,16 @@ public partial class ImageLightboxWindow : Window
         }
     }
 
-    private bool _isDragging = false;
     private bool _isClosing;
-    private Avalonia.Point _lastDragPoint;
-    private Avalonia.Media.ScaleTransform? _scaleTransform;
     private string _apiKey = "";
     private string _token = "";
+    private bool _isDragging = false;
+    private Avalonia.Point _lastDragPoint;
 
     public ImageLightboxWindow()
     {
         InitializeComponent();
         Log("ctor");
-
-        // Initialize _scaleTransform from AXAML-defined RenderTransform
-        var imgControl = this.FindControl<Image>("FullScreenImage");
-        if (imgControl?.RenderTransform is Avalonia.Media.ScaleTransform st)
-            _scaleTransform = st;
 
         this.Opened += OnWindowOpened;
 
@@ -70,12 +64,6 @@ public partial class ImageLightboxWindow : Window
                 _lastWindowHeight = this.Bounds.Height;
             }
         };
-
-        var scroller = this.FindControl<ScrollViewer>("ImageScroller");
-        if (scroller != null)
-        {
-            // De-risk: no pointer wheel zoom and no viewport size syncing.
-        }
     }
 
     private void OnWindowOpened(object? sender, EventArgs e)
@@ -103,25 +91,6 @@ public partial class ImageLightboxWindow : Window
 
     }
 
-    /// <summary>
-    /// Keeps scroll content at least viewport-sized (centers small images) without markup bindings to Viewport
-    /// (those bindings can create layout feedback loops and crash on Windows).
-    /// </summary>
-    private void SyncViewportHostSize()
-    {
-        var scroller = this.FindControl<ScrollViewer>("ImageScroller");
-        var host = this.FindControl<Border>("ViewportHost");
-        if (scroller == null || host == null) return;
-
-        double w = scroller.Viewport.Width;
-        double h = scroller.Viewport.Height;
-        if (w <= 1 || double.IsNaN(w) || double.IsInfinity(w)) w = 400;
-        if (h <= 1 || double.IsNaN(h) || double.IsInfinity(h)) h = 300;
-
-        host.MinWidth = w;
-        host.MinHeight = h;
-    }
-
     public ImageLightboxWindow(Bitmap image) : this()
     {
         var imgControl = this.FindControl<Image>("FullScreenImage");
@@ -141,27 +110,6 @@ public partial class ImageLightboxWindow : Window
         _apiKey = apiKey ?? "";
         _token = token ?? "";
         _ = LoadImageAsync(imageUrl);
-    }
-
-    // UpdateCenterMargin is removed because it's now handled declaratively in XAML.
-
-    private void InitInitialScale(Avalonia.Size bitmapSize)
-    {
-        var scroller = this.FindControl<ScrollViewer>("ImageScroller");
-        if (scroller != null && _scaleTransform != null && bitmapSize.Width > 0)
-        {
-            double vw = scroller.Viewport.Width > 0 ? scroller.Viewport.Width : 800;
-            double vh = scroller.Viewport.Height > 0 ? scroller.Viewport.Height : 600;
-
-            double sx = vw / bitmapSize.Width;
-            double sy = vh / bitmapSize.Height;
-            double initialScale = Math.Min(1.0, Math.Min(sx, sy));
-
-            _scaleTransform.ScaleX = initialScale;
-            _scaleTransform.ScaleY = initialScale;
-
-            // Margin centering is handled by the Border MinWidth/MinHeight layout in XAML
-        }
     }
 
     private async Task LoadImageAsync(string url)
@@ -250,8 +198,6 @@ public partial class ImageLightboxWindow : Window
                     if (imgControl != null)
                     {
                         imgControl.Source = bitmap;
-                        // Auto-fit image to window viewport
-                        InitInitialScale(new Avalonia.Size(bitmap.PixelSize.Width, bitmap.PixelSize.Height));
                     }
                     Log("set-image-ok");
                 }
@@ -309,31 +255,88 @@ public partial class ImageLightboxWindow : Window
 
     private void OnImagePointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
-        try
+        var imgControl = this.FindControl<Image>("FullScreenImage");
+        if (imgControl == null) return;
+        var point = e.GetCurrentPoint(imgControl);
+        if (point.Properties.IsRightButtonPressed) { Close(); e.Handled = true; return; }
+        if (point.Properties.IsLeftButtonPressed)
         {
-            var imgControl = this.FindControl<Image>("FullScreenImage");
-            if (imgControl == null) return;
+            _isDragging = true;
+            _lastDragPoint = e.GetPosition(this);
+            e.Pointer.Capture(imgControl);
+            e.Handled = true;
+        }
+    }
 
-            var point = e.GetCurrentPoint(imgControl);
-            if (point.Properties.IsRightButtonPressed)
-            {
-                Close();
-                e.Handled = true;
-                return;
-            }
+    private void OnImagePointerMoved(object? sender, Avalonia.Input.PointerEventArgs e)
+    {
+        if (!_isDragging) return;
+        var currentPoint = e.GetPosition(this);
+        var delta = currentPoint - _lastDragPoint;
+        _lastDragPoint = currentPoint;
 
-            if (point.Properties.IsLeftButtonPressed)
+        var imgControl = this.FindControl<Image>("FullScreenImage");
+        if (imgControl?.RenderTransform is Avalonia.Media.TransformGroup tg)
+        {
+            foreach (var t in tg.Children)
             {
-                _isDragging = true;
-                _lastDragPoint = e.GetPosition(this);
-                e.Pointer.Capture(imgControl); 
-                e.Handled = true;
+                if (t is Avalonia.Media.TranslateTransform trans)
+                {
+                    trans.X += delta.X;
+                    trans.Y += delta.Y;
+                }
             }
         }
-        catch (Exception ex)
+        e.Handled = true;
+    }
+
+    private void OnImagePointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)
+    {
+        if (_isDragging)
         {
-            System.Diagnostics.Debug.WriteLine($"[Lightbox] OnImagePointerPressed: {ex.Message}");
+            _isDragging = false;
+            e.Pointer.Capture(null);
+            e.Handled = true;
         }
+    }
+
+    private void OnImagePointerWheelChanged(object? sender, Avalonia.Input.PointerWheelEventArgs e)
+    {
+        var imgControl = this.FindControl<Image>("FullScreenImage");
+        if (imgControl?.RenderTransform is not Avalonia.Media.TransformGroup tg) return;
+        
+        Avalonia.Media.ScaleTransform? st = null;
+        Avalonia.Media.TranslateTransform? tt = null;
+        foreach (var t in tg.Children)
+        {
+            if (t is Avalonia.Media.ScaleTransform scaleT) st = scaleT;
+            if (t is Avalonia.Media.TranslateTransform transT) tt = transT;
+        }
+        if (st == null || tt == null) return;
+
+        double zoomFactor = e.Delta.Y > 0 ? 1.15 : (1.0 / 1.15);
+        double newScaleX = st.ScaleX * zoomFactor;
+        
+        if (newScaleX < 0.2) newScaleX = 0.2;
+        if (newScaleX > 20) newScaleX = 20;
+        
+        zoomFactor = newScaleX / st.ScaleX;
+
+        var currentPoint = e.GetPosition(imgControl.Parent as Avalonia.Visual ?? this);
+        var bounds = imgControl.Bounds;
+        var centerX = bounds.X + bounds.Width / 2 + tt.X;
+        var centerY = bounds.Y + bounds.Height / 2 + tt.Y;
+
+        double dx = currentPoint.X - centerX;
+        double dy = currentPoint.Y - centerY;
+
+        tt.X -= dx * (zoomFactor - 1);
+        tt.Y -= dy * (zoomFactor - 1);
+
+        st.ScaleX = newScaleX;
+        st.ScaleY = newScaleX;
+
+        e.Handled = true;
     }
 
     private static Bitmap TryDecodeBitmap(byte[] bytes)
@@ -379,130 +382,6 @@ public partial class ImageLightboxWindow : Window
         }
     }
 
-    private void OnImagePointerMoved(object? sender, Avalonia.Input.PointerEventArgs e)
-    {
-        if (!_isDragging) return;
-
-        var scroller = this.FindControl<ScrollViewer>("ImageScroller");
-        if (scroller == null) return;
-
-        var currentPoint = e.GetPosition(this);
-        var delta = currentPoint - _lastDragPoint;
-        _lastDragPoint = currentPoint;
-
-        double newOffsetX = scroller.Offset.X - delta.X;
-        double newOffsetY = scroller.Offset.Y - delta.Y;
-
-        double maxOffsetX = Math.Max(0, scroller.Extent.Width - scroller.Viewport.Width);
-        double maxOffsetY = Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height);
-
-        newOffsetX = Math.Clamp(newOffsetX, 0, maxOffsetX);
-        newOffsetY = Math.Clamp(newOffsetY, 0, maxOffsetY);
-
-        scroller.Offset = new Avalonia.Vector(newOffsetX, newOffsetY);
-        e.Handled = true;
-    }
-
-    private void OnImagePointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)
-    {
-        if (_isDragging)
-        {
-            _isDragging = false;
-            e.Pointer.Capture(null);
-            e.Handled = true;
-        }
-    }
-
-    private void OnImagePointerWheelChanged(object? sender, Avalonia.Input.PointerWheelEventArgs e)
-    {
-        try
-        {
-            var scroller = this.FindControl<ScrollViewer>("ImageScroller");
-            if (_scaleTransform == null || scroller == null) return;
-
-            bool isZoomModifier = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control) || 
-                                  e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Meta) ||
-                                  e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Alt);
-
-            if (!isZoomModifier)
-            {
-                return;
-            }
-
-            double zoomFactor = e.Delta.Y > 0 ? 1.15 : (1.0 / 1.15);
-            var imgControl = this.FindControl<Image>("FullScreenImage");
-            if (imgControl == null) return;
-            PerformZoom(zoomFactor, e.GetPosition(imgControl));
-            e.Handled = true;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[Lightbox] OnImagePointerWheelChanged: {ex.Message}");
-        }
-    }
-
-    private void PerformZoom(double zoomFactor, Avalonia.Point cursorRelativePosition)
-    {
-        var scroller = this.FindControl<ScrollViewer>("ImageScroller");
-        var img = this.FindControl<Image>("FullScreenImage");
-        if (_scaleTransform == null || scroller == null || img == null) return;
-        double imgWidth = img.Bounds.Width;
-        double imgHeight = img.Bounds.Height;
-        if (imgWidth == 0 || imgHeight == 0)
-        {
-            if (img.Source is Bitmap bm)
-            {
-                imgWidth = bm.Size.Width;
-                imgHeight = bm.Size.Height;
-            }
-            else return;
-        }
-
-        double vw = scroller.Viewport.Width > 0 ? scroller.Viewport.Width : 800;
-        double vh = scroller.Viewport.Height > 0 ? scroller.Viewport.Height : 600;
-
-        double fitScaleX = vw / imgWidth;
-        double fitScaleY = vh / imgHeight;
-        double minScale = Math.Min(1.0, Math.Min(fitScaleX, fitScaleY));
-
-        double newScaleX = _scaleTransform.ScaleX * zoomFactor;
-
-        if (zoomFactor < 1.0)
-        {
-            if (_scaleTransform.ScaleX <= minScale + 0.001) return; 
-            if (newScaleX < minScale)
-            {
-                newScaleX = minScale;
-                zoomFactor = newScaleX / _scaleTransform.ScaleX; 
-            }
-        }
-        else if (zoomFactor > 1.0 && newScaleX > 20)
-        {
-            return;
-        }
-
-        double newScaleY = _scaleTransform.ScaleY * zoomFactor;
-
-        double oldOffsetX = scroller.Offset.X;
-        double oldOffsetY = scroller.Offset.Y;
-
-        _scaleTransform.ScaleX = newScaleX;
-        _scaleTransform.ScaleY = newScaleY;
-
-        // Margin update relies on declarative XAML bindings now
-        scroller.UpdateLayout();
-
-        double newOffsetX = oldOffsetX + cursorRelativePosition.X * (zoomFactor - 1);
-        double newOffsetY = oldOffsetY + cursorRelativePosition.Y * (zoomFactor - 1);
-
-        double maxOffsetX = Math.Max(0, scroller.Extent.Width - scroller.Viewport.Width);
-        double maxOffsetY = Math.Max(0, scroller.Extent.Height - scroller.Viewport.Height);
-
-        newOffsetX = Math.Clamp(newOffsetX, 0, maxOffsetX);
-        newOffsetY = Math.Clamp(newOffsetY, 0, maxOffsetY);
-
-        scroller.Offset = new Avalonia.Vector(newOffsetX, newOffsetY);
-    }
 
     private async void OnDownloadClick(object? sender, RoutedEventArgs e)
     {

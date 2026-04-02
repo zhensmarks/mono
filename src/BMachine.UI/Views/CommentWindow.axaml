@@ -12,16 +12,19 @@
         Width="400" Height="600"
         WindowStartupLocation="CenterScreen"
         Topmost="True"
-        Background="{DynamicResource CardBackgroundBrush}">
+        Background="{DynamicResource AppBackgroundBrush}"
+        SystemDecorations="None">
 
-
+    <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
     <Grid RowDefinitions="Auto, *, Auto" Margin="20">
         <!-- Header -->
-        <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+        <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20" Background="Transparent" PointerPressed="Header_PointerPressed">
             <StackPanel Spacing="5">
                 <TextBlock Text="Comments" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
             </StackPanel>
+            <Button Grid.Column="1" Click="CloseButton_Click" Content="✕"
+                    Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Top"/>
         </Grid>
 
         <!-- Comments List -->
@@ -35,55 +38,47 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Background="#10FFFFFF" CornerRadius="0" Padding="12" Margin="0,0,0,10">
-                                <Grid ColumnDefinitions="Auto, *">
-                                    <Border Width="32" Height="32" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Margin="0,0,12,0" VerticalAlignment="Top" ClipToBounds="True">
-                                        <Panel>
-                                            <TextBlock Text="{Binding MemberCreatorInitials}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
-                                        </Panel>
-                                    </Border>
-                                    
-                                    <Grid Grid.Column="1" RowDefinitions="Auto, *">
-                                        <!-- Header (Name, Date, Actions) -->
-                                        <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,4">
-                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,0,0"/>
-                                            </StackPanel>
-                                            
-                                            <!-- Action Bar -->
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsMine}">
-                                                <Button Command="{Binding $parent[Window].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
-                                                        Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
-                                                        IsVisible="{Binding !IsEditing}">
-                                                    <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                </Button>
-                                                <Button Command="{Binding $parent[Window].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
-                                                        Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
-                                                        IsVisible="{Binding !IsEditing}">
-                                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444"/>
-                                                </Button>
-                                            </StackPanel>
-                                        </Grid>
+                                <Grid RowDefinitions="Auto, *">
+                                    <!-- Header (Name, Date, Actions) -->
+                                    <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                        
+                                        <!-- Action Bar -->
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsMine}">
+                                            <Button Command="{Binding $parent[Window].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
+                                                    Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
+                                                    IsVisible="{Binding !IsEditing}">
+                                                <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Button>
+                                            <Button Command="{Binding $parent[Window].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
+                                                    Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
+                                                    IsVisible="{Binding !IsEditing}">
+                                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
 
-                                        <!-- Body -->
-                                        <Grid Grid.Row="1">
-                                            <!-- Read Mode -->
-                                            <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"
-                                                                         IsVisible="{Binding !IsEditing}"/>
-                                            
-                                            <!-- Edit Mode -->
-                                            <StackPanel IsVisible="{Binding IsEditing}" Spacing="6" Margin="0,4,0,0">
-                                                <TextBox Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
-                                                         Background="#1AFFFFFF" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="0"
-                                                         Padding="8" FontSize="13"/>
-                                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                                                    <Button Content="Cancel" Command="{Binding $parent[Window].DataContext.CancelEditCommentCommand}" CommandParameter="{Binding}"
-                                                            Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="0" Cursor="Hand" FontSize="12"/>
-                                                    <Button Content="Save" Command="{Binding $parent[Window].DataContext.SaveEditCommentCommand}" CommandParameter="{Binding}"
-                                                            Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="0" Cursor="Hand" FontSize="12" FontWeight="Bold"/>
-                                                </StackPanel>
+                                    <!-- Body -->
+                                    <Grid Grid.Row="1">
+                                        <!-- Read Mode -->
+                                        <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"
+                                                                     IsVisible="{Binding !IsEditing}"/>
+                                        
+                                        <!-- Edit Mode -->
+                                        <StackPanel IsVisible="{Binding IsEditing}" Spacing="6" Margin="0,4,0,0">
+                                            <TextBox Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
+                                                     Background="#1AFFFFFF" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="0"
+                                                     Padding="8" FontSize="13"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                                <Button Content="Cancel" Command="{Binding $parent[Window].DataContext.CancelEditCommentCommand}" CommandParameter="{Binding}"
+                                                        Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="0" Cursor="Hand" FontSize="12"/>
+                                                <Button Content="Save" Command="{Binding $parent[Window].DataContext.SaveEditCommentCommand}" CommandParameter="{Binding}"
+                                                        Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="0" Cursor="Hand" FontSize="12" FontWeight="Bold"/>
                                             </StackPanel>
-                                        </Grid>
+                                        </StackPanel>
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -234,12 +229,16 @@
                 </TextBox.InnerRightContent>
             </TextBox>
             <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
-                    MinWidth="48" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment"
-                    VerticalAlignment="Stretch" HorizontalAlignment="Right">
-                <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
+                    Classes="Clear" MinWidth="48" CornerRadius="0" Cursor="Hand" ToolTip.Tip="Send Comment"
+                    VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                <Border Background="#38bdf8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                    <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
             </Button>
             </Grid>
             </StackPanel>
         </Grid>
     </Grid>
+    </Border>
 </Window>

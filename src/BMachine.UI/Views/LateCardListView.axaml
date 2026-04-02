@@ -517,9 +517,12 @@
                             </TextBox.InnerRightContent>
                             </TextBox>
                             <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
-                                    MinWidth="48" CornerRadius="0" Background="{DynamicResource AccentColorBrush}" Cursor="Hand" ToolTip.Tip="Send Comment"
-                                    VerticalAlignment="Stretch" HorizontalAlignment="Right">
-                                <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16"/>
+                                    Classes="Clear" MinWidth="48" CornerRadius="0" Cursor="Hand" ToolTip.Tip="Send Comment"
+                                    VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                                <Border Background="#38bdf8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                    <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
                             </Button>
                         </Grid>
                     </StackPanel>

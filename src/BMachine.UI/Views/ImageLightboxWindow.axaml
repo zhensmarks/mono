@@ -11,22 +11,23 @@
         SystemDecorations="None"
         Background="#1A1A1A">
 
-        <Grid Background="Transparent">
-        <ScrollViewer x:Name="ImageScroller" Margin="0" 
-                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-            <Image x:Name="FullScreenImage"
-                   Stretch="Uniform"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   PointerPressed="OnImagePointerPressed"
-                   PointerMoved="OnImagePointerMoved"
-                   PointerReleased="OnImagePointerReleased"
-                   PointerWheelChanged="OnImagePointerWheelChanged">
-                <Image.RenderTransform>
-                    <ScaleTransform/>
-                </Image.RenderTransform>
-            </Image>
-        </ScrollViewer>
+        <Grid Background="Transparent" ClipToBounds="True">
+        <Image x:Name="FullScreenImage"
+               Stretch="Uniform"
+               Margin="20"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               PointerPressed="OnImagePointerPressed"
+               PointerMoved="OnImagePointerMoved"
+               PointerReleased="OnImagePointerReleased"
+               PointerWheelChanged="OnImagePointerWheelChanged">
+            <Image.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                    <TranslateTransform X="0" Y="0" />
+                </TransformGroup>
+            </Image.RenderTransform>
+        </Image>
 
         <ProgressBar x:Name="LoadingSpinner" IsVisible="False" Width="120" Height="4"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -35,24 +36,29 @@
                      Background="#33FFFFFF"/>
 
         <!-- Floating Action Buttons (Top Right) -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Spacing="6" ZIndex="10">
-            <!-- Download Button -->
-            <Button Width="36" Height="36" CornerRadius="4"
-                    Background="#1A1A1A" BorderThickness="1" BorderBrush="#555555"
-                    Cursor="Hand" Click="OnDownloadClick"
-                    Foreground="White" FontSize="16" FontWeight="Bold" Content="↓"
-                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                    ToolTip.Tip="Download Image">
-            </Button>
-            <!-- Close Button -->
-            <Button Width="36" Height="36" CornerRadius="4"
-                    Background="#1A1A1A" BorderThickness="1" BorderBrush="#555555"
-                    Cursor="Hand" Click="OnCloseClick"
-                    Foreground="White" FontSize="18" FontWeight="Bold" Content="✕"
-                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                    ToolTip.Tip="Close Viewer (Esc / Right Click)">
-            </Button>
-        </StackPanel>
+        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" ZIndex="10"
+                Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" 
+                BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                BoxShadow="0 4 10 0 #40000000">
+            <StackPanel Orientation="Horizontal" Margin="4" Spacing="4">
+                <!-- Download Button -->
+                <Button Width="36" Height="36" CornerRadius="4"
+                        Background="Transparent" BorderThickness="0"
+                        Cursor="Hand" Click="OnDownloadClick"
+                        Foreground="{DynamicResource TextPrimaryBrush}" FontSize="18" FontWeight="Bold" Content="↓"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        ToolTip.Tip="Download Image">
+                </Button>
+                <!-- Close Button -->
+                <Button Width="36" Height="36" CornerRadius="4"
+                        Background="Transparent" BorderThickness="0"
+                        Cursor="Hand" Click="OnCloseClick"
+                        Foreground="{DynamicResource TextPrimaryBrush}" FontSize="16" FontWeight="Bold" Content="✕"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        ToolTip.Tip="Close Viewer (Esc / Right Click)">
+                </Button>
+            </StackPanel>
+        </Border>
     </Grid>
 
 </Window>

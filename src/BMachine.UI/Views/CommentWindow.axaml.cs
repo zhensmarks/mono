@@ -126,6 +126,19 @@ public partial class CommentWindow : Window
         }
     }
 
+    private void Header_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            this.BeginMoveDrag(e);
+        }
+    }
+
+    private void CloseButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        this.Close();
+    }
+
     // --- Copy (Ctrl+C) fix ---
     private async void CommentTextBox_KeyDown(object? sender, KeyEventArgs e)
     {

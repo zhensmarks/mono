@@ -22,7 +22,7 @@
     </UserControl.DataTemplates>
 
         <Border x:Name="LogPanelDropZone" Background="{DynamicResource TerminalBackgroundBrush}" 
-            BorderBrush="#33FFFFFF" BorderThickness="1,0,0,0"
+            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,0,0,0"
             DragDrop.AllowDrop="True"
             DragDrop.DragOver="OnDragOver"
             DragDrop.Drop="OnDrop"
@@ -323,7 +323,7 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="Button.panelTab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#10FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
         </Style>
         <!-- Active state via Tag=True -->
         <Style Selector="Button.panelTab[Tag=True]">
@@ -331,7 +331,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
         </Style>
         <Style Selector="Button.panelTab[Tag=True] /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#1E1E1E"/>
+            <Setter Property="Background" Value="{DynamicResource MenuSelectedBrush}"/>
         </Style>
         <Style Selector="Button.panelTab[Tag=True] PathIcon">
             <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
@@ -346,7 +346,7 @@
             <Setter Property="CornerRadius" Value="0"/>
         </Style>
         <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
-             <Setter Property="Background" Value="#15FFFFFF"/>
+             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
         </Style>
         
         <!-- Console TextBox -->

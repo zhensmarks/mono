@@ -211,8 +211,8 @@
         <!-- MAIN DASHBOARD AREA (Content) -->
         <Grid Grid.Column="1" RowDefinitions="Auto, *">
             <!-- NAVIGATION BAR (Horizontal, at top) - SHARP TERMINAL STYLE -->
-            <Border Grid.Row="0" HorizontalAlignment="Center" Background="#10FFFFFF" 
-                    CornerRadius="0" BorderBrush="#33FFFFFF" BorderThickness="1" Padding="2" Margin="12,12,12,6">
+            <Border Grid.Row="0" HorizontalAlignment="Center" Background="{DynamicResource MenuHoverBrush}" 
+                    CornerRadius="0" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2" Margin="12,12,12,6">
                 <WrapPanel Orientation="Horizontal" Margin="0,0,0,0">
                     <WrapPanel.Styles>
                         <Style Selector="RadioButton.NavTab">
@@ -245,11 +245,11 @@
                             </Setter>
                         </Style>
                         <Style Selector="RadioButton.NavTab:pointerover">
-                            <Setter Property="Background" Value="#10FFFFFF"/>
+                            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </Style>
                         <Style Selector="RadioButton.NavTab:checked">
-                            <Setter Property="Background" Value="#1E1E1E"/>
+                            <Setter Property="Background" Value="{DynamicResource MenuSelectedBrush}"/>
                             <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
                             <Setter Property="BorderThickness" Value="0,0,0,3"/>
                             <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>

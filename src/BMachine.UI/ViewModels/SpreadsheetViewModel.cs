@@ -25,6 +25,8 @@ public partial class SpreadsheetViewModel : ObservableObject
     private int _rangeStartRow = 1;
     private int _rangeStartCol = 0; // 0-based
     private int? _sheetGid; // Numeric sheet ID for dimension updates
+    private System.Threading.Timer? _widthSaveTimer;
+    private bool _isLoadingWidths; // prevent save during load
 
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private string _statusText = "Ready";
@@ -170,6 +172,7 @@ public partial class SpreadsheetViewModel : ObservableObject
                     colVM.PropertyChanged += (s, e) =>
                     {
                         if (e.PropertyName == nameof(SpreadsheetColumnViewModel.IsVisible)) SaveColumnSettings();
+                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.Width) && !_isLoadingWidths) DebounceSaveColumnWidths();
                     };
                     
                     columnViewModels.Add(colVM);
@@ -290,6 +293,7 @@ public partial class SpreadsheetViewModel : ObservableObject
                 await LoadColumnSettings();
 
                 // Load saved column widths (override metadata widths if user has custom ones)
+                _isLoadingWidths = true;
                 var savedWidthsJson = await _database.GetAsync<string>("Configs.Spreadsheet.ColumnWidths");
                 if (!string.IsNullOrEmpty(savedWidthsJson))
                 {
@@ -307,6 +311,7 @@ public partial class SpreadsheetViewModel : ObservableObject
                     }
                     catch { /* ignore */ }
                 }
+                _isLoadingWidths = false;
 
                 // Process Data Rows (simple & fast - no per-cell format mirroring for performance)
                 for (int i = 1; i < values.Count; i++)
@@ -508,6 +513,23 @@ public partial class SpreadsheetViewModel : ObservableObject
              // Let's just clear the value.
              StatusText = $"Cleared date in {colVM.Header}. Don't forget to Save.";
         }
+    }
+
+    private void DebounceSaveColumnWidths()
+    {
+        _widthSaveTimer?.Dispose();
+        _widthSaveTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await SaveColumnWidthsAsync();
+                System.Diagnostics.Debug.WriteLine("Column widths auto-saved.");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Column width save error: {ex.Message}");
+            }
+        }, null, 1500, System.Threading.Timeout.Infinite);
     }
 
     public async Task SaveColumnWidthsAsync()

@@ -10,12 +10,12 @@
     <Color x:Key="TextSecondary">#99FFFFFF</Color>
     
     <!-- Brushes -->
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="{StaticResource AppBackground}"/>
-    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackground}"/>
-    <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlue}"/>
-    <SolidColorBrush x:Key="AccentOrangeBrush" Color="{StaticResource AccentOrange}"/>
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="{DynamicResource AppBackground}"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{DynamicResource CardBackground}"/>
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="{DynamicResource AccentBlue}"/>
+    <SolidColorBrush x:Key="AccentOrangeBrush" Color="{DynamicResource AccentOrange}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondary}"/>
     <SolidColorBrush x:Key="TextOnPrimaryBrush" Color="White"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#26282C"/>
 
@@ -36,11 +36,14 @@
     <SolidColorBrush x:Key="TerminalErrorBrush" Color="#f87171"/>      <!-- Red-400 -->
     <SolidColorBrush x:Key="TerminalSystemBrush" Color="#2dd4bf"/>     <!-- Teal-400 -->
     <SolidColorBrush x:Key="TerminalDebugBrush" Color="#9ca3af"/>      <!-- Gray-400 -->
+    <!-- Menu & Navigation Selection -->
+    <SolidColorBrush x:Key="MenuHoverBrush" Color="#10FFFFFF"/>
+    <SolidColorBrush x:Key="MenuSelectedBrush" Color="#1E1E1E"/>
     
     <!-- Legacy/Missing Brushes -->
-    <SolidColorBrush x:Key="BackgroundDarkBrush" Color="{StaticResource CardBackground}"/>
-    <SolidColorBrush x:Key="AccentEditingBrush" Color="{StaticResource AccentBlue}"/>
-    <SolidColorBrush x:Key="AccentRevisionBrush" Color="{StaticResource AccentOrange}"/>
+    <SolidColorBrush x:Key="BackgroundDarkBrush" Color="{DynamicResource CardBackground}"/>
+    <SolidColorBrush x:Key="AccentEditingBrush" Color="{DynamicResource AccentBlue}"/>
+    <SolidColorBrush x:Key="AccentRevisionBrush" Color="{DynamicResource AccentOrange}"/>
     <SolidColorBrush x:Key="AccentLateBrush" Color="#ef4444"/>
     <SolidColorBrush x:Key="AccentRevisionLowOpacityBrush" Color="#33f97316"/>
     
@@ -49,7 +52,7 @@
     <SolidColorBrush x:Key="AccentGreenBrush" Color="#22c55e"/>
     
     <!-- Default Shared Accents (Prevent crash/empty if ThemeService delays) -->
-    <SolidColorBrush x:Key="AccentColorBrush" Color="{StaticResource AccentBlue}"/>
+    <SolidColorBrush x:Key="AccentColorBrush" Color="{DynamicResource AccentBlue}"/>
     <Color x:Key="AccentColor">#3b82f6</Color>
     
     <!-- Geometries (Icons) -->
