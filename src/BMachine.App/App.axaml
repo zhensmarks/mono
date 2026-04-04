@@ -262,6 +262,10 @@
             </Setter>
         </Style>
 
+        <Style Selector="Control">
+            <Setter Property="ToolTip.ShowDelay" Value="4000"/>
+        </Style>
+
         <!-- ==================================================================== -->
         <!-- TERMINAL TEXTBOX STYLE (Sharp Corners, High Contrast)                -->
         <!-- ==================================================================== -->
