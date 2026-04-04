@@ -48,10 +48,11 @@
 
         <!-- Custom Style for Pill Menu Flyout -->
         <Style Selector="FlyoutPresenter">
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+            <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="Margin" Value="0,4,0,0"/>
         </Style>
@@ -407,7 +408,7 @@
                                                            </Button.Flyout>
                                                        </Button>
                                                        
-                                                       <TextBlock Text="{Binding DisplayName}" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand"/>
+                                                       <TextBlock Text="{Binding DisplayName}" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand" ToolTip.Tip="Klik untuk Copy Path Folder"/>
                                                   </StackPanel>
                                               </TreeDataTemplate>
     
@@ -490,7 +491,7 @@
                                                        <!-- 4. ITEM NAME (Visible when Input is HIDDEN) -->
                                                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" 
                                                                   VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand"
-                                                                  IsVisible="{Binding !IsNewFolderInputVisible}"/>
+                                                                  IsVisible="{Binding !IsNewFolderInputVisible}" ToolTip.Tip="Klik untuk Copy Path"/>
                                                                   
                                                        <!-- 5. INLINE INPUT (Visible when Input is SHOWN) -->
                                                        <Grid IsVisible="{Binding IsNewFolderInputVisible}" Margin="0,-4">
@@ -652,7 +653,7 @@
                                                            </Button.Flyout>
                                                        </Button>
                                                        
-                                                       <TextBlock Text="{Binding OutputHeader}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand"/>
+                                                       <TextBlock Text="{Binding OutputHeader}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand" ToolTip.Tip="Klik untuk Copy Path Folder"/>
                                                        <TextBlock Text="(pending)" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding OutputRoot, Converter={x:Static ObjectConverters.IsNull}}" VerticalAlignment="Center"/>
                                                   </StackPanel>
                                               </TreeDataTemplate>
@@ -736,7 +737,7 @@
                                                        <!-- 4. ITEM NAME (Visible when Input is HIDDEN) -->
                                                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" 
                                                                   VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand"
-                                                                  IsVisible="{Binding !IsNewFolderInputVisible}"/>
+                                                                  IsVisible="{Binding !IsNewFolderInputVisible}" ToolTip.Tip="Klik untuk Copy Path"/>
                                                                   
                                                        <!-- 5. INLINE INPUT (Visible when Input is SHOWN) -->
                                                        <Grid IsVisible="{Binding IsNewFolderInputVisible}" Margin="0,-4">

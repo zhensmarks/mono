@@ -329,23 +329,40 @@ public partial class DashboardView : UserControl
         {
             if (sender is Control control)
             {
+                string? pathToCopy = null;
+
                 if (control.DataContext is BatchNodeItem item)
                 {
-                    if (item.CopyPathCommand.CanExecute(null))
-                    {
-                        item.CopyPathCommand.Execute(null);
-                        e.Handled = true;
-                    }
+                    pathToCopy = item.FullPath;
                 }
                 else if (control.DataContext is BatchFolderRoot root)
                 {
-                    if (root.CopyPathCommand.CanExecute(null))
-                    {
-                        root.CopyPathCommand.Execute(null);
-                        e.Handled = true;
-                    }
+                    pathToCopy = root.SourcePath;
+                }
+
+                if (!string.IsNullOrEmpty(pathToCopy))
+                {
+                    _ = CopyToClipboardAsync(pathToCopy);
+                    e.Handled = true;
                 }
             }
+        }
+    }
+
+    private async System.Threading.Tasks.Task CopyToClipboardAsync(string text)
+    {
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.Clipboard != null)
+            {
+                await topLevel.Clipboard.SetTextAsync(text);
+                System.Diagnostics.Debug.WriteLine($"[Clipboard] Copied: {text}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Clipboard] Error: {ex.Message}");
         }
     }
 

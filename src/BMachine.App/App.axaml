@@ -62,30 +62,13 @@
         <!-- CUSTOM CONTEXT MENU STYLES (Rounded, Solid Black, Premium)           -->
         <!-- ==================================================================== -->
         
-        <!-- ContextMenu -->
+        <!-- ContextMenu (ControlTheme override is in Application.Resources) -->
         <Style Selector="ContextMenu">
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="5"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}"
-                            Padding="{TemplateBinding Padding}"
-                            BoxShadow="0 6 16 0 #80000000">
-                        <ScrollViewer>
-                            <ItemsPresenter Name="PART_ItemsPresenter"
-                                            ItemsPanel="{TemplateBinding ItemsPanel}"
-                                            KeyboardNavigation.TabNavigation="Continue"
-                                            Grid.IsSharedSizeScope="True"/>
-                        </ScrollViewer>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
         </Style>
 
         <!-- MenuItem -->
@@ -95,82 +78,6 @@
             <Setter Property="Padding" Value="12,7"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontWeight" Value="Regular"/>
-            <Setter Property="Margin" Value="0,1"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Panel>
-                        <Border Name="PART_LayoutRoot"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius}">
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <!-- Icon / Check -->
-                                <Panel Width="20" Height="20" Margin="0,0,10,0" Grid.Column="0" VerticalAlignment="Center">
-                                    <ContentPresenter Name="PART_IconPresenter"
-                                                      Content="{TemplateBinding Icon}"
-                                                      Width="16" Height="16"
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <PathIcon Name="PART_CheckPath"
-                                              Data="M20 6L9 17l-5-5"
-                                              Width="10" Height="10"
-                                              Foreground="{TemplateBinding Foreground}"
-                                              IsVisible="False"/>
-                                </Panel>
-
-                                <!-- Header -->
-                                <ContentPresenter Name="PART_HeaderPresenter"
-                                                  Content="{TemplateBinding Header}"
-                                                  VerticalAlignment="Center"
-                                                  HorizontalAlignment="Left"
-                                                  Grid.Column="1"/>
-                                
-                                <!-- Input Gesture (Shortcut) -->
-                                <TextBlock Name="PART_InputGestureText"
-                                           Grid.Column="2"
-                                           Classes="InputGestureText"
-                                           Text="{TemplateBinding InputGesture, Converter={StaticResource KeyGestureConverter}}"
-                                           VerticalAlignment="Center"
-                                           HorizontalAlignment="Right"
-                                           Margin="20,0,6,0"
-                                           FontSize="10"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                           
-                                <!-- Submenu Chevron -->
-                                <PathIcon Name="PART_ChevronPath"
-                                          Grid.Column="2"
-                                          Data="M9 18l6-6-6-6"
-                                          Width="10" Height="10"
-                                          Margin="10,0,6,0"
-                                          VerticalAlignment="Center"
-                                          IsVisible="False"/>
-                            </Grid>
-                        </Border>
-                        
-                        <!-- SubMenu Popup -->
-                        <Popup Name="PART_Popup"
-                               Placement="Right"
-                               HorizontalOffset="-4"
-                               IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}">
-                             <Border Background="{DynamicResource CardBackgroundBrush}"
-                                    BorderBrush="{DynamicResource SeparatorBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="0"
-                                    Padding="4"
-                                    Margin="4,0,0,0"
-                                    BoxShadow="0 4 12 0 #66000000">
-                                <ScrollViewer>
-                                    <ItemsPresenter Name="PART_ItemsPresenter"
-                                                    ItemsPanel="{TemplateBinding ItemsPanel}"
-                                                    Grid.IsSharedSizeScope="True"/>
-                                </ScrollViewer>
-                            </Border>
-                        </Popup>
-                    </Panel>
-                </ControlTemplate>
-            </Setter>
         </Style>
 
         <!-- Triggers for MenuItem States -->
@@ -412,11 +319,11 @@
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border x:Name="SwitchTrack"
-                            Background="{DynamicResource CardBackgroundBrush}"
+                            Background="{DynamicResource AppBackgroundBrush}"
                             BorderBrush="{DynamicResource SeparatorBrush}"
                             BorderThickness="1.5"
                             CornerRadius="14"
-                            Width="56" Height="28">
+                            Width="56" Height="28" Opacity="1">
                         <Grid>
                             <!-- OFF Label -->
                             <TextBlock x:Name="OffLabel"
@@ -502,6 +409,11 @@
             <Setter Property="BoxShadow" Value="0 0 12 0 #6038BDF8"/>
         </Style>
 
+
+        <!-- PopupRoot: Disable OS-level transparency for popup windows -->
+        <Style Selector="PopupRoot">
+            <Setter Property="TransparencyLevelHint" Value="None" />
+        </Style>
     </Application.Styles>
 
     <Application.Resources>
@@ -510,6 +422,128 @@
                 <ResourceInclude Source="avares://BMachine.UI/Styles/FeatherIcons.axaml" />
                 <ResourceInclude Source="avares://BMachine.UI/Styles/TablerIcons.axaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- ======================================================================== -->
+            <!-- CONTEXT MENU ControlTheme Override (overrides Semi.Avalonia default)     -->
+            <!-- ======================================================================== -->
+            <ControlTheme x:Key="{x:Type ContextMenu}" TargetType="ContextMenu">
+                <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="Padding" Value="5"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Padding="{TemplateBinding Padding}"
+                                BoxShadow="0 6 16 0 #80000000">
+                            <ScrollViewer>
+                                <ItemsPresenter Name="PART_ItemsPresenter"
+                                                ItemsPanel="{TemplateBinding ItemsPanel}"
+                                                KeyboardNavigation.TabNavigation="Continue"
+                                                Grid.IsSharedSizeScope="True"/>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+            </ControlTheme>
+
+            <!-- ======================================================================== -->
+            <!-- MENUITEM ControlTheme Override (overrides Semi.Avalonia default)          -->
+            <!-- ======================================================================== -->
+            <ControlTheme x:Key="{x:Type MenuItem}" TargetType="MenuItem">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="Padding" Value="12,7"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="FontWeight" Value="Regular"/>
+                <Setter Property="Margin" Value="0,1"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Panel>
+                            <Border Name="PART_LayoutRoot"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <!-- Icon / Check -->
+                                    <Panel Width="20" Height="20" Margin="0,0,10,0" Grid.Column="0" VerticalAlignment="Center">
+                                        <ContentPresenter Name="PART_IconPresenter"
+                                                          Content="{TemplateBinding Icon}"
+                                                          Width="16" Height="16"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <PathIcon Name="PART_CheckPath"
+                                                  Data="M20 6L9 17l-5-5"
+                                                  Width="10" Height="10"
+                                                  Foreground="{TemplateBinding Foreground}"
+                                                  IsVisible="False"/>
+                                    </Panel>
+                                    <!-- Header -->
+                                    <ContentPresenter Name="PART_HeaderPresenter"
+                                                      Content="{TemplateBinding Header}"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left"
+                                                      Grid.Column="1"/>
+                                    <!-- Input Gesture (Shortcut) -->
+                                    <TextBlock Name="PART_InputGestureText"
+                                               Grid.Column="2"
+                                               Classes="InputGestureText"
+                                               Text="{TemplateBinding InputGesture, Converter={StaticResource KeyGestureConverter}}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Right"
+                                               Margin="20,0,6,0"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <!-- Submenu Chevron -->
+                                    <PathIcon Name="PART_ChevronPath"
+                                              Grid.Column="2"
+                                              Data="M9 18l6-6-6-6"
+                                              Width="10" Height="10"
+                                              Margin="10,0,6,0"
+                                              VerticalAlignment="Center"
+                                              IsVisible="False"/>
+                                </Grid>
+                            </Border>
+                            <!-- SubMenu Popup -->
+                            <Popup Name="PART_Popup"
+                                   Placement="Right"
+                                   HorizontalOffset="-4"
+                                   IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}">
+                                <Border Background="{DynamicResource AppBackgroundBrush}"
+                                        BorderBrush="{DynamicResource SeparatorBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="5"
+                                        Margin="4,0,0,0"
+                                        BoxShadow="0 4 12 0 #66000000">
+                                    <ScrollViewer>
+                                        <ItemsPresenter Name="PART_ItemsPresenter"
+                                                        ItemsPanel="{TemplateBinding ItemsPanel}"
+                                                        Grid.IsSharedSizeScope="True"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Panel>
+                    </ControlTemplate>
+                </Setter>
+                <!-- Hover state -->
+                <Style Selector="^ /template/ Border#PART_LayoutRoot:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+                </Style>
+                <!-- MenuItem with children: show chevron -->
+                <Style Selector="^:empty /template/ PathIcon#PART_ChevronPath">
+                    <Setter Property="IsVisible" Value="False"/>
+                </Style>
+                <Style Selector="^:not(:empty) /template/ PathIcon#PART_ChevronPath">
+                    <Setter Property="IsVisible" Value="True"/>
+                </Style>
+            </ControlTheme>
 
             <!-- Fix for DataGrid Fluent Theme Crash: Missing SystemControlTransparentBrush -->
             <SolidColorBrush x:Key="SystemControlTransparentBrush" Color="Transparent" />

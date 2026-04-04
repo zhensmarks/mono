@@ -503,7 +503,7 @@ function main() {
 
         } catch (e) {
             failList.push((docs[j] ? docs[j].name : "Unknown") + " (Error: " + e.message + ")");
-            if (doc) { try { doc.close(SaveOptions.DONOTSAVECHANGES); } catch (ex) { } }
+            // Jangan close PSD jika gagal, biarkan tetap terbuka
         }
     }
 

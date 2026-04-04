@@ -46,7 +46,12 @@
         <converters:EnumMatchConverter x:Key="EnumMatchConverter"/>
 
         <!-- BACKGROUND CONTEXT MENU (Shared) -->
-    <ContextMenu x:Key="BackgroundMenu">
+    <ContextMenu x:Key="BackgroundMenu" 
+                  
+                 BorderThickness="1" 
+                 BorderBrush="{DynamicResource SeparatorBrush}" 
+                 CornerRadius="10" 
+                 Padding="5">
         <MenuItem Header="View">
             <MenuItem Header="List" 
                       ToggleType="Radio"
@@ -189,7 +194,7 @@
             </Grid.RowDefinitions>
 
             <!-- 1. HEADER: Navigation & Breadcrumbs (Full Width) -->
-            <Border Grid.Row="0" Padding="8,4" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1" IsVisible="{Binding IsShowPathBar}">
+            <Border Grid.Row="0" Padding="8,4"  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1" IsVisible="{Binding IsShowPathBar}">
                 <Grid ColumnDefinitions="Auto, *">
                     <!-- Left: Navigation -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
@@ -244,7 +249,7 @@
                                  <DataTemplate x:DataType="models:SidebarItemViewModel">
                                       <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="24" ToolTip.Tip="{Binding Name}">
                                           <Grid.ContextMenu>
-                                              <ContextMenu>
+                                              <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
                                                   <MenuItem Header="Remove Pin" Command="{Binding #ExplorerRoot.DataContext.RemoveFromQuickAccessCommand}" CommandParameter="{Binding}"/>
                                               </ContextMenu>
                                           </Grid.ContextMenu>
@@ -352,7 +357,7 @@
                                        PointerMoved="OnItemPointerMoved"
                                        PointerReleased="OnItemPointerReleased">
                                       <Grid.ContextMenu>
-                                          <ContextMenu>
+                                          <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
                                               <!-- Open actions -->
                                               <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
                                               <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
@@ -473,7 +478,7 @@
                                        PointerMoved="OnItemPointerMoved"
                                        PointerReleased="OnItemPointerReleased">
                                        <Grid.ContextMenu>
-                                          <ContextMenu>
+                                          <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
                                               <!-- Top Row Buttons (Full Width) -->
                                               <MenuItem Header="{x:Null}">
                                                   <MenuItem.Template>
@@ -569,7 +574,7 @@
                                 <Border Width="{Binding #ExplorerRoot.DataContext.ThumbnailSize}" 
                                         Height="{Binding #ExplorerRoot.DataContext.ThumbnailHeight}" 
                                         CornerRadius="0" ClipToBounds="True"
-                                        Background="{DynamicResource CardBackgroundBrush}" 
+                                         
                                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
                                         PointerPressed="OnItemPointerPressed"
@@ -737,7 +742,7 @@
                                                PointerMoved="OnItemPointerMoved"
                                                PointerReleased="OnItemPointerReleased">
                                               <Grid.ContextMenu>
-                                                  <ContextMenu>
+                                                  <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
                                                       <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
                                                       <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
                                                       <Separator/>
@@ -824,7 +829,7 @@
                                                PointerMoved="OnItemPointerMoved"
                                                PointerReleased="OnItemPointerReleased">
                                               <Grid.ContextMenu>
-                                                  <ContextMenu>
+                                                  <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
                                                       <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
                                                       <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
                                                       <Separator/>
@@ -892,7 +897,7 @@
                     </Grid>
 
                     <!-- Preview panel (right): .txt content, .docx placeholder -->
-                    <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,0,0,0" MinWidth="0" ClipToBounds="True">
+                    <Border Grid.Column="1"  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,0,0,0" MinWidth="0" ClipToBounds="True">
                         <Grid RowDefinitions="Auto, *" Margin="8">
                             <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,6">
                                 <TextBlock Grid.Column="0" Text="{Binding PreviewPanelTitle}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
@@ -917,7 +922,7 @@
                 BoxShadow="0 4 12 0 #40000000"
                 CornerRadius="0"
                 BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
-                Background="{DynamicResource CardBackgroundBrush}"
+                
                 Padding="6,4" Width="240">
              <Grid ColumnDefinitions="*, Auto">
                  <TextBox x:Name="SearchBox" Text="{Binding SearchText, Mode=TwoWay}" Watermark="Search..." 
@@ -936,7 +941,7 @@
 
         <!-- FLYOUT OVERLAYS (Z-Index Top) -->
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsNewFolderVisible}">
-            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
+            <Border  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="New Folder" FontWeight="Bold" FontSize="16"/>
                     <TextBox Text="{Binding NewItemName}" Watermark="Folder Name">
@@ -954,7 +959,7 @@
         </Grid>
 
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsNewFileVisible}">
-            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
+            <Border  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="New File" FontWeight="Bold" FontSize="16"/>
                     <TextBox Text="{Binding NewItemName}" Watermark="File Name (e.g. notes.txt)">
@@ -972,7 +977,7 @@
         </Grid>
         
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsDuplicateVisible}">
-            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
+            <Border  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Duplicate Items" FontWeight="Bold" FontSize="16"/>
                      <StackPanel Orientation="Horizontal" Spacing="10">
