@@ -138,3 +138,29 @@ public class StringToUpperConverter : IValueConverter
         return AvaloniaProperty.UnsetValue;
     }
 }
+
+public class ContrastColorConverter : IValueConverter
+{
+    public static readonly ContrastColorConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is Avalonia.Media.ISolidColorBrush sb)
+        {
+            var color = sb.Color;
+            double luma = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255.0;
+            return luma > 0.5 ? Avalonia.Media.Brushes.Black : Avalonia.Media.Brushes.White;
+        }
+        else if (value is Avalonia.Media.Color color)
+        {
+            double luma = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255.0;
+            return luma > 0.5 ? Avalonia.Media.Brushes.Black : Avalonia.Media.Brushes.White;
+        }
+        return Avalonia.Media.Brushes.White;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return AvaloniaProperty.UnsetValue;
+    }
+}

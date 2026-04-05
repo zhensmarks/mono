@@ -335,6 +335,12 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
                 manualIds.Remove(card.Id);
                 await _database.SetAsync("ManualCards.Editing", manualIds);
                 Cards.Remove(card);
+                
+                if (SelectedCard?.Id == card.Id)
+                {
+                    IsDetailPanelOpen = false;
+                }
+                
                 StatusMessage = "Manual card removed.";
             }
         }

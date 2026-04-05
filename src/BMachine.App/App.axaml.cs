@@ -10,6 +10,8 @@ using BMachine.UI.Messages;
 using CommunityToolkit.Mvvm.Messaging;
 using System; 
 using System.Threading.Tasks;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 
 namespace BMachine.App;
 
@@ -28,6 +30,20 @@ public partial class App : Application,
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+
+        // Global AutoCompleteBox behavior: Open Dropdown on click and focus
+        InputElement.PointerReleasedEvent.AddClassHandler<AutoCompleteBox>((x, e) =>
+        {
+            if (e.Source is TextBox or AutoCompleteBox)
+            {
+                x.IsDropDownOpen = true;
+            }
+        }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
+
+        InputElement.GotFocusEvent.AddClassHandler<AutoCompleteBox>((x, e) =>
+        {
+            x.IsDropDownOpen = true;
+        }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
     }
 
     public override void OnFrameworkInitializationCompleted()
