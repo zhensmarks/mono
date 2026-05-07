@@ -462,14 +462,21 @@
                             </StackPanel>
                             <StackPanel Spacing="5">
                                 <TextBlock Text="Source:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <AutoCompleteBox ItemsSource="{Binding Checklists}"
-                                                 SelectedItem="{Binding SelectedSourceChecklist}"
-                                                 ValueMemberBinding="{Binding Name}"
-                                                 Watermark="Select source..."
-                                                 HorizontalAlignment="Stretch"
-                                                 FilterMode="Contains"
-                                                 MinimumPrefixLength="0"
-                                                 MaxDropDownHeight="160"/>
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <AutoCompleteBox x:Name="Part_ChecklistSourceBox" Grid.Column="0" ItemsSource="{Binding Checklists}"
+                                                     SelectedItem="{Binding SelectedSourceChecklist}"
+                                                     ValueMemberBinding="{Binding Name}"
+                                                     Watermark="Select source..."
+                                                     HorizontalAlignment="Stretch"
+                                                     FilterMode="Contains"
+                                                     MinimumPrefixLength="0"
+                                                     MaxDropDownHeight="160"/>
+                                    <Button Grid.Column="1" Content="✕" ToolTip.Tip="Clear"
+                                            Background="Transparent" BorderThickness="0" Padding="6,4" Cursor="Hand"
+                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14"
+                                            Command="{Binding $parent[UserControl].DataContext.ClearSourceChecklistCommand}"
+                                            IsVisible="{Binding SelectedSourceChecklist, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                </Grid>
                             </StackPanel>
                             <Grid ColumnDefinitions="*, *" Margin="0,5,0,0">
                                 <Button Grid.Column="0" Content="Cancel" Command="{Binding $parent[UserControl].DataContext.ToggleDuplicateModeCommand}"
@@ -511,7 +518,7 @@
 
                     <StackPanel Spacing="8">
                         <TextBlock Text="Choose Board" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <AutoCompleteBox ItemsSource="{Binding AvailableBoards}"
+                        <AutoCompleteBox x:Name="Part_MoveBoardBox" ItemsSource="{Binding AvailableBoards}"
                                          SelectedItem="{Binding SelectedMoveBoard}"
                                          ValueMemberBinding="{Binding Name}"
                                          Watermark="Search board..."
@@ -523,7 +530,7 @@
 
                     <StackPanel Spacing="8">
                         <TextBlock Text="Select List" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <AutoCompleteBox ItemsSource="{Binding AvailableLists}"
+                        <AutoCompleteBox x:Name="Part_MoveListBox" ItemsSource="{Binding AvailableLists}"
                                          SelectedItem="{Binding SelectedMoveList}"
                                          ValueMemberBinding="{Binding Name}"
                                          Watermark="Search list..."

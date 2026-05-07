@@ -175,7 +175,15 @@ public partial class FormattedTextBlock : UserControl
         
         btn.Click += (s, e) =>
         {
-            var lightbox = new ImageLightboxWindow(url);
+            // Ekstrak apiKey dan token dari URL agar Lightbox bisa memuat gambar dengan autentikasi
+            string lightboxApiKey = "";
+            string lightboxToken = "";
+            var keyMatch = System.Text.RegularExpressions.Regex.Match(url, @"[?&]key=([^&]+)");
+            var tokenMatch = System.Text.RegularExpressions.Regex.Match(url, @"[?&]token=([^&]+)");
+            if (keyMatch.Success) lightboxApiKey = keyMatch.Groups[1].Value;
+            if (tokenMatch.Success) lightboxToken = tokenMatch.Groups[1].Value;
+
+            var lightbox = new ImageLightboxWindow(url, lightboxApiKey, lightboxToken);
             var topLevel = TopLevel.GetTopLevel(this);
             if (topLevel is Window win)
             {

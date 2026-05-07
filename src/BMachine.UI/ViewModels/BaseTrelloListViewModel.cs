@@ -855,6 +855,12 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ClearSourceChecklist()
+    {
+        SelectedSourceChecklist = null;
+    }
+
+    [RelayCommand]
     private async Task ToggleDuplicateMode()
     {
         IsDuplicateMode = !IsDuplicateMode;
@@ -1464,6 +1470,20 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         {
              IsDetailPanelOpen = true; // Returns to previous view
         }
+    }
+
+    [RelayCommand]
+    private void ClearMoveBoard()
+    {
+        SelectedMoveBoard = null;
+        SelectedMoveList = null;
+        AvailableLists.Clear();
+    }
+
+    [RelayCommand]
+    private void ClearMoveList()
+    {
+        SelectedMoveList = null;
     }
 
 

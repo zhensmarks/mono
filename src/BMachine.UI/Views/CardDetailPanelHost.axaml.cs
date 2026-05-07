@@ -130,22 +130,65 @@ public partial class CardDetailPanelHost : UserControl
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(BaseTrelloListViewModel.IsLoadingComments)) return;
         if (DataContext is not BaseTrelloListViewModel vm) return;
 
-        var scrollViewer = this.FindControl<ScrollViewer>("Part_CommentScrollViewer");
-        if (scrollViewer == null) return;
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.IsLoadingComments))
+        {
+            var scrollViewer = this.FindControl<ScrollViewer>("Part_CommentScrollViewer");
+            if (scrollViewer == null) return;
 
-        if (vm.IsLoadingComments)
-        {
-            _savedCommentScrollOffset = scrollViewer.Offset;
-        }
-        else if (_savedCommentScrollOffset.Y > 0)
-        {
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            if (vm.IsLoadingComments)
             {
-                scrollViewer.Offset = _savedCommentScrollOffset;
-            }, Avalonia.Threading.DispatcherPriority.Loaded);
+                _savedCommentScrollOffset = scrollViewer.Offset;
+            }
+            else if (_savedCommentScrollOffset.Y > 0)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    scrollViewer.Offset = _savedCommentScrollOffset;
+                }, Avalonia.Threading.DispatcherPriority.Loaded);
+            }
+        }
+
+        // Reset teks AutoCompleteBox saat SelectedItem berubah ke null
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.SelectedMoveBoard))
+        {
+            if (vm.SelectedMoveBoard == null)
+            {
+                var boardBox = this.FindControl<AutoCompleteBox>("Part_MoveBoardBox");
+                if (boardBox != null) boardBox.Text = "";
+            }
+        }
+
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.SelectedMoveList))
+        {
+            if (vm.SelectedMoveList == null)
+            {
+                var listBox = this.FindControl<AutoCompleteBox>("Part_MoveListBox");
+                if (listBox != null) listBox.Text = "";
+            }
+        }
+
+        // Reset semua saat Move Panel ditutup
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.IsMovePanelOpen))
+        {
+            if (!vm.IsMovePanelOpen)
+            {
+                var boardBox = this.FindControl<AutoCompleteBox>("Part_MoveBoardBox");
+                var listBox = this.FindControl<AutoCompleteBox>("Part_MoveListBox");
+                if (boardBox != null) boardBox.Text = "";
+                if (listBox != null) listBox.Text = "";
+            }
+        }
+
+        // Reset AutoCompleteBox checklist saat tertutup
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.SelectedSourceChecklist))
+        {
+            if (vm.SelectedSourceChecklist == null)
+            {
+                var checklistBox = this.FindControl<AutoCompleteBox>("Part_ChecklistSourceBox");
+                if (checklistBox != null) checklistBox.Text = "";
+            }
         }
     }
 

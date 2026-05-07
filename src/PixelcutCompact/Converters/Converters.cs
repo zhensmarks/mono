@@ -12,11 +12,26 @@ public class BooleanToStatusBrushConverter : IValueConverter
     {
         if (value is bool isProcessing && isProcessing)
         {
-            // Orange for processing
             return SolidColorBrush.Parse("#F59E0B"); 
         }
-        // Green for ready/idle
         return SolidColorBrush.Parse("#10B981");
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class BooleanToActiveAccountBrushConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is bool isActive && isActive)
+        {
+            return SolidColorBrush.Parse("#3b82f6"); 
+        }
+        return Brushes.Transparent;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

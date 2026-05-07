@@ -38,192 +38,76 @@ public partial class PixelcutViewModel : ObservableObject
     private System.Timers.Timer? _toastTimer;
     
     // Settings
-    [ObservableProperty] private string _proxyAddress = "";
     [ObservableProperty] private int _skippedCount;
     
-    // OVPN Configurations
-    [ObservableProperty] private string _ovpnPath = "";
-    [ObservableProperty] private string _ovpnUsername = "";
-    [ObservableProperty] private string _ovpnPassword = "";
-    [ObservableProperty] private string _ovpnConfigStatus = "";
-    [ObservableProperty] private string _ovpnConfigColor = "Gray";
-    [ObservableProperty] private bool _isOvpnConfigured;
+    // Pixa API
+    [ObservableProperty] private string _pixaApiKey = "";
+    [ObservableProperty] private string _pixaCredits = "Loading...";
+    [ObservableProperty] private bool _isApiKeyMissing;
+    [ObservableProperty] private bool _isCreditsLoading;
     
     private bool _stopRequested;
     private CancellationTokenSource? _cts;
     [ObservableProperty] private bool _isPaused;
-    private System.Timers.Timer? _vpnCheckTimer;
-    
-    private Process? _vpnProcess;
 
     public PixelcutViewModel(IDatabase? database)
     {
         _database = database;
         _pixelcutService = new PixelcutService();
-        CheckVpnStatus();
         LoadSettings();
-        
-        // Start periodic VPN check (every 3 seconds)
-        _vpnCheckTimer = new System.Timers.Timer(3000);
-        _vpnCheckTimer.Elapsed += (s, e) => 
-        {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => CheckVpnStatus());
-        };
-        _vpnCheckTimer.Start();
     }
     
     private async void LoadSettings()
     {
         if (_database != null)
         {
-            ProxyAddress = await _database.GetAsync<string>("Configs.Pixelcut.Proxy") ?? "";
-            OvpnPath = await _database.GetAsync<string>("Configs.Pixelcut.OvpnPath") ?? "";
-            OvpnUsername = await _database.GetAsync<string>("Configs.Pixelcut.OvpnUsername") ?? "";
-            OvpnPassword = await _database.GetAsync<string>("Configs.Pixelcut.OvpnPassword") ?? "";
-            _pixelcutService.ManualProxy = ProxyAddress;
-            UpdateOvpnConfigStatus();
+            PixaApiKey = await _database.GetAsync<string>("Configs.Pixelcut.ApiKey") ?? "";
+            
+            _pixelcutService.ApiKey = PixaApiKey;
+            _ = RefreshCreditsAsync();
         }
+    }
+
+    partial void OnPixaApiKeyChanged(string value)
+    {
+        _pixelcutService.ApiKey = value;
+        IsApiKeyMissing = string.IsNullOrWhiteSpace(value);
+        if (_database != null) _database.SetAsync("Configs.Pixelcut.ApiKey", value);
+        _ = RefreshCreditsAsync();
     }
 
     [RelayCommand]
-    private async Task PickOvpnFile()
+    public async Task RefreshCreditsAsync()
     {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        if (string.IsNullOrWhiteSpace(PixaApiKey))
         {
-            var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(desktop.MainWindow);
-            if (topLevel == null) return;
-
-            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-            {
-                Title = "Pilih Profil OpenVPN (.ovpn)",
-                AllowMultiple = false,
-                FileTypeFilter = new[]
-                {
-                    new FilePickerFileType("OpenVPN Config") { Patterns = new[] { "*.ovpn", "*.conf" } }
-                }
-            });
-
-            if (files != null && files.Count > 0)
-            {
-                OvpnPath = files[0].Path.LocalPath;
-            }
+            PixaCredits = "API Key belum diatur";
+            IsApiKeyMissing = true;
+            IsCreditsLoading = false;
+            return;
         }
-    }
 
-    partial void OnProxyAddressChanged(string value)
-    {
-        _pixelcutService.ManualProxy = value;
-        CheckVpnStatus();
-    }
-
-    partial void OnOvpnPathChanged(string value) => UpdateOvpnConfigStatus();
-    partial void OnOvpnUsernameChanged(string value) => UpdateOvpnConfigStatus();
-    partial void OnOvpnPasswordChanged(string value) => UpdateOvpnConfigStatus();
-
-    private void UpdateOvpnConfigStatus()
-    {
-        bool hasPath = !string.IsNullOrEmpty(OvpnPath);
-        bool pathExists = hasPath && File.Exists(OvpnPath);
-        bool hasUser = !string.IsNullOrEmpty(OvpnUsername);
-        bool hasPass = !string.IsNullOrEmpty(OvpnPassword);
-
-        if (!hasPath && !hasUser && !hasPass)
+        IsApiKeyMissing = false;
+        IsCreditsLoading = true;
+        var credits = await _pixelcutService.GetCreditsAsync();
+        IsCreditsLoading = false;
+        
+        if (credits != null)
         {
-            OvpnConfigStatus = "";
-            OvpnConfigColor = "Gray";
-            IsOvpnConfigured = false;
-        }
-        else if (hasPath && !pathExists)
-        {
-            OvpnConfigStatus = "⚠️ File .ovpn tidak ditemukan";
-            OvpnConfigColor = "#EF4444";
-            IsOvpnConfigured = false;
-        }
-        else if (!hasPath || !hasUser || !hasPass)
-        {
-            OvpnConfigStatus = "⚠️ Lengkapi semua kolom untuk mengaktifkan VPN";
-            OvpnConfigColor = "#F59E0B";
-            IsOvpnConfigured = false;
+            if (credits.StartsWith("HTTP") || credits.StartsWith("Error") || credits.StartsWith("Gagal") || credits.StartsWith("JSON"))
+                PixaCredits = credits;
+            else
+                PixaCredits = $"{credits} Credits";
         }
         else
         {
-            OvpnConfigStatus = "✅ Konfigurasi lengkap — VPN akan aktif saat proses dimulai";
-            OvpnConfigColor = "#16A34A"; // Darker green for legibility on both Light and Dark mode
-            IsOvpnConfigured = true;
+            PixaCredits = "API Key mungkin kosong atau tidak valid";
         }
-
-        CheckVpnStatus();
     }
 
     partial void OnIsProcessingChanged(bool value)
     {
         CheckRetryVisibility();
-    }
-
-    private void CheckVpnStatus()
-    {
-        // 1. Check Manual Proxy
-        if (!string.IsNullOrEmpty(ProxyAddress))
-        {
-            IsVpnActive = true;
-            VpnStatus = "Proxy Manual Aktif";
-            return;
-        }
-
-        try
-        {
-            // 2. Check for VPN by examining network interfaces
-            var interfaces = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
-            var vpnKeywords = new[] { "vpn", "tap", "ppp", "wintun", "wireguard", "openvpn", "avira", "nordvpn", "expressvpn" };
-            
-            // macOS system interfaces to EXCLUDE (iCloud Private Relay, etc.)
-            var macSystemInterfaces = new[] { "utun", "llw", "awdl", "bridge", "ap", "anpi", "gif", "stf", "ipsec" };
-            
-            foreach (var iface in interfaces)
-            {
-                if (iface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)
-                    continue;
-                    
-                var name = iface.Name.ToLower();
-                var desc = iface.Description.ToLower();
-                
-                // Skip known macOS system interfaces that are NOT real VPNs
-                if (OperatingSystem.IsMacOS() && macSystemInterfaces.Any(si => name.StartsWith(si)))
-                    continue;
-                
-                if (vpnKeywords.Any(kw => name.Contains(kw) || desc.Contains(kw)))
-                {
-                    IsVpnActive = true;
-                    VpnStatus = $"VPN Aktif ({iface.Name})";
-                    return;
-                }
-                
-                // Also detect tun/tap but only real tun devices (e.g., tun0) not utun
-                if (name == "tun0" || name == "tun1" || name == "tap0" || name == "tap1")
-                {
-                    IsVpnActive = true;
-                    VpnStatus = $"VPN Aktif ({iface.Name})";
-                    return;
-                }
-            }
-            
-            // 3. Check if OVPN is configured (ready but not connected yet)
-            if (!string.IsNullOrEmpty(OvpnPath) && File.Exists(OvpnPath) 
-                && !string.IsNullOrEmpty(OvpnUsername) && !string.IsNullOrEmpty(OvpnPassword))
-            {
-                IsVpnActive = false;
-                VpnStatus = "OVPN Siap (Akan aktif saat proses)";
-                return;
-            }
-            
-            IsVpnActive = false;
-            VpnStatus = "Koneksi Langsung";
-        }
-        catch
-        {
-            IsVpnActive = false;
-            VpnStatus = "Koneksi Langsung";
-        }
     }
 
     [RelayCommand]
@@ -415,7 +299,6 @@ public partial class PixelcutViewModel : ObservableObject
         _stopRequested = true;
         _cts?.Cancel();
         AppendLog("Stop diminta...");
-        StopVpnProcess();
     }
     
     [RelayCommand]
@@ -468,28 +351,18 @@ public partial class PixelcutViewModel : ObservableObject
     private async Task ProcessQueue(string job)
     {
         if (IsProcessing) return;
+        if (IsApiKeyMissing || string.IsNullOrWhiteSpace(PixaApiKey))
+        {
+            ShowToast("API Key belum diatur! Masukkan API Key di Pengaturan.", "⚠️");
+            return;
+        }
+
         _lastJobType = job;
         IsProcessing = true;
         _stopRequested = false;
         IsPaused = false;
         AppendLog($"Memulai proses {job} (C# Native)...");
         _cts = new CancellationTokenSource();
-
-        bool hasVpn = !string.IsNullOrEmpty(OvpnPath) && File.Exists(OvpnPath)
-                      && !string.IsNullOrEmpty(OvpnUsername) && !string.IsNullOrEmpty(OvpnPassword);
-        if (hasVpn)
-        {
-            VpnStatus = "🔄 Menyambungkan OpenVPN...";
-            IsVpnActive = false;
-            AppendLog("Memulai jalur OpenVPN Split-Tunneling...");
-            await StartVpnProcessAsync();
-            AppendLog("Menunggu rute jaringan stabil (5 detik)...");
-            await Task.Delay(5000); // Allow OS table routing to stabilize
-            
-            IsVpnActive = true;
-            VpnStatus = "🟢 VPN Aktif (OpenVPN)";
-            AppendLog("OpenVPN terhubung! Memulai antrean...");
-        }
 
         int success = 0;
         int failed = 0;
@@ -515,21 +388,12 @@ public partial class PixelcutViewModel : ObservableObject
         }
         finally
         {
-            if (hasVpn)
-            {
-                VpnStatus = "🔌 Memutuskan OpenVPN...";
-                AppendLog("Membuang jalur OpenVPN...");
-                StopVpnProcess();
-                IsVpnActive = false;
-                AppendLog("OpenVPN terputus.");
-            }
-            
             IsProcessing = false;
             _cts?.Dispose();
             _cts = null;
             AppendLog("Antrian selesai.");
             CheckRetryVisibility();
-            CheckVpnStatus(); // Refresh back to normal status
+            _ = RefreshCreditsAsync();
             
             if (!_stopRequested && (success > 0 || failed > 0))
             {
@@ -538,9 +402,6 @@ public partial class PixelcutViewModel : ObservableObject
                 ShowCompletionDialog = true;
                 
                 // Show Toast Notification
-                var toastMsg = $"✅ {success} berhasil";
-                if (failed > 0) toastMsg += $" / ❌ {failed} gagal";
-                ShowToast(toastMsg, failed > 0 ? "⚠️" : "✅");
             }
         }
     }
@@ -671,83 +532,22 @@ public partial class PixelcutViewModel : ObservableObject
         IsSettingsOpen = false;
         if (_database != null)
         {
-            _database.SetAsync("Configs.Pixelcut.Proxy", ProxyAddress);
-            _database.SetAsync("Configs.Pixelcut.OvpnPath", OvpnPath);
-            _database.SetAsync("Configs.Pixelcut.OvpnUsername", OvpnUsername);
-            _database.SetAsync("Configs.Pixelcut.OvpnPassword", OvpnPassword);
+            _database.SetAsync("Configs.Pixelcut.ApiKey", PixaApiKey);
         }
     }
 
-    private async Task StartVpnProcessAsync()
+    [RelayCommand]
+    private void OpenGetApiKeyLink()
     {
         try
         {
-            var tempAuth = Path.Combine(Path.GetTempPath(), "bma_vpn_auth.txt");
-            await File.WriteAllLinesAsync(tempAuth, new[] { OvpnUsername, OvpnPassword });
-
-            var isMac = OperatingSystem.IsMacOS();
-            
-            _vpnProcess = new Process();
-            
-            if (isMac)
+            Process.Start(new ProcessStartInfo
             {
-                // Inject SPLIT TUNNELING: route-nopull prevents ALL traffic from going to VPN
-                // and route api2.pixelcut.app only maps Pixelcut API thru the tunnel.
-                var args = $"--config \\\"{OvpnPath}\\\" --auth-user-pass \\\"{tempAuth}\\\" --route-nopull --route api2.pixelcut.app";
-                var script = $"do shell script \"openvpn {args}\" with administrator privileges";
-                
-                _vpnProcess.StartInfo = new ProcessStartInfo
-                {
-                    FileName = "osascript",
-                    Arguments = $"-e '{script}'",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                };
-            }
-            else
-            {
-                _vpnProcess.StartInfo = new ProcessStartInfo
-                {
-                    FileName = "openvpn",
-                    Arguments = $"--config \"{OvpnPath}\" --auth-user-pass \"{tempAuth}\" --route-nopull --route api2.pixelcut.app",
-                    UseShellExecute = true, // for UAC prompt on Windows
-                    Verb = "runas"
-                };
-            }
-
-            _vpnProcess.Start();
+                FileName = "https://www.pixa.com/developer-settings/api-keys",
+                UseShellExecute = true
+            });
         }
-        catch (Exception ex)
-        {
-            AppendLog($"Gagal menyalakan OpenVPN: {ex.Message}");
-        }
-    }
-
-    private void StopVpnProcess()
-    {
-        try
-        {
-            if (_vpnProcess != null && !_vpnProcess.HasExited)
-            {
-                _vpnProcess.Kill();
-            }
-            // Cleanup Auth File
-            var tempAuth = Path.Combine(Path.GetTempPath(), "bma_vpn_auth.txt");
-            if (File.Exists(tempAuth)) File.Delete(tempAuth);
-            
-            // For Mac, osascript spawns an OpenVPN daemon that might detach.
-            if (OperatingSystem.IsMacOS())
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "osascript",
-                    Arguments = $"-e 'do shell script \"killall openvpn\" with administrator privileges'",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
-            }
-        }
-        catch {}
+        catch { }
     }
 
     [RelayCommand]
@@ -790,19 +590,5 @@ public partial class PixelcutViewModel : ObservableObject
         var msg = $"[{DateTime.Now:HH:mm:ss}] {message}";
         LogOutput += $"{msg}\n";
         Console.WriteLine($"[Pixelcut] {msg}");
-    }
-
-    [RelayCommand]
-    private void OpenVpnBookLink()
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "https://www.vpnbook.com/freevpn/openvpn",
-                UseShellExecute = true
-            });
-        }
-        catch { }
     }
 }

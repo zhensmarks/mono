@@ -88,4 +88,64 @@ public partial class UnifiedTrelloView : UserControl
             }
         }
     }
+
+    protected override void OnDataContextChanged(System.EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+
+        if (DataContext is UnifiedTrelloViewModel vm)
+        {
+            vm.PropertyChanged -= UnifiedVM_PropertyChanged;
+            vm.PropertyChanged += UnifiedVM_PropertyChanged;
+            SubscribeToActiveViewModel(vm);
+        }
+    }
+
+    private BaseTrelloListViewModel? _subscribedActiveVM;
+
+    private void UnifiedVM_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(UnifiedTrelloViewModel.ActiveViewModel) && sender is UnifiedTrelloViewModel vm)
+        {
+            SubscribeToActiveViewModel(vm);
+        }
+    }
+
+    private void SubscribeToActiveViewModel(UnifiedTrelloViewModel vm)
+    {
+        if (_subscribedActiveVM != null)
+            _subscribedActiveVM.PropertyChanged -= ActiveVM_PropertyChanged;
+
+        _subscribedActiveVM = vm.ActiveViewModel;
+
+        if (_subscribedActiveVM != null)
+            _subscribedActiveVM.PropertyChanged += ActiveVM_PropertyChanged;
+    }
+
+    private void ActiveVM_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is not BaseTrelloListViewModel vm) return;
+
+        // Reset teks AutoCompleteBox saat SelectedItem berubah ke null
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.SelectedMoveBoard) && vm.SelectedMoveBoard == null)
+        {
+            var boardBox = this.FindControl<AutoCompleteBox>("Part_BatchMoveBoardBox");
+            if (boardBox != null) boardBox.Text = "";
+        }
+
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.SelectedMoveList) && vm.SelectedMoveList == null)
+        {
+            var listBox = this.FindControl<AutoCompleteBox>("Part_BatchMoveListBox");
+            if (listBox != null) listBox.Text = "";
+        }
+
+        // Reset semua saat panel ditutup
+        if (e.PropertyName == nameof(BaseTrelloListViewModel.IsMovePanelOpen) && !vm.IsMovePanelOpen)
+        {
+            var boardBox = this.FindControl<AutoCompleteBox>("Part_BatchMoveBoardBox");
+            var listBox = this.FindControl<AutoCompleteBox>("Part_BatchMoveListBox");
+            if (boardBox != null) boardBox.Text = "";
+            if (listBox != null) listBox.Text = "";
+        }
+    }
 }

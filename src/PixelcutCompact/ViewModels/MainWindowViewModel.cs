@@ -15,6 +15,10 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Styling;
 using PixelcutCompact.Views;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Net;
+using System.Runtime.InteropServices;
 
 namespace PixelcutCompact.ViewModels;
 
@@ -23,6 +27,20 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly PixelcutService _pixelcutService = new();
     private readonly SettingsService _settingsService = new();
     private CancellationTokenSource? _cts;
+    private System.Timers.Timer? _vpnMonitorTimer;
+
+    // Settings dialog state (Save/Close UX)
+    [ObservableProperty] private bool _isSettingsDirty;
+    private bool _isRevertingSettings;
+    private bool _hasSettingsSnapshot;
+    private bool _snapshotIsDarkTheme;
+    private string _snapshotAccentColorHex = "";
+    private string _snapshotBackgroundHex = "";
+    private string _snapshotRemoveBgEngine = "PIXA";
+    private string _snapshotRembgModel = "u2netp";
+    private string _snapshotRembgExecutablePath = "";
+    private bool _snapshotMixProxyEnabled;
+    private string _snapshotMixProxyList = "";
     
     [ObservableProperty] private ObservableCollection<PixelcutFileItem> _files = new();
     [ObservableProperty] private bool _hasFiles;
@@ -35,17 +53,15 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private int _skippedCount;
     
     // Settings
-    [ObservableProperty] private string _proxyAddress = "";
     [ObservableProperty] private bool _isDarkTheme; // Mapped to Theme
     [ObservableProperty] private string _accentColorHex = "#3b82f6";
+    [ObservableProperty] private string _removeBgEngine = "PIXA";
+    [ObservableProperty] private string _rembgModel = "u2netp";
+    [ObservableProperty] private string _rembgExecutablePath = "";
+    [ObservableProperty] private bool _mixProxyEnabled;
+    [ObservableProperty] private string _mixProxyList = "";
     
-    // OVPN Configurations
-    [ObservableProperty] private string _ovpnPath = "";
-    [ObservableProperty] private string _ovpnUsername = "";
-    [ObservableProperty] private string _ovpnPassword = "";
-    [ObservableProperty] private string _ovpnConfigStatus = "";
-    [ObservableProperty] private string _ovpnConfigColor = "Gray";
-    [ObservableProperty] private bool _isOvpnConfigured;
+    [ObservableProperty] private bool _useWebMode = true;
     
     // We bind the UI to this property. When user edits this, we verify which mode we are in and save to the correct field.
     [ObservableProperty] private string _currentBackgroundColorHex = ""; 
@@ -54,6 +70,8 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _isAlertOpen;
     [ObservableProperty] private string _alertMessage = "";
     [RelayCommand] private void CloseAlert() => IsAlertOpen = false;
+    [ObservableProperty] private bool _isModePickerOpen;
+    [RelayCommand] private void ToggleModePicker() => IsModePickerOpen = !IsModePickerOpen;
 
     // Toast Notification
     [ObservableProperty] private string _toastMessage = "";
@@ -67,8 +85,6 @@ public partial class MainWindowViewModel : ObservableObject
 
     private bool _stopRequested;
     [ObservableProperty] private bool _isPaused;
-    private System.Timers.Timer? _vpnCheckTimer;
-    private Process? _vpnProcess;
 
     // Gallery and Preview Pane
     [ObservableProperty] private ObservableCollection<GalleryItemViewModel> _galleryItems = new();
@@ -82,12 +98,14 @@ public partial class MainWindowViewModel : ObservableObject
         
         // Load Settings
         var settings = _settingsService.Load();
-        ProxyAddress = settings.ProxyAddress ?? "";
-        OvpnPath = settings.OvpnPath ?? "";
-        OvpnUsername = settings.OvpnUsername ?? "";
-        OvpnPassword = settings.OvpnPassword ?? "";
         AccentColorHex = settings.AccentColor;
         IsDarkTheme = settings.Theme == "Dark";
+        UseWebMode = true;
+        RemoveBgEngine = NormalizeEngine(settings.RemoveBgEngine);
+        RembgModel = string.IsNullOrWhiteSpace(settings.RembgModel) ? "u2netp" : settings.RembgModel;
+        RembgExecutablePath = settings.RembgExecutablePath ?? "";
+        MixProxyEnabled = settings.MixProxyEnabled;
+        MixProxyList = settings.MixProxyList ?? "";
         
         _customDarkBackground = settings.CustomDarkBackground;
         _customLightBackground = settings.CustomLightBackground;
@@ -98,29 +116,128 @@ public partial class MainWindowViewModel : ObservableObject
         // Initialize Service
         Task.Run(async () => await _pixelcutService.InitializeAsync());
         
-        UpdateOvpnConfigStatus();
-        CheckVpnStatus();
-        
-        // Start periodic VPN check (every 3 seconds)
-        _vpnCheckTimer = new System.Timers.Timer(3000);
-        _vpnCheckTimer.Elapsed += (s, e) => 
-        {
-            Dispatcher.UIThread.Post(() => CheckVpnStatus());
-        };
-        _vpnCheckTimer.Start();
+        _pixelcutService.UseWebMode = true;
+        _pixelcutService.RemoveBgEngine = RemoveBgEngine;
+        _pixelcutService.RembgModel = RembgModel;
+        _pixelcutService.RembgExecutablePath = string.IsNullOrWhiteSpace(RembgExecutablePath) ? null : RembgExecutablePath;
+        _pixelcutService.MixProxyEnabled = MixProxyEnabled;
+        _pixelcutService.MixProxyList = MixProxyList;
+        SetupVpnMonitoring();
     }
     
-    partial void OnProxyAddressChanged(string value)
+    partial void OnUseWebModeChanged(bool value)
     {
-        _pixelcutService.ManualProxy = string.IsNullOrWhiteSpace(value) ? null : value;
-        CheckVpnStatus();
+        // Force web mode only.
+        if (!value)
+        {
+            UseWebMode = true;
+            return;
+        }
+        _pixelcutService.UseWebMode = true;
         SaveSettings();
+    }
+
+    public IReadOnlyList<string> RemoveBgEngines { get; } = new[] { "PIXA", "REMBG", "NOBG_SPACE" };
+    public sealed class RemoveBgEngineOption
+    {
+        public string Value { get; init; } = "PIXA";
+        public string Label { get; init; } = "PIXA";
+    }
+
+    public IReadOnlyList<RemoveBgEngineOption> RemoveBgEngineOptions { get; } = new[]
+    {
+        new RemoveBgEngineOption { Value = "PIXA", Label = "PIXA" },
+        new RemoveBgEngineOption { Value = "REMBG", Label = "REMBG (Offline AI)" },
+        new RemoveBgEngineOption { Value = "REMBG_ONLINE", Label = "REMBG Online AI (Web)" },
+        new RemoveBgEngineOption { Value = "NOBG_SPACE", Label = "NOBG Space (Web)" }
+    };
+
+    public RemoveBgEngineOption? SelectedRemoveBgEngineOption
+    {
+        get => RemoveBgEngineOptions.FirstOrDefault(x => string.Equals(x.Value, RemoveBgEngine, StringComparison.OrdinalIgnoreCase));
+        set
+        {
+            if (value == null) return;
+            RemoveBgEngine = value.Value;
+        }
+    }
+
+    public bool IsRembgSelected => string.Equals(RemoveBgEngine, "REMBG", StringComparison.OrdinalIgnoreCase);
+
+    public IReadOnlyList<string> RembgModels { get; } = new[]
+    {
+        "u2net",
+        "u2netp",
+        "u2net_human_seg",
+        "u2net_cloth_seg",
+        "silueta",
+        "isnet-general-use",
+        "isnet-anime",
+        "sam",
+        "birefnet-general",
+        "birefnet-general-lite",
+        "birefnet-portrait",
+        "birefnet-dis",
+        "birefnet-hrsod",
+        "birefnet-cod",
+        "birefnet-massive",
+        "bria-rmbg"
+    };
+
+    partial void OnRemoveBgEngineChanged(string value)
+    {
+        var normalized = NormalizeEngine(value);
+        if (!string.Equals(normalized, value, StringComparison.Ordinal))
+        {
+            RemoveBgEngine = normalized;
+            return;
+        }
+
+        _pixelcutService.RemoveBgEngine = normalized;
+        OnPropertyChanged(nameof(SelectedRemoveBgEngineOption));
+        OnPropertyChanged(nameof(IsRembgSelected));
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    partial void OnRembgModelChanged(string value)
+    {
+        _pixelcutService.RembgModel = string.IsNullOrWhiteSpace(value) ? "u2netp" : value.Trim();
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    partial void OnRembgExecutablePathChanged(string value)
+    {
+        _pixelcutService.RembgExecutablePath = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    partial void OnMixProxyEnabledChanged(bool value)
+    {
+        _pixelcutService.MixProxyEnabled = value;
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    partial void OnMixProxyListChanged(string value)
+    {
+        _pixelcutService.MixProxyList = value;
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    [RelayCommand]
+    public async Task RefreshCreditsAsync()
+    {
+        await Task.CompletedTask;
     }
 
     partial void OnIsDarkThemeChanged(bool value)
     {
         ApplyTheme(value);
-        SaveSettings();
+        MarkSettingsDirty();
     }
 
     partial void OnAccentColorHexChanged(string value)
@@ -128,73 +245,10 @@ public partial class MainWindowViewModel : ObservableObject
         ApplyAccentColor(value);
         OnPropertyChanged(nameof(AccentColor)); // Notify UI
         OnPropertyChanged(nameof(TrashButtonBrush));
-        SaveSettings();
+        MarkSettingsDirty();
     }
 
-    [RelayCommand]
-    private async Task PickOvpnFile()
-    {
-        if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(desktop.MainWindow);
-            if (topLevel == null) return;
 
-            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
-            {
-                Title = "Pilih Profil OpenVPN (.ovpn)",
-                AllowMultiple = false,
-                FileTypeFilter = new[]
-                {
-                    new Avalonia.Platform.Storage.FilePickerFileType("OpenVPN Config") { Patterns = new[] { "*.ovpn", "*.conf" } }
-                }
-            });
-
-            if (files != null && files.Count > 0)
-            {
-                OvpnPath = files[0].Path.LocalPath;
-            }
-        }
-    }
-
-    partial void OnOvpnPathChanged(string value) => UpdateOvpnConfigStatus();
-    partial void OnOvpnUsernameChanged(string value) => UpdateOvpnConfigStatus();
-    partial void OnOvpnPasswordChanged(string value) => UpdateOvpnConfigStatus();
-
-    private void UpdateOvpnConfigStatus()
-    {
-        bool hasPath = !string.IsNullOrEmpty(OvpnPath);
-        bool pathExists = hasPath && File.Exists(OvpnPath);
-        bool hasUser = !string.IsNullOrEmpty(OvpnUsername);
-        bool hasPass = !string.IsNullOrEmpty(OvpnPassword);
-
-        if (!hasPath && !hasUser && !hasPass)
-        {
-            OvpnConfigStatus = "";
-            OvpnConfigColor = "Gray";
-            IsOvpnConfigured = false;
-        }
-        else if (hasPath && !pathExists)
-        {
-            OvpnConfigStatus = "⚠️ File .ovpn tidak ditemukan";
-            OvpnConfigColor = "#EF4444";
-            IsOvpnConfigured = false;
-        }
-        else if (!hasPath || !hasUser || !hasPass)
-        {
-            OvpnConfigStatus = "⚠️ Lengkapi semua kolom untuk mengaktifkan VPN";
-            OvpnConfigColor = "#F59E0B";
-            IsOvpnConfigured = false;
-        }
-        else
-        {
-            OvpnConfigStatus = "✅ Konfigurasi lengkap — VPN akan aktif saat proses dimulai";
-            OvpnConfigColor = "#16A34A";
-            IsOvpnConfigured = true;
-        }
-
-        CheckVpnStatus();
-        SaveSettings();
-    }
 
     partial void OnHasFilesChanged(bool value)
     {
@@ -216,6 +270,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnCurrentBackgroundColorHexChanged(string value)
     {
+        if (_isRevertingSettings) return;
+
         // When user types in the box/picker
         if (IsDarkTheme)
             _customDarkBackground = value;
@@ -232,7 +288,7 @@ public partial class MainWindowViewModel : ObservableObject
             ApplyTheme(IsDarkTheme);
         }
         OnPropertyChanged(nameof(CurrentBackgroundColor)); // Notify UI
-        SaveSettings();
+        MarkSettingsDirty();
     }
 
 
@@ -306,85 +362,79 @@ public partial class MainWindowViewModel : ObservableObject
     private void SaveSettings()
     {
         var settings = _settingsService.Load();
-        settings.ProxyAddress = ProxyAddress;
         settings.Theme = IsDarkTheme ? "Dark" : "Light";
         settings.AccentColor = AccentColorHex;
+        settings.UseWebMode = UseWebMode;
+        settings.RemoveBgEngine = RemoveBgEngine;
+        settings.RembgModel = string.IsNullOrWhiteSpace(RembgModel) ? "u2netp" : RembgModel.Trim();
+        settings.RembgExecutablePath = string.IsNullOrWhiteSpace(RembgExecutablePath) ? null : RembgExecutablePath.Trim();
+        settings.MixProxyEnabled = MixProxyEnabled;
+        settings.MixProxyList = MixProxyList;
         settings.CustomDarkBackground = _customDarkBackground;
         settings.CustomLightBackground = _customLightBackground;
-        settings.OvpnPath = OvpnPath;
-        settings.OvpnUsername = OvpnUsername;
-        settings.OvpnPassword = OvpnPassword;
+
         _settingsService.Save(settings);
     }
 
-    private void CheckVpnStatus()
+    private void MarkSettingsDirty()
     {
-        // 1. Check Manual Proxy
-        if (!string.IsNullOrEmpty(ProxyAddress))
+        if (_isRevertingSettings) return;
+        if (!IsSettingsOpen) return;
+
+        if (!_hasSettingsSnapshot)
         {
-            IsVpnActive = true;
-            VpnStatus = "Proxy Manual Aktif";
+            IsSettingsDirty = true;
             return;
         }
 
-        try
-        {
-            var interfaces = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
-            var vpnKeywords = new[] { "vpn", "tap", "ppp", "wintun", "wireguard", "openvpn", "avira", "nordvpn", "expressvpn" };
-            
-            // macOS system interfaces to EXCLUDE
-            var macSystemInterfaces = new[] { "utun", "llw", "awdl", "bridge", "ap", "anpi", "gif", "stf", "ipsec" };
-            
-            foreach (var iface in interfaces)
-            {
-                if (iface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)
-                    continue;
-                    
-                var name = iface.Name.ToLower();
-                var desc = iface.Description.ToLower();
-                
-                if (OperatingSystem.IsMacOS() && macSystemInterfaces.Any(si => name.StartsWith(si)))
-                    continue;
-                
-                if (vpnKeywords.Any(kw => name.Contains(kw) || desc.Contains(kw)))
-                {
-                    IsVpnActive = true;
-                    VpnStatus = $"VPN Aktif ({iface.Name})";
-                    return;
-                }
-                
-                if (name == "tun0" || name == "tun1" || name == "tap0" || name == "tap1")
-                {
-                    IsVpnActive = true;
-                    VpnStatus = $"VPN Aktif ({iface.Name})";
-                    return;
-                }
-            }
-            
-            if (!string.IsNullOrEmpty(OvpnPath) && File.Exists(OvpnPath) 
-                && !string.IsNullOrEmpty(OvpnUsername) && !string.IsNullOrEmpty(OvpnPassword))
-            {
-                IsVpnActive = false;
-                VpnStatus = "OVPN Siap (Akan aktif saat proses)";
-                return;
-            }
-            
-            IsVpnActive = false;
-            VpnStatus = "Koneksi Langsung (Tanpa VPN)";
-        }
-        catch
-        {
-            IsVpnActive = false;
-            VpnStatus = "Koneksi Langsung";
-        }
+        IsSettingsDirty =
+            IsDarkTheme != _snapshotIsDarkTheme ||
+            !string.Equals(AccentColorHex ?? "", _snapshotAccentColorHex, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(CurrentBackgroundColorHex ?? "", _snapshotBackgroundHex, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(RemoveBgEngine ?? "", _snapshotRemoveBgEngine, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(RembgModel ?? "", _snapshotRembgModel, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(RembgExecutablePath ?? "", _snapshotRembgExecutablePath, StringComparison.OrdinalIgnoreCase) ||
+            MixProxyEnabled != _snapshotMixProxyEnabled ||
+            !string.Equals(MixProxyList ?? "", _snapshotMixProxyList, StringComparison.OrdinalIgnoreCase);
     }
 
-    // Property for Status Dot Color (Red=Direct, Green=VPN/Proxy)
-    public IBrush ConnectionStatusBrush => IsVpnActive ? SolidColorBrush.Parse("#10B981") : SolidColorBrush.Parse("#EF4444");
-
-    partial void OnIsVpnActiveChanged(bool value)
+    private void TakeSettingsSnapshot()
     {
-        OnPropertyChanged(nameof(ConnectionStatusBrush));
+        _hasSettingsSnapshot = true;
+        _snapshotIsDarkTheme = IsDarkTheme;
+        _snapshotAccentColorHex = AccentColorHex ?? "";
+        _snapshotBackgroundHex = CurrentBackgroundColorHex ?? "";
+        _snapshotRemoveBgEngine = RemoveBgEngine ?? "PIXA";
+        _snapshotRembgModel = RembgModel ?? "u2netp";
+        _snapshotRembgExecutablePath = RembgExecutablePath ?? "";
+        _snapshotMixProxyEnabled = MixProxyEnabled;
+        _snapshotMixProxyList = MixProxyList ?? "";
+    }
+
+    private void RevertSettingsToSnapshot()
+    {
+        _isRevertingSettings = true;
+        try
+        {
+            IsDarkTheme = _snapshotIsDarkTheme;
+            AccentColorHex = _snapshotAccentColorHex;
+            CurrentBackgroundColorHex = _snapshotBackgroundHex;
+            RemoveBgEngine = _snapshotRemoveBgEngine;
+            RembgModel = _snapshotRembgModel;
+            RembgExecutablePath = _snapshotRembgExecutablePath;
+            MixProxyEnabled = _snapshotMixProxyEnabled;
+            MixProxyList = _snapshotMixProxyList;
+        }
+        finally
+        {
+            _isRevertingSettings = false;
+        }
+
+        // Ensure background is consistent after revert
+        if (!string.IsNullOrEmpty(_snapshotBackgroundHex))
+            ApplyBackgroundColor(_snapshotBackgroundHex);
+        else
+            ApplyTheme(IsDarkTheme);
     }
 
     public IBrush TrashButtonBrush => HasFiles ? SolidColorBrush.Parse("#EF4444") : new SolidColorBrush(AccentColor);
@@ -586,15 +636,11 @@ public partial class MainWindowViewModel : ObservableObject
     private async Task ProcessRemoveBg() => await ProcessQueue("remove_bg");
 
     [RelayCommand]
-    private async Task ProcessUpscale() => await ProcessQueue("upscale");
-    
-    [RelayCommand]
     private void Stop()
     {
         AppendLog("Menghentikan proses...");
         _stopRequested = true;
         _cts?.Cancel();
-        StopVpnProcess();
     }
     
     [RelayCommand]
@@ -625,9 +671,60 @@ public partial class MainWindowViewModel : ObservableObject
     
     // Settings
     [ObservableProperty] private bool _isSettingsOpen;
-    [RelayCommand] private void ShowSettings() => IsSettingsOpen = !IsSettingsOpen;
-    [RelayCommand] private void CloseSettings() => IsSettingsOpen = false;
+    [RelayCommand]
+    private void ShowSettings()
+    {
+        if (!IsSettingsOpen)
+        {
+            TakeSettingsSnapshot();
+            IsSettingsDirty = false;
+            IsSettingsOpen = true;
+        }
+        else
+        {
+            CloseSettings();
+        }
+    }
+
+    [RelayCommand]
+    private void CloseSettings()
+    {
+        // Close without saving => revert changes if dirty
+        if (IsSettingsDirty && _hasSettingsSnapshot)
+        {
+            RevertSettingsToSnapshot();
+        }
+
+        IsSettingsDirty = false;
+        IsSettingsOpen = false;
+    }
+
+    [RelayCommand]
+    private void SaveSettingsAndClose()
+    {
+        if (!IsSettingsDirty)
+        {
+            IsSettingsOpen = false;
+            return;
+        }
+
+        SaveSettings();
+        TakeSettingsSnapshot(); // new baseline
+        IsSettingsDirty = false;
+        IsSettingsOpen = false;
+    }
     [RelayCommand] private void UpdateAccentColor(string hex) => AccentColorHex = hex;
+
+    private static string NormalizeEngine(string? value)
+    {
+        if (string.Equals(value, "REMBG", StringComparison.OrdinalIgnoreCase))
+            return "REMBG";
+        if (string.Equals(value, "NOBG_SPACE", StringComparison.OrdinalIgnoreCase))
+            return "NOBG_SPACE";
+        if (string.Equals(value, "REMBG_ONLINE", StringComparison.OrdinalIgnoreCase))
+            return "REMBG_ONLINE";
+        return "PIXA";
+    }
 
     private async Task ProcessQueue(string job)
     {
@@ -637,23 +734,8 @@ public partial class MainWindowViewModel : ObservableObject
         _stopRequested = false;
         IsPaused = false;
         _cts = new CancellationTokenSource();
-        AppendLog($"Memulai proses {job} (C# Native)...");
-
-        bool hasVpn = !string.IsNullOrEmpty(OvpnPath) && File.Exists(OvpnPath)
-                      && !string.IsNullOrEmpty(OvpnUsername) && !string.IsNullOrEmpty(OvpnPassword);
-        if (hasVpn)
-        {
-            VpnStatus = "🔄 Menyambungkan OpenVPN...";
-            IsVpnActive = false;
-            AppendLog("Memulai jalur OpenVPN Split-Tunneling...");
-            await StartVpnProcessAsync();
-            AppendLog("Menunggu rute jaringan stabil (5 detik)...");
-            await Task.Delay(5000); // Allow OS table routing to stabilize
-            
-            IsVpnActive = true;
-            VpnStatus = "🟢 VPN Aktif (OpenVPN)";
-            AppendLog("OpenVPN terhubung! Memulai antrean...");
-        }
+        var engineInfo = job == "remove_bg" ? $" [{RemoveBgEngine}]" : "";
+        AppendLog($"Memulai proses {job}{engineInfo} (C# Native)...");
 
         try
         {
@@ -676,20 +758,11 @@ public partial class MainWindowViewModel : ObservableObject
         }
         finally
         {
-            if (hasVpn)
-            {
-                VpnStatus = "🔌 Memutuskan OpenVPN...";
-                AppendLog("Membuang jalur OpenVPN...");
-                StopVpnProcess();
-                IsVpnActive = false;
-                AppendLog("OpenVPN terputus.");
-            }
-            
             IsProcessing = false;
             _cts?.Dispose();
             _cts = null;
             CheckRetryVisibility();
-            CheckVpnStatus();
+            // API mode removed
             
             if (!_stopRequested)
             {
@@ -707,11 +780,6 @@ public partial class MainWindowViewModel : ObservableObject
                 
                 AlertMessage = sb.ToString().Trim();
                 IsAlertOpen = true;
-                
-                // Show Toast
-                var toastMsg = $"✅ {success} berhasil";
-                if (failed > 0) toastMsg += $" / ❌ {failed} gagal";
-                ShowToast(toastMsg, failed > 0 ? "⚠️" : "✅");
             }
         }
     }
@@ -845,19 +913,115 @@ public partial class MainWindowViewModel : ObservableObject
         Console.WriteLine($"[PixelcutCompact] {msg}");
     }
     
-    [RelayCommand]
-    private void OpenVpnBookLink()
+    private void RefreshVpnStatus()
     {
         try
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "https://www.vpnbook.com/freevpn/openvpn",
-                UseShellExecute = true
-            });
+            // Determine which interface would be used for internet routing.
+            // This avoids false positives where a VPN adapter exists but is not connected.
+            var routed = GetRoutedInterface();
+            var active = routed != null && IsVpnLike(routed);
+
+            IsVpnActive = active;
+            VpnStatus = active ? "VPN Aktif" : "Koneksi Lokal";
+        }
+        catch
+        {
+            IsVpnActive = false;
+            VpnStatus = "Koneksi Lokal";
+        }
+    }
+
+    private void SetupVpnMonitoring()
+    {
+        RefreshVpnStatus();
+
+        try
+        {
+            NetworkChange.NetworkAddressChanged += (_, _) => Dispatcher.UIThread.Post(RefreshVpnStatus);
+            NetworkChange.NetworkAvailabilityChanged += (_, _) => Dispatcher.UIThread.Post(RefreshVpnStatus);
+        }
+        catch { }
+
+        try
+        {
+            _vpnMonitorTimer?.Stop();
+            _vpnMonitorTimer?.Dispose();
+            _vpnMonitorTimer = new System.Timers.Timer(2000);
+            _vpnMonitorTimer.AutoReset = true;
+            _vpnMonitorTimer.Elapsed += (_, _) => Dispatcher.UIThread.Post(RefreshVpnStatus);
+            _vpnMonitorTimer.Start();
         }
         catch { }
     }
+
+    private static NetworkInterface? GetRoutedInterface()
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+
+        try
+        {
+            // Pick a stable public IP to test routing (Google DNS).
+            var dest = new SockAddrIn { sin_family = 2 /*AF_INET*/, sin_port = 0, sin_addr = 0x08080808 /*8.8.8.8 in BE*/ };
+            uint ifIndex;
+            var res = GetBestInterfaceEx(ref dest, out ifIndex);
+            if (res != 0) return null;
+
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                try
+                {
+                    var ipv4 = ni.GetIPProperties().GetIPv4Properties();
+                    if (ipv4 != null && (uint)ipv4.Index == ifIndex)
+                        return ni;
+                }
+                catch { }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    private static bool IsVpnLike(NetworkInterface ni)
+    {
+        var raw = $"{ni.Name} {ni.Description}".ToLowerInvariant();
+
+        // Exclude common Windows pseudo-tunnels
+        if (raw.Contains("teredo") || raw.Contains("isatap") || raw.Contains("6to4"))
+            return false;
+
+        return
+            ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel ||
+            ni.NetworkInterfaceType == NetworkInterfaceType.Ppp ||
+            raw.Contains("warp") ||
+            raw.Contains("avira") ||
+            raw.Contains("phantom") ||
+            raw.Contains("wireguard") ||
+            raw.Contains("openvpn") ||
+            raw.Contains("tailscale") ||
+            raw.Contains("zerotier") ||
+            raw.Contains("proton") ||
+            raw.Contains("nord") ||
+            raw.Contains("expressvpn") ||
+            raw.Contains("surfshark") ||
+            raw.Contains("vpn");
+    }
+
+    // ---- Windows routing helper (iphlpapi) ----
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SockAddrIn
+    {
+        public short sin_family;
+        public ushort sin_port;
+        public uint sin_addr;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+        public byte[]? sin_zero;
+    }
+
+    [DllImport("iphlpapi.dll", SetLastError = true)]
+    private static extern int GetBestInterfaceEx(ref SockAddrIn pDestAddr, out uint pdwBestIfIndex);
 
     private void ShowToast(string message, string icon = "✅")
     {
@@ -881,78 +1045,6 @@ public partial class MainWindowViewModel : ObservableObject
 
     [RelayCommand]
     private void DismissToast() => IsToastVisible = false;
-
-    private async Task StartVpnProcessAsync()
-    {
-        try
-        {
-            var tempAuth = Path.Combine(Path.GetTempPath(), "bma_vpn_auth.txt");
-            await File.WriteAllLinesAsync(tempAuth, new[] { OvpnUsername, OvpnPassword });
-
-            var isMac = OperatingSystem.IsMacOS();
-            
-            _vpnProcess = new Process();
-            
-            if (isMac)
-            {
-                // Inject SPLIT TUNNELING: route-nopull prevents ALL traffic from going to VPN
-                // and route api2.pixelcut.app only maps Pixelcut API thru the tunnel.
-                var args = $"--config \\\"{OvpnPath}\\\" --auth-user-pass \\\"{tempAuth}\\\" --route-nopull --route api2.pixelcut.app";
-                var script = $"do shell script \"openvpn {args}\" with administrator privileges";
-                
-                _vpnProcess.StartInfo = new ProcessStartInfo
-                {
-                    FileName = "osascript",
-                    Arguments = $"-e '{script}'",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                };
-            }
-            else
-            {
-                _vpnProcess.StartInfo = new ProcessStartInfo
-                {
-                    FileName = "openvpn",
-                    Arguments = $"--config \"{OvpnPath}\" --auth-user-pass \"{tempAuth}\" --route-nopull --route api2.pixelcut.app",
-                    UseShellExecute = true, // for UAC prompt on Windows
-                    Verb = "runas"
-                };
-            }
-
-            _vpnProcess.Start();
-        }
-        catch (Exception ex)
-        {
-            AppendLog($"Gagal menyalakan OpenVPN: {ex.Message}", "ERROR");
-        }
-    }
-
-    private void StopVpnProcess()
-    {
-        try
-        {
-            if (_vpnProcess != null && !_vpnProcess.HasExited)
-            {
-                _vpnProcess.Kill();
-            }
-            // Cleanup Auth File
-            var tempAuth = Path.Combine(Path.GetTempPath(), "bma_vpn_auth.txt");
-            if (File.Exists(tempAuth)) File.Delete(tempAuth);
-            
-            // For Mac, osascript spawns an OpenVPN daemon that might detach.
-            if (OperatingSystem.IsMacOS())
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "osascript",
-                    Arguments = $"-e 'do shell script \"killall openvpn\" with administrator privileges'",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                });
-            }
-        }
-        catch {}
-    }
     
     // === NEW FEATURES ===
     

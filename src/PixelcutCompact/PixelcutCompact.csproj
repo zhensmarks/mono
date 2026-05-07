@@ -8,6 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationIcon>appicon.ico</ApplicationIcon>
+    <PlaywrightPlatform>all</PlaywrightPlatform>
   </PropertyGroup>
 
   <!-- Publishing Settings -->
@@ -25,7 +26,9 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.1" />
     <PackageReference Include="Avalonia.Controls.ColorPicker" Version="11.2.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
-    <PackageReference Include="Semi.Avalonia" Version="11.2.0" />
+    <PackageReference Include="Semi.Avalonia" Version="11.2.1" />
+    <PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.2.1" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.49.0" />
   </ItemGroup>
 
   <ItemGroup>

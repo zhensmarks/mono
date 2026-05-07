@@ -355,7 +355,7 @@
                         
                         <StackPanel Spacing="8">
                             <TextBlock Text="Pilih Board" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <AutoCompleteBox ItemsSource="{Binding ActiveViewModel.AvailableBoards}" 
+                            <AutoCompleteBox x:Name="Part_BatchMoveBoardBox" ItemsSource="{Binding ActiveViewModel.AvailableBoards}" 
                                              SelectedItem="{Binding ActiveViewModel.SelectedMoveBoard}" 
                                              Text="{Binding ActiveViewModel.MoveBoardSearchText, Mode=TwoWay}"
                                              ValueMemberBinding="{Binding Name}"
@@ -368,7 +368,7 @@
                         
                         <StackPanel Spacing="8">
                             <TextBlock Text="Pilih List" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <AutoCompleteBox ItemsSource="{Binding ActiveViewModel.AvailableLists}" 
+                            <AutoCompleteBox x:Name="Part_BatchMoveListBox" ItemsSource="{Binding ActiveViewModel.AvailableLists}" 
                                              SelectedItem="{Binding ActiveViewModel.SelectedMoveList}" 
                                              Text="{Binding ActiveViewModel.MoveListSearchText, Mode=TwoWay}"
                                              ValueMemberBinding="{Binding Name}"

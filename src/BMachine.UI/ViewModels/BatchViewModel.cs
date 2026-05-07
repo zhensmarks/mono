@@ -666,12 +666,18 @@ namespace BMachine.UI.ViewModels;
         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
         {
             var window = desktop.MainWindow;
-            if (window?.Clipboard == null) return;
+            if (window?.Clipboard == null) 
+            {
+                _logService?.AddLog("[WARNING] Clipboard tidak tersedia.");
+                return;
+            }
 
             try
             {
                 var formats = await window.Clipboard.GetFormatsAsync();
+                System.Diagnostics.Debug.WriteLine($"[PasteLogo] Clipboard formats: {string.Join(", ", formats)}");
                 
+                // 1. Coba format Files (copy file dari Explorer)
                 if (formats.Contains(Avalonia.Input.DataFormats.Files))
                 {
                     var data = await window.Clipboard.GetDataAsync(Avalonia.Input.DataFormats.Files);
@@ -681,26 +687,31 @@ namespace BMachine.UI.ViewModels;
                         if (firstFile != null && firstFile.Path.LocalPath != null)
                         {
                             var ext = Path.GetExtension(firstFile.Path.LocalPath).ToLower();
-                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp")
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp" || ext == ".gif")
                             {
                                 await ProcessLogoFile(firstFile.Path.LocalPath, targetSlot);
+                                _logService?.AddLog($"[INFO] Logo di-paste dari file: {Path.GetFileName(firstFile.Path.LocalPath)}");
                                 return;
                             }
                         }
                     }
                 }
                 
-                string[] imageFormats = { "PNG", "image/png", "JPEG", "image/jpeg", "public.png", "public.jpeg", "Avalonia.Media.Imaging.Bitmap" };
+                // 2. Coba format gambar langsung (copy gambar dari browser/Paint/dll)
+                string[] imageFormats = { "PNG", "image/png", "JPEG", "image/jpeg", "public.png", "public.jpeg", 
+                                          "Bitmap", "DeviceIndependentBitmap", "System.Drawing.Bitmap",
+                                          "Avalonia.Media.Imaging.Bitmap", "CF_DIB" };
                 foreach (var format in imageFormats)
                 {
                     if (formats.Contains(format))
                     {
                         var data = await window.Clipboard.GetDataAsync(format);
-                        if (data is byte[] bytes)
+                        if (data is byte[] bytes && bytes.Length > 0)
                         {
                             var tempFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
                             await File.WriteAllBytesAsync(tempFile, bytes);
                             await ProcessLogoFile(tempFile, targetSlot);
+                            _logService?.AddLog($"[INFO] Logo di-paste dari clipboard (format: {format})");
                             return;
                         }
                         if (data is Avalonia.Media.Imaging.Bitmap bitmap)
@@ -708,26 +719,76 @@ namespace BMachine.UI.ViewModels;
                             var tempFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
                             bitmap.Save(tempFile);
                             await ProcessLogoFile(tempFile, targetSlot);
+                            _logService?.AddLog("[INFO] Logo di-paste dari clipboard (Bitmap)");
                             return;
                         }
                     }
                 }
 
+                // 3. Coba format Text (path file di clipboard)
                 if (formats.Contains(Avalonia.Input.DataFormats.Text))
                 {
                     var text = await window.Clipboard.GetTextAsync();
                     if (!string.IsNullOrEmpty(text) && File.Exists(text))
                     {
                         var ext = Path.GetExtension(text).ToLower();
-                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp")
+                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp" || ext == ".gif")
                         {
                             await ProcessLogoFile(text, targetSlot);
+                            _logService?.AddLog($"[INFO] Logo di-paste dari path: {Path.GetFileName(text)}");
                             return;
                         }
                     }
                 }
+
+                // 4. Fallback: gunakan PowerShell untuk mengambil gambar dari native Windows clipboard
+                System.Diagnostics.Debug.WriteLine("[PasteLogo] Avalonia clipboard tidak menemukan gambar, mencoba PowerShell fallback...");
+                var tempPsFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
+                var psScript = $@"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$img = [System.Windows.Forms.Clipboard]::GetImage()
+if ($img -ne $null) {{
+    $img.Save('{tempPsFile.Replace("'", "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
+    $img.Dispose()
+    Write-Output 'OK'
+}} else {{
+    $files = [System.Windows.Forms.Clipboard]::GetFileDropList()
+    if ($files.Count -gt 0) {{
+        $f = $files[0]
+        $ext = [System.IO.Path]::GetExtension($f).ToLower()
+        if ($ext -eq '.png' -or $ext -eq '.jpg' -or $ext -eq '.jpeg' -or $ext -eq '.bmp') {{
+            Copy-Item $f '{tempPsFile.Replace("'", "''")}'
+            Write-Output 'OK'
+        }}
+    }}
+}}";
+                var process = new System.Diagnostics.Process();
+                process.StartInfo.FileName = "powershell";
+                process.StartInfo.Arguments = $"-NoProfile -NonInteractive -Command \"{psScript.Replace("\"", "\\\"")}\"";
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.CreateNoWindow = true;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.Start();
+                var psOutput = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync();
+                process.Dispose();
+
+                if (psOutput.Trim() == "OK" && File.Exists(tempPsFile))
+                {
+                    await ProcessLogoFile(tempPsFile, targetSlot);
+                    _logService?.AddLog("[INFO] Logo di-paste via PowerShell fallback");
+                    return;
+                }
+
+                _logService?.AddLog("[WARNING] Tidak ada gambar ditemukan di clipboard. Coba copy gambar terlebih dahulu.");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PasteLogo] Error: {ex.Message}");
+                _logService?.AddLog($"[ERROR] Paste logo gagal: {ex.Message}");
+            }
         }
     }
 

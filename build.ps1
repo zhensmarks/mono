@@ -1,16 +1,16 @@
 $ErrorActionPreference = "Stop"
 
-Write-Host "========================================"
-Write-Host "  BMachine v2 - Build & Publish Script"
-Write-Host "========================================"
+Write-Host "================================"
+Write-Host "  BMachine - Main App Build"
+Write-Host "================================"
 
 # Cleanup
-Write-Host "[0/4] Cleaning up log files..."
+Write-Host "[0/1] Cleaning up log files..."
 Remove-Item -Path "build_log*.txt" -ErrorAction SilentlyContinue
 Write-Host "[OK] Cleanup completed."
 
 # Publish BMachine.App
-Write-Host "[1/4] Publishing BMachine.App..."
+Write-Host "[1/1] Publishing BMachine.App..."
 $projectPath = "src\BMachine.App\BMachine.App.csproj"
 $outputDir = "publish\win-x64\BMachine"
 
@@ -20,26 +20,8 @@ if (-not (Test-Path $projectPath)) {
 
 dotnet publish $projectPath -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $outputDir
 
-# Publish TrelloCompact
-Write-Host "[2/4] Publishing TrelloCompact..."
-$trelloPath = "src\TrelloCompact\TrelloCompact.csproj"
-$trelloOut = "publish\win-x64\TrelloCompact"
-
-if (Test-Path $trelloPath) {
-    dotnet publish $trelloPath -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $trelloOut
-}
-
-# Publish PixelcutCompact
-Write-Host "[3/4] Publishing PixelcutCompact..."
-$pixelcutPath = "src\PixelcutCompact\PixelcutCompact.csproj"
-$pixelcutOut = "publish\win-x64\PixelcutCompact"
-
-if (Test-Path $pixelcutPath) {
-    dotnet publish $pixelcutPath -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $pixelcutOut
-}
-
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Publish failed!"
 }
 
-Write-Host "🎉 Build Finished Successfully! Output in publish\win-x64"
+Write-Host "Build selesai. Output utama: publish\win-x64\BMachine"

@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Text.Json;
 using BMachine.UI.Models;
 
 namespace BMachine.UI.Services;
@@ -12,7 +13,7 @@ namespace BMachine.UI.Services;
 public class PixelcutService
 {
     // Configurable from UI
-    public string? ManualProxy { get; set; }
+    public string? ApiKey { get; set; }
 
     public PixelcutService()
     {
@@ -27,35 +28,26 @@ public class PixelcutService
     public async Task ProcessImageAsync(PixelcutFileItem item, string jobType)
     {
         string endpoint = jobType == "upscale" 
-            ? "https://api2.pixelcut.app/image/upscale/v1" 
-            : "https://api2.pixelcut.app/image/matte/v1";
+            ? "https://api.developer.pixelcut.ai/v1/upscale" 
+            : "https://api.developer.pixelcut.ai/v1/remove-background";
 
-        // Direct request with single attempt (or manual proxy)
-        await ExecuteRequestAsync(item, endpoint, jobType, ManualProxy, CancellationToken.None);
+        // Direct request with single attempt
+        await ExecuteRequestAsync(item, endpoint, jobType, CancellationToken.None);
     }
 
     public async Task ProcessImageAsync(PixelcutFileItem item, string jobType, CancellationToken ct)
     {
         string endpoint = jobType == "upscale" 
-            ? "https://api2.pixelcut.app/image/upscale/v1" 
-            : "https://api2.pixelcut.app/image/matte/v1";
+            ? "https://api.developer.pixelcut.ai/v1/upscale" 
+            : "https://api.developer.pixelcut.ai/v1/remove-background";
 
-        // Direct request with single attempt (or manual proxy)
-        await ExecuteRequestAsync(item, endpoint, jobType, ManualProxy, ct);
+        // Direct request with single attempt
+        await ExecuteRequestAsync(item, endpoint, jobType, ct);
     }
 
-    private async Task ExecuteRequestAsync(PixelcutFileItem item, string url, string job, string? proxy, CancellationToken ct)
+    private async Task ExecuteRequestAsync(PixelcutFileItem item, string url, string job, CancellationToken ct)
     {
-        using var handler = new HttpClientHandler();
-        
-        // Configure Proxy
-        if (!string.IsNullOrEmpty(proxy))
-        {
-            handler.Proxy = new WebProxy(proxy);
-            handler.UseProxy = true;
-        }
-
-        using var client = new HttpClient(handler);
+        using var client = new HttpClient();
         client.Timeout = TimeSpan.FromMinutes(10); // Increased from 2 to 10 mins for slow connections
         
         // Headers
@@ -100,10 +92,7 @@ public class PixelcutService
         if (!response.IsSuccessStatusCode)
         {
             string errorBody = await response.Content.ReadAsStringAsync();
-            if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                throw new Exception("Rate Limit (429)");
-            
-            throw new Exception($"HTTP {response.StatusCode}");
+            throw new Exception(MapErrorToFriendlyMessage(response.StatusCode, errorBody));
         }
 
         // Save Result
@@ -116,11 +105,79 @@ public class PixelcutService
 
     private void AddHeaders(HttpClient client, string job)
     {
-        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "https://create.pixelcut.ai");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("Referer", "https://create.pixelcut.ai/");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("x-client-version", "web");
-        client.DefaultRequestHeaders.TryAddWithoutValidation("x-platform", "web");
+        if (!string.IsNullOrEmpty(ApiKey))
+        {
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", ApiKey);
+        }
+    }
+
+    private string MapErrorToFriendlyMessage(HttpStatusCode statusCode, string? content = null)
+    {
+        if (!string.IsNullOrEmpty(content))
+        {
+            if (content.Contains("insufficient", StringComparison.OrdinalIgnoreCase) || 
+                content.Contains("credit", StringComparison.OrdinalIgnoreCase))
+                return "Kredit Habis (Isi saldo API Anda)";
+        }
+
+        return statusCode switch
+        {
+            HttpStatusCode.Unauthorized => "API Key Salah (Cek Pengaturan)",
+            HttpStatusCode.PaymentRequired => "Kredit Habis (Isi saldo API Anda)",
+            HttpStatusCode.Forbidden => "Akses Ditolak (API Key tidak diizinkan)",
+            HttpStatusCode.TooManyRequests => "Terlalu Cepat (Tunggu 1 menit)",
+            HttpStatusCode.InternalServerError => "Server Pixa Sibuk (Coba lagi nanti)",
+            HttpStatusCode.BadGateway => "Server Pixa Gangguan (Coba lagi nanti)",
+            HttpStatusCode.ServiceUnavailable => "Server Pixa Down (Coba lagi nanti)",
+            _ => $"Gagal (HTTP {(int)statusCode})"
+        };
+    }
+
+    public async Task<string> GetCreditsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ApiKey)) return null;
+
+        try
+        {
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+            AddHeaders(client, "credits");
+
+            var response = await client.GetAsync("https://api.developer.pixelcut.ai/v1/credits");
+            var json = await response.Content.ReadAsStringAsync();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+                    
+                    if (root.TryGetProperty("credits_remaining", out var creditsElement) || 
+                        root.TryGetProperty("creditsRemaining", out creditsElement) ||
+                        root.TryGetProperty("credits", out creditsElement))
+                    {
+                        return creditsElement.GetDouble().ToString("N0");
+                    }
+                    return "Format Data Berubah";
+                }
+                catch
+                {
+                    return "Gagal Membaca Data";
+                }
+            }
+            else
+            {
+                return MapErrorToFriendlyMessage(response.StatusCode, json);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (ex is TaskCanceledException || ex is HttpRequestException)
+                return "Koneksi Gagal (Cek Internet)";
+                
+            return "Error Koneksi";
+        }
     }
 
     private string GetResultPath(string input, string job)

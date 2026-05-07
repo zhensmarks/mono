@@ -169,16 +169,16 @@
                         <Grid>
                             <!-- Dynamic column: 1 col when single, 2 cols when double -->
                             <Grid ColumnDefinitions="*" IsVisible="{Binding !BatchVM.IsSecondLogoVisible}">
-                                <!-- SLOT 1 ONLY (Full Width) -->
-                                <Grid Grid.Column="0" RowDefinitions="*, Auto">
-                                    <Border Grid.Row="0" Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="0" Padding="4" MinHeight="100"
+                                <!-- SLOT 1 ONLY (Full Width) — tombol di kanan -->
+                                <Grid Grid.Column="0" ColumnDefinitions="*, Auto">
+                                    <Border Grid.Column="0" Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="0" Padding="4" MinHeight="100"
                                             DragDrop.AllowDrop="True" DragDrop.Drop="OnLogo1Drop" DragDrop.DragOver="OnDragOver" ToolTip.Tip="Logo Utama (Drag &amp; Drop)">
                                          <Grid>
                                              <TextBlock Text="[Logo Utama]&#xa;Drop Di Sini" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding BatchVM.SchoolLogoImage, Converter={x:Static ObjectConverters.IsNull}}"/>
                                              <Image Source="{Binding BatchVM.SchoolLogoImage}" Stretch="Uniform" Margin="4"/>
                                          </Grid>
                                     </Border>
-                                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" Margin="0,6,0,0">
+                                    <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center" Spacing="4" Margin="6,0,0,0">
                                         <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="1" ToolTip.Tip="Copy Logo" Background="Transparent" BorderThickness="1" BorderBrush="#30FFFFFF" Padding="6" CornerRadius="0" Cursor="Hand">
                                             <PathIcon Data="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" Width="10" Height="10" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                         </Button>
