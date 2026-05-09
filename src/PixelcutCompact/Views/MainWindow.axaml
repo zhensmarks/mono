@@ -63,12 +63,12 @@
                  <!-- Drag Area (Moved to background) -->
                  <Panel Grid.Column="0" Grid.ColumnSpan="3" Background="Transparent" PointerPressed="OnHeaderPointerPressed" />
                  
-                 <!-- Title / Network Status -->
-                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="15,0,0,0" VerticalAlignment="Center">
-                     <Ellipse Width="10" Height="10" Fill="{Binding IsVpnActive, Converter={StaticResource BooleanToStatusBrushConverter}}"/>
-                     <TextBlock Text="{Binding VpnStatus}" FontSize="12" FontWeight="SemiBold"
-                                Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                  </StackPanel>
+                  <!-- Title / VPN Status -->
+                   <StackPanel Orientation="Horizontal" Spacing="8" Margin="15,0,0,0" VerticalAlignment="Center">
+                      <Ellipse Width="10" Height="10" Fill="{Binding IsVpnActive, Converter={StaticResource BooleanToStatusBrushConverter}}"/>
+                      <TextBlock Text="{Binding VpnStatus}" FontSize="12" FontWeight="SemiBold"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                   </StackPanel>
     
                  <!-- Window Controls (Right aligned) -->
                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
@@ -431,6 +431,33 @@
                                                              AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="120" Padding="8,6"/>
                                                 </Grid>
 
+                                                <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,4,0,4"/>
+                                                <TextBlock Text="Browser"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <TextBlock Text="Browser Playwright digunakan untuk proses Remove BG via web. Reset sesi akan menutup browser yang sedang idle — sesi baru dibuat otomatis saat proses berikutnya dimulai."
+                                                           FontSize="10"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextWrapping="Wrap"/>
+
+                                                <Grid ColumnDefinitions="160, *">
+                                                    <TextBlock Grid.Column="0" Text="Reset Sesi Browser" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                                                    <Button Grid.Column="1" Command="{Binding ResetBrowserCommand}"
+                                                            Width="220" HorizontalAlignment="Right" Height="28"
+                                                            Content="🔄 Reset Browser Session"
+                                                            ToolTip.Tip="Tutup browser Playwright yang idle. Browser fresh akan dibuat saat proses berikutnya."/>
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="160, *">
+                                                    <TextBlock Grid.Column="0" Text="Tampilkan Browser" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowBrowser}" 
+                                                                  OnContent="Tampil" OffContent="Tersembunyi"
+                                                                  HorizontalAlignment="Right" />
+                                                </Grid>
+
                                                 <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2,0,2"/>
                                                 <TextBlock Text="Tampilan Warna"
                                                            FontSize="12"
@@ -549,8 +576,6 @@
                         <Button Command="{Binding ShowSettingsCommand}" Background="Transparent" Padding="4" ToolTip.Tip="Pengaturan">
                             <PathIcon Data="{StaticResource IconSettings}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </Button>
-                        
-                        <!-- Moved to Header -->
                     </StackPanel>
                     
                     <!-- Right Actions -->

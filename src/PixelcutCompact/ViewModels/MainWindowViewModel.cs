@@ -16,9 +16,6 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using PixelcutCompact.Views;
 using System.Net.NetworkInformation;
-using System.Net.Sockets;
-using System.Net;
-using System.Runtime.InteropServices;
 
 namespace PixelcutCompact.ViewModels;
 
@@ -27,7 +24,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly PixelcutService _pixelcutService = new();
     private readonly SettingsService _settingsService = new();
     private CancellationTokenSource? _cts;
-    private System.Timers.Timer? _vpnMonitorTimer;
+    private System.Timers.Timer? _vpnCheckTimer;
 
     // Settings dialog state (Save/Close UX)
     [ObservableProperty] private bool _isSettingsDirty;
@@ -41,6 +38,7 @@ public partial class MainWindowViewModel : ObservableObject
     private string _snapshotRembgExecutablePath = "";
     private bool _snapshotMixProxyEnabled;
     private string _snapshotMixProxyList = "";
+    private bool _snapshotShowBrowser;
     
     [ObservableProperty] private ObservableCollection<PixelcutFileItem> _files = new();
     [ObservableProperty] private bool _hasFiles;
@@ -60,7 +58,9 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _rembgExecutablePath = "";
     [ObservableProperty] private bool _mixProxyEnabled;
     [ObservableProperty] private string _mixProxyList = "";
-    
+    [ObservableProperty] private bool _showBrowser;
+
+
     [ObservableProperty] private bool _useWebMode = true;
     
     // We bind the UI to this property. When user edits this, we verify which mode we are in and save to the correct field.
@@ -106,7 +106,6 @@ public partial class MainWindowViewModel : ObservableObject
         RembgExecutablePath = settings.RembgExecutablePath ?? "";
         MixProxyEnabled = settings.MixProxyEnabled;
         MixProxyList = settings.MixProxyList ?? "";
-        
         _customDarkBackground = settings.CustomDarkBackground;
         _customLightBackground = settings.CustomLightBackground;
 
@@ -122,7 +121,14 @@ public partial class MainWindowViewModel : ObservableObject
         _pixelcutService.RembgExecutablePath = string.IsNullOrWhiteSpace(RembgExecutablePath) ? null : RembgExecutablePath;
         _pixelcutService.MixProxyEnabled = MixProxyEnabled;
         _pixelcutService.MixProxyList = MixProxyList;
-        SetupVpnMonitoring();
+        _pixelcutService.ShowBrowser = settings.ShowBrowser;
+        ShowBrowser = settings.ShowBrowser;
+
+        // Start periodic VPN status check (every 5 seconds)
+        CheckVpnStatus();
+        _vpnCheckTimer = new System.Timers.Timer(5000);
+        _vpnCheckTimer.Elapsed += (s, e) => Dispatcher.UIThread.Post(CheckVpnStatus);
+        _vpnCheckTimer.Start();
     }
     
     partial void OnUseWebModeChanged(bool value)
@@ -135,6 +141,13 @@ public partial class MainWindowViewModel : ObservableObject
         }
         _pixelcutService.UseWebMode = true;
         SaveSettings();
+    }
+
+    partial void OnShowBrowserChanged(bool value)
+    {
+        _pixelcutService.ShowBrowser = value;
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
     }
 
     public IReadOnlyList<string> RemoveBgEngines { get; } = new[] { "PIXA", "REMBG", "NOBG_SPACE" };
@@ -233,6 +246,53 @@ public partial class MainWindowViewModel : ObservableObject
     {
         await Task.CompletedTask;
     }
+
+    private void CheckVpnStatus()
+    {
+        try
+        {
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces();
+            var vpnKeywords = new[] { "vpn", "tap", "ppp", "wintun", "wireguard", "openvpn", "avira", "nordvpn", "expressvpn", "protonvpn", "hotspot" };
+            var macSystemInterfaces = new[] { "utun", "llw", "awdl", "bridge", "ap", "anpi", "gif", "stf", "ipsec" };
+
+            foreach (var iface in interfaces)
+            {
+                if (iface.OperationalStatus != OperationalStatus.Up) continue;
+                var name = iface.Name.ToLower();
+                var desc = iface.Description.ToLower();
+
+                if (OperatingSystem.IsMacOS() && macSystemInterfaces.Any(si => name.StartsWith(si)))
+                    continue;
+
+                if (vpnKeywords.Any(kw => name.Contains(kw) || desc.Contains(kw)))
+                {
+                    IsVpnActive = true;
+                    VpnStatus = $"VPN Aktif ({iface.Name})";
+                    return;
+                }
+
+                if (name == "tun0" || name == "tun1" || name == "tap0" || name == "tap1")
+                {
+                    IsVpnActive = true;
+                    VpnStatus = $"VPN Aktif ({iface.Name})";
+                    return;
+                }
+            }
+
+            IsVpnActive = false;
+            VpnStatus = "Koneksi Langsung";
+        }
+        catch
+        {
+            IsVpnActive = false;
+            VpnStatus = "Koneksi Langsung";
+        }
+    }
+
+    // Warna dot status VPN di header
+    public IBrush ConnectionStatusBrush => IsVpnActive ? SolidColorBrush.Parse("#10B981") : SolidColorBrush.Parse("#EF4444");
+    partial void OnIsVpnActiveChanged(bool value) => OnPropertyChanged(nameof(ConnectionStatusBrush));
+
 
     partial void OnIsDarkThemeChanged(bool value)
     {
@@ -370,6 +430,7 @@ public partial class MainWindowViewModel : ObservableObject
         settings.RembgExecutablePath = string.IsNullOrWhiteSpace(RembgExecutablePath) ? null : RembgExecutablePath.Trim();
         settings.MixProxyEnabled = MixProxyEnabled;
         settings.MixProxyList = MixProxyList;
+        settings.ShowBrowser = ShowBrowser;
         settings.CustomDarkBackground = _customDarkBackground;
         settings.CustomLightBackground = _customLightBackground;
 
@@ -395,7 +456,8 @@ public partial class MainWindowViewModel : ObservableObject
             !string.Equals(RembgModel ?? "", _snapshotRembgModel, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(RembgExecutablePath ?? "", _snapshotRembgExecutablePath, StringComparison.OrdinalIgnoreCase) ||
             MixProxyEnabled != _snapshotMixProxyEnabled ||
-            !string.Equals(MixProxyList ?? "", _snapshotMixProxyList, StringComparison.OrdinalIgnoreCase);
+            !string.Equals(MixProxyList ?? "", _snapshotMixProxyList, StringComparison.OrdinalIgnoreCase) ||
+            ShowBrowser != _snapshotShowBrowser;
     }
 
     private void TakeSettingsSnapshot()
@@ -409,6 +471,7 @@ public partial class MainWindowViewModel : ObservableObject
         _snapshotRembgExecutablePath = RembgExecutablePath ?? "";
         _snapshotMixProxyEnabled = MixProxyEnabled;
         _snapshotMixProxyList = MixProxyList ?? "";
+        _snapshotShowBrowser = ShowBrowser;
     }
 
     private void RevertSettingsToSnapshot()
@@ -424,13 +487,10 @@ public partial class MainWindowViewModel : ObservableObject
             RembgExecutablePath = _snapshotRembgExecutablePath;
             MixProxyEnabled = _snapshotMixProxyEnabled;
             MixProxyList = _snapshotMixProxyList;
+            ShowBrowser = _snapshotShowBrowser;
         }
-        finally
-        {
-            _isRevertingSettings = false;
-        }
+        finally { _isRevertingSettings = false; }
 
-        // Ensure background is consistent after revert
         if (!string.IsNullOrEmpty(_snapshotBackgroundHex))
             ApplyBackgroundColor(_snapshotBackgroundHex);
         else
@@ -726,6 +786,9 @@ public partial class MainWindowViewModel : ObservableObject
         return "PIXA";
     }
 
+    /// <summary>Fired saat item baru mulai diproses — View subscribe untuk auto-scroll ke item tersebut.</summary>
+    public event Action<PixelcutFileItem>? ScrollToItemRequested;
+
     private async Task ProcessQueue(string job)
     {
         if (IsProcessing) return;
@@ -739,13 +802,10 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            // Simple loop
             while (!_stopRequested)
             {
                 if (IsPaused) { await Task.Delay(500); continue; }
 
-                // Find first item that is not Done and not Failed (Wait state)
-                // Since we clear status for retries, check flags
                 var item = Files.FirstOrDefault(x => !x.IsDone && !x.IsFailed && !x.IsProcessing);
                 if (item == null) break;
 
@@ -762,8 +822,7 @@ public partial class MainWindowViewModel : ObservableObject
             _cts?.Dispose();
             _cts = null;
             CheckRetryVisibility();
-            // API mode removed
-            
+
             if (!_stopRequested)
             {
                 var success = Files.Count(x => x.IsDone && x.ResultSize >= 500);
@@ -774,10 +833,9 @@ public partial class MainWindowViewModel : ObservableObject
                 sb.AppendLine("Proses Selesai!");
                 sb.AppendLine();
                 sb.AppendLine($"✅ Berhasil: {success}");
-                
                 if (small > 0) sb.AppendLine($"⚠️ File Kecil (<500b): {small}");
                 if (failed > 0) sb.AppendLine($"❌ Gagal: {failed}");
-                
+
                 AlertMessage = sb.ToString().Trim();
                 IsAlertOpen = true;
             }
@@ -786,8 +844,10 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task ProcessItem(PixelcutFileItem item, string job, CancellationToken ct)
     {
-        // Don't set text "Memproses..."
-        item.Status = ""; 
+        // Auto-scroll to this item in the file list
+        ScrollToItemRequested?.Invoke(item);
+
+        item.Status = "";
         item.IsProcessing = true;
         item.Progress = 0;
         item.IsFailed = false;
@@ -913,115 +973,15 @@ public partial class MainWindowViewModel : ObservableObject
         Console.WriteLine($"[PixelcutCompact] {msg}");
     }
     
-    private void RefreshVpnStatus()
-    {
-        try
-        {
-            // Determine which interface would be used for internet routing.
-            // This avoids false positives where a VPN adapter exists but is not connected.
-            var routed = GetRoutedInterface();
-            var active = routed != null && IsVpnLike(routed);
 
-            IsVpnActive = active;
-            VpnStatus = active ? "VPN Aktif" : "Koneksi Lokal";
-        }
-        catch
-        {
-            IsVpnActive = false;
-            VpnStatus = "Koneksi Lokal";
-        }
+    [RelayCommand]
+    private void ResetBrowser()
+    {
+        _pixelcutService.ResetWebAutomation();
+        AppendLog("Browser direset — sesi baru akan dibuat saat proses berikutnya.");
+        ShowToast("Browser direset ✓", "🔄");
     }
 
-    private void SetupVpnMonitoring()
-    {
-        RefreshVpnStatus();
-
-        try
-        {
-            NetworkChange.NetworkAddressChanged += (_, _) => Dispatcher.UIThread.Post(RefreshVpnStatus);
-            NetworkChange.NetworkAvailabilityChanged += (_, _) => Dispatcher.UIThread.Post(RefreshVpnStatus);
-        }
-        catch { }
-
-        try
-        {
-            _vpnMonitorTimer?.Stop();
-            _vpnMonitorTimer?.Dispose();
-            _vpnMonitorTimer = new System.Timers.Timer(2000);
-            _vpnMonitorTimer.AutoReset = true;
-            _vpnMonitorTimer.Elapsed += (_, _) => Dispatcher.UIThread.Post(RefreshVpnStatus);
-            _vpnMonitorTimer.Start();
-        }
-        catch { }
-    }
-
-    private static NetworkInterface? GetRoutedInterface()
-    {
-        if (!OperatingSystem.IsWindows())
-            return null;
-
-        try
-        {
-            // Pick a stable public IP to test routing (Google DNS).
-            var dest = new SockAddrIn { sin_family = 2 /*AF_INET*/, sin_port = 0, sin_addr = 0x08080808 /*8.8.8.8 in BE*/ };
-            uint ifIndex;
-            var res = GetBestInterfaceEx(ref dest, out ifIndex);
-            if (res != 0) return null;
-
-            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                try
-                {
-                    var ipv4 = ni.GetIPProperties().GetIPv4Properties();
-                    if (ipv4 != null && (uint)ipv4.Index == ifIndex)
-                        return ni;
-                }
-                catch { }
-            }
-        }
-        catch { }
-
-        return null;
-    }
-
-    private static bool IsVpnLike(NetworkInterface ni)
-    {
-        var raw = $"{ni.Name} {ni.Description}".ToLowerInvariant();
-
-        // Exclude common Windows pseudo-tunnels
-        if (raw.Contains("teredo") || raw.Contains("isatap") || raw.Contains("6to4"))
-            return false;
-
-        return
-            ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel ||
-            ni.NetworkInterfaceType == NetworkInterfaceType.Ppp ||
-            raw.Contains("warp") ||
-            raw.Contains("avira") ||
-            raw.Contains("phantom") ||
-            raw.Contains("wireguard") ||
-            raw.Contains("openvpn") ||
-            raw.Contains("tailscale") ||
-            raw.Contains("zerotier") ||
-            raw.Contains("proton") ||
-            raw.Contains("nord") ||
-            raw.Contains("expressvpn") ||
-            raw.Contains("surfshark") ||
-            raw.Contains("vpn");
-    }
-
-    // ---- Windows routing helper (iphlpapi) ----
-    [StructLayout(LayoutKind.Sequential)]
-    private struct SockAddrIn
-    {
-        public short sin_family;
-        public ushort sin_port;
-        public uint sin_addr;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
-        public byte[]? sin_zero;
-    }
-
-    [DllImport("iphlpapi.dll", SetLastError = true)]
-    private static extern int GetBestInterfaceEx(ref SockAddrIn pDestAddr, out uint pdwBestIfIndex);
 
     private void ShowToast(string message, string icon = "✅")
     {

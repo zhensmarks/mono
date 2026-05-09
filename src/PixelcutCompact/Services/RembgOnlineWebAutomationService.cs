@@ -10,14 +10,16 @@ namespace PixelcutCompact.Services;
 public sealed class RembgOnlineWebAutomationService : IDisposable
 {
     private readonly string? _proxyServer;
+    private readonly bool _showBrowser;
     private IPlaywright? _playwright;
     private IBrowser? _browser;
     private IPage? _page;
     private bool _isInitialized;
 
-    public RembgOnlineWebAutomationService(string? proxyServer = null)
+    public RembgOnlineWebAutomationService(string? proxyServer = null, bool showBrowser = false)
     {
         _proxyServer = string.IsNullOrWhiteSpace(proxyServer) ? null : proxyServer.Trim();
+        _showBrowser = showBrowser;
     }
 
     public async Task InitializeAsync()
@@ -38,7 +40,7 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
         {
             return await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
             {
-                Headless = true,
+                Headless = !_showBrowser,
                 Channel = channel,
                 Args = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" },
                 Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer }
@@ -48,7 +50,7 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
         {
             return await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
             {
-                Headless = true,
+                Headless = !_showBrowser,
                 Args = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" },
                 Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer }
             });

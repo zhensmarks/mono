@@ -1,6 +1,6 @@
-using Avalonia;
 using System;
 using System.Collections.Generic;
+
 
 namespace PixelcutCompact.Models;
 
@@ -16,6 +16,7 @@ public class AppSettings
     public string AccentColor { get; set; } = "#3b82f6";
     public string? CustomDarkBackground { get; set; }
     public string? CustomLightBackground { get; set; }
+    public string? ProxyAddress { get; set; }
     public string? PixaApiKey { get; set; }
     public List<PixaAccount> PixaAccounts { get; set; } = new();
     public Guid? ActiveAccountId { get; set; }
@@ -25,4 +26,6 @@ public class AppSettings
     public string? RembgExecutablePath { get; set; }
     public bool MixProxyEnabled { get; set; }
     public string? MixProxyList { get; set; }
+    public bool ShowBrowser { get; set; }
 }
+

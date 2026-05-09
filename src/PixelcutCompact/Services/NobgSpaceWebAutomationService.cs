@@ -10,14 +10,16 @@ namespace PixelcutCompact.Services;
 public sealed class NobgSpaceWebAutomationService : IDisposable
 {
     private readonly string? _proxyServer;
+    private readonly bool _showBrowser;
     private IPlaywright? _playwright;
     private IBrowser? _browser;
     private IPage? _page;
     private bool _isInitialized;
 
-    public NobgSpaceWebAutomationService(string? proxyServer = null)
+    public NobgSpaceWebAutomationService(string? proxyServer = null, bool showBrowser = false)
     {
         _proxyServer = string.IsNullOrWhiteSpace(proxyServer) ? null : proxyServer.Trim();
+        _showBrowser = showBrowser;
     }
 
     public async Task InitializeAsync()
@@ -49,7 +51,7 @@ public sealed class NobgSpaceWebAutomationService : IDisposable
         {
             return await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
             {
-                Headless = true,
+                Headless = !_showBrowser,
                 Channel = channel,
                 Args = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" },
                 Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer }
@@ -59,7 +61,7 @@ public sealed class NobgSpaceWebAutomationService : IDisposable
         {
             return await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
             {
-                Headless = true,
+                Headless = !_showBrowser,
                 Args = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" },
                 Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer }
             });

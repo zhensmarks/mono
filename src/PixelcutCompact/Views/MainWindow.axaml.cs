@@ -1,7 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using System;
+using System.Threading.Tasks;
 using PixelcutCompact.ViewModels;
 using PixelcutCompact.Services;
 using Avalonia;
@@ -27,6 +29,20 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         
         Closing += OnClosing;
+        Loaded += OnMainWindowLoaded;
+    }
+
+    private void OnMainWindowLoaded(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm)
+        {
+            vm.ScrollToItemRequested += item =>
+            {
+                // Auto-scroll the file list to the currently processing item
+                var listBox = this.FindControl<ListBox>("FileListBox");
+                listBox?.ScrollIntoView(item);
+            };
+        }
     }
 
     private void LoadWindowSettings()

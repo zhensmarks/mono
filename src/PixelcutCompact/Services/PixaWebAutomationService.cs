@@ -12,16 +12,22 @@ namespace PixelcutCompact.Services;
 public class PixaWebAutomationService : IDisposable
 {
     private readonly string? _proxyServer;
+    private readonly bool _showBrowser;
     private IPlaywright? _playwright;
     private IBrowser? _browser;
     private IBrowserContext? _context;
     private IPage? _page;
     private bool _isInitialized;
     private string? _resolvedBrowserChannel;
+    public bool MixProxyEnabled { get; set; }
+    public string? MixProxyList { get; set; }
+    public bool ShowBrowser { get; set; }
 
-    public PixaWebAutomationService(string? proxyServer = null)
+    public PixaWebAutomationService(string? proxyServer = null, bool showBrowser = false)
     {
         _proxyServer = string.IsNullOrWhiteSpace(proxyServer) ? null : proxyServer.Trim();
+        _showBrowser = showBrowser;
+        ShowBrowser = showBrowser;
     }
 
     public async Task InitializeAsync()
@@ -67,63 +73,47 @@ public class PixaWebAutomationService : IDisposable
     }
     private async Task LaunchBrowserAsync()
     {
-        if (_playwright == null) return;
-
         var preferredChannel = DetectDefaultBrowserChannel();
-        var baseArgs = new[]
+        var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "BrowserProfile");
+        
+        if (!Directory.Exists(userDataDir)) Directory.CreateDirectory(userDataDir);
+
+        var baseArgs = new List<string>
         {
             "--disable-blink-features=AutomationControlled",
             "--no-sandbox",
             "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--disable-software-rasterizer",
+            "--disable-web-security",
             "--mute-audio"
         };
 
-        async Task<IBrowser> LaunchCoreAsync(string? channel)
+        var opts = new BrowserTypeLaunchPersistentContextOptions
         {
-            var opts = new BrowserTypeLaunchOptions
-            {
-                Headless = true,
-                Channel = channel,
-                Args = baseArgs,
-                Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer }
-            };
-            return await _playwright.Chromium.LaunchAsync(opts);
-        }
+            Headless = !_showBrowser,
+            Channel = preferredChannel,
+            Args = baseArgs,
+            Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer },
+            ViewportSize = new ViewportSize { Width = 1280, Height = 800 },
+            UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        };
 
-        bool shouldFallback = false;
-        try
+        try 
         {
-            _browser = await LaunchCoreAsync(preferredChannel);
+            _context = await _playwright!.Chromium.LaunchPersistentContextAsync(userDataDir, opts);
             _resolvedBrowserChannel = preferredChannel ?? "chromium";
-            _context = await _browser.NewContextAsync();
         }
         catch (Exception ex)
         {
-            var msg = ex.Message ?? "";
-            shouldFallback =
-                !string.IsNullOrEmpty(preferredChannel) &&
-                (msg.Contains("Process exited", StringComparison.OrdinalIgnoreCase) ||
-                 msg.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase) ||
-                 msg.Contains("Target page, context or browser has been closed", StringComparison.OrdinalIgnoreCase));
-
-            if (!shouldFallback) throw;
+            // Fallback jika browser channel bermasalah (misal edge/chrome tidak ada)
+            if (!string.IsNullOrEmpty(preferredChannel))
+            {
+                opts.Channel = null;
+                _context = await _playwright!.Chromium.LaunchPersistentContextAsync(userDataDir, opts);
+                _resolvedBrowserChannel = "chromium";
+            }
+            else throw;
         }
 
-        if (shouldFallback)
-        {
-            try { await _browser?.CloseAsync()!; } catch { }
-            try { await _context?.CloseAsync()!; } catch { }
-            _browser = null;
-            _context = null;
-
-            Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
-            _browser = await LaunchCoreAsync(null);
-            _resolvedBrowserChannel = "chromium";
-            _context = await _browser.NewContextAsync();
-        }
-        
         if (_context == null)
             throw new Exception("Browser context gagal dibuat.");
 

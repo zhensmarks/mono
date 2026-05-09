@@ -26,6 +26,7 @@ public class PixelcutService : IDisposable
     public string? RembgExecutablePath { get; set; }
     public bool MixProxyEnabled { get; set; }
     public string? MixProxyList { get; set; }
+    public bool ShowBrowser { get; set; }
 
     private PixaWebAutomationService? _webAutomation;
     private NobgSpaceWebAutomationService? _nobgWebAutomation;
@@ -34,6 +35,19 @@ public class PixelcutService : IDisposable
 
     public PixelcutService()
     {
+    }
+
+    /// <summary>Dispose browser instance saat ini. Browser fresh akan dibuat otomatis saat proses berikutnya dimulai.</summary>
+    public void ResetWebAutomation()
+    {
+        try { _webAutomation?.Dispose(); } catch { }
+        _webAutomation = null;
+
+        try { _nobgWebAutomation?.Dispose(); } catch { }
+        _nobgWebAutomation = null;
+
+        try { _rembgOnlineWebAutomation?.Dispose(); } catch { }
+        _rembgOnlineWebAutomation = null;
     }
 
     public async Task InitializeAsync()
@@ -75,7 +89,7 @@ public class PixelcutService : IDisposable
     {
         if (_webAutomation == null)
         {
-            _webAutomation = new PixaWebAutomationService();
+            _webAutomation = new PixaWebAutomationService(null, ShowBrowser);
             await _webAutomation.InitializeAsync();
         }
 
@@ -84,7 +98,7 @@ public class PixelcutService : IDisposable
         {
             resultBytes = await ProcessWithProxyRetriesAsync(async proxy =>
             {
-                using var svc = new PixaWebAutomationService(proxy);
+                using var svc = new PixaWebAutomationService(proxy, ShowBrowser);
                 await svc.InitializeAsync();
                 return await svc.ProcessImageAsync(item.FilePath, job, ct);
             });
@@ -113,7 +127,7 @@ public class PixelcutService : IDisposable
         {
             resultBytes = await ProcessWithProxyRetriesAsync(async proxy =>
             {
-                using var svc = new NobgSpaceWebAutomationService(proxy);
+                using var svc = new NobgSpaceWebAutomationService(proxy, ShowBrowser);
                 await svc.InitializeAsync();
                 return await svc.ProcessImageAsync(item.FilePath, job, ct);
             });
@@ -122,7 +136,7 @@ public class PixelcutService : IDisposable
         {
             if (_nobgWebAutomation == null)
             {
-                _nobgWebAutomation = new NobgSpaceWebAutomationService();
+                _nobgWebAutomation = new NobgSpaceWebAutomationService(null, ShowBrowser);
                 await _nobgWebAutomation.InitializeAsync();
             }
             resultBytes = await _nobgWebAutomation.ProcessImageAsync(item.FilePath, job, ct);
@@ -139,7 +153,7 @@ public class PixelcutService : IDisposable
         {
             resultBytes = await ProcessWithProxyRetriesAsync(async proxy =>
             {
-                using var svc = new RembgOnlineWebAutomationService(proxy);
+                using var svc = new RembgOnlineWebAutomationService(proxy, ShowBrowser);
                 await svc.InitializeAsync();
                 return await svc.ProcessImageAsync(item.FilePath, job, ct);
             });
@@ -148,7 +162,7 @@ public class PixelcutService : IDisposable
         {
             if (_rembgOnlineWebAutomation == null)
             {
-                _rembgOnlineWebAutomation = new RembgOnlineWebAutomationService();
+                _rembgOnlineWebAutomation = new RembgOnlineWebAutomationService(null, ShowBrowser);
                 await _rembgOnlineWebAutomation.InitializeAsync();
             }
             resultBytes = await _rembgOnlineWebAutomation.ProcessImageAsync(item.FilePath, job, ct);
