@@ -9,6 +9,7 @@ using System.Diagnostics;
 using PixelcutCompact.Models;
 using PixelcutCompact.Services;
 using System.Collections.Generic;
+using System.Text;
 using Avalonia.Threading;
 using System.Threading;
 using Avalonia;
@@ -39,10 +40,16 @@ public partial class MainWindowViewModel : ObservableObject
     private bool _snapshotMixProxyEnabled;
     private string _snapshotMixProxyList = "";
     private bool _snapshotShowBrowser;
+    private bool _snapshotUseGpuForRembg;
+    private bool _snapshotAlphaMattingEnabled;
+    private int _snapshotAlphaMattingErodeSize;
+    private int _snapshotAlphaMattingForegroundThreshold;
+    private int _snapshotAlphaMattingBackgroundThreshold;
     
     [ObservableProperty] private ObservableCollection<PixelcutFileItem> _files = new();
     [ObservableProperty] private bool _hasFiles;
     [ObservableProperty] private bool _isProcessing;
+    public int FilesCount => Files.Count;
     [ObservableProperty] private string _vpnStatus = "Memeriksa...";
     [ObservableProperty] private bool _isVpnActive;
     [ObservableProperty] private string _logOutput = "";
@@ -59,7 +66,11 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _mixProxyEnabled;
     [ObservableProperty] private string _mixProxyList = "";
     [ObservableProperty] private bool _showBrowser;
-
+    [ObservableProperty] private bool _useGpuForRembg;
+    [ObservableProperty] private bool _alphaMattingEnabled;
+    [ObservableProperty] private int _alphaMattingErodeSize = 10;
+    [ObservableProperty] private int _alphaMattingForegroundThreshold = 240;
+    [ObservableProperty] private int _alphaMattingBackgroundThreshold = 10;
 
     [ObservableProperty] private bool _useWebMode = true;
     
@@ -72,6 +83,152 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand] private void CloseAlert() => IsAlertOpen = false;
     [ObservableProperty] private bool _isModePickerOpen;
     [RelayCommand] private void ToggleModePicker() => IsModePickerOpen = !IsModePickerOpen;
+
+    // Allowed Paths Sesi (RAM Cache)
+    private readonly HashSet<string> _allowedPaths = new(StringComparer.OrdinalIgnoreCase);
+    private string[]? _pendingPaths;
+
+    private string NormalizePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "";
+        return path.Replace('/', '\\').TrimEnd('\\');
+    }
+
+    // Confirm Import Overlay
+    [ObservableProperty] private bool _isConfirmImportOpen;
+    [ObservableProperty] private string _confirmImportMessage = "";
+
+    [RelayCommand]
+    private async Task AllowImport()
+    {
+        IsConfirmImportOpen = false;
+        if (_pendingPaths == null || _pendingPaths.Length == 0) return;
+
+        IsProcessing = true;
+        try
+        {
+            var pathsToScan = new List<string>();
+            foreach (var path in _pendingPaths)
+            {
+                var normalizedPath = NormalizePath(path);
+                _allowedPaths.Add(normalizedPath);
+
+                // Jika path adalah file, izinkan juga folder induknya
+                if (File.Exists(path))
+                {
+                    var dir = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(dir))
+                    {
+                        _allowedPaths.Add(NormalizePath(dir));
+                    }
+                }
+                else if (Directory.Exists(path))
+                {
+                    _allowedPaths.Add(normalizedPath);
+                }
+
+                pathsToScan.Add(path);
+            }
+            await ScanAndAddPathsAsync(pathsToScan);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error import: {ex.Message}");
+        }
+        finally
+        {
+            _pendingPaths = null;
+            IsProcessing = _cts != null;
+            CheckRetryVisibility();
+        }
+    }
+
+    [RelayCommand]
+    private void CancelImport()
+    {
+        _pendingPaths = null;
+        IsConfirmImportOpen = false;
+    }
+
+    private int CalculateLevenshteinDistance(string s, string t)
+    {
+        if (string.IsNullOrEmpty(s)) return t?.Length ?? 0;
+        if (string.IsNullOrEmpty(t)) return s.Length;
+
+        int n = s.Length;
+        int m = t.Length;
+        int[,] d = new int[n + 1, m + 1];
+
+        for (int i = 0; i <= n; d[i, 0] = i++) { }
+        for (int j = 0; j <= m; d[0, j] = j++) { }
+
+        for (int i = 1; i <= n; i++)
+        {
+            for (int j = 1; j <= m; j++)
+            {
+                int cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
+                d[i, j] = Math.Min(
+                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                    d[i - 1, j - 1] + cost);
+            }
+        }
+        return d[n, m];
+    }
+
+    private bool IsPilihanFolderMatch(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        var clean = name.Trim().ToLowerInvariant();
+
+        // Layer 1: Containment check for "pilih"
+        if (clean.Contains("pilih")) return true;
+
+        // Layer 2: Fuzzy Levenshtein distance <= 2 with "pilihan"
+        if (clean.Length >= 4)
+        {
+            int dist = CalculateLevenshteinDistance(clean, "pilihan");
+            if (dist <= 2) return true;
+        }
+
+        return false;
+    }
+
+    private bool IsAlreadyInsidePilihanFolder(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        try
+        {
+            string? current = File.Exists(path) ? Path.GetDirectoryName(path) : path;
+            while (!string.IsNullOrEmpty(current))
+            {
+                var dirName = Path.GetFileName(current);
+                if (IsPilihanFolderMatch(dirName)) return true;
+                current = Path.GetDirectoryName(current);
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    private bool IsPathInAllowedCache(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        try
+        {
+            string? current = NormalizePath(path);
+            while (!string.IsNullOrEmpty(current))
+            {
+                if (_allowedPaths.Contains(current)) return true;
+                current = Path.GetDirectoryName(current);
+                if (current != null)
+                {
+                    current = NormalizePath(current);
+                }
+            }
+        }
+        catch { }
+        return false;
+    }
 
     // Toast Notification
     [ObservableProperty] private string _toastMessage = "";
@@ -92,6 +249,58 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _hasSelectedWithResult;
     [ObservableProperty] private bool _isPreviewPaneVisible;
     [ObservableProperty] private PixelcutFileItem? _selectedPreviewItem;
+
+    // Offline Resource Manager
+    [ObservableProperty] private bool _isRembgInstalled;
+    [ObservableProperty] private bool _isInstallingRembg;
+    [ObservableProperty] private double _rembgInstallProgress;
+    [ObservableProperty] private string _rembgInstallStatus = "Belum Terpasang";
+
+    [RelayCommand]
+    private async Task InstallRembgOffline()
+    {
+        IsInstallingRembg = true;
+        RembgInstallStatus = "Mengunduh...";
+        RembgInstallProgress = 0;
+        
+        try
+        {
+            var manager = new RembgResourceManager();
+            var progress = new Progress<InstallProgressInfo>(info => 
+            {
+                RembgInstallProgress = info.Percentage;
+                if (!string.IsNullOrWhiteSpace(info.Message)) 
+                {
+                    // Limit text length if it's from PIP output to avoid UI jitter
+                    var msg = info.Message.Length > 80 ? info.Message.Substring(0, 77) + "..." : info.Message;
+                    RembgInstallStatus = msg;
+                }
+            });
+            
+            await manager.DownloadAndInstallAsync(progress, CancellationToken.None);
+            
+            IsRembgInstalled = true;
+            RembgInstallStatus = "Terpasang";
+        }
+        catch (Exception ex)
+        {
+            RembgInstallStatus = $"Gagal: {ex.Message}";
+        }
+        finally
+        {
+            IsInstallingRembg = false;
+        }
+    }
+
+    [RelayCommand]
+    private void UninstallRembgOffline()
+    {
+        var manager = new RembgResourceManager();
+        manager.Uninstall();
+        IsRembgInstalled = false;
+        RembgInstallStatus = "Belum Terpasang";
+        RembgInstallProgress = 0;
+    }
 
     public MainWindowViewModel()
     {
@@ -123,12 +332,102 @@ public partial class MainWindowViewModel : ObservableObject
         _pixelcutService.MixProxyList = MixProxyList;
         _pixelcutService.ShowBrowser = settings.ShowBrowser;
         ShowBrowser = settings.ShowBrowser;
+        UseGpuForRembg = settings.UseGpuForRembg;
+        _pixelcutService.UseGpuForRembg = UseGpuForRembg;
+
+        AlphaMattingEnabled = settings.AlphaMattingEnabled;
+        AlphaMattingErodeSize = settings.AlphaMattingErodeSize;
+        AlphaMattingForegroundThreshold = settings.AlphaMattingForegroundThreshold;
+        AlphaMattingBackgroundThreshold = settings.AlphaMattingBackgroundThreshold;
+
+        _pixelcutService.AlphaMattingEnabled = AlphaMattingEnabled;
+        _pixelcutService.AlphaMattingErodeSize = AlphaMattingErodeSize;
+        _pixelcutService.AlphaMattingForegroundThreshold = AlphaMattingForegroundThreshold;
+        _pixelcutService.AlphaMattingBackgroundThreshold = AlphaMattingBackgroundThreshold;
 
         // Start periodic VPN status check (every 5 seconds)
         CheckVpnStatus();
         _vpnCheckTimer = new System.Timers.Timer(5000);
         _vpnCheckTimer.Elapsed += (s, e) => Dispatcher.UIThread.Post(CheckVpnStatus);
         _vpnCheckTimer.Start();
+
+        // Check if Rembg Offline is installed
+        var resourceManager = new RembgResourceManager();
+        IsRembgInstalled = resourceManager.IsInstalled();
+        RembgInstallStatus = IsRembgInstalled ? "Terpasang" : "Belum Terpasang";
+
+        // Subscribe to Files collection for auto-refreshing Gallery
+        Files.CollectionChanged += OnFilesCollectionChanged;
+    }
+
+    private void OnFilesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(FilesCount));
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && e.NewItems != null)
+        {
+            foreach (PixelcutFileItem item in e.NewItems)
+            {
+                // Ensure we run on UI thread to update ObservableCollection
+                Dispatcher.UIThread.Post(() =>
+                {
+                    // Add Source
+                    GalleryItems.Add(new GalleryItemViewModel(item, item.FilePath, true));
+                    // Add Result if already processed
+                    if (item.HasResult && File.Exists(item.ResultPath))
+                    {
+                        GalleryItems.Add(new GalleryItemViewModel(item, item.ResultPath, false));
+                    }
+                });
+                
+                // Hook to property changed to auto-add Result when done
+                item.PropertyChanged += OnFileItemPropertyChanged;
+            }
+        }
+        else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove && e.OldItems != null)
+        {
+            foreach (PixelcutFileItem item in e.OldItems)
+            {
+                item.PropertyChanged -= OnFileItemPropertyChanged;
+                
+                Dispatcher.UIThread.Post(() =>
+                {
+                    var toRemove = GalleryItems.Where(g => g.ParentItem == item).ToList();
+                    foreach (var g in toRemove) GalleryItems.Remove(g);
+                });
+            }
+        }
+        else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+        {
+            Dispatcher.UIThread.Post(() => GalleryItems.Clear());
+        }
+    }
+
+    private void OnFileItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PixelcutFileItem.HasResult))
+        {
+            if (sender is PixelcutFileItem item && item.HasResult && File.Exists(item.ResultPath))
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (!GalleryItems.Any(g => g.ParentItem == item && !g.IsSource))
+                    {
+                        var newGalleryItem = new GalleryItemViewModel(item, item.ResultPath, false);
+                        var originalItem = GalleryItems.FirstOrDefault(g => g.ParentItem == item && g.IsSource);
+                        
+                        if (originalItem != null)
+                        {
+                            var idx = GalleryItems.IndexOf(originalItem);
+                            GalleryItems.Insert(idx + 1, newGalleryItem);
+                        }
+                        else
+                        {
+                            GalleryItems.Add(newGalleryItem);
+                        }
+                    }
+                });
+            }
+        }
     }
     
     partial void OnUseWebModeChanged(bool value)
@@ -150,7 +449,7 @@ public partial class MainWindowViewModel : ObservableObject
         MarkSettingsDirty();
     }
 
-    public IReadOnlyList<string> RemoveBgEngines { get; } = new[] { "PIXA", "REMBG", "NOBG_SPACE" };
+    public IReadOnlyList<string> RemoveBgEngines { get; } = new[] { "PIXA", "REMBG", "NOBG_SPACE", "BG_ERASER" };
     public sealed class RemoveBgEngineOption
     {
         public string Value { get; init; } = "PIXA";
@@ -162,7 +461,8 @@ public partial class MainWindowViewModel : ObservableObject
         new RemoveBgEngineOption { Value = "PIXA", Label = "PIXA" },
         new RemoveBgEngineOption { Value = "REMBG", Label = "REMBG (Offline AI)" },
         new RemoveBgEngineOption { Value = "REMBG_ONLINE", Label = "REMBG Online AI (Web)" },
-        new RemoveBgEngineOption { Value = "NOBG_SPACE", Label = "NOBG Space (Web)" }
+        new RemoveBgEngineOption { Value = "NOBG_SPACE", Label = "NOBG Space (Web)" },
+        new RemoveBgEngineOption { Value = "BG_ERASER", Label = "BG Eraser (Web)" }
     };
 
     public RemoveBgEngineOption? SelectedRemoveBgEngineOption
@@ -175,7 +475,20 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    public bool IsPixaSelected => string.Equals(RemoveBgEngine, "PIXA", StringComparison.OrdinalIgnoreCase);
     public bool IsRembgSelected => string.Equals(RemoveBgEngine, "REMBG", StringComparison.OrdinalIgnoreCase);
+    public bool IsRembgOnlineSelected => string.Equals(RemoveBgEngine, "REMBG_ONLINE", StringComparison.OrdinalIgnoreCase);
+    public bool IsNobgSpaceSelected => string.Equals(RemoveBgEngine, "NOBG_SPACE", StringComparison.OrdinalIgnoreCase);
+    public bool IsBgEraserSelected => string.Equals(RemoveBgEngine, "BG_ERASER", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsAlphaMattingTuningVisible => IsRembgSelected && AlphaMattingEnabled;
+
+    [RelayCommand]
+    private void SelectEngine(string engine)
+    {
+        if (string.IsNullOrEmpty(engine)) return;
+        RemoveBgEngine = engine;
+    }
 
     public IReadOnlyList<string> RembgModels { get; } = new[]
     {
@@ -208,7 +521,12 @@ public partial class MainWindowViewModel : ObservableObject
 
         _pixelcutService.RemoveBgEngine = normalized;
         OnPropertyChanged(nameof(SelectedRemoveBgEngineOption));
+        OnPropertyChanged(nameof(IsPixaSelected));
         OnPropertyChanged(nameof(IsRembgSelected));
+        OnPropertyChanged(nameof(IsRembgOnlineSelected));
+        OnPropertyChanged(nameof(IsNobgSpaceSelected));
+        OnPropertyChanged(nameof(IsBgEraserSelected));
+        OnPropertyChanged(nameof(IsAlphaMattingTuningVisible));
         if (!IsSettingsOpen) SaveSettings();
         MarkSettingsDirty();
     }
@@ -239,6 +557,52 @@ public partial class MainWindowViewModel : ObservableObject
         _pixelcutService.MixProxyList = value;
         if (!IsSettingsOpen) SaveSettings();
         MarkSettingsDirty();
+    }
+
+    partial void OnUseGpuForRembgChanged(bool value)
+    {
+        _pixelcutService.UseGpuForRembg = value;
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    partial void OnAlphaMattingEnabledChanged(bool value)
+    {
+        _pixelcutService.AlphaMattingEnabled = value;
+        OnPropertyChanged(nameof(IsAlphaMattingTuningVisible));
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    partial void OnAlphaMattingErodeSizeChanged(int value)
+    {
+        _pixelcutService.AlphaMattingErodeSize = value;
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    partial void OnAlphaMattingForegroundThresholdChanged(int value)
+    {
+        _pixelcutService.AlphaMattingForegroundThreshold = value;
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    partial void OnAlphaMattingBackgroundThresholdChanged(int value)
+    {
+        _pixelcutService.AlphaMattingBackgroundThreshold = value;
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
+    [RelayCommand]
+    private void ResetAlphaMatting()
+    {
+        AlphaMattingEnabled = false;
+        AlphaMattingErodeSize = 10;
+        AlphaMattingForegroundThreshold = 240;
+        AlphaMattingBackgroundThreshold = 10;
+        SaveSettings();
     }
 
     [RelayCommand]
@@ -431,8 +795,14 @@ public partial class MainWindowViewModel : ObservableObject
         settings.MixProxyEnabled = MixProxyEnabled;
         settings.MixProxyList = MixProxyList;
         settings.ShowBrowser = ShowBrowser;
+        settings.UseGpuForRembg = UseGpuForRembg;
         settings.CustomDarkBackground = _customDarkBackground;
         settings.CustomLightBackground = _customLightBackground;
+
+        settings.AlphaMattingEnabled = AlphaMattingEnabled;
+        settings.AlphaMattingErodeSize = AlphaMattingErodeSize;
+        settings.AlphaMattingForegroundThreshold = AlphaMattingForegroundThreshold;
+        settings.AlphaMattingBackgroundThreshold = AlphaMattingBackgroundThreshold;
 
         _settingsService.Save(settings);
     }
@@ -457,7 +827,12 @@ public partial class MainWindowViewModel : ObservableObject
             !string.Equals(RembgExecutablePath ?? "", _snapshotRembgExecutablePath, StringComparison.OrdinalIgnoreCase) ||
             MixProxyEnabled != _snapshotMixProxyEnabled ||
             !string.Equals(MixProxyList ?? "", _snapshotMixProxyList, StringComparison.OrdinalIgnoreCase) ||
-            ShowBrowser != _snapshotShowBrowser;
+            ShowBrowser != _snapshotShowBrowser ||
+            UseGpuForRembg != _snapshotUseGpuForRembg ||
+            AlphaMattingEnabled != _snapshotAlphaMattingEnabled ||
+            AlphaMattingErodeSize != _snapshotAlphaMattingErodeSize ||
+            AlphaMattingForegroundThreshold != _snapshotAlphaMattingForegroundThreshold ||
+            AlphaMattingBackgroundThreshold != _snapshotAlphaMattingBackgroundThreshold;
     }
 
     private void TakeSettingsSnapshot()
@@ -472,6 +847,11 @@ public partial class MainWindowViewModel : ObservableObject
         _snapshotMixProxyEnabled = MixProxyEnabled;
         _snapshotMixProxyList = MixProxyList ?? "";
         _snapshotShowBrowser = ShowBrowser;
+        _snapshotUseGpuForRembg = UseGpuForRembg;
+        _snapshotAlphaMattingEnabled = AlphaMattingEnabled;
+        _snapshotAlphaMattingErodeSize = AlphaMattingErodeSize;
+        _snapshotAlphaMattingForegroundThreshold = AlphaMattingForegroundThreshold;
+        _snapshotAlphaMattingBackgroundThreshold = AlphaMattingBackgroundThreshold;
     }
 
     private void RevertSettingsToSnapshot()
@@ -488,6 +868,11 @@ public partial class MainWindowViewModel : ObservableObject
             MixProxyEnabled = _snapshotMixProxyEnabled;
             MixProxyList = _snapshotMixProxyList;
             ShowBrowser = _snapshotShowBrowser;
+            UseGpuForRembg = _snapshotUseGpuForRembg;
+            AlphaMattingEnabled = _snapshotAlphaMattingEnabled;
+            AlphaMattingErodeSize = _snapshotAlphaMattingErodeSize;
+            AlphaMattingForegroundThreshold = _snapshotAlphaMattingForegroundThreshold;
+            AlphaMattingBackgroundThreshold = _snapshotAlphaMattingBackgroundThreshold;
         }
         finally { _isRevertingSettings = false; }
 
@@ -505,80 +890,193 @@ public partial class MainWindowViewModel : ObservableObject
         IsProcessing = true;
         try
         {
-            await Task.Run(() =>
+            var allowedToScan = new List<string>();
+            var pendingConfirm = new List<string>();
+
+            foreach (var path in paths)
             {
-                var validPaths = new List<string>();
-                // Removed .png from allowed extensions as per request (Only accepted via Smart Skip logic)
-                var searchPattern = new HashSet<string> { ".jpg", ".jpeg", ".psd", ".webp" };
-
-                foreach (var path in paths)
+                if (IsPathInAllowedCache(path))
                 {
-                    if (File.Exists(path))
+                    allowedToScan.Add(path);
+                    continue;
+                }
+
+                if (IsAlreadyInsidePilihanFolder(path))
+                {
+                    allowedToScan.Add(path);
+                    continue;
+                }
+
+                if (Directory.Exists(path))
+                {
+                    var folderName = Path.GetFileName(path);
+                    if (IsPilihanFolderMatch(folderName))
                     {
-                        var ext = Path.GetExtension(path).ToLower();
-
-                        // --- REDIRECT SMALL PNG TO JPG SOURCE ---
-                        if (ext == ".png")
-                        {
-                            try
-                            {
-                                if (new FileInfo(path).Length < 1024)
-                                {
-                                    // Check for source JPG
-                                    var jpg = Path.ChangeExtension(path, ".jpg");
-                                    if (File.Exists(jpg)) { validPaths.Add(jpg); continue; }
-                                    var jpeg = Path.ChangeExtension(path, ".jpeg");
-                                    if (File.Exists(jpeg)) { validPaths.Add(jpeg); continue; }
-                                }
-                            }
-                            catch { }
-                        }
-                        // ----------------------------------------
-
-                        if (searchPattern.Contains(ext)) validPaths.Add(path);
+                        allowedToScan.Add(path);
+                        continue;
                     }
-                    else if (Directory.Exists(path))
+
+                    string? redirectedPath = null;
+                    try
                     {
-                         validPaths.AddRange(SafeGetFiles(path, searchPattern));
+                        var subdirs = Directory.GetDirectories(path);
+                        foreach (var subdir in subdirs)
+                        {
+                            var subName = Path.GetFileName(subdir);
+                            if (IsPilihanFolderMatch(subName))
+                            {
+                                redirectedPath = subdir;
+                                break;
+                            }
+                        }
+                    }
+                    catch { }
+
+                    if (redirectedPath != null)
+                    {
+                        allowedToScan.Add(redirectedPath);
+                        continue;
                     }
                 }
 
-                if (validPaths.Any())
-                {
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        int skipped = 0;
-                        foreach (var p in validPaths)
-                        {
-                            if (!Files.Any(f => f.FilePath == p))
-                            {
-                                Files.Add(new PixelcutFileItem(p));
-                            }
-                            else
-                            {
-                                skipped++;
-                            }
-                        }
-                        
-                        if (skipped > 0)
-                        {
-                            SkippedCount += skipped;
-                            AppendLog($"Skipped {skipped} duplicates");
-                        }
-                        
-                        HasFiles = Files.Count > 0;
-                    });
-                }
-            });
+                pendingConfirm.Add(path);
+            }
+
+            if (pendingConfirm.Any())
+            {
+                _pendingPaths = pendingConfirm.ToArray();
+                string displayName = pendingConfirm.Count == 1 
+                    ? Path.GetFileName(pendingConfirm[0]) 
+                    : $"{pendingConfirm.Count} item";
+                ConfirmImportMessage = $"Folder atau file '{displayName}' tidak berada di dalam folder PILIHAN. Apakah Anda ingin mengizinkannya?";
+                IsConfirmImportOpen = true;
+            }
+
+            if (allowedToScan.Any())
+            {
+                await ScanAndAddPathsAsync(allowedToScan);
+            }
         }
         catch (Exception ex)
         {
-             AppendLog($"Error drop: {ex.Message}");
+            AppendLog($"Error drop: {ex.Message}");
         }
         finally
         {
-            IsProcessing = false; 
+            IsProcessing = _cts != null;
             CheckRetryVisibility();
+        }
+    }
+
+    private async Task ScanAndAddPathsAsync(IEnumerable<string> paths)
+    {
+        await Task.Run(() =>
+        {
+            var validPaths = new List<string>();
+            var searchPattern = new HashSet<string> { ".jpg", ".jpeg", ".psd", ".webp" };
+
+            foreach (var path in paths)
+            {
+                if (File.Exists(path))
+                {
+                    var ext = Path.GetExtension(path).ToLower();
+
+                    // --- REDIRECT SMALL PNG TO JPG SOURCE ---
+                    if (ext == ".png")
+                    {
+                        try
+                        {
+                            if (new FileInfo(path).Length < 1024)
+                            {
+                                var jpg = Path.ChangeExtension(path, ".jpg");
+                                if (File.Exists(jpg)) { validPaths.Add(jpg); continue; }
+                                var jpeg = Path.ChangeExtension(path, ".jpeg");
+                                if (File.Exists(jpeg)) { validPaths.Add(jpeg); continue; }
+                            }
+                        }
+                        catch { }
+                    }
+                    // ----------------------------------------
+
+                    if (searchPattern.Contains(ext)) validPaths.Add(path);
+                }
+                else if (Directory.Exists(path))
+                {
+                    validPaths.AddRange(SafeGetFiles(path, searchPattern));
+                }
+            }
+
+            if (validPaths.Any())
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    int skipped = 0;
+                    foreach (var p in validPaths)
+                    {
+                        if (!Files.Any(f => f.FilePath == p))
+                        {
+                            Files.Add(new PixelcutFileItem(p));
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                    }
+
+                    SortFilesByName();
+
+                    if (skipped > 0)
+                    {
+                        SkippedCount += skipped;
+                        AppendLog($"Skipped {skipped} duplicates");
+                    }
+
+                    HasFiles = Files.Count > 0;
+                });
+            }
+        });
+    }
+
+    private void SortFilesByName()
+    {
+        try
+        {
+            var sorted = Files.OrderBy(x => x.FileName, new NaturalStringComparer()).ToList();
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var oldIdx = Files.IndexOf(sorted[i]);
+                if (oldIdx != i)
+                {
+                    Files.Move(oldIdx, i);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Error sorting files: {ex.Message}");
+        }
+    }
+
+    private class NaturalStringComparer : System.Collections.Generic.IComparer<string>
+    {
+        [System.Runtime.InteropServices.DllImport("shlwapi.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode, ExactSpelling = true)]
+        private static extern int StrCmpLogicalW(string x, string y);
+
+        public int Compare(string? x, string? y)
+        {
+            if (x == null && y == null) return 0;
+            if (x == null) return -1;
+            if (y == null) return 1;
+
+            try
+            {
+                if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+                {
+                    return StrCmpLogicalW(x, y);
+                }
+            }
+            catch { }
+            return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -783,6 +1281,8 @@ public partial class MainWindowViewModel : ObservableObject
             return "NOBG_SPACE";
         if (string.Equals(value, "REMBG_ONLINE", StringComparison.OrdinalIgnoreCase))
             return "REMBG_ONLINE";
+        if (string.Equals(value, "BG_ERASER", StringComparison.OrdinalIgnoreCase))
+            return "BG_ERASER";
         return "PIXA";
     }
 
@@ -1097,13 +1597,39 @@ public partial class MainWindowViewModel : ObservableObject
         
         if (File.Exists(original) && File.Exists(result))
         {
+             // Hide gallery window if it is open
+             if (_galleryWindow != null && _galleryWindow.IsVisible)
+             {
+                 _galleryWindow.Hide();
+             }
+
              if (_previewWindow == null)
              {
                  _previewWindow = new PreviewWindow();
-                 _previewWindow.Closed += (s, e) => { _previewWindow = null; _currentPreviewItem = null; };
+                 _previewWindow.Closed += (s, e) => 
+                 { 
+                     _previewWindow = null; 
+                     var closedItem = _currentPreviewItem;
+                     _currentPreviewItem = null; 
+                     
+                     if (closedItem != null)
+                     {
+                         RefreshItemThumbnails(closedItem);
+                     }
+                     
+                     // Show gallery window if it was hidden
+                     if (_galleryWindow != null && !_galleryWindow.IsVisible)
+                     {
+                         _galleryWindow.Show();
+                     }
+                 };
                  // Subscribe to events
                  _previewWindow.Next += OnNextPreview;
                  _previewWindow.Previous += OnPreviousPreview;
+                 // Subscribe to Photopea navigation events (assembly-line workflow)
+                 _previewWindow.PhotopeaNextRequested += OnPhotopeaNextPreview;
+                 _previewWindow.PhotopeaPreviousRequested += OnPhotopePreviousPreview;
+                 _previewWindow.FileSaved += OnPreviewFileSaved;
                  
                  if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
                  {
@@ -1164,35 +1690,16 @@ public partial class MainWindowViewModel : ObservableObject
         }
         else
         {
+            if (!_galleryWindow.IsVisible)
+            {
+                _galleryWindow.Show();
+            }
             _galleryWindow.Activate();
         }
 
-        // Populate asynchronously to prevent UI freeze
-        Task.Run(() =>
-        {
-            var newItems = new List<GalleryItemViewModel>();
-            
-            // Snapshot files to avoid modification during enumeration
-            var filesSnapshot = Files.ToList();
-
-            foreach (var file in filesSnapshot)
-            {
-                // Add Source
-                newItems.Add(new GalleryItemViewModel(file, file.FilePath, true));
-                
-                // Add Result if exists
-                if (file.HasResult && File.Exists(file.ResultPath))
-                {
-                    newItems.Add(new GalleryItemViewModel(file, file.ResultPath, false));
-                }
-            }
-
-            // Update UI
-            Dispatcher.UIThread.Post(() =>
-            {
-                GalleryItems = new ObservableCollection<GalleryItemViewModel>(newItems);
-            });
-        });
+        // Window will automatically pick up GalleryItems via DataBinding.
+        // GalleryItems is now kept in sync automatically via OnFilesCollectionChanged 
+        // and OnFileItemPropertyChanged.
     }
 
     [RelayCommand]
@@ -1219,76 +1726,98 @@ public partial class MainWindowViewModel : ObservableObject
         // Check if Photoshop path is set
         if (string.IsNullOrEmpty(settings.PhotoshopPath) || !File.Exists(settings.PhotoshopPath))
         {
-            AlertMessage = "Path Photoshop belum diatur. Buka Preview Window dan klik Photoshop terlebih dahulu.";
+            AlertMessage = "Path Photoshop belum diatur. Silakan buka Preview Window (klik ganda foto) dan pilih path Photoshop terlebih dahulu.";
             IsAlertOpen = true;
             return;
         }
 
-        // JSX Script (same as PreviewWindow)
-        const string JsxScript = @"
-#target photoshop
-var tempFile = new File(Folder.temp + '/pixelcut_edit_args.txt');
-var pngPath = ''; var jpgPath = '';
-if (tempFile.exists) {
-    tempFile.open('r');
-    pngPath = tempFile.readln();
-    jpgPath = tempFile.readln();
-    tempFile.close(); tempFile.remove();
-}
-if (pngPath && jpgPath) {
-    try {
-        var pngFile = new File(pngPath);
-        if (pngFile.exists) {
-            var doc = app.open(pngFile);
-            if (doc.artLayers.length > 0) { doc.artLayers[0].name = 'Result (PNG)'; }
-            var jpgFile = new File(jpgPath);
-            if (jpgFile.exists) {
-                var jpgDoc = app.open(jpgFile);
-                jpgDoc.selection.selectAll();
-                jpgDoc.activeLayer.copy();
-                jpgDoc.close(SaveOptions.DONOTSAVECHANGES);
-                app.activeDocument = doc;
-                doc.paste();
-                doc.activeLayer = doc.artLayers[0];
-            }
-        }
-    } catch (e) { alert('Error: ' + e.message); }
-} else { alert('No files specified.'); }
-";
+        var sb = new StringBuilder();
+        sb.AppendLine("#target photoshop");
+        sb.AppendLine("function openPair(pngPath, jpgPath) {");
+        sb.AppendLine("    try {");
+        sb.AppendLine("        var pngFile = new File(pngPath);");
+        sb.AppendLine("        if (pngFile.exists) {");
+        sb.AppendLine("            var doc = app.open(pngFile);");
+        sb.AppendLine("            if (doc.artLayers.length > 0) { doc.artLayers[0].name = 'Hasil (Masker Transparan)'; }");
+        sb.AppendLine("            var jpgFile = new File(jpgPath);");
+        sb.AppendLine("            if (jpgFile.exists) {");
+        sb.AppendLine("                var jpgDoc = app.open(jpgFile);");
+        sb.AppendLine("                jpgDoc.selection.selectAll();");
+        sb.AppendLine("                jpgDoc.activeLayer.copy();");
+        sb.AppendLine("                jpgDoc.close(SaveOptions.DONOTSAVECHANGES);");
+        sb.AppendLine("                app.activeDocument = doc;");
+        sb.AppendLine("                var pastedLayer = doc.paste();");
+        sb.AppendLine("                pastedLayer.name = 'Referensi Asli (Original)';");
+        sb.AppendLine("                pastedLayer.move(doc, ElementPlacement.PLACEATEND);");
+        sb.AppendLine("                doc.activeLayer = doc.artLayers[0];");
+        sb.AppendLine("            }");
+        sb.AppendLine("        } else {");
+        sb.AppendLine("            return 'File hasil tidak ditemukan: ' + pngPath;");
+        sb.AppendLine("        }");
+        sb.AppendLine("    } catch (e) {");
+        sb.AppendLine("        return 'Gagal membuka/memproses file: ' + e.message;");
+        sb.AppendLine("    }");
+        sb.AppendLine("    return null;");
+        sb.AppendLine("}");
+        sb.AppendLine("var errors = [];");
 
-        var tempJsxPath = Path.Combine(Path.GetTempPath(), "open_for_edit.jsx");
-        await File.WriteAllTextAsync(tempJsxPath, JsxScript);
-
-        // Open EACH selected item
-        foreach (var selected in selectedItems)
+        for (int i = 0; i < selectedItems.Count; i++)
         {
-            try
-            {
-                // Write temp file with paths for THIS item
-                var tempArgsPath = Path.Combine(Path.GetTempPath(), "pixelcut_edit_args.txt");
-                await File.WriteAllTextAsync(tempArgsPath, $"{selected.ResultPath}\n{selected.FilePath}");
+            var item = selectedItems[i];
+            var escapedResult = item.ResultPath.Replace("\\", "\\\\").Replace("'", "\\'");
+            var escapedOriginal = item.FilePath.Replace("\\", "\\\\").Replace("'", "\\'");
+            
+            sb.AppendLine($"var err{i} = openPair('{escapedResult}', '{escapedOriginal}');");
+            sb.AppendLine($"if (err{i}) {{ errors.push('Gambar {i + 1} ({item.FileName}): ' + err{i}); }}");
+        }
 
-                var psi = new ProcessStartInfo
-                {
-                    FileName = settings.PhotoshopPath,
-                    Arguments = $"\"{tempJsxPath}\"",
-                    UseShellExecute = true
-                };
-                Process.Start(psi);
+        sb.AppendLine("if (errors.length > 0) {");
+        sb.AppendLine("    alert('Beberapa file gagal dibuka di Photoshop:\\n\\n' + errors.join('\\n'));");
+        sb.AppendLine("}");
 
-                // Small delay to allow Photoshop to read the temp file before next launch
-                await Task.Delay(1500);
-            }
-            catch (Exception ex)
+        // Generate unique name for the multi JSX file to avoid collisions
+        var tempJsxPath = Path.Combine(Path.GetTempPath(), $"pixelcut_multi_open_{Guid.NewGuid().ToString("N").Substring(0, 8)}.jsx");
+
+        try
+        {
+            await File.WriteAllTextAsync(tempJsxPath, sb.ToString());
+
+            var psi = new ProcessStartInfo
             {
-                AppendLog($"Error launching Photoshop for {selected.FileName}: {ex.Message}");
-            }
+                FileName = settings.PhotoshopPath,
+                Arguments = $"\"{tempJsxPath}\"",
+                UseShellExecute = true
+            };
+            Process.Start(psi);
+            
+            AppendLog($"Membuka {selectedItems.Count} item di Photoshop...");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Gagal menjalankan Photoshop: {ex.Message}");
+            AlertMessage = $"Gagal menjalankan Photoshop: {ex.Message}. Pastikan file executable Photoshop Anda valid.";
+            IsAlertOpen = true;
+
+            // Reset path on failure so they can choose again
+            settings.PhotoshopPath = "";
+            settings.Save();
+        }
+    }
+
+    private void RefreshItemThumbnails(PixelcutFileItem? item)
+    {
+        if (item == null) return;
+        var itemsToRefresh = GalleryItems.Where(g => g.ParentItem == item).ToList();
+        foreach (var gItem in itemsToRefresh)
+        {
+            gItem.RefreshThumbnail();
         }
     }
 
     private void OnNextPreview(object? sender, EventArgs e)
     {
         if (_currentPreviewItem == null) return;
+        var oldItem = _currentPreviewItem;
         var idx = Files.IndexOf(_currentPreviewItem);
         if (idx >= 0 && idx < Files.Count - 1)
         {
@@ -1298,6 +1827,7 @@ if (pngPath && jpgPath) {
                 if (Files[i].HasResult)
                 {
                     PreviewItem(Files[i]);
+                    RefreshItemThumbnails(oldItem);
                     return;
                 }
             }
@@ -1307,6 +1837,7 @@ if (pngPath && jpgPath) {
     private void OnPreviousPreview(object? sender, EventArgs e)
     {
         if (_currentPreviewItem == null) return;
+        var oldItem = _currentPreviewItem;
         var idx = Files.IndexOf(_currentPreviewItem);
         if (idx > 0)
         {
@@ -1316,6 +1847,7 @@ if (pngPath && jpgPath) {
                 if (Files[i].HasResult)
                 {
                     PreviewItem(Files[i]);
+                    RefreshItemThumbnails(oldItem);
                     return;
                 }
             }
@@ -1327,5 +1859,78 @@ if (pngPath && jpgPath) {
         // We could enable/disable buttons in preview window here if we were binding properties,
         // but for now the events just won't find a next item.
         // If we want to strictly disable buttons, we'd need to expose properties on PreviewWindow.
+    }
+
+    private void OnPreviewFileSaved(string savedPath)
+    {
+        var itemsToRefresh = GalleryItems.Where(g => string.Equals(g.FilePath, savedPath, StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var item in itemsToRefresh)
+        {
+            item.RefreshThumbnail();
+        }
+    }
+
+    // === PHOTOPEA ASSEMBLY-LINE NAVIGATION ===
+    
+    private void OnPhotopeaNextPreview(object? sender, EventArgs e)
+    {
+        if (_currentPreviewItem == null) return;
+        var oldItem = _currentPreviewItem;
+        var idx = Files.IndexOf(_currentPreviewItem);
+        AppendLog($"[Photopea Next] Current: {_currentPreviewItem.FileName}, Index: {idx}, Files Count: {Files.Count}");
+        if (idx >= 0 && idx < Files.Count - 1)
+        {
+            for (int i = idx + 1; i < Files.Count; i++)
+            {
+                if (Files[i].HasResult)
+                {
+                    AppendLog($"[Photopea Next] Navigating to: {Files[i].FileName}");
+                    NavigatePhotopeaTo(Files[i]);
+                    RefreshItemThumbnails(oldItem);
+                    return;
+                }
+            }
+        }
+        AppendLog("[Photopea Next] No next item with result found!");
+    }
+
+    private void OnPhotopePreviousPreview(object? sender, EventArgs e)
+    {
+        if (_currentPreviewItem == null) return;
+        var oldItem = _currentPreviewItem;
+        var idx = Files.IndexOf(_currentPreviewItem);
+        AppendLog($"[Photopea Prev] Current: {_currentPreviewItem.FileName}, Index: {idx}, Files Count: {Files.Count}");
+        if (idx > 0)
+        {
+            for (int i = idx - 1; i >= 0; i--)
+            {
+                if (Files[i].HasResult)
+                {
+                    AppendLog($"[Photopea Prev] Navigating to: {Files[i].FileName}");
+                    NavigatePhotopeaTo(Files[i]);
+                    RefreshItemThumbnails(oldItem);
+                    return;
+                }
+            }
+        }
+        AppendLog("[Photopea Prev] No previous item with result found!");
+    }
+
+    private void NavigatePhotopeaTo(PixelcutFileItem item)
+    {
+        _currentPreviewItem = item;
+        
+        var original = item.FilePath;
+        var result = item.HasResult ? item.ResultPath : null;
+        
+        // Construct title
+        var parent = Path.GetFileName(Path.GetDirectoryName(original));
+        var fname = Path.GetFileName(original);
+        var title = string.IsNullOrEmpty(parent) ? fname : Path.Combine(parent, fname);
+        
+        if (_previewWindow != null && File.Exists(original) && File.Exists(result))
+        {
+            _previewWindow.LoadImagesInPhotopeaMode(original, result, title);
+        }
     }
 }

@@ -632,6 +632,17 @@ class BucinAppV3:
         self.settings["window_y"] = self.root.winfo_y()
         save_settings(self.settings)
         self.root.destroy()
+
+    def restart_program(self):
+        self.settings["window_width"] = self.root.winfo_width()
+        self.settings["window_height"] = self.root.winfo_height()
+        self.settings["window_x"] = self.root.winfo_x()
+        self.settings["window_y"] = self.root.winfo_y()
+        save_settings(self.settings)
+        
+        import subprocess
+        subprocess.Popen([sys.executable] + sys.argv)
+        self.root.destroy()
             
     def clear_ui(self):
         if hasattr(self, 'ui_root'):
@@ -1365,7 +1376,7 @@ class BucinAppV3:
         footer = tk.Frame(self.ui_root, bg=COLOR_BG)
         footer.grid(row=2, column=0, sticky="ew", padx=40, pady=20)
         
-        tk.Button(footer, text="KEMBALI KE MENU", command=self.setup_ui_setup, 
+        tk.Button(footer, text="BUAT MASTER LAIN", command=self.restart_program, 
                   bg=COLOR_SURFACE, fg="white", font=FONT_BOLD, relief="flat", padx=20, pady=10).pack(side="right")
 
 class SettingsOverlay(tk.Frame):

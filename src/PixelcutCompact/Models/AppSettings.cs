@@ -27,5 +27,10 @@ public class AppSettings
     public bool MixProxyEnabled { get; set; }
     public string? MixProxyList { get; set; }
     public bool ShowBrowser { get; set; }
+    public bool UseGpuForRembg { get; set; } = true;
+    public bool AlphaMattingEnabled { get; set; }
+    public int AlphaMattingErodeSize { get; set; } = 10;
+    public int AlphaMattingForegroundThreshold { get; set; } = 240;
+    public int AlphaMattingBackgroundThreshold { get; set; } = 10;
 }
 

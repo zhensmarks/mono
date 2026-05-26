@@ -28,9 +28,15 @@ public class PixelcutService : IDisposable
     public string? MixProxyList { get; set; }
     public bool ShowBrowser { get; set; }
 
+    public bool UseGpuForRembg { get; set; } = true;
+    public bool AlphaMattingEnabled { get; set; }
+    public int AlphaMattingErodeSize { get; set; } = 10;
+    public int AlphaMattingForegroundThreshold { get; set; } = 240;
+    public int AlphaMattingBackgroundThreshold { get; set; } = 10;
     private PixaWebAutomationService? _webAutomation;
     private NobgSpaceWebAutomationService? _nobgWebAutomation;
     private RembgOnlineWebAutomationService? _rembgOnlineWebAutomation;
+    private BgEraserWebAutomationService? _bgEraserWebAutomation;
     private readonly RembgCliService _rembgCli = new();
 
     public PixelcutService()
@@ -48,6 +54,9 @@ public class PixelcutService : IDisposable
 
         try { _rembgOnlineWebAutomation?.Dispose(); } catch { }
         _rembgOnlineWebAutomation = null;
+
+        try { _bgEraserWebAutomation?.Dispose(); } catch { }
+        _bgEraserWebAutomation = null;
     }
 
     public async Task InitializeAsync()
@@ -79,6 +88,12 @@ public class PixelcutService : IDisposable
             string.Equals(RemoveBgEngine, "REMBG_ONLINE", StringComparison.OrdinalIgnoreCase))
         {
             await ProcessViaRembgOnlineAsync(item, jobType, ct);
+            return;
+        }
+        if (string.Equals(jobType, "remove_bg", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(RemoveBgEngine, "BG_ERASER", StringComparison.OrdinalIgnoreCase))
+        {
+            await ProcessViaBgEraserAsync(item, jobType, ct);
             return;
         }
 
@@ -117,6 +132,11 @@ public class PixelcutService : IDisposable
         var resultPath = GetResultPath(item.FilePath, job);
         _rembgCli.Model = RembgModel;
         _rembgCli.ExecutablePath = RembgExecutablePath;
+        _rembgCli.UseGpu = UseGpuForRembg;
+        _rembgCli.AlphaMattingEnabled = AlphaMattingEnabled;
+        _rembgCli.AlphaMattingErodeSize = AlphaMattingErodeSize;
+        _rembgCli.AlphaMattingForegroundThreshold = AlphaMattingForegroundThreshold;
+        _rembgCli.AlphaMattingBackgroundThreshold = AlphaMattingBackgroundThreshold;
         await _rembgCli.ProcessImageAsync(item.FilePath, resultPath, ct);
     }
 
@@ -166,6 +186,32 @@ public class PixelcutService : IDisposable
                 await _rembgOnlineWebAutomation.InitializeAsync();
             }
             resultBytes = await _rembgOnlineWebAutomation.ProcessImageAsync(item.FilePath, job, ct);
+        }
+
+        var resultPath = GetResultPath(item.FilePath, job);
+        await File.WriteAllBytesAsync(resultPath, resultBytes, ct);
+    }
+
+    private async Task ProcessViaBgEraserAsync(PixelcutFileItem item, string job, CancellationToken ct)
+    {
+        byte[] resultBytes;
+        if (MixProxyEnabled)
+        {
+            resultBytes = await ProcessWithProxyRetriesAsync(async proxy =>
+            {
+                using var svc = new BgEraserWebAutomationService(proxy, ShowBrowser);
+                await svc.InitializeAsync();
+                return await svc.ProcessImageAsync(item.FilePath, job, ct);
+            });
+        }
+        else
+        {
+            if (_bgEraserWebAutomation == null)
+            {
+                _bgEraserWebAutomation = new BgEraserWebAutomationService(null, ShowBrowser);
+                await _bgEraserWebAutomation.InitializeAsync();
+            }
+            resultBytes = await _bgEraserWebAutomation.ProcessImageAsync(item.FilePath, job, ct);
         }
 
         var resultPath = GetResultPath(item.FilePath, job);
@@ -297,5 +343,6 @@ public class PixelcutService : IDisposable
         _webAutomation?.Dispose();
         _nobgWebAutomation?.Dispose();
         _rembgOnlineWebAutomation?.Dispose();
+        _bgEraserWebAutomation?.Dispose();
     }
 }

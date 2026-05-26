@@ -12,7 +12,7 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
     private readonly string? _proxyServer;
     private readonly bool _showBrowser;
     private IPlaywright? _playwright;
-    private IBrowser? _browser;
+    private IBrowserContext? _context;
     private IPage? _page;
     private bool _isInitialized;
 
@@ -27,33 +27,39 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
         if (_isInitialized) return;
 
         _playwright = await Playwright.CreateAsync();
-        _browser = await LaunchBrowserWithFallbackAsync(_playwright);
-        _page = await _browser.NewPageAsync();
+        _context = await LaunchContextWithFallbackAsync(_playwright);
+        await PixelcutCompact.Helpers.PlaywrightStealthHelper.ApplyStealthSettingsAsync(_context);
+        _page = await _context.NewPageAsync();
         _page.SetDefaultTimeout(120000);
         _isInitialized = true;
     }
 
-    private async Task<IBrowser> LaunchBrowserWithFallbackAsync(IPlaywright playwright)
+    private async Task<IBrowserContext> LaunchContextWithFallbackAsync(IPlaywright playwright)
     {
         var channel = DetectDefaultBrowserChannel();
+        var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RembgOnlineProfile");
+        if (!Directory.Exists(userDataDir)) Directory.CreateDirectory(userDataDir);
+
+        var baseArgs = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" };
+
+        var opts = new BrowserTypeLaunchPersistentContextOptions
+        {
+            Headless = !_showBrowser,
+            Channel = channel,
+            Args = baseArgs,
+            IgnoreDefaultArgs = new[] { "--enable-automation" },
+            Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer },
+            UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        };
+
         try
         {
-            return await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
-            {
-                Headless = !_showBrowser,
-                Channel = channel,
-                Args = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" },
-                Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer }
-            });
+            return await playwright.Chromium.LaunchPersistentContextAsync(userDataDir, opts);
         }
         catch when (!string.IsNullOrWhiteSpace(channel))
         {
-            return await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
-            {
-                Headless = !_showBrowser,
-                Args = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" },
-                Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer }
-            });
+            opts.Channel = null;
+            return await playwright.Chromium.LaunchPersistentContextAsync(userDataDir, opts);
         }
     }
 
@@ -136,7 +142,7 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
 
     public void Dispose()
     {
-        _browser?.CloseAsync().GetAwaiter().GetResult();
+        _context?.CloseAsync().GetAwaiter().GetResult();
         _playwright?.Dispose();
     }
 

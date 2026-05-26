@@ -164,6 +164,27 @@ public partial class GalleryItemViewModel : ObservableObject, System.IDisposable
         }
     }
 
+    public void RefreshThumbnail()
+    {
+        if (_isDisposed) return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_isDisposed) return;
+
+            var old = _thumbnail;
+            _thumbnail = null;
+            _isLoadingThumbnail = false;
+
+            OnPropertyChanged(nameof(Thumbnail));
+
+            if (old != null)
+            {
+                try { old.Dispose(); } catch { }
+            }
+        });
+    }
+
     public void Dispose()
     {
         if (_isDisposed) return;

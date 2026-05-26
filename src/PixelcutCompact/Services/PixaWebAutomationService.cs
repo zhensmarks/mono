@@ -14,7 +14,6 @@ public class PixaWebAutomationService : IDisposable
     private readonly string? _proxyServer;
     private readonly bool _showBrowser;
     private IPlaywright? _playwright;
-    private IBrowser? _browser;
     private IBrowserContext? _context;
     private IPage? _page;
     private bool _isInitialized;
@@ -92,6 +91,7 @@ public class PixaWebAutomationService : IDisposable
             Headless = !_showBrowser,
             Channel = preferredChannel,
             Args = baseArgs,
+            IgnoreDefaultArgs = new[] { "--enable-automation" },
             Proxy = string.IsNullOrWhiteSpace(_proxyServer) ? null : new Proxy { Server = _proxyServer },
             ViewportSize = new ViewportSize { Width = 1280, Height = 800 },
             UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
@@ -102,7 +102,7 @@ public class PixaWebAutomationService : IDisposable
             _context = await _playwright!.Chromium.LaunchPersistentContextAsync(userDataDir, opts);
             _resolvedBrowserChannel = preferredChannel ?? "chromium";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Fallback jika browser channel bermasalah (misal edge/chrome tidak ada)
             if (!string.IsNullOrEmpty(preferredChannel))
@@ -117,11 +117,7 @@ public class PixaWebAutomationService : IDisposable
         if (_context == null)
             throw new Exception("Browser context gagal dibuat.");
 
-        await _context.AddInitScriptAsync(@"
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            })
-        ");
+        await PixelcutCompact.Helpers.PlaywrightStealthHelper.ApplyStealthSettingsAsync(_context);
 
         _page = await _context.NewPageAsync();
         _page.SetDefaultTimeout(180000);
@@ -384,7 +380,7 @@ public class PixaWebAutomationService : IDisposable
 
     public void Dispose()
     {
-        _browser?.CloseAsync().GetAwaiter().GetResult();
+        _context?.CloseAsync().GetAwaiter().GetResult();
         _playwright?.Dispose();
     }
 }

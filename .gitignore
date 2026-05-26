@@ -92,3 +92,7 @@ Scripts/Temp/
 # *.ai
 # *.mp4
 # *.mov
+
+# Executables and installers
+src/PixelcutCompact/rembg_installer.exe
+*.exe

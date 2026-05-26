@@ -20,43 +20,62 @@
 
     <Grid RowDefinitions="Auto, *, Auto">
         <!-- Header -->
-        <Border Grid.Row="0" Padding="15,10" Background="#10FFFFFF" PointerPressed="OnHeaderPointerPressed">
+        <Border Grid.Row="0" Padding="18,12" Background="#0DFFFFFF" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1" PointerPressed="OnHeaderPointerPressed">
              <Grid ColumnDefinitions="Auto, *, Auto">
                  <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <TextBlock Text="Gallery View" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding Files.Count, StringFormat='({0} Item)'}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                  </StackPanel>
              </Grid>
-        </Border>
+         </Border>
 
         <!-- Gallery Grid -->
         <ListBox Grid.Row="1" ItemsSource="{Binding GalleryItems}" Background="Transparent" 
                  SelectionMode="Multiple" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.Styles>
                 <Style Selector="ListBoxItem" x:DataType="vm:GalleryItemViewModel">
-                    <Setter Property="Padding" Value="4"/>
-                    <Setter Property="Margin" Value="4"/>
-                    <Setter Property="CornerRadius" Value="4"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="6"/>
+                    <Setter Property="CornerRadius" Value="8"/>
+                    <Setter Property="Background" Value="#0DFFFFFF"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+                    <Setter Property="BorderThickness" Value="1"/>
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                     <Setter Property="VerticalContentAlignment" Value="Stretch"/>
                     <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
                     <Setter Property="IsHitTestVisible" Value="{Binding IsSource}"/>
                     <Setter Property="Focusable" Value="{Binding IsSource}"/>
+                    <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                    <Setter Property="Transitions">
+                        <Transitions>
+                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut"/>
+                            <BrushTransition Property="Background" Duration="0:0:0.15" Easing="CubicEaseOut"/>
+                            <BrushTransition Property="BorderBrush" Duration="0:0:0.15" Easing="CubicEaseOut"/>
+                        </Transitions>
+                    </Setter>
+                </Style>
+                <!-- Hover Style -->
+                <Style Selector="ListBoxItem:pointerover">
+                    <Setter Property="RenderTransform" Value="scale(1.03)"/>
+                    <Setter Property="Background" Value="#15FFFFFF"/>
+                    <Setter Property="BorderBrush" Value="#40FFFFFF"/>
                 </Style>
                 <!-- Selection State -->
                 <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-                     <Setter Property="Background" Value="#200078D7"/>
-                     <Setter Property="BorderBrush" Value="#0078D7"/>
-                     <Setter Property="BorderThickness" Value="1"/>
+                     <Setter Property="Background" Value="#156366F1"/>
+                     <Setter Property="BorderBrush" Value="#6366F1"/>
+                     <Setter Property="BorderThickness" Value="1.5"/>
                 </Style>
-                <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-                     <Setter Property="Background" Value="#10FFFFFF"/>
+                <!-- Selected Hover Style -->
+                <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+                     <Setter Property="Background" Value="#256366F1"/>
+                     <Setter Property="BorderBrush" Value="#8B5CF6"/>
                 </Style>
 
                 <Style Selector="ListBox">
                     <Setter Property="ItemsPanel">
                         <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal" />
+                            <WrapPanel Orientation="Horizontal" Margin="10"/>
                         </ItemsPanelTemplate>
                     </Setter>
                 </Style>
@@ -70,13 +89,13 @@
                         <Grid.ContextFlyout>
                             <MenuFlyout>
                                 <MenuItem Header="Preview" Click="OnPreviewClick"/>
-                                <MenuItem Header="Buka di Photoshop" Click="OnOpenPhotoshopClick"/>
+                                <MenuItem Header="Buka di Photoshop" Click="OnOpenPhotoshopClick" IsVisible="False"/>
                                 <MenuItem Header="Buka Folder" Click="OnOpenFolderClick"/>
                             </MenuFlyout>
                         </Grid.ContextFlyout>
 
-                        <!-- Image Container with Padding -->
-                        <Border Grid.Row="0" Padding="4">
+                        <!-- Image Container with Rounded border -->
+                        <Border Grid.Row="0" CornerRadius="6" ClipToBounds="True" Background="#10000000" Margin="4">
                              <!-- Show Loading State if Thumbnail is null -->
                              <Panel>
                                  <PathIcon Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M5,19V5H19V19H5M6,17H18L14.25,12L11.25,16L9,13L6,17Z" 
@@ -94,7 +113,7 @@
                                    Foreground="{DynamicResource TextPrimaryBrush}" 
                                    FontSize="11" TextAlignment="Center"
                                    TextTrimming="CharacterEllipsis" 
-                                   Margin="0,4,0,0"
+                                   Margin="6,4,6,6"
                                    ToolTip.Tip="{Binding FilePath}"/>
                     </Grid>
                 </DataTemplate>
@@ -102,13 +121,13 @@
         </ListBox>
         
         <!-- Footer -->
-        <Border Grid.Row="2" Padding="15,10" Background="#10FFFFFF" BorderBrush="#20FFFFFF" BorderThickness="0,1,0,0">
+        <Border Grid.Row="2" Padding="18,12" Background="#05FFFFFF" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
                  <!-- Photoshop Button (Visible if items selected) -->
                  <Button Command="{Binding OpenSelectedInPhotoshopCommand}" 
-                         IsVisible="{Binding SelectedCount, Converter={x:Static ObjectConverters.IsNotNull}}"
+                         IsVisible="True"
                          Classes="Accent" Theme="{DynamicResource SolidButtonTheme}"
-                         Padding="15,8" CornerRadius="0" Background="#200078D7" BorderBrush="#0078D7" BorderThickness="1">
+                         Padding="15,8" CornerRadius="6" Background="#200078D7" BorderBrush="#0078D7" BorderThickness="1">
                      <TextBlock Text="BUKA DI PHOTOSHOP" Foreground="#0078D7" FontSize="13" FontWeight="SemiBold"/>
                  </Button>
             </StackPanel>

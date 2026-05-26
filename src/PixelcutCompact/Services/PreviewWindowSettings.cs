@@ -12,6 +12,10 @@ public class PreviewWindowSettings
     public double Height { get; set; } = 600;
     public double Zoom { get; set; } = 1.0;
     public string PhotoshopPath { get; set; } = "";
+    
+    // Photopea settings
+    public string PhotopeaSaveFormat { get; set; } = "png"; // "png" or "psd"
+    public bool AutoAdvanceOnSave { get; set; } = false;
 
     private static string GetPath() => Path.Combine(AppContext.BaseDirectory, "preview_settings.json");
 

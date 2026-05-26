@@ -42,6 +42,9 @@ public partial class MainWindow : Window
                 var listBox = this.FindControl<ListBox>("FileListBox");
                 listBox?.ScrollIntoView(item);
             };
+
+            // Subscribe to VM PropertyChanged to automatically close flyout cleanly without race conditions
+            vm.PropertyChanged += Vm_PropertyChanged;
         }
     }
 
@@ -192,6 +195,38 @@ public partial class MainWindow : Window
             if (DataContext is MainWindowViewModel vm)
             {
                  vm.PreviewItemCommand.Execute(item);
+            }
+        }
+    }
+
+    private void Vm_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.RemoveBgEngine))
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                // Auto-close Flyout for all engines except REMBG (which has secondary settings)
+                if (vm.RemoveBgEngine != "REMBG")
+                {
+                    var selectorBtn = this.FindControl<Button>("EngineSelectorButton");
+                    if (selectorBtn?.Flyout != null && selectorBtn.Flyout.IsOpen)
+                    {
+                        // Defer closing using Dispatcher to avoid detaching the visual tree 
+                        // during command execution and event propagation.
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => selectorBtn.Flyout.Hide());
+                    }
+                }
+            }
+        }
+        else if (e.PropertyName == nameof(MainWindowViewModel.RembgModel))
+        {
+            // Auto-close Flyout once offline model is selected in ComboBox
+            var selectorBtn = this.FindControl<Button>("EngineSelectorButton");
+            if (selectorBtn?.Flyout != null && selectorBtn.Flyout.IsOpen)
+            {
+                // Defer closing using Dispatcher to avoid detaching the visual tree 
+                // during command execution and event propagation.
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => selectorBtn.Flyout.Hide());
             }
         }
     }

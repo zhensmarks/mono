@@ -7,7 +7,7 @@
         x:Class="PixelcutCompact.Views.PreviewWindow"
         Title="Preview"
         WindowStartupLocation="CenterOwner"
-        Width="1000" Height="600"
+        Width="1020" Height="680"
         SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
@@ -17,114 +17,217 @@
         Focusable="True"
         KeyDown="OnPreviewKeyDown">
 
-    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="#33000000" BorderThickness="1" ClipToBounds="True">
-        <Grid RowDefinitions="Auto, *">
+    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" ClipToBounds="True">
+        <Grid RowDefinitions="Auto, *, Auto">
             <!-- Header (Draggable) -->
-            <Grid Grid.Row="0" Background="Transparent" ColumnDefinitions="*, Auto, *" MinHeight="50">
-                 <!-- Left: Title & Photoshop (Draggable) -->
-                 <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Spacing="4" Margin="15,10,0,10" PointerPressed="OnHeaderPointerPressed" Background="Transparent">
-                     <TextBlock x:Name="TxtTitle" Text="Preview Before/After" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                     
-                     <!-- Photoshop Button -->
-                     <Button Click="OnPhotoshopClick" HorizontalAlignment="Left" Padding="12,6" Background="{DynamicResource AccentBlueBrush}" CornerRadius="0" BorderThickness="0" ToolTip.Tip="Open in Photoshop for editing">
-                         <TextBlock Text="PHOTOSHOP" FontSize="11" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-                     </Button>
-                 </StackPanel>
+            <Grid Grid.Row="0" Background="Transparent" ColumnDefinitions="*, Auto" MinHeight="45" PointerPressed="OnHeaderPointerPressed">
+                  <!-- Left: Title & Icon -->
+                  <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8" Margin="15,0,0,0">
+                      <Grid Width="14" Height="14" VerticalAlignment="Center">
+                          <PathIcon x:Name="ImgHeaderIcon" Data="M8.5,13.5L11,16.5L14.5,12L19,18H5L8.5,13.5M3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3H5A2,2 0 0,0 3,5M5,5H19V19H5V5Z" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                          <!-- Premium Spinner: Circular track and dynamic spinning arc with rounded caps -->
+                          <Grid x:Name="ImgLoadingIcon" Classes="spinning" Width="14" Height="14" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center">
+                              <!-- Background track -->
+                              <Ellipse Width="12" Height="12" Stroke="#20FFFFFF" StrokeThickness="1.5" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                              <!-- Glowing spinning indicator -->
+                              <Path Data="M 11,6 A 5,5 0 1,1 6,1" 
+                                    Stroke="{DynamicResource AccentBlueBrush}" 
+                                    StrokeThickness="1.5" 
+                                    StrokeLineCap="Round" 
+                                    Width="12" Height="12"
+                                    Stretch="Fill"
+                                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                          </Grid>
+                      </Grid>
+                      <TextBlock x:Name="TxtTitle" Text="Preview Sebelum/Sesudah" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                  </StackPanel>
 
-                 <!-- Center: Navigation (NO PointerPressed to allow button clicks) -->
-                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="15" VerticalAlignment="Center" HorizontalAlignment="Center">
-                     <Button Click="OnPreviousClick" Width="32" Height="32" CornerRadius="0" Background="#20FFFFFF" BorderThickness="1" BorderBrush="#40FFFFFF" ToolTip.Tip="Previous">
-                         <PathIcon Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                     </Button>
-                     <Button Click="OnNextClick" Width="32" Height="32" CornerRadius="0" Background="#20FFFFFF" BorderThickness="1" BorderBrush="#40FFFFFF" ToolTip.Tip="Next">
-                         <PathIcon Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                     </Button>
-                 </StackPanel>
+                  <!-- Right: Close Button -->
+                  <Button Grid.Column="1" Click="OnCloseClick" VerticalAlignment="Center" HorizontalAlignment="Right" Content="✕" Width="45" Height="45" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14"/>
+            </Grid>
 
-                 <!-- Right: Hidden Logic & Close (Draggable) -->
-                 <Grid Grid.Column="2" PointerPressed="OnHeaderPointerPressed" Background="Transparent">
-                     <StackPanel Orientation="Horizontal" IsVisible="False" HorizontalAlignment="Right" Margin="0,0,50,0">
-                          <NumericUpDown x:Name="ZoomControl" Minimum="0.2" Maximum="5.0" Increment="0.1" Value="1.0" Width="80" FormatString="0.0x"/>
-                          <Button Click="OnRotateClick" Content="Rotate"/>
+            <!-- Content Area -->
+            <Grid Grid.Row="1">
+                <!-- STATE 1: Normal Preview (Side-by-Side) -->
+                <Grid x:Name="PanelNormalPreview" ColumnDefinitions="*, 2, *" Margin="10,0,10,10">
+                    <!-- Original -->
+                    <Grid Grid.Column="0" RowDefinitions="*, Auto">
+                        <Border BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Background="#0DFFFFFF" CornerRadius="6" ClipToBounds="True">
+                            <Grid>
+                                <Image Name="ImgOriginal" Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       PointerPressed="OnImagePointerPressed" PointerMoved="OnImagePointerMoved" 
+                                       PointerReleased="OnImagePointerReleased" PointerWheelChanged="OnImagePointerWheelChanged">
+                                    <Image.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                                            <TranslateTransform X="0" Y="0" />
+                                            <RotateTransform Angle="{Binding $parent[views:PreviewWindow].RotationOriginal}" />
+                                        </TransformGroup>
+                                    </Image.RenderTransform>
+                                </Image>
+                                <!-- Rotate Button Overlay -->
+                                <Button Click="OnRotateOriginalClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" 
+                                        Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="Rotate Original">
+                                    <PathIcon Data="M12,4C14.2,4 16.2,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 11,19.9V21.9C13.9,22.2 16.9,21.2 19.1,19C23,15.1 23,8.9 19,5C17.1,3.1 14.5,2.1 12,2V0L7,4L12,8V4Z" 
+                                              Width="14" Height="14" Foreground="White">
+                                          <PathIcon.RenderTransform>
+                                              <RotateTransform Angle="90"/>
+                                          </PathIcon.RenderTransform>
+                                    </PathIcon>
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <TextBlock Grid.Row="1" Text="Original" HorizontalAlignment="Center" Margin="0,5,0,0" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Grid>
+
+                    <!-- Separator -->
+                    <GridSplitter Grid.Column="1" Width="2" Background="#40808080" ResizeBehavior="PreviousAndNext"/>
+
+                    <!-- Result -->
+                    <Grid Grid.Column="2" RowDefinitions="*, Auto">
+                        <Border BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Background="#0DFFFFFF" CornerRadius="6" ClipToBounds="True">
+                            <Grid>
+                                <Image Name="ImgResult" Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       PointerPressed="OnImagePointerPressed" PointerMoved="OnImagePointerMoved" 
+                                       PointerReleased="OnImagePointerReleased" PointerWheelChanged="OnImagePointerWheelChanged">
+                                    <Image.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                                            <TranslateTransform X="0" Y="0" />
+                                            <RotateTransform Angle="{Binding $parent[views:PreviewWindow].RotationResult}" />
+                                        </TransformGroup>
+                                    </Image.RenderTransform>
+                                </Image>
+                                <!-- Rotate Button Overlay -->
+                                <Button Click="OnRotateResultClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" 
+                                        Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="Rotate Result">
+                                    <PathIcon Data="M12,4C14.2,4 16.2,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 11,19.9V21.9C13.9,22.2 16.9,21.2 19.1,19C23,15.1 23,8.9 19,5C17.1,3.1 14.5,2.1 12,2V0L7,4L12,8V4Z" 
+                                              Width="14" Height="14" Foreground="White">
+                                          <PathIcon.RenderTransform>
+                                              <RotateTransform Angle="90"/>
+                                          </PathIcon.RenderTransform>
+                                    </PathIcon>
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <TextBlock Grid.Row="1" Text="Result" HorizontalAlignment="Center" Margin="0,5,0,0" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Grid>
+                </Grid>
+                
+                <!-- STATE 2: Photopea Edit Mode (WebView fills the area) -->
+                <Grid x:Name="PanelPhotopeaEditor" IsVisible="False">
+                    <!-- Loading overlay -->
+                    <Border x:Name="PhotopeaLoading" Background="{DynamicResource CardBackgroundBrush}" ZIndex="10" IsVisible="True">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                            <ProgressBar IsIndeterminate="True" Width="200" Height="4" Foreground="#2ecc71"/>
+                            <TextBlock Text="Memuat Editor..." FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Memerlukan koneksi internet" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.6"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- NativeWebView placeholder — akan dibuat secara programatis di code-behind -->
+                    <Border x:Name="WebViewContainer" Background="#1E1E1E" ClipToBounds="True"/>
+                </Grid>
+            </Grid>
+
+            <!-- Footer (Action Buttons) -->
+            <Border Grid.Row="2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="#0AFFFFFF" Padding="15,10" MinHeight="50">
+                 <Grid ColumnDefinitions="*, Auto, *">
+                     <!-- Left: Photoshop & Photopea Buttons -->
+                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" VerticalAlignment="Center">
+                          <!-- Photoshop Button -->
+                          <Button IsVisible="True" Click="OnPhotoshopClick" Padding="12,6" Background="{DynamicResource AccentBlueBrush}" CornerRadius="6" BorderThickness="0" ToolTip.Tip="Buka di Photoshop untuk mengedit">
+                              <TextBlock Text="PHOTOSHOP" FontSize="11" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                          </Button>
+                          
+                          <!-- Photopea Button -->
+                          <Button x:Name="BtnPhotopea" Click="OnPhotopeaClick" Padding="12,6" CornerRadius="6" BorderThickness="0" ToolTip.Tip="Edit masker transparan langsung di dalam aplikasi (Gratis &amp; Ringan)">
+                              <Button.Background>
+                                  <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                      <GradientStop Color="#18A05A" Offset="0"/>
+                                      <GradientStop Color="#2ecc71" Offset="1"/>
+                                  </LinearGradientBrush>
+                              </Button.Background>
+                              <TextBlock Text="PHOTOPEA" FontSize="11" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                          </Button>
                      </StackPanel>
-                     
-                     <Button Click="OnCloseClick" VerticalAlignment="Top" HorizontalAlignment="Right" Content="✕" Width="40" Height="30" Background="Transparent" BorderThickness="0" Margin="0,0,5,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                 </Grid>
-            </Grid>
 
-            <!-- Content -->
-            <Grid Grid.Row="1" ColumnDefinitions="*, 2, *" Margin="10">
-                <!-- Original -->
-                <Grid Grid.Column="0" RowDefinitions="*, Auto">
-                    <Border BorderBrush="#40FFFFFF" BorderThickness="1" Background="#10000000" CornerRadius="0" ClipToBounds="True">
-                        <Grid>
-                            <ScrollViewer Name="SvOriginal" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                                          PointerPressed="OnImagePointerPressed" PointerMoved="OnImagePointerMoved" PointerReleased="OnImagePointerReleased">
-                                 <LayoutTransformControl>
-                                     <LayoutTransformControl.LayoutTransform>
-                                         <TransformGroup>
-                                             <ScaleTransform ScaleX="{Binding #ZoomControl.Value}" ScaleY="{Binding #ZoomControl.Value}"/>
-                                             <RotateTransform Angle="{Binding $parent[views:PreviewWindow].RotationOriginal}" />
-                                         </TransformGroup>
-                                     </LayoutTransformControl.LayoutTransform>
-                                     <Image Name="ImgOriginal" Stretch="None" Margin="5"/>
-                                 </LayoutTransformControl>
-                            </ScrollViewer>
-                            <!-- Rotate Button Overlay -->
-                            <Button Click="OnRotateOriginalClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" 
-                                    Background="#80000000" CornerRadius="0" Padding="4" BorderThickness="0" ToolTip.Tip="Rotate Original">
-                                <PathIcon Data="M12,4C14.2,4 16.2,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 11,19.9V21.9C13.9,22.2 16.9,21.2 19.1,19C23,15.1 23,8.9 19,5C17.1,3.1 14.5,2.1 12,2V0L7,4L12,8V4Z" 
-                                          Width="14" Height="14" Foreground="White">
-                                     <PathIcon.RenderTransform>
-                                         <RotateTransform Angle="90"/>
-                                     </PathIcon.RenderTransform>
-                                </PathIcon>
-                            </Button>
-                        </Grid>
-                    </Border>
-                    <TextBlock Grid.Row="1" Text="Original" HorizontalAlignment="Center" Margin="0,5,0,0" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                </Grid>
+                     <!-- Center: Navigation Buttons & Toast (Always mathematically centered) -->
+                     <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                          <!-- Navigation Buttons -->
+                          <StackPanel x:Name="PanelNavigation" Orientation="Horizontal" Spacing="15" IsVisible="True">
+                              <Button Click="OnPreviousClick" Width="32" Height="32" CornerRadius="6" Background="#20FFFFFF" BorderThickness="1" BorderBrush="#40FFFFFF" ToolTip.Tip="Sebelumnya">
+                                  <PathIcon Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                              </Button>
+                              <Button Click="OnNextClick" Width="32" Height="32" CornerRadius="6" Background="#20FFFFFF" BorderThickness="1" BorderBrush="#40FFFFFF" ToolTip.Tip="Berikutnya">
+                                  <PathIcon Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                              </Button>
+                          </StackPanel>
+                          
+                          <!-- Save Toast Notification -->
+                          <Border x:Name="ToastNotification" Background="#18A05A" CornerRadius="6" Padding="12,6" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center">
+                              <StackPanel Orientation="Horizontal" Spacing="6">
+                                  <PathIcon Data="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.58L21,7Z" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
+                                  <TextBlock Text="Perubahan berhasil disimpan ✓" FontSize="11" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                              </StackPanel>
+                          </Border>
+                     </Grid>
 
-                <!-- Separator -->
-                <GridSplitter Grid.Column="1" Width="2" Background="#40808080" ResizeBehavior="PreviousAndNext"/>
+                     <!-- Right: Photopea Edit Mode Controls -->
+                     <StackPanel Grid.Column="2" x:Name="PanelPhotopeaControls" Orientation="Horizontal" Spacing="8" 
+                                 IsVisible="False" HorizontalAlignment="Right" VerticalAlignment="Center">
+                          <!-- Save Format Dropdown -->
+                          <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                              <TextBlock Text="Format Simpan:" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                              <ComboBox x:Name="CmbSaveFormat" Width="70" Height="26" FontSize="10" SelectedIndex="0" SelectionChanged="OnSaveFormatChanged">
+                                  <ComboBoxItem Content="PNG" Tag="png"/>
+                                  <ComboBoxItem Content="PSD" Tag="psd"/>
+                              </ComboBox>
+                          </StackPanel>
+                          
+                          <!-- Auto-Advance Checkbox -->
+                          <CheckBox x:Name="ChkAutoAdvance" Content="Auto Next" FontSize="10" 
+                                    VerticalAlignment="Center" Padding="4,0"
+                                    ToolTip.Tip="Otomatis buka gambar berikutnya setelah Ctrl+S"
+                                    IsCheckedChanged="OnAutoAdvanceChanged"/>
 
-                <!-- Result -->
-                <Grid Grid.Column="2" RowDefinitions="*, Auto">
-                    <Border BorderBrush="#40FFFFFF" BorderThickness="1" Background="#10000000" CornerRadius="0" ClipToBounds="True">
-                        <Grid>
-                           <ScrollViewer Name="SvResult" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                                         PointerPressed="OnImagePointerPressed" PointerMoved="OnImagePointerMoved" PointerReleased="OnImagePointerReleased">
-                                 <LayoutTransformControl>
-                                     <LayoutTransformControl.LayoutTransform>
-                                         <TransformGroup>
-                                             <ScaleTransform ScaleX="{Binding #ZoomControl.Value}" ScaleY="{Binding #ZoomControl.Value}"/>
-                                              <RotateTransform Angle="{Binding $parent[views:PreviewWindow].RotationResult}"/>
-                                         </TransformGroup>
-                                     </LayoutTransformControl.LayoutTransform>
-                                     <Image Name="ImgResult" Stretch="None" Margin="5"/>
-                                 </LayoutTransformControl>
-                            </ScrollViewer>
-                            <!-- Rotate Button Overlay -->
-                            <Button Click="OnRotateResultClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" 
-                                    Background="#80000000" CornerRadius="0" Padding="4" BorderThickness="0" ToolTip.Tip="Rotate Result">
-                                <PathIcon Data="M12,4C14.2,4 16.2,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 11,19.9V21.9C13.9,22.2 16.9,21.2 19.1,19C23,15.1 23,8.9 19,5C17.1,3.1 14.5,2.1 12,2V0L7,4L12,8V4Z" 
-                                          Width="14" Height="14" Foreground="White">
-                                     <PathIcon.RenderTransform>
-                                         <RotateTransform Angle="90"/>
-                                     </PathIcon.RenderTransform>
-                                </PathIcon>
-                            </Button>
-                        </Grid>
-                    </Border>
-                    <TextBlock Grid.Row="1" Text="Result" HorizontalAlignment="Center" Margin="0,5,0,0" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                </Grid>
-            </Grid>
+                          <!-- Crop Ads Checkbox -->
+                          <CheckBox x:Name="ChkHideAds" Content="Potong Iklan" FontSize="10" 
+                                    VerticalAlignment="Center" Padding="4,0"
+                                    ToolTip.Tip="Potong 300px sisi kanan untuk menyembunyikan iklan (matikan jika panel Layers terpotong)"
+                                    IsCheckedChanged="OnHideAdsChanged"/>
+                          
+                          <!-- Kembali Button -->
+                          <Button Click="OnExitPhotopeaClick" Padding="10,5" Background="#EF4444" CornerRadius="6" BorderThickness="0"
+                                  ToolTip.Tip="Kembali ke Preview Normal">
+                              <TextBlock Text="✕ KEMBALI" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                          </Button>
+                     </StackPanel>
+                  </Grid>
+            </Border>
         </Grid>
     </Border>
-    
+
     <Window.Styles>
         <Style Selector="Button:pointerover /template/ ContentPresenter">
              <Setter Property="Foreground" Value="Red"/>
+        </Style>
+        <Style Selector="Grid.spinning">
+            <Setter Property="RenderTransform">
+                <RotateTransform />
+            </Setter>
+            <Style.Animations>
+                <Animation Duration="0:0:1" IterationCount="Infinite">
+                    <KeyFrame KeyTime="0:0:0">
+                        <Setter Property="RotateTransform.Angle" Value="0"/>
+                    </KeyFrame>
+                    <KeyFrame KeyTime="0:0:1">
+                        <Setter Property="RotateTransform.Angle" Value="360"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
         </Style>
     </Window.Styles>
 </Window>
