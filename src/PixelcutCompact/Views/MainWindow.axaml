@@ -238,7 +238,7 @@
                      </TabControl.Styles>
                      
                      <!-- Tab 1: Proses -->
-                    <TabItem Header="{Binding FilesCount, StringFormat='Proses ({0})'}">
+                    <TabItem Header="{Binding TabHeaderText}">
                         <Grid DragDrop.AllowDrop="True" Background="Transparent">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>

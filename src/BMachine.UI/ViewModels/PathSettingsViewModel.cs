@@ -47,6 +47,26 @@ public partial class PathSettingsViewModel : ObservableObject
     [ObservableProperty] private string _pathPhotoshop = "";
     [ObservableProperty] private string _pathLocalOutput = "";
     [ObservableProperty] private string _offlineStoragePath = "";
+
+    // Auto-save when user manually types into a TextBox (TwoWay binding)
+    partial void OnPathLocalOutputChanged(string value)   => _ = PersistPathAsync("Configs.Master.LocalOutput", value);
+    partial void OnPathOkeBaseChanged(string value)       => _ = PersistPathAsync("Configs.Master.OkeBase", value);
+    partial void OnPathPhotoshopChanged(string value)     => _ = PersistPathAsync("Configs.Master.PhotoshopPath", value);
+    partial void OnPathProfesiChanged(string value)       => _ = PersistPathAsync("Configs.Master.Profesi", value);
+    partial void OnPathSportyChanged(string value)        => _ = PersistPathAsync("Configs.Master.Sporty", value);
+    partial void OnPathManasik10RPChanged(string value)   => _ = PersistPathAsync("Configs.Master.Manasik10RP", value);
+    partial void OnPathManasik8RChanged(string value)     => _ = PersistPathAsync("Configs.Master.Manasik8R", value);
+    partial void OnPathPasFotoChanged(string value)       => _ = PersistPathAsync("Configs.Master.PasFoto", value);
+    partial void OnPathWisuda10RPChanged(string value)    => _ = PersistPathAsync("Configs.Master.Wisuda10RP", value);
+    partial void OnPathWisuda8RChanged(string value)      => _ = PersistPathAsync("Configs.Master.Wisuda8R", value);
+    partial void OnOfflineStoragePathChanged(string value)=> _ = PersistPathAsync("Configs.Storage.OfflinePath", value);
+
+    private async Task PersistPathAsync(string key, string value)
+    {
+        if (_database == null) return;
+        await _database.SetAsync(key, value ?? "");
+        WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
+    }
     
     [ObservableProperty]
     private ObservableCollection<string> _additionalMasterPaths = new();
@@ -110,10 +130,10 @@ public partial class PathSettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task AddMasterPath()
     {
-         var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
-         if (topLevel == null) return;
+         var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+         if (storageProvider == null) return;
          
-         var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+         var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
          {
              Title = "Select Additional Master Folder",
              AllowMultiple = false
@@ -153,10 +173,10 @@ public partial class PathSettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task AddPhotoshopPath()
     {
-         var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
-         if (topLevel == null) return;
+         var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+         if (storageProvider == null) return;
          
-         var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+         var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
          {
              Title = "Select Additional Photoshop Folder",
              AllowMultiple = false
@@ -195,13 +215,13 @@ public partial class PathSettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task BrowseFile(string type)
     {
-         var topLevel = TopLevel.GetTopLevel(Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop ? desktop.MainWindow : null);
-         if (topLevel == null) return;
+         var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+         if (storageProvider == null) return;
          string selectedPath = null;
 
          if (OperatingSystem.IsMacOS() && type == "Photoshop")
          {
-             var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+             var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
              {
                  Title = $"Select Executable (.app) for {type}",
                  AllowMultiple = false
@@ -226,7 +246,7 @@ public partial class PathSettingsViewModel : ObservableObject
          }
          else
          {
-             var result = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+             var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
              {
                  Title = $"Select Executable for {type}",
                  AllowMultiple = false,
@@ -268,77 +288,111 @@ public partial class PathSettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task BrowsePath(string key)
     {
-        var buffer = "";
-        
-        var dialog = new Avalonia.Controls.OpenFolderDialog
-        {
-            Title = "Select Folder"
-        };
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
 
-        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            var result = await dialog.ShowAsync(desktop.MainWindow);
-            if (!string.IsNullOrWhiteSpace(result))
-            {
-                 buffer = result;
-            }
+            Title = "Select Folder",
+            AllowMultiple = false
+        });
+
+        if (result == null || result.Count == 0) return;
+        var buffer = result[0].Path.LocalPath;
+        if (string.IsNullOrEmpty(buffer)) return;
+
+        if (key == "Manasik10RP")
+        {
+            PathManasik10RP = buffer;
+            await _database.SetAsync("Configs.Master.Manasik10RP", buffer);
+        }
+        else if (key == "Manasik8R")
+        {
+            PathManasik8R = buffer;
+            await _database.SetAsync("Configs.Master.Manasik8R", buffer);
+        }
+        else if (key == "Wisuda10RP")
+        {
+            PathWisuda10RP = buffer;
+            await _database.SetAsync("Configs.Master.Wisuda10RP", buffer);
+        }
+        else if (key == "Wisuda8R")
+        {
+            PathWisuda8R = buffer;
+            await _database.SetAsync("Configs.Master.Wisuda8R", buffer);
+        }
+        else if (key == "Profesi")
+        {
+            PathProfesi = buffer;
+            await _database.SetAsync("Configs.Master.Profesi", buffer);
+        }
+        else if (key == "Sporty")
+        {
+            PathSporty = buffer;
+            await _database.SetAsync("Configs.Master.Sporty", buffer);
+        }
+        else if (key == "PasFoto")
+        {
+            PathPasFoto = buffer;
+            await _database.SetAsync("Configs.Master.PasFoto", buffer);
+        }
+        else if (key == "OkeBase")
+        {
+            PathOkeBase = buffer;
+            await _database.SetAsync("Configs.Master.OkeBase", buffer);
+        }
+        else if (key == "LocalOutput")
+        {
+            PathLocalOutput = buffer;
+            await _database.SetAsync("Configs.Master.LocalOutput", buffer);
+        }
+        else if (key == "OfflineStorage")
+        {
+            OfflineStoragePath = buffer;
+            await _database.SetAsync("Configs.Storage.OfflinePath", buffer);
         }
 
-        if (!string.IsNullOrEmpty(buffer))
+        // Notify listeners to reload paths
+        WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
+    }
+
+    // Called by TextBox when user manually edits a path field
+    [RelayCommand]
+    private async Task SaveManualPath(string key)
+    {
+        string buffer = key switch
         {
-            if (key == "Manasik10R")
-            {
-                PathManasik10RP = buffer;
-                await _database.SetAsync("Configs.Master.Manasik10RP", buffer);
-            }
-            else if (key == "Manasik8R")
-            {
-                PathManasik8R = buffer;
-                await _database.SetAsync("Configs.Master.Manasik8R", buffer);
-            }
-            else if (key == "Wisuda10R")
-            {
-                PathWisuda10RP = buffer;
-                await _database.SetAsync("Configs.Master.Wisuda10RP", buffer);
-            }
-            else if (key == "Wisuda8R")
-            {
-                PathWisuda8R = buffer;
-                await _database.SetAsync("Configs.Master.Wisuda8R", buffer);
-            }
-            else if (key == "Profesi")
-            {
-                PathProfesi = buffer;
-                await _database.SetAsync("Configs.Master.Profesi", buffer);
-            }
-            else if (key == "Sporty")
-            {
-                PathSporty = buffer;
-                await _database.SetAsync("Configs.Master.Sporty", buffer);
-            }
-            else if (key == "PasFoto")
-            {
-                PathPasFoto = buffer;
-                await _database.SetAsync("Configs.Master.PasFoto", buffer);
-            }
-            // Scripts moved to Explorer/Scripts Manager
-            else if (key == "OkeBase")
-            {
-                PathOkeBase = buffer;
-                await _database.SetAsync("Configs.Master.OkeBase", buffer);
-            }
-            else if (key == "LocalOutput")
-            {
-                PathLocalOutput = buffer;
-                await _database.SetAsync("Configs.Master.LocalOutput", buffer);
-            }
-            else if (key == "OfflineStorage")
-            {
-                OfflineStoragePath = buffer;
-                await _database.SetAsync("Configs.Storage.OfflinePath", buffer);
-            }
-            
-            // Notify listeners to reload paths
+            "Manasik10RP"    => PathManasik10RP,
+            "Manasik8R"      => PathManasik8R,
+            "Wisuda10RP"     => PathWisuda10RP,
+            "Wisuda8R"       => PathWisuda8R,
+            "Profesi"        => PathProfesi,
+            "Sporty"         => PathSporty,
+            "PasFoto"        => PathPasFoto,
+            "OkeBase"        => PathOkeBase,
+            "LocalOutput"    => PathLocalOutput,
+            "OfflineStorage" => OfflineStoragePath,
+            _                => ""
+        };
+
+        string dbKey = key switch
+        {
+            "Manasik10RP"    => "Configs.Master.Manasik10RP",
+            "Manasik8R"      => "Configs.Master.Manasik8R",
+            "Wisuda10RP"     => "Configs.Master.Wisuda10RP",
+            "Wisuda8R"       => "Configs.Master.Wisuda8R",
+            "Profesi"        => "Configs.Master.Profesi",
+            "Sporty"         => "Configs.Master.Sporty",
+            "PasFoto"        => "Configs.Master.PasFoto",
+            "OkeBase"        => "Configs.Master.OkeBase",
+            "LocalOutput"    => "Configs.Master.LocalOutput",
+            "OfflineStorage" => "Configs.Storage.OfflinePath",
+            _                => ""
+        };
+
+        if (!string.IsNullOrEmpty(dbKey))
+        {
+            await _database.SetAsync(dbKey, buffer);
             WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
         }
     }

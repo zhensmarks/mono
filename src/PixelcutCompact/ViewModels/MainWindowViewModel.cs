@@ -50,6 +50,15 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _hasFiles;
     [ObservableProperty] private bool _isProcessing;
     public int FilesCount => Files.Count;
+
+    /// <summary>Jumlah item yang sudah selesai (done atau failed) — digunakan untuk progress counter.</summary>
+    public int ProcessedCount => Files.Count(x => x.IsDone || x.IsFailed);
+
+    /// <summary>Teks header tab: 'Proses (N)' saat idle, 'Proses (X/N)' saat sedang processing.</summary>
+    public string TabHeaderText =>
+        IsProcessing
+            ? $"Proses ({ProcessedCount}/{FilesCount})"
+            : $"Proses ({FilesCount})";
     [ObservableProperty] private string _vpnStatus = "Memeriksa...";
     [ObservableProperty] private bool _isVpnActive;
     [ObservableProperty] private string _logOutput = "";
@@ -363,6 +372,7 @@ public partial class MainWindowViewModel : ObservableObject
     private void OnFilesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(FilesCount));
+        OnPropertyChanged(nameof(TabHeaderText));
         if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && e.NewItems != null)
         {
             foreach (PixelcutFileItem item in e.NewItems)
@@ -441,6 +451,7 @@ public partial class MainWindowViewModel : ObservableObject
         _pixelcutService.UseWebMode = true;
         SaveSettings();
     }
+
 
     partial void OnShowBrowserChanged(bool value)
     {
@@ -682,6 +693,8 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnIsProcessingChanged(bool value)
     {
         StatusText = value ? "Memproses..." : "Siap";
+        OnPropertyChanged(nameof(ProcessedCount));
+        OnPropertyChanged(nameof(TabHeaderText));
     }
     
     partial void OnIsPausedChanged(bool value)
@@ -1321,6 +1334,7 @@ public partial class MainWindowViewModel : ObservableObject
             IsProcessing = false;
             _cts?.Dispose();
             _cts = null;
+            OnPropertyChanged(nameof(TabHeaderText));
             CheckRetryVisibility();
 
             if (!_stopRequested)
@@ -1414,6 +1428,8 @@ public partial class MainWindowViewModel : ObservableObject
             item.Progress = 100;
             item.Status = "Selesai";
             item.IsDone = true;
+            OnPropertyChanged(nameof(ProcessedCount));
+            OnPropertyChanged(nameof(TabHeaderText));
             
             // Re-read size
             var resultPath = GetResultPath(item.FilePath, job);
@@ -1438,6 +1454,8 @@ public partial class MainWindowViewModel : ObservableObject
             item.ErrorMessage = ex.Message;
             item.Progress = 0;
             AppendLog($"Error {item.FileName}: {ex.Message}");
+            OnPropertyChanged(nameof(ProcessedCount));
+            OnPropertyChanged(nameof(TabHeaderText));
         }
         finally
         {
@@ -1626,11 +1644,7 @@ public partial class MainWindowViewModel : ObservableObject
                  // Subscribe to events
                  _previewWindow.Next += OnNextPreview;
                  _previewWindow.Previous += OnPreviousPreview;
-                 // Subscribe to Photopea navigation events (assembly-line workflow)
-                 _previewWindow.PhotopeaNextRequested += OnPhotopeaNextPreview;
-                 _previewWindow.PhotopeaPreviousRequested += OnPhotopePreviousPreview;
-                 _previewWindow.FileSaved += OnPreviewFileSaved;
-                 
+
                  if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
                  {
                      _previewWindow.Show(desktop.MainWindow);
@@ -1645,6 +1659,7 @@ public partial class MainWindowViewModel : ObservableObject
                  _previewWindow.Activate();
              }
              
+             _previewWindow.ShowLoading();
              _previewWindow.LoadImages(original, result, title);
              UpdatePreviewButtons();
         }
@@ -1861,76 +1876,4 @@ public partial class MainWindowViewModel : ObservableObject
         // If we want to strictly disable buttons, we'd need to expose properties on PreviewWindow.
     }
 
-    private void OnPreviewFileSaved(string savedPath)
-    {
-        var itemsToRefresh = GalleryItems.Where(g => string.Equals(g.FilePath, savedPath, StringComparison.OrdinalIgnoreCase)).ToList();
-        foreach (var item in itemsToRefresh)
-        {
-            item.RefreshThumbnail();
-        }
-    }
-
-    // === PHOTOPEA ASSEMBLY-LINE NAVIGATION ===
-    
-    private void OnPhotopeaNextPreview(object? sender, EventArgs e)
-    {
-        if (_currentPreviewItem == null) return;
-        var oldItem = _currentPreviewItem;
-        var idx = Files.IndexOf(_currentPreviewItem);
-        AppendLog($"[Photopea Next] Current: {_currentPreviewItem.FileName}, Index: {idx}, Files Count: {Files.Count}");
-        if (idx >= 0 && idx < Files.Count - 1)
-        {
-            for (int i = idx + 1; i < Files.Count; i++)
-            {
-                if (Files[i].HasResult)
-                {
-                    AppendLog($"[Photopea Next] Navigating to: {Files[i].FileName}");
-                    NavigatePhotopeaTo(Files[i]);
-                    RefreshItemThumbnails(oldItem);
-                    return;
-                }
-            }
-        }
-        AppendLog("[Photopea Next] No next item with result found!");
-    }
-
-    private void OnPhotopePreviousPreview(object? sender, EventArgs e)
-    {
-        if (_currentPreviewItem == null) return;
-        var oldItem = _currentPreviewItem;
-        var idx = Files.IndexOf(_currentPreviewItem);
-        AppendLog($"[Photopea Prev] Current: {_currentPreviewItem.FileName}, Index: {idx}, Files Count: {Files.Count}");
-        if (idx > 0)
-        {
-            for (int i = idx - 1; i >= 0; i--)
-            {
-                if (Files[i].HasResult)
-                {
-                    AppendLog($"[Photopea Prev] Navigating to: {Files[i].FileName}");
-                    NavigatePhotopeaTo(Files[i]);
-                    RefreshItemThumbnails(oldItem);
-                    return;
-                }
-            }
-        }
-        AppendLog("[Photopea Prev] No previous item with result found!");
-    }
-
-    private void NavigatePhotopeaTo(PixelcutFileItem item)
-    {
-        _currentPreviewItem = item;
-        
-        var original = item.FilePath;
-        var result = item.HasResult ? item.ResultPath : null;
-        
-        // Construct title
-        var parent = Path.GetFileName(Path.GetDirectoryName(original));
-        var fname = Path.GetFileName(original);
-        var title = string.IsNullOrEmpty(parent) ? fname : Path.Combine(parent, fname);
-        
-        if (_previewWindow != null && File.Exists(original) && File.Exists(result))
-        {
-            _previewWindow.LoadImagesInPhotopeaMode(original, result, title);
-        }
-    }
 }

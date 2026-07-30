@@ -13,9 +13,26 @@
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
         Background="Transparent"
-        TransparencyLevelHint="AcrylicBlur"
         Focusable="True"
         KeyDown="OnPreviewKeyDown">
+        
+    <Window.Styles>
+        <Style Selector="Border.shimmer">
+            <Style.Animations>
+                <Animation Duration="0:0:1.5" IterationCount="Infinite" Easing="SineEaseInOut">
+                    <KeyFrame KeyTime="0:0:0">
+                        <Setter Property="Opacity" Value="0.1"/>
+                    </KeyFrame>
+                    <KeyFrame KeyTime="0:0:0.75">
+                        <Setter Property="Opacity" Value="0.5"/>
+                    </KeyFrame>
+                    <KeyFrame KeyTime="0:0:1.5">
+                        <Setter Property="Opacity" Value="0.1"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </Window.Styles>
 
     <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" ClipToBounds="True">
         <Grid RowDefinitions="Auto, *, Auto">
@@ -113,121 +130,57 @@
                         <TextBlock Grid.Row="1" Text="Result" HorizontalAlignment="Center" Margin="0,5,0,0" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </Grid>
                 </Grid>
-                
-                <!-- STATE 2: Photopea Edit Mode (WebView fills the area) -->
-                <Grid x:Name="PanelPhotopeaEditor" IsVisible="False">
-                    <!-- Loading overlay -->
-                    <Border x:Name="PhotopeaLoading" Background="{DynamicResource CardBackgroundBrush}" ZIndex="10" IsVisible="True">
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
-                            <ProgressBar IsIndeterminate="True" Width="200" Height="4" Foreground="#2ecc71"/>
-                            <TextBlock Text="Memuat Editor..." FontSize="14" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Memerlukan koneksi internet" FontSize="11"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.6"/>
+
+                <!-- Ghost Loading Overlay -->
+                <Grid x:Name="OverlayLoading" ColumnDefinitions="*, 2, *" Margin="10,0,10,10" IsVisible="False">
+                    <!-- Left Skeleton -->
+                    <Border Grid.Column="0" Classes="shimmer" Background="#15FFFFFF" CornerRadius="8" ClipToBounds="True">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="15">
+                            <PathIcon Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M5,19V5H19V19H5M6,17H18L14.25,12L11.25,16L9,13L6,17Z" Width="48" Height="48" Foreground="#20FFFFFF"/>
                         </StackPanel>
                     </Border>
-                    
-                    <!-- NativeWebView placeholder — akan dibuat secara programatis di code-behind -->
-                    <Border x:Name="WebViewContainer" Background="#1E1E1E" ClipToBounds="True"/>
+                    <!-- Right Skeleton -->
+                    <Border Grid.Column="2" Classes="shimmer" Background="#15FFFFFF" CornerRadius="8" ClipToBounds="True">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="15">
+                            <PathIcon Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M5,19V5H19V19H5M6,17H18L14.25,12L11.25,16L9,13L6,17Z" Width="48" Height="48" Foreground="#20FFFFFF"/>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Grid>
 
             <!-- Footer (Action Buttons) -->
-            <Border Grid.Row="2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="#0AFFFFFF" Padding="15,10" MinHeight="50">
-                 <Grid ColumnDefinitions="*, Auto, *">
-                     <!-- Left: Photoshop & Photopea Buttons -->
-                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" VerticalAlignment="Center">
-                          <!-- Photoshop Button -->
-                          <Button IsVisible="True" Click="OnPhotoshopClick" Padding="12,6" Background="{DynamicResource AccentBlueBrush}" CornerRadius="6" BorderThickness="0" ToolTip.Tip="Buka di Photoshop untuk mengedit">
-                              <TextBlock Text="PHOTOSHOP" FontSize="11" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-                          </Button>
-                          
-                          <!-- Photopea Button -->
-                          <Button x:Name="BtnPhotopea" Click="OnPhotopeaClick" Padding="12,6" CornerRadius="6" BorderThickness="0" ToolTip.Tip="Edit masker transparan langsung di dalam aplikasi (Gratis &amp; Ringan)">
-                              <Button.Background>
-                                  <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
-                                      <GradientStop Color="#18A05A" Offset="0"/>
-                                      <GradientStop Color="#2ecc71" Offset="1"/>
-                                  </LinearGradientBrush>
-                              </Button.Background>
-                              <TextBlock Text="PHOTOPEA" FontSize="11" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-                          </Button>
-                     </StackPanel>
-
-                     <!-- Center: Navigation Buttons & Toast (Always mathematically centered) -->
-                     <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                          <!-- Navigation Buttons -->
-                          <StackPanel x:Name="PanelNavigation" Orientation="Horizontal" Spacing="15" IsVisible="True">
-                              <Button Click="OnPreviousClick" Width="32" Height="32" CornerRadius="6" Background="#20FFFFFF" BorderThickness="1" BorderBrush="#40FFFFFF" ToolTip.Tip="Sebelumnya">
-                                  <PathIcon Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <Border Grid.Row="2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="#0AFFFFFF" Padding="15,10" MinHeight="55">
+                 <Grid>
+                     <!-- Center: Navigation Buttons & Photoshop & Toast -->
+                     <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                          <!-- Navigation and Actions -->
+                          <StackPanel x:Name="PanelNavigation" Orientation="Horizontal" Spacing="20" IsVisible="True">
+                              <Button Click="OnPreviousClick" Width="36" Height="36" CornerRadius="8" Background="#15FFFFFF" BorderThickness="1" BorderBrush="#30FFFFFF" ToolTip.Tip="Sebelumnya">
+                                  <PathIcon Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
                               </Button>
-                              <Button Click="OnNextClick" Width="32" Height="32" CornerRadius="6" Background="#20FFFFFF" BorderThickness="1" BorderBrush="#40FFFFFF" ToolTip.Tip="Berikutnya">
-                                  <PathIcon Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                              
+                              <Button IsVisible="True" Click="OnPhotoshopClick" Padding="20,8" Background="#206366F1" BorderBrush="#806366F1" BorderThickness="1" CornerRadius="8" ToolTip.Tip="Buka di Photoshop untuk mengedit">
+                                  <StackPanel Orientation="Horizontal" Spacing="8">
+                                      <PathIcon Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M19,19H5V5H19V19M11,14.5V11.5H13C14.1,11.5 15,12.4 15,13.5C15,14.6 14.1,15.5 13,15.5H11M11,10H13C14.93,10 16.5,11.57 16.5,13.5C16.5,15.43 14.93,17 13,17H9.5V7H11V10Z" Width="14" Height="14" Foreground="White" VerticalAlignment="Center"/>
+                                      <TextBlock Text="PHOTOSHOP" FontSize="12" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                                  </StackPanel>
+                              </Button>
+                              
+                              <Button Click="OnNextClick" Width="36" Height="36" CornerRadius="8" Background="#15FFFFFF" BorderThickness="1" BorderBrush="#30FFFFFF" ToolTip.Tip="Berikutnya">
+                                  <PathIcon Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
                               </Button>
                           </StackPanel>
                           
                           <!-- Save Toast Notification -->
-                          <Border x:Name="ToastNotification" Background="#18A05A" CornerRadius="6" Padding="12,6" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center">
-                              <StackPanel Orientation="Horizontal" Spacing="6">
-                                  <PathIcon Data="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.58L21,7Z" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
-                                  <TextBlock Text="Perubahan berhasil disimpan ✓" FontSize="11" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                          <Border x:Name="ToastNotification" Background="#18A05A" CornerRadius="8" Padding="15,8" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center" BorderBrush="#40FFFFFF" BorderThickness="1">
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                  <PathIcon Data="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.58L21,7Z" Width="14" Height="14" Foreground="White" VerticalAlignment="Center"/>
+                                  <TextBlock Text="Perubahan berhasil disimpan" FontSize="12" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
                               </StackPanel>
                           </Border>
                      </Grid>
-
-                     <!-- Right: Photopea Edit Mode Controls -->
-                     <StackPanel Grid.Column="2" x:Name="PanelPhotopeaControls" Orientation="Horizontal" Spacing="8" 
-                                 IsVisible="False" HorizontalAlignment="Right" VerticalAlignment="Center">
-                          <!-- Save Format Dropdown -->
-                          <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                              <TextBlock Text="Format Simpan:" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                              <ComboBox x:Name="CmbSaveFormat" Width="70" Height="26" FontSize="10" SelectedIndex="0" SelectionChanged="OnSaveFormatChanged">
-                                  <ComboBoxItem Content="PNG" Tag="png"/>
-                                  <ComboBoxItem Content="PSD" Tag="psd"/>
-                              </ComboBox>
-                          </StackPanel>
-                          
-                          <!-- Auto-Advance Checkbox -->
-                          <CheckBox x:Name="ChkAutoAdvance" Content="Auto Next" FontSize="10" 
-                                    VerticalAlignment="Center" Padding="4,0"
-                                    ToolTip.Tip="Otomatis buka gambar berikutnya setelah Ctrl+S"
-                                    IsCheckedChanged="OnAutoAdvanceChanged"/>
-
-                          <!-- Crop Ads Checkbox -->
-                          <CheckBox x:Name="ChkHideAds" Content="Potong Iklan" FontSize="10" 
-                                    VerticalAlignment="Center" Padding="4,0"
-                                    ToolTip.Tip="Potong 300px sisi kanan untuk menyembunyikan iklan (matikan jika panel Layers terpotong)"
-                                    IsCheckedChanged="OnHideAdsChanged"/>
-                          
-                          <!-- Kembali Button -->
-                          <Button Click="OnExitPhotopeaClick" Padding="10,5" Background="#EF4444" CornerRadius="6" BorderThickness="0"
-                                  ToolTip.Tip="Kembali ke Preview Normal">
-                              <TextBlock Text="✕ KEMBALI" FontSize="10" FontWeight="Bold" Foreground="White"/>
-                          </Button>
-                     </StackPanel>
-                  </Grid>
+                 </Grid>
             </Border>
         </Grid>
     </Border>
-
-    <Window.Styles>
-        <Style Selector="Button:pointerover /template/ ContentPresenter">
-             <Setter Property="Foreground" Value="Red"/>
-        </Style>
-        <Style Selector="Grid.spinning">
-            <Setter Property="RenderTransform">
-                <RotateTransform />
-            </Setter>
-            <Style.Animations>
-                <Animation Duration="0:0:1" IterationCount="Infinite">
-                    <KeyFrame KeyTime="0:0:0">
-                        <Setter Property="RotateTransform.Angle" Value="0"/>
-                    </KeyFrame>
-                    <KeyFrame KeyTime="0:0:1">
-                        <Setter Property="RotateTransform.Angle" Value="360"/>
-                    </KeyFrame>
-                </Animation>
-            </Style.Animations>
-        </Style>
-    </Window.Styles>
 </Window>

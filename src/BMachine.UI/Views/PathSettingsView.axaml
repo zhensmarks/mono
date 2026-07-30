@@ -21,20 +21,20 @@
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Default Local Output (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="If set, you only need to pick Input folder." FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" IsReadOnly="True" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="LocalOutput" Classes="Primary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master OKE BASE (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathOkeBase}" IsReadOnly="True" Watermark="Not Set (Fitur OKE BASE Non-aktif)" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathOkeBase}" Watermark="Not Set (Fitur OKE BASE Non-aktif)" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OkeBase" Classes="Primary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Photoshop Executable (.exe / .app)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Required for JSX Scripts" FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" IsReadOnly="True" Watermark="Select Photoshop.exe or .app" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" Watermark="Select Photoshop.exe or .app" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary" Margin="0,0,6,0"/>
                         <Button Grid.Row="1" Grid.Column="2" Command="{Binding FixPhotoshopWarningCommand}"
                                 Classes="Primary" Background="#E07020" Padding="8" CornerRadius="0"
@@ -130,7 +130,7 @@
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Attachment Download Path" VerticalAlignment="Center" Margin="0,0,0,5"/>
                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Files from Trello attachments will be saved here." FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding OfflineStoragePath}" IsReadOnly="True" Watermark="Select Download Folder" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding OfflineStoragePath}" Watermark="Select Download Folder" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OfflineStorage" Classes="Primary"/>
                     </Grid>
                 </StackPanel>
@@ -143,13 +143,13 @@
                     
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Profesi" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathProfesi}" IsReadOnly="True" Watermark="Not Set" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathProfesi}" Watermark="Not Set" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Profesi" Classes="Primary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Sporty" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathSporty}" IsReadOnly="True" Watermark="Not Set" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathSporty}" Watermark="Not Set" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Sporty" Classes="Primary"/>
                     </Grid>
                 </StackPanel>
@@ -162,13 +162,13 @@
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Manasik 10RP" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathManasik10RP}" IsReadOnly="True" Watermark="Not Set" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathManasik10RP}" Watermark="Not Set" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Manasik10RP" Classes="Primary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Manasik 8R" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathManasik8R}" IsReadOnly="True" Watermark="Not Set" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathManasik8R}" Watermark="Not Set" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Manasik8R" Classes="Primary"/>
                     </Grid>
                 </StackPanel>
@@ -181,13 +181,13 @@
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Wisuda 10RP" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathWisuda10RP}" IsReadOnly="True" Watermark="Not Set" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathWisuda10RP}" Watermark="Not Set" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Wisuda10RP" Classes="Primary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Wisuda 8R" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathWisuda8R}" IsReadOnly="True" Watermark="Not Set" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathWisuda8R}" Watermark="Not Set" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Wisuda8R" Classes="Primary"/>
                     </Grid>
                 </StackPanel>
@@ -200,7 +200,7 @@
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Pas Foto" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPasFoto}" IsReadOnly="True" Watermark="Not Set" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPasFoto}" Watermark="Not Set" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="PasFoto" Classes="Primary"/>
                     </Grid>
                 </StackPanel>

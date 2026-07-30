@@ -19,7 +19,7 @@
                     <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Default Local Output (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" IsReadOnly="True" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="LocalOutput" Classes="Primary"/>
                     </Grid>
                 </StackPanel>

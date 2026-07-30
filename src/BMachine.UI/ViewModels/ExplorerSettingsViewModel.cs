@@ -5,6 +5,10 @@ using BMachine.Core.Database;
 using BMachine.UI.Messages;
 using System.Threading.Tasks;
 using BMachine.SDK;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
 
 namespace BMachine.UI.ViewModels;
 
@@ -154,17 +158,28 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task BrowsePath(string key)
     {
-        var buffer = "";
-        var dialog = new Avalonia.Controls.OpenFolderDialog { Title = "Select Folder" };
-        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
+
+        var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            var result = await dialog.ShowAsync(desktop.MainWindow);
-            if (!string.IsNullOrWhiteSpace(result)) buffer = result;
-        }
-        if (!string.IsNullOrEmpty(buffer) && key == "LocalOutput")
+            Title = "Select Folder",
+            AllowMultiple = false
+        });
+
+        if (result == null || result.Count == 0) return;
+        var buffer = result[0].Path.LocalPath;
+        if (string.IsNullOrEmpty(buffer)) return;
+
+        if (key == "LocalOutput")
         {
             PathLocalOutput = buffer;
             await _database.SetAsync("Configs.Path.LocalOutput", buffer);
         }
+    }
+
+    partial void OnPathLocalOutputChanged(string value)
+    {
+        _ = _database.SetAsync("Configs.Path.LocalOutput", value ?? "");
     }
 }

@@ -22,14 +22,7 @@ public partial class PreviewWindow : Window
     private string _originalPath = "";
     private string _resultPath = "";
     
-    // Photopea state
-    private PhotopeaLocalServer? _photopeaServer;
-    private NativeWebView? _webView;
-    private bool _isPhotopeaMode = false;
-    private string _photopeaSaveFormat = "png";
-    private bool _autoAdvanceOnSave = false;
-    private System.Timers.Timer? _toastTimer;
-    private bool _hideAds = false;
+
     
     // Embedded JSX Script (for Photoshop)
     private const string JsxScript = @"
@@ -93,36 +86,16 @@ if (pngPath && jpgPath) {
     public event EventHandler? Next;
     public event EventHandler? Previous;
     
-    /// <summary>Dipanggil saat user klik "Next" di Photopea mode — agar ViewModel bisa memberikan file berikutnya.</summary>
-    public event EventHandler? PhotopeaNextRequested;
-    /// <summary>Dipanggil saat user klik "Previous" di Photopea mode.</summary>
-    public event EventHandler? PhotopeaPreviousRequested;
 
-    /// <summary>Dipanggil saat file berhasil disimpan oleh Photopea.</summary>
-    public event Action<string>? FileSaved;
 
     private void OnNextClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (_isPhotopeaMode)
-        {
-            PhotopeaNextRequested?.Invoke(this, EventArgs.Empty);
-        }
-        else
-        {
-            Next?.Invoke(this, EventArgs.Empty);
-        }
+        Next?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnPreviousClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (_isPhotopeaMode)
-        {
-            PhotopeaPreviousRequested?.Invoke(this, EventArgs.Empty);
-        }
-        else
-        {
-            Previous?.Invoke(this, EventArgs.Empty);
-        }
+        Previous?.Invoke(this, EventArgs.Empty);
     }
 
     public PreviewWindow()
@@ -142,9 +115,7 @@ if (pngPath && jpgPath) {
         Width = _settings.Width;
         Height = _settings.Height;
         
-        // Restore Photopea settings
-        _photopeaSaveFormat = _settings.PhotopeaSaveFormat ?? "png";
-        _autoAdvanceOnSave = _settings.AutoAdvanceOnSave;
+
         
         // Find Control and set value
         var zoomControl = this.FindControl<NumericUpDown>("ZoomControl");
@@ -158,35 +129,25 @@ if (pngPath && jpgPath) {
             _settings.Height = Height;
             var zc = this.FindControl<NumericUpDown>("ZoomControl");
             if (zc != null && zc.Value.HasValue) _settings.Zoom = (double)zc.Value.Value;
-            _settings.PhotopeaSaveFormat = _photopeaSaveFormat;
-            _settings.AutoAdvanceOnSave = _autoAdvanceOnSave;
-            
-            _settings.Save();
-            
-            // Cleanup Photopea resources
-            CleanupPhotopea();
-        };
-        
-        // Restore UI controls after template is applied
-        Opened += (s, e) =>
-        {
-            var cmbFormat = this.FindControl<ComboBox>("CmbSaveFormat");
-            if (cmbFormat != null)
-            {
-                cmbFormat.SelectedIndex = _photopeaSaveFormat == "psd" ? 1 : 0;
-            }
-            
-            var chkAuto = this.FindControl<CheckBox>("ChkAutoAdvance");
-            if (chkAuto != null)
-            {
-                chkAuto.IsChecked = _autoAdvanceOnSave;
-            }
         };
     }
 
-    public void LoadImages(string originalPath, string resultPath, string? title = null)
+    /// <summary>Tampilkan ghost loading overlay langsung, untuk dipanggil sebelum navigasi.</summary>
+    public void ShowLoading()
     {
-        // Store paths for Photoshop/Photopea
+        var overlay = this.FindControl<Grid>("OverlayLoading");
+        if (overlay != null) overlay.IsVisible = true;
+    }
+
+    public async void LoadImages(string originalPath, string resultPath, string? title = null)
+    {
+        var overlay = this.FindControl<Grid>("OverlayLoading");
+        if (overlay != null) overlay.IsVisible = true;
+        
+        // Flush UI agar overlay pasti render duluan
+        await System.Threading.Tasks.Task.Delay(80);
+        
+        // Store paths
         _originalPath = originalPath;
         _resultPath = resultPath;
         
@@ -202,552 +163,35 @@ if (pngPath && jpgPath) {
             var imgOriginal = this.FindControl<Image>("ImgOriginal");
             var imgResult = this.FindControl<Image>("ImgResult");
 
-            if (imgOriginal != null && File.Exists(originalPath)) 
-                imgOriginal.Source = LoadBitmapWithOrientation(originalPath);
+            // Sembunyikan gambar lama dulu agar tidak "flicker"
+            if (imgOriginal != null) imgOriginal.Source = null;
+            if (imgResult != null) imgResult.Source = null;
+
+            Bitmap? origBitmap = null;
+            Bitmap? resultBitmap = null;
+
+            await System.Threading.Tasks.Task.Run(() => 
+            {
+                if (File.Exists(originalPath)) 
+                    origBitmap = LoadBitmapWithOrientation(originalPath);
+                
+                if (File.Exists(resultPath)) 
+                    resultBitmap = LoadBitmapWithOrientation(resultPath);
+            });
+
+            if (imgOriginal != null && origBitmap != null) 
+                imgOriginal.Source = origBitmap;
             
-            if (imgResult != null && File.Exists(resultPath)) 
-                imgResult.Source = LoadBitmapWithOrientation(resultPath);
+            if (imgResult != null && resultBitmap != null) 
+                imgResult.Source = resultBitmap;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading preview: {ex.Message}");
         }
-    }
-
-    /// <summary>
-    /// Memuat gambar baru ke Photopea saat dalam mode edit (untuk navigasi Next/Previous).
-    /// </summary>
-    public void LoadImagesInPhotopeaMode(string originalPath, string resultPath, string? title = null)
-    {
-        _originalPath = originalPath;
-        _resultPath = resultPath;
-        
-        if (!string.IsNullOrEmpty(title))
+        finally
         {
-            var label = this.FindControl<TextBlock>("TxtTitle");
-            if (label != null) label.Text = title;
-            Title = title;
-        }
-        
-        if (_isPhotopeaMode && _photopeaServer != null && _webView != null)
-        {
-            // Update server files
-            _photopeaServer.UpdateFiles(originalPath, resultPath);
-            
-            // Reload Photopea with new files
-            var photopeaUrl = BuildPhotopeaUrl();
-            _webView.Source = new Uri(photopeaUrl);
-            
-            // Show loading overlay briefly
-            var loadingOverlay = this.FindControl<Border>("PhotopeaLoading");
-            if (loadingOverlay != null) loadingOverlay.IsVisible = true;
-        }
-    }
-
-    // ========================
-    // PHOTOPEA INTEGRATION
-    // ========================
-
-    private void OnPhotopeaClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (string.IsNullOrEmpty(_resultPath) || string.IsNullOrEmpty(_originalPath))
-        {
-            Console.WriteLine("No images loaded for Photopea.");
-            return;
-        }
-
-        if (!File.Exists(_resultPath))
-        {
-            Console.WriteLine($"Result file not found: {_resultPath}");
-            return;
-        }
-
-        EnterPhotopeaMode();
-    }
-
-    private async System.Threading.Tasks.Task<bool> CheckIfAdsBlockedAsync()
-    {
-        try
-        {
-            using (var cts = new System.Threading.CancellationTokenSource(1000))
-            {
-                var hostEntry = await System.Net.Dns.GetHostEntryAsync("pagead2.googlesyndication.com", cts.Token);
-                foreach (var ip in hostEntry.AddressList)
-                {
-                    if (System.Net.IPAddress.IsLoopback(ip) || ip.ToString() == "0.0.0.0")
-                    {
-                        return true; // Sinkholed (AdBlocker active)
-                    }
-                }
-                return false;
-            }
-        }
-        catch
-        {
-            return true; // DNS failed, likely offline or blocked
-        }
-    }
-
-    private async void EnterPhotopeaMode()
-    {
-        try
-        {
-            // 1. Start local server
-            _photopeaServer = new PhotopeaLocalServer();
-            _photopeaServer.Start(_originalPath, _resultPath, _photopeaSaveFormat);
-            _photopeaServer.FileSaved += OnPhotopeaFileSaved;
-            _photopeaServer.SaveStarted += OnPhotopeaSaveStarted;
-
-            // 2. Build Photopea URL
-            var photopeaUrl = BuildPhotopeaUrl();
-
-            // 3. Detect if ads are blocked to prevent cutting off the layers panel
-            bool adsBlocked = await CheckIfAdsBlockedAsync();
-            _hideAds = !adsBlocked;
-            Thickness webViewMargin = _hideAds ? new Thickness(0, 0, -300, 0) : new Thickness(0, 0, 0, 0);
-            
-            Console.WriteLine($"[Photopea] Ad check: adsBlocked={adsBlocked}. HideAds={_hideAds}. Setting margin to {webViewMargin}");
-
-            // 4. Create and add WebView
-            // Negative right margin extends WebView 300px beyond container.
-            // Since container has ClipToBounds="True", the right-side ad panel is clipped.
-            // If ads are blocked (e.g. offline or DNS sinkhole), margin is set to 0 to prevent cutting off the layers panel.
-            var container = this.FindControl<Border>("WebViewContainer");
-            if (container != null)
-            {
-                _webView = new NativeWebView();
-                _webView.NavigationCompleted += OnWebViewNavigationCompleted;
-                _webView.Margin = webViewMargin;
-                _webView.Source = new Uri(photopeaUrl);
-                container.Child = _webView;
-            }
-
-            // 5. Toggle UI states
-            _isPhotopeaMode = true;
-            
-            var normalPanel = this.FindControl<Grid>("PanelNormalPreview");
-            var editorPanel = this.FindControl<Grid>("PanelPhotopeaEditor");
-            var controlsPanel = this.FindControl<StackPanel>("PanelPhotopeaControls");
-            var loadingOverlay = this.FindControl<Border>("PhotopeaLoading");
-            var btnPhotopea = this.FindControl<Button>("BtnPhotopea");
-            
-            var chkHideAds = this.FindControl<CheckBox>("ChkHideAds");
-            if (chkHideAds != null)
-            {
-                chkHideAds.IsChecked = _hideAds;
-            }
-            
-            if (normalPanel != null) normalPanel.IsVisible = false;
-            if (editorPanel != null) editorPanel.IsVisible = true;
-            if (controlsPanel != null) controlsPanel.IsVisible = true;
-            if (loadingOverlay != null) loadingOverlay.IsVisible = true;
-            if (btnPhotopea != null) btnPhotopea.IsEnabled = false;
-            
-            Console.WriteLine($"[Photopea] Entered edit mode. Server: http://localhost:{_photopeaServer.Port}/");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Photopea] Error entering edit mode: {ex.Message}");
-            ExitPhotopeaMode();
-        }
-    }
-
-    private void ExitPhotopeaMode()
-    {
-        _isPhotopeaMode = false;
-        
-        // Toggle UI states back
-        var normalPanel = this.FindControl<Grid>("PanelNormalPreview");
-        var editorPanel = this.FindControl<Grid>("PanelPhotopeaEditor");
-        var controlsPanel = this.FindControl<StackPanel>("PanelPhotopeaControls");
-        var btnPhotopea = this.FindControl<Button>("BtnPhotopea");
-        
-        if (normalPanel != null) normalPanel.IsVisible = true;
-        if (editorPanel != null) editorPanel.IsVisible = false;
-        if (controlsPanel != null) controlsPanel.IsVisible = false;
-        if (btnPhotopea != null) btnPhotopea.IsEnabled = true;
-        
-        // Cleanup WebView
-        CleanupPhotopea();
-        
-        // Refresh preview images (they might have been edited)
-        RefreshPreviewImages();
-    }
-
-    private void CleanupPhotopea()
-    {
-        if (_webView != null)
-        {
-            _webView.NavigationCompleted -= OnWebViewNavigationCompleted;
-            var container = this.FindControl<Border>("WebViewContainer");
-            if (container != null) container.Child = null;
-            _webView = null;
-        }
-        
-        if (_photopeaServer != null)
-        {
-            _photopeaServer.FileSaved -= OnPhotopeaFileSaved;
-            _photopeaServer.SaveStarted -= OnPhotopeaSaveStarted;
-            _photopeaServer.Dispose();
-            _photopeaServer = null;
-        }
-
-        // Restore header icons
-        var imgHeader = this.FindControl<PathIcon>("ImgHeaderIcon");
-        var imgLoading = this.FindControl<Control>("ImgLoadingIcon");
-        if (imgHeader != null) imgHeader.IsVisible = true;
-        if (imgLoading != null) imgLoading.IsVisible = false;
-    }
-
-    private void RefreshPreviewImages()
-    {
-        try
-        {
-            var imgOriginal = this.FindControl<Image>("ImgOriginal");
-            var imgResult = this.FindControl<Image>("ImgResult");
-
-            if (imgOriginal != null && File.Exists(_originalPath))
-                imgOriginal.Source = LoadBitmapWithOrientation(_originalPath);
-            
-            if (imgResult != null && File.Exists(_resultPath))
-                imgResult.Source = LoadBitmapWithOrientation(_resultPath);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Photopea] Error refreshing preview: {ex.Message}");
-        }
-    }
-
-    private string BuildPhotopeaUrl()
-    {
-        var port = _photopeaServer?.Port ?? 49152;
-        
-        // Generate the intermediary HTML page and set it on the server
-        var editorHtml = BuildEditorHtml(port);
-        _photopeaServer?.SetEditorHtml(editorHtml);
-        
-        // WebView navigates to our local server which serves the HTML wrapper with a cache-buster query parameter
-        return $"http://localhost:{port}/editor.html?t={DateTime.Now.Ticks}";
-    }
-
-    private string BuildEditorHtml(int port)
-    {
-        // Determine theme
-        int theme = 1; // default dark
-        if (Avalonia.Application.Current != null)
-        {
-            var themeVariant = Avalonia.Application.Current.RequestedThemeVariant;
-            theme = (themeVariant == Avalonia.Styling.ThemeVariant.Light) ? 0 : 1;
-        }
-
-        var format = _photopeaSaveFormat == "psd" ? "psd" : "png";
-
-        // Photopea config JSON
-        // PENTING: Urutan file dibalik!
-        //   - original.jpg dimuat PERTAMA → documents[0]
-        //   - result.png dimuat KEDUA → documents[1]
-        // Setelah duplicate dari result.png ke documents[0]:
-        //   - artLayers[0] = result PNG (ATAS) — baru diduplikasi, otomatis di atas
-        //   - artLayers[1] = original JPG (BAWAH) — sudah ada sejak awal
-        // Tidak perlu move() sama sekali!
-        var photopeaConfig = new
-        {
-            files = new[]
-            {
-                $"http://localhost:{port}/original.jpg?t={DateTime.Now.Ticks}",
-                $"http://localhost:{port}/result.png?t={DateTime.Now.Ticks}"
-            },
-            environment = new
-            {
-                theme = theme,
-                lang = "id",
-                customIO = new { save = "app.echoToOE('save-requested');" }
-            },
-            script = BuildPhotopeaScript()
-        };
-
-        var configJson = JsonSerializer.Serialize(photopeaConfig);
-        var encodedConfig = Uri.EscapeDataString(configJson);
-        var photopeaUrl = $"https://www.photopea.com/#{encodedConfig}";
-
-        // HTML page: iframe loads Photopea, parent page catches postMessage ArrayBuffer
-        return $@"<!DOCTYPE html>
-<html>
-<head>
-<meta charset=""utf-8"">
-<title>Photopea Editor</title>
-<style>
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  body {{ background: #1e1e1e; overflow: hidden; position: relative; }}
-  iframe {{ 
-    width: 100vw; 
-    height: 100vh; 
-    border: none; 
-    display: block;
-  }}
-  #toast {{
-    position: absolute;
-    top: -100px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(24, 160, 90, 0.95);
-    color: white;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 99999;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.1);
-  }}
-</style>
-</head>
-<body>
-<div id=""toast"">
-  <span style=""font-size: 16px;"">✓</span>
-  <span>Perubahan berhasil disimpan</span>
-</div>
-<iframe id=""photopea"" src=""{photopeaUrl}"" allow=""cross-origin-isolated""></iframe>
-<script>
-function showToast() {{
-    var toast = document.getElementById('toast');
-    toast.style.top = '20px';
-    setTimeout(function() {{
-        toast.style.top = '-100px';
-    }}, 2500);
-}}
-
-var pendingPngSave = false;
-
-// Listen for postMessage from Photopea iframe.
-// When user presses Ctrl+S, Photopea runs our customIO.save script: app.echoToOE('save-requested')
-// We receive 'save-requested' and fetch the current format dynamically from the local server.
-window.addEventListener('message', function(e) {{
-    if (e.data === 'save-requested') {{
-        fetch('http://localhost:{port}/format')
-            .then(function(r) {{ return r.json(); }})
-            .then(function(j) {{
-                var currentFormat = (j && j.format) ? j.format : 'png';
-                var iframe = document.getElementById('photopea');
-                if (iframe && iframe.contentWindow) {{
-                    if (currentFormat === 'psd') {{
-                        pendingPngSave = true;
-                        iframe.contentWindow.postMessage(""app.activeDocument.saveToOE('psd');"", ""*"");
-                    }} else {{
-                        pendingPngSave = false;
-                        iframe.contentWindow.postMessage(""app.activeDocument.saveToOE('png');"", ""*"");
-                    }}
-                }}
-            }})
-            .catch(function(err) {{
-                pendingPngSave = false;
-                var iframe = document.getElementById('photopea');
-                if (iframe && iframe.contentWindow) {{
-                    iframe.contentWindow.postMessage(""app.activeDocument.saveToOE('png');"", ""*"");
-                }}
-            }});
-    }} else if (e.data instanceof ArrayBuffer) {{
-        console.log('Received file from Photopea: ' + e.data.byteLength + ' bytes');
-        
-        fetch('http://localhost:{port}/save', {{
-            method: 'POST',
-            headers: {{ 'Content-Type': 'application/octet-stream' }},
-            body: new Uint8Array(e.data)
-        }}).then(function(r) {{
-            return r.json();
-        }}).then(function(j) {{
-            if (j && j.saved) {{
-                console.log('File saved successfully!');
-                if (pendingPngSave) {{
-                    pendingPngSave = false;
-                    var iframe = document.getElementById('photopea');
-                    if (iframe && iframe.contentWindow) {{
-                        iframe.contentWindow.postMessage(""app.activeDocument.saveToOE('png');"", ""*"");
-                    }}
-                }} else {{
-                    showToast();
-                }}
-            }} else {{
-                console.error('Save response unexpected:', j);
-            }}
-        }}).catch(function(err) {{
-            console.error('Save error:', err);
-        }});
-    }}
-}});
-</script>
-</body>
-</html>";
-    }
-
-    private string BuildPhotopeaScript()
-    {
-        // Script yang berjalan di dalam Photopea setelah semua file dimuat.
-        //
-        // Urutan file di config: [original.jpg, result.png]
-        // Sehingga: documents[0] = original, documents[1] = result
-        //
-        // Setelah duplicate result layer ke documents[0]:
-        //   artLayers[0] = result PNG (ATAS) ← baru diduplikasi, otomatis di paling atas
-        //   artLayers[1] = original JPG (BAWAH) ← sudah ada sejak awal
-        // TIDAK perlu move()! Urutan sudah benar secara alami.
-        return @"
-if (app.documents.length >= 2) {
-    var originalDoc = app.documents[0];
-    var resultDoc = app.documents[1];
-    
-    // Duplicate result layer into original document (result goes on top automatically)
-    app.activeDocument = resultDoc;
-    resultDoc.artLayers[0].duplicate(originalDoc);
-    
-    // Close result tab (no longer needed)
-    resultDoc.close(SaveOptions.DONOTSAVECHANGES);
-    
-    // Now originalDoc has 2 layers:
-    //   artLayers[0] = result PNG (TOP) — just duplicated, automatically placed on top
-    //   artLayers[1] = original JPG (BOTTOM) — was already there
-    app.activeDocument = originalDoc;
-    
-    // Rename layers
-    originalDoc.artLayers[0].name = 'Hasil (Masker Transparan)';
-    originalDoc.artLayers[1].name = 'Referensi Asli (Original)';
-    
-    // Both at 100% opacity, both unlocked
-    originalDoc.artLayers[0].opacity = 100;
-    originalDoc.artLayers[1].opacity = 100;
-    
-    // Select result layer (top) as active for editing
-    originalDoc.activeLayer = originalDoc.artLayers[0];
-} else if (app.documents.length == 1) {
-    var doc = app.activeDocument;
-    if (doc.artLayers.length >= 1) {
-        doc.artLayers[0].name = 'Hasil (Masker Transparan)';
-    }
-    doc.activeLayer = doc.artLayers[0];
-}
-";
-    }
-
-    private void OnWebViewNavigationCompleted(object? sender, Avalonia.Controls.WebViewNavigationCompletedEventArgs args)
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            var loadingOverlay = this.FindControl<Border>("PhotopeaLoading");
-            if (loadingOverlay != null) loadingOverlay.IsVisible = false;
-        });
-    }
-
-    private void OnPhotopeaSaveStarted()
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            var imgHeader = this.FindControl<PathIcon>("ImgHeaderIcon");
-            var imgLoading = this.FindControl<Control>("ImgLoadingIcon");
-            if (imgHeader != null) imgHeader.IsVisible = false;
-            if (imgLoading != null) imgLoading.IsVisible = true;
-        });
-    }
-
-    private void OnPhotopeaFileSaved(string savedPath)
-    {
-        Console.WriteLine($"[Photopea] File saved callback: {savedPath}");
-        
-        Dispatcher.UIThread.Post(() =>
-        {
-            // Restore header icon
-            var imgHeader = this.FindControl<PathIcon>("ImgHeaderIcon");
-            var imgLoading = this.FindControl<Control>("ImgLoadingIcon");
-            if (imgHeader != null) imgHeader.IsVisible = true;
-            if (imgLoading != null) imgLoading.IsVisible = false;
-
-            // Refresh preview images
-            RefreshPreviewImages();
-            
-            // Show premium save toast notification
-            ShowSaveToast();
-            
-            // Invoke the event for MainWindowViewModel or other subscribers
-            FileSaved?.Invoke(savedPath);
-            
-            // Auto-advance to next image if enabled
-            if (_autoAdvanceOnSave)
-            {
-                // Trigger next navigation
-                if (_isPhotopeaMode)
-                {
-                    PhotopeaNextRequested?.Invoke(this, EventArgs.Empty);
-                }
-            }
-        });
-    }
-
-    private void ShowSaveToast()
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            var nav = this.FindControl<StackPanel>("PanelNavigation");
-            var toast = this.FindControl<Border>("ToastNotification");
-            
-            if (nav != null) nav.IsVisible = false;
-            if (toast != null) toast.IsVisible = true;
-            
-            _toastTimer?.Stop();
-            _toastTimer?.Dispose();
-            
-            _toastTimer = new System.Timers.Timer(2500);
-            _toastTimer.AutoReset = false;
-            _toastTimer.Elapsed += (s, e) =>
-            {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (nav != null) nav.IsVisible = true;
-                    if (toast != null) toast.IsVisible = false;
-                });
-            };
-            _toastTimer.Start();
-        });
-    }
-
-    private void OnExitPhotopeaClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        ExitPhotopeaMode();
-    }
-
-    private void OnSaveFormatChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        var cmb = sender as ComboBox;
-        if (cmb?.SelectedItem is ComboBoxItem item)
-        {
-            var format = item.Tag?.ToString()?.ToLowerInvariant() ?? "png";
-            _photopeaSaveFormat = format;
-            if (_photopeaServer != null)
-            {
-                _photopeaServer.SaveFormat = format;
-            }
-        }
-    }
-
-    private void OnAutoAdvanceChanged(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        var chk = sender as CheckBox;
-        _autoAdvanceOnSave = chk?.IsChecked ?? false;
-    }
-
-    private void OnHideAdsChanged(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        var chk = sender as CheckBox;
-        _hideAds = chk?.IsChecked ?? false;
-        
-        if (_webView != null)
-        {
-            _webView.Margin = _hideAds ? new Thickness(0, 0, -300, 0) : new Thickness(0, 0, 0, 0);
-            Console.WriteLine($"[Photopea] Margin toggled by user. HideAds={_hideAds}, Margin={_webView.Margin}");
+            if (overlay != null) overlay.IsVisible = false;
         }
     }
 
@@ -761,8 +205,28 @@ if (app.documents.length >= 2) {
         int orientation = 1;
         try { orientation = PixelcutCompact.Helpers.ExifHelper.GetOrientation(path); } catch { }
 
-        // 2. Load full bitmap
-        var bitmap = new Bitmap(path);
+        // 2. Load bitmap efficiently (downscale if too large to save memory on low-spec PCs)
+        Bitmap bitmap;
+        try
+        {
+            var fileInfo = new FileInfo(path);
+            if (fileInfo.Length > 1 * 1024 * 1024) // > 1MB
+            {
+                using (var stream = File.OpenRead(path))
+                {
+                    // Decode to max 1280 width to save memory
+                    bitmap = Bitmap.DecodeToWidth(stream, 1280);
+                }
+            }
+            else
+            {
+                bitmap = new Bitmap(path);
+            }
+        }
+        catch
+        {
+            bitmap = new Bitmap(path);
+        }
 
         // 3. If no rotation needed, return
         if (orientation == 1) return bitmap;
@@ -1112,23 +576,12 @@ try {{
     {
         if (e.Key == Key.Left)
         {
-            if (_isPhotopeaMode)
-                PhotopeaPreviousRequested?.Invoke(this, EventArgs.Empty);
-            else
-                Previous?.Invoke(this, EventArgs.Empty);
+            Previous?.Invoke(this, EventArgs.Empty);
             e.Handled = true;
         }
         else if (e.Key == Key.Right)
         {
-            if (_isPhotopeaMode)
-                PhotopeaNextRequested?.Invoke(this, EventArgs.Empty);
-            else
-                Next?.Invoke(this, EventArgs.Empty);
-            e.Handled = true;
-        }
-        else if (e.Key == Key.Escape && _isPhotopeaMode)
-        {
-            ExitPhotopeaMode();
+            Next?.Invoke(this, EventArgs.Empty);
             e.Handled = true;
         }
     }

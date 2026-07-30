@@ -186,6 +186,7 @@ public partial class App : Application,
 
             // 4. Swap Windows
             Log("Showing MainWindow and closing SplashWindow...");
+            desktop.MainWindow = mainWindow; // FIX: Update MainWindow reference
             mainWindow.Show();
             splashWindow.Close();
             Log("MainWindow.Show() called.");

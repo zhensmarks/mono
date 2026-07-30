@@ -170,24 +170,160 @@
             
             docDialog.add("statictext", undefined, "Pilih dokumen (Klik+Shift/Ctrl untuk multi-select):");
             
-            var listbox = docDialog.add("listbox", [0, 0, 300, 200], [], {multiselect: true});
-            for (var i = 0; i < app.documents.length; i++) {
-                listbox.add("item", app.documents[i].name);
-            }
+            var listbox = docDialog.add("listbox", [0, 0, 480, 240], [], {multiselect: true});
             
-            // Default select active doc
-            for (var i = 0; i < app.documents.length; i++) {
-                if (app.documents[i] === app.activeDocument) {
-                    listbox.items[i].selected = true;
-                    break;
+            var grpOptions = docDialog.add("group");
+            grpOptions.orientation = "column";
+            grpOptions.alignChildren = ["left", "center"];
+            grpOptions.spacing = 6;
+            
+            var grpRow1 = grpOptions.add("group");
+            grpRow1.orientation = "row";
+            grpRow1.alignChildren = ["left", "center"];
+            grpRow1.spacing = 15;
+            var cbShowFolder = grpRow1.add("checkbox", undefined, "Tampilkan Nama Folder");
+            cbShowFolder.value = true;
+            var cbSortFolder = grpRow1.add("checkbox", undefined, "Urutkan berdasarkan Folder");
+            
+            var grpRow2 = grpOptions.add("group");
+            grpRow2.orientation = "row";
+            grpRow2.alignChildren = ["left", "center"];
+            grpRow2.spacing = 15;
+            var cbShowSize = grpRow2.add("checkbox", undefined, "Tampilkan Ukuran/Orientasi");
+            cbShowSize.value = true;
+            var cbSortSize = grpRow2.add("checkbox", undefined, "Urutkan berdasarkan Ukuran");
+            
+            function populateList() {
+                var selectedIndices = {};
+                if (listbox.items.length > 0) {
+                    for (var i = 0; i < listbox.items.length; i++) {
+                        if (listbox.items[i].selected && listbox.items[i].originalIndex !== undefined) {
+                            selectedIndices[listbox.items[i].originalIndex] = true;
+                        }
+                    }
+                } else {
+                    // Default select active doc
+                    for (var i = 0; i < app.documents.length; i++) {
+                        if (app.documents[i] === app.activeDocument) {
+                            selectedIndices[i] = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Gather documents data
+                var itemsData = [];
+                for (var i = 0; i < app.documents.length; i++) {
+                    var doc = app.documents[i];
+                    var folderName = "";
+                    try {
+                        if (doc.path) {
+                            folderName = doc.path.name;
+                        }
+                    } catch (e) {
+                        folderName = "Belum Disimpan";
+                    }
+                    
+                    var wVal = 0;
+                    var hVal = 0;
+                    try {
+                        wVal = doc.width.as("px");
+                        hVal = doc.height.as("px");
+                    } catch (e) {
+                        wVal = doc.width.value;
+                        hVal = doc.height.value;
+                    }
+                    wVal = Math.round(wVal);
+                    hVal = Math.round(hVal);
+                    var isPortrait = hVal > wVal;
+                    var orientStr = isPortrait ? "Portrait" : (wVal > hVal ? "Landscape" : "Square");
+                    var sizeStr = wVal + "x" + hVal + " (" + orientStr + ")";
+                    
+                    itemsData.push({
+                        index: i,
+                        name: doc.name,
+                        folderName: folderName,
+                        width: wVal,
+                        height: hVal,
+                        orientation: orientStr,
+                        sizeStr: sizeStr
+                    });
+                }
+                
+                // Sort data if checked
+                if (cbSortFolder.value || cbSortSize.value) {
+                    itemsData.sort(function(a, b) {
+                        if (cbSortFolder.value) {
+                            var fA = a.folderName.toLowerCase();
+                            var fB = b.folderName.toLowerCase();
+                            if (fA !== fB) {
+                                return fA < fB ? -1 : 1;
+                            }
+                        }
+                        if (cbSortSize.value) {
+                            if (a.orientation !== b.orientation) {
+                                return a.orientation < b.orientation ? -1 : 1;
+                            }
+                            if (a.width !== b.width) {
+                                return a.width < b.width ? -1 : 1;
+                            }
+                            if (a.height !== b.height) {
+                                return a.height < b.height ? -1 : 1;
+                            }
+                        }
+                        // Secondary sort by file name
+                        var nA = a.name.toLowerCase();
+                        var nB = b.name.toLowerCase();
+                        if (nA !== nB) {
+                            return nA < nB ? -1 : 1;
+                        }
+                        return 0;
+                    });
+                }
+                
+                listbox.removeAll();
+                for (var i = 0; i < itemsData.length; i++) {
+                    var itemData = itemsData[i];
+                    var displayName = itemData.name;
+                    var details = [];
+                    if (cbShowFolder.value) {
+                        details.push(itemData.folderName === "Belum Disimpan" ? "Belum Disimpan" : itemData.folderName);
+                    }
+                    if (cbShowSize.value) {
+                        details.push(itemData.sizeStr);
+                    }
+                    if (details.length > 0) {
+                        displayName += " (" + details.join(" - ") + ")";
+                    }
+                    
+                    var item = listbox.add("item", displayName);
+                    item.originalIndex = itemData.index;
+                    item.orientation = itemData.orientation;
+                    if (selectedIndices[itemData.index]) {
+                        item.selected = true;
+                    }
                 }
             }
+            
+            cbShowFolder.onClick = populateList;
+            cbSortFolder.onClick = function() {
+                if (cbSortFolder.value) cbSortSize.value = false;
+                populateList();
+            };
+            cbShowSize.onClick = populateList;
+            cbSortSize.onClick = function() {
+                if (cbSortSize.value) cbSortFolder.value = false;
+                populateList();
+            };
+            populateList();
             
             var grpSelectBtns = docDialog.add("group");
             grpSelectBtns.orientation = "row";
             grpSelectBtns.alignChildren = ["center", "top"];
             var btnSelectAll = grpSelectBtns.add("button", undefined, "Pilih Semua");
             var btnDesellecAll = grpSelectBtns.add("button", undefined, "Batal Pilih");
+            var btnSelectPortrait = grpSelectBtns.add("button", undefined, "Pilih Portrait");
+            var btnSelectLandscape = grpSelectBtns.add("button", undefined, "Pilih Landscape");
             
             btnSelectAll.onClick = function() {
                 for (var i = 0; i < listbox.items.length; i++) {
@@ -199,6 +335,24 @@
                     listbox.items[i].selected = false;
                 }
             };
+            btnSelectPortrait.onClick = function() {
+                for (var i = 0; i < listbox.items.length; i++) {
+                    if (listbox.items[i].orientation === "Portrait") {
+                        listbox.items[i].selected = true;
+                    } else {
+                        listbox.items[i].selected = false;
+                    }
+                }
+            };
+            btnSelectLandscape.onClick = function() {
+                for (var i = 0; i < listbox.items.length; i++) {
+                    if (listbox.items[i].orientation === "Landscape") {
+                        listbox.items[i].selected = true;
+                    } else {
+                        listbox.items[i].selected = false;
+                    }
+                }
+            };
             
             var grpBtns = docDialog.add("group");
             grpBtns.orientation = "row";
@@ -206,19 +360,23 @@
             var btnOk = grpBtns.add("button", undefined, "OK");
             var btnCancel = grpBtns.add("button", undefined, "Batal");
             
-            var selectedIndices = [];
+            var selectedIndicesResult = [];
             
             btnOk.onClick = function() {
                 for (var i = 0; i < listbox.items.length; i++) {
-                    if (listbox.items[i].selected) {
-                        selectedIndices.push(i);
+                    if (listbox.items[i].selected && listbox.items[i].originalIndex !== undefined) {
+                        selectedIndicesResult.push(listbox.items[i].originalIndex);
                     }
                 }
                 
-                if (selectedIndices.length === 0) {
+                if (selectedIndicesResult.length === 0) {
                     alert("Pilih minimal satu dokumen!");
                     return;
                 }
+                
+                // Sort selected indices numerically so Photoshop processes in tab order (left-to-right)
+                selectedIndicesResult.sort(function(a, b) { return a - b; });
+                
                 docDialog.close(1);
             };
             
@@ -228,7 +386,7 @@
             
             var result = docDialog.show();
             if (result === 1) {
-                return selectedIndices;
+                return selectedIndicesResult;
             }
             return null;
         }
