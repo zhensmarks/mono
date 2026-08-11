@@ -59,8 +59,161 @@
                       <TextBlock x:Name="TxtTitle" Text="Preview Sebelum/Sesudah" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                   </StackPanel>
 
-                  <!-- Right: Close Button -->
-                  <Button Grid.Column="1" Click="OnCloseClick" VerticalAlignment="Center" HorizontalAlignment="Right" Content="✕" Width="45" Height="45" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14"/>
+                  <!-- Right: Buttons -->
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                      <!-- Settings Button with Flyout -->
+                      <Button VerticalAlignment="Center" Width="45" Height="45" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip.Tip="Settings Shortcuts">
+                          <PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.98C19.47,12.66 19.5,12.34 19.5,12C19.5,11.66 19.47,11.34 19.43,11.02L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.48,5.32 14.87,5.07L14.47,2.42C14.43,2.18 14.23,2 14,2H10C9.77,2 9.57,2.18 9.53,2.42L9.13,5.07C8.52,5.32 7.96,5.65 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11.02C4.53,11.34 4.5,11.66 4.5,12C4.5,12.34 4.53,12.66 4.57,12.98L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.04 4.95,18.95L7.44,17.95C7.96,18.35 8.52,18.68 9.13,18.93L9.53,21.58C9.57,21.82 9.77,22 10,22H14C14.23,22 14.43,21.82 14.47,21.58L14.87,18.93C15.48,18.68 16.04,18.35 16.56,17.95L19.05,18.95C19.27,19.04 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.98Z" Width="16" Height="16"/>
+                          <Button.Flyout>
+                              <Flyout Placement="BottomEdgeAlignedRight" Opened="OnSettingsFlyoutOpened">
+                                  <Border Background="#1C1C1F" BorderBrush="#2A2A2E" BorderThickness="1" CornerRadius="12" Padding="15" Width="280">
+                                      <StackPanel Spacing="12">
+                                          <!-- Title -->
+                                          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,5">
+                                              <PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.98C19.47,12.66 19.5,12.34 19.5,12C19.5,11.66 19.47,11.34 19.43,11.02L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.48,5.32 14.87,5.07L14.47,2.42C14.43,2.18 14.23,2 14,2H10C9.77,2 9.57,2.18 9.53,2.42L9.13,5.07C8.52,5.32 7.96,5.65 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11.02C4.53,11.34 4.5,11.66 4.5,12C4.5,12.34 4.53,12.66 4.57,12.98L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.04 4.95,18.95L7.44,17.95C7.96,18.35 8.52,18.68 9.13,18.93L9.53,21.58C9.57,21.82 9.77,22 10,22H14C14.23,22 14.43,21.82 14.47,21.58L14.87,18.93C15.48,18.68 16.04,18.35 16.56,17.95L19.05,18.95C19.27,19.04 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.98Z" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                              <TextBlock Text="Shortcuts Settings" FontWeight="Bold" FontSize="14" Foreground="White"/>
+                                          </StackPanel>
+                                          
+                                          <!-- Separator -->
+                                          <Border Height="1" Background="#22FFFFFF" Margin="0,0,0,5"/>
+                                          
+                                          <!-- Next Image -->
+                                          <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                              <TextBlock Text="Next Image" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                              <TextBox x:Name="TxtNextShortcut" Grid.Column="1" Width="110" TextAlignment="Center" 
+                                                       IsReadOnly="True" KeyDown="OnShortcutTextBoxKeyDown" 
+                                                       Background="#10FFFFFF" BorderBrush="#30FFFFFF" CornerRadius="6" 
+                                                       Foreground="{DynamicResource AccentBlueBrush}" FontWeight="Bold"
+                                                       Cursor="Hand" ToolTip.Tip="Klik lalu tekan tombol" Watermark="Press key..."/>
+                                          </Grid>
+                                          
+                                          <!-- Prev Image -->
+                                          <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                              <TextBlock Text="Prev Image" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                              <TextBox x:Name="TxtPrevShortcut" Grid.Column="1" Width="110" TextAlignment="Center" 
+                                                       IsReadOnly="True" KeyDown="OnShortcutTextBoxKeyDown" 
+                                                       Background="#10FFFFFF" BorderBrush="#30FFFFFF" CornerRadius="6" 
+                                                       Foreground="{DynamicResource AccentBlueBrush}" FontWeight="Bold"
+                                                       Cursor="Hand" ToolTip.Tip="Klik lalu tekan tombol" Watermark="Press key..."/>
+                                          </Grid>
+                                          
+                                          <!-- Photoshop -->
+                                          <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                              <TextBlock Text="Open Photoshop" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                              <TextBox x:Name="TxtPhotoshopShortcut" Grid.Column="1" Width="110" TextAlignment="Center" 
+                                                       IsReadOnly="True" KeyDown="OnShortcutTextBoxKeyDown" 
+                                                       Background="#10FFFFFF" BorderBrush="#30FFFFFF" CornerRadius="6" 
+                                                       Foreground="{DynamicResource AccentBlueBrush}" FontWeight="Bold"
+                                                       Cursor="Hand" ToolTip.Tip="Klik lalu tekan tombol" Watermark="Press key..."/>
+                                          </Grid>
+
+                                          <!-- Rotate Image -->
+                                          <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                              <TextBlock Text="Rotate Image" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                              <TextBox x:Name="TxtRotateShortcut" Grid.Column="1" Width="110" TextAlignment="Center" 
+                                                       IsReadOnly="True" KeyDown="OnShortcutTextBoxKeyDown" 
+                                                       Background="#10FFFFFF" BorderBrush="#30FFFFFF" CornerRadius="6" 
+                                                       Foreground="{DynamicResource AccentBlueBrush}" FontWeight="Bold"
+                                                       Cursor="Hand" ToolTip.Tip="Klik lalu tekan tombol" Watermark="Press key..."/>
+                                          </Grid>
+
+                                          <!-- Fit Screen -->
+                                          <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                              <TextBlock Text="Fit Screen" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                              <TextBox x:Name="TxtFitScreenShortcut" Grid.Column="1" Width="110" TextAlignment="Center" 
+                                                       IsReadOnly="True" KeyDown="OnShortcutTextBoxKeyDown" 
+                                                       Background="#10FFFFFF" BorderBrush="#30FFFFFF" CornerRadius="6" 
+                                                       Foreground="{DynamicResource AccentBlueBrush}" FontWeight="Bold"
+                                                       Cursor="Hand" ToolTip.Tip="Klik lalu tekan tombol" Watermark="Press key..."/>
+                                          </Grid>
+                                          
+                                          <!-- Separator -->
+                                          <Border Height="1" Background="#22FFFFFF" Margin="0,5"/>
+                                          
+                                          <!-- Background Type -->
+                                          <Grid ColumnDefinitions="*, Auto" Margin="0,2">
+                                              <TextBlock Text="Background" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                              <ComboBox x:Name="CboBgType" Grid.Column="1" Width="110" Background="#10FFFFFF" BorderBrush="#30FFFFFF" CornerRadius="6" SelectionChanged="OnBgTypeChanged" Foreground="White">
+                                                  <ComboBoxItem Content="Default"/>
+                                                  <ComboBoxItem Content="Checkerboard"/>
+                                                  <ComboBoxItem Content="Solid Color"/>
+                                              </ComboBox>
+                                          </Grid>
+                                          
+                                          <!-- Solid Color Picker: Preset Swatches -->
+                                          <StackPanel x:Name="PanelSolidColor" Margin="0,4" IsVisible="False" Spacing="6">
+                                              <TextBlock Text="Warna Latar" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="11"/>
+                                              <!-- Row 1 -->
+                                              <WrapPanel Orientation="Horizontal" ItemWidth="24" ItemHeight="24">
+                                                  <!-- White -->
+                                                  <Button x:Name="SwColor_FFFFFF" Width="22" Height="22" Margin="1" Padding="0" Background="#FFFFFF" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Putih (#FFFFFF)"/>
+                                                  <!-- Light Gray -->
+                                                  <Button x:Name="SwColor_D1D5DB" Width="22" Height="22" Margin="1" Padding="0" Background="#D1D5DB" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Abu Muda (#D1D5DB)"/>
+                                                  <!-- Gray -->
+                                                  <Button x:Name="SwColor_6B7280" Width="22" Height="22" Margin="1" Padding="0" Background="#6B7280" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Abu (#6B7280)"/>
+                                                  <!-- Dark Gray -->
+                                                  <Button x:Name="SwColor_1F2937" Width="22" Height="22" Margin="1" Padding="0" Background="#1F2937" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Abu Gelap (#1F2937)"/>
+                                                  <!-- Black -->
+                                                  <Button x:Name="SwColor_000000" Width="22" Height="22" Margin="1" Padding="0" Background="#000000" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Hitam (#000000)"/>
+                                                  <!-- Red -->
+                                                  <Button x:Name="SwColor_EF4444" Width="22" Height="22" Margin="1" Padding="0" Background="#EF4444" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Merah (#EF4444)"/>
+                                                  <!-- Orange -->
+                                                  <Button x:Name="SwColor_F97316" Width="22" Height="22" Margin="1" Padding="0" Background="#F97316" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Oranye (#F97316)"/>
+                                                  <!-- Yellow -->
+                                                  <Button x:Name="SwColor_EAB308" Width="22" Height="22" Margin="1" Padding="0" Background="#EAB308" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Kuning (#EAB308)"/>
+                                                  <!-- Green -->
+                                                  <Button x:Name="SwColor_22C55E" Width="22" Height="22" Margin="1" Padding="0" Background="#22C55E" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Hijau (#22C55E)"/>
+                                                  <!-- Green Screen -->
+                                                  <Button x:Name="SwColor_00FF00" Width="22" Height="22" Margin="1" Padding="0" Background="#00FF00" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Green Screen (#00FF00)"/>
+                                                  <!-- Blue -->
+                                                  <Button x:Name="SwColor_3B82F6" Width="22" Height="22" Margin="1" Padding="0" Background="#3B82F6" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Biru (#3B82F6)"/>
+                                                  <!-- Purple -->
+                                                  <Button x:Name="SwColor_8B5CF6" Width="22" Height="22" Margin="1" Padding="0" Background="#8B5CF6" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnColorSwatchClick" ToolTip.Tip="Ungu (#8B5CF6)"/>
+                                              </WrapPanel>
+                                              <!-- Active color preview + hex display -->
+                                              <Grid ColumnDefinitions="Auto, *">
+                                                  <Border x:Name="BrdCurrentColor" Width="22" Height="22" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Background="#FFFFFF" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                  <TextBlock x:Name="TxtCurrentColorHex" Grid.Column="1" Text="#FFFFFF" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center" FontFamily="Consolas, Monospace"/>
+                                              </Grid>
+                                          </StackPanel>
+                                          
+                                          <!-- Checkerboard Color Swatches -->
+                                          <StackPanel x:Name="PanelCheckerColor" Margin="0,4" IsVisible="False" Spacing="6">
+                                              <TextBlock Text="Warna Kotak 1 (Terang)" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="11"/>
+                                              <WrapPanel Orientation="Horizontal" ItemWidth="24" ItemHeight="24">
+                                                  <Button x:Name="CkColor1_FFFFFF" Width="22" Height="22" Margin="1" Padding="0" Background="#FFFFFF" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker1SwatchClick" ToolTip.Tip="Putih"/>
+                                                  <Button x:Name="CkColor1_CCCCCC" Width="22" Height="22" Margin="1" Padding="0" Background="#CCCCCC" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker1SwatchClick" ToolTip.Tip="Abu Sangat Muda"/>
+                                                  <Button x:Name="CkColor1_999999" Width="22" Height="22" Margin="1" Padding="0" Background="#999999" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker1SwatchClick" ToolTip.Tip="Abu Muda"/>
+                                                  <Button x:Name="CkColor1_666666" Width="22" Height="22" Margin="1" Padding="0" Background="#666666" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker1SwatchClick" ToolTip.Tip="Abu"/>
+                                                  <Button x:Name="CkColor1_4D4D4D" Width="22" Height="22" Margin="1" Padding="0" Background="#4D4D4D" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker1SwatchClick" ToolTip.Tip="Abu Tua"/>
+                                              </WrapPanel>
+                                              <TextBlock Text="Warna Kotak 2 (Gelap)" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="11"/>
+                                              <WrapPanel Orientation="Horizontal" ItemWidth="24" ItemHeight="24">
+                                                  <Button x:Name="CkColor2_AAAAAA" Width="22" Height="22" Margin="1" Padding="0" Background="#AAAAAA" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker2SwatchClick" ToolTip.Tip="Abu Sedang"/>
+                                                  <Button x:Name="CkColor2_555555" Width="22" Height="22" Margin="1" Padding="0" Background="#555555" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker2SwatchClick" ToolTip.Tip="Abu Gelap"/>
+                                                  <Button x:Name="CkColor2_333333" Width="22" Height="22" Margin="1" Padding="0" Background="#333333" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker2SwatchClick" ToolTip.Tip="Hampir Hitam"/>
+                                                  <Button x:Name="CkColor2_1A1A1A" Width="22" Height="22" Margin="1" Padding="0" Background="#1A1A1A" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker2SwatchClick" ToolTip.Tip="Sangat Gelap"/>
+                                                  <Button x:Name="CkColor2_000000" Width="22" Height="22" Margin="1" Padding="0" Background="#000000" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Click="OnChecker2SwatchClick" ToolTip.Tip="Hitam"/>
+                                              </WrapPanel>
+                                              <!-- Preview kedua kotak -->
+                                              <Grid ColumnDefinitions="Auto,Auto,*">
+                                                  <Border x:Name="BrdChecker1Preview" Width="22" Height="22" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Background="#333333" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                  <Border x:Name="BrdChecker2Preview" Grid.Column="1" Width="22" Height="22" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Background="#4D4D4D" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                  <TextBlock x:Name="TxtCheckerHex" Grid.Column="2" Text="#333333 / #4D4D4D" FontSize="10" Foreground="#AAAAAA" VerticalAlignment="Center" FontFamily="Consolas, Monospace"/>
+                                              </Grid>
+                                          </StackPanel>
+                                          
+                                          <!-- Save Button -->
+                                          <Button Content="Save Configuration" Click="OnSaveSettingsClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,10,0,0" Padding="15,8" Background="{DynamicResource AccentBlueBrush}" Foreground="White" FontWeight="SemiBold" CornerRadius="8" Cursor="Hand"/>
+                                      </StackPanel>
+                                  </Border>
+                              </Flyout>
+                          </Button.Flyout>
+                      </Button>
+                      
+                      <!-- Close Button -->
+                      <Button Click="OnCloseClick" VerticalAlignment="Center" Content="✕" Width="45" Height="45" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14"/>
+                  </StackPanel>
             </Grid>
 
             <!-- Content Area -->
@@ -69,7 +222,7 @@
                 <Grid x:Name="PanelNormalPreview" ColumnDefinitions="*, 2, *" Margin="10,0,10,10">
                     <!-- Original -->
                     <Grid Grid.Column="0" RowDefinitions="*, Auto">
-                        <Border BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Background="#0DFFFFFF" CornerRadius="6" ClipToBounds="True">
+                        <Border x:Name="BrdOriginal" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Background="#0DFFFFFF" CornerRadius="6" ClipToBounds="True">
                             <Grid>
                                 <Image Name="ImgOriginal" Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center"
                                        PointerPressed="OnImagePointerPressed" PointerMoved="OnImagePointerMoved" 
@@ -84,7 +237,7 @@
                                 </Image>
                                 <!-- Rotate Button Overlay -->
                                 <Button Click="OnRotateOriginalClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" 
-                                        Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="Rotate Original">
+                                        Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="Rotate Original" IsVisible="False">
                                     <PathIcon Data="M12,4C14.2,4 16.2,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 11,19.9V21.9C13.9,22.2 16.9,21.2 19.1,19C23,15.1 23,8.9 19,5C17.1,3.1 14.5,2.1 12,2V0L7,4L12,8V4Z" 
                                               Width="14" Height="14" Foreground="White">
                                           <PathIcon.RenderTransform>
@@ -102,7 +255,7 @@
 
                     <!-- Result -->
                     <Grid Grid.Column="2" RowDefinitions="*, Auto">
-                        <Border BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Background="#0DFFFFFF" CornerRadius="6" ClipToBounds="True">
+                        <Border x:Name="BrdResult" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Background="#0DFFFFFF" CornerRadius="6" ClipToBounds="True">
                             <Grid>
                                 <Image Name="ImgResult" Stretch="Uniform" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center"
                                        PointerPressed="OnImagePointerPressed" PointerMoved="OnImagePointerMoved" 
@@ -117,7 +270,7 @@
                                 </Image>
                                 <!-- Rotate Button Overlay -->
                                 <Button Click="OnRotateResultClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" 
-                                        Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="Rotate Result">
+                                        Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="Rotate Result" IsVisible="False">
                                     <PathIcon Data="M12,4C14.2,4 16.2,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 11,19.9V21.9C13.9,22.2 16.9,21.2 19.1,19C23,15.1 23,8.9 19,5C17.1,3.1 14.5,2.1 12,2V0L7,4L12,8V4Z" 
                                               Width="14" Height="14" Foreground="White">
                                           <PathIcon.RenderTransform>

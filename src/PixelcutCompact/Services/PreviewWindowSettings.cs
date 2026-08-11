@@ -13,9 +13,22 @@ public class PreviewWindowSettings
     public double Zoom { get; set; } = 1.0;
     public string PhotoshopPath { get; set; } = "";
     
+    // Shortcuts
+    public string ShortcutNext { get; set; } = "Right";
+    public string ShortcutPrevious { get; set; } = "Left";
+    public string ShortcutPhotoshop { get; set; } = "P";
+    public string ShortcutRotate { get; set; } = "R";
+    public string ShortcutFitScreen { get; set; } = "F";
+    
     // Photopea settings
     public string PhotopeaSaveFormat { get; set; } = "png"; // "png" or "psd"
     public bool AutoAdvanceOnSave { get; set; } = false;
+
+    // Background settings
+    public int BackgroundType { get; set; } = 0; // 0: Default, 1: Checkerboard, 2: Solid
+    public string SolidColorHex { get; set; } = "#00FF00";
+    public string CheckerColor1 { get; set; } = "#333333";
+    public string CheckerColor2 { get; set; } = "#4D4D4D";
 
     private static string GetPath() => Path.Combine(AppContext.BaseDirectory, "preview_settings.json");
 

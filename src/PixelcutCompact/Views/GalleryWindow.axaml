@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+ï»¿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -8,7 +8,7 @@
         mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="650"
         x:Class="PixelcutCompact.Views.GalleryWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="Gallery — Pixa Compact"
+        Title="Gallery ï¿½ Pixa Compact"
         Width="960" Height="680"
         MinWidth="560" MinHeight="380"
         WindowStartupLocation="CenterOwner"
@@ -69,6 +69,9 @@
         <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#255B8EF8"/>
             <Setter Property="BorderBrush" Value="#809AB5F8"/>
+        </Style>
+        <Style Selector="ListBoxItem:pressed /template/ ContentPresenter">
+            <Setter Property="RenderTransform" Value="none"/>
         </Style>
         <Style Selector="ListBox">
             <Setter Property="ItemsPanel">
@@ -197,7 +200,7 @@
                           HorizontalScrollBarVisibility="Disabled">
                 <ListBox ItemsSource="{Binding GalleryItems}"
                          Background="Transparent"
-                         SelectionMode="Multiple"
+                         SelectionMode="Multiple,Toggle"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:GalleryItemViewModel">
@@ -310,7 +313,7 @@
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <PathIcon Data="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"
                                   Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="Double-klik untuk preview · Klik kanan untuk opsi"
+                        <TextBlock Text="Double-klik untuk preview ï¿½ Klik kanan untuk opsi"
                                    FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>

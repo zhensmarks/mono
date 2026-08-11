@@ -46,23 +46,79 @@ public partial class MainWindowViewModel : ObservableObject
     private int _snapshotAlphaMattingForegroundThreshold;
     private int _snapshotAlphaMattingBackgroundThreshold;
     
-    [ObservableProperty] private ObservableCollection<PixelcutFileItem> _files = new();
-    [ObservableProperty] private bool _hasFiles;
+    [ObservableProperty] private ObservableCollection<ProcessTabViewModel> _tabs = new();
+    [ObservableProperty] private ProcessTabViewModel? _selectedTab;
     [ObservableProperty] private bool _isProcessing;
-    public int FilesCount => Files.Count;
+    
+    public bool HasFiles => SelectedTab?.HasFiles ?? false;
+    public int FilesCount => SelectedTab?.FilesCount ?? 0;
+    public int ProcessedCount => SelectedTab?.ProcessedCount ?? 0;
+    public bool IsCurrentTabAllDone => FilesCount > 0 && ProcessedCount == FilesCount && !IsProcessing;
+    public string TabHeaderText => SelectedTab?.Title ?? "Baru";
+    public ObservableCollection<PixelcutFileItem>? Files => SelectedTab?.Files;
 
-    /// <summary>Jumlah item yang sudah selesai (done atau failed) — digunakan untuk progress counter.</summary>
-    public int ProcessedCount => Files.Count(x => x.IsDone || x.IsFailed);
+    [RelayCommand]
+    private void AddTab()
+    {
+        var tab = new ProcessTabViewModel();
+        Tabs.Add(tab);
+        SelectedTab = tab;
+        UpdateForwarders();
+    }
 
-    /// <summary>Teks header tab: 'Proses (N)' saat idle, 'Proses (X/N)' saat sedang processing.</summary>
-    public string TabHeaderText =>
-        IsProcessing
-            ? $"Proses ({ProcessedCount}/{FilesCount})"
-            : $"Proses ({FilesCount})";
+    [RelayCommand]
+    private void CloseTab(ProcessTabViewModel tab)
+    {
+        try
+        {
+            if (tab == null) return;
+            
+            if (SelectedTab == tab)
+            {
+                // Select another tab BEFORE removing this one to prevent Avalonia UI selection bugs
+                var anotherTab = Tabs.FirstOrDefault(t => t != tab);
+                if (anotherTab != null)
+                {
+                    SelectedTab = anotherTab;
+                }
+            }
+            
+            Tabs.Remove(tab);
+            
+            if (Tabs.Count == 0)
+            {
+                AddTab();
+            }
+            
+            UpdateForwarders();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error closing tab: " + ex.ToString());
+        }
+    }
+
+    partial void OnSelectedTabChanged(ProcessTabViewModel? value)
+    {
+        UpdateForwarders();
+    }
+
+    private void UpdateForwarders()
+    {
+        OnPropertyChanged(nameof(HasFiles));
+        OnPropertyChanged(nameof(Files));
+        OnPropertyChanged(nameof(FilesCount));
+        OnPropertyChanged(nameof(ProcessedCount));
+        OnPropertyChanged(nameof(IsCurrentTabAllDone));
+        OnPropertyChanged(nameof(TabHeaderText));
+        CheckRetryVisibility();
+    }
     [ObservableProperty] private string _vpnStatus = "Memeriksa...";
     [ObservableProperty] private bool _isVpnActive;
     [ObservableProperty] private string _logOutput = "";
     [ObservableProperty] private bool _showLogPanel;
+    [ObservableProperty] private bool _isLogOpen;
+    [RelayCommand] private void ToggleLog() => IsLogOpen = !IsLogOpen;
     [ObservableProperty] private string _statusText = "Siap";
     [ObservableProperty] private int _skippedCount;
     
@@ -313,6 +369,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel()
     {
+        AddTab();
         
         // Load Settings
         var settings = _settingsService.Load();
@@ -685,11 +742,6 @@ public partial class MainWindowViewModel : ObservableObject
 
 
 
-    partial void OnHasFilesChanged(bool value)
-    {
-        OnPropertyChanged(nameof(TrashButtonBrush));
-    }
-
     partial void OnIsProcessingChanged(bool value)
     {
         StatusText = value ? "Memproses..." : "Siap";
@@ -967,6 +1019,22 @@ public partial class MainWindowViewModel : ObservableObject
 
             if (allowedToScan.Any())
             {
+                // Tab naming logic
+                if (SelectedTab != null && SelectedTab.Title == "Baru" && allowedToScan.Count == 1)
+                {
+                    var firstPath = allowedToScan[0];
+                    if (Directory.Exists(firstPath))
+                    {
+                        var dirInfo = new DirectoryInfo(firstPath);
+                        string rawName = dirInfo.Name;
+                        if (rawName.Equals("PILIHAN", StringComparison.OrdinalIgnoreCase))
+                        {
+                            rawName = dirInfo.Parent?.Name ?? "PILIHAN";
+                        }
+                        SelectedTab.Title = System.Text.RegularExpressions.Regex.Replace(rawName, @"^\d+[\s_]*", "");
+                    }
+                }
+                
                 await ScanAndAddPathsAsync(allowedToScan);
             }
         }
@@ -1043,8 +1111,8 @@ public partial class MainWindowViewModel : ObservableObject
                         SkippedCount += skipped;
                         AppendLog($"Skipped {skipped} duplicates");
                     }
-
-                    HasFiles = Files.Count > 0;
+                    
+                    UpdateForwarders();
                 });
             }
         });
@@ -1120,8 +1188,7 @@ public partial class MainWindowViewModel : ObservableObject
     private void RemoveFile(PixelcutFileItem item)
     {
         Files.Remove(item);
-        HasFiles = Files.Count > 0;
-        CheckRetryVisibility();
+        UpdateForwarders();
     }
 
     private PixelcutFileItem? _lastSelectedItem;
@@ -1180,8 +1247,7 @@ public partial class MainWindowViewModel : ObservableObject
             Files.Clear();
         }
         
-        HasFiles = Files.Count > 0;
-        CheckRetryVisibility();
+        UpdateForwarders();
     }
     
     [ObservableProperty] private bool _isRetryVisible;
@@ -1190,7 +1256,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (IsProcessing) 
+            if (IsProcessing || Files == null) 
             {
                 IsRetryVisible = false;
                 return;
@@ -1304,25 +1370,54 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task ProcessQueue(string job)
     {
-        if (IsProcessing) return;
+        if (IsProcessing)
+        {
+            if (SelectedTab != null && !SelectedTab.IsProcessing && !SelectedTab.IsDone && SelectedTab.HasFiles)
+            {
+                SelectedTab.IsWaiting = true;
+            }
+            return;
+        }
+
         _lastJobType = job;
         IsProcessing = true;
         _stopRequested = false;
         IsPaused = false;
         _cts = new CancellationTokenSource();
         var engineInfo = job == "remove_bg" ? $" [{RemoveBgEngine}]" : "";
-        AppendLog($"Memulai proses {job}{engineInfo} (C# Native)...");
+        AppendLog($"Memulai proses antrean {job}{engineInfo}...");
 
         try
         {
             while (!_stopRequested)
             {
-                if (IsPaused) { await Task.Delay(500); continue; }
+                var currentTab = Tabs.FirstOrDefault(t => t.IsProcessing) 
+                              ?? Tabs.FirstOrDefault(t => t.IsWaiting)
+                              ?? Tabs.FirstOrDefault(t => !t.IsDone && t.Files.Any(f => !f.IsDone && !f.IsFailed));
+                              
+                if (currentTab == null) break;
 
-                var item = Files.FirstOrDefault(x => !x.IsDone && !x.IsFailed && !x.IsProcessing);
-                if (item == null) break;
+                currentTab.IsWaiting = false;
+                currentTab.IsProcessing = true;
+                currentTab.NotifyProgressChanged();
+                
+                while (!_stopRequested)
+                {
+                    if (IsPaused) { await Task.Delay(500); continue; }
 
-                await ProcessItem(item, job, _cts.Token);
+                    var item = currentTab.Files.FirstOrDefault(x => !x.IsDone && !x.IsFailed && !x.IsProcessing);
+                    if (item == null) break;
+
+                    await ProcessItem(item, job, _cts.Token);
+                    currentTab.NotifyProgressChanged();
+                }
+                
+                if (!_stopRequested)
+                {
+                    currentTab.IsProcessing = false;
+                    currentTab.IsDone = true;
+                    currentTab.NotifyProgressChanged();
+                }
             }
         }
         catch (OperationCanceledException)
@@ -1334,17 +1429,16 @@ public partial class MainWindowViewModel : ObservableObject
             IsProcessing = false;
             _cts?.Dispose();
             _cts = null;
-            OnPropertyChanged(nameof(TabHeaderText));
-            CheckRetryVisibility();
+            UpdateForwarders();
 
             if (!_stopRequested)
             {
-                var success = Files.Count(x => x.IsDone && x.ResultSize >= 500);
-                var small = Files.Count(x => x.IsDone && x.ResultSize < 500 && x.ResultSize > 0);
-                var failed = Files.Count(x => x.IsFailed);
+                var success = Tabs.SelectMany(t => t.Files).Count(x => x.IsDone && x.ResultSize >= 500);
+                var small = Tabs.SelectMany(t => t.Files).Count(x => x.IsDone && x.ResultSize < 500 && x.ResultSize > 0);
+                var failed = Tabs.SelectMany(t => t.Files).Count(x => x.IsFailed);
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine("Proses Selesai!");
+                sb.AppendLine("Proses Antrean Selesai!");
                 sb.AppendLine();
                 sb.AppendLine($"✅ Berhasil: {success}");
                 if (small > 0) sb.AppendLine($"⚠️ File Kecil (<500b): {small}");
@@ -1476,14 +1570,6 @@ public partial class MainWindowViewModel : ObservableObject
         }
         return Path.Combine(dir, $"{name}.png");
     }
-
-    [RelayCommand]
-    private void ToggleLog()
-    {
-        // Deprecated by Tab UI
-        // ShowLogPanel = !ShowLogPanel;
-    }
-
     private void AppendLog(string message, string level = "INFO")
     {
         var msg = $"[{DateTime.Now:HH:mm:ss}] [{level}] {message}";

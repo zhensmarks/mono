@@ -4,6 +4,8 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
+using System.Linq;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -120,6 +122,8 @@ if (pngPath && jpgPath) {
         // Find Control and set value
         var zoomControl = this.FindControl<NumericUpDown>("ZoomControl");
         if (zoomControl != null) zoomControl.Value = (decimal)Math.Max(0.2, _settings.Zoom);
+
+        ApplyBackground();
 
         Closing += (s, e) =>
         {
@@ -325,7 +329,14 @@ if (pngPath && jpgPath) {
         double zoomFactor = e.Delta.Y > 0 ? 1.15 : (1.0 / 1.15);
         double newScaleX = st.ScaleX * zoomFactor;
 
-        if (newScaleX < 0.2) newScaleX = 0.2;
+        // Minimum zoom = 1.0 (fit to screen, can't zoom out further than original)
+        if (newScaleX < 1.0)
+        {
+            newScaleX = 1.0;
+            // Reset translate so image centers itself when zoomed out fully
+            tt.X = 0;
+            tt.Y = 0;
+        }
         if (newScaleX > 20) newScaleX = 20;
 
         zoomFactor = newScaleX / st.ScaleX;
@@ -339,8 +350,12 @@ if (pngPath && jpgPath) {
         double dx = currentPoint.X - centerX;
         double dy = currentPoint.Y - centerY;
 
-        tt.X -= dx * (zoomFactor - 1);
-        tt.Y -= dy * (zoomFactor - 1);
+        // Only apply offset movement if we're actually zooming in (scale > 1)
+        if (newScaleX > 1.0)
+        {
+            tt.X -= dx * (zoomFactor - 1);
+            tt.Y -= dy * (zoomFactor - 1);
+        }
 
         st.ScaleX = newScaleX;
         st.ScaleY = newScaleX;
@@ -572,17 +587,279 @@ try {{
         }
     }
 
+    private void OnShortcutTextBoxKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            // Ignore bare modifier keys
+            if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl ||
+                e.Key == Key.LeftShift || e.Key == Key.RightShift ||
+                e.Key == Key.LeftAlt || e.Key == Key.RightAlt ||
+                e.Key == Key.LWin || e.Key == Key.RWin)
+            {
+                return;
+            }
+
+            textBox.Text = e.Key.ToString();
+            e.Handled = true;
+        }
+    }
+
+    private void OnSettingsFlyoutOpened(object? sender, EventArgs e)
+    {
+        var txtNext = this.FindControl<TextBox>("TxtNextShortcut");
+        var txtPrev = this.FindControl<TextBox>("TxtPrevShortcut");
+        var txtPhotoshop = this.FindControl<TextBox>("TxtPhotoshopShortcut");
+        var txtRotate = this.FindControl<TextBox>("TxtRotateShortcut");
+        var txtFitScreen = this.FindControl<TextBox>("TxtFitScreenShortcut");
+        
+        if (txtNext != null) txtNext.Text = _settings.ShortcutNext;
+        if (txtPrev != null) txtPrev.Text = _settings.ShortcutPrevious;
+        if (txtPhotoshop != null) txtPhotoshop.Text = _settings.ShortcutPhotoshop;
+        if (txtRotate != null) txtRotate.Text = _settings.ShortcutRotate;
+        if (txtFitScreen != null) txtFitScreen.Text = _settings.ShortcutFitScreen;
+        
+        var cboBgType = this.FindControl<ComboBox>("CboBgType");
+        if (cboBgType != null) cboBgType.SelectedIndex = _settings.BackgroundType;
+        
+        // Refresh color preview indicators
+        UpdateColorPreviewIndicators();
+        UpdateBgVisibility();
+    }
+
+    private void OnSaveSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var txtNext = this.FindControl<TextBox>("TxtNextShortcut");
+        var txtPrev = this.FindControl<TextBox>("TxtPrevShortcut");
+        var txtPhotoshop = this.FindControl<TextBox>("TxtPhotoshopShortcut");
+        var txtRotate = this.FindControl<TextBox>("TxtRotateShortcut");
+        var txtFitScreen = this.FindControl<TextBox>("TxtFitScreenShortcut");
+        
+        if (txtNext != null && !string.IsNullOrWhiteSpace(txtNext.Text)) _settings.ShortcutNext = txtNext.Text.Trim();
+        if (txtPrev != null && !string.IsNullOrWhiteSpace(txtPrev.Text)) _settings.ShortcutPrevious = txtPrev.Text.Trim();
+        if (txtPhotoshop != null && !string.IsNullOrWhiteSpace(txtPhotoshop.Text)) _settings.ShortcutPhotoshop = txtPhotoshop.Text.Trim();
+        if (txtRotate != null && !string.IsNullOrWhiteSpace(txtRotate.Text)) _settings.ShortcutRotate = txtRotate.Text.Trim();
+        if (txtFitScreen != null && !string.IsNullOrWhiteSpace(txtFitScreen.Text)) _settings.ShortcutFitScreen = txtFitScreen.Text.Trim();
+        
+        _settings.Save();
+        
+        // Try to close flyout
+        if (sender is Control c)
+        {
+            var popup = c.GetVisualAncestors().OfType<Avalonia.Controls.Primitives.Popup>().FirstOrDefault();
+            if (popup != null) popup.IsOpen = false;
+        }
+    }
+
     private void OnPreviewKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
-        if (e.Key == Key.Left)
+        string keyStr = e.Key.ToString();
+        
+        if (keyStr.Equals(_settings.ShortcutPrevious, StringComparison.OrdinalIgnoreCase))
         {
             Previous?.Invoke(this, EventArgs.Empty);
             e.Handled = true;
         }
-        else if (e.Key == Key.Right)
+        else if (keyStr.Equals(_settings.ShortcutNext, StringComparison.OrdinalIgnoreCase))
         {
             Next?.Invoke(this, EventArgs.Empty);
             e.Handled = true;
+        }
+        else if (keyStr.Equals(_settings.ShortcutPhotoshop, StringComparison.OrdinalIgnoreCase))
+        {
+            OnPhotoshopClick(this, new Avalonia.Interactivity.RoutedEventArgs());
+            e.Handled = true;
+        }
+        else if (keyStr.Equals(_settings.ShortcutRotate, StringComparison.OrdinalIgnoreCase))
+        {
+            OnRotateOriginalClick(this, new Avalonia.Interactivity.RoutedEventArgs());
+            OnRotateResultClick(this, new Avalonia.Interactivity.RoutedEventArgs());
+            e.Handled = true;
+        }
+        else if (keyStr.Equals(_settings.ShortcutFitScreen, StringComparison.OrdinalIgnoreCase))
+        {
+            FitOnScreen();
+            e.Handled = true;
+        }
+    }
+
+
+    private void UpdateBgVisibility()
+    {
+        var type = _settings.BackgroundType;
+        var pnlSolid = this.FindControl<StackPanel>("PanelSolidColor");
+        var pnlChecker = this.FindControl<StackPanel>("PanelCheckerColor");
+        
+        if (pnlSolid != null) pnlSolid.IsVisible = type == 2;
+        if (pnlChecker != null) pnlChecker.IsVisible = type == 1;
+    }
+
+    private void OnBgTypeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox cbo && cbo.SelectedIndex >= 0)
+        {
+            _settings.BackgroundType = cbo.SelectedIndex;
+            UpdateBgVisibility();
+            ApplyBackground();
+            _settings.Save();
+        }
+    }
+
+    private void OnBgColorChanged(object? sender, TextChangedEventArgs e)
+    {
+        // Legacy handler kept as stub (TextBox inputs removed, now use swatches)
+    }
+
+    private void ApplyColorFromHex(string hex, bool isSolid)
+    {
+        if (isSolid)
+        {
+            _settings.SolidColorHex = hex;
+        }
+        ApplyBackground();
+        _settings.Save();
+        UpdateColorPreviewIndicators();
+    }
+
+    private void UpdateColorPreviewIndicators()
+    {
+        // Solid color indicator
+        var brdCurrent = this.FindControl<Border>("BrdCurrentColor");
+        var txtHex = this.FindControl<TextBlock>("TxtCurrentColorHex");
+        try
+        {
+            var col = Avalonia.Media.Color.Parse(_settings.SolidColorHex);
+            if (brdCurrent != null) brdCurrent.Background = new Avalonia.Media.SolidColorBrush(col);
+            if (txtHex != null) txtHex.Text = _settings.SolidColorHex.ToUpperInvariant();
+        }
+        catch { }
+
+        // Checker indicators
+        var brdC1 = this.FindControl<Border>("BrdChecker1Preview");
+        var brdC2 = this.FindControl<Border>("BrdChecker2Preview");
+        var txtCk = this.FindControl<TextBlock>("TxtCheckerHex");
+        try
+        {
+            var c1 = Avalonia.Media.Color.Parse(_settings.CheckerColor1);
+            var c2 = Avalonia.Media.Color.Parse(_settings.CheckerColor2);
+            if (brdC1 != null) brdC1.Background = new Avalonia.Media.SolidColorBrush(c1);
+            if (brdC2 != null) brdC2.Background = new Avalonia.Media.SolidColorBrush(c2);
+            if (txtCk != null) txtCk.Text = $"{_settings.CheckerColor1.ToUpperInvariant()} / {_settings.CheckerColor2.ToUpperInvariant()}";
+        }
+        catch { }
+    }
+
+    private void OnColorSwatchClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Name != null && btn.Name.StartsWith("SwColor_"))
+        {
+            var hex = "#" + btn.Name.Substring(8); // e.g. SwColor_FFFFFF -> #FFFFFF
+            _settings.SolidColorHex = hex;
+            ApplyBackground();
+            _settings.Save();
+            UpdateColorPreviewIndicators();
+        }
+    }
+
+    private void OnChecker1SwatchClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Name != null && btn.Name.StartsWith("CkColor1_"))
+        {
+            var hex = "#" + btn.Name.Substring(9); // e.g. CkColor1_FFFFFF -> #FFFFFF
+            _settings.CheckerColor1 = hex;
+            ApplyBackground();
+            _settings.Save();
+            UpdateColorPreviewIndicators();
+        }
+    }
+
+    private void OnChecker2SwatchClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Name != null && btn.Name.StartsWith("CkColor2_"))
+        {
+            var hex = "#" + btn.Name.Substring(9);
+            _settings.CheckerColor2 = hex;
+            ApplyBackground();
+            _settings.Save();
+            UpdateColorPreviewIndicators();
+        }
+    }
+
+    private void ApplyBackground()
+    {
+        Avalonia.Media.IBrush? bgBrush = null;
+        try
+        {
+            if (_settings.BackgroundType == 1) // Checkerboard
+            {
+                var col1 = Avalonia.Media.Color.Parse(_settings.CheckerColor1);
+                var col2 = Avalonia.Media.Color.Parse(_settings.CheckerColor2);
+                
+                var canvas = new Avalonia.Controls.Canvas { Width = 16, Height = 16 };
+                canvas.Children.Add(new Avalonia.Controls.Shapes.Rectangle { Width = 8, Height = 8, Fill = new Avalonia.Media.SolidColorBrush(col1) });
+                canvas.Children.Add(new Avalonia.Controls.Shapes.Rectangle { Width = 8, Height = 8, Fill = new Avalonia.Media.SolidColorBrush(col1), [Avalonia.Controls.Canvas.LeftProperty] = 8, [Avalonia.Controls.Canvas.TopProperty] = 8 });
+                canvas.Children.Add(new Avalonia.Controls.Shapes.Rectangle { Width = 8, Height = 8, Fill = new Avalonia.Media.SolidColorBrush(col2), [Avalonia.Controls.Canvas.LeftProperty] = 8 });
+                canvas.Children.Add(new Avalonia.Controls.Shapes.Rectangle { Width = 8, Height = 8, Fill = new Avalonia.Media.SolidColorBrush(col2), [Avalonia.Controls.Canvas.TopProperty] = 8 });
+                
+                bgBrush = new Avalonia.Media.VisualBrush
+                {
+                    Visual = canvas,
+                    TileMode = Avalonia.Media.TileMode.Tile,
+                    SourceRect = new Avalonia.RelativeRect(0, 0, 16, 16, Avalonia.RelativeUnit.Absolute),
+                    DestinationRect = new Avalonia.RelativeRect(0, 0, 16, 16, Avalonia.RelativeUnit.Absolute)
+                };
+            }
+            else if (_settings.BackgroundType == 2) // Solid Color
+            {
+                bgBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(_settings.SolidColorHex));
+            }
+        }
+        catch 
+        {
+            // Fallback
+        }
+
+        if (bgBrush == null)
+        {
+            bgBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#0DFFFFFF"));
+        }
+
+        var brdOrig = this.FindControl<Border>("BrdOriginal");
+        var brdResult = this.FindControl<Border>("BrdResult");
+        
+        if (brdOrig != null) brdOrig.Background = bgBrush;
+        if (brdResult != null) brdResult.Background = bgBrush;
+    }
+
+    private void FitOnScreen()
+    {
+        var img1 = this.FindControl<Image>("ImgOriginal");
+        var img2 = this.FindControl<Image>("ImgResult");
+
+        ResetImageTransform(img1);
+        ResetImageTransform(img2);
+
+        var zoomControl = this.FindControl<NumericUpDown>("ZoomControl");
+        if (zoomControl != null) zoomControl.Value = 1m;
+    }
+
+    private void ResetImageTransform(Image? img)
+    {
+        if (img?.RenderTransform is Avalonia.Media.TransformGroup tg)
+        {
+            foreach (var t in tg.Children)
+            {
+                if (t is Avalonia.Media.ScaleTransform scaleT)
+                {
+                    scaleT.ScaleX = 1;
+                    scaleT.ScaleY = 1;
+                }
+                else if (t is Avalonia.Media.TranslateTransform transT)
+                {
+                    transT.X = 0;
+                    transT.Y = 0;
+                }
+            }
         }
     }
 }
