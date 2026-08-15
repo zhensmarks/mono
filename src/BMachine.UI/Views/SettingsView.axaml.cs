@@ -439,6 +439,93 @@ public partial class SettingsView : UserControl
             acb.IsDropDownOpen = true;
         }
     }
+
+    // ─── Radial Slot Drag & Drop ──────────────────────────────────────────────
+    
+    private RadialSlotViewModel? _dragSourceSlot;
+    private bool _isDraggingRadial;
+    private Avalonia.Point _dragStartPoint;
+    private const double DragThreshold = 8.0;
+
+    private void OnRadialSlotPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Button btn || btn.Tag is not RadialSlotViewModel slot || slot.IsEmpty) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+        _dragSourceSlot = slot;
+        _isDraggingRadial = false;
+        _dragStartPoint = e.GetPosition(this);
+        e.Pointer.Capture(btn);
+    }
+
+    private void OnRadialSlotPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragSourceSlot == null) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _dragSourceSlot = null;
+            e.Pointer.Capture(null);
+            return;
+        }
+
+        var pos = e.GetPosition(this);
+        if (!_isDraggingRadial)
+        {
+            double dx = pos.X - _dragStartPoint.X;
+            double dy = pos.Y - _dragStartPoint.Y;
+            if (Math.Sqrt(dx * dx + dy * dy) > DragThreshold)
+                _isDraggingRadial = true;
+        }
+    }
+
+    private void OnRadialSlotPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        e.Pointer.Capture(null);
+        var source = _dragSourceSlot;
+        _dragSourceSlot = null;
+
+        if (source == null || !_isDraggingRadial)
+        {
+            _isDraggingRadial = false;
+            return;
+        }
+        _isDraggingRadial = false;
+
+        if (DataContext is not SettingsViewModel vm) return;
+
+        // Find closest filled slot under the pointer using ViewModel slot positions
+        // RadialSlots hold X,Y in canvas coordinates (200x200 canvas)
+        // Find the canvas in the visual tree to get its screen position
+        var slotsControl = this.FindControl<ItemsControl>("RadialSlotsControl");
+        if (slotsControl == null) return;
+
+        var releasePos = e.GetPosition(slotsControl);
+
+        RadialSlotViewModel? targetSlot = null;
+        double bestDist = 25; // px threshold — must be within 25px of center
+
+        foreach (var slot in vm.RadialSlots)
+        {
+            if (slot.IsEmpty || slot.IsNavigationReserved || slot == source) continue;
+            // slot.X and slot.Y are Canvas.Left and Canvas.Top → center is (X+18, Y+18)
+            double cx = slot.X + 18;
+            double cy = slot.Y + 18;
+            double dist = Math.Sqrt(Math.Pow(releasePos.X - cx, 2) + Math.Pow(releasePos.Y - cy, 2));
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                targetSlot = slot;
+            }
+        }
+
+        if (targetSlot != null)
+        {
+            vm.SwapRadialSlots(source, targetSlot);
+        }
+    }
 }
 
 // Extension helper logic not strictly needed if we do the Contains check.
+
+
+

@@ -2132,6 +2132,13 @@ public partial class SettingsViewModel : ObservableObject
     // Script Tab Selection (Master vs Action)
     [ObservableProperty] private bool _isScriptMasterSelected = true;
     [ObservableProperty] private bool _isScriptActionSelected = false;
+    
+    // Radial Editor Properties
+    [ObservableProperty] private int _radialEditorPage = 0; // 0 = Page 1, 1 = Page 2
+    [ObservableProperty] private ObservableCollection<RadialSlotViewModel> _radialSlots = new();
+    [ObservableProperty] private RadialSlotViewModel? _selectedRadialSlot;
+
+    public bool HasItemsOnPage2 => ActionScripts.Any(x => _scriptAliases.ContainsKey(x.OriginalName) && _scriptAliases[x.OriginalName].Order >= 8);
 
     [RelayCommand]
     public void SwitchToScriptMaster()
@@ -2145,6 +2152,263 @@ public partial class SettingsViewModel : ObservableObject
     {
         IsScriptMasterSelected = false;
         IsScriptActionSelected = true;
+        RebuildRadialSlots();
+    }
+    
+    [RelayCommand]
+    private void SwitchToRadialPage1()
+    {
+        RadialEditorPage = 0;
+        RebuildRadialSlots();
+        SelectedRadialSlot = null;
+    }
+
+    [RelayCommand]
+    private void SwitchToRadialPage2()
+    {
+        RadialEditorPage = 1;
+        RebuildRadialSlots();
+        SelectedRadialSlot = null;
+    }
+    
+    [RelayCommand]
+    private void SelectRadialSlot(RadialSlotViewModel slot)
+    {
+        if (slot.IsNavigationReserved) return;
+        
+        if (SelectedRadialSlot != null) SelectedRadialSlot.IsSelected = false;
+        SelectedRadialSlot = slot;
+        if (SelectedRadialSlot != null) SelectedRadialSlot.IsSelected = true;
+    }
+    
+    [RelayCommand]
+    private async Task AddScriptToRadialSlot(RadialSlotViewModel slot)
+    {
+        if (PickScriptFileFunc == null || slot.IsNavigationReserved) return;
+        
+        var sourceFile = await PickScriptFileFunc();
+        if (string.IsNullOrEmpty(sourceFile)) return;
+        
+        var targetDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action");
+        if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
+        var dest = Path.Combine(targetDir, Path.GetFileName(sourceFile));
+        try
+        {
+             File.Copy(sourceFile, dest, true);
+        }
+        catch { } // Ignore if already exists
+        
+        // We need to reload scripts and force this specific script to the correct order.
+        var filename = Path.GetFileName(dest);
+        
+        // Temporarily save to alias config so when it reloads, it takes this order.
+        if (!_scriptAliases.ContainsKey(filename))
+        {
+            _scriptAliases[filename] = new ScriptConfig { Name = Path.GetFileNameWithoutExtension(filename), Code = "", Order = slot.AbsoluteIndex };
+        }
+        else
+        {
+            _scriptAliases[filename].Order = slot.AbsoluteIndex;
+        }
+        SaveMetadata();
+        
+        await LoadAllScriptsAsync();
+        RebuildRadialSlots();
+        
+        // Auto-select the newly added slot
+        var newlyAdded = RadialSlots.FirstOrDefault(s => s.AbsoluteIndex == slot.AbsoluteIndex);
+        if (newlyAdded != null && !newlyAdded.IsEmpty)
+        {
+            SelectRadialSlot(newlyAdded);
+        }
+    }
+    
+    [RelayCommand]
+    private async Task MoveRadialSlotUp(RadialSlotViewModel slot)
+    {
+        if (slot.Script == null) return;
+        
+        // Normalize first so all orders are unique
+        NormalizeAllOrders();
+        
+        var scripts = ActionScripts.OrderBy(s => _scriptAliases[s.OriginalName].Order).ToList();
+        int index = scripts.IndexOf(slot.Script);
+        if (index > 0)
+        {
+            var prev = scripts[index - 1];
+            int temp = _scriptAliases[slot.Script.OriginalName].Order;
+            _scriptAliases[slot.Script.OriginalName].Order = _scriptAliases[prev.OriginalName].Order;
+            _scriptAliases[prev.OriginalName].Order = temp;
+            SaveMetadata();
+            RebuildRadialSlots();
+            
+            var reselect = RadialSlots.FirstOrDefault(s => s.Script?.OriginalName == slot.Script.OriginalName);
+            if (reselect != null) SelectRadialSlot(reselect);
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveRadialSlotDown(RadialSlotViewModel slot)
+    {
+        if (slot.Script == null) return;
+        
+        // Normalize first so all orders are unique
+        NormalizeAllOrders();
+        
+        var scripts = ActionScripts.OrderBy(s => _scriptAliases[s.OriginalName].Order).ToList();
+        int index = scripts.IndexOf(slot.Script);
+        if (index >= 0 && index < scripts.Count - 1)
+        {
+            var next = scripts[index + 1];
+            int temp = _scriptAliases[slot.Script.OriginalName].Order;
+            _scriptAliases[slot.Script.OriginalName].Order = _scriptAliases[next.OriginalName].Order;
+            _scriptAliases[next.OriginalName].Order = temp;
+            SaveMetadata();
+            RebuildRadialSlots();
+            
+            var reselect = RadialSlots.FirstOrDefault(s => s.Script?.OriginalName == slot.Script.OriginalName);
+            if (reselect != null) SelectRadialSlot(reselect);
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveFromRadialSlot(RadialSlotViewModel slot)
+    {
+        if (slot.Script == null) return;
+        
+        // Remove the script from _scriptAliases so it won't appear in radial menu
+        if (_scriptAliases.ContainsKey(slot.Script.OriginalName))
+        {
+            _scriptAliases.Remove(slot.Script.OriginalName);
+            SaveMetadata();
+        }
+        
+        // Clear selection and rebuild
+        SelectedRadialSlot = null;
+        RebuildRadialSlots();
+    }
+
+    /// <summary>Normalize all Action script orders to unique sequential integers, then swap two slots.</summary>
+    public void SwapRadialSlots(RadialSlotViewModel slotA, RadialSlotViewModel slotB)
+    {
+        if (slotA.Script == null || slotB.Script == null) return;
+
+        // Step 1: Normalize all scripts to unique sequential orders first
+        NormalizeAllOrders();
+
+        // Step 2: Swap A and B order values
+        int orderA = _scriptAliases[slotA.Script.OriginalName].Order;
+        int orderB = _scriptAliases[slotB.Script.OriginalName].Order;
+        _scriptAliases[slotA.Script.OriginalName].Order = orderB;
+        _scriptAliases[slotB.Script.OriginalName].Order = orderA;
+
+        SaveMetadata();
+        RebuildRadialSlots();
+    }
+
+    /// <summary>Assign explicit unique sequential order values to all action scripts based on current sort order.</summary>
+    private void NormalizeAllOrders()
+    {
+        var sorted = ActionScripts
+            .OrderBy(s => _scriptAliases.ContainsKey(s.OriginalName) ? _scriptAliases[s.OriginalName].Order : 9999)
+            .ThenBy(s => s.Name)
+            .ToList();
+
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            var s = sorted[i];
+            if (_scriptAliases.ContainsKey(s.OriginalName))
+                _scriptAliases[s.OriginalName].Order = i;
+            else
+                _scriptAliases[s.OriginalName] = new ScriptConfig { Name = s.Name, Code = s.ShortCode, IconKey = s.IconKey, Order = i };
+        }
+    }
+
+    private void RebuildRadialSlots()
+    {
+        RadialSlots.Clear();
+        
+        var sortedScripts = ActionScripts
+            .OrderBy(s => _scriptAliases.ContainsKey(s.OriginalName) ? _scriptAliases[s.OriginalName].Order : 9999)
+            .ThenBy(s => s.Name)
+            .ToList();
+            
+        bool hasPage2 = sortedScripts.Count > 7;
+        
+        // =========================================================
+        // EXACT copy of RadialMenuViewModel's ArrangeItems logic
+        // Canvas = 200x200, Center = (100,100), ItemRadius = 72, ButtonSize = 36
+        // packedAngles: scripts fill in this order (0=North, 45=NE, 315=NW, 90=E, 270=W, 135=SE, 225=SW)
+        // Navigation is ALWAYS at angle 180 (South)
+        // =========================================================
+        const double cx = 100.0;
+        const double cy = 100.0;
+        const double itemRadius = 72.0;
+        const double btnHalf = 18.0; // half of ButtonSize(36)
+        int[] packedAngles = new[] { 0, 45, 315, 90, 270, 135, 225 };
+        
+        int startIndex = RadialEditorPage * 7;
+        
+        // Add the 7 script slots
+        for (int i = 0; i < 7; i++)
+        {
+            int globalIndex = startIndex + i;
+            double angleDeg = packedAngles[i];
+            
+            // Convert "0=Top" clockwise to standard trig (same as RadialMenuViewModel)
+            double trigAngleRad = (angleDeg - 90) * (Math.PI / 180.0);
+            double x = cx + itemRadius * Math.Cos(trigAngleRad) - btnHalf;
+            double y = cy + itemRadius * Math.Sin(trigAngleRad) - btnHalf;
+            
+            var slot = new RadialSlotViewModel
+            {
+                SlotIndex = i,
+                AbsoluteIndex = globalIndex,
+                PageIndex = RadialEditorPage,
+                Angle = angleDeg,
+                X = x,
+                Y = y
+            };
+            
+            if (globalIndex < sortedScripts.Count)
+            {
+                slot.Script = sortedScripts[globalIndex];
+            }
+            
+            RadialSlots.Add(slot);
+        }
+        
+        // Navigation Slot — always at angle 180 (South)
+        double navTrigRad = (180 - 90) * (Math.PI / 180.0);
+        double navX = cx + itemRadius * Math.Cos(navTrigRad) - btnHalf;
+        double navY = cy + itemRadius * Math.Sin(navTrigRad) - btnHalf;
+        
+        var navSlot = new RadialSlotViewModel
+        {
+            SlotIndex = 7,
+            AbsoluteIndex = -1,
+            PageIndex = RadialEditorPage,
+            Angle = 180,
+            X = navX,
+            Y = navY,
+            IsNavigationReserved = true
+        };
+        
+        if (RadialEditorPage == 0 && hasPage2)
+            navSlot.NavigationLabel = "MORE";
+        else if (RadialEditorPage == 1)
+            navSlot.NavigationLabel = "BACK";
+        else
+            navSlot.NavigationLabel = ""; // Dead zone when only 1 page
+        
+        RadialSlots.Add(navSlot);
+        
+        // Re-select previously selected slot
+        if (SelectedRadialSlot != null && SelectedRadialSlot.Script != null)
+        {
+            var matching = RadialSlots.FirstOrDefault(s => s.Script?.OriginalName == SelectedRadialSlot.Script.OriginalName);
+            if (matching != null) SelectRadialSlot(matching);
+        }
     }
     
     // File Picker for Scripts
@@ -2232,6 +2496,7 @@ public partial class SettingsViewModel : ObservableObject
             
             // Action Scripts: Load .jsx and .pyw from "Scripts/Action"
             await LoadScriptsForAsync(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action"), "*.jsx;*.pyw");
+            await LoadScriptsForAsync(ActionScripts, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts"), "*.pyw", append: true);
             
             // Sort ActionItems and mark pagination (Page 1 vs Page 2 for Radial Menu)
             var sortedAction = ActionScripts.OrderBy(x => _scriptAliases.ContainsKey(x.OriginalName) ? _scriptAliases[x.OriginalName].Order : 9999).ThenBy(x => x.Name).ToList();
@@ -2245,6 +2510,7 @@ public partial class SettingsViewModel : ObservableObject
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
             {
                 AddInternalScripts();
+                RebuildRadialSlots();
             });
         });
     }
@@ -2333,6 +2599,8 @@ public partial class SettingsViewModel : ObservableObject
             foreach (var f in files)
             {
                 var filename = Path.GetFileName(f);
+                // Skip underscore-prefixed files (same as RadialMenuViewModel)
+                if (filename.StartsWith("_")) continue;
                 var config = _scriptAliases.ContainsKey(filename) 
                     ? _scriptAliases[filename] 
                     : new ScriptConfig { Name = Path.GetFileNameWithoutExtension(filename), Code = "", Order = 9999 }; 
@@ -2362,6 +2630,7 @@ public partial class SettingsViewModel : ObservableObject
                         _scriptAliases[item.OriginalName] = newConfig;
                         item.Name = newName; item.ShortCode = newCode; item.IconKey = newIcon;
                         SaveMetadata();
+                        RebuildRadialSlots();
                     }
                 };
                 

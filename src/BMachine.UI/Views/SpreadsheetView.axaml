@@ -12,6 +12,22 @@
         <Style Selector="DataGridRow">
              <Setter Property="MinHeight" Value="{Binding Height}"/>
              <Setter Property="Background" Value="Transparent"/>
+             <Setter Property="ContextMenu">
+                 <Setter.Value>
+                     <ContextMenu>
+                         <MenuItem Header="Copy Row ID" Command="{Binding CopyIdCommand}">
+                             <MenuItem.Icon>
+                                 <PathIcon Data="{StaticResource IconCopy}"/>
+                             </MenuItem.Icon>
+                         </MenuItem>
+                         <MenuItem Header="Open in Trello" Command="{Binding OpenInTrelloCommand}">
+                             <MenuItem.Icon>
+                                 <PathIcon Data="{StaticResource IconExternalLink}"/>
+                             </MenuItem.Icon>
+                         </MenuItem>
+                     </ContextMenu>
+                 </Setter.Value>
+             </Setter>
         </Style>
 
         <!-- Selected row: Very subtle highlight so multi-select is visible -->
@@ -67,17 +83,30 @@
 
     <Grid RowDefinitions="Auto, *, Auto">
         
-        <!-- Toolbar (Top) -->
-        <Border Grid.Row="0" Padding="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
-    <Grid>
+        <!-- Floating Modern Toolbar (Top) -->
+        <Border Grid.Row="0" Margin="15,15,15,10" Padding="15,10" 
+                Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="12" 
+                BoxShadow="0 4 15 0 #1A000000"
+                BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                <!-- Left: Title / Branding (Optional, but looks premium) -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Border Background="{DynamicResource AccentColorBrush}" Width="32" Height="32" CornerRadius="8">
+                        <PathIcon Data="{StaticResource IconGrid}" Width="16" Height="16" Foreground="White"/>
+                    </Border>
+                    <TextBlock Text="Data Spreadsheet" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+                </StackPanel>
+
                  <!-- Right Side: Order Time & Search -->
-                 <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="10">
+                 <StackPanel Grid.Column="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="15">
                     <!-- Date Filter -->
-                    <StackPanel Orientation="Horizontal" Spacing="2">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
                          <CalendarDatePicker SelectedDate="{Binding SelectedDateFilter}" 
-                                          Watermark="Order Time" 
-                                          Width="140"
-                                          VerticalAlignment="Center"/>
+                                          Watermark="Filter by Date..." 
+                                          Width="160"
+                                          VerticalAlignment="Center"
+                                          CornerRadius="6"/>
                         
                          <Button Command="{Binding ClearDateFilterCommand}" 
                                 Classes="Clear"
@@ -88,7 +117,12 @@
                     </StackPanel>
 
                     <!-- Search (Rightmost) -->
-                    <TextBox Width="200" Text="{Binding SearchText}" Watermark="Search..." Classes="SearchBox"/>
+                    <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="20" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="4,0">
+                        <Grid ColumnDefinitions="Auto, *">
+                            <PathIcon Grid.Column="0" Data="{StaticResource IconSearch}" Width="14" Height="14" Margin="10,0,5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBox Grid.Column="1" Width="200" Text="{Binding SearchText}" Watermark="Smart Search..." Classes="Clear" BorderThickness="0" Background="Transparent" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
                  </StackPanel>
             </Grid>
         </Border>
@@ -96,58 +130,62 @@
         <!-- DataGrid Container -->
         <Border Grid.Row="1" x:Name="GridContainer" Background="{DynamicResource CardBackgroundBrush}" Margin="0"/>
 
-        <!-- Status Bar (Bottom) -->
-        <Border Grid.Row="2" Padding="10,5" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
-            <Grid ColumnDefinitions="*, Auto, Auto">
-                <!-- Left: Status -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center"/>
-                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" Width="100" Height="4" VerticalAlignment="Center"/>
+        <!-- Modern Status Bar (Bottom) -->
+        <Border Grid.Row="2" Padding="15,8" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*, Auto">
+                <!-- Left: Status & Sync Indicator -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+                    <PathIcon Data="{StaticResource IconSave}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="{Binding IsLoading, Converter={x:Static ObjectConverters.IsNull}}"/>
+                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center" FontWeight="Medium"/>
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" Width="80" Height="2" VerticalAlignment="Center" Margin="10,0"/>
                 </StackPanel>
 
-                <!-- Right: Controls -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    
-                    <!-- Refresh Button -->
-                    <Button Command="{Binding LoadDataCommand}" Classes="Clear" IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Refresh Data">
-                         <PathIcon Data="{StaticResource IconRefresh}" Width="16" Height="16"/>
-                    </Button>
+                <!-- Right: Quick Controls -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <!-- Zoom Controls -->
+                    <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2">
+                        <StackPanel Orientation="Horizontal" Spacing="0">
+                            <Button Command="{Binding ZoomOutCommand}" Classes="Clear" ToolTip.Tip="Zoom Out" Padding="6,2" CornerRadius="4,0,0,4">
+                                 <TextBlock Text="-" FontWeight="Bold" FontSize="14"/>
+                            </Button>
+                            <TextBlock Text="{Binding ZoomLevel, StringFormat='{}{0:P0}'}" VerticalAlignment="Center" Margin="6,0" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Button Command="{Binding ZoomInCommand}" Classes="Clear" ToolTip.Tip="Zoom In" Padding="6,2" CornerRadius="0,4,4,0">
+                                 <TextBlock Text="+" FontWeight="Bold" FontSize="14"/>
+                            </Button>
+                        </StackPanel>
+                    </Border>
 
-                    <!-- Columns Menu (Icon Only) -->
-                    <Button Classes="Clear" ToolTip.Tip="Show/Hide Columns">
+                    <!-- Columns Menu -->
+                    <Button Classes="Clear" ToolTip.Tip="Manage Columns" Background="{DynamicResource AppBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="6,4">
                          <Button.Flyout>
-                             <Flyout Placement="Top">
-                                 <ScrollViewer MaxHeight="300">
-                                     <ItemsControl ItemsSource="{Binding Columns}">
-                                         <ItemsControl.ItemTemplate>
-                                             <DataTemplate>
-                                                 <CheckBox Content="{Binding Header}" IsChecked="{Binding IsVisible, Mode=TwoWay}" Margin="0,2"/>
-                                             </DataTemplate>
-                                         </ItemsControl.ItemTemplate>
-                                     </ItemsControl>
-                                 </ScrollViewer>
+                             <Flyout Placement="TopEdgeAlignedRight">
+                                 <Border CornerRadius="8" Padding="5" Background="{DynamicResource CardBackgroundBrush}">
+                                     <ScrollViewer MaxHeight="300">
+                                         <ItemsControl ItemsSource="{Binding Columns}">
+                                             <ItemsControl.ItemTemplate>
+                                                 <DataTemplate>
+                                                     <CheckBox Content="{Binding Header}" IsChecked="{Binding IsVisible, Mode=TwoWay}" Margin="4,2"/>
+                                                 </DataTemplate>
+                                             </ItemsControl.ItemTemplate>
+                                         </ItemsControl>
+                                     </ScrollViewer>
+                                 </Border>
                              </Flyout>
                          </Button.Flyout>
-                         <PathIcon Data="{StaticResource IconGrid}" Width="16" Height="16"/>
+                         <PathIcon Data="{StaticResource IconGrid}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                     
-                    <!-- Separator -->
-                    <Border Width="1" Height="16" Background="{DynamicResource SeparatorBrush}" Margin="5,0"/>
+                    <!-- Refresh Button -->
+                    <Button Command="{Binding LoadDataCommand}" Classes="Clear" IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Refresh Data" Background="{DynamicResource AppBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="6,4">
+                         <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
 
-                    <!-- Zoom Controls -->
-                    <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
-                        <Button Command="{Binding ZoomOutCommand}" Classes="Clear" ToolTip.Tip="Zoom Out" Padding="5">
-                             <TextBlock Text="-" FontWeight="Bold" FontSize="16"/>
-                        </Button>
-                        <TextBlock Text="{Binding ZoomLevel, StringFormat='{}{0:P0}'}" VerticalAlignment="Center" Margin="5,0" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <Button Command="{Binding ZoomInCommand}" Classes="Clear" ToolTip.Tip="Zoom In" Padding="5">
-                             <TextBlock Text="+" FontWeight="Bold" FontSize="16"/>
-                        </Button>
-                    </StackPanel>
-
-                    <!-- Save Button (Icon Only, Rightmost) -->
-                    <Button Command="{Binding SaveChangesCommand}" Classes="Primary" IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Save Changes">
-                         <PathIcon Data="{StaticResource IconSave}" Width="16" Height="16"/>
+                    <!-- Save Button -->
+                    <Button Command="{Binding SaveChangesCommand}" Classes="Primary" IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Save All Changes" CornerRadius="6" Padding="12,4" Margin="5,0,0,0">
+                         <StackPanel Orientation="Horizontal" Spacing="6">
+                             <PathIcon Data="{StaticResource IconSave}" Width="14" Height="14" Foreground="White"/>
+                             <TextBlock Text="Save" FontWeight="Bold" FontSize="12" Foreground="White"/>
+                         </StackPanel>
                     </Button>
                 </StackPanel>
             </Grid>

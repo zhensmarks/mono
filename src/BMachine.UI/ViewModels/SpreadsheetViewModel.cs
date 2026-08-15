@@ -58,11 +58,41 @@ public partial class SpreadsheetViewModel : ObservableObject
     {
         IEnumerable<SpreadsheetRowViewModel> filtered = Rows;
 
-        // 1. Text Search
+        // 1. Smart Text Search
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
-            var lowerSearch = SearchText.ToLowerInvariant();
-            filtered = filtered.Where(r => r.Cells.Any(c => c.Value.ToLowerInvariant().Contains(lowerSearch)));
+            var parts = SearchText.Split(new[] { " AND ", " and " }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var p in parts)
+            {
+                var lowerSearch = p.ToLowerInvariant().Trim();
+                int colonIndex = lowerSearch.IndexOf(':');
+                
+                if (colonIndex > 0)
+                {
+                    string colName = lowerSearch.Substring(0, colonIndex).Trim();
+                    string searchValue = lowerSearch.Substring(colonIndex + 1).Trim();
+                    
+                    var targetCols = Columns.Where(c => c.Header.ToLowerInvariant().Contains(colName)).ToList();
+                    if (targetCols.Any())
+                    {
+                        filtered = filtered.Where(r => 
+                            targetCols.Any(col => 
+                                col.Index < r.Cells.Count && 
+                                r.Cells[col.Index].Value.ToLowerInvariant().Contains(searchValue)
+                            )
+                        );
+                    }
+                    else
+                    {
+                        // Fallback
+                        filtered = filtered.Where(r => r.Cells.Any(c => c.Value.ToLowerInvariant().Contains(lowerSearch)));
+                    }
+                }
+                else
+                {
+                    filtered = filtered.Where(r => r.Cells.Any(c => c.Value.ToLowerInvariant().Contains(lowerSearch)));
+                }
+            }
         }
 
         // 2. Date Filter (Targeting "ORDER TIME" column)
@@ -317,7 +347,7 @@ public partial class SpreadsheetViewModel : ObservableObject
                 for (int i = 1; i < values.Count; i++)
                 {
                     var rawRow = values[i];
-                    var rowVM = new SpreadsheetRowViewModel(i) { OriginalRowIndex = i };
+                    var rowVM = new SpreadsheetRowViewModel(i, this);
 
                     for (int j = 0; j < Columns.Count; j++)
                     {
@@ -694,15 +724,58 @@ public partial class SpreadsheetColumnViewModel : ObservableObject
 
 public partial class SpreadsheetRowViewModel : ObservableObject
 {
+    private readonly SpreadsheetViewModel? _parent;
     public int OriginalRowIndex { get; set; }
     
     [ObservableProperty] private double _height = 36; // Default modern height
 
     public ObservableCollection<SpreadsheetCellViewModel> Cells { get; set; } = new();
 
-    public SpreadsheetRowViewModel(int originalIndex)
+    public SpreadsheetRowViewModel(int originalIndex, SpreadsheetViewModel? parent = null)
     {
         OriginalRowIndex = originalIndex;
+        _parent = parent;
+    }
+
+    [RelayCommand]
+    private void CopyId()
+    {
+        if (_parent == null) return;
+        var idCol = _parent.Columns.FirstOrDefault(c => c.Header.Contains("ID"));
+        if (idCol != null && idCol.Index < Cells.Count)
+        {
+            var id = Cells[idCol.Index].Value;
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                // Basic clipboard copy via Application
+                if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    desktop.MainWindow?.Clipboard?.SetTextAsync(id);
+                    _parent.StatusText = $"Copied ID: {id}";
+                }
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void OpenInTrello()
+    {
+        if (_parent == null) return;
+        var idCol = _parent.Columns.FirstOrDefault(c => c.Header.Contains("ID"));
+        if (idCol != null && idCol.Index < Cells.Count)
+        {
+            var id = Cells[idCol.Index].Value;
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                // Open Trello search in default browser
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
+                { 
+                    FileName = $"https://trello.com/search?q={id}", 
+                    UseShellExecute = true 
+                });
+                _parent.StatusText = $"Opening Trello Search: {id}";
+            }
+        }
     }
 }
 

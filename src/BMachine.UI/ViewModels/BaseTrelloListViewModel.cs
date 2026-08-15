@@ -4,6 +4,7 @@ using BMachine.SDK;
 using BMachine.UI.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace BMachine.UI.ViewModels;
 
@@ -438,6 +439,15 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         catch (Exception fallbackEx)
         {
             StatusMessage = $"Copy failed: {fallbackEx.Message}";
+        }
+    }
+
+    [RelayCommand]
+    protected virtual void OpenSpreadsheetAndSearch(string searchId)
+    {
+        if (!string.IsNullOrEmpty(searchId))
+        {
+            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.OpenSpreadsheetWithSearchMessage(searchId));
         }
     }
     

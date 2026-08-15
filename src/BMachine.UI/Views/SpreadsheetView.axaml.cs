@@ -66,12 +66,13 @@ public partial class SpreadsheetView : UserControl
                 CanUserResizeColumns = true,
                 CanUserSortColumns = false,
                 SelectionMode = DataGridSelectionMode.Extended,
-                RowHeaderWidth = 30,
-                GridLinesVisibility = DataGridGridLinesVisibility.All,
+                GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, // Only horizontal lines
                 HeadersVisibility = DataGridHeadersVisibility.Column,
                 IsReadOnly = false, // Allow direct cell editing
-                HorizontalGridLinesBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#40FFFFFF")),
-                VerticalGridLinesBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#40FFFFFF"))
+                HorizontalGridLinesBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#1AFFFFFF")), // Very subtle lines
+                RowBackground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#00000000")),
+                BorderThickness = new Avalonia.Thickness(0), // Remove outer border
+                Background = Avalonia.Media.Brushes.Transparent
             };
             
             // Binding ItemsSource - Explicitly set Source to VM to avoid DataContext issues on initial load
@@ -189,9 +190,11 @@ public partial class SpreadsheetView : UserControl
                     return border;
                 });
 
-                // Editing Template (DatePicker)
+                // Editing Template (DatePicker + Today Button)
                 templateCol.CellEditingTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
+                    var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+
                     var picker = new CalendarDatePicker { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
                     // Bind SelectedDate with Converter
                     picker.Bind(CalendarDatePicker.SelectedDateProperty, 
@@ -199,7 +202,30 @@ public partial class SpreadsheetView : UserControl
                             Mode = BindingMode.TwoWay, 
                             Converter = StringToDateTimeConverter.Instance 
                         });
-                    return picker;
+                    
+                    Grid.SetColumn(picker, 0);
+
+                    var todayBtn = new Button 
+                    { 
+                        Content = "Today",
+                        FontSize = 10,
+                        Padding = new Thickness(4, 2),
+                        Margin = new Thickness(2, 0, 0, 0),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                    };
+                    ToolTip.SetTip(todayBtn, "Isi dengan hari ini");
+                    
+                    todayBtn.Click += (s, e) => 
+                    {
+                        picker.SelectedDate = DateTime.Today;
+                    };
+
+                    Grid.SetColumn(todayBtn, 1);
+
+                    grid.Children.Add(picker);
+                    grid.Children.Add(todayBtn);
+
+                    return grid;
                 });
             }
             // 3. Text Column (Default) - Converted to TemplateColumn

@@ -1036,104 +1036,162 @@
                         </Grid>
                         <!-- ACTION SCRIPTS -->
                         <Grid IsVisible="{Binding IsScriptActionSelected}" RowDefinitions="Auto, *">
-                            <!-- Title Removed for cleaner UI -->
-                            
-                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                                    <ItemsControl ItemsSource="{Binding ActionScripts}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <StackPanel>
-                                                    <!-- Dynamic Page 2 Separator -->
-                                                    <Border IsVisible="{Binding IsPage2Start}" 
-                                                            Background="#15FFFFFF" CornerRadius="0" Padding="15,4" Margin="10,10,10,5" HorizontalAlignment="Center">
-                                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                                            <TextBlock Text="PAGE 2 BEGINS HERE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="1"/>
-                                                        </StackPanel>
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="20">
+                                <Grid RowDefinitions="Auto, *">
+                                    <!-- Radial Editor Top Side (Canvas) -->
+                                    <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,20">
+                                        <!-- Radial Canvas with Chevron Navigation -->
+                                        <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,20">
+                                            
+                                            <!-- Left Chevron -->
+                                            <Button Grid.Column="0" Command="{Binding SwitchToRadialPage1Command}" Classes="Clear" VerticalAlignment="Center" Margin="0,0,30,0" Width="40" Height="40" CornerRadius="20" ToolTip.Tip="Ke Halaman 1" Cursor="Hand" Background="#0AFFFFFF">
+                                                <Path Data="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Button>
+
+                                            <!-- The Radial Canvas — exact same as RadialMenuWindow (200x200) -->
+                                            <Border Grid.Column="1" Width="200" Height="200" CornerRadius="100"
+                                                    Background="{DynamicResource AppBackgroundBrush}"
+                                                    ClipToBounds="True">
+                                            <Grid>
+                                                <!-- 1. Segmented Divider Lines (exact copy from RadialMenuWindow.axaml) -->
+                                                <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.4">
+                                                    <Line StartPoint="116.84,59.35" EndPoint="138.27,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                                                    <Line StartPoint="140.65,83.16" EndPoint="192.39,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                                                    <Line StartPoint="140.65,116.84" EndPoint="192.39,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                                                    <Line StartPoint="116.84,140.65" EndPoint="138.27,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                                                    <Line StartPoint="83.16,140.65" EndPoint="61.73,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                                                    <Line StartPoint="59.35,116.84" EndPoint="7.61,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                                                    <Line StartPoint="59.35,83.16" EndPoint="7.61,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                                                    <Line StartPoint="83.16,59.35" EndPoint="61.73,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                                                </Canvas>
+
+                                                <!-- 2. Central hub (same as RadialMenuWindow: 88px diameter) -->
+                                                <Border Width="88" Height="88" CornerRadius="44"
+                                                        Background="{DynamicResource CardBackgroundBrush}"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                
+                                                <!-- 3. Structural Rings (outer=200, inner=88, same as RadialMenuWindow) -->
+                                                <Ellipse Width="200" Height="200" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Opacity="0.4" IsHitTestVisible="False"/>
+                                                <Ellipse Width="88" Height="88" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Opacity="0.4" IsHitTestVisible="False"/>
+                                                
+                                                <!-- 4. Slots — ItemsControl overlay, Canvas 200x200 ClipToBounds=False so buttons at edge are not clipped -->
+                                                <ItemsControl x:Name="RadialSlotsControl" ItemsSource="{Binding RadialSlots}" ClipToBounds="False">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                                    <Canvas Width="200" Height="200" ClipToBounds="False"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.Styles>
+                                                        <Style Selector="ItemsControl > ContentPresenter">
+                                                            <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                                                            <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                                                        </Style>
+                                                    </ItemsControl.Styles>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Width="36" Height="36">
+                                                                <!-- Navigation Slot (Reserved) -->
+                                                                <Border IsVisible="{Binding IsNavigationReserved}" Background="#222" CornerRadius="18" BorderBrush="#444" BorderThickness="1">
+                                                                    <TextBlock Text="{Binding NavigationLabel}" FontSize="7" FontWeight="Bold" Foreground="#888" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                
+                                                                <!-- Empty Slot -->
+                                                                <Button Classes="Clear" IsVisible="{Binding IsEmpty}" Command="{Binding DataContext.AddScriptToRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Width="36" Height="36" CornerRadius="18" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Background="Transparent" ToolTip.Tip="Add Script to Slot" Padding="0">
+                                                                    <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Button>
+                                                                
+                                                                <!-- Filled Slot -->
+                                                                <Button Classes="Clear" IsVisible="{Binding !IsEmpty}" 
+                                                                        Command="{Binding DataContext.SelectRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
+                                                                        CommandParameter="{Binding}" 
+                                                                        Width="36" Height="36" CornerRadius="18" 
+                                                                        Background="{DynamicResource AccentBlueBrush}" 
+                                                                        BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1" 
+                                                                        ToolTip.Tip="{Binding Script.Name}" Padding="0"
+                                                                        Tag="{Binding}"
+                                                                        PointerPressed="OnRadialSlotPointerPressed"
+                                                                        PointerMoved="OnRadialSlotPointerMoved"
+                                                                        PointerReleased="OnRadialSlotPointerReleased"
+                                                                        Cursor="SizeAll">
+                                                                    <!-- Focus indicator -->
+                                                                    <Grid>
+                                                                        <Border IsVisible="{Binding IsSelected}" Width="44" Height="44" CornerRadius="22" BorderBrush="White" BorderThickness="2" Margin="-4"/>
+                                                                        
+                                                                        <Viewbox Width="18" Height="18" IsVisible="{Binding Script.IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                             <Path Data="{Binding Script.IconGeometry}" Fill="White" Stretch="Uniform"/>
+                                                                        </Viewbox>
+                                                                        <TextBlock Text="{Binding Script.ShortCode}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="11" FontWeight="Bold" Foreground="White" IsVisible="{Binding Script.IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                                    </Grid>
+                                                                </Button>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Grid>
+                                        </Border>
+                                        
+                                        <!-- Right Chevron -->
+                                        <Button Grid.Column="2" Command="{Binding SwitchToRadialPage2Command}" Classes="Clear" VerticalAlignment="Center" Margin="30,0,0,0" Width="40" Height="40" CornerRadius="20" ToolTip.Tip="Ke Halaman 2" Cursor="Hand" Background="#0AFFFFFF">
+                                            <Path Data="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Button>
+                                        
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Selected Slot Detail Panel -->
+                                    <Border Grid.Row="1" Background="#05FFFFFF" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" Padding="30" Margin="0,20,0,0">
+                                        <Grid>
+                                            <!-- When NO slot is selected -->
+                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNull}}" Spacing="10">
+                                                <PathIcon Data="{StaticResource IconScript}" Width="48" Height="48" Foreground="#222"/>
+                                                <TextBlock Text="Pilih shortcut di sebelah kiri untuk mengedit," Foreground="{DynamicResource TextSecondaryBrush}" TextAlignment="Center"/>
+                                                <TextBlock Text="atau klik tombol (+) untuk menambah baru." Foreground="{DynamicResource TextSecondaryBrush}" TextAlignment="Center"/>
+                                            </StackPanel>
+                                            
+                                            <!-- When slot IS selected -->
+                                            <Grid RowDefinitions="Auto, Auto, Auto, *, Auto" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                
+                                                <TextBlock Grid.Row="0" Text="SLOT DETAILS" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="1" Margin="0,0,0,25"/>
+                                                
+                                                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="20" Margin="0,0,0,30">
+                                                    <!-- Icon Viewer/Editor -->
+                                                    <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                                                        <Button Classes="Clear" Command="{Binding SelectedRadialSlot.Script.PickIconCommand}" ToolTip.Tip="Change Icon" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="32" Padding="0">
+                                                            <Panel>
+                                                                 <Viewbox Width="32" Height="32" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                      <Path Data="{Binding SelectedRadialSlot.Script.EditIconGeometry}" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
+                                                                 </Viewbox>
+                                                                 <PathIcon Data="{StaticResource IconPlus}" Width="20" Height="20" Foreground="#666" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNull}}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            </Panel>
+                                                        </Button>
                                                     </Border>
                                                     
-                                                    <Border Padding="15" Margin="0,0,0,1" Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1"
-                                                        DragDrop.AllowDrop="True" DragDrop.DragOver="OnItemDragOver" DragDrop.Drop="OnItemDrop"
-                                                        Tag="Action">
-                                                    <Grid ColumnDefinitions="Auto, Auto, *, Auto">
-                                                        
-                                                        <!-- Icon Hamburger -->
-                                                        <PathIcon Grid.Column="0" Data="{StaticResource IconMenu}" Width="16" Height="16" Foreground="#666" VerticalAlignment="Top" Margin="0,5,15,0" 
-                                                                  ToolTip.Tip="Drag to Reorder" Cursor="Hand"
-                                                                  PointerPressed="OnHamburgerPointerPressed"/>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding SelectedRadialSlot.Script.OriginalName}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6"/>
+                                                        <TextBlock Text="{Binding SelectedRadialSlot.Script.FullPath}" FontSize="11" Foreground="#666" TextWrapping="Wrap" MaxWidth="300"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                
+                                                <!-- Edit Form -->
+                                                <Grid Grid.Row="2" ColumnDefinitions="*, 100" RowDefinitions="Auto, Auto" Margin="0,0,0,20">
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Display Name" FontSize="11" FontWeight="Bold" Foreground="#888" Margin="0,0,0,8"/>
+                                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Short Code" FontSize="11" FontWeight="Bold" Foreground="#888" Margin="15,0,0,8"/>
 
-                                                        <!-- Icon Display / Picker -->
-                                                        <Border Grid.Column="1" Width="36" Height="36" CornerRadius="0" Margin="0,0,15,0" 
-                                                                Background="#15FFFFFF" BorderBrush="#333" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Top">
-                                                             <Panel>
-                                                                 <!-- View Mode -->
-                                                                 <Viewbox Width="18" Height="18" IsVisible="{Binding !IsEditing}">
-                                                                      <Path Data="{Binding IconGeometry}" Fill="White" Stretch="Uniform" 
-                                                                            IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                                                 </Viewbox>
-                                                                 <PathIcon Data="{StaticResource IconScript}" Width="16" Height="16" Foreground="#444" 
-                                                                           IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
-
-                                                                 <!-- Edit Mode -->
-                                                                 <Button IsVisible="{Binding IsEditing}" Command="{Binding PickIconCommand}" 
-                                                                         Background="Transparent" BorderThickness="0" Padding="0" 
-                                                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Cursor="Hand"
-                                                                         ToolTip.Tip="Select Icon">
-                                                                     <Panel>
-                                                                         <Viewbox Width="18" Height="18">
-                                                                              <Path Data="{Binding EditIconGeometry}" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"
-                                                                                    IsVisible="{Binding EditIconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                                                         </Viewbox>
-                                                                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="#666"
-                                                                                   IsVisible="{Binding EditIconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
-                                                                     </Panel>
-                                                                 </Button>
-                                                             </Panel>
-                                                        </Border>
-
-                                                        <!-- Info (View Mode) -->
-                                                        <Grid Grid.Column="2" IsVisible="{Binding !IsEditing}" RowDefinitions="Auto, Auto">
-                                                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                                <Border Background="#333" CornerRadius="0" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding ShortCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                                                    <TextBlock Text="{Binding ShortCode}" FontSize="12" Foreground="#AAA" FontWeight="Bold"/>
-                                                                </Border>
-                                                            </StackPanel>
-                                                            <TextBlock Grid.Row="1" Text="{Binding OriginalName}" FontSize="12" Foreground="#666" Margin="0,4,0,0"/>
-                                                        </Grid>
-
-                                                        <!-- Editor (Edit Mode) -->
-                                                        <Grid Grid.Column="2" IsVisible="{Binding IsEditing}" ColumnDefinitions="*, 80" RowDefinitions="Auto, Auto, Auto">
-                                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Display Name" FontSize="11" Foreground="#888" Margin="0,0,0,2"/>
-                                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Short Code" FontSize="11" Foreground="#888" Margin="5,0,0,2"/>
-
-                                                            <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding EditName}" Watermark="Main Text" Margin="0,0,10,0" FontSize="14" Padding="8">
-                                                                <TextBox.KeyBindings>
-                                                                    <KeyBinding Gesture="Enter" Command="{Binding SaveRenameCommand}"/>
-                                                                </TextBox.KeyBindings>
-                                                            </TextBox>
-                                                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditShortCode}" Watermark="CODE" MaxLength="4" FontSize="14" HorizontalContentAlignment="Center" Padding="8">
-                                                                <TextBox.KeyBindings>
-                                                                    <KeyBinding Gesture="Enter" Command="{Binding SaveRenameCommand}"/>
-                                                                </TextBox.KeyBindings>
-                                                            </TextBox>
-                                                            
-                                                            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
-                                                            <Button Content="Cancel" Command="{Binding ToggleEditCommand}" Classes="Clear" Foreground="{DynamicResource AccentColorBrush}" FontSize="12" Padding="10,5"/>
-                                                                <Button Content="Save Changes" Command="{Binding SaveRenameCommand}" Classes="Primary" FontSize="12" Padding="15,6"/>
-                                                            </StackPanel>
-                                                        </Grid>
-
-                                                        <!-- Edit Button -->
-                                                        <Button Grid.Column="3" Command="{Binding ToggleEditCommand}" Classes="Clear" IsVisible="{Binding !IsEditing}" Margin="10,0,0,0" ToolTip.Tip="Edit Script">
-                                                            <PathIcon Data="{StaticResource IconEdit}" Width="16" Height="16" Foreground="#888"/>
-                                                        </Button>
-                                                    </Grid>
-                                                </Border>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                        </Border>
+                                                    <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding SelectedRadialSlot.Script.EditName}" Watermark="Name" Margin="0,0,15,0" FontSize="14" Padding="12"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRadialSlot.Script.EditShortCode}" Watermark="CODE" MaxLength="4" FontSize="14" HorizontalContentAlignment="Center" Padding="12"/>
+                                                </Grid>
+                                                
+                                                    <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+                                                        <Button Classes="Clear" Content="⬅ Mundur" Command="{Binding DataContext.MoveRadialSlotUpCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,8" ToolTip.Tip="Geser posisi berlawanan jarum jam" Margin="0,4,4,0"/>
+                                                        <Button Classes="Clear" Content="Maju ➡" Command="{Binding DataContext.MoveRadialSlotDownCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,8" ToolTip.Tip="Geser posisi searah jarum jam" Margin="0,4,4,0"/>
+                                                        <Button Classes="Clear" Content="Hapus" Foreground="#ef4444" Command="{Binding DataContext.RemoveFromRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,8" FontWeight="SemiBold" Margin="0,4,4,0"/>
+                                                        <Button Classes="Primary" Content="Simpan" Command="{Binding SelectedRadialSlot.Script.SaveRenameCommand}" Padding="15,8" FontWeight="Bold" Margin="0,4,0,0"/>
+                                                    </WrapPanel>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Border>
                         </Grid>
                     </Grid>
                 </ScrollViewer>

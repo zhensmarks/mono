@@ -42,8 +42,8 @@
 
                         <WrapPanel Orientation="Horizontal" Margin="0,0,0,0">
                             <Button Classes="Clear" Padding="0" Background="Transparent" VerticalAlignment="Center" Margin="0,0,4,4"
-                                    Command="{Binding CopyIdCommand}" CommandParameter="{Binding SelectedCard.DisplayId}"
-                                    IsVisible="{Binding SelectedCard.HasDisplayId}" Cursor="Hand" ToolTip.Tip="Click to Copy ID">
+                                    Command="{Binding OpenSpreadsheetAndSearchCommand}" CommandParameter="{Binding SelectedCard.DisplayId}"
+                                    IsVisible="{Binding SelectedCard.HasDisplayId}" Cursor="Hand" ToolTip.Tip="Click to Open Sheet &amp; Search ID">
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
                                         <Setter Property="Background" Value="Transparent"/>

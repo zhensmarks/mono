@@ -19,7 +19,7 @@ using BMachine.Core.Platform;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>, IRecipient<NavigateToPageMessage>
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>, IRecipient<NavigateToPageMessage>, IRecipient<OpenSpreadsheetWithSearchMessage>
 {
     private readonly IActivityService _activityService;
     private readonly IDatabase _database;
@@ -476,13 +476,21 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
          NavigateToView(view);
     }
 
+    private BMachine.UI.Views.SpreadsheetWindow? _spreadsheetWindow;
+
     [RelayCommand]
     private async Task OpenSpreadsheetWindow()
     {
         // Refresh Data - DISABLED by user request (load manually)
         // SpreadsheetVM.LoadDataCommand.Execute(null);
 
-        var window = new BMachine.UI.Views.SpreadsheetWindow
+        if (_spreadsheetWindow != null && _spreadsheetWindow.IsVisible)
+        {
+            _spreadsheetWindow.Activate();
+            return;
+        }
+
+        _spreadsheetWindow = new BMachine.UI.Views.SpreadsheetWindow
         {
             DataContext = SpreadsheetVM
         };
@@ -495,18 +503,18 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
         if (int.TryParse(strX, out int x) && int.TryParse(strY, out int y))
         {
-            window.Position = new Avalonia.PixelPoint(x, y);
-            window.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.Manual;
+            _spreadsheetWindow.Position = new Avalonia.PixelPoint(x, y);
+            _spreadsheetWindow.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.Manual;
         }
 
         if (double.TryParse(strW, out double w) && double.TryParse(strH, out double h))
         {
-            window.Width = w;
-            window.Height = h;
+            _spreadsheetWindow.Width = w;
+            _spreadsheetWindow.Height = h;
         }
 
         // Save Position & Size on Close
-        window.Closing += (s, e) =>
+        _spreadsheetWindow.Closing += (s, e) =>
         {
             if (s is Avalonia.Controls.Window w)
             {
@@ -517,7 +525,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             }
         };
 
-        window.Show();
+        _spreadsheetWindow.Show();
     }
 
     private void OpenListWindow(object vm, string title)
@@ -1128,6 +1136,20 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     public void Receive(NavigateBackMessage message)
     {
         NavigateBack();
+    }
+
+    public async void Receive(BMachine.UI.Messages.OpenSpreadsheetWithSearchMessage message)
+    {
+        await OpenSpreadsheetWindow();
+        if (SpreadsheetVM != null && !string.IsNullOrEmpty(message.Value))
+        {
+            SpreadsheetVM.SearchText = message.Value;
+            // Auto-refresh data so user doesn't need to click refresh manually
+            if (SpreadsheetVM.LoadDataCommand.CanExecute(null))
+            {
+                await SpreadsheetVM.LoadDataCommand.ExecuteAsync(null);
+            }
+        }
     }
 
     private async Task LoadVisualSettings()
