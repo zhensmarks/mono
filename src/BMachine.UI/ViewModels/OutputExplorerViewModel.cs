@@ -43,6 +43,9 @@ public partial class OutputExplorerViewModel : ObservableObject
     private bool _isNavigatingHistory;
     private bool _isLoadingSettings;
     
+    private string? _pendingSelectName;
+    private bool _pendingEdit;
+    
     // Task Monitor
     public ObservableCollection<Services.FileTaskItem> ActiveTasks => _fileManager.ActiveTasks;
 
@@ -61,6 +64,8 @@ public partial class OutputExplorerViewModel : ObservableObject
             OnPropertyChanged(nameof(HasSelection));
             _ = UpdatePreviewAsync();
         };
+
+        ExplorerSettingsVM = new ExplorerSettingsViewModel(database);
 
         // Default Sort (async, no blocking)
         LoadRootPath();
@@ -92,7 +97,16 @@ public partial class OutputExplorerViewModel : ObservableObject
     // Resilience
     [ObservableProperty] private Avalonia.Controls.GridLength _taskMonitorHeight = Avalonia.Controls.GridLength.Auto;
 
+    // Explorer Settings
+    public ExplorerSettingsViewModel ExplorerSettingsVM { get; }
+    
+    [ObservableProperty] private bool _isSettingsVisible;
 
+    [RelayCommand]
+    private void ToggleSettings() => IsSettingsVisible = !IsSettingsVisible;
+
+    [RelayCommand]
+    private void CloseSettings() => IsSettingsVisible = false;
     // Sidebar Width Persistence
     [ObservableProperty] private Avalonia.Controls.GridLength _sidebarWidth = new Avalonia.Controls.GridLength(120);
 
@@ -148,6 +162,9 @@ public partial class OutputExplorerViewModel : ObservableObject
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private bool _isSearchVisible;
 
+    // Type Ahead (Linux Mint style)
+    [ObservableProperty] private string _typeAheadText = "";
+    [ObservableProperty] private bool _isTypeAheadVisible = false;
     [RelayCommand]
     private void ToggleSearch()
     {
@@ -712,7 +729,7 @@ public partial class OutputExplorerViewModel : ObservableObject
             // Save Globals as Strings to satisfy generic constraint 'where T : class'
             await _database.SetAsync("Configs.Explorer.SortBy", SortBy.ToString());
             await _database.SetAsync("Configs.Explorer.IsSortDescending", IsSortDescending.ToString());
-            await _database.SetAsync("Configs.Explorer.ViewMode", LayoutMode.ToString());
+            await _database.SetAsync("Configs.Explorer.DefaultViewMode", LayoutMode.ToString());
             await _database.SetAsync("Configs.Explorer.GroupBy", GroupBy.ToString());
         }
     }
@@ -749,7 +766,7 @@ public partial class OutputExplorerViewModel : ObservableObject
                 // Load Globals (Stored as Strings to satisfy 'where T : class')
                 var gSort = await _database.GetAsync<string>("Configs.Explorer.SortBy");
                 var gDescStr = await _database.GetAsync<string>("Configs.Explorer.IsSortDescending");
-                var gMode = await _database.GetAsync<string>("Configs.Explorer.ViewMode");
+                var gMode = await _database.GetAsync<string>("Configs.Explorer.DefaultViewMode");
                 var gGroup = await _database.GetAsync<string>("Configs.Explorer.GroupBy");
 
                 if (!string.IsNullOrEmpty(gSort) && System.Enum.TryParse<ExplorerSortOption>(gSort, out var s)) SortBy = s;
@@ -1046,44 +1063,6 @@ try {{
         }
     }
 
-    [RelayCommand]
-    public void MoveToOke(object? parameter)
-    {
-        var itemsToProcess = GetSelectedItems(parameter);
-        if (!itemsToProcess.Any()) return;
-
-        // Logic to resolve destination (e.g., #OKE shortcut or current month folder)
-        var destination = ResolveOkeDestination();
-        if (string.IsNullOrEmpty(destination))
-        {
-            _notificationService.ShowError("Could not find #OKE destination.", "Error");
-            return;
-        }
-
-        foreach (var item in itemsToProcess)
-        {
-            _fileManager.MoveFileBackground(item.FullPath, Path.Combine(destination, item.Name));
-        }
-    }
-
-    [RelayCommand]
-    public void CopyToOke(object? parameter)
-    {
-        var itemsToProcess = GetSelectedItems(parameter);
-        if (!itemsToProcess.Any()) return;
-
-        var destination = ResolveOkeDestination();
-         if (string.IsNullOrEmpty(destination))
-        {
-            _notificationService.ShowError("Could not find #OKE destination.", "Error");
-            return;
-        }
-
-        foreach (var item in itemsToProcess)
-        {
-            _fileManager.CopyFileBackground(item.FullPath, Path.Combine(destination, item.Name));
-        }
-    }
 
     [RelayCommand]
     public async Task CopyItem(object? parameter)
@@ -1459,8 +1438,22 @@ try {{
         var items = GetSelectedItems(parameter);
         if (!items.Any()) return;
 
+        // Safety guard: only delete items whose parent directory matches CurrentPath.
+        // This prevents stale SelectedItems references (e.g. the folder we just navigated
+        // INTO) from being accidentally deleted instead of the items inside it.
+        var safeItems = items.Where(item =>
+        {
+            var parentDir = Path.GetDirectoryName(item.FullPath);
+            return string.Equals(
+                parentDir?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                CurrentPath?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
+        }).ToList();
+
+        if (!safeItems.Any()) return;
+
         int deletedCount = 0;
-        foreach (var item in items)
+        foreach (var item in safeItems)
         {
             try
             {
@@ -1473,8 +1466,9 @@ try {{
                 }
                 else
                 {
-                    if (item.IsDirectory) Directory.Delete(item.FullPath, true);
-                    else File.Delete(item.FullPath);
+                    bool isActuallyFile = File.Exists(item.FullPath);
+                    if (!isActuallyFile && item.IsDirectory) Directory.Delete(item.FullPath, true);
+                    else if (isActuallyFile) File.Delete(item.FullPath);
                     deletedCount++;
                 }
             }
@@ -1506,78 +1500,6 @@ try {{
         return list;
     }
 
-    private string ResolveOkeDestination()
-    {
-        try
-        {
-            // 1. Search for #OKE*.lnk in current path (Priority)
-            if (Directory.Exists(CurrentPath))
-            {
-                var lnk = Directory.GetFiles(CurrentPath, "#OKE*.lnk").FirstOrDefault();
-                if (lnk != null)
-                {
-                    try 
-                    {
-                        var target = ResolveShortcutTarget(lnk);
-                        if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
-                        {
-                            return target;
-                        }
-                    } 
-                    catch { /* Failed to resolve lnk */ }
-                }
-            }
-            
-            // 2. Search for #OKE*.lnk in PARENT path
-            var parent = Directory.GetParent(CurrentPath);
-            if (parent != null)
-            {
-                 var lnk = Directory.GetFiles(parent.FullName, "#OKE*.lnk").FirstOrDefault();
-                 if (lnk != null)
-                 {
-                    try 
-                    {
-                        var target = ResolveShortcutTarget(lnk);
-                        if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
-                        {
-                            return target;
-                        }
-                    } 
-                    catch { /* Failed to resolve lnk */ }
-                 }
-            }
-            
-            // 3. Fallback: Search for folder #OKE in CURRENT path (Legacy/Backup)
-            var dir = Directory.GetDirectories(CurrentPath, "#OKE*", SearchOption.TopDirectoryOnly).FirstOrDefault();
-            if (dir != null) return dir;
-
-            // 4. Fallback: Search for #OKE in PARENT path
-            if (parent != null)
-            {
-                 var parentDir = Directory.GetDirectories(parent.FullName, "#OKE*", SearchOption.TopDirectoryOnly).FirstOrDefault();
-                 if (parentDir != null) return parentDir;
-            }
-
-            // 5. Search in ROOT Path (Folder or Lnk)
-            if (!string.IsNullOrEmpty(RootPath) && Directory.Exists(RootPath))
-            {
-                 // Check LNK in Root
-                 var rootLnk = Directory.GetFiles(RootPath, "#OKE*.lnk").FirstOrDefault();
-                 if (rootLnk != null)
-                 {
-                      var target = ResolveShortcutTarget(rootLnk);
-                      if (!string.IsNullOrEmpty(target) && Directory.Exists(target)) return target;
-                 }
-
-                 // Check Folder in Root
-                 var rootDir = Directory.GetDirectories(RootPath, "#OKE*", SearchOption.TopDirectoryOnly).FirstOrDefault();
-                 if (rootDir != null) return rootDir;
-            }
-
-        } catch {}
-
-        return "";
-    }
 
     private string ResolveShortcutTarget(string shortcutPath)
     {
@@ -1662,6 +1584,62 @@ try {{
         }
     }
 
+    // --- FileSystemWatcher for Auto-Refresh ---
+    private FileSystemWatcher? _folderWatcher;
+    private System.DateTime _lastFolderChangeTime = System.DateTime.MinValue;
+
+    private void SetupFolderWatcher(string path)
+    {
+        DisposeFolderWatcher();
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
+        try
+        {
+            _folderWatcher = new FileSystemWatcher(path)
+            {
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
+                IncludeSubdirectories = false
+            };
+            _folderWatcher.Created += OnFolderChanged;
+            _folderWatcher.Deleted += OnFolderChanged;
+            _folderWatcher.Renamed += OnFolderChanged;
+            _folderWatcher.EnableRaisingEvents = true;
+        }
+        catch { /* Ignore access exceptions */ }
+    }
+
+    private void DisposeFolderWatcher()
+    {
+        if (_folderWatcher != null)
+        {
+            _folderWatcher.EnableRaisingEvents = false;
+            _folderWatcher.Created -= OnFolderChanged;
+            _folderWatcher.Deleted -= OnFolderChanged;
+            _folderWatcher.Renamed -= OnFolderChanged;
+            _folderWatcher.Dispose();
+            _folderWatcher = null;
+        }
+    }
+
+    private void OnFolderChanged(object sender, FileSystemEventArgs e)
+    {
+        // Debounce 500ms
+        if ((System.DateTime.Now - _lastFolderChangeTime).TotalMilliseconds < 500) return;
+        _lastFolderChangeTime = System.DateTime.Now;
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // Ensure we are still looking at the same path before refreshing
+            if (_folderWatcher != null && CurrentPath == _folderWatcher.Path)
+            {
+                // Only refresh if not actively searching
+                if (string.IsNullOrWhiteSpace(SearchText))
+                {
+                    LoadItems();
+                }
+            }
+        });
+    }
+
     private void LoadItems_UIOnly()
     {
          // Placeholder
@@ -1671,10 +1649,18 @@ try {{
     {
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (Items.OfType<ExplorerItemViewModel>().Any(x => x.IsEditing))
+            {
+                return;
+            }
+
+            SelectedItems.Clear(); // Clear selection before loading new items to prevent old references
             Items.Clear();
             try
             {
                 if (string.IsNullOrEmpty(CurrentPath) || !Directory.Exists(CurrentPath)) return;
+                
+                SetupFolderWatcher(CurrentPath);
 
                 var dirInfo = new DirectoryInfo(CurrentPath);
                 var dirs = dirInfo.GetDirectories();
@@ -1893,6 +1879,22 @@ try {{
             catch { }
             
             IsEmpty = Items.Count == 0;
+
+            if (!string.IsNullOrEmpty(_pendingSelectName))
+            {
+                var itemToSelect = Items.OfType<ExplorerItemViewModel>().FirstOrDefault(x => x.Name == _pendingSelectName);
+                if (itemToSelect != null)
+                {
+                    SelectedItems.Add(itemToSelect);
+                    WeakReferenceMessenger.Default.Send(new Messages.ScrollToExplorerItemMessage(itemToSelect));
+                    if (_pendingEdit)
+                    {
+                        itemToSelect.IsEditing = true;
+                    }
+                }
+                _pendingSelectName = null;
+                _pendingEdit = false;
+            }
         });
     }
 
@@ -2444,15 +2446,9 @@ try {{
             name = $"{baseName} ({i++})";
         }
         
+        _pendingSelectName = name;
+        _pendingEdit = true;
         await CreateNewFolder(name);
-        
-        // Find the new item
-        // Items is ObservableCollection<object> (header/item), so filter
-        var item = Items.OfType<ExplorerItemViewModel>().FirstOrDefault(x => x.Name == name);
-        if (item != null)
-        {
-            item.IsEditing = true;
-        }
     }
 
     [RelayCommand]
@@ -2664,6 +2660,8 @@ try {{
     [RelayCommand]
     public async Task ConfirmNewFolder()
     {
+        _pendingSelectName = NewItemName;
+        _pendingEdit = false;
         await CreateNewFolder(NewItemName);
         ClosePopups();
     }
@@ -2671,6 +2669,9 @@ try {{
     [RelayCommand]
     public async Task ConfirmNewFile()
     {
+        _pendingSelectName = NewItemName;
+        if (!_pendingSelectName.Contains(".")) _pendingSelectName += ".txt";
+        _pendingEdit = false;
         await CreateNewFile(NewItemName);
         ClosePopups();
     }
@@ -2692,12 +2693,15 @@ public partial class ExplorerItemViewModel : ObservableObject
     public bool IsDirectory { get; set; }
     public System.DateTime DateModified { get; set; }
     public long Size { get; set; } // Bytes
+
     public int ItemsCount { get; set; }
     
     public string IconKey => IsDirectory ? "IconFolder" : "IconFile";
     public string DisplaySize => IsDirectory ? $"{ItemsCount} items" : BytesToString(Size);
     
     public bool IsSelectable => true;
+
+    public override string ToString() => Name ?? "";
 
     [ObservableProperty] private bool _isEditing;
 

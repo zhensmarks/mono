@@ -106,7 +106,7 @@ public partial class ExplorerWindow : Window
         TryAdd(keyBindings, vm.ShortcutNewFolderGesture, vm.OpenNewFolderPopupCommand!, null);
         TryAdd(keyBindings, vm.ShortcutNewFileGesture, vm.OpenNewFilePopupCommand!, null);
         TryAdd(keyBindings, vm.ShortcutFocusSearchGesture, vm.FocusPathBarCommand!, null);
-        TryAdd(keyBindings, vm.ShortcutDeleteGesture, vm.DeleteItemCommand!, vm.SelectedItems);
+        TryAdd(keyBindings, vm.ShortcutDeleteGesture, vm.DeleteItemCommand!, null);
         TryAdd(keyBindings, vm.ShortcutNewWindowGesture, vm.NewExplorerWindowCommand!, null);
         TryAdd(keyBindings, vm.ShortcutNewTabGesture, new CommunityToolkit.Mvvm.Input.RelayCommand(() => HandleAddTab()), null);
         TryAdd(keyBindings, vm.ShortcutCloseTabGesture, new CommunityToolkit.Mvvm.Input.RelayCommand(() => HandleCloseTabOrWindow()), null);
@@ -122,8 +122,8 @@ public partial class ExplorerWindow : Window
 
         TryAdd(keyBindings, vm.ShortcutForwardGesture, vm.GoForwardCommand!, null);
 
-        TryAdd(keyBindings, vm.ShortcutRenameGesture, vm.RenameItemCommand!, vm.SelectedItems);
-        TryAdd(keyBindings, vm.ShortcutPermanentDeleteGesture, vm.PermanentDeleteItemCommand!, vm.SelectedItems);
+        TryAdd(keyBindings, vm.ShortcutRenameGesture, vm.RenameItemCommand!, null);
+        TryAdd(keyBindings, vm.ShortcutPermanentDeleteGesture, vm.PermanentDeleteItemCommand!, null);
         TryAdd(keyBindings, vm.ShortcutFocusSearchBoxGesture, vm.FocusSearchBoxCommand!, null);
         TryAdd(keyBindings, vm.ShortcutAddressBarGesture, vm.FocusPathBarCommand!, null);
         TryAdd(keyBindings, vm.ShortcutSwitchTabGesture, vm.SwitchTabCommand!, null);
@@ -141,8 +141,8 @@ public partial class ExplorerWindow : Window
 
         // Standard shortcuts (not customizable)
         TryAdd(keyBindings, "Ctrl+A", vm.SelectAllCommand!, null);
-        TryAdd(keyBindings, "Ctrl+C", vm.CopyItemCommand!, vm.SelectedItems);
-        TryAdd(keyBindings, "Ctrl+X", vm.CutItemCommand!, vm.SelectedItems);
+        TryAdd(keyBindings, "Ctrl+C", vm.CopyItemCommand!, null);
+        TryAdd(keyBindings, "Ctrl+X", vm.CutItemCommand!, null);
         TryAdd(keyBindings, "Ctrl+V", vm.PasteItemCommand!, null);
     }
 
@@ -151,11 +151,42 @@ public partial class ExplorerWindow : Window
         if (string.IsNullOrWhiteSpace(gestureStr)) return;
         try
         {
-            var kb = new KeyBinding { Gesture = KeyGesture.Parse(gestureStr), Command = command, CommandParameter = parameter };
+            var wrappedCommand = new FocusAwareCommand(command, this);
+            var kb = new KeyBinding { Gesture = KeyGesture.Parse(gestureStr), Command = wrappedCommand, CommandParameter = parameter };
             keyBindings.Add(kb);
             _windowExplorerKeyBindings.Add(kb);
         }
         catch { }
+    }
+
+    private class FocusAwareCommand : System.Windows.Input.ICommand
+    {
+        private readonly System.Windows.Input.ICommand _inner;
+        private readonly Control _root;
+
+        public FocusAwareCommand(System.Windows.Input.ICommand inner, Control root)
+        {
+            _inner = inner;
+            _root = root;
+            _inner.CanExecuteChanged += (s, e) => CanExecuteChanged?.Invoke(this, e);
+        }
+
+        public event EventHandler? CanExecuteChanged;
+
+        public bool CanExecute(object? parameter)
+        {
+            var focusManager = TopLevel.GetTopLevel(_root)?.FocusManager;
+            if (focusManager?.GetFocusedElement() is TextBox)
+            {
+                return false;
+            }
+            return _inner.CanExecute(parameter);
+        }
+
+        public void Execute(object? parameter)
+        {
+            _inner.Execute(parameter);
+        }
     }
 
     /// <summary>Focus the active (visible) OutputExplorerView so keyboard shortcuts work.</summary>

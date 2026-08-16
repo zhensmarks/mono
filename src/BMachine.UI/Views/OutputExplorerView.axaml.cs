@@ -11,6 +11,7 @@ using BMachine.UI.Messages;
 using BMachine.UI.Models;
 using Avalonia.Controls.Primitives;
 using System.Collections.Generic;
+using Avalonia.Interactivity;
 
 namespace BMachine.UI.Views;
 
@@ -35,9 +36,20 @@ public partial class OutputExplorerView : UserControl
     private Control? _selectionCaptureControl;
     private List<object> _initialSelection = new();
 
+
+
     public OutputExplorerView()
     {
         InitializeComponent();
+
+        // Set SelectionMode on all ListBoxes (XAML string syntax doesn't work with compiled bindings)
+        SetListBoxSelectionMode(VerticalListBox);
+        SetListBoxSelectionMode(HorizontalListBox);
+        SetListBoxSelectionMode(ThumbnailListBox);
+        SetListBoxSelectionMode(TilesListBox);
+        SetListBoxSelectionMode(SplitLeftListBox);
+        SetListBoxSelectionMode(SplitRightListBox);
+
         _requestCloseTabOrWindowCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(() =>
         {
             var w = this.GetVisualRoot();
@@ -48,11 +60,30 @@ public partial class OutputExplorerView : UserControl
             WeakReferenceMessenger.Default.Send(new AddExplorerTabMessage(this.GetVisualRoot()));
         });
         // NOTE: OnFileAreaPointerPressed/Moved/Released are wired in XAML on FileAreaGrid
-        this.KeyDown += OnRootKeyDown;
+        this.AddHandler(KeyDownEvent, OnRootKeyDown, RoutingStrategies.Tunnel);
         Loaded += OnViewLoaded;
+        Unloaded += OnViewUnloaded;
+        
+        // Subscribe to ViewModel property changes to focus active ListBox on layout change
+        DataContextChanged += OnDataContextChanged;
+        
         WeakReferenceMessenger.Default.Register<FocusExplorerPathBarMessage>(this, (_, _) =>
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() => this.Focus());
+        });
+        WeakReferenceMessenger.Default.Register<ScrollToExplorerItemMessage>(this, (_, m) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+            {
+                if (DataContext is not OutputExplorerViewModel vm) return;
+                var listBox = GetActiveListBox(vm);
+                if (listBox != null)
+                {
+                    listBox.ScrollIntoView(m.Item);
+                    // Force the listbox to realize the container if virtualized
+                    await System.Threading.Tasks.Task.Delay(50);
+                }
+            });
         });
         WeakReferenceMessenger.Default.Register<RequestCloseExplorerWindowMessage>(this, (_, m) =>
         {
@@ -96,6 +127,15 @@ public partial class OutputExplorerView : UserControl
     private void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);
+    }
+
+    private void OpenSettings_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is OutputExplorerViewModel vm)
+        {
+            var window = new ExplorerSettingsWindow { DataContext = vm };
+            window.ShowDialog(TopLevel.GetTopLevel(this) as Window);
+        }
     }
 
     /// <summary>
@@ -216,6 +256,43 @@ public partial class OutputExplorerView : UserControl
         this.Focus();
         ApplyExplorerShortcuts();
         EnsureBackgroundMenuDataContext();
+        FocusActiveListBox();
+    }
+
+    private void OnViewUnloaded(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is OutputExplorerViewModel vm)
+        {
+            vm.PropertyChanged -= OnViewModelPropertyChanged;
+        }
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (DataContext is OutputExplorerViewModel vm)
+        {
+            vm.PropertyChanged += OnViewModelPropertyChanged;
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(OutputExplorerViewModel.LayoutMode) ||
+            e.PropertyName == nameof(OutputExplorerViewModel.IsVerticalLayout) ||
+            e.PropertyName == nameof(OutputExplorerViewModel.IsHorizontalLayout) ||
+            e.PropertyName == nameof(OutputExplorerViewModel.IsThumbnailLayout) ||
+            e.PropertyName == nameof(OutputExplorerViewModel.IsTilesLayout) ||
+            e.PropertyName == nameof(OutputExplorerViewModel.IsSplitLayout))
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(FocusActiveListBox);
+        }
+    }
+
+    private void FocusActiveListBox()
+    {
+        if (DataContext is not OutputExplorerViewModel vm) return;
+        var listBox = GetActiveListBox(vm);
+        listBox?.Focus();
     }
 
     private void EnsureBackgroundMenuDataContext()
@@ -292,7 +369,7 @@ public partial class OutputExplorerView : UserControl
         // TryAddKeyBinding(keyBindings, "Back", vm.GoBackCommand!, null, _explorerKeyBindings);
     }
 
-    private static void TryAddKeyBinding(
+    private void TryAddKeyBinding(
         System.Collections.IList keyBindings,
         string gestureStr,
         ICommand command,
@@ -302,13 +379,50 @@ public partial class OutputExplorerView : UserControl
         if (string.IsNullOrWhiteSpace(gestureStr) || keyBindings == null) return;
         try
         {
-            var kb = new KeyBinding { Gesture = KeyGesture.Parse(gestureStr), Command = command, CommandParameter = commandParameter };
+            var wrappedCommand = new FocusAwareCommand(command, this);
+            var kb = new KeyBinding { Gesture = KeyGesture.Parse(gestureStr), Command = wrappedCommand, CommandParameter = commandParameter };
             keyBindings.Add(kb);
             trackList?.Add(kb);
         }
         catch { /* ignore invalid gesture */ }
     }
-    
+
+    private class FocusAwareCommand : ICommand
+    {
+        private readonly ICommand _inner;
+        private readonly Control _root;
+
+        public FocusAwareCommand(ICommand inner, Control root)
+        {
+            _inner = inner;
+            _root = root;
+            _inner.CanExecuteChanged += (s, e) => CanExecuteChanged?.Invoke(this, e);
+        }
+
+        public event EventHandler? CanExecuteChanged;
+
+        public bool CanExecute(object? parameter)
+        {
+            var focusManager = TopLevel.GetTopLevel(_root)?.FocusManager;
+            if (focusManager?.GetFocusedElement() is TextBox)
+            {
+                return false;
+            }
+            return _inner.CanExecute(parameter);
+        }
+
+        public void Execute(object? parameter)
+        {
+            _inner.Execute(parameter);
+        }
+    }
+
+    private static void SetListBoxSelectionMode(ListBox? listBox)
+    {
+        if (listBox != null)
+            listBox.SelectionMode = Avalonia.Controls.SelectionMode.Multiple;
+    }
+
     private void OnItemDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (sender is Control control && control.DataContext is ExplorerItemViewModel viewModel)
@@ -349,30 +463,117 @@ public partial class OutputExplorerView : UserControl
         }
     }
 
+    private string _typeAheadBuffer = "";
+    private DateTime _lastTypeAheadTime = DateTime.MinValue;
+
     private void OnRootKeyDown(object? sender, KeyEventArgs e)
     {
+        // Check if the event originated from a TextBox (SearchBox, Rename, etc.)
+        if (e.Source is TextBox)
+        {
+            return;
+        }
+
+        var focusManager = TopLevel.GetTopLevel(this)?.FocusManager;
+        if (focusManager?.GetFocusedElement() is TextBox)
+        {
+            return;
+        }
+
         if (e.Key == Key.Back)
         {
-             // Check if the event originated from a TextBox (SearchBox, Rename, etc.)
-             if (e.Source is TextBox)
-             {
-                 // Let the TextBox handle Backspace (delete char)
-                 return;
-             }
-
-             // Also check FocusManager as fallback (e.g. if Source is inside a template)
-             var focusManager = TopLevel.GetTopLevel(this)?.FocusManager;
-             if (focusManager?.GetFocusedElement() is TextBox)
-             {
-                 return;
-             }
-
              var context = this.DataContext as OutputExplorerViewModel;
              if (context != null && context.GoBackCommand.CanExecute(null))
              {
                  context.GoBackCommand.Execute(null);
                  e.Handled = true;
              }
+             return;
+        }
+
+        // Enter: open the selected item (navigate into folder or open file)
+        if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
+        {
+            var context = this.DataContext as OutputExplorerViewModel;
+            var selected = context?.SelectedItems.OfType<ExplorerItemViewModel>().FirstOrDefault();
+            if (selected != null && context != null)
+            {
+                context.OpenItemCommand.Execute(selected);
+                e.Handled = true;
+            }
+            return;
+        }
+
+        // Custom Type-Ahead Logic (like Linux Mint file manager)
+        // Only process letters and numbers without modifiers (except Shift)
+        if (e.KeyModifiers == KeyModifiers.None || e.KeyModifiers == KeyModifiers.Shift)
+        {
+            // Escape clears the type-ahead buffer
+            if (e.Key == Key.Escape)
+            {
+                _typeAheadBuffer = "";
+                _lastTypeAheadTime = DateTime.MinValue;
+                return;
+            }
+
+            string? keyChar = e.KeySymbol; // Avalonia 11+ provides the actual typed character (e.g. "a", "A", "1")
+            
+            // Fallback for older versions or if KeySymbol is empty
+            if (string.IsNullOrEmpty(keyChar))
+            {
+                if (e.Key >= Key.A && e.Key <= Key.Z)
+                    keyChar = e.Key.ToString();
+                else if (e.Key >= Key.D0 && e.Key <= Key.D9)
+                    keyChar = (e.Key - Key.D0).ToString();
+                else if (e.Key >= Key.NumPad0 && e.Key <= Key.NumPad9)
+                    keyChar = (e.Key - Key.NumPad0).ToString();
+            }
+
+            if (!string.IsNullOrEmpty(keyChar))
+            {
+                var now = DateTime.Now;
+                if ((now - _lastTypeAheadTime).TotalMilliseconds > 800)
+                    _typeAheadBuffer = "";
+
+                _lastTypeAheadTime = now;
+                _typeAheadBuffer += keyChar.ToLowerInvariant();
+
+                var vm = this.DataContext as OutputExplorerViewModel;
+                if (vm != null)
+                {
+                    // Search directly in vm.Items (reliable, works regardless of grouping/virtualization)
+                    var match = vm.Items
+                        .OfType<ExplorerItemViewModel>()
+                        .FirstOrDefault(i => i.Name.ToLowerInvariant().StartsWith(_typeAheadBuffer));
+
+                    if (match != null)
+                    {
+                        // Only update vm.SelectedItems — the two-way binding propagates to ListBox.
+                        // Do NOT also call listbox.SelectedItems.Clear/Add; that conflicts with binding.
+                        vm.SelectedItems.Clear();
+                        vm.SelectedItems.Add(match);
+
+                        // After the binding propagates, scroll into view and FOCUS the ListBoxItem
+                        // container so that all keyboard shortcuts (Enter, Delete, F2, arrows) work
+                        // naturally on the selected item — just like a real file explorer.
+                        var listbox = GetActiveListBox(vm);
+                        if (listbox != null)
+                        {
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            {
+                                listbox.ScrollIntoView(match);
+                                // Walk visual tree to find and focus the realized ListBoxItem
+                                var container = listbox.GetVisualDescendants()
+                                    .OfType<ListBoxItem>()
+                                    .FirstOrDefault(li => li.DataContext == match);
+                                container?.Focus();
+                            }, Avalonia.Threading.DispatcherPriority.Loaded);
+                        }
+
+                        e.Handled = true;
+                    }
+                }
+            }
         }
     }
 
@@ -900,12 +1101,60 @@ public partial class OutputExplorerView : UserControl
     }
 
 
+    private ListBox? GetActiveListBox(OutputExplorerViewModel vm)
+    {
+        // Select based on LayoutMode FIRST (most reliable), then fall back to IsVisible check.
+        // Do NOT rely solely on IsVisible: the XAML binds IsVisible to e.g. IsVerticalLayoutAndNotEmpty
+        // which is false when the folder is empty, causing GetActiveListBox to return null incorrectly.
+        switch (vm.LayoutMode)
+        {
+            case OutputExplorerViewModel.ExplorerLayoutMode.Split:
+                return SplitLeftListBox ?? SplitRightListBox;
+            case OutputExplorerViewModel.ExplorerLayoutMode.Horizontal:
+                return HorizontalListBox;
+            case OutputExplorerViewModel.ExplorerLayoutMode.Thumbnail:
+                return ThumbnailListBox;
+            case OutputExplorerViewModel.ExplorerLayoutMode.Tiles:
+                return TilesListBox;
+            default: // Vertical
+                return VerticalListBox;
+        }
+    }
+
     private void OnRenameTextBoxLoaded(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (sender is TextBox tb)
+        if (sender is TextBox tb && tb.IsVisible)
         {
-            tb.Focus();
-            tb.SelectAll();
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await System.Threading.Tasks.Task.Delay(50);
+                tb.Focus();
+                tb.SelectAll();
+            }, Avalonia.Threading.DispatcherPriority.Input);
+        }
+    }
+
+    private void OnAutoSelectTextBoxPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == Visual.IsVisibleProperty && sender is TextBox tb)
+        {
+            if (tb.IsVisible)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    await System.Threading.Tasks.Task.Delay(50); // Wait for DataContext text binding to apply
+                    tb.Focus();
+                    tb.SelectAll();
+                }, Avalonia.Threading.DispatcherPriority.Input);
+            }
+            else
+            {
+                // Return focus to the main explorer view so keyboard shortcuts keep working
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    VerticalListBox?.Focus();
+                });
+            }
         }
     }
 

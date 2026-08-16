@@ -45,6 +45,14 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [ObservableProperty] private bool _isRecordingShortcut;
     [ObservableProperty] private string _recordingForKey = ""; // e.g. "ShortcutNewFolder"
 
+    // --- Visual Settings ---
+    [ObservableProperty] private bool _showHiddenFiles;
+    [ObservableProperty] private bool _showFileExtensions = true;
+    [ObservableProperty] private string _defaultViewMode = "Vertical";
+    [ObservableProperty] private string _defaultSortBy = "Name";
+    [ObservableProperty] private bool _defaultSortDescending;
+    [ObservableProperty] private string _defaultGroupBy = "None";
+
     public ExplorerSettingsViewModel(IDatabase database)
     {
         _database = database;
@@ -75,6 +83,13 @@ public partial class ExplorerSettingsViewModel : ObservableObject
         ShortcutPaste = await _database.GetAsync<string>("Configs.Explorer.ShortcutPaste") ?? "Ctrl+V";
         ShortcutCopyPath = await _database.GetAsync<string>("Configs.Explorer.ShortcutCopyPath") ?? "Ctrl+Shift+C";
         ShortcutPastePath = await _database.GetAsync<string>("Configs.Explorer.ShortcutPastePath") ?? "Ctrl+Shift+V";
+
+        ShowHiddenFiles = bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.ShowHiddenFiles"), out var shf) && shf;
+        ShowFileExtensions = !bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.ShowFileExtensions"), out var sfe) || sfe;
+        DefaultViewMode = await _database.GetAsync<string>("Configs.Explorer.DefaultViewMode") ?? "Vertical";
+        DefaultSortBy = await _database.GetAsync<string>("Configs.Explorer.DefaultSortBy") ?? "Name";
+        DefaultSortDescending = bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.DefaultSortDescending"), out var dsd) && dsd;
+        DefaultGroupBy = await _database.GetAsync<string>("Configs.Explorer.DefaultGroupBy") ?? "None";
     }
 
     [RelayCommand]
@@ -181,5 +196,18 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     partial void OnPathLocalOutputChanged(string value)
     {
         _ = _database.SetAsync("Configs.Path.LocalOutput", value ?? "");
+    }
+
+    partial void OnShowHiddenFilesChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.ShowHiddenFiles", value.ToString());
+    partial void OnShowFileExtensionsChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.ShowFileExtensions", value.ToString());
+    partial void OnDefaultViewModeChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.DefaultViewMode", value);
+    partial void OnDefaultSortByChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.DefaultSortBy", value);
+    partial void OnDefaultSortDescendingChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.DefaultSortDescending", value.ToString());
+    partial void OnDefaultGroupByChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.DefaultGroupBy", value);
+
+    private async Task SaveSettingAsync(string key, string value)
+    {
+        await _database.SetAsync(key, value);
+        WeakReferenceMessenger.Default.Send(new ExplorerSettingsChangedMessage());
     }
 }

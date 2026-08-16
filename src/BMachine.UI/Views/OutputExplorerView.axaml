@@ -16,20 +16,7 @@
              Loaded="OnViewLoaded"
              x:Name="ExplorerRoot">
 
-    <UserControl.KeyBindings>
-        <KeyBinding Gesture="Ctrl+C" Command="{Binding CopyItemCommand}" CommandParameter="{Binding SelectedItems}" />
-        <KeyBinding Gesture="Ctrl+X" Command="{Binding CutItemCommand}" CommandParameter="{Binding SelectedItems}" />
-        <KeyBinding Gesture="Ctrl+V" Command="{Binding PasteItemCommand}" />
-        <!-- All other explorer shortcuts (Delete, F2, Ctrl+D, etc.) added in code-behind from Settings > Explorer -->
-        <KeyBinding Gesture="{Binding ShortcutNewFolderGesture}" Command="{Binding CreateFolderCommand}"/>
-        <KeyBinding Gesture="{Binding ShortcutNewFileGesture}" Command="{Binding CreateFileCommand}"/>
-        <KeyBinding Gesture="{Binding ShortcutDeleteGesture}" Command="{Binding DeleteItemCommand}"/>
-        <KeyBinding Gesture="{Binding ShortcutPermanentDeleteGesture}" Command="{Binding PermanentDeleteItemCommand}"/>
-        <KeyBinding Gesture="{Binding ShortcutRefreshGesture}" Command="{Binding RefreshCommand}"/>
-        <KeyBinding Gesture="{Binding ShortcutRenameGesture}" Command="{Binding RenameItemCommand}"/>
-        <!-- Search Binding -->
-        <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleSearchCommand}"/>
-    </UserControl.KeyBindings>
+
 
     <UserControl.Resources>
         <StreamGeometry x:Key="IconChevronRight">M9 18l6-6-6-6</StreamGeometry>
@@ -52,33 +39,6 @@
                  BorderBrush="{DynamicResource SeparatorBrush}" 
                  CornerRadius="10" 
                  Padding="5">
-        <MenuItem Header="View">
-            <MenuItem Header="List" 
-                      ToggleType="Radio"
-                      IsChecked="{Binding IsVerticalLayout, Mode=TwoWay}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource IconCheck}" Width="12" Height="12"
-                              IsVisible="{Binding IsVerticalLayout}"/>
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="Grid" 
-                      ToggleType="Radio"
-                      IsChecked="{Binding IsHorizontalLayout, Mode=TwoWay}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource IconCheck}" Width="12" Height="12"
-                              IsVisible="{Binding IsHorizontalLayout}"/>
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="Thumbnails" 
-                      ToggleType="Radio"
-                      IsChecked="{Binding IsThumbnailLayout, Mode=TwoWay}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource IconCheck}" Width="12" Height="12"
-                              IsVisible="{Binding IsThumbnailLayout}"/>
-                </MenuItem.Icon>
-            </MenuItem>
-        </MenuItem>
-        
         <MenuItem Header="Sort by">
             <MenuItem Header="Name" 
                       ToggleType="Radio"
@@ -142,9 +102,6 @@
             </MenuItem>
         </MenuItem>
         
-        <Separator/>
-        
-        <MenuItem Header="Select All" Command="{Binding SelectAllCommand}" InputGesture="Ctrl+A"/>
         <MenuItem Header="Paste" Command="{Binding PasteItemCommand}" InputGesture="Ctrl+V"/>
         
         <Separator/>
@@ -158,27 +115,12 @@
         
         <MenuItem Header="Refresh" Command="{Binding RefreshCommand}" InputGesture="F5"/>
         
-        <Separator/>
-        <MenuItem Header="Add Folder" Command="{Binding AddExternalFolderCommand}" ToolTip.Tip="Pin external folder to sidebar"/>
-        <MenuItem Header="Master Browser Sync" Command="{Binding CopyMasterBrowserHereCommand}"/>
-        <MenuItem Header="New Explorer Window" Command="{Binding NewExplorerWindowCommand}"/>
-        <Separator/>
-        
         <MenuItem Header="This Folder Only" 
                   ToggleType="CheckBox"
                   IsChecked="{Binding IsLocalSettings, Mode=TwoWay}">
             <MenuItem.Icon>
                 <PathIcon Data="{StaticResource IconCheck}" Width="12" Height="12"
                           IsVisible="{Binding IsLocalSettings}"/>
-            </MenuItem.Icon>
-        </MenuItem>
-        
-        <MenuItem Header="Show Path Bar" 
-                  ToggleType="CheckBox"
-                  IsChecked="{Binding IsShowPathBar, Mode=TwoWay}">
-            <MenuItem.Icon>
-                <PathIcon Data="{StaticResource IconCheck}" Width="12" Height="12"
-                          IsVisible="{Binding IsShowPathBar}"/>
             </MenuItem.Icon>
         </MenuItem>
     </ContextMenu>
@@ -193,43 +135,96 @@
                 <RowDefinition Height="*"/>    <!-- Main Content (Sidebar | Splitter | Files) -->
             </Grid.RowDefinitions>
 
-            <!-- 1. HEADER: Navigation & Breadcrumbs (Full Width) -->
-            <Border Grid.Row="0" Padding="8,4"  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1" IsVisible="{Binding IsShowPathBar}">
-                <Grid ColumnDefinitions="Auto, *">
-                    <!-- Left: Navigation -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                        <Button Command="{Binding GoBackCommand}" IsEnabled="{Binding CanGoBack}" Classes="Clear" ToolTip.Tip="Back (Backspace)" Padding="4">
-                             <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12" RenderTransform="rotate(180deg)"/>
+            <!-- 1. HEADER: Navigation & Address Bar (Full Width) -->
+            <Border Grid.Row="0" Padding="6,3" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1" IsVisible="{Binding IsShowPathBar}">
+                <Grid ColumnDefinitions="Auto, *, Auto">
+                    <!-- Left: Navigation Buttons -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
+                        <Button Command="{Binding GoBackCommand}" IsEnabled="{Binding CanGoBack}" Classes="Clear" ToolTip.Tip="Back (Alt+Left)" Padding="5,4">
+                            <PathIcon Data="{StaticResource IconChevronRight}" Width="11" Height="11" RenderTransform="rotate(180deg)"/>
                         </Button>
-                        <Button Command="{Binding GoForwardCommand}" IsEnabled="{Binding CanGoForward}" Classes="Clear" ToolTip.Tip="Forward" Padding="4">
-                             <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12"/>
+                        <Button Command="{Binding GoForwardCommand}" IsEnabled="{Binding CanGoForward}" Classes="Clear" ToolTip.Tip="Forward (Alt+Right)" Padding="5,4">
+                            <PathIcon Data="{StaticResource IconChevronRight}" Width="11" Height="11"/>
                         </Button>
-                        <Rectangle Width="1" Height="16" Fill="{DynamicResource SeparatorBrush}" Margin="4,0"/>
-                        <Button Command="{Binding RefreshCommand}" Classes="Clear" ToolTip.Tip="Refresh" Padding="4">
-                             <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12"/>
+                        <Button Command="{Binding NavigateUpCommand}" IsEnabled="{Binding CanNavigateUp}" Classes="Clear" ToolTip.Tip="Up (Alt+Up)" Padding="5,4">
+                            <PathIcon Data="{StaticResource IconArrowUp}" Width="11" Height="11"/>
+                        </Button>
+                        <Rectangle Width="1" Height="14" Fill="{DynamicResource SeparatorBrush}" Margin="3,0" Opacity="0.5"/>
+                        <Button Command="{Binding RefreshCommand}" Classes="Clear" ToolTip.Tip="Refresh (F5)" Padding="5,4">
+                            <PathIcon Data="{StaticResource IconRefresh}" Width="11" Height="11"/>
                         </Button>
                     </StackPanel>
-                    
-                    <!-- Center: Breadcrumbs -->
-                    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="5,0">
-                         <ItemsControl ItemsSource="{Binding Breadcrumbs}">
-                             <ItemsControl.ItemsPanel>
-                                 <ItemsPanelTemplate>
-                                     <StackPanel Orientation="Horizontal" Spacing="2"/>
-                                 </ItemsPanelTemplate>
-                             </ItemsControl.ItemsPanel>
-                             <ItemsControl.ItemTemplate>
-                                 <DataTemplate>
-                                     <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                          <PathIcon Data="{StaticResource IconChevronRight}" Width="8" Height="8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                     </StackPanel>
-                                 </DataTemplate>
-                             </ItemsControl.ItemTemplate>
-                         </ItemsControl>
-                    </ScrollViewer>
+
+                    <!-- Center: DUAL-MODE ADDRESS BAR -->
+                    <Border Grid.Column="1" Margin="4,0" CornerRadius="5" ClipToBounds="True"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                        <Panel>
+                            <!-- MODE 1: Breadcrumb display (default) -->
+                            <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                                          IsVisible="{Binding !IsAddressBarEditing}"
+                                          Cursor="IBeam" Padding="6,0">
+                                <Grid>
+                                    <!-- Transparent tap target over entire breadcrumb to activate editing -->
+                                    <Border Background="Transparent" Cursor="IBeam">
+                                        <i:Interaction.Behaviors>
+                                            <ia:EventTriggerBehavior EventName="PointerPressed">
+                                                <ia:InvokeCommandAction Command="{Binding ActivateAddressBarCommand}"/>
+                                            </ia:EventTriggerBehavior>
+                                        </i:Interaction.Behaviors>
+                                    </Border>
+                                    <ItemsControl ItemsSource="{Binding Breadcrumbs}" IsHitTestVisible="False">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="0"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="26">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               Padding="4,0"/>
+                                                    <PathIcon Data="{StaticResource IconChevronRight}" Width="8" Height="8"
+                                                              Foreground="{DynamicResource TextSecondaryBrush}"
+                                                              VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </ScrollViewer>
+
+                            <!-- MODE 2: Editable TextBox (active when IsAddressBarEditing=true) -->
+                            <TextBox x:Name="AddressBarTextBox"
+                                     Text="{Binding AddressBarText, Mode=TwoWay}"
+                                     IsVisible="{Binding IsAddressBarEditing}"
+                                     FontSize="12" Padding="6,0" MinHeight="0" Height="26"
+                                     BorderThickness="0" Background="Transparent"
+                                     VerticalAlignment="Center"
+                                     VerticalContentAlignment="Center"
+                                     FontFamily="Consolas, Monospace, monospace">
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding CommitAddressBarCommand}"/>
+                                    <KeyBinding Gesture="Escape" Command="{Binding CancelAddressBarCommand}"/>
+                                </TextBox.KeyBindings>
+                                <i:Interaction.Behaviors>
+                                    <ia:EventTriggerBehavior EventName="LostFocus">
+                                        <ia:InvokeCommandAction Command="{Binding CancelAddressBarCommand}"/>
+                                    </ia:EventTriggerBehavior>
+                                </i:Interaction.Behaviors>
+                            </TextBox>
+                        </Panel>
+                    </Border>
+
+                    <!-- Right: Search toggle -->
+                    <Button Grid.Column="2" Command="{Binding ToggleSearchCommand}" Classes="Clear"
+                            ToolTip.Tip="Search (Ctrl+F)" Padding="5,4">
+                        <PathIcon Data="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 0M21 21l-4.35-4.35" Width="13" Height="13"/>
+                    </Button>
                 </Grid>
             </Border>
+
 
 
             <!-- 2. Main Content (Sidebar | Splitter | Files) -->
@@ -241,41 +236,45 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- SIDEBAR (LEFT) -->
-                <Grid Grid.Column="0">
-                    <Grid RowDefinitions="*" Margin="0,4,0,0">
-                         <!-- Sidebar Items List -->
-                         <ListBox Grid.Row="0" ItemsSource="{Binding QuickAccessItems}" Background="Transparent" BorderThickness="0" Padding="0">
-                             <ListBox.ItemTemplate>
-                                 <DataTemplate x:DataType="models:SidebarItemViewModel">
-                                      <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="24" ToolTip.Tip="{Binding Name}">
-                                          <Grid.ContextMenu>
-                                              <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
-                                                  <MenuItem Header="Remove Pin" Command="{Binding #ExplorerRoot.DataContext.RemoveFromQuickAccessCommand}" CommandParameter="{Binding}"/>
-                                              </ContextMenu>
-                                          </Grid.ContextMenu>
-                                          <Interaction.Behaviors>
-                                              <EventTriggerBehavior EventName="PointerPressed">
-                                                  <InvokeCommandAction Command="{Binding #ExplorerRoot.DataContext.NavigateToQuickAccessCommand}" CommandParameter="{Binding}"/>
-                                              </EventTriggerBehavior>
-                                          </Interaction.Behaviors>
-                                          
-                                          <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="12" Height="12" Margin="8,0" Foreground="{DynamicResource AccentBlueBrush}"/>
-                                          <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                      </Grid>
-                                 </DataTemplate>
-                             </ListBox.ItemTemplate>
-                             <ListBox.Styles>
-                                 <Style Selector="ListBoxItem">
-                                     <Setter Property="Padding" Value="0"/>
-                                     <Setter Property="Margin" Value="4,0"/>
-                                     <Setter Property="CornerRadius" Value="4"/>
-                                 </Style>
+                <Grid Grid.Column="0" RowDefinitions="*, Auto">
+                    <!-- Sidebar Items List -->
+                    <ListBox Grid.Row="0" ItemsSource="{Binding QuickAccessItems}" Background="Transparent" BorderThickness="0" Padding="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:SidebarItemViewModel">
+                                     <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="28" ToolTip.Tip="{Binding Name}">
+                                         <Grid.ContextMenu>
+                                             <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
+                                                 <MenuItem Header="Remove Pin" Command="{Binding #ExplorerRoot.DataContext.RemoveFromQuickAccessCommand}" CommandParameter="{Binding}"/>
+                                             </ContextMenu>
+                                         </Grid.ContextMenu>
+                                         <Interaction.Behaviors>
+                                             <EventTriggerBehavior EventName="PointerPressed">
+                                                 <InvokeCommandAction Command="{Binding #ExplorerRoot.DataContext.NavigateToQuickAccessCommand}" CommandParameter="{Binding}"/>
+                                             </EventTriggerBehavior>
+                                         </Interaction.Behaviors>
+                                         
+                                         <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="13" Height="13" Margin="8,0,6,0" Foreground="#E8A447"/>
+                                         <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                     </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <!-- Custom TypeAhead handles this now -->
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="4,1"/>
+                                    <Setter Property="CornerRadius" Value="5"/>
+                                </Style>
                              </ListBox.Styles>
                          </ListBox>
-                    </Grid>
+                         
+                    <!-- Settings Button -->
+                    <Button Grid.Row="1" Classes="Clear" Margin="4,5" HorizontalAlignment="Center" ToolTip.Tip="Explorer Settings" Click="OpenSettings_Click">
+                        <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
                     
                     <!-- Vertical Separator Decor -->
-                    <Border HorizontalAlignment="Right" Width="1" Background="{DynamicResource SeparatorBrush}" Opacity="0.5" Margin="0,10"/>
+                    <Border Grid.RowSpan="2" HorizontalAlignment="Right" Width="1" Background="{DynamicResource SeparatorBrush}" Opacity="0.5" Margin="0,10"/>
                 </Grid>
                 
                 <!-- SPLITTER -->
@@ -321,38 +320,42 @@
 
                     <!-- VERTICAL LIST VIEW (Standard) -->
                     <ListBox x:Name="VerticalListBox"
-                             ItemsSource="{Binding Items}" 
+                             ItemsSource="{Binding Items}"
                              SelectedItems="{Binding SelectedItems}"
                              SelectionMode="Multiple"
-                             Background="{DynamicResource AppBackgroundBrush}" 
-                             IsVisible="{Binding IsVerticalLayoutAndNotEmpty}" 
+                             Background="{DynamicResource AppBackgroundBrush}"
+                             IsVisible="{Binding IsVerticalLayoutAndNotEmpty}"
                              ClipToBounds="True"
-                             ContextMenu="{StaticResource BackgroundMenu}">
+                             ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                             ContextMenu="{StaticResource BackgroundMenu}"
+                             Focusable="True">
 
 
                         <ListBox.Styles>
-                            <Style Selector="ListBoxItem">
-                                <Setter Property="Padding" Value="4,0,16,0"/>
-                                <Setter Property="Margin" Value="0,1"/>
-                                <Setter Property="MinHeight" Value="20"/>
+                             <Style Selector="ListBoxItem">
+                                <!-- Custom TypeAhead handles this now -->
+                                <Setter Property="Padding" Value="4,0,8,0"/>
+                                <Setter Property="Margin" Value="0,0"/>
+                                <Setter Property="MinHeight" Value="26"/>
                                 <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                 <!-- Group headers (IsSelectable=false) are not focusable/clickable to avoid force close -->
                                 <Setter Property="IsHitTestVisible" Value="{Binding IsSelectable, FallbackValue=True}"/>
                                 <Setter Property="Focusable" Value="{Binding IsSelectable, FallbackValue=True}"/>
-                                <Setter Property="HorizontalAlignment" Value="Left"/>
+                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
                             </Style>
                         </ListBox.Styles>
                         <ListBox.DataTemplates>
                             <!-- HEADER TEMPLATE (Today, Yesterday, etc. - not selectable) -->
                             <DataTemplate x:DataType="vm:ExplorerGroupHeaderViewModel">
-                                 <Border Padding="10,5,0,2" Margin="0,10,0,5" Background="Transparent" IsHitTestVisible="False">
-                                     <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Opacity="0.8"/>
+                                 <Border Padding="10,4,0,2" Margin="0,8,0,2" Background="Transparent" IsHitTestVisible="False">
+                                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" Opacity="0.7" LetterSpacing="1"/>
                                  </Border>
                             </DataTemplate>
                             
-                            <!-- ITEM TEMPLATE (fit-to-content: name column has min width before ellipsis) -->
+                            <!-- ITEM TEMPLATE — Details style with name + size + date -->
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                 <Grid ColumnDefinitions="Auto, Auto" MinWidth="100" Background="Transparent" Height="20" DoubleTapped="OnItemDoubleTapped"
+                                 <Grid ColumnDefinitions="Auto, *, Auto, Auto" MinWidth="200" Background="Transparent" Height="26" DoubleTapped="OnItemDoubleTapped"
                                        PointerPressed="OnItemPointerPressed"
                                        PointerMoved="OnItemPointerMoved"
                                        PointerReleased="OnItemPointerReleased">
@@ -363,52 +366,42 @@
                                               <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
                                               <Separator/>
 
-                                              <!-- Top Row Buttons (Full Width) -->
-                                              <MenuItem Header="{x:Null}">
-                                                  <MenuItem.Template>
-                                                      <ControlTemplate>
-                                                          <UniformGrid Columns="2" Margin="4,2">
-                                                              <Button Content="COPY to #OKE" Command="{Binding #ExplorerRoot.DataContext.CopyToOkeCommand}" CommandParameter="{Binding}" Classes="ContextMenuAction" HorizontalAlignment="Stretch" Margin="0,0,2,0"/>
-                                                              <Button Content="MOVE to #OKE" Command="{Binding #ExplorerRoot.DataContext.MoveToOkeCommand}" CommandParameter="{Binding}" Classes="ContextMenuAction" HorizontalAlignment="Stretch" Margin="2,0,0,0"/>
-                                                          </UniformGrid>
-                                                      </ControlTemplate>
-                                                  </MenuItem.Template>
-                                              </MenuItem>
+
                                               <!-- Batch Scripts injected dynamically -->
                                               <Separator Tag="BatchMarker"/>
                                               
                                               <MenuItem Header="Pin to Sidebar" Command="{Binding #ExplorerRoot.DataContext.AddToQuickAccessCommand}" CommandParameter="{Binding}"/>
-                                              <MenuItem Header="Master Browser Sync (Copy to this folder)" Command="{Binding #ExplorerRoot.DataContext.CopyMasterBrowserHereCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                               <MenuItem Header="Rename" Command="{Binding #ExplorerRoot.DataContext.RenameItemCommand}" CommandParameter="{Binding}" InputGesture="F2"/>
-                                              <MenuItem Header="Duplicate..." Command="{Binding #ExplorerRoot.DataContext.OpenDuplicatePopupCommand}"/>
-                                              <MenuItem Header="Batch Rename (From Clipboard)" Command="{Binding #ExplorerRoot.DataContext.BatchRenameFromClipboardCommand}"/>
+                                              <MenuItem Header="Batch Rename" Command="{Binding #ExplorerRoot.DataContext.BatchRenameFromClipboardCommand}"/>
                                               <Separator/>
                                               <MenuItem Header="Copy" Command="{Binding #ExplorerRoot.DataContext.CopyItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+C"/>
                                               <MenuItem Header="Cut" Command="{Binding #ExplorerRoot.DataContext.CutItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+X"/>
                                               <MenuItem Header="Paste" Command="{Binding #ExplorerRoot.DataContext.PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding #ExplorerRoot.DataContext.HasFileClipboard}"/>
                                               <Separator/>
-                                              <MenuItem Header="Copy Full Path" Command="{Binding #ExplorerRoot.DataContext.CopyPathCommand}" CommandParameter="{Binding}"/>
-                                              <MenuItem Header="Copy Name Only" Command="{Binding #ExplorerRoot.DataContext.CopyNameCommand}" CommandParameter="{Binding}"/>
-                                              
-                                              <Separator/>
-                                              <MenuItem Header="{Binding #ExplorerRoot.DataContext.ShowInExplorerHeader}" Command="{Binding #ExplorerRoot.DataContext.ShowInExplorerCommand}" CommandParameter="{Binding}"/>
-                                              
-                                              <Separator/>
                                               <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
                                           </ContextMenu>
                                       </Grid.ContextMenu>
-                                      <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="14" Height="14" Margin="8,0" Foreground="#6f7c94"/>
-                                      <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="12" Height="12" Margin="9,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                      
-                                      <!-- Name / Edit Box (min width to avoid premature ellipsis) -->
-                                      <Panel Grid.Column="1" VerticalAlignment="Center" MinWidth="120">
-                                          <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Medium" TextTrimming="CharacterEllipsis"
-                                                     IsVisible="{Binding !IsEditing}"/>
-                                          
-                                          <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="12" 
+
+                                      <!-- Icon: folder = warm amber, file = muted -->
+                                      <Grid Grid.Column="0" Width="28" VerticalAlignment="Center">
+                                          <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="15" Height="15"
+                                                    HorizontalAlignment="Center"
+                                                    Foreground="#E8A447"/>
+                                          <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="13" Height="13"
+                                                    HorizontalAlignment="Center"
+                                                    Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.75"/>
+                                      </Grid>
+
+                                      <!-- Name / Edit Box -->
+                                      <Panel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                          <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                                     IsVisible="{Binding !IsEditing}"
+                                                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                          <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="12"
                                                    IsVisible="{Binding IsEditing}"
-                                                   Padding="0" MinHeight="0" Margin="0,-2,0,-2"
+                                                   Padding="0" MinHeight="0" Margin="0"
                                                    Loaded="OnRenameTextBoxLoaded"
+                                                   PropertyChanged="OnAutoSelectTextBoxPropertyChanged"
                                                    KeyDown="OnRenameTextBoxKeyDown">
                                               <TextBox.KeyBindings>
                                                   <KeyBinding Gesture="Enter" Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
@@ -421,6 +414,23 @@
                                               </i:Interaction.Behaviors>
                                           </TextBox>
                                       </Panel>
+
+                                      <!-- File Size -->
+                                      <TextBlock Grid.Column="2" Text="{Binding DisplaySize}"
+                                                 FontSize="10" Opacity="0.55"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                                 IsVisible="{Binding !IsEditing}"
+                                                 Margin="0,0,16,0" MinWidth="56" TextAlignment="Right"/>
+
+                                      <!-- Date Modified -->
+                                      <TextBlock Grid.Column="3" 
+                                                 Text="{Binding DateModified, StringFormat='{}{0:dd MMM yyyy}'}"
+                                                 FontSize="10" Opacity="0.45"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                                 IsVisible="{Binding !IsEditing}"
+                                                 Margin="0,0,8,0" MinWidth="76" TextAlignment="Right"/>
                                  </Grid>
                             </DataTemplate>
                         </ListBox.DataTemplates>
@@ -429,16 +439,17 @@
 
                     <!-- HORIZONTAL LIST VIEW (Columnar/Right Scroll) -->
                     <ListBox x:Name="HorizontalListBox"
-                             ItemsSource="{Binding Items}" 
+                             ItemsSource="{Binding Items}"
                              SelectedItems="{Binding SelectedItems}"
                              SelectionMode="Multiple"
-                             Background="{DynamicResource AppBackgroundBrush}" 
-                             IsVisible="{Binding IsHorizontalLayoutAndNotEmpty}" 
+                             Background="{DynamicResource AppBackgroundBrush}"
+                             IsVisible="{Binding IsHorizontalLayoutAndNotEmpty}"
                              ClipToBounds="True"
                              ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Hidden"
                              PointerWheelChanged="OnHorizontalListPointerWheelChanged"
-                             ContextMenu="{StaticResource BackgroundMenu}">
+                             ContextMenu="{StaticResource BackgroundMenu}"
+                             Focusable="True">
 
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -447,6 +458,7 @@
                         </ListBox.ItemsPanel>
                         <ListBox.Styles>
                              <Style Selector="ListBoxItem">
+                                <!-- Custom TypeAhead handles this now -->
                                 <Setter Property="Padding" Value="4,0"/>
                                 <Setter Property="Margin" Value="0,1,12,1"/>
                                 <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -479,25 +491,14 @@
                                        PointerReleased="OnItemPointerReleased">
                                        <Grid.ContextMenu>
                                           <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
-                                              <!-- Top Row Buttons (Full Width) -->
-                                              <MenuItem Header="{x:Null}">
-                                                  <MenuItem.Template>
-                                                      <ControlTemplate>
-                                                          <UniformGrid Columns="2" Margin="4,2">
-                                                              <Button Content="COPY to #OKE" Command="{Binding #ExplorerRoot.DataContext.CopyToOkeCommand}" CommandParameter="{Binding}" Classes="ContextMenuAction" HorizontalAlignment="Stretch" Margin="0,0,2,0"/>
-                                                              <Button Content="MOVE to #OKE" Command="{Binding #ExplorerRoot.DataContext.MoveToOkeCommand}" CommandParameter="{Binding}" Classes="ContextMenuAction" HorizontalAlignment="Stretch" Margin="2,0,0,0"/>
-                                                          </UniformGrid>
-                                                      </ControlTemplate>
-                                                  </MenuItem.Template>
-                                              </MenuItem>
+
                                               <!-- Batch Scripts injected dynamically -->
                                               <Separator Tag="BatchMarker"/>
                                               
                                               
                                               <MenuItem Header="Pin to Sidebar" Command="{Binding #ExplorerRoot.DataContext.AddToQuickAccessCommand}" CommandParameter="{Binding}"/>
-                                              <MenuItem Header="Master Browser Sync (Copy to this folder)" Command="{Binding #ExplorerRoot.DataContext.CopyMasterBrowserHereCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                               <MenuItem Header="Rename" Command="{Binding #ExplorerRoot.DataContext.RenameItemCommand}" CommandParameter="{Binding}" InputGesture="F2"/>
-                                              <MenuItem Header="Batch Rename (From Clipboard)" Command="{Binding #ExplorerRoot.DataContext.BatchRenameFromClipboardCommand}"/>
+                                              <MenuItem Header="Batch Rename" Command="{Binding #ExplorerRoot.DataContext.BatchRenameFromClipboardCommand}"/>
                                               <MenuItem Header="Copy" Command="{Binding #ExplorerRoot.DataContext.CopyItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+C"/>
                                               <MenuItem Header="Cut" Command="{Binding #ExplorerRoot.DataContext.CutItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+X"/>
                                               <MenuItem Header="Paste" Command="{Binding #ExplorerRoot.DataContext.PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding #ExplorerRoot.DataContext.HasFileClipboard}"/>
@@ -505,24 +506,16 @@
                                               <!-- REMOVED New Folder/File per request -->
                                               <MenuItem Header="Refresh" Command="{Binding #ExplorerRoot.DataContext.RefreshCommand}"/>
                                               <Separator/>
-                                              <MenuItem Header="Copy Full Path" Command="{Binding #ExplorerRoot.DataContext.CopyPathCommand}" CommandParameter="{Binding}"/>
-                                              <MenuItem Header="Copy Name Only" Command="{Binding #ExplorerRoot.DataContext.CopyNameCommand}" CommandParameter="{Binding}"/>
-                                              
                                               <Separator/>
-                                              <MenuItem Header="{Binding #ExplorerRoot.DataContext.ShowInExplorerHeader}" Command="{Binding #ExplorerRoot.DataContext.ShowInExplorerCommand}" CommandParameter="{Binding}"/>
-                                              
-                                              <Separator/>
-                                              <MenuItem Header="Duplicate..." Command="{Binding #ExplorerRoot.DataContext.OpenDuplicatePopupCommand}"/>
-
                                               <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
                                           </ContextMenu>
                                        </Grid.ContextMenu>
-                                       <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="14" Height="14" Margin="6,0" Foreground="#6f7c94"/>
-                                       <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="12" Height="12" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                       <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="15" Height="15" Margin="6,0" Foreground="#E8A447"/>
+                                       <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="13" Height="13" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.75"/>
                                        <Panel Grid.Column="1" VerticalAlignment="Center">
                                            <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Medium" TextTrimming="CharacterEllipsis" IsVisible="{Binding !IsEditing}"/>
-                                           <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="11" Padding="0" MinHeight="0" Margin="0,-2,0,-2" IsVisible="{Binding IsEditing}"
-                                                    Loaded="OnRenameTextBoxLoaded" KeyDown="OnRenameTextBoxKeyDown">
+                                           <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="11" Padding="0" MinHeight="0" Margin="0" IsVisible="{Binding IsEditing}"
+                                                    Loaded="OnRenameTextBoxLoaded" PropertyChanged="OnAutoSelectTextBoxPropertyChanged" KeyDown="OnRenameTextBoxKeyDown">
                                                <TextBox.KeyBindings>
                                                    <KeyBinding Gesture="Enter" Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
                                                    <KeyBinding Gesture="Escape" Command="{Binding #ExplorerRoot.DataContext.CancelRenameCommand}" CommandParameter="{Binding}"/>
@@ -541,15 +534,16 @@
 
                     <!-- THUMBNAIL VIEW (Medium Cards with Image Previews) -->
                     <ListBox x:Name="ThumbnailListBox"
-                             ItemsSource="{Binding Items}" 
+                             ItemsSource="{Binding Items}"
                              SelectedItems="{Binding SelectedItems}"
                              SelectionMode="Multiple"
-                             Background="{DynamicResource AppBackgroundBrush}" 
-                             IsVisible="{Binding IsThumbnailLayoutAndNotEmpty}" 
+                             Background="{DynamicResource AppBackgroundBrush}"
+                             IsVisible="{Binding IsThumbnailLayoutAndNotEmpty}"
                              ClipToBounds="True"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             ContextMenu="{StaticResource BackgroundMenu}">
+                             ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                             ContextMenu="{StaticResource BackgroundMenu}"
+                             Focusable="True">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
@@ -557,6 +551,7 @@
                         </ListBox.ItemsPanel>
                         <ListBox.Styles>
                             <Style Selector="ListBoxItem">
+                                <!-- Custom TypeAhead handles this now -->
                                 <Setter Property="Padding" Value="4"/>
                                 <Setter Property="Margin" Value="2"/>
                                 <Setter Property="Background" Value="Transparent"/>
@@ -573,8 +568,8 @@
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
                                 <Border Width="{Binding #ExplorerRoot.DataContext.ThumbnailSize}" 
                                         Height="{Binding #ExplorerRoot.DataContext.ThumbnailHeight}" 
-                                        CornerRadius="0" ClipToBounds="True"
-                                         
+                                        CornerRadius="8" ClipToBounds="True"
+                                        Background="{DynamicResource CardBackgroundBrush}"
                                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
                                         PointerPressed="OnItemPointerPressed"
@@ -584,61 +579,67 @@
                                         <!-- Thumbnail Image (for image files) -->
                                         <Image Grid.Row="0" Source="{Binding ThumbnailImage}" 
                                                Stretch="UniformToFill" IsVisible="{Binding IsImageFile}"
-                                               Margin="4,4,4,0"/>
-                                        <!-- Fallback icon for folders -->
+                                               Margin="0"/>
+                                        <!-- Fallback icon for folders (amber) -->
                                         <PathIcon Grid.Row="0" Data="{StaticResource IconFolder}" 
                                                   IsVisible="{Binding IsDirectory}" 
-                                                  Width="40" Height="40" Foreground="#6f7c94"
+                                                  Width="44" Height="44" Foreground="#E8A447"
                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         <!-- Fallback icon for non-image files -->
                                         <Panel Grid.Row="0" IsVisible="{Binding !IsDirectory}">
                                             <PathIcon Data="{StaticResource IconFile}" 
-                                                      Width="36" Height="36" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                      Width="38" Height="38" Foreground="{DynamicResource TextSecondaryBrush}"
                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      Opacity="0.6"
                                                       IsVisible="{Binding !IsImageFile}"/>
                                         </Panel>
                                         <!-- File name -->
-                                        <Panel Grid.Row="1" Margin="4,2,4,4">
-                                            <TextBlock Text="{Binding Name}" 
-                                                       FontSize="11" FontWeight="Medium"
-                                                       TextTrimming="CharacterEllipsis" TextAlignment="Center"
-                                                       HorizontalAlignment="Center"
-                                                       MaxLines="2" TextWrapping="Wrap"
-                                                       IsVisible="{Binding !IsEditing}"/>
-                                            <TextBox Text="{Binding Name, Mode=TwoWay}" 
-                                                     FontSize="11" TextAlignment="Center"
-                                                     Padding="0" MinHeight="0"
-                                                     IsVisible="{Binding IsEditing}"
-                                                     Loaded="OnRenameTextBoxLoaded"
-                                                     KeyDown="OnRenameTextBoxKeyDown">
-                                               <TextBox.KeyBindings>
-                                                   <KeyBinding Gesture="Enter" Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
-                                                   <KeyBinding Gesture="Escape" Command="{Binding #ExplorerRoot.DataContext.CancelRenameCommand}" CommandParameter="{Binding}"/>
-                                               </TextBox.KeyBindings>
-                                               <i:Interaction.Behaviors>
-                                                   <ia:EventTriggerBehavior EventName="LostFocus">
-                                                       <ia:InvokeCommandAction Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
-                                                   </ia:EventTriggerBehavior>
-                                               </i:Interaction.Behaviors>
-                                            </TextBox>
-                                        </Panel>
+                                        <Border Grid.Row="1" Padding="6,4" Background="{DynamicResource AppBackgroundBrush}" Opacity="0.92">
+                                            <Panel>
+                                                <TextBlock Text="{Binding Name}" 
+                                                           FontSize="11"
+                                                           TextTrimming="CharacterEllipsis" TextAlignment="Center"
+                                                           HorizontalAlignment="Center"
+                                                           MaxLines="1"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           IsVisible="{Binding !IsEditing}"/>
+                                                <TextBox Text="{Binding Name, Mode=TwoWay}" 
+                                                         FontSize="12" IsVisible="{Binding IsEditing}" 
+                                                         Padding="0" MinHeight="0" Margin="0"
+                                                         Loaded="OnRenameTextBoxLoaded"
+                                                         PropertyChanged="OnAutoSelectTextBoxPropertyChanged"
+                                                         KeyDown="OnRenameTextBoxKeyDown">
+                                                    <TextBox.KeyBindings>
+                                                        <KeyBinding Gesture="Enter" Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
+                                                        <KeyBinding Gesture="Escape" Command="{Binding #ExplorerRoot.DataContext.CancelRenameCommand}" CommandParameter="{Binding}"/>
+                                                    </TextBox.KeyBindings>
+                                                    <i:Interaction.Behaviors>
+                                                        <ia:EventTriggerBehavior EventName="LostFocus">
+                                                            <ia:InvokeCommandAction Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
+                                                        </ia:EventTriggerBehavior>
+                                                    </i:Interaction.Behaviors>
+                                                </TextBox>
+                                            </Panel>
+                                        </Border>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
                         </ListBox.DataTemplates>
                     </ListBox>
 
+
                     <!-- TILES / SMALL ICONS VIEW (Horizontal Flow, Icon + Text side-by-side) -->
                     <ListBox x:Name="TilesListBox"
-                             ItemsSource="{Binding Items}" 
+                             ItemsSource="{Binding Items}"
                              SelectedItems="{Binding SelectedItems}"
                              SelectionMode="Multiple"
-                             Background="{DynamicResource AppBackgroundBrush}" 
-                             IsVisible="{Binding IsTilesLayoutAndNotEmpty}" 
+                             Background="{DynamicResource AppBackgroundBrush}"
+                             IsVisible="{Binding IsTilesLayoutAndNotEmpty}"
                              ClipToBounds="True"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             ContextMenu="{StaticResource BackgroundMenu}">
+                             ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                             ContextMenu="{StaticResource BackgroundMenu}"
+                             Focusable="True">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
@@ -646,6 +647,7 @@
                         </ListBox.ItemsPanel>
                         <ListBox.Styles>
                             <Style Selector="ListBoxItem">
+                                <!-- Custom TypeAhead handles this now -->
                                 <Setter Property="Padding" Value="2"/>
                                 <Setter Property="Margin" Value="2"/>
                                 <Setter Property="Background" Value="Transparent"/>
@@ -672,7 +674,7 @@
                                             <!-- Thumbnail or Folder Icon -->
                                              <Image Source="{Binding ThumbnailImage}" Stretch="UniformToFill" IsVisible="{Binding IsImageFile}"/>
                                              <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" 
-                                                       Foreground="#6f7c94" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                                       Foreground="#E8A447" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                                              <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding !IsImageFile}" 
                                                        Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                                   <PathIcon.IsVisible>
@@ -688,7 +690,7 @@
                                         <Panel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,8,0">
                                             <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" IsVisible="{Binding !IsEditing}"/>
                                             <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="11" Padding="0" MinHeight="0" Margin="0" IsVisible="{Binding IsEditing}"
-                                                     Loaded="OnRenameTextBoxLoaded" KeyDown="OnRenameTextBoxKeyDown">
+                                                     Loaded="OnRenameTextBoxLoaded" PropertyChanged="OnAutoSelectTextBoxPropertyChanged" KeyDown="OnRenameTextBoxKeyDown">
                                                 <TextBox.KeyBindings>
                                                     <KeyBinding Gesture="Enter" Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
                                                     <KeyBinding Gesture="Escape" Command="{Binding #ExplorerRoot.DataContext.CancelRenameCommand}" CommandParameter="{Binding}"/>
@@ -721,10 +723,12 @@
                                      SelectionMode="Multiple"
                                      Background="{DynamicResource AppBackgroundBrush}"
                                      ClipToBounds="True"
-                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                                     ContextMenu="{StaticResource BackgroundMenu}">
+                                     ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                     ContextMenu="{StaticResource BackgroundMenu}"
+                                     Focusable="True">
                                 <ListBox.Styles>
                                     <Style Selector="ListBoxItem">
+                                        <!-- Custom TypeAhead handles this now -->
                                         <Setter Property="Padding" Value="4,0"/>
                                         <Setter Property="Margin" Value="0,3"/>
                                         <Setter Property="MinHeight" Value="20"/>
@@ -746,44 +750,27 @@
                                                       <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
                                                       <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
                                                       <Separator/>
-                                                      <!-- Top Row Buttons (Full Width) -->
-                                                      <MenuItem Header="{x:Null}">
-                                                          <MenuItem.Template>
-                                                              <ControlTemplate>
-                                                                  <UniformGrid Columns="2" Margin="4,2">
-                                                                      <Button Content="COPY to #OKE" Command="{Binding #ExplorerRoot.DataContext.CopyToOkeCommand}" CommandParameter="{Binding}" Classes="ContextMenuAction" HorizontalAlignment="Stretch" Margin="0,0,2,0"/>
-                                                                      <Button Content="MOVE to #OKE" Command="{Binding #ExplorerRoot.DataContext.MoveToOkeCommand}" CommandParameter="{Binding}" Classes="ContextMenuAction" HorizontalAlignment="Stretch" Margin="2,0,0,0"/>
-                                                                  </UniformGrid>
-                                                              </ControlTemplate>
-                                                          </MenuItem.Template>
-                                                      </MenuItem>
+
                                                       <!-- Batch Scripts injected dynamically -->
                                                       <Separator Tag="BatchMarker"/>
                                                       <MenuItem Header="Pin to Sidebar" Command="{Binding #ExplorerRoot.DataContext.AddToQuickAccessCommand}" CommandParameter="{Binding}"/>
-                                                      <MenuItem Header="Master Browser Sync" Command="{Binding #ExplorerRoot.DataContext.CopyMasterBrowserHereCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                                       <MenuItem Header="Rename" Command="{Binding #ExplorerRoot.DataContext.RenameItemCommand}" CommandParameter="{Binding}" InputGesture="F2"/>
-                                                      <MenuItem Header="Duplicate..." Command="{Binding #ExplorerRoot.DataContext.OpenDuplicatePopupCommand}"/>
                                                       <MenuItem Header="Batch Rename" Command="{Binding #ExplorerRoot.DataContext.BatchRenameFromClipboardCommand}"/>
                                                       <Separator/>
                                                       <MenuItem Header="Copy" Command="{Binding #ExplorerRoot.DataContext.CopyItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+C"/>
                                                       <MenuItem Header="Cut" Command="{Binding #ExplorerRoot.DataContext.CutItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+X"/>
                                                       <MenuItem Header="Paste" Command="{Binding #ExplorerRoot.DataContext.PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding #ExplorerRoot.DataContext.HasFileClipboard}"/>
                                                       <Separator/>
-                                                      <MenuItem Header="Copy Full Path" Command="{Binding #ExplorerRoot.DataContext.CopyPathCommand}" CommandParameter="{Binding}"/>
-                                                      <MenuItem Header="Copy Name Only" Command="{Binding #ExplorerRoot.DataContext.CopyNameCommand}" CommandParameter="{Binding}"/>
-                                                      <Separator/>
-                                                      <MenuItem Header="{Binding #ExplorerRoot.DataContext.ShowInExplorerHeader}" Command="{Binding #ExplorerRoot.DataContext.ShowInExplorerCommand}" CommandParameter="{Binding}"/>
-                                                      <Separator/>
                                                       <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
                                                   </ContextMenu>
                                               </Grid.ContextMenu>
-                                              <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="14" Height="14" Margin="6,0" Foreground="#6f7c94"/>
+                                              <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="14" Height="14" Margin="6,0" Foreground="#E8A447"/>
                                               <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="12" Height="12" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                               <Panel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,4,0">
                                                   <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Medium" 
                                                              Foreground="{DynamicResource TextPrimaryBrush}"
                                                              TextTrimming="CharacterEllipsis" IsVisible="{Binding !IsEditing}"/>
-                                                  <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="11" IsVisible="{Binding IsEditing}" Padding="0" MinHeight="0" Margin="0,-2,0,-2" Loaded="OnRenameTextBoxLoaded" KeyDown="OnRenameTextBoxKeyDown">
+                                                  <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="11" IsVisible="{Binding IsEditing}" Padding="0" MinHeight="0" Margin="0,-2,0,-2" Loaded="OnRenameTextBoxLoaded" PropertyChanged="OnAutoSelectTextBoxPropertyChanged" KeyDown="OnRenameTextBoxKeyDown">
                                                       <TextBox.KeyBindings>
                                                           <KeyBinding Gesture="Enter" Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
                                                           <KeyBinding Gesture="Escape" Command="{Binding #ExplorerRoot.DataContext.CancelRenameCommand}" CommandParameter="{Binding}"/>
@@ -808,10 +795,12 @@
                                      SelectionMode="Multiple"
                                      Background="{DynamicResource AppBackgroundBrush}"
                                      ClipToBounds="True"
-                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                                     ContextMenu="{StaticResource BackgroundMenu}">
+                                     ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                     ContextMenu="{StaticResource BackgroundMenu}"
+                                     Focusable="True">
                                  <ListBox.Styles>
                                     <Style Selector="ListBoxItem">
+                                        <!-- Custom TypeAhead handles this now -->
                                         <Setter Property="Padding" Value="4,0"/>
                                         <Setter Property="Margin" Value="0,3"/>
                                         <Setter Property="MinHeight" Value="20"/>
@@ -833,44 +822,27 @@
                                                       <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
                                                       <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
                                                       <Separator/>
-                                                      <!-- Top Row Buttons (Full Width) -->
-                                                      <MenuItem Header="{x:Null}">
-                                                          <MenuItem.Template>
-                                                              <ControlTemplate>
-                                                                  <UniformGrid Columns="2" Margin="4,2">
-                                                                      <Button Content="COPY to #OKE" Command="{Binding #ExplorerRoot.DataContext.CopyToOkeCommand}" CommandParameter="{Binding}" Classes="ContextMenuAction" HorizontalAlignment="Stretch" Margin="0,0,2,0"/>
-                                                                      <Button Content="MOVE to #OKE" Command="{Binding #ExplorerRoot.DataContext.MoveToOkeCommand}" CommandParameter="{Binding}" Classes="ContextMenuAction" HorizontalAlignment="Stretch" Margin="2,0,0,0"/>
-                                                                  </UniformGrid>
-                                                              </ControlTemplate>
-                                                          </MenuItem.Template>
-                                                      </MenuItem>
+
                                                       <!-- Batch Scripts injected dynamically -->
                                                       <Separator Tag="BatchMarker"/>
                                                       <MenuItem Header="Pin to Sidebar" Command="{Binding #ExplorerRoot.DataContext.AddToQuickAccessCommand}" CommandParameter="{Binding}"/>
-                                                      <MenuItem Header="Master Browser Sync" Command="{Binding #ExplorerRoot.DataContext.CopyMasterBrowserHereCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                                       <MenuItem Header="Rename" Command="{Binding #ExplorerRoot.DataContext.RenameItemCommand}" CommandParameter="{Binding}" InputGesture="F2"/>
-                                                      <MenuItem Header="Duplicate..." Command="{Binding #ExplorerRoot.DataContext.OpenDuplicatePopupCommand}"/>
                                                       <MenuItem Header="Batch Rename" Command="{Binding #ExplorerRoot.DataContext.BatchRenameFromClipboardCommand}"/>
                                                       <Separator/>
                                                       <MenuItem Header="Copy" Command="{Binding #ExplorerRoot.DataContext.CopyItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+C"/>
                                                       <MenuItem Header="Cut" Command="{Binding #ExplorerRoot.DataContext.CutItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+X"/>
                                                       <MenuItem Header="Paste" Command="{Binding #ExplorerRoot.DataContext.PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding #ExplorerRoot.DataContext.HasFileClipboard}"/>
                                                       <Separator/>
-                                                      <MenuItem Header="Copy Full Path" Command="{Binding #ExplorerRoot.DataContext.CopyPathCommand}" CommandParameter="{Binding}"/>
-                                                      <MenuItem Header="Copy Name Only" Command="{Binding #ExplorerRoot.DataContext.CopyNameCommand}" CommandParameter="{Binding}"/>
-                                                      <Separator/>
-                                                      <MenuItem Header="{Binding #ExplorerRoot.DataContext.ShowInExplorerHeader}" Command="{Binding #ExplorerRoot.DataContext.ShowInExplorerCommand}" CommandParameter="{Binding}"/>
-                                                      <Separator/>
                                                       <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
                                                   </ContextMenu>
                                               </Grid.ContextMenu>
-                                              <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="14" Height="14" Margin="6,0" Foreground="#6f7c94"/>
+                                              <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" IsVisible="{Binding IsDirectory}" Width="14" Height="14" Margin="6,0" Foreground="#E8A447"/>
                                               <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" IsVisible="{Binding !IsDirectory}" Width="12" Height="12" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                               <Panel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,4,0">
                                                   <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Medium" 
                                                              Foreground="{DynamicResource TextPrimaryBrush}"
                                                              TextTrimming="CharacterEllipsis" IsVisible="{Binding !IsEditing}"/>
-                                                  <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="11" IsVisible="{Binding IsEditing}" Padding="0" MinHeight="0" Margin="0,-2,0,-2" Loaded="OnRenameTextBoxLoaded" KeyDown="OnRenameTextBoxKeyDown">
+                                                  <TextBox Text="{Binding Name, Mode=TwoWay}" FontSize="11" IsVisible="{Binding IsEditing}" Padding="0" MinHeight="0" Margin="0,-2,0,-2" Loaded="OnRenameTextBoxLoaded" PropertyChanged="OnAutoSelectTextBoxPropertyChanged" KeyDown="OnRenameTextBoxKeyDown">
                                                       <TextBox.KeyBindings>
                                                           <KeyBinding Gesture="Enter" Command="{Binding #ExplorerRoot.DataContext.CommitRenameCommand}" CommandParameter="{Binding}"/>
                                                           <KeyBinding Gesture="Escape" Command="{Binding #ExplorerRoot.DataContext.CancelRenameCommand}" CommandParameter="{Binding}"/>
@@ -939,45 +911,90 @@
              </Grid>
         </Border>
 
-        <!-- FLYOUT OVERLAYS (Z-Index Top) -->
-        <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsNewFolderVisible}">
-            <Border  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
-                <StackPanel Spacing="15">
-                    <TextBlock Text="New Folder" FontWeight="Bold" FontSize="16"/>
-                    <TextBox Text="{Binding NewItemName}" Watermark="Folder Name">
+        <!-- PREMIUM SPOTLIGHT-STYLE OVERLAYS -->
+        
+        <!-- NEW FOLDER SPOTLIGHT -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="#40000000" IsVisible="{Binding IsNewFolderVisible}" ZIndex="200">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
+                    Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource SeparatorBrush}"
+                    BorderThickness="1" CornerRadius="12"
+                    MaxWidth="500"
+                    BoxShadow="0 25 50 -12 #80000000"
+                    ClipToBounds="True">
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="15">
+                    <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="24" Height="24" Foreground="{DynamicResource AccentBrush}" Margin="5,0,15,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding NewItemName}" 
+                             IsVisible="{Binding IsNewFolderVisible}"
+                             Watermark="Name for new folder..." 
+                             FontSize="18" 
+                             BorderThickness="0" 
+                             Background="Transparent"
+                             Loaded="OnRenameTextBoxLoaded"
+                             PropertyChanged="OnAutoSelectTextBoxPropertyChanged"
+                             VerticalAlignment="Center">
+                        <TextBox.Styles>
+                            <Style Selector="TextBox /template/ Border">
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                            <Style Selector="TextBox:focus /template/ Border">
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                        </TextBox.Styles>
                         <TextBox.KeyBindings>
                             <KeyBinding Gesture="Enter" Command="{Binding ConfirmNewFolderCommand}"/>
                             <KeyBinding Gesture="Escape" Command="{Binding ClosePopupsCommand}"/>
                         </TextBox.KeyBindings>
                     </TextBox>
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                        <Button Content="Cancel" Command="{Binding ClosePopupsCommand}" Classes="Secondary"/>
-                        <Button Content="Create" Command="{Binding ConfirmNewFolderCommand}" Classes="Accent"/>
-                    </StackPanel>
-                </StackPanel>
+                    <TextBlock Grid.Column="2" Text="↵ to create  ·  esc to cancel" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,5,0" Opacity="0.5" TextWrapping="Wrap"/>
+                </Grid>
             </Border>
         </Grid>
 
-        <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsNewFileVisible}">
-            <Border  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
-                <StackPanel Spacing="15">
-                    <TextBlock Text="New File" FontWeight="Bold" FontSize="16"/>
-                    <TextBox Text="{Binding NewItemName}" Watermark="File Name (e.g. notes.txt)">
+        <!-- NEW FILE SPOTLIGHT -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="#40000000" IsVisible="{Binding IsNewFileVisible}" ZIndex="200">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
+                    Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource SeparatorBrush}"
+                    BorderThickness="1" CornerRadius="12"
+                    MaxWidth="500"
+                    BoxShadow="0 25 50 -12 #80000000"
+                    ClipToBounds="True">
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="15">
+                    <PathIcon Grid.Column="0" Data="{StaticResource IconFile}" Width="24" Height="24" Foreground="{DynamicResource TextPrimaryBrush}" Margin="5,0,15,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding NewItemName}" 
+                             IsVisible="{Binding IsNewFileVisible}"
+                             Watermark="Name for new file (e.g. index.ts)" 
+                             FontSize="18" 
+                             BorderThickness="0" 
+                             Background="Transparent"
+                             Loaded="OnRenameTextBoxLoaded"
+                             PropertyChanged="OnAutoSelectTextBoxPropertyChanged"
+                             VerticalAlignment="Center">
+                        <TextBox.Styles>
+                            <Style Selector="TextBox /template/ Border">
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                            <Style Selector="TextBox:focus /template/ Border">
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                        </TextBox.Styles>
                         <TextBox.KeyBindings>
                             <KeyBinding Gesture="Enter" Command="{Binding ConfirmNewFileCommand}"/>
                             <KeyBinding Gesture="Escape" Command="{Binding ClosePopupsCommand}"/>
                         </TextBox.KeyBindings>
                     </TextBox>
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                        <Button Content="Cancel" Command="{Binding ClosePopupsCommand}" Classes="Secondary"/>
-                        <Button Content="Create" Command="{Binding ConfirmNewFileCommand}" Classes="Accent"/>
-                    </StackPanel>
-                </StackPanel>
+                    <TextBlock Grid.Column="2" Text="↵ to create  ·  esc to cancel" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="10,0,5,0" Opacity="0.5" TextWrapping="Wrap"/>
+                </Grid>
             </Border>
         </Grid>
         
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsDuplicateVisible}">
-            <Border  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="0" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" MinWidth="300" BoxShadow="0 4 10 0 #40000000">
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" MinWidth="320" BoxShadow="0 8 32 0 #80000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Duplicate Items" FontWeight="Bold" FontSize="16"/>
                      <StackPanel Orientation="Horizontal" Spacing="10">
@@ -991,6 +1008,25 @@
                 </StackPanel>
             </Border>
         </Grid>
+        <!-- (Settings Overlay removed, now a separate Window) -->
+
+        <!-- TYPE AHEAD OVERLAY (Premium Glassmorphism Pill) -->
+        <Border Grid.Row="0" Grid.RowSpan="3" Background="#D91E1E1E"
+                BorderBrush="#40FFFFFF"
+                BorderThickness="1"
+                CornerRadius="20"
+                Padding="16,6"
+                Margin="0,0,0,32"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                IsVisible="{Binding IsTypeAheadVisible}"
+                IsHitTestVisible="False"
+                BoxShadow="0 8 32 0 #40000000">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Data="{StaticResource IconSearch}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Opacity="0.7"/>
+                <TextBlock Text="{Binding TypeAheadText}" FontSize="14" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center" LetterSpacing="0.5"/>
+            </StackPanel>
+        </Border>
 
     </Grid>
 </UserControl>

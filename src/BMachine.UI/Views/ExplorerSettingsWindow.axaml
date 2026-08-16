@@ -1,0 +1,73 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        xmlns:views="using:BMachine.UI.Views"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="550"
+        x:Class="BMachine.UI.Views.ExplorerSettingsWindow"
+        x:DataType="vm:OutputExplorerViewModel"
+        Title="Explorer Settings"
+        Width="420" Height="500"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="{DynamicResource CardBackgroundBrush}">
+
+    <Grid RowDefinitions="Auto, *, Auto">
+        <!-- Header -->
+        <Border Grid.Row="0" Padding="15,12" Background="{DynamicResource SubCardBackgroundBrush}">
+            <DockPanel>
+                <TextBlock Text="Explorer Settings" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" DockPanel.Dock="Left" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+        
+        <Border Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{DynamicResource SeparatorBrush}"/>
+        
+        <!-- Tab Content -->
+        <TabControl Grid.Row="1" Margin="0" Padding="0">
+            <TabControl.Styles>
+                <Style Selector="TabItem">
+                    <Setter Property="FontSize" Value="13"/>
+                    <Setter Property="MinHeight" Value="32"/>
+                    <Setter Property="Padding" Value="12,0"/>
+                </Style>
+            </TabControl.Styles>
+            
+            <!-- TAB: GENERAL -->
+            <TabItem Header="General">
+                <ScrollViewer Padding="15">
+                    <StackPanel Spacing="15">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="View Mode" FontWeight="SemiBold" FontSize="13"/>
+                            <TextBlock Text="Default style for files &amp; folders." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            
+                            <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <RadioButton Content="List" IsChecked="{Binding IsVerticalLayout}" Margin="0,0,15,6" Classes="Standard" FontSize="12"/>
+                                <RadioButton Content="Grid" IsChecked="{Binding IsHorizontalLayout}" Margin="0,0,15,6" Classes="Standard" FontSize="12"/>
+                                <RadioButton Content="Thumbnails" IsChecked="{Binding IsThumbnailLayout}" Margin="0,0,15,6" Classes="Standard" FontSize="12"/>
+                            </WrapPanel>
+                        </StackPanel>
+                        
+                        <Border Height="1" Background="{DynamicResource SeparatorBrush}" Opacity="0.5"/>
+                        
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Layout &amp; Navigation" FontWeight="SemiBold" FontSize="13"/>
+                            <CheckBox Content="Show Path Bar" IsChecked="{Binding IsShowPathBar}" Classes="Standard" FontSize="12"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+            <!-- TAB: SHORTCUTS -->
+            <TabItem Header="Shortcuts">
+                <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" />
+            </TabItem>
+        </TabControl>
+        
+        <Border Grid.Row="2" Background="{DynamicResource SubCardBackgroundBrush}" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SeparatorBrush}" Padding="10">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Close" Click="Close_Click" Classes="Primary" MinWidth="70" FontSize="12" Padding="15,6"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
