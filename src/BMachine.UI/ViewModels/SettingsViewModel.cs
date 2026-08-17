@@ -515,24 +515,6 @@ public partial class SettingsViewModel : ObservableObject
         if (_themeService == null) return;
         _themeService.SetBorderColor(value.ToString(), true);
     }
-    
-    [ObservableProperty]
-    private Color _customLightCardBgColor = Color.Parse("#FFFFFF");
-    
-    [ObservableProperty]
-    private Color _customDarkCardBgColor = Color.Parse("#1A1C20");
-
-    partial void OnCustomLightCardBgColorChanged(Color value)
-    {
-        if (_themeService == null || _isInitializing) return;
-        _themeService.SetCardBackgroundColor(value.ToString(), false);
-    }
-    
-    partial void OnCustomDarkCardBgColorChanged(Color value)
-    {
-        if (_themeService == null || _isInitializing) return;
-        _themeService.SetCardBackgroundColor(value.ToString(), true);
-    }
 
     [ObservableProperty] private Color _customDarkBackgroundColor = Color.Parse("#1C1C1C");
     [ObservableProperty] private Color _customLightBackgroundColor = Color.Parse("#F5F5F5");
@@ -549,20 +531,6 @@ public partial class SettingsViewModel : ObservableObject
         LightBackgroundColor = value.ToString();
     }
 
-    [ObservableProperty] private Color _customDarkTerminalBgColor = Color.Parse("#1E1E1E");
-    [ObservableProperty] private Color _customLightTerminalBgColor = Color.Parse("#F8F9FA");
-
-    partial void OnCustomDarkTerminalBgColorChanged(Color value)
-    {
-        if (_themeService == null || _isInitializing) return;
-        _themeService.SetTerminalBackgroundColor(value.ToString(), true);
-    }
-    
-    partial void OnCustomLightTerminalBgColorChanged(Color value)
-    {
-        if (_themeService == null || _isInitializing) return;
-        _themeService.SetTerminalBackgroundColor(value.ToString(), false);
-    }
 
 
     [ObservableProperty]
@@ -733,14 +701,12 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     // --- Dashboard Visibility Toggles ---
-    [ObservableProperty] private bool _isGdriveVisible = true;
-    [ObservableProperty] private bool _isPixelcutVisible = true;
+
     [ObservableProperty] private bool _isBatchVisible = true;
     [ObservableProperty] private bool _isFolderLockVisible = true;
     [ObservableProperty] private bool _isPointVisible = true; // For Point/GSheet
 
-    partial void OnIsGdriveVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Gdrive", value);
-    partial void OnIsPixelcutVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Pixelcut", value);
+
 
     partial void OnIsBatchVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Batch", value);
     partial void OnIsFolderLockVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Lock", value);
@@ -1052,13 +1018,6 @@ public partial class SettingsViewModel : ObservableObject
         _themeService.SetBorderColor(CustomDarkBorderColor.ToString(), true, saveToDb: false);
         _themeService.SetBorderColor(CustomLightBorderColor.ToString(), false, saveToDb: false);
         
-        // Card Background
-        _themeService.SetCardBackgroundColor(CustomDarkCardBgColor.ToString(), true, saveToDb: false);
-        _themeService.SetCardBackgroundColor(CustomLightCardBgColor.ToString(), false, saveToDb: false);
-        
-        // Terminal Background
-        _themeService.SetTerminalBackgroundColor(CustomDarkTerminalBgColor.ToString(), true, saveToDb: false);
-        _themeService.SetTerminalBackgroundColor(CustomLightTerminalBgColor.ToString(), false, saveToDb: false);
     }
     
 
@@ -1287,8 +1246,6 @@ public partial class SettingsViewModel : ObservableObject
             // Load Interval Removed (Granular Seconds used now)
             
             // Load Dashboard Toggles
-            IsGdriveVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Gdrive") ?? "True");
-            IsPixelcutVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Pixelcut") ?? "True");
             IsBatchVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Batch") ?? "True");
             IsFolderLockVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Lock") ?? "True");
             IsPointVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Point") ?? "True");
@@ -1315,15 +1272,7 @@ public partial class SettingsViewModel : ObservableObject
             }
             else LightBackgroundColor = "#F5F5F5"; // Trigger default brush
             
-            // Load Terminal Background Colors
-            var termDark = await _database.GetAsync<string>("Settings.TermBgDark");
-            if (!string.IsNullOrEmpty(termDark) && Color.TryParse(termDark, out var ctd))
-                CustomDarkTerminalBgColor = ctd;
 
-            var termLight = await _database.GetAsync<string>("Settings.TermBgLight");
-            if (!string.IsNullOrEmpty(termLight) && Color.TryParse(termLight, out var ctl))
-                CustomLightTerminalBgColor = ctl;
-            
             // Ensure brushes are set if they werent triggered by change (e.g. initial load might not trigger if value same)
             // Actually ObservableProperty logic triggers if value changes. If default is same, it might not.
             if (DarkBackgroundBrush == null) OnDarkBackgroundColorChanged(DarkBackgroundColor);
@@ -1340,20 +1289,6 @@ public partial class SettingsViewModel : ObservableObject
             var borderDark = await _database.GetAsync<string>("Settings.BorderDark");
             if (!string.IsNullOrEmpty(borderDark) && Color.TryParse(borderDark, out var bd)) 
                 CustomDarkBorderColor = bd;
-            
-            // Load Card Background Colors
-            var cardBgLight = await _database.GetAsync<string>("Settings.CardBgLight");
-            if (!string.IsNullOrEmpty(cardBgLight) && Color.TryParse(cardBgLight, out var cbl))
-                CustomLightCardBgColor = cbl;
-            else
-                CustomLightCardBgColor = Color.Parse("#FFFFFF"); // Default
-
-            var cardBgDark = await _database.GetAsync<string>("Settings.CardBgDark");
-            if (!string.IsNullOrEmpty(cardBgDark) && Color.TryParse(cardBgDark, out var cbd))
-                CustomDarkCardBgColor = cbd;
-            else
-                CustomDarkCardBgColor = Color.Parse("#1A1C20"); // Default
-
 
             
             // Load Floating Widget

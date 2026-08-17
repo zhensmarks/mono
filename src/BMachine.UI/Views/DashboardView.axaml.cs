@@ -242,35 +242,6 @@ public partial class DashboardView : UserControl
             dialog.Show();
         }
     }
-    private void OnPixelcutClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not DashboardViewModel vm) return;
-        
-        var win = new PixelcutWindow
-        {
-             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-             DataContext = new PixelcutViewModel(vm.Database)
-        };
-        
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        if (owner != null) win.Show(owner);
-        else win.Show();
-    }
-
-    private void OnGdriveClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not DashboardViewModel vm) return;
-
-        var win = new GdriveWindow
-        {
-             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-             DataContext = new GdriveViewModel(vm.Database)
-        };
-        
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        if (owner != null) win.Show(owner);
-        else win.Show();
-    }
 
     private void OnEmbeddedViewPointerPressed(object? sender, PointerPressedEventArgs e)
     {

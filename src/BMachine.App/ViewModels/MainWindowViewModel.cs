@@ -157,6 +157,9 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
                 if (Application.Current != null)
                 {
                     Application.Current.Resources["AppBackgroundBrush"] = WindowBackground;
+                    Application.Current.Resources["CardBackgroundBrush"] = WindowBackground;
+                    Application.Current.Resources["TerminalBackgroundBrush"] = WindowBackground;
+                    Application.Current.Resources["BackgroundDarkBrush"] = WindowBackground;
                 }
             }
         }

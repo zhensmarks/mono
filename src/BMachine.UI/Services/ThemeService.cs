@@ -25,10 +25,6 @@ public class ThemeService : IThemeService
         var borderLight = await _database.GetAsync<string>("Settings.BorderLight") ?? "#E5E7EB"; // Default Light Gray
         var borderDark = await _database.GetAsync<string>("Settings.BorderDark") ?? "#333333"; // Default Dark Gray
         
-        // Load Card Background Colors
-        var cardBgLight = await _database.GetAsync<string>("Settings.CardBgLight") ?? "#FFFFFF"; 
-        var cardBgDark = await _database.GetAsync<string>("Settings.CardBgDark") ?? "#1A1C20";
-        
         // Load Widget Colors
         var editColor = await _database.GetAsync<string>("Settings.Color.Editing") ?? "#3b82f6";
         var revColor = await _database.GetAsync<string>("Settings.Color.Revision") ?? "#f97316";
@@ -38,15 +34,6 @@ public class ThemeService : IThemeService
         // Store internally for switching
         _lightBorderColor = borderLight;
         _darkBorderColor = borderDark;
-        _lightCardBgColor = cardBgLight;
-        _darkCardBgColor = cardBgDark;
-
-        // Load Terminal Background Colors
-        var termBgLight = await _database.GetAsync<string>("Settings.TermBgLight") ?? "#F8F9FA"; 
-        var termBgDark = await _database.GetAsync<string>("Settings.TermBgDark") ?? "#1E1E1E";
-        
-        _lightTerminalBgColor = termBgLight;
-        _darkTerminalBgColor = termBgDark;
 
         // Apply
         SetWidgetColor("Editing", editColor);
@@ -100,8 +87,6 @@ public class ThemeService : IThemeService
 
     private string _lightBorderColor = "#E5E7EB";
     private string _darkBorderColor = "#333333";
-    private string _lightCardBgColor = "#FFFFFF";
-    private string _darkCardBgColor = "#1A1C20";
 
     public void SetTheme(ThemeVariantType theme)
     {
@@ -129,16 +114,10 @@ public class ThemeService : IThemeService
 
         // Apply Border Color for the new theme
         var borderColor = isLight ? _lightBorderColor : _darkBorderColor;
-        var cardBgColor = isLight ? _lightCardBgColor : _darkCardBgColor;
         
         // Update the Dynamic Resource
         Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(borderColor);
-        Application.Current.Resources["CardBackgroundBrush"] = SolidColorBrush.Parse(cardBgColor);
-        Application.Current.Resources["BackgroundDarkBrush"] = SolidColorBrush.Parse(cardBgColor); // Sync BackgroundDarkBrush
-        
-        // Terminal Background
-        var termBgColor = isLight ? _lightTerminalBgColor : _darkTerminalBgColor;
-        Application.Current.Resources["TerminalBackgroundBrush"] = SolidColorBrush.Parse(termBgColor);
+
         
         // Update Log Colors
         UpdateLogColors(isLight);
@@ -198,62 +177,7 @@ public class ThemeService : IThemeService
         }
     }
 
-    public void SetCardBackgroundColor(string hexColor, bool isDark, bool saveToDb = true)
-    {
-        if (Application.Current == null) return;
-        
-        if (isDark)
-        {
-            _darkCardBgColor = hexColor;
-            if (saveToDb) _database.SetAsync("Settings.CardBgDark", hexColor);
-            
-            if (Application.Current.RequestedThemeVariant == ThemeVariant.Dark)
-            {
-                Application.Current.Resources["CardBackgroundBrush"] = SolidColorBrush.Parse(hexColor);
-                Application.Current.Resources["BackgroundDarkBrush"] = SolidColorBrush.Parse(hexColor); // Sync
-            }
-        }
-        else
-        {
-            _lightCardBgColor = hexColor;
-            if (saveToDb) _database.SetAsync("Settings.CardBgLight", hexColor);
-            
-            if (Application.Current.RequestedThemeVariant == ThemeVariant.Light)
-            {
-                Application.Current.Resources["CardBackgroundBrush"] = SolidColorBrush.Parse(hexColor);
-                Application.Current.Resources["BackgroundDarkBrush"] = SolidColorBrush.Parse(hexColor); // Sync
-            }
-        }
-    }
 
-    private string _lightTerminalBgColor = "#F8F9FA";
-    private string _darkTerminalBgColor = "#1E1E1E";
-
-    public void SetTerminalBackgroundColor(string hexColor, bool isDark, bool saveToDb = true)
-    {
-        if (Application.Current == null) return;
-        
-        if (isDark)
-        {
-            _darkTerminalBgColor = hexColor;
-            if (saveToDb) _database.SetAsync("Settings.TermBgDark", hexColor);
-            
-            if (Application.Current.RequestedThemeVariant == ThemeVariant.Dark)
-            {
-                Application.Current.Resources["TerminalBackgroundBrush"] = SolidColorBrush.Parse(hexColor);
-            }
-        }
-        else
-        {
-            _lightTerminalBgColor = hexColor;
-            if (saveToDb) _database.SetAsync("Settings.TermBgLight", hexColor);
-            
-            if (Application.Current.RequestedThemeVariant == ThemeVariant.Light)
-            {
-                Application.Current.Resources["TerminalBackgroundBrush"] = SolidColorBrush.Parse(hexColor);
-            }
-        }
-    }
 
     public void SetAccentColor(string hexColor)
     {

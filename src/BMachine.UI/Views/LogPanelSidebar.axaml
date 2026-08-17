@@ -102,15 +102,23 @@
                         <ItemsControl ItemsSource="{Binding LogItems}" Margin="10,0,10,10">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <SelectableTextBlock Text="{Binding Message}" 
-                                               Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
-                                               Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
-                                               Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
-                                               Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
-                                               Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
-                                               Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
-                                               FontSize="11" FontFamily="Consolas, Monospace" 
-                                               TextWrapping="Wrap" Margin="0,1"/>
+                                    <Border Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
+                                            Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
+                                            Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
+                                            Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
+                                            Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
+                                            Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                            Classes="logCard">
+                                        <SelectableTextBlock Text="{Binding Message}" 
+                                                   Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
+                                                   Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
+                                                   Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
+                                                   Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
+                                                   Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
+                                                   Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                                   FontSize="11" FontFamily="Consolas, Monospace" 
+                                                   TextWrapping="Wrap"/>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -386,6 +394,45 @@
         <Style Selector="SelectableTextBlock.warning"> <Setter Property="Foreground" Value="{DynamicResource TerminalWarningBrush}"/> </Style>
         <Style Selector="SelectableTextBlock.error"> <Setter Property="Foreground" Value="{DynamicResource TerminalErrorBrush}"/> </Style>
         <Style Selector="SelectableTextBlock.debug"> <Setter Property="Foreground" Value="{DynamicResource TerminalDebugBrush}"/> </Style>
+
+        <!-- Compact Log Card styles -->
+        <Style Selector="Border.logCard">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        
+        <Style Selector="Border.logCard.success">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalSuccessBrush}"/>
+            <Setter Property="Background" Value="#104ade80"/> <!-- subtle success background -->
+        </Style>
+        
+        <Style Selector="Border.logCard.error">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalErrorBrush}"/>
+            <Setter Property="Background" Value="#10ef4444"/> <!-- subtle error background -->
+        </Style>
+
+        <Style Selector="Border.logCard.warning">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalWarningBrush}"/>
+            <Setter Property="Background" Value="#10f59e0b"/> <!-- subtle warning background -->
+        </Style>
+
+        <Style Selector="Border.logCard.system">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalSystemBrush}"/>
+            <Setter Property="Background" Value="#102dd4bf"/> <!-- subtle system background -->
+        </Style>
+
+        <Style Selector="Border.logCard.info">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalInfoBrush}"/>
+            <Setter Property="Background" Value="#103b82f6"/> <!-- subtle info background -->
+        </Style>
+
+        <Style Selector="Border.logCard.debug">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalDebugBrush}"/>
+        </Style>
 
     </UserControl.Styles>
 </UserControl>

@@ -72,8 +72,6 @@ public class SettingsPreloadService
             "Dashboard.Nav.FontSize",
             "Dashboard.Nav.Style",
             "Dashboard.Nav.Text",
-            "Dashboard.Nav.Text.Driver",
-            "Dashboard.Nav.Text.Pixelcut",
             "Dashboard.Nav.Text.Batch",
             "Dashboard.Nav.Text.Locker",
             
@@ -84,8 +82,6 @@ public class SettingsPreloadService
             "Settings.Interval.Points",
             
             // Dashboard Visibility
-            "Settings.Dash.Gdrive",
-            "Settings.Dash.Pixelcut",
             "Settings.Dash.Batch",
             "Settings.Dash.Lock",
             "Settings.Dash.Point",

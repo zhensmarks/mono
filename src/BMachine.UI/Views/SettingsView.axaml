@@ -284,24 +284,7 @@
                             </Grid>
                         </StackPanel>
                     </Border>
-                    <Border Classes="SR">
-                        <StackPanel Spacing="8">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="Custom Card Background" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Text="Warna latar belakang panel / kartu (Dark / Light)" FontSize="11" Foreground="#555"/>
-                            </StackPanel>
-                            <Grid ColumnDefinitions="*, *">
-                                <Grid Grid.Column="0" ColumnDefinitions="Auto, *" Margin="0,0,5,0">
-                                    <TextBlock Text="Dark" VerticalAlignment="Center" Width="44" FontSize="11" Foreground="#555"/>
-                                    <ColorPicker Grid.Column="1" Color="{Binding CustomDarkCardBgColor}" Margin="4,0,0,0" HorizontalAlignment="Stretch"/>
-                                </Grid>
-                                <Grid Grid.Column="1" ColumnDefinitions="Auto, *" Margin="5,0,0,0">
-                                    <TextBlock Text="Light" VerticalAlignment="Center" Width="44" FontSize="11" Foreground="#555"/>
-                                    <ColorPicker Grid.Column="1" Color="{Binding CustomLightCardBgColor}" Margin="4,0,0,0" HorizontalAlignment="Stretch"/>
-                                </Grid>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+
                     <TextBlock Classes="SL" Text="ACCENT" Margin="0,24,0,6"/>
                     <Border Classes="SR">
                         <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
@@ -365,8 +348,6 @@
                             <TextBlock Text="Button Texts" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Top" Margin="0,3,0,0"/>
                             <StackPanel Grid.Column="1" Spacing="5">
                                 <TextBox Text="{Binding NavCustomText}" Watermark="Dashboard"/>
-                                <TextBox Text="{Binding NavGdriveText}" Watermark="Driver"/>
-                                <TextBox Text="{Binding NavPixelcutText}" Watermark="Pixelcut"/>
                                 <TextBox Text="{Binding NavBatchText}" Watermark="Batch"/>
                                 <TextBox Text="{Binding NavLockerText}" Watermark="Locker"/>
                             </StackPanel>
@@ -524,18 +505,7 @@
                     </Grid>
                 </Border>
                 <TextBlock Classes="SL" Text="DASHBOARD VISIBILITY" Margin="0,24,0,6"/>
-                <Border Classes="SR">
-                    <Grid ColumnDefinitions="*, Auto">
-                        <TextBlock Text="Show GDrive" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <ToggleButton Grid.Column="1" Classes="Switch" IsChecked="{Binding IsGdriveVisible}"/>
-                    </Grid>
-                </Border>
-                <Border Classes="SR">
-                    <Grid ColumnDefinitions="*, Auto">
-                        <TextBlock Text="Show Pixelcut" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <ToggleButton Grid.Column="1" Classes="Switch" IsChecked="{Binding IsPixelcutVisible}"/>
-                    </Grid>
-                </Border>
+
                 <Border Classes="SR">
                     <Grid ColumnDefinitions="*, Auto">
                         <TextBlock Text="Show Batch" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>

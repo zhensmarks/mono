@@ -455,8 +455,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
         }
     }
     
-    private Views.PixelcutWindow? _pixelcutWindow;
-    private Views.GdriveWindow? _gdriveWindow;
+
 
     private void LoadOthers()
     {
@@ -469,28 +468,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
 
 
-        // Manually Add GDrive Extension if not present
-        var gdriveItem = OtherItems.FirstOrDefault(i => i.FilePath == "INTERNAL_GDRIVE_EXTENSION");
-        
-        var gdriveDisplayName = _scriptAliases.ContainsKey("INTERNAL_GDRIVE_EXTENSION") 
-            ? _scriptAliases["INTERNAL_GDRIVE_EXTENSION"] 
-            : "Upload GDrive";
 
-        if (gdriveItem == null)
-        {
-            OtherItems.Add(new FloatingItem 
-            { 
-                Name = gdriveDisplayName,
-                FilePath = "INTERNAL_GDRIVE_EXTENSION",
-                Icon = "IconExtension",
-                Category = "Others",
-                ActionCommand = new RelayCommand(() => ExecuteFile("INTERNAL_GDRIVE_EXTENSION"))
-            });
-        }
-        else
-        {
-            if (gdriveItem.Name != gdriveDisplayName) gdriveItem.Name = gdriveDisplayName;
-        }
     }
 
     private async void ExecuteFile(string path)
@@ -501,21 +479,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         try 
         {
-            if (path == "INTERNAL_GDRIVE_EXTENSION")
-            {
-                if (_gdriveWindow == null || !_gdriveWindow.IsVisible)
-                {
-                    _gdriveWindow = new Views.GdriveWindow();
-                    _gdriveWindow.DataContext = new GdriveViewModel(_database);
-                    _gdriveWindow.Closed += (s, e) => _gdriveWindow = null;
-                    _gdriveWindow.Show();
-                }
-                else
-                {
-                    _gdriveWindow.Activate();
-                }
-            }
-            else if (path.EndsWith(".jsx"))
+            if (path.EndsWith(".jsx"))
             {
                 await RunJsxScript(path);
             }

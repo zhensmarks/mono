@@ -69,8 +69,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     }
 
     // --- Dashboard Visibility Properties ---
-    [ObservableProperty] private bool _isGdriveVisible = true;
-    [ObservableProperty] private bool _isPixelcutVisible = true;
     [ObservableProperty] private bool _isBatchVisible = true;
     [ObservableProperty] private bool _isLockerVisible = true; // Use Locker to match Tab name 'LockerTab'
     [ObservableProperty] private bool _isPointVisible = true;
@@ -121,8 +119,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     public bool IsNavIconMode => NavStyleIndex == 0;
 
     [ObservableProperty] private string _navCustomText = "Dashboard";
-    [ObservableProperty] private string _navGdriveText = "Driver";
-    [ObservableProperty] private string _navPixelcutText = "Pixelcut";
     [ObservableProperty] private string _navBatchText = "Batch";
     [ObservableProperty] private string _navLockerText = "Locker";
 
@@ -131,8 +127,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     partial void OnNavCornerRadiusChanged(double value) => _database?.SetAsync("Dashboard.Nav.Radius", value.ToString());
     
     partial void OnNavCustomTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Dash", value);
-    partial void OnNavGdriveTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Gdrive", value);
-    partial void OnNavPixelcutTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Pixelcut", value);
     partial void OnNavBatchTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Batch", value);
     partial void OnNavLockerTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Locker", value);
 
@@ -143,8 +137,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              case "Dashboard": SelectedTabIndex = 0; break;
              case "Batch": SelectedTabIndex = 1; break;
              case "Locker": SelectedTabIndex = 2; break;
-             case "Pixelcut": SelectedTabIndex = 3; break;
-             case "Gdrive": SelectedTabIndex = 4; break;
              case "Points": SelectedTabIndex = 5; break;
              case "Explorer": SelectedTabIndex = 6; break;
         }
@@ -192,12 +184,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         
         var navDash = await _database.GetAsync<string>("Dashboard.Nav.Text.Dash");
         if (!string.IsNullOrEmpty(navDash)) NavCustomText = navDash;
-        
-        var navGdrive = await _database.GetAsync<string>("Dashboard.Nav.Text.Gdrive");
-        if (!string.IsNullOrEmpty(navGdrive)) NavGdriveText = navGdrive;
-        
-        var navPixel = await _database.GetAsync<string>("Dashboard.Nav.Text.Pixelcut");
-        if (!string.IsNullOrEmpty(navPixel)) NavPixelcutText = navPixel;
         
         var navBatch = await _database.GetAsync<string>("Dashboard.Nav.Text.Batch");
         if (!string.IsNullOrEmpty(navBatch)) NavBatchText = navBatch;
@@ -281,17 +267,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [ObservableProperty]
     private FolderLockerViewModel _folderLockerVM; // Add this logic
     
-    // Pixelcut ViewModel
-    [ObservableProperty]
-    private PixelcutViewModel _pixelcutVM;
-
-    // Navigation Tab Selection
+    // Batch Master ViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDashboardTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsBatchTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsLockerTabSelected))]
-    [NotifyPropertyChangedFor(nameof(IsPixelcutTabSelected))]
-    [NotifyPropertyChangedFor(nameof(IsGdriveTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsPointsTabSelected))] // Added for Points Tab
     [NotifyPropertyChangedFor(nameof(IsExplorerTabSelected))] // Added for Explorer Tab
     private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive, 5=Points, 6=Explorer
@@ -312,18 +292,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     { 
         get => SelectedTabIndex == 2; 
         set { if (value) SelectedTabIndex = 2; } 
-    }
-
-    public bool IsPixelcutTabSelected 
-    { 
-        get => SelectedTabIndex == 3; 
-        set { if (value) SelectedTabIndex = 3; } 
-    }
-
-    public bool IsGdriveTabSelected 
-    { 
-        get => SelectedTabIndex == 4; 
-        set { if (value) SelectedTabIndex = 4; } 
     }
 
     public bool IsPointsTabSelected
@@ -351,10 +319,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         }
     }
     
-    // Gdrive ViewModel
-    [ObservableProperty]
-    private GdriveViewModel _gdriveVM;
-
     // Batch Master ViewModel
     [ObservableProperty]
     private BatchViewModel _batchVM;
@@ -669,12 +633,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init BatchVM...\n");
             _batchVM = new BatchViewModel(database, logService, _platformService);
 
-            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init PixelcutVM...\n");
-            _pixelcutVM = new PixelcutViewModel(database);
-
-            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init GdriveVM...\n");
-            _gdriveVM = new GdriveViewModel(database);
-
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init PointLeaderboardVM...\n");
             _pointLeaderboardVM = new PointLeaderboardViewModel(database);
 
@@ -804,8 +762,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
          _activityService = null!; 
          _fileManager = null!;
          _folderLockerVM = null!;
-         _pixelcutVM = null!;
-         _gdriveVM = null!;
          _batchVM = null!;
          _pointLeaderboardVM = null!;
          SpreadsheetVM = null!;
@@ -1042,25 +998,34 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         {
             level = LogLevel.Info;
         }
-        else if (line.IndexOf("[SUCCESS]", StringComparison.OrdinalIgnoreCase) >= 0) 
+        else if (line.IndexOf("[SUCCESS]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 line.IndexOf("[OK]", StringComparison.OrdinalIgnoreCase) >= 0) 
         {
             level = LogLevel.Success;
         }
-        else if (line.IndexOf("[WARNING]", StringComparison.OrdinalIgnoreCase) >= 0) 
+        else if (line.IndexOf("[WARNING]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 line.IndexOf("[WARN]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 line.IndexOf("[SKIP]", StringComparison.OrdinalIgnoreCase) >= 0) 
         {
             level = LogLevel.Warning;
         }
         else if (line.IndexOf("[ERROR]", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                 line.IndexOf("[FATAL]", StringComparison.OrdinalIgnoreCase) >= 0 ||
                  line.IndexOf("Error:", StringComparison.OrdinalIgnoreCase) >= 0 ||
                  line.IndexOf("Fail:", StringComparison.OrdinalIgnoreCase) >= 0) 
         {
             level = LogLevel.Error;
         }
+        else if (line.Contains("---"))
+        {
+            level = LogLevel.System;
+        }
         
         // --- 4. CLEANUP (Remove Tags & Timestamps) ---
         try 
         {
-             var pattern = @"^(\d{1,2}:\d{2}:\d{2}\s+)?(\[[a-zA-Z]+\]\s*)?";
+             // Support leading whitespaces before timestamp/tag
+             var pattern = @"^\s*(\d{1,2}:\d{2}:\d{2}\s+)?(\[[a-zA-Z]+\]\s*)?";
              var match = System.Text.RegularExpressions.Regex.Match(msg, pattern);
              
              if (match.Success && match.Length > 0)
@@ -1073,6 +1038,20 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         // Sanity check: if message became empty after cleaning, don't show it unless it was intentionally empty?
         if (string.IsNullOrWhiteSpace(msg)) return null;
 
+        // --- 5. COMPACT PREFIX SYMBOLS ---
+        if (level == LogLevel.Success)
+        {
+            msg = "✓ " + msg;
+        }
+        else if (level == LogLevel.Warning)
+        {
+            msg = "⚠ " + msg;
+        }
+        else if (level == LogLevel.Error)
+        {
+            msg = "✗ " + msg;
+        }
+
         var color = level switch 
         {
             LogLevel.Error => Avalonia.Media.Brushes.OrangeRed,
@@ -1080,6 +1059,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             LogLevel.Success => Avalonia.Media.Brushes.LimeGreen,
             LogLevel.Info => Avalonia.Media.Brushes.Cyan,
             LogLevel.Debug => Avalonia.Media.Brushes.Gray,
+            LogLevel.System => Avalonia.Media.Brushes.Teal,
             _ => null // Null will fallback to TextSecondaryBrush (set in XAML)
         };
 
@@ -1184,8 +1164,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         };
         
         // Load Visibility
-        IsGdriveVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Gdrive") ?? "True");
-        IsPixelcutVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Pixelcut") ?? "True");
         IsBatchVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Batch") ?? "True");
         IsLockerVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Lock") ?? "True");
         IsPointVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Point") ?? "True");
