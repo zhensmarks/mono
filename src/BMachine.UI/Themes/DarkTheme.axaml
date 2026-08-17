@@ -91,11 +91,8 @@
     
     <!-- Script (Action/Bolt) -->
     <StreamGeometry x:Key="IconScript">M14.71 6.71l-5 5c-.39.39-.39 1.02 0 1.41l5 5 .71-.71-4.3-4.29h11.88v-1H11.12l4.3-4.29-.71-.71zM4 2v20h2V2H4zm4 0v20h2V2H8z</StreamGeometry>
-
-    <!-- Bolt (Action alternative) -->
     <StreamGeometry x:Key="IconBolt">M7 2v11h3v9l7-12h-4l4-8H7z</StreamGeometry>
-
-    <!-- User (Avatar) -->
     <StreamGeometry x:Key="IconUser">M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z</StreamGeometry>
-
+    <StreamGeometry x:Key="IconTrash">M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z</StreamGeometry>
+    <StreamGeometry x:Key="IconSend">M2.01 21L23 12 2.01 3 2 10l15 2-15 2z</StreamGeometry>
 </ResourceDictionary>

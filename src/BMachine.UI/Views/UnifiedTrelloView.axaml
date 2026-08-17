@@ -24,11 +24,11 @@
             </Grid.RowDefinitions>
         
         <!-- ROW 0: Top Status Bar (Window mode only) -->
-        <Border Grid.Row="0" Padding="20,10,20,0" IsVisible="{Binding IsNotEmbedded}">
+        <Border Grid.Row="0" Margin="20,10,20,0" Padding="12,8" Background="{DynamicResource AppBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12" IsVisible="{Binding IsNotEmbedded}">
             <Grid ColumnDefinitions="*, Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <!-- Status Dot of Active ViewModel -->
-                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" ToolTip.Tip="{Binding ActiveViewModel.ConnectionStatusText, StringFormat='{}Status: {0}'}">
+                    <Ellipse Width="6" Height="6" VerticalAlignment="Center" ToolTip.Tip="{Binding ActiveViewModel.ConnectionStatusText, StringFormat='{}Status: {0}'}">
                         <Ellipse.Styles>
                             <Style Selector="Ellipse">
                                 <Setter Property="Fill" Value="#EF4444"/> <!-- Red (Offline) -->
@@ -40,37 +40,50 @@
                         <Classes.online>
                             <Binding Path="ActiveViewModel.IsOnline"/>
                         </Classes.online>
+                        <Ellipse.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Fill" Duration="0:0:0.3"/>
+                            </Transitions>
+                        </Ellipse.Transitions>
                     </Ellipse>
-                    <TextBlock Text="{Binding ActiveViewModel.StatusMessage}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding ActiveViewModel.StatusMessage}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Action Toolbar (Top Right) -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                             IsVisible="{Binding !ActiveViewModel.HasSelectedCards}">
                     <!-- Add Manual Card Icon -->
                     <Button Command="{Binding AddManualCardCommand}"
                             IsVisible="{Binding IsEditingSelected}"
-                            Background="Transparent" BorderThickness="0" Padding="6" Cursor="Hand"
+                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
                             ToolTip.Tip="Add Manual Cards">
                         <Button.Styles>
+                            <Style Selector="Button:pointerover">
+                                <Setter Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+                            </Style>
                             <Style Selector="Button:pointerover PathIcon">
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
 
-                    <!-- Refresh Icon (always visible, disabled during refresh) -->
+                    <!-- Refresh Icon -->
                     <Button Command="{Binding RefreshActiveListCommand}"
                             IsEnabled="{Binding !ActiveViewModel.IsRefreshing}"
-                            Background="Transparent" BorderThickness="0" Padding="6" Cursor="Hand"
+                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
                             ToolTip.Tip="Refresh Data">
                         <Button.Styles>
+                            <Style Selector="Button:pointerover">
+                                <Setter Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+                            </Style>
                             <Style Selector="Button:pointerover PathIcon">
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </StackPanel>
 
@@ -81,24 +94,23 @@
         <Panel Grid.Row="1" Margin="20,10,40,10">
             
             <!-- Standard Tab Bar -->
-            <Border Background="{DynamicResource MenuHoverBrush}" 
-                    CornerRadius="6" Padding="4"
+            <Border Background="{DynamicResource AppBackgroundBrush}" 
+                    CornerRadius="16" Padding="4"
                     BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}"
                     HorizontalAlignment="Center"
                     Margin="0,0,0,10"
                     IsVisible="{Binding !ActiveViewModel.HasSelectedCards}">
-                <StackPanel Orientation="Horizontal" Spacing="0">
+                <StackPanel Orientation="Horizontal" Spacing="4">
                     <StackPanel.Styles>
                         <Style Selector="RadioButton.TabButton">
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="BorderThickness" Value="0"/>
                             <Setter Property="BorderBrush" Value="Transparent"/>
-                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="FontWeight" Value="Medium"/>
                             <Setter Property="Cursor" Value="Hand"/>
-                            <Setter Property="Padding" Value="24,10"/>
-                            <Setter Property="CornerRadius" Value="4"/>
-                            <Setter Property="Margin" Value="2,0"/>
+                            <Setter Property="Padding" Value="24,6"/>
+                            <Setter Property="CornerRadius" Value="12"/>
                             <Setter Property="Transitions">
                                 <Transitions>
                                     <BrushTransition Property="Background" Duration="0:0:0.15"/>
@@ -109,20 +121,20 @@
                             <Setter Property="Template">
                                 <ControlTemplate>
                                     <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
-                                        <TextBlock Text="{TemplateBinding Content}" FontSize="11" 
+                                        <TextBlock Text="{TemplateBinding Content}" FontSize="12" FontWeight="SemiBold"
                                                    Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                 </ControlTemplate>
                             </Setter>
                         </Style>
                         <Style Selector="RadioButton.TabButton:pointerover">
-                            <Setter Property="Background" Value="#10FFFFFF"/>
+                            <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </Style>
                         <Style Selector="RadioButton.TabButton:checked">
                              <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
-                             <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                             <Setter Property="BorderBrush" Value="Transparent"/>
+                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </Style>
                     </StackPanel.Styles>
                     
@@ -137,10 +149,10 @@
 
              <!-- OVERLAY: Top Header Action Bar (Shows when cards are selected) -->
              <Border Background="{DynamicResource CardBackgroundBrush}"
-                     BorderBrush="{DynamicResource AccentColorBrush}" BorderThickness="1"
-                     CornerRadius="0" HorizontalAlignment="Center" Padding="8,4"
+                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                     CornerRadius="20" HorizontalAlignment="Center" Padding="12,6"
                      IsVisible="{Binding ActiveViewModel.HasSelectedCards}"
-                     BoxShadow="0 2 10 0 #33000000" ZIndex="10">
+                     BoxShadow="0 4 20 0 #20000000" ZIndex="10">
                   <StackPanel Orientation="Horizontal" Spacing="16">
                       <!-- Left: Selection Info & Deselect All -->
                       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -170,10 +182,10 @@
                            <Button Command="{Binding ActiveViewModel.BatchUnlinkCommand}"
                                    IsVisible="{Binding ActiveViewModel.HasSelectedManualCards}"
                                    ToolTip.Tip="Putus Tautan"
-                                   Background="#D32F2F" Foreground="White" Padding="8,4" CornerRadius="0" Cursor="Hand" FontSize="11">
-                               <StackPanel Orientation="Horizontal" Spacing="4">
-                                   <PathIcon Data="{StaticResource IconTrash}" Width="10" Height="10" Foreground="White"/>
-                                   <TextBlock Text="Unlink" FontWeight="Bold"/>
+                                   Background="#10EF4444" Foreground="#EF4444" Padding="12,6" CornerRadius="16" Cursor="Hand" FontSize="12">
+                               <StackPanel Orientation="Horizontal" Spacing="6">
+                                   <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#EF4444"/>
+                                   <TextBlock Text="Unlink" FontWeight="Medium"/>
                                </StackPanel>
                            </Button>
                                
@@ -181,19 +193,19 @@
                                <Button Command="{Binding ActiveViewModel.BatchAccCommand}"
                                        IsVisible="{Binding ActiveViewModel.HasSelectedRegularCards}"
                                        ToolTip.Tip="ACC Marketing"
-                                       Background="#0078D7" Foreground="White" Padding="8,4" CornerRadius="0" Cursor="Hand" FontSize="11">
-                                   <StackPanel Orientation="Horizontal" Spacing="4">
-                                       <TextBlock Text="🕒" FontSize="11" VerticalAlignment="Center"/>
-                                       <TextBlock Text="ACC" FontWeight="Bold"/>
+                                       Background="#100078D7" Foreground="#0078D7" Padding="12,6" CornerRadius="16" Cursor="Hand" FontSize="12">
+                                   <StackPanel Orientation="Horizontal" Spacing="6">
+                                       <TextBlock Text="🕒" FontSize="12" VerticalAlignment="Center"/>
+                                       <TextBlock Text="ACC" FontWeight="Medium"/>
                                    </StackPanel>
                                </Button>
 
                            <Button Command="{Binding ActiveViewModel.ShowBatchMovePanelCommand}"
                                    ToolTip.Tip="Pindah Massal"
-                                   Classes="Primary" Padding="8,4" CornerRadius="0" Cursor="Hand" FontSize="11">
-                               <StackPanel Orientation="Horizontal" Spacing="4">
-                                   <PathIcon Data="{StaticResource IconArrowRight}" Width="10" Height="10"/>
-                                   <TextBlock Text="Move" FontWeight="Bold"/>
+                                   Classes="Primary" Padding="12,6" CornerRadius="16" Cursor="Hand" FontSize="12">
+                               <StackPanel Orientation="Horizontal" Spacing="6">
+                                   <PathIcon Data="{StaticResource IconArrowRight}" Width="12" Height="12"/>
+                                   <TextBlock Text="Move" FontWeight="Medium"/>
                                </StackPanel>
                            </Button>
                       </StackPanel>
@@ -226,11 +238,11 @@
                      Foreground="{DynamicResource AccentColorBrush}"/>
 
         <!-- ROW 3: Bottom Status Bar (Embedded/Dashboard mode only) -->
-        <Border Grid.Row="3" Padding="20,4,20,8" IsVisible="{Binding IsEmbedded}">
+        <Border Grid.Row="3" Margin="20,10,20,10" Padding="12,8" Background="{DynamicResource AppBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12" IsVisible="{Binding IsEmbedded}">
             <Grid ColumnDefinitions="*, Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <!-- Status Dot -->
-                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" ToolTip.Tip="{Binding ActiveViewModel.ConnectionStatusText, StringFormat='{}Status: {0}'}">
+                    <Ellipse Width="6" Height="6" VerticalAlignment="Center" ToolTip.Tip="{Binding ActiveViewModel.ConnectionStatusText, StringFormat='{}Status: {0}'}">
                         <Ellipse.Styles>
                             <Style Selector="Ellipse">
                                 <Setter Property="Fill" Value="#EF4444"/>
@@ -242,36 +254,49 @@
                         <Classes.online>
                             <Binding Path="ActiveViewModel.IsOnline"/>
                         </Classes.online>
+                        <Ellipse.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Fill" Duration="0:0:0.3"/>
+                            </Transitions>
+                        </Ellipse.Transitions>
                     </Ellipse>
-                    <TextBlock Text="{Binding ActiveViewModel.StatusMessage}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding ActiveViewModel.StatusMessage}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Action Toolbar (Bottom Right) -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                             IsVisible="{Binding !ActiveViewModel.HasSelectedCards}">
                     <!-- Add Manual Card -->
                     <Button Command="{Binding AddManualCardCommand}"
                             IsVisible="{Binding IsEditingSelected}"
-                            Background="Transparent" BorderThickness="0" Padding="6" Cursor="Hand"
+                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
                             ToolTip.Tip="Add Manual Cards">
                         <Button.Styles>
+                            <Style Selector="Button:pointerover">
+                                <Setter Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+                            </Style>
                             <Style Selector="Button:pointerover PathIcon">
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                     <!-- Refresh -->
                     <Button Command="{Binding RefreshActiveListCommand}"
                             IsEnabled="{Binding !ActiveViewModel.IsRefreshing}"
-                            Background="Transparent" BorderThickness="0" Padding="6" Cursor="Hand"
+                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
                             ToolTip.Tip="Refresh Data">
                         <Button.Styles>
+                            <Style Selector="Button:pointerover">
+                                <Setter Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+                            </Style>
                             <Style Selector="Button:pointerover PathIcon">
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </StackPanel>
             </Grid>
@@ -288,32 +313,50 @@
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0">
         <Grid>
             <!-- Add Manual Panel (Editing tab only) -->
-            <Border IsVisible="{Binding EditingVM.IsAddManualPanelOpen}" Background="{DynamicResource CardBackgroundBrush}">
+            <Border IsVisible="{Binding EditingVM.IsAddManualPanelOpen}" Background="{DynamicResource AppBackgroundBrush}">
                 <Grid RowDefinitions="Auto, *" DataContext="{Binding EditingVM}">
-                    <Border Grid.Row="0" Padding="20,15" BorderThickness="0,0,0,1" BorderBrush="#333333">
+                    <!-- Futuristic Header -->
+                    <Border Grid.Row="0" Padding="20,15" Background="Transparent" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource SeparatorBrush}">
                         <Grid ColumnDefinitions="*, Auto">
-                            <StackPanel Spacing="5">
-                                <TextBlock Text="Add Manual Card" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Text="Paste your Trello links below" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Add Manual Cards" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Paste Trello links below to manually track them." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
                             <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}" Content="✕" 
-                                    Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Center"/>
+                                    Background="Transparent" BorderThickness="0" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Center">
+                                <Button.Styles>
+                                    <Style Selector="Button:pointerover">
+                                        <Setter Property="Foreground" Value="#ef4444"/>
+                                    </Style>
+                                </Button.Styles>
+                            </Button>
                         </Grid>
                     </Border>
                     <ScrollViewer Grid.Row="1">
-                        <StackPanel Spacing="20" Margin="20">
-                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                        <StackPanel Spacing="16" Margin="20">
+                            <!-- Input -->
+                            <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="12" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <TextBox Text="{Binding ManualCardLinkInput}" AcceptsReturn="True" 
                                          Watermark="https://trello.com/c/..."
                                          Background="Transparent" BorderThickness="0" 
-                                         Padding="15" FontSize="14" TextWrapping="Wrap" VerticalContentAlignment="Top"
-                                         Height="200" SelectionBrush="{DynamicResource AccentBlueBrush}"/>
+                                         Padding="15" FontSize="13" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                                         Height="200" SelectionBrush="{DynamicResource AccentColorBrush}"/>
                             </Border>
-                            <Button Command="{Binding ConfirmAddManualCardCommand}" Content="ADD CARDS"
-                                    Background="{DynamicResource AccentBlueBrush}" Foreground="White"
+                            <!-- Pill Button -->
+                            <Button Command="{Binding ConfirmAddManualCardCommand}"
                                     IsEnabled="{Binding !IsLoadingManualAdd}"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                    CornerRadius="0" Padding="15,12" FontWeight="Bold" FontSize="14" Cursor="Hand"/>
+                                    Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="12" Padding="15,12" Cursor="Hand">
+                                <Button.Styles>
+                                    <Style Selector="Button:pointerover">
+                                     <Setter Property="Opacity" Value="0.8"/>
+                                </Style>
+                            </Button.Styles>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="White"/>
+                                <TextBlock Text="Import Cards" FontWeight="SemiBold" FontSize="13" Foreground="White"/>
+                            </StackPanel>
+                            </Button>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
@@ -337,67 +380,77 @@
         </Border>
 
         <!-- Global Overlay for Batch Move Panel -->
-        <Border x:Name="Part_MovePanel" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Width="400"
+        <Border x:Name="Part_MovePanel" HorizontalAlignment="Center" VerticalAlignment="Center" Width="400" MaxHeight="550" CornerRadius="16"
                 Background="{DynamicResource AppBackgroundBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1,0,0,0"
+                BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                 IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"
-                ZIndex="20">
-            <Border.Effect>
-                 <DropShadowEffect BlurRadius="15" OffsetX="-5" OffsetY="0" Color="#40000000"/>
-            </Border.Effect>
+                BoxShadow="0 8 30 0 #30000000" ZIndex="20">
             <Grid RowDefinitions="Auto, *">
-                <Border Grid.Row="0" Padding="15" BorderThickness="0,0,0,1" BorderBrush="#333333">
+                <Border Grid.Row="0" Padding="20,15" Background="Transparent" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="16,16,0,0">
                     <Grid ColumnDefinitions="*, Auto">
-                        <StackPanel>
-                             <TextBlock Text="Pindah Massal" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"/>
-                             <TextBlock Text="Move Card" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding !ActiveViewModel.IsBatchMoveMode}"/>
+                        <StackPanel Spacing="4">
+                             <TextBlock Text="Batch Move" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"/>
+                             <TextBlock Text="Move Card" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding !ActiveViewModel.IsBatchMoveMode}"/>
+                             
                              <TextBlock Text="{Binding ActiveViewModel.SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" IsVisible="{Binding !ActiveViewModel.IsBatchMoveMode}"/>
-                             <TextBlock Text="{Binding ActiveViewModel.CardsSelectedCount, StringFormat='{}{0} cards selected'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"/>
+                             <TextBlock Text="{Binding ActiveViewModel.CardsSelectedCount, StringFormat='{}{0} Cards Selected'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"/>
                         </StackPanel>
                         <Button Grid.Column="1" Command="{Binding ActiveViewModel.CloseMovePanelCommand}" Content="✕" 
-                                Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Center"/>
+                                Background="Transparent" BorderThickness="0" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Center">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover">
+                                    <Setter Property="Foreground" Value="#ef4444"/>
+                                </Style>
+                            </Button.Styles>
+                        </Button>
                     </Grid>
                 </Border>
 
                 <ScrollViewer Grid.Row="1">
-                    <StackPanel Spacing="20" Margin="15">
-                        <TextBlock Text="{Binding ActiveViewModel.BatchStatusMessage}" Foreground="{DynamicResource AccentColorBrush}" TextWrapping="Wrap"/>
-                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding ActiveViewModel.IsLoadingMoveData}" Margin="0,0,0,10"/>
+                    <StackPanel Spacing="20" Margin="20">
+                        <TextBlock Text="{Binding ActiveViewModel.BatchStatusMessage}" FontSize="12" Foreground="{DynamicResource AccentColorBrush}" TextWrapping="Wrap"/>
+                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding ActiveViewModel.IsLoadingMoveData}" Height="4" Margin="0,0,0,10" Foreground="{DynamicResource AccentColorBrush}" CornerRadius="2"/>
                         
                         <StackPanel Spacing="8">
-                            <TextBlock Text="Pilih Board" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <AutoCompleteBox x:Name="Part_BatchMoveBoardBox" ItemsSource="{Binding ActiveViewModel.AvailableBoards}" 
-                                             SelectedItem="{Binding ActiveViewModel.SelectedMoveBoard}" 
-                                             Text="{Binding ActiveViewModel.MoveBoardSearchText, Mode=TwoWay}"
-                                             ValueMemberBinding="{Binding Name}"
-                                             Watermark="Cari board..." 
-                                             HorizontalAlignment="Stretch"
-                                             FilterMode="Contains"
-                                             MinimumPrefixLength="0"
-                                             MaxDropDownHeight="160"/>
+                            <TextBlock Text="Destination Board" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12">
+                                <AutoCompleteBox x:Name="Part_BatchMoveBoardBox" ItemsSource="{Binding ActiveViewModel.AvailableBoards}" 
+                                                 SelectedItem="{Binding ActiveViewModel.SelectedMoveBoard}" 
+                                                 Text="{Binding ActiveViewModel.MoveBoardSearchText, Mode=TwoWay}"
+                                                 ValueMemberBinding="{Binding Name}"
+                                                 Watermark="Search board..." 
+                                                 HorizontalAlignment="Stretch"
+                                                 FilterMode="Contains" MinimumPrefixLength="0" MaxDropDownHeight="160"
+                                                 Background="Transparent" BorderThickness="0" Padding="12,10" FontSize="13"/>
+                            </Border>
                         </StackPanel>
                         
                         <StackPanel Spacing="8">
-                            <TextBlock Text="Pilih List" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <AutoCompleteBox x:Name="Part_BatchMoveListBox" ItemsSource="{Binding ActiveViewModel.AvailableLists}" 
-                                             SelectedItem="{Binding ActiveViewModel.SelectedMoveList}" 
-                                             Text="{Binding ActiveViewModel.MoveListSearchText, Mode=TwoWay}"
-                                             ValueMemberBinding="{Binding Name}"
-                                             Watermark="Cari list..." 
-                                             HorizontalAlignment="Stretch"
-                                             FilterMode="Contains"
-                                             MinimumPrefixLength="0"
-                                             IsEnabled="{Binding ActiveViewModel.SelectedMoveBoard, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                             MaxDropDownHeight="160"/>
+                            <TextBlock Text="Destination List" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12">
+                                <AutoCompleteBox x:Name="Part_BatchMoveListBox" ItemsSource="{Binding ActiveViewModel.AvailableLists}" 
+                                                 SelectedItem="{Binding ActiveViewModel.SelectedMoveList}" 
+                                                 Text="{Binding ActiveViewModel.MoveListSearchText, Mode=TwoWay}"
+                                                 ValueMemberBinding="{Binding Name}"
+                                                 Watermark="Search list..." 
+                                                 HorizontalAlignment="Stretch"
+                                                 FilterMode="Contains" MinimumPrefixLength="0" MaxDropDownHeight="160"
+                                                 Background="Transparent" BorderThickness="0" Padding="12,10" FontSize="13"
+                                                 IsEnabled="{Binding ActiveViewModel.SelectedMoveBoard, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                            </Border>
                         </StackPanel>
                         
                         <Button Command="{Binding ActiveViewModel.MoveCardCommand}" 
-                                HorizontalAlignment="Stretch"
-                                Background="{DynamicResource AccentBlueBrush}" Foreground="White"
-                                Padding="15,10" CornerRadius="0" Margin="0,20,0,0"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="12" Padding="15,12" Margin="0,10,0,0" Cursor="Hand"
                                 IsEnabled="{Binding ActiveViewModel.SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                                 <TextBlock Text="Konfirmasi Pindah" FontWeight="Bold"/>
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover">
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                </Style>
+                            </Button.Styles>
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                 <TextBlock Text="Confirm Move" FontWeight="SemiBold" FontSize="13" Foreground="White"/>
                                  <PathIcon Data="{StaticResource IconArrowRight}" Foreground="White" Width="12" Height="12"/>
                             </StackPanel>
                         </Button>

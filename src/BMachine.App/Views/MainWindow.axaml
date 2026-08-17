@@ -8,7 +8,7 @@
         x:Class="BMachine.App.Views.MainWindow"
         x:DataType="local:MainWindowViewModel"
         xmlns:local="using:BMachine.App.ViewModels"
-        Title="BMachine v2"
+        Title="BMachine v6.5.0"
         Icon="avares://BMachine.App/appicon.ico"
         Width="1280" Height="800"
         MinWidth="520"
@@ -37,7 +37,7 @@
                     <DropShadowEffect Color="Black" BlurRadius="40" Opacity="0.4" OffsetY="10"/>
                 </Border.Effect>
                 
-                <Grid RowDefinitions="Auto, Auto">
+                <Grid RowDefinitions="Auto, *">
                     <!-- Subtle Header Decoration -->
                     <Grid Grid.Row="0" Margin="20,12">
                         <TextBlock Text="SYSTEM CONFIRMATION" 
@@ -46,7 +46,8 @@
                                    HorizontalAlignment="Center"/>
                     </Grid>
 
-                    <StackPanel Grid.Row="1" Spacing="0" Margin="0,10,0,0">
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="0" Margin="0,10,0,16">
                         <!-- Power Icon (Smooth Rounded) -->
                         <Border Width="48" Height="48" HorizontalAlignment="Center" Margin="0,0,0,12"
                                 Background="{DynamicResource MenuHoverBrush}" CornerRadius="24">
@@ -71,13 +72,13 @@
                             <!-- LOGOUT (Primary Accent Button) -->
                             <Button Command="{Binding ConfirmExitCommand}" 
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                    Background="{DynamicResource AccentColorBrush}" Foreground="White"
+                                    Background="#ef4444" Foreground="White"
                                     BorderThickness="0" 
                                     CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
                                 <TextBlock Text="Sign Out" FontWeight="SemiBold" FontSize="13"/>
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+                                        <Setter Property="Background" Value="#dc2626"/>
                                         <Setter Property="Opacity" Value="0.9"/>
                                         <Setter Property="Foreground" Value="White"/>
                                     </Style>
@@ -89,7 +90,7 @@
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                     Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
-                                    CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
+                                    CornerRadius="6" Height="32" Cursor="Hand" Classes="Clear">
                                 <TextBlock Text="Cancel" FontWeight="Medium" FontSize="13"/>
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
@@ -103,7 +104,7 @@
                                     HorizontalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                     Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}"
                                     BorderThickness="0" 
-                                    CornerRadius="6" Height="28" Cursor="Hand" Classes="Clear" Margin="0,4,0,0">
+                                    CornerRadius="6" Height="24" Cursor="Hand" Classes="Clear" Margin="0,4,0,0">
                                 <TextBlock Text="Restart Application" FontWeight="Medium" FontSize="11"/>
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
@@ -114,6 +115,7 @@
                             </Button>
                         </StackPanel>
                     </StackPanel>
+                    </ScrollViewer>
                 </Grid>
             </Border>
         </Grid>

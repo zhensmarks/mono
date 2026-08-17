@@ -265,57 +265,63 @@
                 
             </Grid>
             
-            <!-- FOOTER (Row 2) -->
-            <Border Grid.Row="2" Background="#08FFFFFF" Padding="10,6" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" IsVisible="{Binding BatchVM.IsStatusVisible}">
+            <!-- FOOTER (Row 2) : Floating Minimalist Status Bar -->
+            <Border Grid.Row="2" Background="#0CFFFFFF" Margin="10,2,10,10" Padding="10,4" 
+                    BorderBrush="#1AFFFFFF" BorderThickness="1" CornerRadius="6" 
+                    IsVisible="{Binding BatchVM.IsStatusVisible}">
                 <Grid ColumnDefinitions="*, Auto">
                      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                         <!-- Status Dot -->
-                         <Border Width="6" Height="6" CornerRadius="0" 
-                                 Background="{Binding StatusColor}"
-                                 VerticalAlignment="Center"
-                                 ToolTip.Tip="{Binding ProcessStatusText}"/>
+                         
+                         <!-- Glowing Status Dot -->
+                         <Ellipse Width="6" Height="6" Fill="{Binding StatusColor}" VerticalAlignment="Center" ToolTip.Tip="{Binding ProcessStatusText}">
+                             <Ellipse.Transitions>
+                                 <Transitions>
+                                     <BrushTransition Property="Fill" Duration="0:0:0.3"/>
+                                 </Transitions>
+                             </Ellipse.Transitions>
+                         </Ellipse>
 
                          <Grid>
                              <!-- Normal Status -->
-                             <TextBlock Text="{Binding ProcessStatusText}" 
+                             <TextBlock Text="{Binding ProcessStatusText, Converter={StaticResource StringToUpperConverter}}" 
                                         IsVisible="{Binding !BatchVM.IsMasterVisible}"
                                         Foreground="{DynamicResource TextSecondaryBrush}" 
-                                        FontSize="10" 
-                                        TextTrimming="CharacterEllipsis" MaxWidth="150"/>
+                                        FontSize="9" FontFamily="Consolas, Monospace" FontWeight="Bold" LetterSpacing="1.5"
+                                        TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              
                              <!-- Master Browser Target -->
-                             <StackPanel Orientation="Horizontal" IsVisible="{Binding BatchVM.IsMasterVisible}">
+                             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding BatchVM.IsMasterVisible}">
                                  <StackPanel.IsVisible>
                                      <MultiBinding Converter="{x:Static BoolConverters.And}">
                                          <Binding Path="BatchVM.IsMasterVisible"/>
                                          <Binding Path="!BatchVM.IsBusy"/>
                                      </MultiBinding>
                                  </StackPanel.IsVisible>
-                                 <TextBlock Text="Copy to " Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10"/>
-                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="10" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="100"/>
+                                 <TextBlock Text="TARGET:" Foreground="#666666" FontSize="9" FontFamily="Consolas, Monospace" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="Consolas, Monospace" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="100" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              </StackPanel>
  
                              <!-- BUSY INDICATOR -->
-                             <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding BatchVM.IsBusy}">
-                                 <ProgressBar IsIndeterminate="True" Width="20" Height="4" VerticalAlignment="Center" Foreground="{DynamicResource AccentBlueBrush}"/>
-                                 <TextBlock Text="{Binding BatchVM.BusyMessage}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="10" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
+                             <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding BatchVM.IsBusy}">
+                                 <ProgressBar IsIndeterminate="True" Width="20" Height="2" CornerRadius="1" VerticalAlignment="Center" Foreground="{DynamicResource AccentBlueBrush}" Background="#1AFFFFFF"/>
+                                 <TextBlock Text="{Binding BatchVM.BusyMessage, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="9" FontFamily="Consolas, Monospace" FontWeight="Bold" LetterSpacing="1.5" TextTrimming="CharacterEllipsis" MaxWidth="110" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              </StackPanel>
                          </Grid>
                      </StackPanel>
                      
                      <!-- Actions -->
-                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
-                         <Button Classes="iconBtn" Command="{Binding StopProcessCommand}" IsVisible="{Binding IsProcessing}" ToolTip.Tip="Stop">
-                             <PathIcon Data="{StaticResource IconSquare}" Width="11" Height="11" Foreground="#ef4444"/>
+                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                         <Button Classes="statusBtn" Command="{Binding StopProcessCommand}" IsVisible="{Binding IsProcessing}" ToolTip.Tip="Stop">
+                             <PathIcon Data="{StaticResource IconSquare}" Width="10" Height="10" Foreground="#ef4444"/>
                          </Button>
-                         <Button Classes="iconBtn" Command="{Binding CopyAllLogsCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Copy Log">
-                             <PathIcon Data="{StaticResource IconCopy}" Width="11" Height="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                         <Button Classes="statusBtn" Command="{Binding CopyAllLogsCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Copy Log">
+                             <PathIcon Data="{StaticResource IconCopy}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
-                         <Button Classes="iconBtn" Command="{Binding ClearLogCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Clear Log">
-                             <PathIcon Data="{StaticResource IconTrash}" Width="11" Height="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                         <Button Classes="statusBtn" Command="{Binding ClearLogCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Clear Log">
+                             <PathIcon Data="{StaticResource IconTrash}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
-                         <Button Classes="iconBtn" Command="{Binding BatchVM.RefreshMasterCommand}" IsVisible="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Refresh">
-                             <PathIcon Data="{StaticResource IconRefresh}" Width="11" Height="11"/>
+                         <Button Classes="statusBtn" Command="{Binding BatchVM.RefreshMasterCommand}" IsVisible="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Refresh">
+                             <PathIcon Data="{StaticResource IconRefresh}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
                      </StackPanel>
                 </Grid>
@@ -369,6 +375,33 @@
         </Style>
         <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
              <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+
+        <!-- Status Action Buttons (Futuristic Pill) -->
+        <Style Selector="Button.statusBtn">
+            <Setter Property="Background" Value="#0AFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.statusBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#22FFFFFF"/>
+        </Style>
+        <Style Selector="Button.statusBtn:pointerover">
+            <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+            <Setter Property="RenderTransform" Value="scale(1.05)"/>
+        </Style>
+        <Style Selector="Button.statusBtn:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.95)"/>
         </Style>
         
         <!-- Console TextBox -->

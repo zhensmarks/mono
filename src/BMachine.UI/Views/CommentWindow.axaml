@@ -13,15 +13,17 @@
         WindowStartupLocation="CenterScreen"
         Topmost="True"
         Background="{DynamicResource AppBackgroundBrush}"
-        SystemDecorations="None">
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        SystemDecorations="Full">
 
-    <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+    <Border>
     <Grid RowDefinitions="Auto, *, Auto" Margin="20">
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20" Background="Transparent" PointerPressed="Header_PointerPressed">
-            <StackPanel Spacing="5">
-                <TextBlock Text="Comments" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Comments" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="{Binding SelectedCard.Name}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
             </StackPanel>
             <Button Grid.Column="1" Click="CloseButton_Click" Content="✕"
                     Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Top"/>
@@ -37,12 +39,12 @@
                 <ItemsControl ItemsSource="{Binding Comments}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#10FFFFFF" CornerRadius="0" Padding="12" Margin="0,0,0,10">
+                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,12" BoxShadow="0 2 10 0 #05000000">
                                 <Grid RowDefinitions="Auto, *">
                                     <!-- Header (Name, Date, Actions) -->
                                     <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,4">
                                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding MemberCreatorName}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,0,0"/>
                                         </StackPanel>
                                         
@@ -70,13 +72,13 @@
                                         <!-- Edit Mode -->
                                         <StackPanel IsVisible="{Binding IsEditing}" Spacing="6" Margin="0,4,0,0">
                                             <TextBox Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
-                                                     Background="#1AFFFFFF" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="0"
-                                                     Padding="8" FontSize="13"/>
-                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                                     Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12"
+                                                     Padding="12" FontSize="13"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                                                 <Button Content="Cancel" Command="{Binding $parent[Window].DataContext.CancelEditCommentCommand}" CommandParameter="{Binding}"
-                                                        Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="0" Cursor="Hand" FontSize="12"/>
+                                                        Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="8" Cursor="Hand" FontSize="12" FontWeight="Medium"/>
                                                 <Button Content="Save" Command="{Binding $parent[Window].DataContext.SaveEditCommentCommand}" CommandParameter="{Binding}"
-                                                        Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="0" Cursor="Hand" FontSize="12" FontWeight="Bold"/>
+                                                        Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="8" Cursor="Hand" FontSize="12" FontWeight="SemiBold"/>
                                             </StackPanel>
                                         </StackPanel>
                                     </Grid>
@@ -94,10 +96,10 @@
 
              <!-- Pending Attachments Preview Panel -->
              <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                     CornerRadius="0" Padding="8" Margin="0,0,0,8"
+                     CornerRadius="12" Padding="12" Margin="0,0,0,8"
                      IsVisible="{Binding HasPendingAttachments}">
                  <StackPanel Spacing="6">
-                     <TextBlock Text="Attachments" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                     <TextBlock Text="Attachments" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                      <ItemsControl ItemsSource="{Binding PendingAttachments}">
                          <ItemsControl.ItemsPanel>
                              <ItemsPanelTemplate>
@@ -106,7 +108,7 @@
                          </ItemsControl.ItemsPanel>
                          <ItemsControl.ItemTemplate>
                              <DataTemplate x:DataType="models:PendingAttachmentItem">
-                                 <Border Background="#15FFFFFF" CornerRadius="0" Padding="4" Margin="0,0,6,6"
+                                 <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="4" Margin="0,0,6,6"
                                          Width="80" Height="80" ClipToBounds="True">
                                      <Grid>
                                          <!-- Image Thumbnail -->
@@ -137,10 +139,10 @@
              <!-- Presets Overlay (Above Textbox) -->
             <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
                     Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                    CornerRadius="0" Padding="10" Margin="0,0,0,8"
+                    CornerRadius="12" Padding="12" Margin="0,0,0,8"
                     IsVisible="{Binding IsPresetPanelOpen}">
                 <StackPanel Spacing="8">
-                        <TextBlock Text="Quick Replies (Max 5)" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="Quick Replies (Max 5)" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         
                         <ItemsControl ItemsSource="{Binding CommentPresets}">
                             <ItemsControl.ItemTemplate>
@@ -163,7 +165,7 @@
                         <!-- Add New Preset -->
                         <Grid ColumnDefinitions="*, Auto" IsVisible="{Binding CommentPresets.Count, Converter={x:Static ObjectConverters.IsNotNull}}"> 
                                 <TextBox Text="{Binding NewPresetText}" Watermark="New preset... (Enter to save)" 
-                                        Background="#1AFFFFFF" BorderThickness="0" CornerRadius="0" Padding="6" Margin="0,0,4,0">
+                                        Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,0,8,0">
                                     <TextBox.KeyBindings>
                                         <KeyBinding Gesture="Enter" Command="{Binding AddCommentPresetCommand}"/>
                                     </TextBox.KeyBindings>
@@ -178,7 +180,7 @@
 
             <!-- @Mention Popup (Above Textbox) -->
             <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                    CornerRadius="0" Padding="6" Margin="0,0,0,4" MaxHeight="160"
+                    CornerRadius="12" Padding="8" Margin="0,0,0,8" MaxHeight="160"
                     IsVisible="{Binding IsMentionPopupOpen}">
                 <ScrollViewer>
                     <ItemsControl ItemsSource="{Binding FilteredMembers}">
@@ -188,9 +190,9 @@
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                         Background="Transparent" BorderThickness="0" Padding="8,5" Cursor="Hand">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Border Width="24" Height="24" CornerRadius="0" Background="{DynamicResource AccentColorBrush}">
+                                        <Border Width="24" Height="24" CornerRadius="12" Background="{DynamicResource AccentColorBrush}">
                                             <TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                                       Foreground="White" FontWeight="Bold" FontSize="10"/>
+                                                       Foreground="White" FontWeight="SemiBold" FontSize="10"/>
                                         </Border>
                                         <TextBlock Text="{Binding DisplayText}" VerticalAlignment="Center" FontSize="12" 
                                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -202,40 +204,54 @@
                 </ScrollViewer>
             </Border>
 
-            <Grid ColumnDefinitions="*,Auto" MinHeight="48">
-            <TextBox x:Name="Part_CommentTextBox" Grid.Column="0"
+            <Grid Margin="0,10,0,0">
+            <TextBox x:Name="Part_CommentTextBox"
                      Text="{Binding NewCommentText}" Watermark="Write a comment... (@mention)" 
-                     Background="#1AFFFFFF" BorderThickness="0" CornerRadius="0" Padding="10"
-                     Margin="0,0,8,0" AcceptsReturn="True" TextWrapping="Wrap"
-                     MinHeight="48" MaxHeight="100" VerticalAlignment="Stretch">
+                     Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="20" Padding="12,10"
+                     Margin="0" AcceptsReturn="True" TextWrapping="Wrap"
+                     MinHeight="40" MaxHeight="120" FontSize="13">
                 <TextBox.KeyBindings>
                     <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
                 </TextBox.KeyBindings>
                 <TextBox.InnerLeftContent>
                     <Button x:Name="Part_AttachButton"
                             Command="{Binding AddAttachmentCommand}"
-                            Background="Transparent" BorderThickness="0" Padding="8,0,0,0" Margin="0" Cursor="Hand"
+                            Background="Transparent" BorderThickness="0" Padding="10,0,0,0" Margin="0" Cursor="Hand"
                             ToolTip.Tip="Attach Image" DragDrop.AllowDrop="True">
                         <PathIcon Data="{StaticResource IconPaperclip}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </TextBox.InnerLeftContent>
                 <TextBox.InnerRightContent>
-                    <Button Command="{Binding TogglePresetPanelCommand}"
-                            Width="30" Height="30" CornerRadius="0"
-                            Background="Transparent" BorderThickness="0" Cursor="Hand"
-                            ToolTip.Tip="Quick Replies">
-                        <PathIcon Data="{StaticResource IconChevronUp}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </Button>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,8,0" VerticalAlignment="Bottom">
+                        <Button Command="{Binding TogglePresetPanelCommand}"
+                                Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Quick Replies"
+                                Width="32" Height="32" Margin="0,0,0,4">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                </Style>
+                            </Button.Styles>
+                            <Border Background="{DynamicResource SeparatorBrush}" CornerRadius="16" Width="32" Height="32">
+                                <PathIcon Data="{StaticResource IconChevronUp}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SendCommentCommand}" 
+                                Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Send Comment"
+                                Width="32" Height="32" Margin="0,0,0,4">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                </Style>
+                            </Button.Styles>
+                            <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="16" Width="32" Height="32">
+                                <PathIcon Data="{StaticResource IconSend}" Width="14" Height="14" Foreground="White" Margin="2,0,0,0"/>
+                            </Border>
+                        </Button>
+                    </StackPanel>
                 </TextBox.InnerRightContent>
             </TextBox>
-            <Button Grid.Column="1" Command="{Binding SendCommentCommand}" 
-                    Classes="Clear" MinWidth="48" CornerRadius="0" Cursor="Hand" ToolTip.Tip="Send Comment"
-                    VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                <Border Background="#38bdf8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                    <PathIcon Data="{StaticResource IconSend}" Foreground="White" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-            </Button>
             </Grid>
             </StackPanel>
         </Grid>

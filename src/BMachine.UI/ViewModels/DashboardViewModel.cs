@@ -79,17 +79,25 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     // Activity Panel
     [ObservableProperty] private bool _isActivityPanelOpen;
-
+    
     [RelayCommand]
     private void ToggleActivityPanel()
     {
         IsActivityPanelOpen = !IsActivityPanelOpen;
     }
-
+    
     [RelayCommand]
     private void CloseActivityPanel()
     {
         IsActivityPanelOpen = false;
+    }
+
+    [ObservableProperty] private bool _isProfileViewerOpen;
+
+    [RelayCommand]
+    private void ToggleProfileViewer()
+    {
+        IsProfileViewerOpen = !IsProfileViewerOpen;
     }
 
     // UI Customization
