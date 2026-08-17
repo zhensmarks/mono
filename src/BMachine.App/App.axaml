@@ -170,24 +170,31 @@
              <Setter Property="RenderTransform" Value="scale(0.95)" />
         </Style>
         
-        <!-- Primary Button Style -->
+        <!-- Primary Button Style (Modern) -->
         <Style Selector="Button.Primary">
             <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
-            <Setter Property="Foreground" Value="{Binding Background, RelativeSource={RelativeSource Self}, Converter={x:Static converters:ContrastColorConverter.Instance}}"/> <!-- Dynamic Contrast Text! -->
-            <Setter Property="Padding" Value="15,8"/>
-            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Foreground" Value="{Binding Background, RelativeSource={RelativeSource Self}, Converter={x:Static converters:ContrastColorConverter.Instance}}"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontWeight" Value="Black"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.1"/>
+                </Transitions>
+            </Setter>
             <Setter Property="Template">
-                 <ControlTemplate>
+                <ControlTemplate>
                     <Border Name="PART_Border"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}"
                             Padding="{TemplateBinding Padding}"
-                            BoxShadow="0 4 10 0 #40000000"> <!-- Neutral Shadow -->
+                            BoxShadow="0 2 8 0 #30000000">
                         <ContentPresenter Name="PART_ContentPresenter"
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -198,41 +205,41 @@
             </Setter>
         </Style>
         <Style Selector="Button.Primary:pointerover /template/ Border#PART_Border">
-             <Setter Property="Background" Value="#15FFFFFF"/>
-             <Setter Property="BorderThickness" Value="0,0,0,2"/>
-             <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
-             <Setter Property="Opacity" Value="1.0"/>
-             <Setter Property="BoxShadow" Value="0 6 12 0 #60000000"/>
-        </Style>
-        <Style Selector="Button.Primary:pointerover /template/ ContentPresenter">
-             <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
-             <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Opacity" Value="0.88"/>
+            <Setter Property="BoxShadow" Value="0 4 14 0 #40000000"/>
         </Style>
         <Style Selector="Button.Primary:pressed">
-             <Setter Property="RenderTransform" Value="scale(0.98)" />
+            <Setter Property="RenderTransform" Value="scale(0.97)"/>
         </Style>
         <Style Selector="Button.Primary:pressed /template/ Border#PART_Border">
-             <Setter Property="Background" Value="#0AFFFFFF"/>
+            <Setter Property="Opacity" Value="0.75"/>
+            <Setter Property="BoxShadow" Value="0 1 4 0 #20000000"/>
         </Style>
 
-        <!-- Accent Button Style (High Contrast) -->
+        <!-- Accent Button Style (Ghost/Outline variant) -->
         <Style Selector="Button.Accent">
-            <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
-            <Setter Property="Foreground" Value="#0A0A0A"/> <!-- High Contrast Dark Text -->
-            <Setter Property="Padding" Value="15,8"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontWeight" Value="Black"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
             <Setter Property="Template">
-                 <ControlTemplate>
+                <ControlTemplate>
                     <Border Name="PART_Border"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}"
-                            Padding="{TemplateBinding Padding}"
-                            BoxShadow="0 4 10 0 #40000000">
+                            Padding="{TemplateBinding Padding}">
                         <ContentPresenter Name="PART_ContentPresenter"
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -243,14 +250,10 @@
             </Setter>
         </Style>
         <Style Selector="Button.Accent:pointerover /template/ Border#PART_Border">
-             <Setter Property="Background" Value="#15FFFFFF"/>
-             <Setter Property="BorderThickness" Value="0,0,0,2"/>
-             <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
-             <Setter Property="Opacity" Value="1.0"/>
+            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
         </Style>
-        <Style Selector="Button.Accent:pointerover /template/ ContentPresenter">
-             <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
-             <Setter Property="Background" Value="Transparent"/>
+        <Style Selector="Button.Accent:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.97)"/>
         </Style>
 
         <!-- Global Compact ToolTip Style (Premium Terminal Aesthetic) -->
