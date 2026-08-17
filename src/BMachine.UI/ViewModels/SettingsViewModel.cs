@@ -370,8 +370,8 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsAccountSelected))]
     [NotifyPropertyChangedFor(nameof(IsNotificationsSelected))]
     [NotifyPropertyChangedFor(nameof(IsScriptsManagerSelected))]
-    [NotifyPropertyChangedFor(nameof(IsExplorerSelected))]
-    [NotifyPropertyChangedFor(nameof(IsPathsSelected))] 
+    [NotifyPropertyChangedFor(nameof(IsPathsSelected))]
+    [NotifyPropertyChangedFor(nameof(IsLogPanelSelected))]
     [NotifyPropertyChangedFor(nameof(IsAboutSelected))] 
     private int _selectedMenuIndex = -1;
     
@@ -390,7 +390,6 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsNotificationsSelected));
         OnPropertyChanged(nameof(IsScriptsManagerSelected)); // New
         // OnPropertyChanged(nameof(IsScriptsManagerSelected)); // Removed duplicate/wrong name
-        OnPropertyChanged(nameof(IsExplorerSelected));
         OnPropertyChanged(nameof(IsPathsSelected));
         OnPropertyChanged(nameof(IsAboutSelected));
         OnPropertyChanged(nameof(IsLogPanelSelected));
@@ -419,10 +418,9 @@ public partial class SettingsViewModel : ObservableObject
     // The previous code had "Scripts" at 4. I changed UI to "Script Manager" at 4.
     // "Shortcuts" (was Scripts?) is now likely 5 or removed?
     // Let's look at UI again.
-    public bool IsExplorerSelected => SelectedMenuIndex == 5;
-    public bool IsPathsSelected => SelectedMenuIndex == 6;
-    public bool IsLogPanelSelected => SelectedMenuIndex == 7; // Log Panel Tab
-    public bool IsAboutSelected => SelectedMenuIndex == 8; // About Tab
+    public bool IsPathsSelected => SelectedMenuIndex == 5;
+    public bool IsLogPanelSelected => SelectedMenuIndex == 6; // Log Panel Tab
+    public bool IsAboutSelected => SelectedMenuIndex == 7; // About Tab
 
     // Sub-ViewModels
     public PathSettingsViewModel? PathSettingsVM { get; private set; }

@@ -199,28 +199,21 @@
                              <TextBlock Text="Script Manager" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
-                    <!-- 5: Explorer — also bound directly to IsExplorerSelected -->
-                    <ListBoxItem IsSelected="{Binding IsExplorerSelected}">
-                        <StackPanel Orientation="Horizontal" Spacing="9">
-                             <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                             <TextBlock Text="Explorer" FontSize="12" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </ListBoxItem>
-                    <!-- 6: Paths — also bound directly to IsPathsSelected -->
+                    <!-- 5: Paths — also bound directly to IsPathsSelected -->
                     <ListBoxItem IsSelected="{Binding IsPathsSelected}">
                         <StackPanel Orientation="Horizontal" Spacing="9">
                              <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                              <TextBlock Text="Paths" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
-                    <!-- 7: Log Panel -->
+                    <!-- 6: Log Panel -->
                     <ListBoxItem>
                         <StackPanel Orientation="Horizontal" Spacing="9">
                              <PathIcon Data="{StaticResource IconFileText}" Width="13" Height="13" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                              <TextBlock Text="Log Panel" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
-                    <!-- 8: About -->
+                    <!-- 7: About -->
                     <ListBoxItem>
                         <StackPanel Orientation="Horizontal" Spacing="9">
                              <PathIcon Data="{StaticResource IconInfoCircle}" Width="13" Height="13" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
@@ -984,13 +977,6 @@
                     </ScrollViewer>
                 </Grid>
             </Border>
-        </Grid>
-
-        <!-- EXPLORER -->
-        <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsExplorerSelected}" Margin="0,0,14,20">
-             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True">
-                 <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}"/>
-             </Border>
         </Grid>
 
         <!-- PATHS -->
