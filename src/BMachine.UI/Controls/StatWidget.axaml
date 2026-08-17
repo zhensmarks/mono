@@ -17,7 +17,6 @@
     </UserControl.Styles>
 
     <Panel>
-        <!-- Main Click Area -->
         <Button Classes="Clear" 
                 Command="{Binding #Root.Command}"
                 Padding="0" 
@@ -33,174 +32,156 @@
                 <Style Selector="Button:pointerover /template/ ContentPresenter">
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
-                <Style Selector="Button:pointerover Border#OuterBorder">
-                    <Setter Property="BorderBrush" Value="#35FFFFFF" />
-                    <Setter Property="Background" Value="#05FFFFFF" />
-                    <Setter Property="BoxShadow" Value="0 8 32 0 #2A000000" />
+                <Style Selector="Button:pointerover Border#HoverGlow">
+                    <Setter Property="Opacity" Value="0.03" />
                 </Style>
-                <Style Selector="Button:pressed /template/ ContentPresenter">
-                    <Setter Property="Background" Value="Transparent" />
+                <Style Selector="Button:pointerover Border#NeonPillar">
+                    <Setter Property="Margin" Value="0,0,16,0" />
+                    <Setter Property="Opacity" Value="1.0" />
                 </Style>
-                <Style Selector="Button:pressed Border#OuterBorder">
-                    <Setter Property="BorderBrush" Value="#55FFFFFF" />
-                    <Setter Property="Background" Value="#0AFFFFFF" />
+                <Style Selector="Button:pointerover PathIcon#Crosshair">
+                    <Setter Property="Opacity" Value="1.0" />
+                </Style>
+                <Style Selector="Button:pointerover TextBlock#LabelText">
+                    <Setter Property="Foreground" Value="#AAAAAA" />
                 </Style>
             </Button.Styles>
 
-            <Border x:Name="OuterBorder" Background="Transparent" BorderThickness="1" BorderBrush="#15FFFFFF" CornerRadius="12" ClipToBounds="True">
-                <Border.Transitions>
-                    <Transitions>
-                        <BrushTransition Property="BorderBrush" Duration="0:0:0.3"/>
-                        <BrushTransition Property="Background" Duration="0:0:0.3"/>
-                        <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.3"/>
-                    </Transitions>
-                </Border.Transitions>
-
+            <!-- No enclosing border. Just floating elements over the canvas. -->
+            <Border Padding="16,24,16,16" Background="Transparent">
                 <Grid>
-                    <!-- Futuristic Top Accent Glow Line -->
-                    <Border Height="2" VerticalAlignment="Top" Background="{Binding #Root.Color}" Opacity="0.8"/>
+                
+                <!-- Extremely faint background block on hover -->
+                <Border x:Name="HoverGlow" Background="{Binding #Root.Color}" Opacity="0" CornerRadius="0">
+                    <Border.Transitions>
+                        <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+                        </Transitions>
+                    </Border.Transitions>
+                </Border>
+
+                <!-- Mechanical Crosshair (Top Left anchor point) -->
+                <Grid Width="16" Height="16" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,-4,0,0">
+                    <shapes:Rectangle Width="8" Height="2" Fill="{Binding #Root.Color}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <shapes:Rectangle Width="2" Height="8" Fill="{Binding #Root.Color}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <PathIcon x:Name="Crosshair" Data="M12 2v20M2 12h20" Width="16" Height="16" Foreground="{Binding #Root.Color}" Opacity="0.4">
+                        <PathIcon.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+                            </Transitions>
+                        </PathIcon.Transitions>
+                    </PathIcon>
+                </Grid>
+
+                <!-- Content Grid -->
+                <Grid RowDefinitions="Auto,*" Margin="24,0,0,0">
                     
-                    <Border Padding="20,16,20,20">
-                        <Panel>
-                            <!-- MODE: CIRCULAR -->
-                            <StackPanel Spacing="14" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                        IsVisible="{Binding #Root.IsCircularMode}">
-                                
-                                <!-- Circular Progress Container -->
-                                <Panel Width="84" Height="84">
-                                    <shapes:Arc Width="84" Height="84"
-                                         StartAngle="0" SweepAngle="360"
-                                         Stroke="#10FFFFFF" StrokeThickness="3"/>
-                                    
-                                    <shapes:Arc x:Name="PART_ProgressArc" 
-                                         Width="84" Height="84"
-                                         StartAngle="-90" 
-                                         SweepAngle="{Binding #Root.SweepAngle}"
-                                         Stroke="{Binding #Root.Color}" 
-                                         StrokeThickness="3"
-                                         StrokeLineCap="Round"/>
-                                         
-                                    <TextBlock Text="{Binding #Root.Value}"
-                                               FontSize="24"
-                                               FontWeight="Black"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,0,16"/>
-                                               
-                                     <!-- Open Window Button -->
-                                     <Button Command="{Binding #Root.WindowCommand}"
-                                             IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                             VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                                             Margin="0,0,0,6"
-                                             Width="20" Height="20"
-                                             Background="Transparent" BorderThickness="0" Padding="2"
-                                             CornerRadius="4" Classes="Clear" Cursor="Hand">
-                                         <Button.Styles>
-                                            <Style Selector="Button:pointerover shapes|Path">
-                                                <Setter Property="Fill" Value="{Binding #Root.Color}"/>
-                                            </Style>
-                                         </Button.Styles>
-                                         <shapes:Path Data="{StaticResource IconOpenWindowFilled}" 
-                                                      Fill="#555555"
-                                                      Stretch="Uniform">
-                                             <shapes:Path.Transitions>
-                                                 <Transitions>
-                                                     <BrushTransition Property="Fill" Duration="0:0:0.2"/>
-                                                 </Transitions>
-                                             </shapes:Path.Transitions>
-                                         </shapes:Path>
-                                     </Button>
-                                </Panel>
-                                
-                                <TextBlock Text="{Binding #Root.Label}"
-                                           Foreground="#888888"
-                                           FontSize="11"
-                                           LetterSpacing="2"
-                                           FontWeight="Bold"
-                                           HorizontalAlignment="Center"
-                                           TextAlignment="Center"/>
-                            </StackPanel>
+                    <!-- Top Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Top" Margin="0,0,0,24">
+                        <TextBlock x:Name="LabelText"
+                                   Text="{Binding #Root.Label}"
+                                   Foreground="#666666"
+                                   FontSize="9"
+                                   LetterSpacing="4"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center">
+                            <TextBlock.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="Foreground" Duration="0:0:0.3"/>
+                                </Transitions>
+                            </TextBlock.Transitions>
+                        </TextBlock>
+                        
+                        <!-- Open Window Command (Sleek Arrow) -->
+                        <Button Grid.Column="1" 
+                                Command="{Binding #Root.WindowCommand}"
+                                IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                Width="20" Height="20"
+                                Background="Transparent" BorderThickness="0" Padding="0"
+                                ToolTip.Tip="Open in New Window" Classes="Clear"
+                                VerticalAlignment="Center"
+                                Cursor="Hand">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover shapes|Path">
+                                    <Setter Property="Fill" Value="{Binding #Root.Color}"/>
+                                </Style>
+                            </Button.Styles>
+                            <shapes:Path Data="M14 3l-1.4 1.4L17.2 9H3v2h14.2l-4.6 4.6L14 17l7-7z" 
+                                         Fill="#444444"
+                                         Stretch="Uniform"
+                                         Width="14" Height="14">
+                                <shapes:Path.Transitions>
+                                     <Transitions>
+                                         <BrushTransition Property="Fill" Duration="0:0:0.2"/>
+                                     </Transitions>
+                                </shapes:Path.Transitions>
+                            </shapes:Path>
+                        </Button>
+                    </Grid>
+                    
+                    <!-- MODE: BAR (Default) -->
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,*" VerticalAlignment="Bottom" IsVisible="{Binding #Root.IsBarMode}">
+                        <!-- Moving Neon Pillar -->
+                        <Border x:Name="NeonPillar" Grid.Column="0" Width="4" Background="{Binding #Root.Color}" 
+                                Margin="0,0,24,0" CornerRadius="0" Opacity="0.5">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <ThicknessTransition Property="Margin" Duration="0:0:0.5">
+                                        <ThicknessTransition.Easing>
+                                            <SplineEasing X1="0.1" Y1="0.9" X2="0.2" Y2="1"/>
+                                        </ThicknessTransition.Easing>
+                                    </ThicknessTransition>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
 
-                            <!-- MODE: BAR -->
-                            <Grid RowDefinitions="Auto,*" 
-                                  IsVisible="{Binding #Root.IsBarMode}">
-                                
-                                <!-- Header -->
-                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Top">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <!-- Subtle glowing dot -->
-                                        <Border Width="6" Height="6" CornerRadius="3" Background="{Binding #Root.Color}" VerticalAlignment="Center">
-                                            <!-- Extremely faint glow -->
-                                            <Border.Effect>
-                                                <DropShadowEffect BlurRadius="6" OffsetX="0" OffsetY="0" Color="{Binding #Root.Color}" Opacity="0.5"/>
-                                            </Border.Effect>
-                                        </Border>
-                                        <TextBlock Text="{Binding #Root.Label}"
-                                                   Foreground="#888888"
-                                                   FontSize="11"
-                                                   LetterSpacing="2"
-                                                   FontWeight="Bold"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
-                                    
-                                    <!-- Open Window Button -->
-                                    <Button Grid.Column="1" 
-                                            Command="{Binding #Root.WindowCommand}"
-                                            IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                            Width="24" Height="24"
-                                            Background="Transparent" BorderThickness="0" Padding="4"
-                                            CornerRadius="4"
-                                            ToolTip.Tip="Open in New Window" Classes="Clear"
-                                            VerticalAlignment="Center"
-                                            Cursor="Hand">
-                                        <Button.Styles>
-                                            <Style Selector="Button:pointerover shapes|Path">
-                                                <Setter Property="Fill" Value="{Binding #Root.Color}"/>
-                                            </Style>
-                                        </Button.Styles>
-                                        <shapes:Path Data="{StaticResource IconOpenWindowFilled}" 
-                                                     Fill="#555555"
-                                                     Stretch="Uniform">
-                                            <shapes:Path.Transitions>
-                                                 <Transitions>
-                                                     <BrushTransition Property="Fill" Duration="0:0:0.2"/>
-                                                 </Transitions>
-                                            </shapes:Path.Transitions>
-                                        </shapes:Path>
-                                    </Button>
-                                </Grid>
-
-                                <StackPanel Grid.Row="1" VerticalAlignment="Bottom" Spacing="12">
-                                    <Grid ColumnDefinitions="Auto,Auto" VerticalAlignment="Bottom">
-                                        <TextBlock x:Name="PART_BarValue" Grid.Column="0"
-                                                   Text="{Binding #Root.Value}"
-                                                   FontSize="40"
-                                                   FontWeight="Black"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock x:Name="PART_BarSuffix" Grid.Column="1"
-                                                   Text="{Binding #Root.Suffix}"
-                                                   IsVisible="{Binding #Root.Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                   FontSize="12"
-                                                   FontWeight="Bold"
-                                                   Foreground="{Binding #Root.Color}"
-                                                   VerticalAlignment="Bottom"
-                                                   LetterSpacing="2"
-                                                   Margin="10,0,0,8"/>
-                                    </Grid>
-                                    
-                                    <!-- Ultra-thin futuristic progress bar -->
-                                    <ProgressBar Value="{Binding #Root.Percentage}"
-                                                 Maximum="1" Minimum="0"
-                                                 Height="2"
-                                                 CornerRadius="1"
-                                                 Background="#15FFFFFF"
-                                                 Foreground="{Binding #Root.Color}"/>
-                                </StackPanel>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Spacing="2">
+                            <!-- Monumental Number -->
+                            <TextBlock x:Name="PART_BarValue"
+                                       Text="{Binding #Root.Value}"
+                                       FontSize="56"
+                                       FontWeight="Black"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       LetterSpacing="-3"
+                                       Margin="-4,-12,0,0"/>
+                            
+                            <!-- Tracking Suffix -->
+                            <TextBlock x:Name="PART_BarSuffix"
+                                       Text="{Binding #Root.Suffix}"
+                                       IsVisible="{Binding #Root.Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       FontSize="10"
+                                       FontWeight="Bold"
+                                       Foreground="{Binding #Root.Color}"
+                                       LetterSpacing="6"
+                                       Margin="0,0,0,0"/>
+                                       
+                            <!-- Asymmetrical Brutalist Progress Line -->
+                            <Grid ColumnDefinitions="Auto,*" Margin="0,12,0,0">
+                                <Border Grid.Column="0" Height="2" Width="20" Background="{Binding #Root.Color}" CornerRadius="0"/>
+                                <Border Grid.Column="1" Height="1" Background="#22FFFFFF" CornerRadius="0" VerticalAlignment="Center"/>
                             </Grid>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- MODE: CIRCULAR -->
+                    <Grid Grid.Row="1" IsVisible="{Binding #Root.IsCircularMode}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-24,0,0,0">
+                        <Panel Width="72" Height="72">
+                            <!-- Extremely thin rings -->
+                            <shapes:Arc Width="72" Height="72" StartAngle="0" SweepAngle="360" Stroke="#11FFFFFF" StrokeThickness="1"/>
+                            
+                            <shapes:Arc x:Name="PART_ProgressArc" Width="72" Height="72" StartAngle="-90" SweepAngle="{Binding #Root.SweepAngle}" Stroke="{Binding #Root.Color}" StrokeThickness="2" StrokeLineCap="Flat"/>
+                                 
+                            <TextBlock Text="{Binding #Root.Value}"
+                                       FontSize="20"
+                                       FontWeight="Black"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
                         </Panel>
-                    </Border>
+                    </Grid>
+                    
+                </Grid>
                 </Grid>
             </Border>
         </Button>
