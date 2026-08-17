@@ -1,8 +1,8 @@
-# 🚀 BMachine v2
+# 🚀 BMachine
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-6.5.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 ![Framework](https://img.shields.io/badge/.NET-8.0-purple.svg)
 
@@ -250,7 +250,11 @@ BMachine.v2/
 
 ## 📝 Changelog
 
-### v2.0.0 (Latest)
+### v6.5.0 (Latest)
+- ✨ Antarmuka Profile Picture Viewer baru ala Instagram (Background Blur)
+- ✨ Redesain dialog Logout dengan tombol Sign Out yang tegas
+- 🎨 Penghapusan animasi hover zoom pada widget dashboard agar lebih stabil
+- ✨ Tampilan Log Panel dan Trello Card yang lebih ringkas (compact)
 - ✨ Sistem update otomatis dari GitHub Releases
 - ✨ Tab "About" baru di Settings
 - ✨ Tombol "Get Key" dan "Get Token" untuk Trello
