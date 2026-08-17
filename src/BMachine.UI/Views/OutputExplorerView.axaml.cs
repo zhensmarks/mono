@@ -329,7 +329,9 @@ public partial class OutputExplorerView : UserControl
         TryAddKeyBinding(keyBindings, vm.ShortcutDeleteGesture, vm.DeleteItemCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutNewWindowGesture, vm.NewExplorerWindowCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutNewTabGesture, _requestNewTabCommand, null, _explorerKeyBindings);
-        TryAddKeyBinding(keyBindings, vm.ShortcutCloseTabGesture, _requestCloseTabOrWindowCommand, null, _explorerKeyBindings);
+        // NOTE: ShortcutCloseTabGesture (Ctrl+W) is intentionally NOT registered here.
+        // It is handled exclusively by ExplorerWindow.ApplyWindowExplorerShortcuts to avoid
+        // double-firing which caused 2 tabs to close on a single Ctrl+W press.
         TryAddKeyBinding(keyBindings, vm.ShortcutNavigateUpGesture, vm.NavigateUpCommand!, null, _explorerKeyBindings);
         
         // Special Case: Do NOT add KeyBinding for "Back" key directly.

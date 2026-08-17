@@ -930,18 +930,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     public bool IsShowingCustomLog { get; set; } = false;
 
-    private void AddFastfetch()
-    {
-        var logo = 
-            "  ____  __  __            _     _             " + Environment.NewLine +
-            " |  _ \\|  \\/  |          | |   (_)            " + Environment.NewLine +
-            " | |_) | \\  / | __ _  ___| |__  _ _ __   ___  " + Environment.NewLine +
-            " |  _ <| |\\/| |/ _` |/ __| '_ \\| | '_ \\ / _ \\ " + Environment.NewLine +
-            " | |_) | |  | | (_| | (__| | | | | | | |  __/ " + Environment.NewLine +
-            " |____/|_|  |_|\\__,_|\\___|_| |_|_|_| |_|\\___| ";
-
-        LogItems.Add(new LogItem(logo, LogLevel.Accent));
-    }
 
     private void UpdateLogText()
     {
@@ -960,7 +948,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         
         if (_logService.Logs.Count == 0)
         {
-            AddFastfetch();
             return;
         }
         
