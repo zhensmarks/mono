@@ -163,8 +163,8 @@ public partial class StatWidget : UserControl
         _barSuffix ??= this.FindControl<TextBlock>("PART_BarSuffix");
         if (_barValue == null) return;
 
-        double valueFont = Math.Clamp(Math.Min(size.Height * 0.26, size.Width * 0.22), 28, 56);
-        double suffixFont = Math.Clamp(valueFont * 0.44, 12, 20);
+        double valueFont = Math.Clamp(Math.Min(size.Height * 0.35, size.Width * 0.25), 16, 48);
+        double suffixFont = Math.Clamp(valueFont * 0.35, 8, 14);
 
         _barValue.FontSize = valueFont;
         if (_barSuffix != null)
