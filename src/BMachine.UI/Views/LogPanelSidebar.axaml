@@ -108,6 +108,7 @@
                                             Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
                                             Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
                                             Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                            Classes.accent="{Binding Level, Converter={x:Static vm:LogConverters.IsAccent}}"
                                             Classes="logCard">
                                         <SelectableTextBlock Text="{Binding Message}" 
                                                    Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
@@ -116,6 +117,7 @@
                                                    Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
                                                    Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
                                                    Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                                   Classes.accent="{Binding Level, Converter={x:Static vm:LogConverters.IsAccent}}"
                                                    FontSize="11" FontFamily="Consolas, Monospace" 
                                                    TextWrapping="Wrap"/>
                                     </Border>
@@ -394,6 +396,7 @@
         <Style Selector="SelectableTextBlock.warning"> <Setter Property="Foreground" Value="{DynamicResource TerminalWarningBrush}"/> </Style>
         <Style Selector="SelectableTextBlock.error"> <Setter Property="Foreground" Value="{DynamicResource TerminalErrorBrush}"/> </Style>
         <Style Selector="SelectableTextBlock.debug"> <Setter Property="Foreground" Value="{DynamicResource TerminalDebugBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.accent"> <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/> </Style>
 
         <!-- Compact Log Card styles -->
         <Style Selector="Border.logCard">
@@ -428,6 +431,11 @@
         <Style Selector="Border.logCard.info">
             <Setter Property="BorderBrush" Value="{DynamicResource TerminalInfoBrush}"/>
             <Setter Property="Background" Value="#103b82f6"/> <!-- subtle info background -->
+        </Style>
+
+        <Style Selector="Border.logCard.accent">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
         </Style>
 
         <Style Selector="Border.logCard.debug">

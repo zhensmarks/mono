@@ -12,7 +12,8 @@ public enum LogLevel
     Warning,
     Error,
     Debug,
-    System
+    System,
+    Accent
 }
 
 public partial class LogItem : ObservableObject

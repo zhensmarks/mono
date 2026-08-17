@@ -12,4 +12,5 @@ public static class LogConverters
     public static readonly IValueConverter IsWarning = new FuncValueConverter<LogLevel, bool>(l => l == LogLevel.Warning);
     public static readonly IValueConverter IsError = new FuncValueConverter<LogLevel, bool>(l => l == LogLevel.Error);
     public static readonly IValueConverter IsDebug = new FuncValueConverter<LogLevel, bool>(l => l == LogLevel.Debug);
+    public static readonly IValueConverter IsAccent = new FuncValueConverter<LogLevel, bool>(l => l == LogLevel.Accent);
 }
