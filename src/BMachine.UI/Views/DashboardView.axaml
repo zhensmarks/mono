@@ -211,30 +211,34 @@
         
         <!-- MAIN DASHBOARD AREA (Content) -->
         <Grid Grid.Column="1" RowDefinitions="Auto, *">
-            <!-- NAVIGATION BAR (Horizontal, at top) - SHARP TERMINAL STYLE -->
-            <Border Grid.Row="0" HorizontalAlignment="Center" Background="{DynamicResource MenuHoverBrush}" 
-                    CornerRadius="0" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2" Margin="12,12,12,6">
-                <WrapPanel Orientation="Horizontal" Margin="0,0,0,0">
+            <!-- NAVIGATION BAR (Horizontal, at top) - MINIMALIST SEGMENTED CONTROL -->
+            <Border Grid.Row="0" HorizontalAlignment="Center" 
+                    Background="{DynamicResource MenuHoverBrush}" 
+                    CornerRadius="6" 
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
+                    Padding="4" Margin="12,12,12,12">
+                <WrapPanel Orientation="Horizontal" Margin="0">
                     <WrapPanel.Styles>
                         <Style Selector="RadioButton.NavTab">
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                            <Setter Property="FontWeight" Value="Bold"/>
-                            <Setter Property="FontSize" Value="10"/>
                             <Setter Property="Cursor" Value="Hand"/>
-                            <Setter Property="Padding" Value="12,8"/>
-                            <Setter Property="BorderThickness" Value="0,0,0,0"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="2,0"/>
+                            <Setter Property="CornerRadius" Value="4"/>
+                            <Setter Property="BorderThickness" Value="1"/>
                             <Setter Property="BorderBrush" Value="Transparent"/>
                             <Setter Property="Transitions">
                                 <Transitions>
                                     <BrushTransition Property="Background" Duration="0:0:0.15"/>
                                     <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
                                 </Transitions>
                             </Setter>
                             <Setter Property="Template">
                                 <ControlTemplate>
                                     <Border Background="{TemplateBinding Background}" 
-                                            CornerRadius="0"
+                                            CornerRadius="{TemplateBinding CornerRadius}"
                                             BorderBrush="{TemplateBinding BorderBrush}"
                                             BorderThickness="{TemplateBinding BorderThickness}"
                                             Padding="{TemplateBinding Padding}">
@@ -245,16 +249,19 @@
                                 </ControlTemplate>
                             </Setter>
                         </Style>
+                        
                         <Style Selector="RadioButton.NavTab:pointerover">
-                            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+                            <Setter Property="Background" Value="#10FFFFFF"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </Style>
+                        
                         <Style Selector="RadioButton.NavTab:checked">
-                            <Setter Property="Background" Value="{DynamicResource MenuSelectedBrush}"/>
+                            <!-- Flat, punchy active segment -->
+                            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
                             <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-                            <Setter Property="BorderThickness" Value="0,0,0,3"/>
-                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                         </Style>
+                        
                         <Style Selector="RadioButton.NavTab:checked PathIcon">
                             <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
                         </Style>

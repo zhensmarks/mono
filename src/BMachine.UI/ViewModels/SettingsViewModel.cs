@@ -288,6 +288,12 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private double _navFontSize = 14;
     partial void OnNavFontSizeChanged(double value) => SaveAndNotify(value, "Dashboard.Nav.FontSize");
 
+    [ObservableProperty] private double _logNavButtonHeight = 40;
+    partial void OnLogNavButtonHeightChanged(double value) => SaveAndNotify(value, "LogPanel.Nav.Height");
+
+    [ObservableProperty] private double _logNavFontSize = 14;
+    partial void OnLogNavFontSizeChanged(double value) => SaveAndNotify(value, "LogPanel.Nav.FontSize");
+
     [ObservableProperty] private int _navStyleIndex = 0; // 0=Icon, 1=Text
     partial void OnNavStyleIndexChanged(int value) => SaveAndNotify(value, "Dashboard.Nav.Style");
 
@@ -317,6 +323,12 @@ public partial class SettingsViewModel : ObservableObject
         
         var f = await _database.GetAsync<string>("Dashboard.Nav.FontSize");
         if (double.TryParse(f, out double dF)) NavFontSize = dF;
+
+        var logH = await _database.GetAsync<string>("LogPanel.Nav.Height");
+        if (double.TryParse(logH, out double dLogH)) LogNavButtonHeight = dLogH;
+
+        var logF = await _database.GetAsync<string>("LogPanel.Nav.FontSize");
+        if (double.TryParse(logF, out double dLogF)) LogNavFontSize = dLogF;
 
         var s = await _database.GetAsync<string>("Dashboard.Nav.Style");
         if (int.TryParse(s, out int dS)) NavStyleIndex = dS;
@@ -381,6 +393,7 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(IsExplorerSelected));
         OnPropertyChanged(nameof(IsPathsSelected));
         OnPropertyChanged(nameof(IsAboutSelected));
+        OnPropertyChanged(nameof(IsLogPanelSelected));
         
         // Lazy Load Logic
         if (value == 2 && IsTrelloConnected) // 2 = Account
@@ -408,7 +421,8 @@ public partial class SettingsViewModel : ObservableObject
     // Let's look at UI again.
     public bool IsExplorerSelected => SelectedMenuIndex == 5;
     public bool IsPathsSelected => SelectedMenuIndex == 6;
-    public bool IsAboutSelected => SelectedMenuIndex == 7; // New About Tab
+    public bool IsLogPanelSelected => SelectedMenuIndex == 7; // Log Panel Tab
+    public bool IsAboutSelected => SelectedMenuIndex == 8; // About Tab
 
     // Sub-ViewModels
     public PathSettingsViewModel? PathSettingsVM { get; private set; }

@@ -31,44 +31,54 @@
         <Grid RowDefinitions="Auto, *, Auto">
             
             <!-- HEADER: Navigation Bar (Row 0) -->
-            <Border Grid.Row="0" Padding="8,8,8,4">
-                <StackPanel Spacing="6">
-                    <!-- Navigation Tab Buttons (same style as dashboard) -->
-                    <Border Background="Transparent" CornerRadius="0" Padding="0">
+            <Border Grid.Row="0" Padding="12,12,12,8">
+                <StackPanel Spacing="8">
+                    <!-- Navigation Tab Buttons (Minimalist Segmented Control) -->
+                    <Border Background="{DynamicResource CardBackgroundBrush}" 
+                            CornerRadius="8" Padding="4"
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                         <Grid ColumnDefinitions="*,*,*,*">
                             <Button Grid.Column="0" Classes="panelTab" Click="OnConsoleTabClick"
+                                    Height="{Binding LogNavButtonHeight}"
                                     Tag="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Console">
-                                <PathIcon Data="{StaticResource IconTerminal}" Width="14" Height="14"/>
+                                <PathIcon Data="{StaticResource IconTerminal}" Width="{Binding LogNavFontSize}" Height="{Binding LogNavFontSize}"/>
                             </Button>
                             
                             <Button Grid.Column="1" Classes="panelTab" Click="OnMasterTabClick"
+                                    Height="{Binding LogNavButtonHeight}"
                                     Tag="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Master">
-                                <PathIcon Data="{StaticResource IconGrid}" Width="14" Height="14"/>
+                                <PathIcon Data="{StaticResource IconGrid}" Width="{Binding LogNavFontSize}" Height="{Binding LogNavFontSize}"/>
                             </Button>
                             
                             <Button Grid.Column="2" Classes="panelTab" Click="OnPhotoshopTabClick"
+                                    Height="{Binding LogNavButtonHeight}"
                                     Tag="{Binding BatchVM.IsPhotoshopVisible}" ToolTip.Tip="Photoshop">
-                                <PathIcon Data="{StaticResource IconImageSimple}" Width="14" Height="14"/>
+                                <PathIcon Data="{StaticResource IconImageSimple}" Width="{Binding LogNavFontSize}" Height="{Binding LogNavFontSize}"/>
                             </Button>
 
                             <Button Grid.Column="3" Classes="panelTab" Click="OnDocTabClick"
+                                    Height="{Binding LogNavButtonHeight}"
                                     Tag="{Binding BatchVM.IsDocVisible}" ToolTip.Tip="DOC">
-                                <PathIcon Data="{StaticResource IconFileText}" Width="14" Height="14"/>
+                                <PathIcon Data="{StaticResource IconFileText}" Width="{Binding LogNavFontSize}" Height="{Binding LogNavFontSize}"/>
                             </Button>
                         </Grid>
                     </Border>
                     
-                    <!-- Search Box (Visible for Master/Photoshop) -->
-                    <TextBox Height="28" FontSize="11"
-                             Watermark="Search..." Background="#10FFFFFF" BorderThickness="0"
-                             CornerRadius="0" VerticalContentAlignment="Center" Padding="10,0"
-                             Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}"
-                             IsVisible="{Binding BatchVM.IsSearchVisible}">
-                        <TextBox.InnerRightContent>
-                            <PathIcon Data="{DynamicResource IconSearch}" Width="10" Height="10" 
-                                      Margin="0,0,8,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        </TextBox.InnerRightContent>
-                    </TextBox>
+                    <!-- Integrated Compact Search -->
+                    <Border IsVisible="{Binding BatchVM.IsSearchVisible}"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                            CornerRadius="6" Height="26">
+                        <TextBox FontSize="11"
+                                 Watermark="Search..." Background="Transparent" BorderThickness="0"
+                                 VerticalContentAlignment="Center" Padding="10,0,26,0"
+                                 Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}">
+                            <TextBox.InnerRightContent>
+                                <PathIcon Data="{DynamicResource IconSearch}" Width="12" Height="12" 
+                                          Margin="0,0,10,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </TextBox.InnerRightContent>
+                        </TextBox>
+                    </Border>
                 </StackPanel>
             </Border>
             
@@ -165,7 +175,8 @@
                         </Grid>
                     </StackPanel>
 
-                    <ScrollViewer Grid.Row="1" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <!-- Replace ScrollViewer with Grid so it scales instead of scrolling -->
+                    <Grid Grid.Row="1" Grid.RowSpan="2">
                         <Grid>
                             <!-- Dynamic column: 1 col when single, 2 cols when double -->
                             <Grid ColumnDefinitions="*" IsVisible="{Binding !BatchVM.IsSecondLogoVisible}">
@@ -239,7 +250,7 @@
                                 </Grid>
                             </Grid>
                         </Grid>
-                    </ScrollViewer>
+                    </Grid>
                 </Grid>
                 
             </Grid>
@@ -305,19 +316,20 @@
 
     <UserControl.Styles>
         
-        <!-- Panel Tab Button (matches dashboard nav style) -->
+        <!-- Panel Tab Button (Segmented Style) -->
         <Style Selector="Button.panelTab">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="BorderThickness" Value="0,0,0,3"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Padding" Value="6,5"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
         </Style>
         <Style Selector="Button.panelTab /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -327,14 +339,14 @@
         </Style>
         <!-- Active state via Tag=True -->
         <Style Selector="Button.panelTab[Tag=True]">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="Button.panelTab[Tag=True] /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource MenuSelectedBrush}"/>
+            <Setter Property="BoxShadow" Value="0 2 6 0 #15000000"/>
         </Style>
         <Style Selector="Button.panelTab[Tag=True] PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         
         <!-- Icon Button -->

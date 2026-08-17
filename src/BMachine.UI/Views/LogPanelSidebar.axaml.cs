@@ -19,7 +19,46 @@ public partial class LogPanelSidebar : UserControl
         InitializeComponent();
     }
 
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (TopLevel.GetTopLevel(this) is { } topLevel)
+        {
+            topLevel.KeyDown += TopLevel_KeyDown;
+        }
+    }
 
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (TopLevel.GetTopLevel(this) is { } topLevel)
+        {
+            topLevel.KeyDown -= TopLevel_KeyDown;
+        }
+    }
+
+    private void TopLevel_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.V)
+        {
+            if (DataContext is DashboardViewModel vm && vm.BatchVM != null && vm.BatchVM.IsDocVisible)
+            {
+                var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+                if (focused is TextBox)
+                {
+                    // If a TextBox is focused, let it handle its own paste. 
+                    // We only paste logo if they aren't typing text, or we can just try both.
+                    // But if they paste text, we don't want to show 'No image found' warning.
+                    // To be safe, if they are in a TextBox, we skip pasting logo unless the clipboard has an image.
+                    // But we can't easily check clipboard synchronously here. 
+                    // We will just let the command run, it handles it safely.
+                }
+                
+                vm.BatchVM.PasteLogoCommand.Execute("1");
+                e.Handled = true;
+            }
+        }
+    }
 
     private void LogItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

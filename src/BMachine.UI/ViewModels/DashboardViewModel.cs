@@ -110,6 +110,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     [ObservableProperty] private double _navFontSize = 14;
 
+    [ObservableProperty] private double _logNavButtonHeight = 40;
+    [ObservableProperty] private double _logNavFontSize = 14;
+
     [ObservableProperty] 
     [NotifyPropertyChangedFor(nameof(IsNavIconMode))]
     [NotifyPropertyChangedFor(nameof(NavButtonEffectiveWidth))]
@@ -177,6 +180,12 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         
         var f = await _database.GetAsync<string>("Dashboard.Nav.FontSize");
         if (double.TryParse(f, out double dF)) NavFontSize = dF;
+
+        var logH = await _database.GetAsync<string>("LogPanel.Nav.Height");
+        if (double.TryParse(logH, out double dLogH)) LogNavButtonHeight = dLogH;
+
+        var logF = await _database.GetAsync<string>("LogPanel.Nav.FontSize");
+        if (double.TryParse(logF, out double dLogF)) LogNavFontSize = dLogF;
         
         var s = await _database.GetAsync<string>("Dashboard.Nav.Style");
         if (int.TryParse(s, out int dS)) NavStyleIndex = dS;

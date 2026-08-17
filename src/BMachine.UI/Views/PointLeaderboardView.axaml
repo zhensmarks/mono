@@ -19,71 +19,53 @@
             </Grid>
 
             <!-- Tab Bar (Compact) -->
-            <Border Grid.Row="1" Margin="20,0,20,8" Background="{DynamicResource CardBackgroundBrush}" 
-                    CornerRadius="0" Padding="3" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                <Grid ColumnDefinitions="*, *">
-                    <Button Grid.Column="0" Command="{Binding SwitchToHarianCommand}"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Height="28" CornerRadius="0" BorderThickness="0" Cursor="Hand">
-                        <Button.Styles>
-                            <Style Selector="Button">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                            </Style>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="Transparent"/>
-                            </Style>
-                        </Button.Styles>
-                        <Panel>
-                            <Border CornerRadius="0" Background="{DynamicResource AccentBlueBrush}" 
-                                    IsVisible="{Binding IsHarianSelected}" Opacity="0.15"
-                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                            <TextBlock Text="HARIAN" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       FontWeight="Bold" FontSize="11">
-                                <TextBlock.Styles>
-                                    <Style Selector="TextBlock">
-                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                                    </Style>
-                                </TextBlock.Styles>
-                            </TextBlock>
-                            <TextBlock Text="HARIAN" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       FontWeight="Bold" FontSize="11"
-                                       Foreground="{DynamicResource AccentBlueBrush}"
-                                       IsVisible="{Binding IsHarianSelected}"/>
-                        </Panel>
-                    </Button>
+            <Border Grid.Row="1" HorizontalAlignment="Center" 
+                    Background="{DynamicResource MenuHoverBrush}" 
+                    CornerRadius="6" 
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
+                    Padding="4" Margin="20,0,20,8">
+                <StackPanel Orientation="Horizontal" Spacing="0">
+                    <StackPanel.Styles>
+                        <Style Selector="RadioButton.TabButton">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Padding" Value="24,10"/>
+                            <Setter Property="CornerRadius" Value="4"/>
+                            <Setter Property="Margin" Value="2,0"/>
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Setter>
+                            <Setter Property="Template">
+                                <ControlTemplate>
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                                        <TextBlock Text="{TemplateBinding Content}" FontSize="11" 
+                                                   Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter>
+                        </Style>
+                        <Style Selector="RadioButton.TabButton:pointerover">
+                            <Setter Property="Background" Value="#10FFFFFF"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                        </Style>
+                        <Style Selector="RadioButton.TabButton:checked">
+                             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+                             <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                        </Style>
+                    </StackPanel.Styles>
                     
-                    <Button Grid.Column="1" Command="{Binding SwitchToBulananCommand}"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Height="28" CornerRadius="0" BorderThickness="0" Cursor="Hand">
-                        <Button.Styles>
-                            <Style Selector="Button">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                            </Style>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="Transparent"/>
-                            </Style>
-                        </Button.Styles>
-                        <Panel>
-                            <Border CornerRadius="0" Background="{DynamicResource AccentBlueBrush}" 
-                                    IsVisible="{Binding IsBulananSelected}" Opacity="0.15"
-                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                            <TextBlock Text="BULANAN" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       FontWeight="Bold" FontSize="11">
-                                <TextBlock.Styles>
-                                    <Style Selector="TextBlock">
-                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                                    </Style>
-                                </TextBlock.Styles>
-                            </TextBlock>
-                            <TextBlock Text="BULANAN" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       FontWeight="Bold" FontSize="11"
-                                       Foreground="{DynamicResource AccentBlueBrush}"
-                                       IsVisible="{Binding IsBulananSelected}"/>
-                        </Panel>
-                    </Button>
-                </Grid>
+                    <RadioButton Classes="TabButton" Content="HARIAN" IsChecked="{Binding IsHarianSelected}" Command="{Binding SwitchToHarianCommand}"/>
+                    <RadioButton Classes="TabButton" Content="BULANAN" IsChecked="{Binding IsBulananSelected}" Command="{Binding SwitchToBulananCommand}"/>
+                </StackPanel>
             </Border>
 
             <!-- List Content -->

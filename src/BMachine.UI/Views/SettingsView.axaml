@@ -213,7 +213,14 @@
                              <TextBlock Text="Paths" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
-                    <!-- 7: About -->
+                    <!-- 7: Log Panel -->
+                    <ListBoxItem>
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                             <PathIcon Data="{StaticResource IconFileText}" Width="13" Height="13" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
+                             <TextBlock Text="Log Panel" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ListBoxItem>
+                    <!-- 8: About -->
                     <ListBoxItem>
                         <StackPanel Orientation="Horizontal" Spacing="9">
                              <PathIcon Data="{StaticResource IconInfoCircle}" Width="13" Height="13" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
@@ -764,58 +771,52 @@
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsScriptsManagerSelected}" Margin="0,0,14,20">
             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True">
                 <Grid RowDefinitions="Auto, *">
-                    <Border Grid.Row="0" Margin="16,14,16,8" Background="#08FFFFFF" CornerRadius="0" Padding="2" HorizontalAlignment="Center">
+                    <Border Grid.Row="0" HorizontalAlignment="Center" 
+                            Background="{DynamicResource MenuHoverBrush}" 
+                            CornerRadius="6" 
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
+                            Padding="4" Margin="16,14,16,8">
                         <StackPanel Orientation="Horizontal" Spacing="0">
-                            <RadioButton Classes="TabButton" Content="MASTER SCRIPTS (PYTHON)" IsChecked="{Binding IsScriptMasterSelected}" Command="{Binding SwitchToScriptMasterCommand}">
-                                <RadioButton.Styles>
-                                    <Style Selector="RadioButton /template/ Border#TabBorder">
-                                        <Setter Property="CornerRadius" Value="0"/>
-                                        <Setter Property="Padding" Value="14,6"/>
-                                        <Setter Property="Background" Value="Transparent"/>
-                                    </Style>
-                                    <Style Selector="RadioButton:pointerover /template/ Border#TabBorder">
-                                        <Setter Property="Background" Value="#0AFFFFFF"/>
-                                    </Style>
-                                    <Style Selector="RadioButton:checked /template/ Border#TabBorder">
-                                        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                    </Style>
-                                    <Style Selector="RadioButton:checked /template/ TextBlock">
-                                        <Setter Property="Foreground" Value="#0A0A0A"/>
-                                    </Style>
-                                </RadioButton.Styles>
-                                <RadioButton.Template>
-                                    <ControlTemplate>
-                                        <Border x:Name="TabBorder">
-                                            <TextBlock Text="{TemplateBinding Content}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </RadioButton.Template>
-                            </RadioButton>
-                            <RadioButton Classes="TabButton" Content="ACTION SCRIPTS (RADIAL MENU)" IsChecked="{Binding IsScriptActionSelected}" Command="{Binding SwitchToScriptActionCommand}">
-                                <RadioButton.Styles>
-                                    <Style Selector="RadioButton /template/ Border#TabBorder">
-                                        <Setter Property="CornerRadius" Value="0"/>
-                                        <Setter Property="Padding" Value="14,6"/>
-                                        <Setter Property="Background" Value="Transparent"/>
-                                    </Style>
-                                    <Style Selector="RadioButton:pointerover /template/ Border#TabBorder">
-                                        <Setter Property="Background" Value="#0AFFFFFF"/>
-                                    </Style>
-                                    <Style Selector="RadioButton:checked /template/ Border#TabBorder">
-                                        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                    </Style>
-                                    <Style Selector="RadioButton:checked /template/ TextBlock">
-                                        <Setter Property="Foreground" Value="#0A0A0A"/>
-                                    </Style>
-                                </RadioButton.Styles>
-                                <RadioButton.Template>
-                                    <ControlTemplate>
-                                        <Border x:Name="TabBorder">
-                                            <TextBlock Text="{TemplateBinding Content}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </RadioButton.Template>
-                            </RadioButton>
+                            <StackPanel.Styles>
+                                <Style Selector="RadioButton.TabButton">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                    <Setter Property="BorderThickness" Value="1"/>
+                                    <Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Padding" Value="24,10"/>
+                                    <Setter Property="CornerRadius" Value="4"/>
+                                    <Setter Property="Margin" Value="2,0"/>
+                                    <Setter Property="Transitions">
+                                        <Transitions>
+                                            <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                            <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                                            <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                                        </Transitions>
+                                    </Setter>
+                                    <Setter Property="Template">
+                                        <ControlTemplate>
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                                                <TextBlock Text="{TemplateBinding Content}" FontSize="11" 
+                                                           Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter>
+                                </Style>
+                                <Style Selector="RadioButton.TabButton:pointerover">
+                                    <Setter Property="Background" Value="#10FFFFFF"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                </Style>
+                                <Style Selector="RadioButton.TabButton:checked">
+                                     <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+                                     <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+                                     <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                </Style>
+                            </StackPanel.Styles>
+                            
+                            <RadioButton Classes="TabButton" Content="MASTER SCRIPTS (PYTHON)" IsChecked="{Binding IsScriptMasterSelected}" Command="{Binding SwitchToScriptMasterCommand}"/>
+                            <RadioButton Classes="TabButton" Content="ACTION SCRIPTS (RADIAL MENU)" IsChecked="{Binding IsScriptActionSelected}" Command="{Binding SwitchToScriptActionCommand}"/>
                         </StackPanel>
                     </Border>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -1028,6 +1029,25 @@
                  <views:PathSettingsView DataContext="{Binding PathSettingsVM}"/>
              </Border>
         </Grid>
+
+        <!-- STATUS TOAST -->
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsLogPanelSelected}">
+            <StackPanel Spacing="0" Margin="0,0,14,20">
+                <TextBlock Classes="SL" Text="LOG PANEL NAVIGATION"/>
+                <Border Classes="SR">
+                    <Grid ColumnDefinitions="*, 120">
+                        <TextBlock Text="Tab Button Height" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <NumericUpDown Grid.Column="1" Value="{Binding LogNavButtonHeight}" Minimum="10" Maximum="80" Increment="1" FormatString="0"/>
+                    </Grid>
+                </Border>
+                <Border Classes="SR">
+                    <Grid ColumnDefinitions="*, 120">
+                        <TextBlock Text="Tab Icon Size" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <NumericUpDown Grid.Column="1" Value="{Binding LogNavFontSize}" Minimum="10" Maximum="30" Increment="1" FormatString="0"/>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- ABOUT -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsAboutSelected}" Margin="0,0,14,20">
