@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
 using BMachine.SDK;
 // using BMachine.SDK.Interfaces; // Removed
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -27,6 +29,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private readonly Services.IProcessLogService? _logService;
     private readonly IPlatformService _platformService;
     private Services.FileOperationManager _fileManager; // Added
+    private static readonly DateTime StartTime = DateTime.Now;
 
     public IDatabase Database => _database;
     public ILanguageService? Language => _languageService;
@@ -207,6 +210,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [RelayCommand]
     private async Task ClearLog()
     {
+        IsShowingCustomLog = false;
         _logService?.Clear();
         LogItems.Clear(); // Ensure UI is cleared too
         ProcessStatusText = "Console cleared";
@@ -927,6 +931,56 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     public bool IsShowingCustomLog { get; set; } = false;
 
+    private void AddFastfetch()
+    {
+        var os = RuntimeInformation.OSDescription;
+        var arch = RuntimeInformation.ProcessArchitecture.ToString();
+        var dotnet = RuntimeInformation.FrameworkDescription;
+        
+        var uptimeSpan = DateTime.Now - StartTime;
+        var uptime = "";
+        if (uptimeSpan.TotalDays >= 1)
+            uptime += $"{(int)uptimeSpan.TotalDays}d ";
+        if (uptimeSpan.Hours > 0 || uptimeSpan.TotalDays >= 1)
+            uptime += $"{uptimeSpan.Hours}h ";
+        uptime += $"{uptimeSpan.Minutes}m {uptimeSpan.Seconds}s";
+
+        var theme = Application.Current?.ActualThemeVariant.ToString() ?? "Default";
+        var lang = _languageService?.CurrentLanguage?.DisplayName ?? "Indonesia";
+
+        long memUsed = 0;
+        try
+        {
+            using (var proc = Process.GetCurrentProcess())
+            {
+                memUsed = proc.PrivateMemorySize64 / (1024 * 1024);
+            }
+        }
+        catch { }
+
+        var logo = 
+            "  ____  __  __            _     _             " + Environment.NewLine +
+            " |  _ \\|  \\/  |          | |   (_)            " + Environment.NewLine +
+            " | |_) | \\  / | __ _  ___| |__  _ _ __   ___  " + Environment.NewLine +
+            " |  _ <| |\\/| |/ _` |/ __| '_ \\| | '_ \\ / _ \\ " + Environment.NewLine +
+            " | |_) | |  | | (_| | (__| | | | | | | |  __/ " + Environment.NewLine +
+            " |____/|_|  |_|\\__,_|\\___|_| |_|_|_| |_|\\___| " + Environment.NewLine;
+
+        var stats = 
+            " ─────────────────────────────────────────────" + Environment.NewLine +
+            $"   OS       : {os} ({arch})" + Environment.NewLine +
+            $"   Host     : BMachine Desktop v6.0.0" + Environment.NewLine +
+            $"   Kernel   : {dotnet}" + Environment.NewLine +
+            $"   Uptime   : {uptime}" + Environment.NewLine +
+            $"   Theme    : {theme}" + Environment.NewLine +
+            $"   Language : {lang}" + Environment.NewLine +
+            $"   Memory   : {memUsed} MB" + Environment.NewLine +
+            " ─────────────────────────────────────────────";
+
+        var fullText = logo + stats;
+        LogItems.Add(new LogItem(fullText, LogLevel.System));
+    }
+
     private void UpdateLogText()
     {
         if (_logService == null) return;
@@ -941,6 +995,13 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         if (IsShowingCustomLog) return;
         
         LogItems.Clear();
+        
+        if (_logService.Logs.Count == 0)
+        {
+            AddFastfetch();
+            return;
+        }
+        
         foreach (var line in _logService.Logs)
         {
             var item = ParseLog(line);
