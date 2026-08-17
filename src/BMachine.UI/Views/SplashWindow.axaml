@@ -37,7 +37,7 @@
                 </Image>
                     
                 <!-- Version -->
-                <TextBlock Text="v2.0" 
+                <TextBlock Text="v6.5" 
                            FontSize="10" 
                            FontWeight="Bold"
                            FontFamily="Consolas, Courier New, monospace"

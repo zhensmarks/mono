@@ -1031,7 +1031,7 @@ public partial class SettingsViewModel : ObservableObject
     // So the signature above IS correct for the new property type.
     
     // --- Update System ---
-    [ObservableProperty] private string _currentVersion = "2.0.0";
+    [ObservableProperty] private string _currentVersion = "6.5.0";
     [ObservableProperty] private bool _isUpdateAvailable = false;
     [ObservableProperty] private string _latestVersion = "";
     [ObservableProperty] private string _updateReleaseNotes = "";
