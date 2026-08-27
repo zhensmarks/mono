@@ -228,13 +228,18 @@ def make_safe_name(name: str) -> str:
     return name or "unnamed"
 
 def compute_dest_filename(base_name: str, idx: int) -> str:
-    # hilangkan suffix duplikat: "1(1)", "1 (2)", "_(3)", " (4)"
-    base_clean = re.sub(r'[\s_\-]*\(\d+\)$', "", base_name).strip()
-    if not base_clean:
+    # Bersihkan spasi, kurung, dan karakter tak perlu di awal/akhir
+    clean_name = base_name.strip("()[]{} _-")
+    
+    # Jika setelah dibersihkan sisa angka atau tanda hubung saja (misal "3" atau "1-23")
+    if re.match(r'^[\d\-]+$', clean_name):
+        return f"{clean_name}.psd"
+        
+    # Jika string kosong setelah dibersihkan, gunakan idx
+    if not clean_name:
         return f"{idx}.psd"
-    if base_clean.isdigit():
-        return f"{idx}.psd"
-    return f"{make_safe_name(base_clean)}.psd"
+        
+    return f"{make_safe_name(base_name)}.psd"
 
 def get_relative_path_from_month(pilihan_path):
     """Dapatkan path relatif mulai dari folder bulan hingga parent pilihan."""
@@ -597,6 +602,26 @@ oLink.Save
                 print(f"    -> [ERROR] Gagal membuat shortcut kembali.")
         else:
             print(f"  - Shortcut kembali '#OKE...' sudah ada, dilewati.")
+
+        bat_file_path = os.path.join(sumber_parent_folder, f"Pindah_ke_OKE_{user_name.upper()}.bat")
+        if not os.path.exists(bat_file_path):
+            bat_content = f"""@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+for /d %%D in (*) do (
+    move /Y "%%D" "{oke_user_folder}" >nul
+)
+del "%~f0"
+"""
+            try:
+                with open(bat_file_path, 'w', encoding='utf-8') as f:
+                    f.write(bat_content)
+                print(f"  - Berhasil membuat file batch: {os.path.basename(bat_file_path)}")
+            except Exception as e:
+                print(f"  - [ERROR] Gagal membuat file batch: {e}")
+        else:
+            print(f"  - File batch '{os.path.basename(bat_file_path)}' sudah ada, dilewati.")
+
     except Exception as e:
         print(f"[ERROR] Terjadi kesalahan saat membuat shortcut di OKE BASE: {e}", file=sys.stderr)
 

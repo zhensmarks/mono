@@ -170,28 +170,14 @@
             
             docDialog.add("statictext", undefined, "Pilih dokumen (Klik+Shift/Ctrl untuk multi-select):");
             
-            var listbox = docDialog.add("listbox", [0, 0, 480, 240], [], {multiselect: true});
+            var listbox = docDialog.add("listbox", [0, 0, 380, 220], [], {multiselect: true});
             
             var grpOptions = docDialog.add("group");
-            grpOptions.orientation = "column";
+            grpOptions.orientation = "row";
             grpOptions.alignChildren = ["left", "center"];
-            grpOptions.spacing = 6;
-            
-            var grpRow1 = grpOptions.add("group");
-            grpRow1.orientation = "row";
-            grpRow1.alignChildren = ["left", "center"];
-            grpRow1.spacing = 15;
-            var cbShowFolder = grpRow1.add("checkbox", undefined, "Tampilkan Nama Folder");
-            cbShowFolder.value = true;
-            var cbSortFolder = grpRow1.add("checkbox", undefined, "Urutkan berdasarkan Folder");
-            
-            var grpRow2 = grpOptions.add("group");
-            grpRow2.orientation = "row";
-            grpRow2.alignChildren = ["left", "center"];
-            grpRow2.spacing = 15;
-            var cbShowSize = grpRow2.add("checkbox", undefined, "Tampilkan Ukuran/Orientasi");
-            cbShowSize.value = true;
-            var cbSortSize = grpRow2.add("checkbox", undefined, "Urutkan berdasarkan Ukuran");
+            grpOptions.spacing = 15;
+            var cbShowFolder = grpOptions.add("checkbox", undefined, "Tampilkan Nama Folder");
+            var cbSortFolder = grpOptions.add("checkbox", undefined, "Urutkan berdasarkan Folder");
             
             function populateList() {
                 var selectedIndices = {};
@@ -223,60 +209,26 @@
                     } catch (e) {
                         folderName = "Belum Disimpan";
                     }
-                    
-                    var wVal = 0;
-                    var hVal = 0;
-                    try {
-                        wVal = doc.width.as("px");
-                        hVal = doc.height.as("px");
-                    } catch (e) {
-                        wVal = doc.width.value;
-                        hVal = doc.height.value;
-                    }
-                    wVal = Math.round(wVal);
-                    hVal = Math.round(hVal);
-                    var isPortrait = hVal > wVal;
-                    var orientStr = isPortrait ? "Portrait" : (wVal > hVal ? "Landscape" : "Square");
-                    var sizeStr = wVal + "x" + hVal + " (" + orientStr + ")";
-                    
                     itemsData.push({
                         index: i,
                         name: doc.name,
-                        folderName: folderName,
-                        width: wVal,
-                        height: hVal,
-                        orientation: orientStr,
-                        sizeStr: sizeStr
+                        folderName: folderName
                     });
                 }
                 
-                // Sort data if checked
-                if (cbSortFolder.value || cbSortSize.value) {
+                // Sort by folder name if checked
+                if (cbSortFolder.value) {
                     itemsData.sort(function(a, b) {
-                        if (cbSortFolder.value) {
-                            var fA = a.folderName.toLowerCase();
-                            var fB = b.folderName.toLowerCase();
-                            if (fA !== fB) {
-                                return fA < fB ? -1 : 1;
-                            }
-                        }
-                        if (cbSortSize.value) {
-                            if (a.orientation !== b.orientation) {
-                                return a.orientation < b.orientation ? -1 : 1;
-                            }
-                            if (a.width !== b.width) {
-                                return a.width < b.width ? -1 : 1;
-                            }
-                            if (a.height !== b.height) {
-                                return a.height < b.height ? -1 : 1;
-                            }
-                        }
+                        var fA = a.folderName.toLowerCase();
+                        var fB = b.folderName.toLowerCase();
+                        if (fA < fB) return -1;
+                        if (fA > fB) return 1;
+                        
                         // Secondary sort by file name
                         var nA = a.name.toLowerCase();
                         var nB = b.name.toLowerCase();
-                        if (nA !== nB) {
-                            return nA < nB ? -1 : 1;
-                        }
+                        if (nA < nB) return -1;
+                        if (nA > nB) return 1;
                         return 0;
                     });
                 }
@@ -285,20 +237,16 @@
                 for (var i = 0; i < itemsData.length; i++) {
                     var itemData = itemsData[i];
                     var displayName = itemData.name;
-                    var details = [];
                     if (cbShowFolder.value) {
-                        details.push(itemData.folderName === "Belum Disimpan" ? "Belum Disimpan" : itemData.folderName);
-                    }
-                    if (cbShowSize.value) {
-                        details.push(itemData.sizeStr);
-                    }
-                    if (details.length > 0) {
-                        displayName += " (" + details.join(" - ") + ")";
+                        if (itemData.folderName === "Belum Disimpan") {
+                            displayName = itemData.name + " (Belum Disimpan)";
+                        } else {
+                            displayName = itemData.name + " (" + itemData.folderName + ")";
+                        }
                     }
                     
                     var item = listbox.add("item", displayName);
                     item.originalIndex = itemData.index;
-                    item.orientation = itemData.orientation;
                     if (selectedIndices[itemData.index]) {
                         item.selected = true;
                     }
@@ -306,15 +254,7 @@
             }
             
             cbShowFolder.onClick = populateList;
-            cbSortFolder.onClick = function() {
-                if (cbSortFolder.value) cbSortSize.value = false;
-                populateList();
-            };
-            cbShowSize.onClick = populateList;
-            cbSortSize.onClick = function() {
-                if (cbSortSize.value) cbSortFolder.value = false;
-                populateList();
-            };
+            cbSortFolder.onClick = populateList;
             populateList();
             
             var grpSelectBtns = docDialog.add("group");
@@ -322,8 +262,6 @@
             grpSelectBtns.alignChildren = ["center", "top"];
             var btnSelectAll = grpSelectBtns.add("button", undefined, "Pilih Semua");
             var btnDesellecAll = grpSelectBtns.add("button", undefined, "Batal Pilih");
-            var btnSelectPortrait = grpSelectBtns.add("button", undefined, "Pilih Portrait");
-            var btnSelectLandscape = grpSelectBtns.add("button", undefined, "Pilih Landscape");
             
             btnSelectAll.onClick = function() {
                 for (var i = 0; i < listbox.items.length; i++) {
@@ -333,24 +271,6 @@
             btnDesellecAll.onClick = function() {
                 for (var i = 0; i < listbox.items.length; i++) {
                     listbox.items[i].selected = false;
-                }
-            };
-            btnSelectPortrait.onClick = function() {
-                for (var i = 0; i < listbox.items.length; i++) {
-                    if (listbox.items[i].orientation === "Portrait") {
-                        listbox.items[i].selected = true;
-                    } else {
-                        listbox.items[i].selected = false;
-                    }
-                }
-            };
-            btnSelectLandscape.onClick = function() {
-                for (var i = 0; i < listbox.items.length; i++) {
-                    if (listbox.items[i].orientation === "Landscape") {
-                        listbox.items[i].selected = true;
-                    } else {
-                        listbox.items[i].selected = false;
-                    }
                 }
             };
             

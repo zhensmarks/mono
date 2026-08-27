@@ -375,7 +375,7 @@ function runReplacementLogic(templateFolder, inputFolder) {
                 
                 // Coba cocokan kalau format master hanya angka misal "1" dan input " (1)"
                 var inputJustNumber = "";
-                var numberMatch = inputBaseName.match(/\((\d+)\)/) || inputBaseName.match(/(\d+)/);
+                var numberMatch = inputBaseNameStripped.match(/(\d+)/) || inputBaseName.match(/\((\d+)\)/) || inputBaseName.match(/(\d+)/);
                 if (numberMatch) inputJustNumber = numberMatch[1];
 
                 if (inputBaseName === templateBaseName || inputBaseNameStripped === templateBaseName || (inputJustNumber !== "" && inputJustNumber === templateBaseName)) {
@@ -594,7 +594,7 @@ function runRevisiLogic(masterFolder, inputFolder) {
         }
         
         // Tambahkan versi "hanya angka" jika nama formatnya "   (2)"
-        var numberMatch = baseName.match(/\((\d+)\)/) || baseName.match(/(\d+)/);
+        var numberMatch = baseNameStripped.match(/(\d+)/) || baseName.match(/\((\d+)\)/) || baseName.match(/(\d+)/);
         if (numberMatch) {
             var justNumber = numberMatch[1];
             if (baseName !== justNumber && baseNameStripped !== justNumber) {

@@ -297,6 +297,25 @@ def create_oke_base_links(pilihan_path, oke_base_path, user_name):
         else:
             print("  - Shortcut balik sudah ada.")
 
+        bat_file_path = os.path.join(sumber_parent, f"Pindah_ke_OKE_{user_name.upper()}.bat")
+        if not os.path.exists(bat_file_path):
+            bat_content = f"""@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+for /d %%D in (*) do (
+    move /Y "%%D" "{oke_user_folder}" >nul
+)
+del "%~f0"
+"""
+            try:
+                with open(bat_file_path, 'w', encoding='utf-8') as f:
+                    f.write(bat_content)
+                print(f"  - Berhasil membuat file batch: {os.path.basename(bat_file_path)}")
+            except Exception as e:
+                print(f"  - [ERROR] Gagal membuat file batch: {e}")
+        else:
+            print(f"  - File batch '{os.path.basename(bat_file_path)}' sudah ada, dilewati.")
+
     except Exception as e:
         print(f"[ERROR] OKE BASE: {e}", file=sys.stderr)
 

@@ -47,7 +47,7 @@ function main() {
     dlg.spacing = 15;
     dlg.margins = 20;
 
-    // --- PANEL: STANDARD OUTPUT (2 Columns) ---
+    // --- PANEL: STANDARD OUTPUT (3 Columns) ---
     var pnlStd = dlg.add("panel", undefined, "Standard Output (Same Folder)");
     pnlStd.orientation = "row";
     pnlStd.alignChildren = ["fill", "top"];
@@ -82,15 +82,6 @@ function main() {
     col2.orientation = "column";
     col2.add("statictext", undefined, "--- PNG & PAS FOTO ---");
 
-    // PNG
-    var btnPng = col2.add("button", undefined, "PNG Standard");
-    btnPng.preferredSize.width = 140;
-
-    // Separator small
-    var sep = col2.add("panel");
-    sep.alignment = "fill";
-    sep.preferredSize.height = 1;
-
     // Pas Foto
     var btnPas2x3 = col2.add("button", undefined, "PAS FOTO (2x3)");
     btnPas2x3.preferredSize.width = 140;
@@ -98,6 +89,31 @@ function main() {
     btnPas4x6.preferredSize.width = 140;
     var btnPasKombi = col2.add("button", undefined, "PAS FOTO (KOMBI)");
     btnPasKombi.preferredSize.width = 140;
+
+    // Separator small
+    var sep = col2.add("panel");
+    sep.alignment = "fill";
+    sep.preferredSize.height = 1;
+
+    // PNG
+    var btnPng = col2.add("button", undefined, "PNG Standard");
+    btnPng.preferredSize.width = 140;
+
+    // Col 3: ARTBOARD
+    var col3 = pnlStd.add("group");
+    col3.orientation = "column";
+    col3.add("statictext", undefined, "--- ARTBOARD ---");
+    
+    var chkLayer1 = col3.add("checkbox", undefined, "LAYER 1");
+    var chkLayer2 = col3.add("checkbox", undefined, "LAYER 2");
+    var chkLayer3 = col3.add("checkbox", undefined, "LAYER 3");
+    chkLayer1.value = true;
+    chkLayer2.value = false;
+    chkLayer3.value = false;
+
+    var btnArtJpg = col3.add("button", undefined, "PROSES ART");
+    btnArtJpg.preferredSize.width = 140;
+    btnArtJpg.helpTip = "Export Artboard ke JPG untuk semua file (Batch)";
 
     // --- PANEL: CUSTOM FOLDER OUTPUT ---
     var pnlCustom = dlg.add("panel", undefined, "Custom Folder Output");
@@ -150,6 +166,8 @@ function main() {
     btnPas2x3.onClick = function () { dlg.close(302); };
     btnPas4x6.onClick = function () { dlg.close(303); };
     btnPasKombi.onClick = function () { dlg.close(304); };
+    
+    btnArtJpg.onClick = function () { dlg.close(401); };
 
     btnSmartSave.onClick = function () { dlg.close(99); }; // Code 99 for Smart Save
 
@@ -323,6 +341,106 @@ function main() {
         return; // Exit main
     }
 
+    // --- SPECIAL MODE: ARTBOARD (401) ---
+    if (choice == 401) {
+        var isPng = false;
+        
+        var docs = [];
+        for (var i = 0; i < app.documents.length; i++) {
+            docs.push(app.documents[i]);
+        }
+        
+        var totalSuccess = 0;
+        var totalFail = 0;
+        var allDetails = [];
+
+        var repeatByName = {
+            "LAYER 1": chkLayer1.value,
+            "LAYER 2": chkLayer2.value,
+            "LAYER 3": chkLayer3.value
+        };
+        var exportedOnce = {};
+        var exportSchedules = [];
+
+        function normalizeArtboardName(name) {
+            return String(name || "").replace(/^\s+|\s+$/g, "").toUpperCase();
+        }
+
+        // Build schedule
+        for (var i = 0; i < docs.length; i++) {
+            var schedule = [];
+            var doc = docs[i];
+            try {
+                app.activeDocument = doc;
+                var artboardsInfo = getArtboardsData();
+                
+                for (var scheduleIdx = 0; scheduleIdx < artboardsInfo.length; scheduleIdx++) {
+                    var normalizedName = normalizeArtboardName(artboardsInfo[scheduleIdx].name);
+                    var isControlledLayer = repeatByName.hasOwnProperty(normalizedName);
+                    var shouldExport = true;
+
+                    if (isControlledLayer && !repeatByName[normalizedName]) {
+                        if (exportedOnce[normalizedName]) {
+                            shouldExport = false;
+                        } else {
+                            exportedOnce[normalizedName] = true;
+                        }
+                    }
+
+                    if (shouldExport) schedule.push(scheduleIdx);
+                }
+            } catch (e) {}
+            exportSchedules.push(schedule);
+        }
+
+        // Execute schedule
+        for (var i = 0; i < docs.length; i++) {
+            var doc = docs[i];
+            var currentSchedule = exportSchedules[i];
+            try {
+                app.activeDocument = doc;
+                
+                if (!doc.path) {
+                    allDetails.push(doc.name + " (Gagal: Belum disave/tidak ada path)");
+                    totalFail++;
+                    continue;
+                }
+                
+                // Simpan PSD original dulu
+                doc.save();
+                
+                var res = exportArtboards(doc, isPng, JPG_QUALITY, currentSchedule);
+                totalSuccess += res.success;
+                totalFail += res.fail;
+                if (res.details.length > 0) {
+                    // Beri prefix nama dokumen pada detail artboard
+                    for (var d = 0; d < res.details.length; d++) {
+                        allDetails.push("[" + doc.name + "] " + res.details[d]);
+                    }
+                }
+                
+                // Tutup dokumen setelah selesai diexport
+                doc.close(SaveOptions.DONOTSAVECHANGES);
+                
+                if (res.cancelled) {
+                    allDetails.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
+                    break;
+                }
+            } catch(e) {
+                totalFail++;
+                allDetails.push(doc.name + " (Error: " + e.message + ")");
+                if (e.number === 8007 || (e.message && e.message.toLowerCase().indexOf('cancel') !== -1)) {
+                    allDetails.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
+                    break;
+                }
+            }
+        }
+        
+        var finalMsg = "Total Sukses: " + totalSuccess + ", Total Gagal: " + totalFail + "\n\n" + allDetails.join("\n");
+        showScrollableAlert("Laporan Export Artboard (Batch)", finalMsg);
+        return; // Stop di sini
+    }
+
     var pasModeSub = 0;
     if (choice >= 300) {
         pasModeSub = choice - 300;
@@ -396,19 +514,33 @@ function main() {
 
             // --- SMART SAVE CHECK (Overrides Mode) ---
             if (MODE_SMART) {
-                var jpgExists = new File(docPath + "/" + baseName + ".jpg").exists;
-                var pngExists = new File(docPath + "/" + baseName + ".png").exists;
+                var has2x3 = new Folder(docPath + "/2x3").exists;
+                var has4x6 = new Folder(docPath + "/4x6").exists;
 
-                if (jpgExists) {
-                    MODE_JPG = true;
-                } else if (pngExists) {
-                    MODE_PNG = true;
+                if (has2x3 || has4x6) {
+                    MODE_PAS = true;
+                    if (has2x3 && has4x6) {
+                        pasModeSub = 4; // Kombi
+                    } else if (has2x3) {
+                        pasModeSub = 2; // 2x3
+                    } else if (has4x6) {
+                        pasModeSub = 3; // 4x6
+                    }
                 } else {
-                    // Hanya Save PSD
-                    doc.save();
-                    doc.close(SaveOptions.DONOTSAVECHANGES);
-                    successList.push(baseName + " (PSD Updated)");
-                    continue; // Skip rest of loop
+                    var jpgExists = new File(docPath + "/" + baseName + ".jpg").exists;
+                    var pngExists = new File(docPath + "/" + baseName + ".png").exists;
+
+                    if (jpgExists) {
+                        MODE_JPG = true;
+                    } else if (pngExists) {
+                        MODE_PNG = true;
+                    } else {
+                        // Hanya Save PSD
+                        doc.save();
+                        doc.close(SaveOptions.DONOTSAVECHANGES);
+                        successList.push(baseName + " (PSD Updated)");
+                        continue; // Skip rest of loop
+                    }
                 }
             }
 
@@ -504,6 +636,12 @@ function main() {
         } catch (e) {
             failList.push((docs[j] ? docs[j].name : "Unknown") + " (Error: " + e.message + ")");
             // Jangan close PSD jika gagal, biarkan tetap terbuka
+            
+            // Deteksi jika user menekan ESC (User Cancelled)
+            if (e.number === 8007 || (e.message && e.message.toLowerCase().indexOf('cancel') !== -1)) {
+                failList.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
+                break; // Keluar dari loop dokumen
+            }
         }
     }
 
@@ -588,4 +726,167 @@ function showScrollableAlert(title, message) {
     btnOk.onClick = function () { dialog.close(); };
 
     dialog.show();
+}
+
+function exportArtboards(sourceDoc, isPng, quality, schedule) {
+    var successCount = 0;
+    var failCount = 0;
+    var details = [];
+    var basePath = sourceDoc.path.fsName;
+    var baseName = sourceDoc.name.replace(/\.[^\.]+$/, "");
+    var cancelled = false;
+
+    var artboardsInfo = getArtboardsData();
+    if (artboardsInfo.length === 0) {
+        details.push("Tidak ada Artboard yang ditemukan.");
+        return { success: 0, fail: 1, details: details, cancelled: cancelled };
+    }
+    
+    var listToProcess = [];
+    if (schedule !== undefined && schedule !== null) {
+        for (var s = 0; s < schedule.length; s++) {
+            listToProcess.push(artboardsInfo[schedule[s]]);
+        }
+    } else {
+        listToProcess = artboardsInfo;
+    }
+
+    for (var i = 0; i < listToProcess.length; i++) {
+        var ab = listToProcess[i];
+        var abName = ab.name;
+        
+        try {
+            var abBounds = ab.bounds;
+            
+            // 1. Buat seleksi di koordinat artboard pada dokumen asli
+            var region = [
+                [abBounds[0], abBounds[1]], // left, top
+                [abBounds[2], abBounds[1]], // right, top
+                [abBounds[2], abBounds[3]], // right, bottom
+                [abBounds[0], abBounds[3]]  // left, bottom
+            ];
+            
+            app.activeDocument = sourceDoc;
+            sourceDoc.selection.select(region);
+            
+            // 2. Copy Merged (Salin semua yang terlihat di area tersebut)
+            try {
+                sourceDoc.selection.copy(true);
+            } catch(e) {
+                // Jika kosong/blank, copy(true) akan error. Kita abaikan atau lempar error.
+                throw new Error("Area artboard kosong atau tidak bisa di-copy.");
+            }
+            
+            sourceDoc.selection.deselect();
+            
+            // 3. Buat dokumen baru dengan ukuran persis sama
+            var w = abBounds[2] - abBounds[0];
+            var h = abBounds[3] - abBounds[1];
+            var newDoc = app.documents.add(UnitValue(w, "px"), UnitValue(h, "px"), sourceDoc.resolution, abName, NewDocumentMode.RGB);
+            app.activeDocument = newDoc;
+            
+            // 4. Paste hasilnya
+            newDoc.paste();
+            
+            // Flatten (karena hasil paste mungkin floating)
+            newDoc.flatten();
+            
+            try { app.doAction("anti ramijud", "starter pack"); } catch (e) {}
+            var safeName = abName.replace(new RegExp('[\\\\\\\\/:*?"<>|]', 'g'), "_");
+            
+            // Membuat folder khusus untuk masing-masing nama artboard
+            var artboardFolder = new Folder(basePath + "/" + safeName);
+            if (!artboardFolder.exists) {
+                artboardFolder.create();
+            }
+            
+            var outName = baseName + "_" + safeName;
+            var targetPath = artboardFolder.fsName + "/" + outName;
+            
+            if (isPng) {
+                savePNG(newDoc, targetPath + ".png");
+            } else {
+                saveJPG(newDoc, targetPath + ".jpg", quality);
+            }
+            
+            newDoc.close(SaveOptions.DONOTSAVECHANGES);
+            
+            app.activeDocument = sourceDoc; // return focus
+            
+            successCount++;
+            details.push(abName + " (Berhasil)");
+        } catch (e) {
+            failCount++;
+            details.push(abName + " (Gagal: " + e.message + ")");
+            // Try to close active doc if it's the duplicated one
+            if (app.activeDocument !== sourceDoc) {
+                try { app.activeDocument.close(SaveOptions.DONOTSAVECHANGES); } catch(ex){}
+                app.activeDocument = sourceDoc;
+            }
+            
+            // Cek apakah user menekan ESC (User Cancelled)
+            if (e.number === 8007 || (e.message && e.message.toLowerCase().indexOf('cancel') !== -1)) {
+                cancelled = true;
+                break; // Keluar dari loop artboard
+            }
+        }
+    }
+    
+    return { success: successCount, fail: failCount, details: details, cancelled: cancelled };
+}
+
+function selectLayerById(id) {
+    var desc = new ActionDescriptor();
+    var ref = new ActionReference();
+    ref.putIdentifier(charIDToTypeID("Lyr "), id);
+    desc.putReference(charIDToTypeID("null"), ref);
+    desc.putBoolean(charIDToTypeID("MkVs"), false);
+    executeAction(charIDToTypeID("slct"), desc, DialogModes.NO);
+}
+
+function getArtboardsData() {
+    var artboards = [];
+    var doc = app.activeDocument;
+    
+    // Hanya iterasi layer di tingkat paling atas (root) untuk menghindari child layers
+    for (var i = 0; i < doc.layers.length; i++) {
+        var lyr = doc.layers[i];
+        
+        // Artboard di Photoshop DOM dibaca sebagai LayerSet (Group)
+        if (lyr.typename === "LayerSet") {
+            var isArtboard = false;
+            var abBounds = [];
+            try {
+                var ref = new ActionReference();
+                ref.putIdentifier(charIDToTypeID("Lyr "), lyr.id);
+                var desc = executeActionGet(ref);
+                
+                // Cek apakah properti artboard ada
+                if (desc.hasKey(stringIDToTypeID("artboard"))) {
+                    var abDesc = desc.getObjectValue(stringIDToTypeID("artboard"));
+                    var rect = abDesc.getObjectValue(stringIDToTypeID("artboardRect"));
+                    var top = rect.getDouble(stringIDToTypeID("top"));
+                    var left = rect.getDouble(stringIDToTypeID("left"));
+                    var bottom = rect.getDouble(stringIDToTypeID("bottom"));
+                    var right = rect.getDouble(stringIDToTypeID("right"));
+                    
+                    abBounds = [left, top, right, bottom];
+                    isArtboard = true;
+                } else if (desc.hasKey(stringIDToTypeID("artboardEnabled"))) {
+                    // Fallback jika artboardRect tidak ditemukan dengan cara di atas
+                    isArtboard = desc.getBoolean(stringIDToTypeID("artboardEnabled"));
+                    if (isArtboard) {
+                        // Gunakan bounds dari layer (meski kadang kurang akurat jika ada efek luar)
+                        var b = lyr.bounds;
+                        abBounds = [b[0].as("px"), b[1].as("px"), b[2].as("px"), b[3].as("px")];
+                    }
+                }
+            } catch(e) {}
+            
+            if (isArtboard) {
+                artboards.push({ name: lyr.name, id: lyr.id, bounds: abBounds });
+            }
+        }
+    }
+    return artboards;
 }

@@ -1,11 +1,3 @@
-# psdbucin_v3.pyw
-# Unified PSD Bucin V3.0
-# Features:
-# - Dual Mode: Manual (Select per Photo) & Auto (First PSD for All)
-# - Unified UI with TextBox Input in DropZone
-# - BMachine Integration (Progress Reporting)
-# - Dark Theme & Modern UI
-
 import os
 import re
 import shutil
@@ -17,63 +9,17 @@ import tempfile
 import winreg
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 
-# --- Optional Drag & Drop Support ---
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
     HAS_DND = True
 except ImportError:
     HAS_DND = False
 
-# --- Constants ---
-SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".psdbucin_v3_settings.json")
-DEFAULT_WIDTH = 1000
+SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".psdbucin_v4_settings.json")
+DEFAULT_WIDTH = 1100
 DEFAULT_HEIGHT = 700
-
-# Theme & Typography Dictionary
-THEME = {
-    "dark": {
-        "bg": "#121212",          # Pure Dark
-        "surface": "#1e1e1e",     # Surface Dark
-        "surface_hover": "#2d2d2d", # Hover Dark
-        "fg": "#ffffff",          # White text
-        "text_muted": "#a1a1aa",  # Gray text
-        "accent": "#38bdf8",      # Sky 400 (Terminal Blue)
-        "accent_text": "#000000", # Black text on accent
-        "success": "#10b981",     # Emerald 500
-        "error": "#ef4444",       # Red 500
-        "border": "#2d2d2d"       # Border Dark
-    },
-    "light": {
-        "bg": "#f8fafc",          # Slate 50
-        "surface": "#ffffff",     # White
-        "surface_hover": "#e2e8f0", # Slate 200
-        "fg": "#0f172a",          # Slate 900
-        "text_muted": "#475569",  # Slate 600
-        "accent": "#0284c7",      # Sky 600
-        "accent_text": "#ffffff", # White text on accent
-        "success": "#059669",     # Emerald 600
-        "error": "#dc2626",       # Red 600
-        "border": "#cbd5e1"       # Slate 300
-    }
-}
-
-# Variabel Warna Global (menyesuaikan instansi pertama)
-COLOR_BG = THEME["dark"]["bg"]
-COLOR_SURFACE = THEME["dark"]["surface"]
-COLOR_SURFACE_HOVER = THEME["dark"]["surface_hover"]
-COLOR_FG = THEME["dark"]["fg"]
-COLOR_ACCENT_BLUE = THEME["dark"]["accent"]
-COLOR_ACCENT_GREEN = THEME["dark"]["success"]
-COLOR_ACCENT_RED = THEME["dark"]["error"]
-COLOR_BORDER = THEME["dark"]["border"]
-
-FONT_MAIN = ("Consolas", 10)
-FONT_BOLD = ("Consolas", 10, "bold")
-FONT_TITLE = ("Consolas", 16, "bold")
-FONT_BIG = ("Consolas", 24, "bold")
-FONT_HINT = ("Consolas", 9)
 
 def is_windows_dark_mode():
     try:
@@ -82,104 +28,54 @@ def is_windows_dark_mode():
         val, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
         return val == 0
     except Exception:
-        pass
-    try:
-        # Fallback to system theme if Apps theme is missing
-        registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
-        key = winreg.OpenKey(registry, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
-        val, _ = winreg.QueryValueEx(key, "SystemUseLightTheme")
-        return val == 0
-    except Exception:
-        return True # Default dark
+        return True
 
+# 1000x Aesthetic Color Palette (Zinc / Indigo - Modern Dark Mode)
+THEMES = {
+    "dark": {
+        "bg": "#09090B",            # Deepest Zinc
+        "surface": "#18181B",       # Zinc 900 (Cards)
+        "surface_hover": "#27272A", # Zinc 800
+        "surface_active": "#3F3F46",# Zinc 700
+        "fg": "#FAFAFA",            
+        "text_muted": "#A1A1AA",    
+        "accent_primary": "#6366F1",# Indigo 500
+        "accent_hover": "#818CF8",  
+        "success": "#22C55E",       
+        "error": "#EF4444",         
+        "warning": "#F59E0B",       
+        "border": "#27272A",        # Soft Borders
+    },
+    "light": {
+        "bg": "#F4F4F5",            
+        "surface": "#FFFFFF",       
+        "surface_hover": "#F4F4F5", 
+        "surface_active": "#E4E4E7",
+        "fg": "#09090B",            
+        "text_muted": "#71717A",    
+        "accent_primary": "#4F46E5",
+        "accent_hover": "#6366F1",  
+        "success": "#16A34A",       
+        "error": "#DC2626",         
+        "warning": "#D97706",       
+        "border": "#E4E4E7",        
+    }
+}
+THEME = THEMES["dark"] if is_windows_dark_mode() else THEMES["light"]
 
-# Regex
+FONT_MAIN = ("Segoe UI Variable Display", 10) if "Segoe UI Variable Display" else ("Segoe UI", 10)
+FONT_MAIN_BOLD = ("Segoe UI Variable Display", 10, "bold") if "Segoe UI Variable Display" else ("Segoe UI", 10, "bold")
+FONT_TITLE = ("Segoe UI Variable Display", 13, "bold") if "Segoe UI Variable Display" else ("Segoe UI", 13, "bold")
+FONT_BIG = ("Segoe UI Variable Display", 24, "bold") if "Segoe UI Variable Display" else ("Segoe UI", 24, "bold")
+FONT_HINT = ("Segoe UI", 9)
+
+def round_rectangle(canvas, x1, y1, x2, y2, radius=25, **kwargs):
+    points = [x1+radius, y1, x1+radius, y1, x2-radius, y1, x2-radius, y1, x2, y1, x2, y1+radius, x2, y1+radius, x2, y2-radius, x2, y2-radius, x2, y2, x2-radius, y2, x2-radius, y2, x1+radius, y2, x1+radius, y2, x1, y2, x1, y2-radius, x1, y2-radius, x1, y1+radius, x1, y1+radius, x1, y1]
+    return canvas.create_polygon(points, **kwargs, smooth=True)
+
 ONLY_PAREN = re.compile(r'^\(\s*(\d+)\s*\)$')
 SPACE_FORM = re.compile(r'^(\d+)\s*\(\s*\d+\s*\)(?:\b.*)?$')
 TIGHT_FORM = re.compile(r'^\d+\(\s*(\d+)\s*\)$')
-
-
-# --- BMachine Integration ---
-def report_progress(current, total, filename):
-    """Tulis progress ke file temp agar BMachine bisa membacanya."""
-    try:
-        progress_file = os.path.join(tempfile.gettempdir(), 'bmachine_progress.json')
-        data = {'current': current, 'total': total, 'file': filename, 'status': 'processing'}
-        with open(progress_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f)
-    except Exception:
-        pass  # Gagal tulis tidak fatal
-
-def write_bmachine_result(title, lines):
-    """Tulis hasil akhir ke file temp untuk BMachine."""
-    try:
-        result_file = os.path.join(tempfile.gettempdir(), 'bmachine_result.json')
-        data = {'type': 'result', 'title': title, 'lines': lines}
-        with open(result_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False)
-    except Exception:
-        pass
-
-# --- Settings Management ---
-def load_settings():
-    defaults = {
-        "window_width": DEFAULT_WIDTH, 
-        "window_height": DEFAULT_HEIGHT,
-        "window_x": -1,
-        "window_y": -1,
-        "is_maximized": False,
-        "shortcuts": [str(i+1) for i in range(9)],
-        "last_master": "",
-        "last_pilihan": "",
-        "ui_manual_mode": "autocomplete"
-    }
-    try:
-        if os.path.exists(SETTINGS_FILE):
-            with open(SETTINGS_FILE, 'r') as f:
-                data = json.load(f)
-                defaults.update(data)
-    except Exception:
-        pass
-    return defaults
-
-def save_settings(data):
-    try:
-        current = load_settings()
-        current.update(data)
-        with open(SETTINGS_FILE, 'w') as f:
-            json.dump(current, f)
-    except Exception:
-        pass
-
-# --- Utility Functions ---
-def collect_psd_masters(master_dir):
-    masters = []
-    try:
-        for root, _, files in os.walk(master_dir):
-            for f in files:
-                if f.lower().endswith(('.psd', '.psb')):
-                    full_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(full_path, master_dir)
-                    masters.append((rel_path, full_path))
-    except Exception:
-        return []
-        
-    masters.sort(key=lambda x: x[0].lower())
-    return masters
-
-def collect_jpgs_with_relpath(pilihan_dir):
-    jpgs = []
-    try:
-        for root, _, files in os.walk(pilihan_dir):
-            for fn in files:
-                if fn.lower().endswith(('.jpg', '.jpeg')):
-                    full = os.path.join(root, fn)
-                    rel = os.path.relpath(full, pilihan_dir)
-                    jpgs.append((full, rel))
-    except Exception:
-        return []
-    jpgs.sort(key=lambda x: x[1].lower())
-    return jpgs
 
 def compute_target_name(jpg_name):
     n = os.path.splitext(jpg_name)[0].strip()
@@ -191,1288 +87,1001 @@ def compute_target_name(jpg_name):
     if m: return m.group(1)
     return n
 
-def center_window(win):
-    win.update_idletasks()
-    w = win.winfo_width()
-    h = win.winfo_height()
-    if w < 200: w = DEFAULT_WIDTH
-    if h < 200: h = DEFAULT_HEIGHT
-    sw = win.winfo_screenwidth()
-    sh = win.winfo_screenheight()
-    x = (sw - w) // 2
-    y = (sh - h) // 2
-    win.geometry(f"{w}x{h}+{x}+{y}")
+def report_progress(current, total, filename):
+    try:
+        progress_file = os.path.join(tempfile.gettempdir(), 'bmachine_progress.json')
+        data = {'current': current, 'total': total, 'file': filename, 'status': 'processing'}
+        with open(progress_file, 'w', encoding='utf-8') as f: json.dump(data, f)
+    except Exception: pass
 
-# --- Components ---
-class LoadingSpinner(tk.Canvas):
-    def __init__(self, master, size=60, bg=COLOR_BG, **kwargs):
-        super().__init__(master, width=size, height=size, bg=bg, highlightthickness=0, **kwargs)
-        self.size = size
-        self.angle = 0
-        self.running = False
+def write_bmachine_result(title, lines):
+    try:
+        result_file = os.path.join(tempfile.gettempdir(), 'bmachine_result.json')
+        data = {'type': 'result', 'title': title, 'lines': lines}
+        with open(result_file, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False)
+    except Exception: pass
+
+def load_settings():
+    defaults = {
+        "window_width": DEFAULT_WIDTH,
+        "window_height": DEFAULT_HEIGHT,
+        "window_x": -1, "window_y": -1,
+        "shortcuts": [str(i+1) for i in range(9)],
+        "last_master": "", "last_pilihan": "",
+        "sidebar_expanded": True
+    }
+    try:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, 'r') as f: defaults.update(json.load(f))
+    except Exception: pass
+    return defaults
+
+def save_settings(data):
+    try:
+        current = load_settings()
+        current.update(data)
+        with open(SETTINGS_FILE, 'w') as f: json.dump(current, f)
+    except Exception: pass
+
+def parse_dnd_files(raw_data):
+    paths = re.findall(r'\{[^\}]+\}|\S+', raw_data)
+    return [p.strip('{}') for p in paths]
+
+# --- UI Components ---
+class SidebarButton(tk.Canvas):
+    def __init__(self, parent, text, icon="", command=None, is_active=False):
+        super().__init__(parent, highlightthickness=0, bg=THEME["surface"], height=48, cursor="hand2")
+        self.command = command
+        self.text = text
+        self.icon = icon
+        self.is_active = is_active
+        self.is_hovered = False
         
-    def start(self):
-        if not self.running:
-            self.running = True
-            self.animate()
-    def stop(self):
-        self.running = False
+        self.bind("<Configure>", self._draw)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<Button-1>", self._on_click)
+        
+    def set_active(self, active):
+        self.is_active = active
+        self._draw()
+        
+    def _draw(self, event=None):
         self.delete("all")
-    def animate(self):
-        if not self.running: return
+        w = self.winfo_width(); h = self.winfo_height()
+        if w < 10 or h < 10: return
+        
+        bg_color = THEME["surface_active"] if self.is_active else THEME["surface"]
+        fg_color = THEME["fg"] if self.is_active else THEME["text_muted"]
+        
+        if self.is_hovered and not self.is_active:
+            bg_color = THEME["surface_hover"]
+            fg_color = THEME["fg"]
+            
+        self.create_rectangle(0, 0, w, h, fill=bg_color, outline="")
+        
+        if self.is_active:
+            self.create_rectangle(0, 10, 4, h-10, fill=THEME["accent_primary"], outline="")
+            
+        # Fixed alignment to prevent "jomplang"
+        if w < 100: # Collapsed
+            if self.icon:
+                self.create_text(32.5, h/2, text=self.icon, font=("Segoe UI", 16), fill=fg_color, anchor="center")
+        else: # Expanded
+            if self.icon:
+                self.create_text(32.5, h/2, text=self.icon, font=("Segoe UI", 16), fill=fg_color, anchor="center")
+                self.create_text(65, h/2, text=self.text, font=FONT_MAIN_BOLD, fill=fg_color, anchor="w")
+
+    def _on_enter(self, event): self.is_hovered = True; self._draw()
+    def _on_leave(self, event): self.is_hovered = False; self._draw()
+    def _on_click(self, event):
+        if self.command: self.command()
+
+class RoundedButton(tk.Canvas):
+    def __init__(self, parent, text, command=None, bg=THEME["accent_primary"], fg="#FFFFFF", hover_bg=THEME["accent_hover"], radius=8, font=FONT_MAIN_BOLD, padx=24, pady=10, state="normal"):
+        super().__init__(parent, highlightthickness=0, bg=THEME["bg"], cursor="hand2" if state=="normal" else "arrow")
+        self.command = command
+        self.bg_color = bg; self.hover_bg = hover_bg; self.fg_color = fg
+        self.radius = radius; self.text = text; self.font = font; self.state = state
+        self.padx = padx; self.pady = pady
+        
+        self.bind("<Configure>", self._queue_draw)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<Button-1>", self._on_click)
+        self.bind("<ButtonRelease-1>", self._on_release)
+        
+        lbl = tk.Label(font=self.font, text=self.text)
+        self.config(width=lbl.winfo_reqwidth() + (self.padx * 2), height=lbl.winfo_reqheight() + (self.pady * 2))
+        
+    def _queue_draw(self, event=None):
+        if hasattr(self, '_draw_timer'): self.after_cancel(self._draw_timer)
+        self._draw_timer = self.after(10, self._draw)
+        
+    def _draw(self, event=None):
         self.delete("all")
-        extent = 120
-        start = self.angle
-        x0, y0 = 5, 5
-        x1, y1 = self.size - 5, self.size - 5
-        self.create_arc(x0, y0, x1, y1, start=start, extent=extent, style="arc", outline=COLOR_ACCENT_BLUE, width=5)
-        self.create_arc(x0, y0, x1, y1, start=start+180, extent=extent, style="arc", outline=COLOR_ACCENT_GREEN, width=5)
-        self.angle = (self.angle + 20) % 360
-        self.after(40, self.animate)
+        w = self.winfo_width(); h = self.winfo_height()
+        if w < 10 or h < 10: return
+        c = self.bg_color if self.state == "normal" else THEME["surface_active"]
+        tc = self.fg_color if self.state == "normal" else THEME["text_muted"]
+        self.rect_id = round_rectangle(self, 0, 0, w, h, radius=self.radius, fill=c, outline="")
+        self.create_text(w/2, h/2, text=self.text, font=self.font, fill=tc, justify="center")
 
-class StatCard(tk.Frame):
-    def __init__(self, parent, title, value, color, **kwargs):
-        super().__init__(parent, bg=COLOR_SURFACE, padx=15, pady=10, **kwargs)
-        tk.Label(self, text=str(value), font=("Segoe UI", 24, "bold"), fg=color, bg=COLOR_SURFACE).pack(anchor="w")
-        tk.Label(self, text=title, font=("Segoe UI", 10), fg="#a1a1aa", bg=COLOR_SURFACE).pack(anchor="w")
+    def _on_enter(self, e):
+        if self.state == "normal": self.itemconfig(self.rect_id, fill=self.hover_bg)
+    def _on_leave(self, e):
+        if self.state == "normal": self.itemconfig(self.rect_id, fill=self.bg_color)
+    def _on_click(self, e):
+        if self.state == "normal": self.itemconfig(self.rect_id, fill=THEME["surface_active"])
+    def _on_release(self, e):
+        if self.state == "normal":
+            self.itemconfig(self.rect_id, fill=self.hover_bg)
+            if self.command: self.command()
+            
+    def config_state(self, state):
+        self.state = state
+        self.config(cursor="hand2" if state=="normal" else "arrow")
+        self._draw()
 
+class ModernEntry(tk.Frame):
+    def __init__(self, parent, textvariable=None, **kwargs):
+        super().__init__(parent, bg=THEME["border"], padx=1, pady=1)
+        self.inner = tk.Frame(self, bg=THEME["bg"], padx=12, pady=10)
+        self.inner.pack(fill="both", expand=True)
+        self.entry = tk.Entry(self.inner, textvariable=textvariable, bg=THEME["bg"], fg=THEME["fg"], insertbackground=THEME["fg"], relief="flat", font=FONT_MAIN)
+        self.entry.pack(fill="both", expand=True)
 
-class DropZone(tk.Frame):
-    def __init__(self, master, title, icon="📂", initial_path="", on_change=None, **kwargs):
-        super().__init__(master, bg=COLOR_SURFACE, highlightbackground=COLOR_BORDER, highlightthickness=2, cursor="hand2", **kwargs)
+class ToggleSwitch(tk.Canvas):
+    def __init__(self, parent, text="", variable=None, **kwargs):
+        super().__init__(parent, height=26, bg=THEME["surface"], highlightthickness=0)
+        self.variable = variable
+        self.text = text
+        self.bind("<Button-1>", self.toggle)
+        self.bind("<Configure>", self._draw)
+        if self.variable:
+            self.variable.trace_add("write", lambda *a: self._queue_draw())
+
+    def toggle(self, event):
+        if self.variable: self.variable.set(not self.variable.get())
+        
+    def _queue_draw(self):
+        if hasattr(self, '_draw_timer'): self.after_cancel(self._draw_timer)
+        self._draw_timer = self.after(10, self._draw)
+
+    def _draw(self, event=None):
+        self.delete("all")
+        w = self.winfo_width()
+        is_on = self.variable.get() if self.variable else False
+        
+        pill_w = 40; pill_h = 22; pill_y = 2
+        fill_color = THEME["accent_primary"] if is_on else THEME["border"]
+        round_rectangle(self, 2, pill_y, 2 + pill_w, pill_y + pill_h, radius=11, fill=fill_color, outline="")
+        
+        circle_r = 18; circle_y = pill_y + 2
+        if is_on: self.create_oval(2 + pill_w - circle_r - 2, circle_y, 2 + pill_w - 2, circle_y + circle_r, fill="#FFFFFF", outline="")
+        else: self.create_oval(4, circle_y, 4 + circle_r, circle_y + circle_r, fill="#A1A1AA", outline="")
+            
+        if self.text:
+            self.create_text(pill_w + 14, 13, text=self.text, font=FONT_MAIN, fill=THEME["fg"], anchor="w")
+
+class SegmentedControl(tk.Frame):
+    def __init__(self, parent, options, variable, **kwargs):
+        super().__init__(parent, bg=THEME["border"], padx=1, pady=1)
+        self.inner = tk.Frame(self, bg=THEME["bg"])
+        self.inner.pack(fill="both", expand=True)
+        self.variable = variable
+        self.buttons = {}
+        
+        for val, text in options:
+            btn = tk.Label(self.inner, text=text, font=FONT_MAIN_BOLD, bg=THEME["bg"], fg=THEME["text_muted"], padx=15, pady=8, cursor="hand2")
+            btn.pack(side="left", fill="both", expand=True)
+            btn.bind("<Button-1>", lambda e, v=val: self._select(v))
+            self.buttons[val] = btn
+            
+        self.variable.trace_add("write", self._update_ui)
+        self._update_ui()
+        
+    def _select(self, val): self.variable.set(val)
+    def _update_ui(self, *args):
+        current = self.variable.get()
+        for val, btn in self.buttons.items():
+            if val == current: btn.config(bg=THEME["surface_active"], fg=THEME["fg"])
+            else: btn.config(bg=THEME["bg"], fg=THEME["text_muted"])
+
+class ModernDropZone(tk.Canvas):
+    # Retained for PSD Bucin mode
+    def __init__(self, parent, title, icon="📁", initial_path="", mode="folder", on_change=None):
+        super().__init__(parent, highlightthickness=0, bg=THEME["bg"], cursor="hand2")
+        self.title = title
+        self.icon = icon
+        self.mode = mode
+        self.paths = [initial_path] if initial_path else []
         self.on_change = on_change
-        self.path = initial_path
-        self.title_text = title
-        self.path = initial_path
-        self.title_text = title
         
-        # 1. Title (Bottom)
-        self.lbl_title = tk.Label(self, text=title, font=FONT_TITLE, bg=COLOR_SURFACE, fg="#a1a1aa")
-        self.lbl_title.pack(side="bottom", pady=(5, 15))
-        
-        # 2. Footer (TextBox + Button) - Above Title
-        self.footer = tk.Frame(self, bg=COLOR_SURFACE)
-        self.footer.pack(side="bottom", fill="x", padx=10, pady=(0, 5))
-        
-        self.entry = tk.Entry(self.footer, bg=COLOR_BG, fg=COLOR_FG, 
-                              insertbackground=COLOR_FG, relief="flat", font=FONT_MAIN)
-        self.entry.pack(side="left", fill="x", expand=True, padx=(0, 5), ipady=4)
-        self.entry.bind("<KeyRelease>", self.on_entry_input)
-        self.entry.bind("<FocusOut>", self.on_entry_blur)
-        
-        self.btn_action = tk.Button(self.footer, text="📂", width=3, 
-                                     bg=COLOR_SURFACE_HOVER, fg=COLOR_FG, 
-                                     relief="flat", cursor="hand2",
-                                     command=self.toggle_action)
-        self.btn_action.pack(side="right")
-        
-        # 3. Content Area (Top/Center)
-        self.inner = tk.Frame(self, bg=COLOR_SURFACE)
-        self.inner.pack(side="top", expand=True, fill="both", padx=20, pady=(20, 5))
-        
-        self.content = tk.Frame(self.inner, bg=COLOR_SURFACE)
-        self.content.place(relx=0.5, rely=0.5, anchor="center")
-        
-        self.lbl_path = tk.Label(self.content, text="Klik atau Drop Folder disini\n(Klik Kanan untuk Hapus)", font=FONT_HINT, bg=COLOR_SURFACE, fg="#52525b", wraplength=300)
-        self.lbl_path.pack()
-        
-        # Events
-        for w in [self, self.inner, self.content, self.lbl_title, self.lbl_path]:
-            w.bind("<Button-1>", self.browse)
-            w.bind("<Button-3>", self.clear)
-            w.bind("<Enter>", self.on_hover)
-            w.bind("<Leave>", self.on_leave)
+        self.bind("<Configure>", self._queue_draw)
+        self.bind("<Button-1>", self._browse)
+        self.bind("<Button-3>", self._clear)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
         
         if HAS_DND:
             self.drop_target_register(DND_FILES)
-            self.dnd_bind('<<Drop>>', self.on_drop)
+            self.dnd_bind('<<Drop>>', self._on_drop)
             
-        self.set_path(self.path) # Init display
+        self.is_hovered = False
 
-    def destroy(self):
-        if HAS_DND:
-            try: self.drop_target_unregister()
-            except: pass
-        super().destroy()
+    def _queue_draw(self, event=None):
+        if hasattr(self, '_draw_timer'): self.after_cancel(self._draw_timer)
+        self._draw_timer = self.after(10, self._draw)
 
-    def on_hover(self, e):
-        self.config(highlightbackground=COLOR_ACCENT_BLUE)
+    def _draw(self, event=None):
+        self.delete("all")
+        w = self.winfo_width(); h = self.winfo_height()
+        if w < 10 or h < 10: return
         
-    def on_leave(self, e):
-        self.config(highlightbackground=COLOR_BORDER)
-        
-    def browse(self, e=None):
-        d = filedialog.askdirectory()
-        if d: self.set_path(d)
-        
-    def clear(self, e=None):
-        self.set_path("")
+        bg_color = THEME["surface"] if self.is_hovered else THEME["bg"]
+        border_color = THEME["accent_primary"] if self.is_hovered else THEME["border"]
+        if self.paths:
+            border_color = THEME["success"]
+            bg_color = THEME["surface"]
             
-    def on_drop(self, event):
-        path = event.data
-        if path:
-            if path.startswith('{') and path.endswith('}'): path = path[1:-1]
-            if os.path.isdir(path): self.set_path(path)
-            
-    def on_entry_input(self, event=None):
-        path = self.entry.get().strip()
-        if os.path.exists(path):
-             self.path = path.replace("/", "\\")
-             self.update_visuals(self.path)
-             if self.on_change: self.on_change()
+        round_rectangle(self, 2, 2, w-2, h-2, radius=12, fill=bg_color, outline=border_color, width=2, dash=(5,5) if not self.paths else ())
         
-    def on_entry_blur(self, event=None):
-        path = self.entry.get().strip()
-        if path and os.path.isdir(path):
-            self.set_path(path)
-        elif not path:
-             self.set_path("")
-            
-    def toggle_action(self):
-        if self.path:
-             self.clear()
+        center_y = h / 2
+        if self.paths:
+            self.create_text(w/2, center_y - 20, text=self.title, font=FONT_TITLE, fill=THEME["fg"])
+            display_path = self.paths[0] if len(self.paths) == 1 else f"{len(self.paths)} File Terpilih"
+            if len(display_path) >= 40: display_path = "..." + display_path[-37:]
+            self.create_text(w/2, center_y + 10, text=display_path, font=FONT_MAIN, fill=THEME["success"])
+            self.create_text(w/2, center_y + 35, text="(Klik Kanan untuk Reset)", font=FONT_HINT, fill=THEME["text_muted"])
         else:
-             self.browse()
-            
-    def set_path(self, path):
-        self.path = path.replace("/", "\\") if path else ""
-        current_entry = self.entry.get()
-        if current_entry != self.path:
-            self.entry.delete(0, "end")
-            self.entry.insert(0, self.path)
-        
-        self.update_visuals(self.path)
-        if self.on_change: self.on_change()
-        
-    def update_visuals(self, path):
-        if path:
-            self.lbl_title.config(fg="white")
-            self.lbl_path.config(text=str(path), fg=COLOR_ACCENT_GREEN)
-            self.btn_action.config(text="✕", bg=COLOR_ACCENT_RED, fg="white")
-        else:
-            self.lbl_title.config(fg="#a1a1aa")
-            self.lbl_path.config(text="Klik atau Drop Folder disini\n(Klik Kanan untuk Hapus)", fg="#52525b")
-            self.btn_action.config(text="📂", bg=COLOR_SURFACE_HOVER, fg="#a1a1aa")
-        
-    def get_path(self):
-        return self.path
+            self.create_text(w/2, center_y - 20, text=self.icon, font=("Segoe UI", 32), fill=THEME["text_muted"])
+            txt = "Pilih atau Tarik Folder" if self.mode == "folder" else "Pilih atau Tarik File"
+            self.create_text(w/2, center_y + 20, text=f"{txt} {self.title}", font=FONT_TITLE, fill=THEME["text_muted"])
 
-# --- Main Application ---
-class BucinAppV3:
+    def _on_enter(self, e): self.is_hovered = True; self._draw()
+    def _on_leave(self, e): self.is_hovered = False; self._draw()
+
+    def _browse(self, e):
+        if self.mode == "folder":
+            d = filedialog.askdirectory()
+            if d:
+                self.paths = [d.replace("/", "\\")]
+                self._draw()
+                if self.on_change: self.on_change(self.paths)
+        elif self.mode == "files":
+            files = filedialog.askopenfilenames()
+            if files:
+                self.paths = [f.replace("/", "\\") for f in files]
+                self._draw()
+                if self.on_change: self.on_change(self.paths)
+        elif self.mode == "file":
+            f = filedialog.askopenfilename()
+            if f:
+                self.paths = [f.replace("/", "\\")]
+                self._draw()
+                if self.on_change: self.on_change(self.paths)
+
+    def _clear(self, e):
+        self.paths = []
+        self._draw()
+        if self.on_change: self.on_change(self.paths)
+
+    def _on_drop(self, event):
+        if not event.data: return
+        dropped = parse_dnd_files(event.data)
+        
+        if self.mode == "folder":
+            for d in dropped:
+                if os.path.isdir(d):
+                    self.paths = [d.replace("/", "\\")]
+                    break
+        else:
+            valid_files = [f.replace("/", "\\") for f in dropped if os.path.isfile(f)]
+            if valid_files:
+                if self.mode == "file": self.paths = [valid_files[0]]
+                else: self.paths = valid_files
+        self._draw()
+        if self.on_change: self.on_change(self.paths)
+        
+    def get_paths(self): return self.paths
+    def get_path(self): return self.paths[0] if self.paths else ""
+
+class Spinner(tk.Canvas):
+    def __init__(self, parent, size=60, **kwargs):
+        super().__init__(parent, width=size, height=size, bg=THEME["bg"], highlightthickness=0, **kwargs)
+        self.size = size
+        self.angle = 0
+        self.running = False
+    def start(self):
+        if not self.running:
+            self.running = True
+            self._animate()
+    def stop(self):
+        self.running = False
+        self.delete("all")
+    def _animate(self):
+        if not self.running: return
+        self.delete("all")
+        self.create_arc(5, 5, self.size-5, self.size-5, start=self.angle, extent=100, style="arc", outline=THEME["accent_primary"], width=4)
+        self.create_arc(5, 5, self.size-5, self.size-5, start=self.angle+180, extent=100, style="arc", outline=THEME["success"], width=4)
+        self.angle = (self.angle + 15) % 360
+        self.after(30, self._animate)
+
+# --- Main App ---
+class PremiumToolboxApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("PSD Bucin V3.0")
-        self.root.configure(bg=COLOR_BG)
-        
+        self.root.title("BMachine Toolbox")
+        self.root.configure(bg=THEME["bg"])
         self.settings = load_settings()
+        self.restore_geometry()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._apply_titlebar_theme()
         
-        # Restore Window Geometry
+        # UI Structure
+        self.sidebar_width_exp = 240
+        self.sidebar_width_col = 65
+        self.sidebar_expanded = self.settings.get("sidebar_expanded", True)
+        
+        self.sidebar = tk.Frame(self.root, bg=THEME["surface"], width=self.sidebar_width_exp if self.sidebar_expanded else self.sidebar_width_col)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar.pack_propagate(False)
+        
+        # Fixed Sidebar Top to prevent "jomplang"
+        self.sidebar_top = tk.Frame(self.sidebar, bg=THEME["surface"], height=70)
+        self.sidebar_top.pack(fill="x", pady=(20, 10))
+        self.sidebar_top.pack_propagate(False)
+        
+        self.btn_hamburger = tk.Label(self.sidebar_top, text="☰", font=("Segoe UI", 18), bg=THEME["surface"], fg=THEME["text_muted"], cursor="hand2")
+        self.btn_hamburger.place(x=0, y=0, width=65, height=65)
+        self.btn_hamburger.bind("<Button-1>", lambda e: self.toggle_sidebar())
+        
+        self.lbl_brand = tk.Label(self.sidebar_top, text="BMACHINE", font=FONT_TITLE, bg=THEME["surface"], fg=THEME["accent_primary"])
+        self.lbl_brand.place(x=65, y=0, height=65)
+        if not self.sidebar_expanded:
+            self.lbl_brand.place_forget()
+            
+        self.content_area = tk.Frame(self.root, bg=THEME["bg"])
+        self.content_area.pack(side="right", fill="both", expand=True)
+        
+        self.tabs = {}
+        self.current_tab = None
+        
+        # Setup ttk styles universally
+        style = ttk.Style()
+        if "clam" in style.theme_names():
+            style.theme_use("clam")
+            
+        style.configure("Treeview", background=THEME["bg"], foreground=THEME["fg"], fieldbackground=THEME["bg"], font=FONT_MAIN, rowheight=35, borderwidth=0)
+        style.configure("Treeview.Heading", background=THEME["surface_active"], foreground=THEME["fg"], font=FONT_MAIN_BOLD, borderwidth=0, padding=8)
+        style.map("Treeview", background=[('selected', THEME["surface_hover"])])
+        
+        self._add_tab("psd", "PSD Bucin", "🎨", self._build_psd_bucin)
+        self._add_tab("rename", "Batch Rename", "🏷️", self._build_batch_rename)
+        self._add_tab("dup", "File Duplicator", "📑", self._build_duplicator)
+        
+        self.switch_tab("psd")
+
+    def toggle_sidebar(self):
+        self.sidebar_expanded = not self.sidebar_expanded
+        if self.sidebar_expanded:
+            self.sidebar.config(width=self.sidebar_width_exp)
+            self.lbl_brand.place(x=65, y=0, height=65)
+        else:
+            self.sidebar.config(width=self.sidebar_width_col)
+            self.lbl_brand.place_forget()
+        
+        # Force redraw on buttons
+        for tid in self.tabs:
+            self.tabs[tid]["btn"]._draw()
+
+    def _add_tab(self, tid, text, icon, builder_func):
+        btn = SidebarButton(self.sidebar, text, icon, command=lambda: self.switch_tab(tid))
+        btn.pack(fill="x")
+        self.tabs[tid] = {"btn": btn, "builder": builder_func, "frame": None}
+
+    def switch_tab(self, tid):
+        if self.current_tab == tid: return
+        
+        if self.current_tab:
+            self.tabs[self.current_tab]["btn"].set_active(False)
+            if self.tabs[self.current_tab]["frame"]:
+                self.tabs[self.current_tab]["frame"].pack_forget()
+                
+        self.current_tab = tid
+        self.tabs[tid]["btn"].set_active(True)
+        
+        if not self.tabs[tid]["frame"]:
+            f = tk.Frame(self.content_area, bg=THEME["bg"])
+            self.tabs[tid]["builder"](f)
+            self.tabs[tid]["frame"] = f
+            
+        self.tabs[tid]["frame"].pack(fill="both", expand=True)
+
+    def _apply_titlebar_theme(self):
+        is_dark = THEME == THEMES["dark"]
+        try:
+            import ctypes
+            self.root.update_idletasks()
+            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            value = ctypes.c_int(1 if is_dark else 0)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(value), ctypes.sizeof(value))
+        except: pass
+
+    def restore_geometry(self):
         w = self.settings.get("window_width", DEFAULT_WIDTH)
         h = self.settings.get("window_height", DEFAULT_HEIGHT)
         x = self.settings.get("window_x", -1)
         y = self.settings.get("window_y", -1)
-        
-        # --- Custom Title Bar & Chrome ---
-        self.root.overrideredirect(True)
-        if x != -1 and y != -1:
-             self.root.geometry(f"{w}x{h}+{x}+{y}")
+        if x != -1 and y != -1: self.root.geometry(f"{w}x{h}+{x}+{y}")
         else:
-             sw = self.root.winfo_screenwidth()
-             sh = self.root.winfo_screenheight()
-             self.root.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
-             
-        # Create Title Bar
-        self.title_bar = tk.Frame(self.root, bg=COLOR_BG, relief="flat")
-        self.title_bar.pack(side="top", fill="x")
-        
-        tk.Label(self.title_bar, text="PSD Bucin V3.0", font=("Segoe UI", 10, "bold"), bg=COLOR_BG, fg="#a1a1aa", padx=15, pady=10).pack(side="left")
-        
-        # Window Controls
-        self.btn_close = tk.Button(self.title_bar, text="✕", width=5, bg=COLOR_BG, fg="#a1a1aa", relief="flat", command=self.on_app_close)
-        self.btn_close.pack(side="right", fill="y")
-        
-        self.btn_max = tk.Button(self.title_bar, text="☐", width=5, bg=COLOR_BG, fg="#a1a1aa", relief="flat", command=self.toggle_maximize)
-        self.btn_max.pack(side="right", fill="y")
+            sw = self.root.winfo_screenwidth(); sh = self.root.winfo_screenheight()
+            self.root.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
 
-        self.btn_min = tk.Button(self.title_bar, text="─", width=5, bg=COLOR_BG, fg="#a1a1aa", relief="flat", command=self.minimize_window)
-        self.btn_min.pack(side="right", fill="y")
-        
-        # Hover events for buttons
-        for btn in [self.btn_close, self.btn_max, self.btn_min]:
-             btn.bind("<Enter>", lambda e, b=btn: b.config(bg=COLOR_SURFACE_HOVER, fg=COLOR_FG))
-             btn.bind("<Leave>", lambda e, b=btn: b.config(bg=COLOR_BG, fg="#a1a1aa"))
-        # Exception for close red hover
-        self.btn_close.bind("<Enter>", lambda e: self.btn_close.config(bg=COLOR_ACCENT_RED, fg="white"))
-        
-        # Drag Logic
-        self.title_bar.bind("<ButtonPress-1>", self.start_move)
-        self.title_bar.bind("<B1-Motion>", self.do_move)
-        
-        # Content Container (ui_root)
-        self.main_border = tk.Frame(self.root, bg=COLOR_BORDER, padx=1, pady=1)
-        self.main_border.pack(fill="both", expand=True)
-        self.ui_root = tk.Frame(self.main_border, bg=COLOR_BG)
-        self.ui_root.pack(fill="both", expand=True)
-        
-        self.psd_masters = []
-        self.jpgs = []
-        
-        self.setup_ui_setup()
-        
-        # Taskbar Hack
-        self.root.after(10, self.set_app_window)
-        
-        # Resize Grip
-        self.grip = tk.Label(self.root, text="◢", bg=COLOR_BG, fg="#52525b", font=("Segoe UI", 12))
-        self.grip.place(relx=1.0, rely=1.0, anchor="se")
-        self.grip.bind("<ButtonPress-1>", self.start_resize)
-        self.grip.bind("<B1-Motion>", self.do_resize)
-        
-        self.is_maximized_full = False
-        self.prev_geom = None
-        
-        # Start Live Theme Tracking
-        self.start_theme_poll()
-
-    def start_theme_poll(self):
-        current_dark = is_windows_dark_mode()
-        if not hasattr(self, 'active_theme_dark') or self.active_theme_dark != current_dark:
-            self.active_theme_dark = current_dark
-            self.apply_live_theme()
-        # Periksa lagi tiap 1.5 detik secara non-blocking
-        self.root.after(1500, self.start_theme_poll)
-
-    def apply_live_theme(self):
-        global COLOR_BG, COLOR_SURFACE, COLOR_SURFACE_HOVER, COLOR_FG
-        global COLOR_ACCENT_BLUE, COLOR_ACCENT_GREEN, COLOR_ACCENT_RED, COLOR_BORDER
-        theme_key = "dark" if self.active_theme_dark else "light"
-        t = THEME[theme_key]
-        
-        color_map = {
-            THEME["light"]["bg"].lower(): t["bg"],
-            THEME["dark"]["bg"].lower(): t["bg"],
-            "#18181b": t["bg"], "black": t["bg"], "#000000": t["bg"],
-            
-            THEME["light"]["surface"].lower(): t["surface"],
-            THEME["dark"]["surface"].lower(): t["surface"],
-            "#27272a": t["surface"], "#1e1e1e": t["surface"],
-            
-            THEME["light"]["surface_hover"].lower(): t["surface_hover"],
-            THEME["dark"]["surface_hover"].lower(): t["surface_hover"],
-            "#3f3f46": t["surface_hover"],
-            
-            THEME["light"]["fg"].lower(): t["fg"],
-            THEME["dark"]["fg"].lower(): t["fg"],
-            "#f4f4f5": t["fg"], "white": t["fg"], "#ffffff": t["fg"], "#d4d4d8": t["fg"],
-            
-            THEME["light"]["accent"].lower(): t["accent"],
-            THEME["dark"]["accent"].lower(): t["accent"],
-            "#3b82f6": t["accent"], "#0ea5e9": t["accent"], "#0284c7": t["accent"],
-            
-            THEME["light"]["success"].lower(): t["success"],
-            THEME["dark"]["success"].lower(): t["success"],
-            "#22c55e": t["success"], "#10b981": t["success"], "#059669": t["success"],
-            
-            THEME["light"]["error"].lower(): t["error"],
-            THEME["dark"]["error"].lower(): t["error"],
-            "#ef4444": t["error"], "red": t["error"], "#dc2626": t["error"],
-            
-            THEME["light"]["border"].lower(): t["border"],
-            THEME["dark"]["border"].lower(): t["border"],
-            "#52525b": t["border"], "#cbd5e1": t["border"], "#334155": t["border"],
-            
-            "#a1a1aa": t["text_muted"],
-            "#71717a": t["text_muted"],
-            THEME["light"]["text_muted"].lower(): t["text_muted"],
-            THEME["dark"]["text_muted"].lower(): t["text_muted"]
-        }
-        
-        COLOR_BG = t["bg"]
-        COLOR_SURFACE = t["surface"]
-        COLOR_SURFACE_HOVER = t["surface_hover"]
-        COLOR_FG = t["fg"]
-        COLOR_ACCENT_BLUE = t["accent"]
-        COLOR_ACCENT_GREEN = t["success"]
-        COLOR_ACCENT_RED = t["error"]
-        COLOR_BORDER = t["border"]
-        
-        def safe_color_swap(c):
-            if not c: return c
-            if isinstance(c, str):
-                ci = c.lower()
-                if ci in color_map: return color_map[ci]
-            return c
-            
-        def convert_font(fn):
-            if isinstance(fn, str):
-                if "Segoe UI" in fn: return fn.replace("Segoe UI", "Consolas")
-            elif isinstance(fn, tuple) or isinstance(fn, list):
-                if fn[0] == "Segoe UI":
-                    return ("Consolas",) + tuple(fn[1:])
-            return fn
-            
-        def update_w(w):
-            keys = w.keys()
-            for prop in ['bg', 'background', 'fg', 'foreground', 'activebackground', 'activeforeground', 
-                         'insertbackground', 'selectbackground', 'highlightbackground', 'highlightcolor']:
-                if prop in keys:
-                    try: 
-                        val = w.cget(prop)
-                        new_val = safe_color_swap(val)
-                        if new_val != val: w.config(**{prop: new_val})
-                    except: pass
-            
-            if 'font' in keys:
-                try:
-                    val = w.cget('font')
-                    new_val = convert_font(val)
-                    if new_val != val: w.config(font=new_val)
-                except: pass
-                
-            for child in w.winfo_children():
-                update_w(child)
-                
-        update_w(self.root)
-        
-        # Override special custom components
-        if hasattr(self, 'spinner') and getattr(self, 'spinner', None):
-            try:
-                # LoadingSpinner Custom
-                self.spinner.itemconfig("arc", outline=COLOR_ACCENT_BLUE)
-            except: pass
-            
-        style = ttk.Style()
-        style.configure('TRadiobutton', background=COLOR_BG, foreground=COLOR_FG, font=FONT_MAIN)
-        style.configure('TScrollbar', background=COLOR_SURFACE, troughcolor=COLOR_BG)
-        style.configure('Treeview', background=COLOR_BG, foreground=COLOR_FG, fieldbackground=COLOR_BG, font=FONT_MAIN)
-        style.configure('Treeview.Heading', background=COLOR_SURFACE, foreground=t["text_muted"], font=FONT_BOLD)
-
-        # Titlebar tweaks
-        if hasattr(self, 'btn_close'):
-            self.btn_close.bind("<Enter>", lambda e: self.btn_close.config(bg=COLOR_ACCENT_RED, fg=COLOR_FG))
-            self.btn_close.bind("<Leave>", lambda e: self.btn_close.config(bg=COLOR_BG, fg=t["text_muted"]))
-        if hasattr(self, 'btn_min'):
-            self.btn_min.bind("<Enter>", lambda e: self.btn_min.config(bg=COLOR_SURFACE_HOVER, fg=COLOR_FG))
-            self.btn_min.bind("<Leave>", lambda e: self.btn_min.config(bg=COLOR_BG, fg=t["text_muted"]))
-        if hasattr(self, 'btn_max'):
-            self.btn_max.bind("<Enter>", lambda e: self.btn_max.config(bg=COLOR_SURFACE_HOVER, fg=COLOR_FG))
-            self.btn_max.bind("<Leave>", lambda e: self.btn_max.config(bg=COLOR_BG, fg=t["text_muted"]))
-
-    def toggle_maximize(self):
-        if self.is_maximized_full:
-            # Restore
-            if self.prev_geom:
-                self.root.geometry(self.prev_geom)
-            self.is_maximized_full = False
-            self.btn_max.config(text="☐")
-        else:
-            # Maximize
-            self.prev_geom = self.root.geometry()
-            ws = self.root.winfo_screenwidth()
-            hs = self.root.winfo_screenheight()
-            self.root.geometry(f"{ws}x{hs-48}+0+0") # Assume 48px taskbar
-            self.is_maximized_full = True
-            self.btn_max.config(text="❐")
-
-    def start_move(self, event):
-        self.x = event.x
-        self.y = event.y
-
-    def do_move(self, event):
-        if self.is_maximized_full: return # Don't move if max
-        deltax = event.x - self.x
-        deltay = event.y - self.y
-        x = self.root.winfo_x() + deltax
-        y = self.root.winfo_y() + deltay
-        self.root.geometry(f"+{x}+{y}")
-        
-    def minimize_window(self):
-        try:
-            self.root.overrideredirect(False)
-            self.root.iconify()
-            self.root.bind("<Map>", self._on_map)
-        except Exception:
-            self.root.withdraw()
-            
-    def _on_map(self, event):
-        if str(event.widget) == ".":
-            self.root.overrideredirect(True)
-            self.root.unbind("<Map>")
-        
-    def start_resize(self, event):
-        self.x = event.x
-        self.y = event.y
-        self.w = self.root.winfo_width()
-        self.h = self.root.winfo_height()
-
-    def do_resize(self, event):
-        nw = max(self.w + (event.x - self.x), 800)
-        nh = max(self.h + (event.y - self.y), 348)
-        self.root.geometry(f"{nw}x{nh}")
-
-    def set_app_window(self):
-        try:
-            import ctypes
-            GWL_EXSTYLE = -20
-            WS_EX_APPWINDOW = 0x00040000
-            WS_EX_TOOLWINDOW = 0x00000080
-            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
-            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            style = style & ~WS_EX_TOOLWINDOW
-            style = style | WS_EX_APPWINDOW
-            ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-            self.root.wm_withdraw()
-            self.root.after(10, self.root.wm_deiconify)
-        except: pass
-            
-    def on_app_close(self):
+    def _on_close(self):
         self.settings["window_width"] = self.root.winfo_width()
         self.settings["window_height"] = self.root.winfo_height()
         self.settings["window_x"] = self.root.winfo_x()
         self.settings["window_y"] = self.root.winfo_y()
+        self.settings["sidebar_expanded"] = self.sidebar_expanded
         save_settings(self.settings)
         self.root.destroy()
 
-    def restart_program(self):
-        self.settings["window_width"] = self.root.winfo_width()
-        self.settings["window_height"] = self.root.winfo_height()
-        self.settings["window_x"] = self.root.winfo_x()
-        self.settings["window_y"] = self.root.winfo_y()
-        save_settings(self.settings)
+    # =========================================================================
+    # TAB 1: PSD BUCIN
+    # =========================================================================
+    def _build_psd_bucin(self, container):
+        self.psd_container = tk.Frame(container, bg=THEME["bg"])
+        self.psd_container.pack(fill="both", expand=True)
+        self.show_psd_setup()
         
-        import subprocess
-        subprocess.Popen([sys.executable] + sys.argv)
-        self.root.destroy()
-            
-    def clear_ui(self):
-        if hasattr(self, 'ui_root'):
-             self.ui_root.destroy()
+    def show_psd_setup(self):
+        for w in self.psd_container.winfo_children(): w.destroy()
         
-        self.ui_root = tk.Frame(self.main_border, bg=COLOR_BG)
-        self.ui_root.pack(fill="both", expand=True)
-            
-    # --- UI: Setup Page ---
-    def setup_ui_setup(self):
-        self.clear_ui()
+        container = self.psd_container
+        container.rowconfigure(0, weight=0)
+        container.rowconfigure(1, weight=1)
+        container.rowconfigure(2, weight=0)
+        container.columnconfigure(0, weight=1)
+        container.columnconfigure(1, weight=1)
         
-        # Main Grid
-        self.ui_root.columnconfigure(0, weight=1)
-        self.ui_root.columnconfigure(1, weight=1)
-        self.ui_root.rowconfigure(0, weight=1) # Drop zones
-        self.ui_root.rowconfigure(1, weight=0) # Button
+        header = tk.Frame(container, bg=THEME["bg"])
+        header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(20, 15), padx=30)
+        tk.Label(header, text="PSD Bucin", font=FONT_BIG, bg=THEME["bg"], fg=THEME["fg"]).pack(anchor="w")
+        tk.Label(header, text="Pilih folder sumber untuk memulai proses konversi template", font=FONT_TITLE, bg=THEME["bg"], fg=THEME["text_muted"]).pack(anchor="w")
         
-        # Drop ZonesContainer
-        zone_frame = tk.Frame(self.ui_root, bg=COLOR_BG)
-        zone_frame.grid(row=0, column=0, columnspan=2, sticky="nsew", padx=20, pady=20)
-        zone_frame.columnconfigure(0, weight=1)
-        zone_frame.columnconfigure(1, weight=1)
-        zone_frame.rowconfigure(0, weight=1)
+        self.dz_master = ModernDropZone(container, "Master PSD", "🎨", self.settings.get("last_master", ""), "folder", lambda x: self._validate_psd_setup())
+        self.dz_master.grid(row=1, column=0, sticky="nsew", padx=(30, 10), pady=10)
         
-        self.dz_master = DropZone(zone_frame, "Folder Master (PSD)", icon="🎨", 
-                                  initial_path=self.settings.get("last_master", ""), 
-                                  on_change=self.validate_inputs)
-        self.dz_master.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.dz_photo = ModernDropZone(container, "Foto JPG", "📷", self.settings.get("last_pilihan", ""), "folder", lambda x: self._validate_psd_setup())
+        self.dz_photo.grid(row=1, column=1, sticky="nsew", padx=(10, 30), pady=10)
         
-        self.dz_pilihan = DropZone(zone_frame, "Folder Foto (JPG)", icon="📷", 
-                                   initial_path=self.settings.get("last_pilihan", ""), 
-                                   on_change=self.validate_inputs)
-        self.dz_pilihan.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        footer = tk.Frame(container, bg=THEME["bg"], height=65)
+        footer.grid(row=2, column=0, columnspan=2, sticky="ew", pady=15, padx=30)
+        footer.pack_propagate(False)
         
-        # Footer Action
-        footer = tk.Frame(self.ui_root, bg=COLOR_BG)
-        footer.grid(row=1, column=0, columnspan=2, sticky="ew", padx=20, pady=20)
-        
-        self.lbl_status = tk.Label(footer, text="Silakan pilih folder...", font=FONT_TITLE, bg=COLOR_BG, fg="#52525b")
+        self.lbl_status = tk.Label(footer, text="Menunggu Folder...", font=FONT_MAIN_BOLD, bg=THEME["bg"], fg=THEME["text_muted"])
         self.lbl_status.pack(side="left")
         
-        # Buttons Container
-        btn_container = tk.Frame(footer, bg=COLOR_BG)
-        btn_container.pack(side="right")
+        btn_frame = tk.Frame(footer, bg=THEME["bg"])
+        btn_frame.pack(side="right")
         
-        self.btn_manual = tk.Button(btn_container, text="MODE MANUAL", font=FONT_BOLD, 
-                                    bg=COLOR_SURFACE, fg="#71717a", relief="flat", cursor="arrow",
-                                    command=self.start_manual_mode, padx=20, pady=15, state="disabled")
+        self.btn_manual = RoundedButton(btn_frame, "MODE MANUAL", bg=THEME["surface"], fg=THEME["fg"], hover_bg=THEME["surface_hover"], command=self.start_manual)
         self.btn_manual.pack(side="left", padx=5)
-
-        self.btn_auto = tk.Button(btn_container, text="MODE OTOMATIS", font=FONT_BOLD, 
-                                    bg=COLOR_SURFACE, fg="#71717a", relief="flat", cursor="arrow",
-                                    command=self.start_auto_mode, padx=20, pady=15, state="disabled")
+        
+        self.btn_auto = RoundedButton(btn_frame, "MODE OTOMATIS", bg=THEME["accent_primary"], hover_bg=THEME["accent_hover"], command=self.start_auto)
         self.btn_auto.pack(side="left", padx=5)
         
-        self.validate_inputs() 
+        self._validate_psd_setup()
 
-    def validate_inputs(self):
-        if not hasattr(self, 'dz_master') or not hasattr(self, 'dz_pilihan'): return
-        m = self.dz_master.get_path()
-        p = self.dz_pilihan.get_path()
-        
+    def _validate_psd_setup(self):
+        m = self.dz_master.get_path(); p = self.dz_photo.get_path()
         if not m or not p:
-            self.lbl_status.config(text="Pilih kedua folder dulu...", fg="#52525b")
-            self._set_buttons_state(False)
+            self.lbl_status.config(text="Pilih kedua folder terlebih dahulu", fg=THEME["text_muted"])
+            self.btn_manual.config_state("disabled"); self.btn_auto.config_state("disabled")
             return
-            
-        # Quick validation
-        if not os.path.isdir(m):
-             self.lbl_status.config(text="⚠️ Folder Master tidak valid", fg=COLOR_ACCENT_RED)
-             return
-        if not os.path.isdir(p):
-             self.lbl_status.config(text="⚠️ Folder Foto tidak valid", fg=COLOR_ACCENT_RED)
-             return
-             
-        # Count files (lightweight)
         try:
-            # Recursive PSD count
-            n_psd = 0
-            for r, _, f in os.walk(m):
-                for x in f:
-                    if x.lower().endswith(('.psd', '.psb')): n_psd += 1
-            
-            # Recursive JPG count
-            n_jpg = 0
-            for r, _, f in os.walk(p):
-                for x in f:
-                    if x.lower().endswith(('.jpg','.jpeg')): n_jpg += 1
-                    
+            n_psd = sum(1 for root, _, files in os.walk(m) for f in files if f.lower().endswith(('.psd', '.psb')))
+            n_jpg = sum(1 for root, _, files in os.walk(p) for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png')))
             if n_psd == 0:
-                self.lbl_status.config(text="⚠️ Tidak ada PSD di folder Master", fg=COLOR_ACCENT_RED)
-                self._set_buttons_state(False)
-                return
-            if n_jpg == 0:
-                self.lbl_status.config(text="⚠️ Tidak ada JPG di folder Foto", fg=COLOR_ACCENT_RED)
-                self._set_buttons_state(False)
-                return
-                
-            self.lbl_status.config(text=f"Siap: {n_psd} Template • {n_jpg} Foto", fg=COLOR_ACCENT_GREEN)
-            self._set_buttons_state(True)
-            
+                self.lbl_status.config(text="⚠️ Tidak ada PSD di folder Master", fg=THEME["error"])
+                self.btn_manual.config_state("disabled"); self.btn_auto.config_state("disabled")
+            elif n_jpg == 0:
+                self.lbl_status.config(text="⚠️ Tidak ada Foto di folder", fg=THEME["error"])
+                self.btn_manual.config_state("disabled"); self.btn_auto.config_state("disabled")
+            else:
+                self.lbl_status.config(text=f"Siap: {n_psd} Template • {n_jpg} Foto", fg=THEME["success"])
+                self.btn_manual.config_state("normal"); self.btn_auto.config_state("normal")
         except Exception as e:
-            self.lbl_status.config(text=f"Error: {str(e)}", fg=COLOR_ACCENT_RED)
+            self.lbl_status.config(text=f"Error: {e}", fg=THEME["error"])
 
-    def _set_buttons_state(self, enabled):
-        state = "normal" if enabled else "disabled"
-        bg_manual = COLOR_ACCENT_BLUE if enabled else COLOR_SURFACE
-        bg_auto = COLOR_ACCENT_GREEN if enabled else COLOR_SURFACE
-        fg = "white" if enabled else "#71717a"
-        cursor = "hand2" if enabled else "arrow"
+    def _prepare_psd_data(self):
+        m = self.dz_master.get_path(); p = self.dz_photo.get_path()
+        self.psd_masters = []
+        for root, _, files in os.walk(m):
+            for f in files:
+                if f.lower().endswith(('.psd', '.psb')):
+                    full = os.path.join(root, f)
+                    self.psd_masters.append((os.path.relpath(full, m), full))
+        self.psd_masters.sort(key=lambda x: x[0].lower())
         
-        self.btn_manual.config(state=state, bg=bg_manual, fg=fg, cursor=cursor)
-        self.btn_auto.config(state=state, bg=bg_auto, fg=fg, cursor=cursor)
-
-    def prepare_data(self):
-        m = self.dz_master.get_path()
-        p = self.dz_pilihan.get_path()
-        
-        # Re-verify
-        if not os.path.exists(m) or not os.path.exists(p):
-            raise ValueError("Salah satu folder tidak dapat diakses.")
-        
-        self.psd_masters = collect_psd_masters(m)
-        if not self.psd_masters:
-            raise ValueError("Tidak ditemukan file PSD di folder Master.")
-            
-        self.jpgs = collect_jpgs_with_relpath(p)
-        if not self.jpgs:
-            raise ValueError("Tidak ditemukan file JPG di folder Foto.")
-        
-        self.settings["last_master"] = m
-        self.settings["last_pilihan"] = p
-        
+        self.jpgs = []
+        for root, _, files in os.walk(p):
+            for f in files:
+                if f.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    full = os.path.join(root, f)
+                    self.jpgs.append((full, os.path.relpath(full, p)))
+        self.jpgs.sort(key=lambda x: x[1].lower())
+        self.settings["last_master"] = m; self.settings["last_pilihan"] = p; save_settings(self.settings)
         self.master_dir = m
 
-    def start_manual_mode(self):
-        try:
-            self.prepare_data()
-            self.setup_ui_manual_processing(self.master_dir)
-            self.root.bind("r", self.rotate_manual)
-            self.root.bind("R", self.rotate_manual)
-        except Exception as e:
-            messagebox.showerror("Gagal Memulai", str(e))
-            
-    def rotate_manual(self, event=None):
-        if hasattr(self, 'original_image') and self.original_image:
-            from PIL import Image
-            self.original_image = self.original_image.transpose(Image.ROTATE_270)
-            self.update_image_display()
-
-    def setup_ui_manual_processing(self, master_dir):
-        # ... Similar to advanced v2 processing UI ...
-        self.clear_ui()
-        self.ui_root.columnconfigure(0, weight=1)
-        self.ui_root.columnconfigure(1, weight=0)
-        self.ui_root.rowconfigure(0, weight=0)
-        self.ui_root.rowconfigure(1, weight=1)
-        self.ui_root.rowconfigure(2, weight=0)
-        
+    def start_manual(self):
+        self._prepare_psd_data()
         self.current_idx = -1
         self.logs = []
         self.is_processing = False
-        self.original_image = None
-        self.photo = None
-        self.psd_buttons = []
         self.shortcuts = self.settings.get("shortcuts", [str(i+1) for i in range(9)])
         
-        # Top Bar
-        top_bar = tk.Frame(self.ui_root, bg=COLOR_BG)
-        top_bar.grid(row=0, column=0, sticky="ew", padx=20, pady=10)
+        for w in self.psd_container.winfo_children(): w.destroy()
+        container = self.psd_container
+        container.rowconfigure(0, weight=0); container.rowconfigure(1, weight=1); container.rowconfigure(2, weight=0); container.columnconfigure(0, weight=1)
         
-        self.lbl_progress = tk.Label(top_bar, text="0/0", font=FONT_BOLD, bg=COLOR_BG, fg=COLOR_ACCENT_BLUE)
-        self.lbl_progress.pack(side="left")
+        top_bar = tk.Frame(container, bg=THEME["surface"], height=65)
+        top_bar.grid(row=0, column=0, sticky="ew")
+        top_bar.pack_propagate(False)
+        self.lbl_progress = tk.Label(top_bar, text="0/0", font=FONT_TITLE, bg=THEME["surface"], fg=THEME["accent_primary"])
+        self.lbl_progress.pack(side="left", padx=25)
+        self.lbl_filename = tk.Label(top_bar, text="Loading...", font=FONT_MAIN_BOLD, bg=THEME["surface"], fg=THEME["fg"])
+        self.lbl_filename.pack(side="left", expand=True)
+        RoundedButton(top_bar, "BATAL", bg=THEME["surface"], fg=THEME["text_muted"], hover_bg=THEME["surface_hover"], command=self.show_psd_setup, padx=15, pady=6).pack(side="right", padx=20, pady=10)
         
-        tk.Button(top_bar, text="⚙", command=self.open_settings, bg=COLOR_SURFACE, fg="white", relief="flat", cursor="hand2", width=3).pack(side="right")
-        
-        self.lbl_filename = tk.Label(top_bar, text="Loading...", font=FONT_TITLE, bg=COLOR_BG, fg="white")
-        self.lbl_filename.place(relx=0.5, rely=0.5, anchor="center")
-        
-        # Content
-        content = tk.Frame(self.ui_root, bg="#000000")
-        content.grid(row=1, column=0, sticky="nsew", padx=20, pady=5)
-        
-        self.canvas = tk.Canvas(content, bg="#000000", highlightthickness=0)
+        self.canvas_frame = tk.Frame(container, bg="#000000")
+        self.canvas_frame.grid(row=1, column=0, sticky="nsew")
+        self.canvas = tk.Canvas(self.canvas_frame, bg="#000000", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         
-        # Overlay
-        self.overlay = tk.Frame(content, bg="#000000")
-        self.spinner = LoadingSpinner(self.overlay, bg="#000000")
+        self.overlay = tk.Frame(self.canvas_frame, bg="#000000")
+        self.spinner = Spinner(self.overlay, size=80)
         self.spinner.place(relx=0.5, rely=0.45, anchor="center")
-        tk.Label(self.overlay, text="MEMPROSES...", bg="#000000", fg="white", font=FONT_HINT).place(relx=0.5, rely=0.6, anchor="center")
+        tk.Label(self.overlay, text="MEMPROSES...", font=FONT_TITLE, bg="#000000", fg="#FFFFFF").place(relx=0.5, rely=0.6, anchor="center")
         
+        self.bottom_bar = tk.Frame(container, bg=THEME["surface"], height=100)
+        self.bottom_bar.grid(row=2, column=0, sticky="ew")
+        self.btn_container = tk.Frame(self.bottom_bar, bg=THEME["surface"])
+        self.btn_container.pack(expand=True)
         
-        self.build_bottom_bar()
-        self.root.bind("<Configure>", self.on_resize)
-        self.load_next_image()
-        
-    def build_bottom_bar(self):
-        if hasattr(self, 'bottom_bar') and self.bottom_bar.winfo_exists():
-            self.bottom_bar.destroy()
-            
-        self.bottom_bar = tk.Frame(self.ui_root, bg=COLOR_BG)
-        self.bottom_bar.grid(row=2, column=0, sticky="ew", padx=20, pady=10)
-        
-        self.psd_map = {name: path for name, path in self.psd_masters}
-        cur_mode = self.settings.get("ui_manual_mode", "autocomplete")
-        
-        # Reset alias agar aman saat toggle
-        self.psd_buttons = []
-        if hasattr(self, 'psd_combobox'): del self.psd_combobox
-        if hasattr(self, 'btn_skip'): del self.btn_skip
-        
-        self.root.unbind("<Return>")
-        self.root.unbind_all("<MouseWheel>")
-        
-        if cur_mode == "autocomplete":
-            self.all_psd_names = sorted(list(self.psd_map.keys()))
-            
-            container = tk.Frame(self.bottom_bar, bg=COLOR_BG)
-            container.pack(pady=5)
-            
-            input_grid = tk.Frame(container, bg=COLOR_BG)
-            input_grid.pack()
-            
-            tk.Label(input_grid, text="KETIK NAMA PSD:", font=FONT_BOLD, bg=COLOR_BG, fg="white").grid(row=0, column=0, padx=5)
-            
-            self.psd_entry = tk.Entry(input_grid, font=FONT_TITLE, width=30)
-            self.psd_entry.grid(row=0, column=1, padx=5)
-            
-            self.btn_skip = tk.Button(input_grid, text="SKIP [ESC]", font=FONT_BOLD, bg=COLOR_ACCENT_RED, fg="white", 
-                                 relief="flat", activebackground=COLOR_ACCENT_RED, activeforeground="white", cursor="hand2", padx=20, pady=5, command=self.skip_current)
-            self.btn_skip.grid(row=0, column=2, padx=10)
-            
-            # Murni Listbox pasif di bawah kotak ketik
-            self.psd_listbox = tk.Listbox(input_grid, font=FONT_MAIN, height=5, bg=COLOR_SURFACE, fg="white", selectbackground=COLOR_ACCENT_BLUE, relief="flat", highlightthickness=1, highlightcolor=COLOR_BORDER)
-            self.psd_listbox.grid(row=1, column=1, sticky="ew", padx=5, pady=(5,0))
-            
-            self.psd_buttons = [] # Keep empty for toggle_inputs compatibility
-            self.psd_combobox = self.psd_entry # alias dummy untuk toggle_inputs dan focus_set agar tetap jalan
-            
-            def update_listbox(filtered_names):
-                self.psd_listbox.delete(0, tk.END)
-                for name in filtered_names:
-                    self.psd_listbox.insert(tk.END, name)
-                if filtered_names:
-                    self.psd_listbox.selection_set(0) # Highlight opsi teratas dengan aman (pasif)
-                    
-            update_listbox(self.all_psd_names)
-            
-            def handle_keyrelease(event):
-                if event.keysym in ("Return", "Escape", "Tab", "Up", "Down"):
-                    return
-                    
-                typed = self.psd_entry.get().lower()
-                if not typed:
-                    update_listbox(self.all_psd_names)
-                else:
-                    filtered = [n for n in self.all_psd_names if typed in n.lower()]
-                    update_listbox(filtered)
-                    
-            def move_selection(event):
-                sel = self.psd_listbox.curselection()
-                if not sel: return "break"
-                idx = sel[0]
-                if event.keysym == 'Up' and idx > 0:
-                    idx -= 1
-                elif event.keysym == 'Down' and idx < self.psd_listbox.size() - 1:
-                    idx += 1
-                self.psd_listbox.selection_clear(0, tk.END)
-                self.psd_listbox.selection_set(idx)
-                self.psd_listbox.see(idx)
-                return "break"
-                
-            def on_enter(event):
-                selected = None
-                sel = self.psd_listbox.curselection()
-                
-                if sel:
-                    selected = self.psd_listbox.get(sel[0])
-                else:
-                    typed = self.psd_entry.get().lower()
-                    filtered = [n for n in self.all_psd_names if typed in n.lower()]
-                    if filtered: selected = filtered[0]
-                    
-                if selected:
-                    self.psd_entry.delete(0, tk.END)
-                    update_listbox(self.all_psd_names)
-                    self.manual_process_init(selected, self.psd_map[selected])
-                    
-                return "break"
-                
-            def on_listbox_click(event):
-                sel = self.psd_listbox.curselection()
-                if sel:
-                    selected = self.psd_listbox.get(sel[0])
-                    self.psd_entry.delete(0, tk.END)
-                    update_listbox(self.all_psd_names)
-                    self.manual_process_init(selected, self.psd_map[selected])
-            
-            self.psd_entry.bind('<KeyRelease>', handle_keyrelease)
-            self.psd_entry.bind('<Up>', move_selection)
-            self.psd_entry.bind('<Down>', move_selection)
-            self.psd_entry.bind('<Return>', on_enter)
-            self.psd_listbox.bind('<Double-Button-1>', on_listbox_click)
-            
-            tk.Label(self.bottom_bar, text="Ketik nama template lalu Enter • ESC Skip • R Putar Gambar • 1-9 Shortcut Murni", font=FONT_HINT, bg=COLOR_BG, fg="#71717a").pack(pady=(5,10))
-            self.psd_entry.focus_set()
-            
-        else:
-            # Mode "button"
-            self.btn_scroll_canvas = tk.Canvas(self.bottom_bar, bg=COLOR_BG, bd=0, highlightthickness=0, height=220)
-            self.btn_scroll_canvas.pack(side="top", fill="x", expand=True)
-            
-            self.btn_container = tk.Frame(self.btn_scroll_canvas, bg=COLOR_BG)
-            self.btn_scroll_window = self.btn_scroll_canvas.create_window((0, 0), window=self.btn_container, anchor="nw")
-            
-            self.btn_container.bind("<Configure>", lambda e: self.btn_scroll_canvas.configure(scrollregion=self.btn_scroll_canvas.bbox("all")))
-            self.btn_scroll_canvas.bind("<Configure>", lambda e: self.btn_scroll_canvas.itemconfig(self.btn_scroll_window, width=e.width))
-            
-            def _on_mousewheel(event):
-                try: self.btn_scroll_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-                except: pass
-            self.root.bind_all("<MouseWheel>", _on_mousewheel)
-            
-            tk.Label(self.bottom_bar, text="Key: 1-9 Pilih • ESC Skip • R Putar Gambar • Enter Auto", font=FONT_HINT, bg=COLOR_BG, fg="#71717a").pack(side="bottom", pady=(5,0))
-            self.render_buttons()
-            self.root.bind("<Return>", lambda e: self.select_first_psd_manual())
-            
-        self.root.bind("<Escape>", lambda e: self.skip_current())
-        self.bind_shortcuts()
-        
-    # ... Manual Mode Handlers (Same as v2) ...
-    def bind_shortcuts(self):
-        for i, key in enumerate(self.shortcuts):
-            try:
-                self.root.bind(key.lower(), lambda e, idx=i: self.select_psd_by_index(idx))
-            except: pass
-
-    def on_resize(self, event):
-        if event.widget == self.root:
-            if hasattr(self, '_resize_job'): self.root.after_cancel(self._resize_job)
-            self._resize_job = self.root.after(100, self.update_image_display)
-
-    def update_image_display(self):
-        mode = self.settings.get("ui_manual_mode", "autocomplete")
-        if mode == "button" and hasattr(self, 'reflow_buttons'):
-            self.reflow_buttons()
-            
-        if not hasattr(self, 'canvas') or self.original_image is None: return
-        self.root.update_idletasks()
-        cw = self.canvas.winfo_width()
-        ch = self.canvas.winfo_height()
-        if cw < 10 or ch < 10: return
-        
-        iw, ih = self.original_image.size
-        ratio = min(cw/iw, ch/ih)
-        nw, nh = int(iw*ratio), int(ih*ratio)
-        
-        resized = self.original_image.resize((nw, nh), Image.Resampling.LANCZOS)
-        self.photo = ImageTk.PhotoImage(resized)
-        
-        self.canvas.delete("all")
-        self.canvas.create_image(cw//2, ch//2, image=self.photo, anchor="center")
-
-    def toggle_inputs(self, enable):
-        state = "normal" if enable else "disabled"
-        if hasattr(self, 'psd_combobox'):
-            self.psd_combobox.config(state=state)
-            if enable: self.psd_combobox.focus_set()
-            
-        for btn in getattr(self, 'psd_buttons', []) + [getattr(self, 'btn_skip', None)]: 
-            if btn: btn.config(state=state, cursor="hand2" if enable else "arrow")
-        
-        if enable:
-            self.spinner.stop()
-            self.overlay.place_forget()
-        else:
-            self.overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
-            self.spinner.start()
-
-    def load_next_image(self):
-        self.current_idx += 1
-        
-        # Report progress to BMachine
-        report_progress(self.current_idx, len(self.jpgs), "Manual Process")
-
-        if self.current_idx >= len(self.jpgs):
-            self.finish_processing()
-            return
-            
-        full_jpg, rel_jpg = self.jpgs[self.current_idx]
-        self.lbl_progress.config(text=f"{self.current_idx + 1}/{len(self.jpgs)}")
-        self.lbl_filename.config(text=rel_jpg)
-        
-        try:
-            from PIL import ImageOps
-            self.original_image = Image.open(full_jpg)
-            self.original_image = ImageOps.exif_transpose(self.original_image)
-            
-            # Memaksa Potrait pintar berdasarkan Rasio Gambar
-            if self.original_image.width > self.original_image.height:
-                ratio = self.original_image.width / float(self.original_image.height)
-                # Jika rasio sangat lebar (> 1.35 atau lebih dari 4:3), kemungkinan besar ini Grup Foto (Landscape aseli).
-                # Jika rasio mepet (<= 1.35), kemungkinan ini potret diabadikan menyimpang (misal 4:3 sideways phone).
-                if ratio < 1.35:
-                    self.original_image = self.original_image.transpose(Image.ROTATE_90)
-                
-            self.update_image_display()
-            if hasattr(self, 'psd_combobox'):
-                self.psd_combobox.focus_set()
-        except Exception as e:
-            self.canvas.delete("all")
-            self.canvas.create_text(self.canvas.winfo_width()//2, self.canvas.winfo_height()//2, 
-                                    text=f"Error: {e}", fill="red", font=FONT_TITLE)
-
-    def reflow_buttons(self, force=False):
-        if not hasattr(self, 'psd_masters') or not hasattr(self, 'btn_container'): return
-        try:
-            geom = self.root.geometry()
-            gw = int(geom.split('x')[0])
-        except:
-            gw = self.root.winfo_width()
-        available_w = max(gw, 800) - 80
-        
-        if hasattr(self, '_last_flow_w') and abs(self._last_flow_w - available_w) < 50 and not force:
-            return
-        self._last_flow_w = available_w
-        
-        if hasattr(self, 'psd_buttons'):
-            self.psd_buttons.clear()
-        else:
-            self.psd_buttons = []
-            
-        for child in self.btn_container.winfo_children():
-            child.destroy()
-            
-        colors = [COLOR_ACCENT_BLUE, COLOR_ACCENT_GREEN, "#eab308", "#db2777", "#8b5cf6"]
-        
-        current_row = tk.Frame(self.btn_container, bg=COLOR_BG)
-        current_row.pack(pady=5)
-        current_w = 0
-        
-        def add_btn(text, cmd, color, is_skip=False):
-            nonlocal current_row, current_w
-            extra_pad = 15 if is_skip else 5
-            est_w = (len(text) * 9) + 40 + (extra_pad * 2)
-            
-            if current_w + est_w > available_w and current_w > 0:
-                current_row = tk.Frame(self.btn_container, bg=COLOR_BG)
-                current_row.pack(pady=5)
-                current_w = 0
-                
-            st = "disabled" if getattr(self, "is_processing", False) else "normal"
-            crs = "arrow" if st == "disabled" else "hand2"
-            
-            btn = tk.Button(current_row, text=text, font=FONT_BOLD, state=st,
-                           bg=color, fg="white", relief="flat", activebackground=color, activeforeground="white",
-                           cursor=crs, padx=20, pady=10, command=cmd)
-            btn.pack(side="left", padx=extra_pad)
-            current_w += est_w
-            return btn
-            
+        colors = [THEME["accent_primary"], THEME["success"], THEME["warning"], "#8B5CF6", "#EC4899"]
         for i, (name, path) in enumerate(self.psd_masters):
             key = self.shortcuts[i] if i < len(self.shortcuts) else "?"
             c = colors[i % len(colors)]
-            text = f"{name} [{key.upper()}]"
-            b = add_btn(text, lambda n=name, p=path: self.manual_process_init(n, p), c)
-            self.psd_buttons.append(b)
+            btn = RoundedButton(self.btn_container, f"{name} [{key}]", bg=c, hover_bg=c, command=lambda n=name, p=path: self.process_image(n, p))
+            btn.pack(side="left", padx=5, pady=15)
+            self.root.bind(key.lower(), lambda e, n=name, p=path: self.process_image(n, p))
             
-        self.btn_skip = add_btn("SKIP [ESC]", self.skip_current, COLOR_ACCENT_RED, is_skip=True)
+        RoundedButton(self.btn_container, "SKIP [ESC]", bg=THEME["error"], hover_bg="#DC2626", command=self.skip_image).pack(side="left", padx=20, pady=15)
+        self.root.bind("<Escape>", lambda e: self.skip_image())
+        self.root.bind("<Configure>", self._on_resize_manual)
         
+        self.load_next_image()
+
+    def _on_resize_manual(self, event):
+        if event.widget == self.root and hasattr(self, '_resize_timer'):
+            self.root.after_cancel(self._resize_timer)
+        self._resize_timer = self.root.after(100, self._draw_image)
+
+    def load_next_image(self):
+        self.current_idx += 1
+        if self.current_idx >= len(self.jpgs):
+            self.show_report_view()
+            return
+        full_jpg, rel_jpg = self.jpgs[self.current_idx]
+        self.lbl_progress.config(text=f"{self.current_idx + 1} / {len(self.jpgs)}")
+        self.lbl_filename.config(text=rel_jpg)
+        report_progress(self.current_idx + 1, len(self.jpgs), rel_jpg)
+        threading.Thread(target=self._load_image_async, args=(full_jpg,)).start()
+
+    def _load_image_async(self, path):
+        try:
+            from PIL import ImageOps
+            img = Image.open(path)
+            img = ImageOps.exif_transpose(img)
+            self.original_image = img
+            self.root.after(0, self._draw_image)
+        except Exception: pass
+
+    def _draw_image(self):
+        if not hasattr(self, 'canvas') or not hasattr(self, 'original_image'): return
         self.root.update_idletasks()
-        if hasattr(self, 'btn_scroll_canvas'):
-            rh = self.btn_container.winfo_reqheight()
-            self.btn_scroll_canvas.configure(height=max(50, min(rh, 240)))
+        cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
+        if cw < 10 or ch < 10: return
+        iw, ih = self.original_image.size
+        ratio = min(cw/iw, ch/ih)
+        resized = self.original_image.resize((int(iw*ratio), int(ih*ratio)), Image.Resampling.LANCZOS)
+        self.photo = ImageTk.PhotoImage(resized)
+        self.canvas.delete("all")
+        self.canvas.create_image(cw//2, ch//2, image=self.photo, anchor="center")
 
-    def render_buttons(self):
-        self.reflow_buttons(force=True)
-
-    def manual_process_init(self, name, path):
+    def process_image(self, name, path):
         if self.is_processing: return
         self.is_processing = True
-        self.toggle_inputs(False)
-        threading.Thread(target=self.manual_process_thread, args=(name, path)).start()
+        self.overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.spinner.start()
+        threading.Thread(target=self._process_worker, args=(name, path)).start()
         
-    def manual_process_thread(self, name, path):
+    def _process_worker(self, name, path):
         full_jpg, rel_jpg = self.jpgs[self.current_idx]
         ext = os.path.splitext(path)[1].lower()
         tname = compute_target_name(os.path.basename(rel_jpg))
         tdir = os.path.join(self.master_dir, os.path.dirname(rel_jpg))
-        
         try:
             os.makedirs(tdir, exist_ok=True)
             dst = os.path.join(tdir, f"{tname}{ext}")
-            
-            if os.path.exists(dst):
-                log = ("EXIST", rel_jpg, f"Sudah ada ({name})")
-            else:
-                shutil.copy2(path, dst)
-                log = ("OK", rel_jpg, f"Sukses -> {name}")
-        except Exception as e:
-            log = ("FAIL", rel_jpg, str(e))
-            
-        self.root.after(0, lambda: self.process_done(log))
+            if os.path.exists(dst): log = ("EXIST", rel_jpg, f"Sudah ada ({name})")
+            else: shutil.copy2(path, dst); log = ("OK", rel_jpg, f"Sukses -> {name}")
+        except Exception as e: log = ("FAIL", rel_jpg, str(e))
+        self.root.after(100, lambda: self._process_done(log))
 
-    def select_psd_by_index(self, idx):
-        if not self.is_processing and 0 <= idx < len(self.psd_masters):
-            n, p = self.psd_masters[idx]
-            self.manual_process_init(n, p)
-
-    def select_first_psd_manual(self):
-        if not self.is_processing and self.psd_masters:
-            n, p = self.psd_masters[0]
-            self.manual_process_init(n, p)
-
-    def skip_current(self):
-        if self.is_processing: return
-        rel = self.jpgs[self.current_idx][1]
-        self.logs.append(("SKIP", rel, "Dilewati user"))
-        self.load_next_image()
-        
-    def process_done(self, log):
+    def _process_done(self, log):
         self.logs.append(log)
+        self.spinner.stop()
+        self.overlay.place_forget()
         self.is_processing = False
-        self.toggle_inputs(True)
         self.load_next_image()
         
-    def open_settings(self):
-        if hasattr(self, 'settings_overlay') and self.settings_overlay.winfo_exists():
-            return
-            
-        current_mode = self.settings.get("ui_manual_mode", "autocomplete")
-        self.settings_overlay = SettingsOverlay(self.ui_root, self.psd_masters, self.shortcuts, current_mode, self.on_settings_saved)
-        self.settings_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
-        self.settings_overlay.lift()
+    def skip_image(self):
+        if getattr(self, "is_processing", False): return
+        self.logs.append(("SKIP", self.jpgs[self.current_idx][1], "Dilewati"))
+        self.load_next_image()
 
-    def on_settings_saved(self, new_shortcuts, new_mode):
-        self.shortcuts = new_shortcuts
-        self.settings["shortcuts"] = new_shortcuts
+    def start_auto(self):
+        self._prepare_psd_data()
+        self.logs = []
+        self.is_cancelled = False
+        for w in self.psd_container.winfo_children(): w.destroy()
         
-        old_mode = self.settings.get("ui_manual_mode", "autocomplete")
-        self.settings["ui_manual_mode"] = new_mode
-        save_settings(self.settings)
-        
-        # Hot reload untuk mode manual jika jendela sedang terbuka
-        if hasattr(self, 'bottom_bar') and self.bottom_bar.winfo_exists():
-            if new_mode != old_mode:
-                self.build_bottom_bar()
-                if hasattr(self, 'update_image_display'):
-                    self.update_image_display()
-            else:
-                self.bind_shortcuts()
-                if new_mode == "button" and hasattr(self, 'render_buttons'):
-                    self.render_buttons()
-        else:
-            self.bind_shortcuts()
-
-    # --- Mode: Automatic ---
-    def start_auto_mode(self):
-        try:
-            self.prepare_data()
-            self.setup_ui_auto_processing()
-        except Exception as e:
-            messagebox.showerror("Gagal Memulai", str(e))
-            
-    def setup_ui_auto_processing(self):
-        self.clear_ui()
-        # Simple Loading UI
-        self.ui_root.columnconfigure(0, weight=1)
-        self.ui_root.rowconfigure(0, weight=1)
-        
-        frame = tk.Frame(self.ui_root, bg=COLOR_BG)
+        frame = tk.Frame(self.psd_container, bg=THEME["bg"])
         frame.place(relx=0.5, rely=0.5, anchor="center")
-        
-        self.spinner = LoadingSpinner(frame, bg=COLOR_BG, size=80)
+        self.spinner = Spinner(frame, size=100)
         self.spinner.pack()
         self.spinner.start()
         
-        tk.Label(frame, text="MODE OTOMATIS", font=FONT_TITLE, bg=COLOR_BG, fg=COLOR_ACCENT_GREEN).pack(pady=(20, 5))
-        self.lbl_auto_status = tk.Label(frame, text="Memproses...", font=FONT_MAIN, bg=COLOR_BG, fg="white")
+        tk.Label(frame, text="MEMPROSES OTOMATIS", font=FONT_BIG, bg=THEME["bg"], fg=THEME["accent_primary"]).pack(pady=(30, 10))
+        self.lbl_auto_status = tk.Label(frame, text="Memulai...", font=FONT_TITLE, bg=THEME["bg"], fg=THEME["text_muted"])
         self.lbl_auto_status.pack()
+        self.btn_cancel = RoundedButton(self.psd_container, "BATAL", bg=THEME["error"], hover_bg="#DC2626", command=self._cancel_auto)
+        self.btn_cancel.place(relx=0.5, rely=0.85, anchor="center")
         
-        self.btn_cancel = tk.Button(self.ui_root, text="BATAL", bg=COLOR_ACCENT_RED, fg="white", 
-                                    relief="flat", padx=20, pady=10, command=self.cancel_auto)
-        self.btn_cancel.place(relx=0.5, rely=0.8, anchor="center")
-        
-        self.is_cancelled = False
-        self.logs = []
-        threading.Thread(target=self.auto_process_thread).start()
-        
-    def cancel_auto(self):
+        threading.Thread(target=self._auto_worker).start()
+
+    def _cancel_auto(self):
         self.is_cancelled = True
-        self.btn_cancel.config(text="MEMBATALKAN...", state="disabled")
+        self.btn_cancel.config_state("disabled")
+        self.lbl_auto_status.config(text="Membatalkan...", fg=THEME["warning"])
 
-    def auto_process_thread(self):
-        # Auto Mode Strategy: Smart Matching (Folder Class Based)
-        # 1. Build Map: { "Relative/Folder/Path": "Full/Path/To/Template.psd" }
+    def _auto_worker(self):
         psd_map = {}
-        fallback_psd = None
-        if self.psd_masters:
-             fallback_psd = self.psd_masters[0][1]
-
+        fallback_psd = self.psd_masters[0][1] if self.psd_masters else None
         for rel_name, full_path in self.psd_masters:
-             # rel_name example: "KELAS A/Template.psd"
-             # dirname: "KELAS A"
-             p_dir = os.path.dirname(rel_name)
-             # Normalize for matching
-             p_dir_norm = p_dir.replace("\\", "/").strip().lower()
-             if p_dir_norm not in psd_map:
-                 psd_map[p_dir_norm] = full_path
+            p_dir = os.path.dirname(rel_name).replace("\\", "/").strip().lower()
+            if p_dir not in psd_map: psd_map[p_dir] = full_path
 
         total = len(self.jpgs)
-        
         for i, (full_jpg, rel_jpg) in enumerate(self.jpgs):
             if self.is_cancelled: break
-            
-            # Update UI
-            msg = f"Memproses {i+1}/{total}: {rel_jpg}"
-            self.root.after(0, lambda m=msg: self.lbl_auto_status.config(text=m))
-            report_progress(i+1, total, rel_jpg) # BMachine
-            
+            self.root.after(0, lambda msg=f"{i+1}/{total}: {rel_jpg}": self.lbl_auto_status.config(text=msg))
+            report_progress(i+1, total, rel_jpg)
             try:
-                # 2. Match JPG Folder to PSD Folder
-                # rel_jpg example: "KELAS A/Anak1.jpg" -> "KELAS A"
-                jpg_dir = os.path.dirname(rel_jpg)
-                jpg_dir_norm = jpg_dir.replace("\\", "/").strip().lower()
-                
-                selected_master = psd_map.get(jpg_dir_norm)
-                
-                # Fallback Logic
-                if not selected_master:
-                     # Try finding partial match? No, stick to explicit matching first.
-                     selected_master = fallback_psd
-                     
-                if not selected_master:
-                     raise Exception("No Master PSD found")
-
+                jpg_dir = os.path.dirname(rel_jpg).replace("\\", "/").strip().lower()
+                selected_master = psd_map.get(jpg_dir, fallback_psd)
+                if not selected_master: raise Exception("Master PSD tidak ditemukan")
                 master_ext = os.path.splitext(selected_master)[1].lower()
                 master_name = os.path.basename(selected_master)
-
                 tname = compute_target_name(os.path.basename(rel_jpg))
                 tdir = os.path.join(self.master_dir, os.path.dirname(rel_jpg))
                 os.makedirs(tdir, exist_ok=True)
                 dst = os.path.join(tdir, f"{tname}{master_ext}")
+                if os.path.exists(dst): self.logs.append(("EXIST", rel_jpg, "Sudah ada"))
+                else: shutil.copy2(selected_master, dst); self.logs.append(("OK", rel_jpg, f"Sukses -> {master_name}"))
+            except Exception as e: self.logs.append(("FAIL", rel_jpg, str(e)))
                 
-                if os.path.exists(dst):
-                     self.logs.append(("EXIST", rel_jpg, f"Sudah ada"))
-                else:
-                    shutil.copy2(selected_master, dst)
-                    self.logs.append(("OK", rel_jpg, f"Sukses -> {master_name}"))
-                    
-            except Exception as e:
-                self.logs.append(("FAIL", rel_jpg, str(e)))
-                
-        self.root.after(0, self.finish_processing)
-        
-    # --- Report ---
-    def finish_processing(self):
-        self.setup_ui_report()
-        # Save BMachine result
-        summary = [f"Mode: {'Manual' if hasattr(self, 'psd_buttons') else 'Otomatis'}", 
-                   f"Total: {len(self.logs)}"] + \
-                  [f"{s}: {f} ({d})" for s,f,d in self.logs]
-        write_bmachine_result("Laporan PSD Bucin", summary)
+        self.root.after(0, self.show_report_view)
 
-    def setup_ui_report(self):
-        self.clear_ui()
-        # ... Report UI (Same as v2) ...
-        self.ui_root.columnconfigure(0, weight=1)
-        self.ui_root.rowconfigure(0, weight=0)
-        self.ui_root.rowconfigure(1, weight=1)
-        self.ui_root.rowconfigure(2, weight=0)
+    def show_report_view(self):
+        if hasattr(self, 'shortcuts'):
+            for key in self.shortcuts: self.root.unbind(key.lower())
+        self.root.unbind("<Escape>")
+        write_bmachine_result("Laporan PSD Bucin", [f"Total: {len(self.logs)}"])
         
-        total = len(self.logs)
-        ok = sum(1 for l in self.logs if l[0] == "OK")
-        skip = sum(1 for l in self.logs if l[0] == "SKIP")
-        fail = sum(1 for l in self.logs if l[0] == "FAIL")
-        exist = sum(1 for l in self.logs if l[0] == "EXIST")
+        for w in self.psd_container.winfo_children(): w.destroy()
         
-        # Header
-        header = tk.Frame(self.ui_root, bg=COLOR_BG)
-        header.grid(row=0, column=0, sticky="ew", padx=40, pady=(40, 20))
-        tk.Label(header, text="Laporan Akhir", font=("Segoe UI", 24, "bold"), bg=COLOR_BG, fg="white").pack(anchor="w")
+        tk.Label(self.psd_container, text="LAPORAN SELESAI", font=FONT_BIG, bg=THEME["bg"], fg=THEME["fg"]).pack(pady=30)
+        RoundedButton(self.psd_container, "KEMBALI", command=self.show_psd_setup).pack()
+
+    # =========================================================================
+    # TAB 2: POWER BATCH RENAME (1000x Aesthetic)
+    # =========================================================================
+    def _build_batch_rename(self, container):
+        self.rename_paths = []
         
-        # Stats
-        cards = tk.Frame(header, bg=COLOR_BG)
-        cards.pack(fill="x", pady=10)
+        # 1. Header (Top)
+        header = tk.Frame(container, bg=THEME["bg"])
+        header.pack(side="top", fill="x", padx=30, pady=(20, 5))
+        tk.Label(header, text="Power Batch Rename", font=FONT_BIG, bg=THEME["bg"], fg=THEME["fg"]).pack(anchor="w")
         
-        StatCard(cards, "Sukses", ok, COLOR_ACCENT_GREEN).pack(side="left", fill="x", expand=True, padx=5)
-        StatCard(cards, "Dilewati", skip, "#fbbf24").pack(side="left", fill="x", expand=True, padx=5)
-        StatCard(cards, "Gagal", fail, COLOR_ACCENT_RED).pack(side="left", fill="x", expand=True, padx=5)
-        StatCard(cards, "Sudah Ada", exist, "#60a5fa").pack(side="left", fill="x", expand=True, padx=5)
+        # 2. Footer (Bottom - Prevents vertical cut-off)
+        footer = tk.Frame(container, bg=THEME["bg"])
+        footer.pack(side="bottom", fill="x", padx=30, pady=15)
+        self.btn_execute_rename = RoundedButton(footer, "EXECUTE RENAME", bg=THEME["accent_primary"], hover_bg=THEME["accent_hover"], command=self._execute_rename, padx=30)
+        self.btn_execute_rename.pack(side="right")
         
+        # 3. Main Area (Middle)
+        main_area = tk.Frame(container, bg=THEME["bg"])
+        main_area.pack(side="top", fill="both", expand=True, padx=30, pady=5)
         
-        # Details
-        tree_frame = tk.Frame(self.ui_root, bg=COLOR_SURFACE)
-        tree_frame.grid(row=1, column=0, sticky="nsew", padx=40)
+        # Action Bar
+        action_bar = tk.Frame(main_area, bg=THEME["bg"])
+        action_bar.pack(fill="x", pady=(0, 10))
         
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Treeview", background=COLOR_SURFACE, foreground="white", fieldbackground=COLOR_SURFACE, font=("Segoe UI", 10), rowheight=30, borderwidth=0)
-        style.configure("Treeview.Heading", background=COLOR_BORDER, foreground="white", font=FONT_BOLD, borderwidth=0)
-        style.map("Treeview", background=[('selected', '#3f3f46')])
+        RoundedButton(action_bar, "Pilih File...", bg=THEME["surface"], fg=THEME["fg"], hover_bg=THEME["surface_hover"], command=self._browse_rename_files, padx=15, pady=8).pack(side="left")
+        RoundedButton(action_bar, "Bersihkan", bg=THEME["bg"], fg=THEME["text_muted"], hover_bg=THEME["surface_hover"], command=self._clear_rename_files, padx=15, pady=8).pack(side="left", padx=10)
+        tk.Label(action_bar, text="* Atau drag & drop file ke arah area mana pun di tab ini", font=FONT_HINT, bg=THEME["bg"], fg=THEME["text_muted"]).pack(side="left", padx=5)
         
-        tree = ttk.Treeview(tree_frame, columns=("status", "file", "detail"), show="headings", selectmode="browse")
-        tree.heading("status", text="STATUS")
-        tree.heading("file", text="FILE")
-        tree.heading("detail", text="DETAIL")
+        self.var_search = tk.StringVar(); self.var_replace = tk.StringVar()
+        self.var_use_regex = tk.BooleanVar(value=False); self.var_case = tk.BooleanVar(value=False)
+        self.var_match_all = tk.BooleanVar(value=True); self.var_enum = tk.BooleanVar(value=False)
+        self.var_apply = tk.StringVar(value="name")
         
-        tree.column("status", width=120, anchor="center")
-        tree.column("file", width=400, anchor="w")
-        tree.column("detail", width=300, anchor="w")
+        for var in [self.var_search, self.var_replace, self.var_use_regex, self.var_case, self.var_match_all, self.var_enum, self.var_apply]:
+            var.trace_add("write", lambda *args: self._preview_rename())
+            
+        # Settings Card
+        settings_card = tk.Frame(main_area, bg=THEME["border"], padx=1, pady=1)
+        settings_card.pack(fill="x", pady=(0, 15))
         
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=vsb.set)
+        sc_inner = tk.Frame(settings_card, bg=THEME["surface"], padx=20, pady=20)
+        sc_inner.pack(fill="both", expand=True)
         
-        tree.pack(side="left", fill="both", expand=True)
+        # Grid layout avoids horizontal squishing
+        left_opts = tk.Frame(sc_inner, bg=THEME["surface"])
+        left_opts.grid(row=0, column=0, sticky="nsew", padx=(0, 20))
+        
+        tk.Label(left_opts, text="Cari (Search for)", font=FONT_MAIN_BOLD, bg=THEME["surface"], fg=THEME["fg"]).pack(anchor="w", pady=(0, 5))
+        ModernEntry(left_opts, textvariable=self.var_search).pack(fill="x", pady=(0, 10))
+        tk.Label(left_opts, text="Ganti dengan (Replace with)", font=FONT_MAIN_BOLD, bg=THEME["surface"], fg=THEME["fg"]).pack(anchor="w", pady=(0, 5))
+        ModernEntry(left_opts, textvariable=self.var_replace).pack(fill="x")
+        
+        right_opts = tk.Frame(sc_inner, bg=THEME["surface"])
+        right_opts.grid(row=0, column=1, sticky="nsew")
+        
+        # Toggles in a 2x2 grid to save width
+        toggles_grid = tk.Frame(right_opts, bg=THEME["surface"])
+        toggles_grid.pack(fill="x")
+        ToggleSwitch(toggles_grid, text="Regex", variable=self.var_use_regex).grid(row=0, column=0, sticky="w", padx=(0,15), pady=2)
+        ToggleSwitch(toggles_grid, text="Match All", variable=self.var_match_all).grid(row=0, column=1, sticky="w", pady=2)
+        ToggleSwitch(toggles_grid, text="Case", variable=self.var_case).grid(row=1, column=0, sticky="w", padx=(0,15), pady=2)
+        ToggleSwitch(toggles_grid, text="Nomor Urut", variable=self.var_enum).grid(row=1, column=1, sticky="w", pady=2)
+        
+        apply_frame = tk.Frame(right_opts, bg=THEME["surface"])
+        apply_frame.pack(fill="x", pady=(10, 0))
+        tk.Label(apply_frame, text="Terapkan Ke:", font=FONT_MAIN_BOLD, bg=THEME["surface"], fg=THEME["fg"]).pack(anchor="w", pady=(0, 5))
+        SegmentedControl(apply_frame, [("name", "Nama"), ("ext", "Ekstensi"), ("both", "Semua")], self.var_apply).pack(fill="x")
+        
+        sc_inner.columnconfigure(0, weight=1)
+        sc_inner.columnconfigure(1, weight=1)
+        
+        # Treeview Preview
+        tree_card = tk.Frame(main_area, bg=THEME["border"], padx=1, pady=1)
+        tree_card.pack(fill="both", expand=True)
+        tc_inner = tk.Frame(tree_card, bg=THEME["bg"])
+        tc_inner.pack(fill="both", expand=True)
+        
+        self.tree_rename = ttk.Treeview(tc_inner, columns=("old", "new"), show="headings")
+        self.tree_rename.heading("old", text="Nama Asli")
+        self.tree_rename.heading("new", text="Nama Baru (Live Preview)")
+        self.tree_rename.pack(side="left", fill="both", expand=True)
+        
+        vsb = ttk.Scrollbar(tc_inner, orient="vertical", command=self.tree_rename.yview)
+        self.tree_rename.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
         
-        tree.tag_configure("OK", foreground=COLOR_ACCENT_GREEN)
-        tree.tag_configure("SKIP", foreground="#fbbf24")
-        tree.tag_configure("FAIL", foreground=COLOR_ACCENT_RED)
-        tree.tag_configure("EXIST", foreground="#60a5fa")
-        
-        for stat, f, det in self.logs:
-            tree.insert("", "end", values=(stat, f, det), tags=(stat,))
-            
-            
-        # Footer
-        footer = tk.Frame(self.ui_root, bg=COLOR_BG)
-        footer.grid(row=2, column=0, sticky="ew", padx=40, pady=20)
-        
-        tk.Button(footer, text="BUAT MASTER LAIN", command=self.restart_program, 
-                  bg=COLOR_SURFACE, fg="white", font=FONT_BOLD, relief="flat", padx=20, pady=10).pack(side="right")
+        if HAS_DND:
+            main_area.drop_target_register(DND_FILES)
+            main_area.dnd_bind('<<Drop>>', self._on_drop_rename)
+            self.tree_rename.drop_target_register(DND_FILES)
+            self.tree_rename.dnd_bind('<<Drop>>', self._on_drop_rename)
 
-class SettingsOverlay(tk.Frame):
-    def __init__(self, parent, masters, shortcuts, current_mode, callback):
-        super().__init__(parent, bg=COLOR_BG)
-        self.callback = callback
-        self.entries = []
-        
-        # Header Navigasi Pengaturan
-        header = tk.Frame(self, bg=COLOR_SURFACE)
-        header.pack(side="top", fill="x")
-        tk.Label(header, text="PENGATURAN", font=FONT_TITLE, bg=COLOR_SURFACE, fg="white").pack(side="left", padx=20, pady=15)
-        tk.Button(header, text="TUTUP / BATAL", command=self.close_without_save, bg=COLOR_BORDER, fg="white", font=FONT_BOLD, relief="flat", padx=15, pady=5, cursor="hand2").pack(side="right", padx=20, pady=15)
-        
-        # Container frame membungkus canvas
-        container = tk.Frame(self, bg=COLOR_BG)
-        container.pack(fill="both", expand=True, padx=20, pady=20)
+    def _browse_rename_files(self):
+        files = filedialog.askopenfilenames()
+        if files: self._add_rename_paths([f.replace("/", "\\") for f in files])
+            
+    def _clear_rename_files(self):
+        self.rename_paths = []
+        self._preview_rename()
 
-        self.canvas = tk.Canvas(container, bg=COLOR_BG, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(container, orient="vertical", command=self.canvas.yview)
+    def _on_drop_rename(self, event):
+        if not event.data: return
+        dropped = parse_dnd_files(event.data)
+        valid_files = [f.replace("/", "\\") for f in dropped if os.path.isfile(f)]
+        if valid_files: self._add_rename_paths(valid_files)
+            
+    def _add_rename_paths(self, new_paths):
+        for p in new_paths:
+            if p not in self.rename_paths:
+                self.rename_paths.append(p)
+        self._preview_rename()
+
+    def _preview_rename(self):
+        if not hasattr(self, 'tree_rename'): return
+        for item in self.tree_rename.get_children(): self.tree_rename.delete(item)
+            
+        search = self.var_search.get()
+        replace = self.var_replace.get()
+        use_regex = self.var_use_regex.get()
+        case_sen = self.var_case.get()
+        match_all = self.var_match_all.get()
+        enum = self.var_enum.get()
+        apply_to = self.var_apply.get()
         
-        self.scrollable_frame = tk.Frame(self.canvas, bg=COLOR_BG)
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
+        self.rename_plan = []
+        enum_counter = 1
         
-        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        
-        def on_canvas_configure(event):
-            if event.widget == self.canvas:
-                self.canvas.itemconfig(self.canvas_window, width=event.width)
+        for path in self.rename_paths:
+            old_full = os.path.basename(path)
+            name, ext = os.path.splitext(old_full)
+            target_str = name if apply_to == "name" else (ext if apply_to == "ext" else old_full)
+            new_target = target_str
+            
+            if search:
+                try:
+                    if use_regex:
+                        flags = 0 if case_sen else re.IGNORECASE
+                        count = 0 if match_all else 1
+                        new_target = re.sub(search, replace, target_str, count=count, flags=flags)
+                    else:
+                        if not case_sen:
+                            flags = re.IGNORECASE
+                            count = 0 if match_all else 1
+                            new_target = re.sub(re.escape(search), replace.replace('\\', r'\\'), target_str, count=count, flags=flags)
+                        else:
+                            if match_all: new_target = target_str.replace(search, replace)
+                            else: new_target = target_str.replace(search, replace, 1)
+                except Exception: new_target = target_str
+
+            if enum and (new_target != target_str or not search):
+                new_target = f"{new_target} ({enum_counter})"
+                enum_counter += 1
+
+            new_full = new_target + ext if apply_to == "name" else (name + new_target if apply_to == "ext" else new_target)
+            new_path = os.path.join(os.path.dirname(path), new_full)
+            self.rename_plan.append((path, new_path))
+            
+            if new_full != old_full: self.tree_rename.insert("", "end", values=(old_full, new_full))
+            else: self.tree_rename.insert("", "end", values=(old_full, new_full), tags=("unchanged",))
                 
-        self.canvas.bind("<Configure>", on_canvas_configure)
+        self.tree_rename.tag_configure("unchanged", foreground=THEME["text_muted"])
+
+    def _execute_rename(self):
+        if not hasattr(self, 'rename_plan') or not self.rename_plan: return
+        success = 0
+        for old, new in self.rename_plan:
+            if old != new:
+                try:
+                    if not os.path.exists(new):
+                        os.rename(old, new)
+                        success += 1
+                except: pass
+        messagebox.showinfo("Berhasil", f"Berhasil merename {success} file.")
+        self._clear_rename_files()
+
+
+    # =========================================================================
+    # TAB 3: FILE DUPLICATOR (1000x Aesthetic)
+    # =========================================================================
+    def _build_duplicator(self, container):
+        self.dup_path = ""
         
-        def _on_mousewheel(event):
-            try: self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-            except: pass
+        # 1. Header (Top)
+        header = tk.Frame(container, bg=THEME["bg"])
+        header.pack(side="top", fill="x", padx=30, pady=(20, 5))
+        tk.Label(header, text="File Duplicator", font=FONT_BIG, bg=THEME["bg"], fg=THEME["fg"]).pack(anchor="w")
+        
+        # 2. Footer (Bottom)
+        footer = tk.Frame(container, bg=THEME["bg"])
+        footer.pack(side="bottom", fill="x", padx=30, pady=15)
+        self.btn_execute_dup = RoundedButton(footer, "DUPLIKASI FILE", bg=THEME["accent_primary"], hover_bg=THEME["accent_hover"], command=self._execute_dup, padx=30)
+        self.btn_execute_dup.pack(side="right")
+        
+        # 3. Main Area (Middle)
+        main_area = tk.Frame(container, bg=THEME["bg"])
+        main_area.pack(side="top", fill="both", expand=True, padx=30, pady=5)
+        
+        # Action Bar
+        action_bar = tk.Frame(main_area, bg=THEME["bg"])
+        action_bar.pack(fill="x", pady=(0, 15))
+        
+        RoundedButton(action_bar, "Pilih Master File...", bg=THEME["surface"], fg=THEME["fg"], hover_bg=THEME["surface_hover"], command=self._browse_dup_file, padx=15, pady=8).pack(side="left")
+        self.lbl_dup_file = tk.Label(action_bar, text="* Atau tarik 1 file master ke area mana pun di tab ini", font=FONT_HINT, bg=THEME["bg"], fg=THEME["text_muted"])
+        self.lbl_dup_file.pack(side="left", padx=15)
+        
+        # Settings Card
+        settings_card = tk.Frame(main_area, bg=THEME["border"], padx=1, pady=1)
+        settings_card.pack(fill="x", pady=(0, 15))
+        
+        sc_inner = tk.Frame(settings_card, bg=THEME["surface"], padx=25, pady=25)
+        sc_inner.pack(fill="both", expand=True)
+        
+        tk.Label(sc_inner, text="Pola Nama Baru", font=FONT_MAIN_BOLD, bg=THEME["surface"], fg=THEME["fg"]).grid(row=0, column=0, sticky="w", pady=(0, 10))
+        self.var_dup_pattern = tk.StringVar(value="Copy_{num}")
+        ModernEntry(sc_inner, textvariable=self.var_dup_pattern).grid(row=0, column=1, sticky="ew", padx=15, pady=(0, 10))
+        
+        tk.Label(sc_inner, text="Nomor Awal", font=FONT_MAIN_BOLD, bg=THEME["surface"], fg=THEME["fg"]).grid(row=1, column=0, sticky="w", pady=10)
+        self.var_dup_start = tk.StringVar(value="1")
+        ModernEntry(sc_inner, textvariable=self.var_dup_start).grid(row=1, column=1, sticky="ew", padx=15, pady=10)
+        
+        tk.Label(sc_inner, text="Nomor Akhir", font=FONT_MAIN_BOLD, bg=THEME["surface"], fg=THEME["fg"]).grid(row=2, column=0, sticky="w", pady=10)
+        self.var_dup_end = tk.StringVar(value="10")
+        ModernEntry(sc_inner, textvariable=self.var_dup_end).grid(row=2, column=1, sticky="ew", padx=15, pady=10)
+        
+        tk.Label(sc_inner, text="* Gunakan {num} pada pola nama sebagai penanda angka otomatis", font=FONT_HINT, bg=THEME["surface"], fg=THEME["text_muted"]).grid(row=3, column=1, sticky="w", padx=15, pady=(5, 0))
+        
+        sc_inner.columnconfigure(1, weight=1)
+        
+        if HAS_DND:
+            main_area.drop_target_register(DND_FILES)
+            main_area.dnd_bind('<<Drop>>', self._on_drop_dup)
+
+    def _browse_dup_file(self):
+        f = filedialog.askopenfilename()
+        if f: self._set_dup_file(f.replace("/", "\\"))
+
+    def _on_drop_dup(self, event):
+        if not event.data: return
+        dropped = parse_dnd_files(event.data)
+        valid_files = [f.replace("/", "\\") for f in dropped if os.path.isfile(f)]
+        if valid_files: self._set_dup_file(valid_files[0])
             
-        self.bind("<MouseWheel>", _on_mousewheel)
-        self.canvas.bind("<MouseWheel>", _on_mousewheel)
-        self.scrollable_frame.bind("<MouseWheel>", _on_mousewheel)
-        
-        pf = self.scrollable_frame
-        
-        # Mode UI Selection
-        tk.Label(pf, text="Mode Visual Manual", font=FONT_TITLE, bg=COLOR_BG, fg="white").pack(pady=(15, 5))
-        
-        # SANGAT PENTING: deklarasikan 'self' sebagai parent var_mode agar memory scope aman
-        self.var_mode = tk.StringVar(self, value=current_mode) 
-        
-        mode_frame = tk.Frame(pf, bg=COLOR_BG)
-        mode_frame.pack(fill="x", padx=20, pady=5)
-        
-        style = ttk.Style()
-        style.configure('TRadiobutton', background=COLOR_BG, foreground='white', font=FONT_MAIN)
-        ttk.Radiobutton(mode_frame, text="Autocomplete TextBox (Ketik & Enter)", variable=self.var_mode, value="autocomplete", style="TRadiobutton").pack(anchor="w", pady=2)
-        ttk.Radiobutton(mode_frame, text="Tombol Klasik (Deret Bawah)", variable=self.var_mode, value="button", style="TRadiobutton").pack(anchor="w", pady=2)
-        
-        tk.Label(pf, text="Atur Shortcut Keyboard", font=FONT_TITLE, bg=COLOR_BG, fg="white").pack(pady=(30,10))
-        f = tk.Frame(pf, bg=COLOR_BG)
-        f.pack(fill="both", padx=20)
-        
-        for i, (name, _) in enumerate(masters):
-            val = shortcuts[i] if i < len(shortcuts) else "?"
-            r = tk.Frame(f, bg=COLOR_BG)
-            r.pack(fill="x", pady=2)
-            tk.Label(r, text=name, width=28, anchor="w", bg=COLOR_BG, fg="#d4d4d8", font=FONT_MAIN).pack(side="left")
-            e = tk.Entry(r, width=5, justify="center", font=FONT_BOLD)
-            e.insert(0, val)
-            e.pack(side="right")
-            e.bind("<MouseWheel>", _on_mousewheel)
-            self.entries.append(e)
+    def _set_dup_file(self, path):
+        self.dup_path = path
+        short = path if len(path) < 60 else "..." + path[-57:]
+        self.lbl_dup_file.config(text=f"Master File: {short}", fg=THEME["success"])
+
+    def _execute_dup(self):
+        if not self.dup_path or not os.path.exists(self.dup_path):
+            messagebox.showwarning("Peringatan", "Pilih file master terlebih dahulu.")
+            return
             
-        tk.Button(pf, text="SIMPAN PENGATURAN", command=self.save, bg=COLOR_ACCENT_BLUE, fg="white", font=FONT_BOLD, padx=40, pady=10, cursor="hand2").pack(pady=40)
+        pattern = self.var_dup_pattern.get().strip()
+        if "{num}" not in pattern:
+            messagebox.showwarning("Peringatan", "Pola nama harus mengandung {num}.")
+            return
+            
+        try:
+            start = int(self.var_dup_start.get().strip())
+            end = int(self.var_dup_end.get().strip())
+        except:
+            messagebox.showwarning("Peringatan", "Nomor Awal dan Akhir harus berupa angka.")
+            return
+            
+        if start > end: return
         
-        self.update_idletasks()
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        ext = os.path.splitext(self.dup_path)[1]
+        dir_path = os.path.dirname(self.dup_path)
         
-    def close_without_save(self):
-        self.destroy()
-        
-    def save(self):
-        res = [e.get().strip() or "?" for e in self.entries]
-        selected_mode = self.var_mode.get()
-        self.callback(res, selected_mode)
-        self.destroy()
+        success = 0
+        for i in range(start, end + 1):
+            new_name = pattern.replace("{num}", str(i)) + ext
+            new_path = os.path.join(dir_path, new_name)
+            if not os.path.exists(new_path):
+                try:
+                    shutil.copy2(self.dup_path, new_path)
+                    success += 1
+                except: pass
+                
+        messagebox.showinfo("Berhasil", f"Berhasil menduplikasi menjadi {success} file.")
 
 if __name__ == "__main__":
-    if HAS_DND:
-        root = TkinterDnD.Tk()
-    else:
-        root = tk.Tk()
-    app = BucinAppV3(root)
+    if HAS_DND: root = TkinterDnD.Tk()
+    else: root = tk.Tk()
+    app = PremiumToolboxApp(root)
     root.mainloop()

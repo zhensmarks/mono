@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest
+    Version="7.0"
+    ExtensionBundleId="com.layercounter.panel"
+    ExtensionBundleVersion="1.1.0"
+    ExtensionBundleName="Alat Penghitung Layer">
+
+    <ExtensionList>
+        <Extension Id="com.layercounter.panel.main"/>
+    </ExtensionList>
+
+    <ExecutionEnvironment>
+        <HostList>
+            <Host Name="PHXS" Version="[21.0,22.0)"/>
+        </HostList>
+        <LocaleList>
+            <Locale Code="All"/>
+        </LocaleList>
+        <RequiredRuntimeList>
+            <RequiredRuntime Name="CSXS" Version="9.0"/>
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
+
+    <DispatchInfoList>
+        <Extension Id="com.layercounter.panel.main">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./index.html</MainPath>
+                    <ScriptPath>./jsx/hostscript.jsx</ScriptPath>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>Alat Penghitung Layer</Menu>
+                    <Geometry>
+                        <Size>
+                            <Height>40</Height>
+                            <Width>120</Width>
+                        </Size>
+                        <MinSize>
+                            <Height>32</Height>
+                            <Width>80</Width>
+                        </MinSize>
+                        <MaxSize>
+                            <Height>220</Height>
+                            <Width>260</Width>
+                        </MaxSize>
+                    </Geometry>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>

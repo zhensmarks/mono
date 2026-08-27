@@ -43,6 +43,9 @@ public partial class FormattedTextBlock : UserControl
         rootPanel.Children.Clear();
 
         if (string.IsNullOrEmpty(text)) return;
+        
+        // Unescape Markdown characters often escaped by Trello
+        text = text.Replace("\\.", ".");
 
         // Regex to find Markdown images: ![alt](url) OR plain image URLs
         string imagePattern = @"(!\[.*?\]\((https?://[^\s]+)\))|((https?://[^\s]+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?))";
