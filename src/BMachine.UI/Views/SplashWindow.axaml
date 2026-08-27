@@ -3,95 +3,112 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:BMachine.UI.ViewModels"
-        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="350"
+        mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="280"
         x:Class="BMachine.UI.Views.SplashWindow"
         x:DataType="vm:SplashViewModel"
-        Width="600" Height="350"
+        Width="450" Height="280"
         WindowStartupLocation="CenterScreen"
         SystemDecorations="None"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
-        TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
         Topmost="True">
 
-    <Border CornerRadius="0" ClipToBounds="True" BorderBrush="#1E293B" BorderThickness="1" Background="#000000">
+    <!-- Super Clean & Compact Card -->
+    <Border CornerRadius="12" ClipToBounds="True" Background="#111111" BorderBrush="#2A2A2A" BorderThickness="1">
         <Grid>
-            <!-- Decorative Terminal Accents -->
-            <TextBlock Text="BMACHINE // TERMINAL BOOTSTRAPPER" 
-                       Foreground="#64748B" FontSize="10" FontFamily="Consolas, Courier New, monospace"
-                       Margin="15,10" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                       
-            <TextBlock Text="SYS.INIT: TRUE" 
-                       Foreground="#64748B" FontSize="10" FontFamily="Consolas, Courier New, monospace"
-                       Margin="15,10" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#18181B" Offset="0.0" />
+                    <GradientStop Color="#09090B" Offset="1.0" />
+                </LinearGradientBrush>
+            </Grid.Background>
 
-            <!-- 2. Main Content Container -->
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="5" Margin="0,0,0,100">
-                <!-- NEW LOGO IMAGE -->
-                <Image Source="avares://BMachine.UI/Assets/splash_logo.png" 
-                       Width="150" 
-                       HorizontalAlignment="Center"
-                       RenderOptions.BitmapInterpolationMode="HighQuality">
-                </Image>
-                    
-                <!-- Version -->
-                <TextBlock Text="v6.5" 
-                           FontSize="10" 
-                           FontWeight="Bold"
-                           FontFamily="Consolas, Courier New, monospace"
-                           HorizontalAlignment="Center" 
-                           Foreground="#475569" 
-                           LetterSpacing="2"
-                           Margin="0,-5,0,0"/>
-            </StackPanel>
+            <!-- Subtle top glow -->
+            <Border Height="1" VerticalAlignment="Top" Background="#3B82F6" Opacity="0.3">
+                <Border.Effect>
+                    <DropShadowEffect Color="#3B82F6" BlurRadius="20"/>
+                </Border.Effect>
+            </Border>
 
-            <!-- 3. Footer: Terminal Console & Progress -->
-            <StackPanel VerticalAlignment="Bottom" Margin="40,0,40,40" Spacing="10">
-                
-                <!-- Hacker Terminal Log Box -->
-                <Border Background="#000000" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="0" Padding="12,10" Height="70">
-                    <ItemsControl ItemsSource="{Binding TerminalLogs}" HorizontalAlignment="Stretch" VerticalAlignment="Bottom">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Spacing="3" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" 
-                                           FontSize="11" 
-                                           FontFamily="Consolas, Courier New, monospace"
-                                           Foreground="#38BDF8" 
-                                           Opacity="0.9"
-                                           TextWrapping="NoWrap"
-                                           TextTrimming="CharacterEllipsis"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </Border>
+            <!-- Main Content: Perfectly Centered -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" Margin="0,-20,0,0">
+                <!-- Modern XAML Vector Logo & Typography -->
+                <StackPanel Spacing="10" HorizontalAlignment="Center">
+                    <!-- Vector Icon (Stylized abstract layers / B) -->
+                    <Viewbox Width="56" Height="56" HorizontalAlignment="Center">
+                        <Grid>
+                            <Path Data="M12 2L2 7l10 5 10-5-10-5z" Fill="#3B82F6" Opacity="0.9"/>
+                            <Path Data="M2 12l10 5 10-5" Stroke="#3B82F6" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"/>
+                            <Path Data="M2 17l10 5 10-5" Stroke="#60A5FA" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" Opacity="0.6"/>
+                        </Grid>
+                        <Viewbox.Effect>
+                            <DropShadowEffect Color="#3B82F6" BlurRadius="25" Opacity="0.6" OffsetX="0" OffsetY="5"/>
+                        </Viewbox.Effect>
+                    </Viewbox>
+
+                    <!-- Typographic Logo -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0">
+                        <TextBlock Text="B" 
+                                   FontSize="22" 
+                                   FontWeight="Black"
+                                   FontFamily="Inter, Segoe UI, sans-serif"
+                                   Foreground="#3B82F6"
+                                   LetterSpacing="1"/>
+                        <TextBlock Text="MACHINE" 
+                                   FontSize="22" 
+                                   FontWeight="Light"
+                                   FontFamily="Inter, Segoe UI, sans-serif"
+                                   Foreground="#FAFAFA" 
+                                   LetterSpacing="4"/>
+                    </StackPanel>
+                </StackPanel>
+                    <TextBlock Text="VERSION 6.5" 
+                               FontSize="10" 
+                               FontWeight="Medium"
+                               FontFamily="Inter, Segoe UI, sans-serif"
+                               HorizontalAlignment="Center" 
+                               Foreground="#71717A" 
+                               LetterSpacing="2"/>
+                </StackPanel>
+
+            <!-- Bottom Section: Logs & Edge Progress Bar -->
+            <StackPanel VerticalAlignment="Bottom" Spacing="10">
+                <!-- Single Line Latest Log -->
+                <ItemsControl ItemsSource="{Binding TerminalLogs}" HorizontalAlignment="Center" Margin="0,0,0,10">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="2" HorizontalAlignment="Center"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" 
+                                       FontSize="11" 
+                                       FontFamily="Consolas, Courier New, monospace"
+                                       Foreground="#52525B" 
+                                       Opacity="0.8"
+                                       TextAlignment="Center"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                            
-                <!-- Progress Bar Container -->
-                <Grid Height="3" Margin="0,5,0,0">
-                    <!-- Track -->
-                    <Border Background="#1E293B" CornerRadius="0"/>
-                    
-                    <!-- Styled Progress Bar with Smooth Transitions -->
-                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="3" 
-                                 Background="Transparent" Foreground="#38BDF8" 
-                                 BorderThickness="0" CornerRadius="0"
-                                 ShowProgressText="False">
-                        <ProgressBar.Transitions>
-                            <Transitions>
-                                <DoubleTransition Property="Value" Duration="0:0:0.3"/>
-                            </Transitions>
-                        </ProgressBar.Transitions>
-                        <ProgressBar.Effect>
-                            <DropShadowEffect Color="#38BDF8" BlurRadius="10" Opacity="0.5"/>
-                        </ProgressBar.Effect>
-                    </ProgressBar>
-                </Grid>
+                <!-- Edge-to-Edge Progress Bar -->
+                <ProgressBar Value="{Binding Progress}" Maximum="100" Height="3" 
+                             Background="#18181B"
+                             Foreground="#3B82F6" 
+                             BorderThickness="0" CornerRadius="0"
+                             ShowProgressText="False"
+                             HorizontalAlignment="Stretch">
+                    <ProgressBar.Transitions>
+                        <Transitions>
+                            <DoubleTransition Property="Value" Duration="0:0:0.3"/>
+                        </Transitions>
+                    </ProgressBar.Transitions>
+                </ProgressBar>
             </StackPanel>
         </Grid>
     </Border>
