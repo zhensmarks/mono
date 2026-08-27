@@ -11,6 +11,7 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
 using BMachine.Core.Platform;
+using System.Linq;
 
 
 namespace BMachine.UI.ViewModels;
@@ -69,10 +70,10 @@ public partial class PathSettingsViewModel : ObservableObject
     }
     
     [ObservableProperty]
-    private ObservableCollection<string> _additionalMasterPaths = new();
+    private ObservableCollection<EditablePathItem> _additionalMasterPaths = new();
 
     [ObservableProperty]
-    private ObservableCollection<string> _additionalPhotoshopPaths = new();
+    private ObservableCollection<EditablePathItem> _additionalPhotoshopPaths = new();
 
     private async void LoadPaths()
     {
@@ -102,7 +103,8 @@ public partial class PathSettingsViewModel : ObservableObject
                 var paths = JsonSerializer.Deserialize<string[]>(jsonPaths);
                 if (paths != null)
                 {
-                    AdditionalMasterPaths = new ObservableCollection<string>(paths);
+                    AdditionalMasterPaths = new ObservableCollection<EditablePathItem>(paths.Select(p => new EditablePathItem(p)));
+                    foreach (var item in AdditionalMasterPaths) item.PropertyChanged += async (s, e) => await SaveAdditionalPaths();
                 }
             }
             catch { }
@@ -117,7 +119,8 @@ public partial class PathSettingsViewModel : ObservableObject
                 var paths = JsonSerializer.Deserialize<string[]>(jsonPsPaths);
                 if (paths != null)
                 {
-                    AdditionalPhotoshopPaths = new ObservableCollection<string>(paths);
+                    AdditionalPhotoshopPaths = new ObservableCollection<EditablePathItem>(paths.Select(p => new EditablePathItem(p)));
+                    foreach (var item in AdditionalPhotoshopPaths) item.PropertyChanged += async (s, e) => await SaveAdditionalPhotoshopPaths();
                 }
             }
             catch { }
@@ -142,28 +145,74 @@ public partial class PathSettingsViewModel : ObservableObject
          if (result != null && result.Count > 0)
          {
              var path = result[0].Path.LocalPath;
-             if (!AdditionalMasterPaths.Contains(path))
+             if (!AdditionalMasterPaths.Any(p => p.Path == path))
              {
-                 AdditionalMasterPaths.Add(path);
+                 var newItem = new EditablePathItem(path);
+                 newItem.PropertyChanged += async (s, e) => await SaveAdditionalPaths();
+                 AdditionalMasterPaths.Add(newItem);
                  await SaveAdditionalPaths();
              }
          }
     }
 
     [RelayCommand]
-    private async Task RemoveMasterPath(string path)
+    private async Task RemoveMasterPath(EditablePathItem item)
     {
-        if (AdditionalMasterPaths.Contains(path))
+        if (item != null && AdditionalMasterPaths.Contains(item))
         {
-            AdditionalMasterPaths.Remove(path);
+            AdditionalMasterPaths.Remove(item);
             await SaveAdditionalPaths();
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveMasterPathUp(EditablePathItem item)
+    {
+        if (item == null) return;
+        int index = AdditionalMasterPaths.IndexOf(item);
+        if (index > 0)
+        {
+            AdditionalMasterPaths.Move(index, index - 1);
+            await SaveAdditionalPaths();
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveMasterPathDown(EditablePathItem item)
+    {
+        if (item == null) return;
+        int index = AdditionalMasterPaths.IndexOf(item);
+        if (index >= 0 && index < AdditionalMasterPaths.Count - 1)
+        {
+            AdditionalMasterPaths.Move(index, index + 1);
+            await SaveAdditionalPaths();
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseEditMasterPath(EditablePathItem item)
+    {
+        if (item == null) return;
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
+         
+        var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select Folder",
+            AllowMultiple = false
+        });
+         
+        if (result != null && result.Count > 0)
+        {
+            item.Path = result[0].Path.LocalPath;
         }
     }
 
     private async Task SaveAdditionalPaths()
     {
         if (_database == null) return;
-        var json = JsonSerializer.Serialize(AdditionalMasterPaths);
+        var paths = AdditionalMasterPaths.Select(x => x.Path).ToArray();
+        var json = JsonSerializer.Serialize(paths);
         await _database.SetAsync("Configs.Master.AdditionalPaths", json);
         
         // Notify listeners (Dashboard/BatchVM) to reload
@@ -185,28 +234,74 @@ public partial class PathSettingsViewModel : ObservableObject
          if (result != null && result.Count > 0)
          {
              var path = result[0].Path.LocalPath;
-             if (!AdditionalPhotoshopPaths.Contains(path))
+             if (!AdditionalPhotoshopPaths.Any(p => p.Path == path))
              {
-                 AdditionalPhotoshopPaths.Add(path);
+                 var newItem = new EditablePathItem(path);
+                 newItem.PropertyChanged += async (s, e) => await SaveAdditionalPhotoshopPaths();
+                 AdditionalPhotoshopPaths.Add(newItem);
                  await SaveAdditionalPhotoshopPaths();
              }
          }
     }
 
     [RelayCommand]
-    private async Task RemovePhotoshopPath(string path)
+    private async Task RemovePhotoshopPath(EditablePathItem item)
     {
-        if (AdditionalPhotoshopPaths.Contains(path))
+        if (item != null && AdditionalPhotoshopPaths.Contains(item))
         {
-            AdditionalPhotoshopPaths.Remove(path);
+            AdditionalPhotoshopPaths.Remove(item);
             await SaveAdditionalPhotoshopPaths();
+        }
+    }
+
+    [RelayCommand]
+    private async Task MovePhotoshopPathUp(EditablePathItem item)
+    {
+        if (item == null) return;
+        int index = AdditionalPhotoshopPaths.IndexOf(item);
+        if (index > 0)
+        {
+            AdditionalPhotoshopPaths.Move(index, index - 1);
+            await SaveAdditionalPhotoshopPaths();
+        }
+    }
+
+    [RelayCommand]
+    private async Task MovePhotoshopPathDown(EditablePathItem item)
+    {
+        if (item == null) return;
+        int index = AdditionalPhotoshopPaths.IndexOf(item);
+        if (index >= 0 && index < AdditionalPhotoshopPaths.Count - 1)
+        {
+            AdditionalPhotoshopPaths.Move(index, index + 1);
+            await SaveAdditionalPhotoshopPaths();
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseEditPhotoshopPath(EditablePathItem item)
+    {
+        if (item == null) return;
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
+         
+        var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select Folder",
+            AllowMultiple = false
+        });
+         
+        if (result != null && result.Count > 0)
+        {
+            item.Path = result[0].Path.LocalPath;
         }
     }
 
     private async Task SaveAdditionalPhotoshopPaths()
     {
         if (_database == null) return;
-        var json = JsonSerializer.Serialize(AdditionalPhotoshopPaths);
+        var paths = AdditionalPhotoshopPaths.Select(x => x.Path).ToArray();
+        var json = JsonSerializer.Serialize(paths);
         await _database.SetAsync("Configs.Master.PhotoshopPaths", json);
         
         WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());

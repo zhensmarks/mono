@@ -59,12 +59,38 @@
                         <ItemsControl ItemsSource="{Binding AdditionalMasterPaths}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="10,5" Margin="0,0,0,5">
-                                        <Grid ColumnDefinitions="*, Auto">
-                                            <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
-                                            <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.RemoveMasterPathCommand}" 
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,0,8" BoxShadow="0 2 4 0 #1A000000">
+                                        <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="0">
+                                            <!-- Up/Down Buttons -->
+                                            <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="0,0,10,0" Spacing="2">
+                                                <Button Command="{Binding $parent[UserControl].DataContext.MoveMasterPathUpCommand}" 
+                                                        CommandParameter="{Binding}"
+                                                        Classes="Clear" Padding="4" ToolTip.Tip="Move Up">
+                                                     <TextBlock Text="▲" FontSize="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                </Button>
+                                                <Button Command="{Binding $parent[UserControl].DataContext.MoveMasterPathDownCommand}" 
+                                                        CommandParameter="{Binding}"
+                                                        Classes="Clear" Padding="4" ToolTip.Tip="Move Down">
+                                                     <TextBlock Text="▼" FontSize="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                </Button>
+                                            </StackPanel>
+
+                                            <!-- Editable TextBox -->
+                                            <TextBox Grid.Column="1" Text="{Binding Path, Mode=TwoWay}" VerticalAlignment="Center" 
+                                                     Background="Transparent" BorderThickness="0" Padding="5" Margin="0"
+                                                     ToolTip.Tip="Edit Path"/>
+
+                                            <!-- Browse Button -->
+                                            <Button Grid.Column="2" Command="{Binding $parent[UserControl].DataContext.BrowseEditMasterPathCommand}" 
                                                     CommandParameter="{Binding}"
-                                                    Classes="Clear" Margin="10,0,0,0" Padding="5">
+                                                    Classes="Clear" Margin="5,0,0,0" Padding="6" ToolTip.Tip="Browse Folder">
+                                                 <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}" Opacity="0.9"/>
+                                            </Button>
+                                            
+                                            <!-- Remove Button -->
+                                            <Button Grid.Column="3" Command="{Binding $parent[UserControl].DataContext.RemoveMasterPathCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Classes="Clear" Margin="5,0,0,0" Padding="6" ToolTip.Tip="Remove Folder">
                                                  <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
                                             </Button>
                                         </Grid>
@@ -98,12 +124,38 @@
                         <ItemsControl ItemsSource="{Binding AdditionalPhotoshopPaths}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="10,5" Margin="0,0,0,5">
-                                        <Grid ColumnDefinitions="*, Auto">
-                                            <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
-                                            <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.RemovePhotoshopPathCommand}" 
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,0,8" BoxShadow="0 2 4 0 #1A000000">
+                                        <Grid ColumnDefinitions="Auto, *, Auto, Auto" Margin="0">
+                                            <!-- Up/Down Buttons -->
+                                            <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="0,0,10,0" Spacing="2">
+                                                <Button Command="{Binding $parent[UserControl].DataContext.MovePhotoshopPathUpCommand}" 
+                                                        CommandParameter="{Binding}"
+                                                        Classes="Clear" Padding="4" ToolTip.Tip="Move Up">
+                                                     <TextBlock Text="▲" FontSize="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                </Button>
+                                                <Button Command="{Binding $parent[UserControl].DataContext.MovePhotoshopPathDownCommand}" 
+                                                        CommandParameter="{Binding}"
+                                                        Classes="Clear" Padding="4" ToolTip.Tip="Move Down">
+                                                     <TextBlock Text="▼" FontSize="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                </Button>
+                                            </StackPanel>
+
+                                            <!-- Editable TextBox -->
+                                            <TextBox Grid.Column="1" Text="{Binding Path, Mode=TwoWay}" VerticalAlignment="Center" 
+                                                     Background="Transparent" BorderThickness="0" Padding="5" Margin="0"
+                                                     ToolTip.Tip="Edit Path"/>
+
+                                            <!-- Browse Button -->
+                                            <Button Grid.Column="2" Command="{Binding $parent[UserControl].DataContext.BrowseEditPhotoshopPathCommand}" 
                                                     CommandParameter="{Binding}"
-                                                    Classes="Clear" Margin="10,0,0,0" Padding="5">
+                                                    Classes="Clear" Margin="5,0,0,0" Padding="6" ToolTip.Tip="Browse Folder">
+                                                 <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}" Opacity="0.9"/>
+                                            </Button>
+                                            
+                                            <!-- Remove Button -->
+                                            <Button Grid.Column="3" Command="{Binding $parent[UserControl].DataContext.RemovePhotoshopPathCommand}" 
+                                                    CommandParameter="{Binding}"
+                                                    Classes="Clear" Margin="5,0,0,0" Padding="6" ToolTip.Tip="Remove Folder">
                                                  <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
                                             </Button>
                                         </Grid>
