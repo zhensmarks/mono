@@ -183,34 +183,7 @@ function main() {
     txtFilter.preferredSize.height = 350;
     txtFilter.helpTip = "Paste revisi di sini (contoh: NO 1 revisi ini...)";
 
-    // Auto-format for pasted text that loses newlines
-    var prevText = "";
-    txtFilter.onChanging = function() {
-        var currentText = txtFilter.text;
-        
-        // Deteksi apakah user melakukan Paste (perubahan karakter banyak sekaligus)
-        var isPasted = Math.abs(currentText.length - prevText.length) > 5;
-        
-        if (isPasted) {
-            var newText = currentText;
-            
-            // 1. Teks menyatu tapi angka memiliki titik (contoh: "onta3.retouch" atau "onta 3.")
-            newText = newText.replace(/([a-zA-Z,])\s*(\d+\.)/g, "$1\r\n$2");
-            
-            // 2. Teks menyatu tanpa titik, diikuti aksi (contoh: "anak3 hilangkan" atau "anak 15, 19 hilangkan")
-            newText = newText.replace(/([a-zA-Z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[a-zA-Z])/g, "$1\r\n");
-
-            // 3. Pisahkan teks yang menyatu dengan strip (contoh: "lagi- 4 serabut")
-            newText = newText.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
-
-            if (newText !== currentText) {
-                txtFilter.text = newText;
-                currentText = newText;
-            }
-        }
-        prevText = currentText;
-    };
-
+    // Teks area tanpa auto-format onChanging agar tidak mengganggu UI
     var grpFilterControls = pnlRight.add("group");
 
     grpFilterControls.orientation = "column";
@@ -284,6 +257,12 @@ function main() {
         // PRE-PROCESS 1: Normalisasi "NOMER" -> "NOMOR" (typo umum Bahasa Indonesia)
         var processedText = text.toUpperCase();
         processedText = processedText.split("NOMER").join("NOMOR");
+
+        // PRE-PROCESS 1.5: Fix baris baru yang tertelan oleh ScriptUI (Internal saja)
+        // Memisahkan kata yang nempel dengan angka (misal: "ANAK3" -> "ANAK\n3")
+        processedText = processedText.replace(/([A-Z,])\s*(\d+\.)/g, "$1\n$2");
+        processedText = processedText.replace(/([A-Z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[A-Z])/g, "$1\n");
+        processedText = processedText.replace(/([^\s\n])\s*-\s*(\d+)/g, "$1\n- $2");
 
         // PRE-PROCESS 2: Inject newline sebelum pola "FOTO" agar setiap item revisi jadi baris sendiri
         // Contoh: "- FOTO ANAK NOMER 4 TALI- FOTO NOMER 5" -> baris terpisah
