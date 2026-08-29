@@ -192,11 +192,16 @@ function main() {
         var isPasted = Math.abs(currentText.length - prevText.length) > 5;
         
         if (isPasted) {
-            // Pisahkan teks yang menyatu seperti "lagi- 4 serabut" menjadi baris baru
-            var newText = currentText.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
+            var newText = currentText;
             
-            // Opsional: Pisahkan juga jika formatnya "lagi 4. serabut"
-            newText = newText.replace(/([^\s\r\n])\s+(\d+)\.\s+/g, "$1\r\n$2. ");
+            // Pisahkan teks yang menyatu tanpa spasi akibat newline hilang (contoh: "onta3.retouch" -> "onta\r\n3.retouch")
+            newText = newText.replace(/([a-zA-Z])(\d+\.)/g, "$1\r\n$2");
+            
+            // Pisahkan teks yang menyatu dengan spasi (contoh: "onta 3.retouch" -> "onta\r\n3.retouch")
+            newText = newText.replace(/([a-zA-Z])\s+(\d+\.)/g, "$1\r\n$2");
+
+            // Pisahkan teks yang menyatu dengan strip (contoh: "lagi- 4 serabut" -> "lagi\r\n- 4 serabut")
+            newText = newText.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
 
             if (newText !== currentText) {
                 txtFilter.text = newText;
@@ -223,7 +228,21 @@ function main() {
             item.fileRef = files[i];
             if (autoSelectAll) item.selected = true;
         }
+        updateSelectionCount();
     }
+
+    function updateSelectionCount() {
+        var sel = list.selection;
+        var count = sel ? (sel instanceof Array ? sel.length : 1) : 0;
+        if (count > 0) {
+            pnlLeft.text = "List File PSD/PSB (Total: " + count + " Terpilih dari " + list.items.length + ")";
+        } else {
+            pnlLeft.text = "List File PSD/PSB (Total: " + list.items.length + " File)";
+        }
+    }
+
+    list.onChange = updateSelectionCount;
+
     populateList(allPsdFiles, false);
 
     // --- LOGIC FILTER ---
@@ -284,6 +303,7 @@ function main() {
 
         var currentContextTokens = [];
         var filteredFiles = [];
+        var extractedNumbers = [];
 
         // Helper: tambah file ke filteredFiles (cek duplikat)
         function addToFiltered(fileObj) {
@@ -291,6 +311,14 @@ function main() {
                 if (filteredFiles[d].fullName === fileObj.fullName) return;
             }
             filteredFiles.push(fileObj);
+        }
+
+        // Helper: track angka unik yang terdeteksi
+        function addExtracted(num) {
+            for (var d = 0; d < extractedNumbers.length; d++) {
+                if (extractedNumbers[d] === num) return;
+            }
+            extractedNumbers.push(num);
         }
 
         for (var i = 0; i < lines.length; i++) {
@@ -304,9 +332,9 @@ function main() {
             var isNumberLine = false;
 
             // Pola A: ada keyword NO/NOMOR/NUM/# diikuti angka (bisa di tengah baris)
-            var kwMatch = line.match(/(?:NO\.?|NOMOR|NUM|#)\s*([\d][\d,\s]*)/i);
+            var kwMatch = line.match(/(?:NO\.?|NOMOR|NUM|#)\s*([\d\.,\s]+)/i);
             if (kwMatch && kwMatch[1]) {
-                var kwParts = kwMatch[1].split(/[,\s]+/);
+                var kwParts = kwMatch[1].split(/[\.,\s]+/);
                 for (var p = 0; p < kwParts.length; p++) {
                     var cln = kwParts[p].replace(/\D/g, '');
                     if (cln && cln.length < 5) numbersInLine.push(parseInt(cln, 10));
@@ -316,12 +344,13 @@ function main() {
 
             // Pola B: Baris dimulai dengan angka (atau tanda list)
             if (!isNumberLine && line.match(/^(?:[-*•]\s*)?\d/)) {
-                var bParts = line.split(/[,\s]+/);
-                for (var p = 0; p < bParts.length; p++) {
-                    var cln = bParts[p].replace(/\D/g, '');
-                    if (cln && cln.length < 5) numbersInLine.push(parseInt(cln, 10));
-                    // Berhenti jika ketemu kata non-angka panjang (deskripsi)
-                    else if (bParts[p].replace(/\d/g, '').length > 2) break;
+                var prefixMatch = line.match(/^(?:[-*•]\s*)?([\d\.,\s]+)/);
+                if (prefixMatch && prefixMatch[1]) {
+                    var bParts = prefixMatch[1].split(/[\.,\s]+/);
+                    for (var p = 0; p < bParts.length; p++) {
+                        var cln = bParts[p].replace(/\D/g, '');
+                        if (cln && cln.length < 5) numbersInLine.push(parseInt(cln, 10));
+                    }
                 }
                 if (numbersInLine.length > 0) isNumberLine = true;
             }
@@ -344,6 +373,7 @@ function main() {
                 // Proses angka dengan konteks folder saat ini
                 for (var n = 0; n < numbersInLine.length; n++) {
                     var targetNum = numbersInLine[n];
+                    addExtracted(targetNum);
                     var backupMatch = null;
                     var foundContextMatch = false;
 
@@ -373,11 +403,13 @@ function main() {
         if (chkSort.value) filteredFiles.sort(naturalSort);
 
         populateList(filteredFiles, true);
+        pnlRight.text = "Filter Revisi (Total: " + extractedNumbers.length + " Angka Terdeteksi)";
     };
 
     btnReset.onClick = function () {
         txtFilter.text = "";
         populateList(allPsdFiles, false);
+        pnlRight.text = "Filter Revisi (Paste Chat/Trello)";
     };
 
     // --- BUTTONS BAWAH ---
