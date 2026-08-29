@@ -194,13 +194,13 @@ function main() {
         if (isPasted) {
             var newText = currentText;
             
-            // Pisahkan teks yang menyatu tanpa spasi akibat newline hilang (contoh: "onta3.retouch" -> "onta\r\n3.retouch")
-            newText = newText.replace(/([a-zA-Z])(\d+\.)/g, "$1\r\n$2");
+            // 1. Teks menyatu tapi angka memiliki titik (contoh: "onta3.retouch" atau "onta 3.")
+            newText = newText.replace(/([a-zA-Z,])\s*(\d+\.)/g, "$1\r\n$2");
             
-            // Pisahkan teks yang menyatu dengan spasi (contoh: "onta 3.retouch" -> "onta\r\n3.retouch")
-            newText = newText.replace(/([a-zA-Z])\s+(\d+\.)/g, "$1\r\n$2");
+            // 2. Teks menyatu tanpa titik, diikuti aksi (contoh: "anak3 hilangkan" atau "anak 15, 19 hilangkan")
+            newText = newText.replace(/([a-zA-Z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[a-zA-Z])/g, "$1\r\n");
 
-            // Pisahkan teks yang menyatu dengan strip (contoh: "lagi- 4 serabut" -> "lagi\r\n- 4 serabut")
+            // 3. Pisahkan teks yang menyatu dengan strip (contoh: "lagi- 4 serabut")
             newText = newText.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
 
             if (newText !== currentText) {
