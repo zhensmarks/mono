@@ -242,6 +242,120 @@ def create_shortcuts_in_output_local(final_event_folder, pilihan_path, oke_base_
                     print(f"  - Shortcut ke OKE BASE: {'OK' if ok else 'GAGAL'}")
                 else:
                     print("  - Shortcut ke OKE BASE sudah ada.")
+
+                bat_file_path = os.path.join(final_event_folder, "snap.bat")
+                if not os.path.exists(bat_file_path):
+                    bat_content = f"""@echo off
+setlocal EnableDelayedExpansion
+for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+chcp 65001 >nul
+title SNAP PORTAL
+color 0F
+
+echo.
+for %%I in ("%~dp0.") do set "PARENT_DIR_NAME=%%~nxI"
+echo !ESC![96m  === SNAP PORTAL - MENGIRIM: !PARENT_DIR_NAME! ===!ESC![0m
+echo.
+
+if not exist "{oke_user_folder}\\" (
+    echo !ESC![91m  [!] KONEKSI GAGAL: Jaringan/Server OKE BASE tidak ditemukan.!ESC![0m
+    echo       Tujuan: "{oke_user_folder}"
+    pause
+    exit /b
+)
+
+set /a count=0
+for /d %%D in (*) do ( set /a count+=1 )
+
+if !count! EQU 0 (
+    echo !ESC![93m  [!] INFO: Tidak ada folder yang perlu dikirim.!ESC![0m
+    pause
+    del "%~f0"
+    exit /b
+)
+
+:: Buat script spinner
+set "SPINNER=%TEMP%\\snap_spinner.bat"
+setlocal DisableDelayedExpansion
+(
+echo @echo off
+echo setlocal EnableDelayedExpansion
+echo set "ESC=%%ESC%%"
+echo set "s1=.   "
+echo set "s2=..  "
+echo set "s3=... "
+echo set "s4=...."
+echo set /a i=0
+echo :loop
+echo set /a i=^(i+1^)%%%%4
+echo if !i! EQU 0 set "c=%%s1%%"
+echo if !i! EQU 1 set "c=%%s2%%"
+echo if !i! EQU 2 set "c=%%s3%%"
+echo if !i! EQU 3 set "c=%%s4%%"
+echo ^<nul set /p "=%%ESC%%[2K%%ESC%%[3GStatus : Sedang memindahkan !c!"
+echo ping 127.0.0.1 -n 2 ^>nul
+echo if exist "%%TEMP%%\\stop_spin" exit
+echo goto loop
+) > "%SPINNER%"
+endlocal
+
+set /a current=0
+set "error_found=0"
+
+for /d %%D in (*) do (
+    set /a current+=1
+    echo !ESC![93m  [ PENGIRIMAN !current! / !count! ]!ESC![0m
+    echo   Folder : "%%~nxD"
+    <nul set /p "=!ESC![3GStatus : Sedang memindahkan "
+    
+    if exist "%TEMP%\stop_spin" del "%TEMP%\stop_spin"
+    start /b cmd /c "%SPINNER%"
+    
+    pushd "%%D"
+    if !ERRORLEVEL! EQU 0 (
+        robocopy . "{oke_user_folder}\\%%~nxD" /E /MOVE /IS /R:3 /W:2 /NJH /NJS /NDL /NFL /NC /NS /NP >nul
+        set ROBO_ERR=!ERRORLEVEL!
+        popd
+        
+        echo. > "%TEMP%\\stop_spin"
+        ping 127.0.0.1 -n 2 >nul
+        
+        if !ROBO_ERR! GEQ 8 (
+            set "error_found=1"
+            echo.
+            echo !ESC![2K!ESC![3G!ESC![91m[!] GAGAL MEMINDAHKAN FOLDER!ESC![0m
+            echo       Pastikan server tidak penuh dan koneksi lancar.
+            echo.
+            pause
+            exit /b
+        )
+        
+        rmdir "%%D" 2>nul
+    ) else (
+        echo. > "%TEMP%\\stop_spin"
+        ping 127.0.0.1 -n 2 >nul
+        echo !ESC![2K!ESC![3G!ESC![91m[!] ERROR: Tidak dapat mengakses folder "%%D"!ESC![0m
+    )
+    
+    echo !ESC![2K!ESC![3G!ESC![92mStatus : Selesai 100%%!ESC![0m
+    echo.
+)
+
+if exist "%SPINNER%" del "%SPINNER%"
+if exist "%TEMP%\\stop_spin" del "%TEMP%\\stop_spin"
+
+echo !ESC![96m  === SEMUA PENGIRIMAN SUKSES ===!ESC![0m
+timeout /t 2 >nul
+del "%~f0"
+"""
+                    try:
+                        with open(bat_file_path, 'w', encoding='utf-8') as f:
+                            f.write(bat_content)
+                        print(f"  - Berhasil membuat file batch: {os.path.basename(bat_file_path)}")
+                    except Exception as e:
+                        print(f"  - [ERROR] Gagal membuat file batch: {e}")
+                else:
+                    print(f"  - File batch '{os.path.basename(bat_file_path)}' sudah ada, dilewati.")
     except Exception as e:
         print(f"[ERROR] Shortcut di output lokal: {e}", file=sys.stderr)
 
@@ -296,25 +410,6 @@ def create_oke_base_links(pilihan_path, oke_base_path, user_name):
             print(f"  - Shortcut balik: {'OK' if ok else 'GAGAL'}")
         else:
             print("  - Shortcut balik sudah ada.")
-
-        bat_file_path = os.path.join(sumber_parent, f"Pindah_ke_OKE_{user_name.upper()}.bat")
-        if not os.path.exists(bat_file_path):
-            bat_content = f"""@echo off
-chcp 65001 >nul
-cd /d "%~dp0"
-for /d %%D in (*) do (
-    move /Y "%%D" "{oke_user_folder}" >nul
-)
-del "%~f0"
-"""
-            try:
-                with open(bat_file_path, 'w', encoding='utf-8') as f:
-                    f.write(bat_content)
-                print(f"  - Berhasil membuat file batch: {os.path.basename(bat_file_path)}")
-            except Exception as e:
-                print(f"  - [ERROR] Gagal membuat file batch: {e}")
-        else:
-            print(f"  - File batch '{os.path.basename(bat_file_path)}' sudah ada, dilewati.")
 
     except Exception as e:
         print(f"[ERROR] OKE BASE: {e}", file=sys.stderr)

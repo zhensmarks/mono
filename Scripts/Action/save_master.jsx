@@ -99,21 +99,28 @@ function main() {
     var btnPng = col2.add("button", undefined, "PNG Standard");
     btnPng.preferredSize.width = 140;
 
-    // Col 3: ARTBOARD
-    var col3 = pnlStd.add("group");
-    col3.orientation = "column";
-    col3.add("statictext", undefined, "--- ARTBOARD ---");
-    
-    var chkLayer1 = col3.add("checkbox", undefined, "LAYER 1");
-    var chkLayer2 = col3.add("checkbox", undefined, "LAYER 2");
-    var chkLayer3 = col3.add("checkbox", undefined, "LAYER 3");
-    chkLayer1.value = true;
-    chkLayer2.value = false;
-    chkLayer3.value = false;
+    var artboardsInfoCurrent = getArtboardsData();
+    var artboardCheckboxes = [];
+    var btnArtJpg; // Deklarasikan di luar scope agar bisa dicek di event
 
-    var btnArtJpg = col3.add("button", undefined, "PROSES ART");
-    btnArtJpg.preferredSize.width = 140;
-    btnArtJpg.helpTip = "Export Artboard ke JPG untuk semua file (Batch)";
+    if (artboardsInfoCurrent.length > 0) {
+        // Col 3: ARTBOARD
+        var col3 = pnlStd.add("group");
+        col3.orientation = "column";
+        col3.add("statictext", undefined, "--- ARTBOARD ---");
+
+        for (var i = 0; i < artboardsInfoCurrent.length; i++) {
+            var abName = artboardsInfoCurrent[i].name;
+            var chk = col3.add("checkbox", undefined, abName);
+            chk.value = false; // Tidak ada yang dicentang secara default
+            chk.alignment = "left"; // Meratakan kotak ceklis ke kiri
+            artboardCheckboxes.push({ name: abName, checkbox: chk });
+        }
+
+        btnArtJpg = col3.add("button", undefined, "PROSES ART");
+        btnArtJpg.preferredSize.width = 140;
+        btnArtJpg.helpTip = "Export Artboard ke JPG untuk semua file (Batch)";
+    }
 
     // --- PANEL: CUSTOM FOLDER OUTPUT ---
     var pnlCustom = dlg.add("panel", undefined, "Custom Folder Output");
@@ -167,7 +174,9 @@ function main() {
     btnPas4x6.onClick = function () { dlg.close(303); };
     btnPasKombi.onClick = function () { dlg.close(304); };
     
-    btnArtJpg.onClick = function () { dlg.close(401); };
+    if (btnArtJpg) {
+        btnArtJpg.onClick = function () { dlg.close(401); };
+    }
 
     btnSmartSave.onClick = function () { dlg.close(99); }; // Code 99 for Smart Save
 
@@ -354,11 +363,11 @@ function main() {
         var totalFail = 0;
         var allDetails = [];
 
-        var repeatByName = {
-            "LAYER 1": chkLayer1.value,
-            "LAYER 2": chkLayer2.value,
-            "LAYER 3": chkLayer3.value
-        };
+        var repeatByName = {};
+        for (var cb = 0; cb < artboardCheckboxes.length; cb++) {
+            var nName = normalizeArtboardName(artboardCheckboxes[cb].name);
+            repeatByName[nName] = artboardCheckboxes[cb].checkbox.value;
+        }
         var exportedOnce = {};
         var exportSchedules = [];
 
@@ -861,24 +870,22 @@ function getArtboardsData() {
                 ref.putIdentifier(charIDToTypeID("Lyr "), lyr.id);
                 var desc = executeActionGet(ref);
                 
-                // Cek apakah properti artboard ada
-                if (desc.hasKey(stringIDToTypeID("artboard"))) {
-                    var abDesc = desc.getObjectValue(stringIDToTypeID("artboard"));
-                    var rect = abDesc.getObjectValue(stringIDToTypeID("artboardRect"));
-                    var top = rect.getDouble(stringIDToTypeID("top"));
-                    var left = rect.getDouble(stringIDToTypeID("left"));
-                    var bottom = rect.getDouble(stringIDToTypeID("bottom"));
-                    var right = rect.getDouble(stringIDToTypeID("right"));
-                    
-                    abBounds = [left, top, right, bottom];
-                    isArtboard = true;
-                } else if (desc.hasKey(stringIDToTypeID("artboardEnabled"))) {
-                    // Fallback jika artboardRect tidak ditemukan dengan cara di atas
-                    isArtboard = desc.getBoolean(stringIDToTypeID("artboardEnabled"));
-                    if (isArtboard) {
-                        // Gunakan bounds dari layer (meski kadang kurang akurat jika ada efek luar)
+                // Cek secara ketat: artboardEnabled harus ada dan bernilai true
+                if (desc.hasKey(stringIDToTypeID("artboardEnabled")) && desc.getBoolean(stringIDToTypeID("artboardEnabled"))) {
+                    if (desc.hasKey(stringIDToTypeID("artboard"))) {
+                        var abDesc = desc.getObjectValue(stringIDToTypeID("artboard"));
+                        var rect = abDesc.getObjectValue(stringIDToTypeID("artboardRect"));
+                        var top = rect.getDouble(stringIDToTypeID("top"));
+                        var left = rect.getDouble(stringIDToTypeID("left"));
+                        var bottom = rect.getDouble(stringIDToTypeID("bottom"));
+                        var right = rect.getDouble(stringIDToTypeID("right"));
+                        
+                        abBounds = [left, top, right, bottom];
+                        isArtboard = true;
+                    } else {
                         var b = lyr.bounds;
                         abBounds = [b[0].as("px"), b[1].as("px"), b[2].as("px"), b[3].as("px")];
+                        isArtboard = true;
                     }
                 }
             } catch(e) {}
