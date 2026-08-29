@@ -183,14 +183,26 @@ function main() {
     txtFilter.preferredSize.height = 350;
     txtFilter.helpTip = "Paste revisi di sini (contoh: NO 1 revisi ini...)";
 
-    // Teks area tanpa auto-format onChanging agar tidak mengganggu UI
+    // Teks area tanpa auto-format onChanging agar tidak mengganggu UI saat mengetik manual
     var grpFilterControls = pnlRight.add("group");
 
     grpFilterControls.orientation = "column";
     grpFilterControls.alignChildren = ["fill", "top"];
+    
+    // Tombol untuk memperbaiki teks yang menyatu akibat bug paste Photoshop
+    var btnFormat = grpFilterControls.add("button", undefined, "Rapihkan Teks (Fix Paste)");
+    
     var btnApplyFilter = grpFilterControls.add("button", undefined, "FILTER List");
     var btnReset = grpFilterControls.add("button", undefined, "Reset List (Show All)");
     var chkSort = grpFilterControls.add("checkbox", undefined, "Urutkan Nomor (Ascending)");
+    
+    btnFormat.onClick = function() {
+        var t = txtFilter.text;
+        t = t.replace(/([A-Za-z,])\s*(\d+\.)/g, "$1\r\n$2");
+        t = t.replace(/([A-Za-z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[A-Za-z])/g, "$1\r\n");
+        t = t.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
+        txtFilter.text = t;
+    };
     chkSort.value = settings.sort_asc;
 
     function populateList(files, autoSelectAll) {
