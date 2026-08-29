@@ -198,10 +198,18 @@ function main() {
     
     btnFormat.onClick = function() {
         var t = txtFilter.text;
+        
+        // 1. Pisahkan teks yang nempel dengan titik (contoh: "onta3.")
         t = t.replace(/([A-Za-z,])\s*(\d+\.)/g, "$1\r\n$2");
-        t = t.replace(/([A-Za-z,])\s*(\d+(?:[,\s]+\d+)*\s+[A-Za-z])/g, "$1\r\n$2");
-        t = t.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
+        
+        // 2. Pisahkan huruf yang nempel langsung dengan angka (contoh: "anak3" -> "anak\n3")
+        t = t.replace(/([A-Za-z,])(\d+)/g, "$1\r\n$2");
+        
+        // 3. Pisahkan huruf yang dipisah spasi dengan angka, jika setelah angka ada spasi dan huruf lagi (contoh: "anak 17 rapihkan" -> "anak\n17 rapihkan")
+        t = t.replace(/([A-Za-z,])\s+(\d+)\s+([A-Za-z])/g, "$1\r\n$2 $3");
+        
         txtFilter.text = t;
+        alert("Teks berhasil dirapihkan!");
     };
     chkSort.value = settings.sort_asc;
 
@@ -271,10 +279,9 @@ function main() {
         processedText = processedText.split("NOMER").join("NOMOR");
 
         // PRE-PROCESS 1.5: Fix baris baru yang tertelan oleh ScriptUI (Internal saja)
-        // Memisahkan kata yang nempel dengan angka (misal: "ANAK3" -> "ANAK\n3")
         processedText = processedText.replace(/([A-Z,])\s*(\d+\.)/g, "$1\n$2");
-        processedText = processedText.replace(/([A-Z,])\s*(\d+(?:[,\s]+\d+)*\s+[A-Z])/g, "$1\n$2");
-        processedText = processedText.replace(/([^\s\n])\s*-\s*(\d+)/g, "$1\n- $2");
+        processedText = processedText.replace(/([A-Z,])(\d+)/g, "$1\n$2");
+        processedText = processedText.replace(/([A-Z,])\s+(\d+)\s+([A-Z])/g, "$1\n$2 $3");
 
         // PRE-PROCESS 2: Inject newline sebelum pola "FOTO" agar setiap item revisi jadi baris sendiri
         // Contoh: "- FOTO ANAK NOMER 4 TALI- FOTO NOMER 5" -> baris terpisah
