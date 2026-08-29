@@ -199,7 +199,7 @@ function main() {
     btnFormat.onClick = function() {
         var t = txtFilter.text;
         t = t.replace(/([A-Za-z,])\s*(\d+\.)/g, "$1\r\n$2");
-        t = t.replace(/([A-Za-z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[A-Za-z])/g, "$1\r\n");
+        t = t.replace(/([A-Za-z,])\s*(\d+(?:[,\s]+\d+)*\s+[A-Za-z])/g, "$1\r\n$2");
         t = t.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
         txtFilter.text = t;
     };
@@ -273,7 +273,7 @@ function main() {
         // PRE-PROCESS 1.5: Fix baris baru yang tertelan oleh ScriptUI (Internal saja)
         // Memisahkan kata yang nempel dengan angka (misal: "ANAK3" -> "ANAK\n3")
         processedText = processedText.replace(/([A-Z,])\s*(\d+\.)/g, "$1\n$2");
-        processedText = processedText.replace(/([A-Z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[A-Z])/g, "$1\n");
+        processedText = processedText.replace(/([A-Z,])\s*(\d+(?:[,\s]+\d+)*\s+[A-Z])/g, "$1\n$2");
         processedText = processedText.replace(/([^\s\n])\s*-\s*(\d+)/g, "$1\n- $2");
 
         // PRE-PROCESS 2: Inject newline sebelum pola "FOTO" agar setiap item revisi jadi baris sendiri
