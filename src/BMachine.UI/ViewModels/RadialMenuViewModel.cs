@@ -546,9 +546,21 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             }
             else if (ext == ".pyw")
             {
-                 _logService?.AddLog($"[INFO] Launching Python Script: {fileName}");
-                 _platformService.RunPythonScript(path, true);
-                 _logService?.AddLog("[SUCCESS] Python script launched.");
+                 if (fileName.Equals("psdbucin_v3.pyw", StringComparison.OrdinalIgnoreCase))
+                 {
+                     _logService?.AddLog("[INFO] Launching Native Toolbox Window");
+                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                     {
+                         var window = new Views.ToolboxWindow();
+                         window.Show();
+                     });
+                 }
+                 else
+                 {
+                     _logService?.AddLog($"[INFO] Launching Python Script: {fileName}");
+                     _platformService.RunPythonScript(path, true);
+                     _logService?.AddLog("[SUCCESS] Python script launched.");
+                 }
             }
             else
             {

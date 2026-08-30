@@ -20,10 +20,11 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="CornerRadius" Value="4"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}">
@@ -35,36 +36,37 @@
             </Setter>
             <Setter Property="Transitions">
                 <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
-                    <BrushTransition Property="Foreground" Duration="0:0:0.12"/>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
                 </Transitions>
             </Setter>
         </Style>
         <Style Selector="RadioButton.Segmented:checked">
-            <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="RadioButton.Segmented:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="Background" Value="#0FFFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
         </Style>
 
         <!-- SL = Section Label: uppercase tracking mono label above a group of rows -->
         <Style Selector="TextBlock.SL">
-            <Setter Property="FontSize" Value="9.5"/>
+            <Setter Property="FontSize" Value="10"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="Opacity" Value="0.45"/>
-            <Setter Property="LetterSpacing" Value="2.5"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Opacity" Value="1.0"/>
+            <Setter Property="LetterSpacing" Value="1.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,16,0,12"/>
         </Style>
 
         <!-- SR = Setting Row separator -->
         <Style Selector="Border.SR">
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="BorderThickness" Value="0,1,0,0"/>
-            <Setter Property="Padding" Value="0,12,0,12"/>
+            <Setter Property="Padding" Value="0,24,0,24"/>
         </Style>
 
         <!-- RL = Row label — primary weight, full color -->
@@ -127,17 +129,17 @@
                             <Setter Property="Padding" Value="16,14"/>
                             <Setter Property="Margin" Value="0,2"/>
                             <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Foreground" Value="#666666"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                             <Setter Property="Cursor" Value="Hand"/>
                             <Setter Property="Template">
                                 <ControlTemplate>
                                     <Grid Background="Transparent">
                                         <!-- Subtle Hover Glass -->
-                                        <Border x:Name="HoverBg" Background="Transparent" CornerRadius="8" Margin="8,0"/>
+                                        <Border x:Name="HoverBg" Background="Transparent" CornerRadius="4" Margin="8,0"/>
                                         
                                         <!-- Futuristic Indicator Pill (Left) -->
-                                        <Border x:Name="Indicator" Width="3" Height="0" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                CornerRadius="2" Background="{DynamicResource AccentColorBrush}">
+                                        <Border x:Name="Indicator" Width="2" Height="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                CornerRadius="0" Background="{DynamicResource TextPrimaryBrush}">
                                             <Border.Transitions>
                                                 <Transitions>
                                                     <DoubleTransition Property="Height" Duration="0:0:0.3">
@@ -183,10 +185,10 @@
 
                         <!-- Hover -->
                         <Style Selector="ListBoxItem:pointerover /template/ Border#HoverBg">
-                            <Setter Property="Background" Value="#06FFFFFF"/>
+                            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
                         </Style>
                         <Style Selector="ListBoxItem:pointerover">
-                            <Setter Property="Foreground" Value="#AAAAAA"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </Style>
 
                         <!-- Selected -->
@@ -200,12 +202,12 @@
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected TextBlock">
-                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                            <Setter Property="LetterSpacing" Value="1.5"/>
+                            <Setter Property="LetterSpacing" Value="0.5"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected PathIcon">
-                            <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </Style>
                     </ListBox.Styles>
 
@@ -1056,14 +1058,38 @@
              <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True">
                  <ScrollViewer>
                      <StackPanel Spacing="24" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center">
-                     <Image Source="/Assets/splash_logo.png" Width="80" Height="80" HorizontalAlignment="Center"/>
+                     <!-- Vector Icon (Stylized abstract layers / B) -->
+                     <StackPanel Spacing="10" HorizontalAlignment="Center">
+                         <Viewbox Width="56" Height="56" HorizontalAlignment="Center">
+                             <Grid>
+                                 <Path Data="M12 2L2 7l10 5 10-5-10-5z" Fill="{DynamicResource AccentBlueBrush}" Opacity="0.9"/>
+                                 <Path Data="M2 12l10 5 10-5" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"/>
+                                 <Path Data="M2 17l10 5 10-5" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" Opacity="0.6"/>
+                             </Grid>
+                             <!-- Removed DropShadowEffect for minimalist-ui compatibility -->
+                         </Viewbox>
+                         <!-- Typographic Logo -->
+                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0">
+                             <TextBlock Text="B" 
+                                        FontSize="24" 
+                                        FontWeight="Black"
+                                        FontFamily="Inter, Segoe UI, sans-serif"
+                                        Foreground="{DynamicResource AccentBlueBrush}"
+                                        LetterSpacing="1"/>
+                             <TextBlock Text="MACHINE" 
+                                        FontSize="24" 
+                                        FontWeight="Light"
+                                        FontFamily="Inter, Segoe UI, sans-serif"
+                                        Foreground="{DynamicResource TextPrimaryBrush}" 
+                                        LetterSpacing="4"/>
+                         </StackPanel>
+                     </StackPanel>
                      <StackPanel Spacing="6" HorizontalAlignment="Center">
-                         <TextBlock Text="BMachine" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
                          <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                              <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="0" Padding="6,2">
+                              <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="4" Padding="6,2">
                                   <TextBlock Text="{Binding CurrentVersion, StringFormat='v{0}'}" Foreground="White" FontWeight="SemiBold" FontSize="11"/>
                               </Border>
-                              <TextBlock Text="Photo Editing Workflow" Foreground="#555" VerticalAlignment="Center" FontSize="12"/>
+                              <TextBlock Text="Photo Editing Workflow" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="12"/>
                          </StackPanel>
                      </StackPanel>
                      <StackPanel Spacing="12" HorizontalAlignment="Center" Width="280">

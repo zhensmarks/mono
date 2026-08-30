@@ -28,31 +28,99 @@
             <TabControl.Styles>
                 <Style Selector="TabItem">
                     <Setter Property="FontSize" Value="13"/>
-                    <Setter Property="MinHeight" Value="32"/>
-                    <Setter Property="Padding" Value="12,0"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="MinHeight" Value="40"/>
+                    <Setter Property="Padding" Value="16,0"/>
+                    <Setter Property="Margin" Value="0,0,12,0"/>
+                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                </Style>
+                <Style Selector="TabItem:selected">
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                </Style>
+                <Style Selector="TabItem:pointerover">
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                </Style>
+                <Style Selector="TabItem /template/ Border#PART_SelectedPipe">
+                    <Setter Property="IsVisible" Value="False"/>
+                </Style>
+                
+                <!-- Segmented Control Styles for View Mode -->
+                <Style Selector="RadioButton.Segmented">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                    <Setter Property="Padding" Value="12,6"/>
+                    <Setter Property="CornerRadius" Value="4"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="VerticalContentAlignment" Value="Center"/>
+                    <Setter Property="BorderThickness" Value="1"/>
+                    <Setter Property="BorderBrush" Value="Transparent"/>
+                    <Setter Property="Template">
+                        <ControlTemplate>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}">
+                                 <ContentPresenter Content="{TemplateBinding Content}"
+                                                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter>
+                    <Setter Property="Transitions">
+                        <Transitions>
+                            <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                            <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                        </Transitions>
+                    </Setter>
+                </Style>
+                <Style Selector="RadioButton.Segmented:checked">
+                    <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Style>
+                <Style Selector="RadioButton.Segmented:pointerover">
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                    <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+                </Style>
+                
+                <!-- Toggle Switch styling for minimalism -->
+                <Style Selector="ToggleSwitch">
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                 </Style>
             </TabControl.Styles>
             
             <!-- TAB: GENERAL -->
             <TabItem Header="General">
-                <ScrollViewer Padding="15">
-                    <StackPanel Spacing="15">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="View Mode" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Text="Default style for files &amp; folders." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <ScrollViewer Padding="32">
+                    <StackPanel Spacing="32">
+                        <!-- View Mode Section -->
+                        <StackPanel Spacing="16">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="VIEW MODE" FontWeight="Bold" FontSize="11" LetterSpacing="1.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Text="Default style for files &amp; folders." FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </StackPanel>
                             
-                            <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                <RadioButton Content="List" IsChecked="{Binding IsVerticalLayout}" Margin="0,0,15,6" Classes="Standard" FontSize="12"/>
-                                <RadioButton Content="Grid" IsChecked="{Binding IsHorizontalLayout}" Margin="0,0,15,6" Classes="Standard" FontSize="12"/>
-                                <RadioButton Content="Thumbnails" IsChecked="{Binding IsThumbnailLayout}" Margin="0,0,15,6" Classes="Standard" FontSize="12"/>
-                            </WrapPanel>
+                            <Border Background="{DynamicResource SubCardBackgroundBrush}" CornerRadius="6" Padding="4" HorizontalAlignment="Left" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <RadioButton Content="List" IsChecked="{Binding IsVerticalLayout}" Classes="Segmented" FontSize="12"/>
+                                    <RadioButton Content="Grid" IsChecked="{Binding IsHorizontalLayout}" Classes="Segmented" FontSize="12"/>
+                                    <RadioButton Content="Thumbnails" IsChecked="{Binding IsThumbnailLayout}" Classes="Segmented" FontSize="12"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                         
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}" Opacity="0.5"/>
+                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
                         
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="Layout &amp; Navigation" FontWeight="SemiBold" FontSize="13"/>
-                            <CheckBox Content="Show Path Bar" IsChecked="{Binding IsShowPathBar}" Classes="Standard" FontSize="12"/>
+                        <!-- Layout Section -->
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="LAYOUT &amp; NAVIGATION" FontWeight="Bold" FontSize="11" LetterSpacing="1.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            
+                            <Grid ColumnDefinitions="*, Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Show Path Bar" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Display the breadcrumb path bar at the top of the explorer." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsShowPathBar}" Margin="0,0,0,0"/>
+                            </Grid>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

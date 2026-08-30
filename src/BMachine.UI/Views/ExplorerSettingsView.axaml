@@ -8,13 +8,29 @@
              x:DataType="vm:ExplorerSettingsViewModel"
              Focusable="True">
 
+    <UserControl.Styles>
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.Secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
     <ScrollViewer>
         <StackPanel Spacing="20" Margin="0,0,20,20">
-            <TextBlock Text="Explorer Features" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
-            <TextBlock Text="Customize the behavior and defaults of the Explorer." Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" Margin="0,-10,0,0"/>
+            <TextBlock Text="Explorer Features" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock Text="Customize the behavior and defaults of the Explorer." FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,-12,0,0"/>
 
             <!-- Explorer Defaults -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="4" Padding="24">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
@@ -26,11 +42,16 @@
             </Border>
 
             <!-- Shortcuts: Record keyboard -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="Shortcuts" FontWeight="SemiBold" FontSize="16"/>
-                    <TextBlock Text="Klik Record lalu tekan kombinasi tombol yang diinginkan." FontSize="12" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-                    <TextBlock Text="LISTENING... Tekan tombol sekarang!" FontSize="12" Foreground="#ef4444" FontWeight="Bold" IsVisible="{Binding IsRecordingShortcut}" Margin="0,4,0,0"/>
+            <StackPanel Spacing="16">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="KEYBOARD SHORTCUTS" FontWeight="Bold" FontSize="11" LetterSpacing="1.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="Customize keybindings for explorer navigation and actions." FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </StackPanel>
+                
+                <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="4" Padding="24">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Click Record, then press the desired key combination." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="LISTENING... Press key combination now!" FontSize="12" Foreground="#ef4444" FontWeight="Bold" IsVisible="{Binding IsRecordingShortcut}" Margin="0,4,0,0"/>
                     
                     <Grid ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="New Folder" VerticalAlignment="Center" Width="180" Margin="0,0,10,6"/>
@@ -119,6 +140,7 @@
                     </Grid>
                 </StackPanel>
             </Border>
+        </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -8,7 +8,7 @@
         x:Class="BMachine.App.Views.MainWindow"
         x:DataType="local:MainWindowViewModel"
         xmlns:local="using:BMachine.App.ViewModels"
-        Title="BMachine v6.5.0"
+        Title="BMachine"
         Icon="avares://BMachine.App/appicon.ico"
         Width="1280" Height="800"
         MinWidth="520"

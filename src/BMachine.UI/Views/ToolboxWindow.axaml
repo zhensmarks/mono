@@ -1,0 +1,561 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="720"
+        x:Class="BMachine.UI.Views.ToolboxWindow"
+        x:DataType="vm:ToolboxViewModel"
+        Title="BMachine Toolbox"
+        Width="1024" Height="700"
+        MinWidth="680" MinHeight="540"
+        WindowStartupLocation="CenterScreen"
+        Background="#09090B"
+        Foreground="#E8E8E6"
+        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
+
+    <Window.Styles>
+
+        <!-- ═══════════════════════════════════════════
+             HYBRID MINIMALIST DARK
+             Principles: flat bento, 1px border, typographic
+             contrast, zero glow, zero glass dekor
+        ═══════════════════════════════════════════ -->
+
+        <!-- NAV BAR — flat, bordered, no shadow -->
+        <Style Selector="Border.Nav">
+            <Setter Property="Background" Value="#111113"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
+
+        <!-- TAB BUTTONS — clean typographic toggle -->
+        <Style Selector="Button.Tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Tab:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1A1A1D"/>
+            <Setter Property="TextElement.Foreground" Value="#C4C4C0"/>
+        </Style>
+        <Style Selector="Button.Tab.on /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1F1F23"/>
+            <Setter Property="TextElement.Foreground" Value="#F0F0EE"/>
+        </Style>
+
+        <!-- BENTO CARD — flat, 1px border, no shadow -->
+        <Style Selector="Border.Card">
+            <Setter Property="Background" Value="#111113"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="24,20"/>
+        </Style>
+
+        <!-- SECTION LABEL — uppercase monospace eyebrow -->
+        <Style Selector="TextBlock.Section">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#52525B"/>
+            <Setter Property="LetterSpacing" Value="1.2"/>
+            <Setter Property="FontFamily" Value="'Cascadia Code', 'JetBrains Mono', Consolas, monospace"/>
+        </Style>
+
+        <!-- PATH — monospace, dim -->
+        <Style Selector="TextBlock.Path">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#3F3F46"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="FontFamily" Value="'Cascadia Code', Consolas, monospace"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <!-- BODY LABEL -->
+        <Style Selector="TextBlock.Body">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+        </Style>
+
+        <!-- FIELD LABEL -->
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#52525B"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <!-- INPUT -->
+        <Style Selector="TextBox.Input">
+            <Setter Property="Background" Value="#0C0C0E"/>
+            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CaretBrush" Value="#E8E8E6"/>
+        </Style>
+        <Style Selector="TextBox.Input:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="#4B4B52"/>
+        </Style>
+
+        <Style Selector="NumericUpDown.Input">
+            <Setter Property="Background" Value="#0C0C0E"/>
+            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="CornerRadius" Value="7"/>
+        </Style>
+
+        <Style Selector="CheckBox.Option">
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+
+        <!-- PRIMARY BUTTON — always visible, explicitly targets Avalonia template border -->
+        <Style Selector="Button.Action">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+        </Style>
+        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#BDBDBD"/>
+        </Style>
+
+        <!-- SECONDARY / OUTLINED BUTTON -->
+        <Style Selector="Button.Muted">
+            <Setter Property="Background" Value="#1C1C1F"/>
+            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Muted /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1C1C1F"/>
+            <Setter Property="TextElement.Foreground" Value="#A1A1AA"/>
+        </Style>
+        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="TextElement.Foreground" Value="#D4D4D8"/>
+        </Style>
+
+        <!-- DANGER -->
+        <Style Selector="Button.Warn">
+            <Setter Property="Background" Value="#1C0F0F"/>
+            <Setter Property="Foreground" Value="#A05252"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="14,9"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="BorderBrush" Value="#5A2020"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Warn /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1C0F0F"/>
+            <Setter Property="TextElement.Foreground" Value="#A05252"/>
+        </Style>
+        <Style Selector="Button.Warn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2A1010"/>
+        </Style>
+
+        <!-- PROGRESS BAR -->
+        <Style Selector="ProgressBar.Bar">
+            <Setter Property="Foreground" Value="#C4C4C0"/>
+            <Setter Property="Background" Value="#1A1A1D"/>
+            <Setter Property="Height" Value="3"/>
+            <Setter Property="CornerRadius" Value="2"/>
+        </Style>
+
+        <!-- LISTBOX (Preview) -->
+        <Style Selector="ListBox.Preview">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.Preview ListBoxItem">
+            <Setter Property="Padding" Value="4,4"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <!-- DIVIDER -->
+        <Style Selector="Rectangle.Divider">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Fill" Value="#1A1A1D"/>
+            <Setter Property="Margin" Value="0,12"/>
+        </Style>
+
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- ═══ NAV ═══ -->
+        <Border Grid.Row="0" Classes="Nav" HorizontalAlignment="Center" Margin="0,20,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button Classes="Tab" Content="PSD Bucin"
+                        Classes.on="{Binding IsPsdBucinVisible}"
+                        Command="{Binding SwitchTabCommand}"
+                        CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}"/>
+                <Button Classes="Tab" Content="Mantra Nama"
+                        Classes.on="{Binding IsMantraNamaVisible}"
+                        Command="{Binding SwitchTabCommand}"
+                        CommandParameter="{x:Static vm:ToolboxTab.MantraNama}"/>
+                <Button Classes="Tab" Content="Mantra Ganda"
+                        Classes.on="{Binding IsMantraGandaVisible}"
+                        Command="{Binding SwitchTabCommand}"
+                        CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ═══ CONTENT ═══ -->
+        <ScrollViewer Grid.Row="1"
+                      Padding="20,16,20,20"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+
+                <!-- ═══════════════════════
+                     PSD BUCIN
+                ═══════════════════════ -->
+                <Grid IsVisible="{Binding IsPsdBucinVisible}">
+
+                    <!-- SETUP VIEW -->
+                    <Grid RowDefinitions="Auto,16,Auto" ColumnDefinitions="*,16,*" IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
+
+                        <!-- Master PSD -->
+                        <Border Grid.Row="0" Grid.Column="0" Classes="Card">
+                            <StackPanel Spacing="14">
+                                <TextBlock Classes="Section" Text="TEMPLATE MASTER"/>
+                                <Rectangle Classes="Divider" Margin="0,0,0,0"/>
+                                <TextBlock Classes="Path" Text="{Binding PsdBucinVM.MasterDirectory}"
+                                           IsVisible="{Binding PsdBucinVM.MasterDirectory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                <TextBlock Classes="Body" Text="Belum dipilih"
+                                           IsVisible="{Binding PsdBucinVM.MasterDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                <Button Classes="Muted" Content="Pilih Folder PSD"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Click="OnPsdSelectMasterClick"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Foto JPG -->
+                        <Border Grid.Row="0" Grid.Column="2" Classes="Card">
+                            <StackPanel Spacing="14">
+                                <TextBlock Classes="Section" Text="FOLDER FOTO JPG"/>
+                                <Rectangle Classes="Divider" Margin="0,0,0,0"/>
+                                <TextBlock Classes="Path" Text="{Binding PsdBucinVM.PhotoDirectory}"
+                                           IsVisible="{Binding PsdBucinVM.PhotoDirectory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                <TextBlock Classes="Body" Text="Belum dipilih"
+                                           IsVisible="{Binding PsdBucinVM.PhotoDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                <Button Classes="Muted" Content="Pilih Folder Foto"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Click="OnPsdSelectPhotoClick"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Progress -->
+                        <Border Grid.Row="2" Grid.ColumnSpan="3" Classes="Card" IsVisible="{Binding PsdBucinVM.IsProcessing}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="Section" Text="MEMPROSES"/>
+                                <ProgressBar Classes="Bar"
+                                             Minimum="0"
+                                             Maximum="{Binding PsdBucinVM.ProgressMaximum}"
+                                             Value="{Binding PsdBucinVM.ProgressValue}"/>
+                                <TextBlock Classes="Body" Text="{Binding PsdBucinVM.ProgressText}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Action Bar — ColumnDefinitions prevents overlap -->
+                        <Grid Grid.Row="2" Grid.ColumnSpan="3" ColumnDefinitions="*,12,Auto" IsVisible="{Binding !PsdBucinVM.IsProcessing}">
+                            <TextBlock Grid.Column="0" Classes="Body"
+                                       Text="{Binding PsdBucinVM.StatusText}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                <Button Classes="Muted" Content="Mode Manual"
+                                        Command="{Binding PsdBucinVM.StartManualViewerCommand}"/>
+                                <Button Classes="Action" Content="Jalankan Otomatis"
+                                        Command="{Binding PsdBucinVM.StartAutoCommand}"/>
+                            </StackPanel>
+                        </Grid>
+
+                    </Grid>
+
+                    <!-- VIEWER VIEW (manual) -->
+                    <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding PsdBucinVM.IsManualModeActive}" MinHeight="380">
+
+                        <!-- Top bar -->
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+                            <TextBlock Grid.Column="0" Classes="Section"
+                                       Text="{Binding PsdBucinVM.ManualProgressText}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Classes="Path"
+                                       Text="{Binding PsdBucinVM.ManualFilename}"
+                                       VerticalAlignment="Center" Margin="14,0"/>
+                            <Button Grid.Column="2" Classes="Warn" Content="Keluar"
+                                    Command="{Binding PsdBucinVM.ExitManualModeCommand}"/>
+                        </Grid>
+
+                        <!-- Image -->
+                        <Border Grid.Row="1"
+                                Background="#000000"
+                                BorderBrush="#1A1A1D"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                ClipToBounds="True"
+                                Margin="0,0,0,14">
+                            <Image Source="{Binding PsdBucinVM.CurrentManualImage}" Stretch="Uniform"/>
+                        </Border>
+
+                        <!-- Shortcut buttons -->
+                        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding PsdBucinVM.ManualPsdButtons}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Background="Transparent" Padding="0" Cursor="Hand"
+                                                Command="{Binding $parent[Window].((vm:ToolboxViewModel)DataContext).PsdBucinVM.ProcessSingleManualCommand}"
+                                                CommandParameter="{Binding Path}">
+                                            <Border CornerRadius="7" Padding="16,10"
+                                                    Background="{Binding ColorHex}"
+                                                    BorderBrush="#FFFFFF14" BorderThickness="1">
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <TextBlock Text="{Binding Name}"
+                                                               Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="13"/>
+                                                    <!-- KBD key badge -->
+                                                    <Border Background="#00000030"
+                                                            BorderBrush="#FFFFFF22" BorderThickness="1"
+                                                            CornerRadius="4" Padding="6,2">
+                                                        <TextBlock Text="{Binding ShortcutKey}"
+                                                                   Foreground="#FFFFFFBB" FontSize="11"
+                                                                   FontFamily="'Cascadia Code', Consolas, monospace"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                    </Grid>
+                </Grid>
+
+                <!-- ═══════════════════════
+                     MANTRA NAMA
+                ═══════════════════════ -->
+                <Grid ColumnDefinitions="*,16,360" IsVisible="{Binding IsMantraNamaVisible}">
+
+                    <!-- Preview table (Kiri - Fluid Width) -->
+                    <Border Grid.Column="0" Classes="Card">
+                        <Grid RowDefinitions="Auto,12,Auto,12,*">
+                            <TextBlock Grid.Row="0" Classes="Section" Text="PREVIEW HASIL"/>
+                            <Rectangle Grid.Row="1" Classes="Divider" Margin="0"/>
+                            <!-- Column headers -->
+                            <Grid Grid.Row="2" ColumnDefinitions="*,28,*">
+                                <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Nama Asli" FontWeight="Medium"/>
+                                <TextBlock Grid.Column="2" Classes="FieldLabel" Text="Nama Baru" FontWeight="Medium"/>
+                            </Grid>
+                            <!-- Rows -->
+                            <ListBox Grid.Row="4" Classes="Preview"
+                                     ItemsSource="{Binding MantraNamaVM.PreviewList}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="*,28,*" Margin="0,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding OriginalName}"
+                                                       FontSize="12" Foreground="#3F3F46"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       FontFamily="'Cascadia Code', Consolas, monospace"/>
+                                            <TextBlock Grid.Column="1" Text="→"
+                                                       Foreground="#2A2A2E"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding NewName}"
+                                                       FontSize="12" Foreground="#9CA3AF"
+                                                       FontWeight="Medium"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       FontFamily="'Cascadia Code', Consolas, monospace"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+
+                    <!-- Single compact card: Search + Options toggle + Action (Kanan - Fixed Width) -->
+                    <Border Grid.Column="2" Classes="Card" VerticalAlignment="Top">
+                            <StackPanel Spacing="12">
+
+                                <TextBlock Classes="Section" Text="MANTRA NAMA"/>
+                                <Rectangle Classes="Divider" Margin="0,0,0,0"/>
+
+                                <!-- Folder row -->
+                                <Grid ColumnDefinitions="*,10,Auto">
+                                    <TextBlock Grid.Column="0" Classes="Path"
+                                               Text="{Binding MantraNamaVM.SourceDirectory}"
+                                               IsVisible="{Binding MantraNamaVM.SourceDirectory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="0" Classes="Body" Text="Belum pilih folder"
+                                               IsVisible="{Binding MantraNamaVM.SourceDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                               VerticalAlignment="Center"/>
+                                    <Button Grid.Column="2" Classes="Muted" Content="Pilih Folder"
+                                            Click="OnNamaSelectFolderClick"/>
+                                </Grid>
+
+                                <!-- Find / Replace row -->
+                                <Grid ColumnDefinitions="*,10,*">
+                                    <StackPanel Grid.Column="0" Spacing="5">
+                                        <TextBlock Classes="FieldLabel" Text="Cari"/>
+                                        <TextBox Classes="Input" Text="{Binding MantraNamaVM.FindText}"
+                                                 Watermark="teks atau regex"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="5">
+                                        <TextBlock Classes="FieldLabel" Text="Ganti dengan"/>
+                                        <TextBox Classes="Input" Text="{Binding MantraNamaVM.ReplaceText}"
+                                                 Watermark="teks pengganti"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Options Accordion Toggle -->
+                                <Button Classes="Muted"
+                                        Command="{Binding MantraNamaVM.ToggleOptionsCommand}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="Opsi Lanjutan" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="11"
+                                                   Text="{Binding MantraNamaVM.IsOptionsExpanded, Converter={x:Static BoolConverters.Not}, ConverterParameter='▸', FallbackValue='▾'}"
+                                                   VerticalAlignment="Center" Foreground="#52525B"/>
+                                    </Grid>
+                                </Button>
+
+                                <!-- Options Panel (collapsible) -->
+                                <Border IsVisible="{Binding MantraNamaVM.IsOptionsExpanded}"
+                                        Background="#0C0C0E" CornerRadius="7" Padding="14,12"
+                                        BorderBrush="#232326" BorderThickness="1">
+                                    <WrapPanel Orientation="Horizontal">
+                                        <CheckBox Classes="Option" Content="Regex" Width="140"
+                                                  IsChecked="{Binding MantraNamaVM.UseRegex}" Margin="0,0,0,6"/>
+                                        <CheckBox Classes="Option" Content="Case Sensitive" Width="140"
+                                                  IsChecked="{Binding MantraNamaVM.CaseSensitive}" Margin="0,0,0,6"/>
+                                        <CheckBox Classes="Option" Content="Ganti Semua" Width="140"
+                                                  IsChecked="{Binding MantraNamaVM.MatchAllOccurrences}" Margin="0,0,0,6"/>
+                                        <CheckBox Classes="Option" Content="Skip Ekstensi" Width="140"
+                                                  IsChecked="{Binding MantraNamaVM.ExcludeExtension}" Margin="0,0,0,6"/>
+                                    </WrapPanel>
+                                </Border>
+
+                                <!-- Action row -->
+                                <Grid ColumnDefinitions="*,10,Auto">
+                                    <TextBlock Grid.Column="0" Classes="Body"
+                                               Text="{Binding MantraNamaVM.StatusText}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <Button Grid.Column="2" Classes="Action" Content="Eksekusi Rename"
+                                            Command="{Binding MantraNamaVM.ExecuteRenameAsyncCommand}"/>
+                                </Grid>
+
+                            </StackPanel>
+                    </Border>
+
+                </Grid>
+
+
+                <!-- ═══════════════════════
+                     MANTRA GANDA
+                ═══════════════════════ -->
+                <Grid RowDefinitions="Auto,16,Auto" ColumnDefinitions="*,16,*" IsVisible="{Binding IsMantraGandaVisible}">
+
+                    <!-- File Master -->
+                    <Border Grid.Row="0" Grid.Column="0" Classes="Card">
+                        <StackPanel Spacing="14">
+                            <TextBlock Classes="Section" Text="FILE MASTER"/>
+                            <Rectangle Classes="Divider" Margin="0,0,0,0"/>
+                            <TextBlock Classes="Path" Text="{Binding MantraGandaVM.SourceFile}"
+                                       IsVisible="{Binding MantraGandaVM.SourceFile, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            <TextBlock Classes="Body" Text="Belum dipilih"
+                                       IsVisible="{Binding MantraGandaVM.SourceFile, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                            <Button Classes="Muted" Content="Pilih File"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Click="OnGandaSelectFileClick"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Konfigurasi -->
+                    <Border Grid.Row="0" Grid.Column="2" Classes="Card">
+                        <StackPanel Spacing="12">
+                            <TextBlock Classes="Section" Text="KONFIGURASI"/>
+                            <Rectangle Classes="Divider" Margin="0,0,0,0"/>
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="FieldLabel" Text="Jumlah duplikat"/>
+                                <NumericUpDown Classes="Input"
+                                               Value="{Binding MantraGandaVM.DuplicateCount}"
+                                               Minimum="1" Maximum="10000"/>
+                            </StackPanel>
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="FieldLabel" Text="Mulai dari nomor"/>
+                                <NumericUpDown Classes="Input"
+                                               Value="{Binding MantraGandaVM.StartNumber}"
+                                               Minimum="0"/>
+                            </StackPanel>
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="FieldLabel" Text="Pemisah (_, -, spasi)"/>
+                                <TextBox Classes="Input" Text="{Binding MantraGandaVM.Separator}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Progress -->
+                    <Border Grid.Row="2" Grid.ColumnSpan="3" Classes="Card" IsVisible="{Binding MantraGandaVM.IsProcessing}">
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="Section" Text="MENGGANDAKAN"/>
+                            <ProgressBar Classes="Bar"
+                                         Minimum="0"
+                                         Maximum="{Binding MantraGandaVM.ProgressMaximum}"
+                                         Value="{Binding MantraGandaVM.ProgressValue}"/>
+                            <TextBlock Classes="Body" Text="{Binding MantraGandaVM.StatusText}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Action bar -->
+                    <Grid Grid.Row="2" Grid.ColumnSpan="3" ColumnDefinitions="*,12,Auto" IsVisible="{Binding !MantraGandaVM.IsProcessing}">
+                        <TextBlock Grid.Column="0" Classes="Body"
+                                   Text="{Binding MantraGandaVM.StatusText}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <Button Grid.Column="2" Classes="Action" Content="Gandakan Sekarang"
+                                Command="{Binding MantraGandaVM.ExecuteDuplicateAsyncCommand}"/>
+                    </Grid>
+
+                </Grid>
+
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Window>
