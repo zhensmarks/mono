@@ -11,6 +11,14 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace BMachine.UI.ViewModels;
 
+    public class ManualPsdButton
+    {
+        public string Name { get; set; } = "";
+        public string Path { get; set; } = "";
+        public string ShortcutKey { get; set; } = "";
+        public string ColorHex { get; set; } = "#6366F1";
+    }
+
 public partial class PsdBucinViewModel : ObservableObject
 {
     [ObservableProperty]
@@ -49,6 +57,23 @@ public partial class PsdBucinViewModel : ObservableObject
     [ObservableProperty]
     private string _manualFilename = "";
 
+    [ObservableProperty]
+    private bool _isLoadingImage = false;
+
+    [ObservableProperty]
+    private int _imageRotation = 0;
+
+    [ObservableProperty]
+    private bool _isTypingMode = false;
+
+    [ObservableProperty]
+    private string _searchQuery = "";
+
+    partial void OnIsTypingModeChanged(bool value)
+    {
+        if (value) OnTypingModeExecuted?.Invoke();
+    }
+
     public ObservableCollection<ManualPsdButton> ManualPsdButtons { get; } = new();
 
     public ObservableCollection<string> Logs { get; } = new();
@@ -63,14 +88,6 @@ public partial class PsdBucinViewModel : ObservableObject
     private static readonly Regex OnlyParen = new(@"^\(\s*(\d+)\s*\)$", RegexOptions.Compiled);
     private static readonly Regex SpaceForm = new(@"^(\d+)\s*\(\s*\d+\s*\)(?:\b.*)?$", RegexOptions.Compiled);
     private static readonly Regex TightForm = new(@"^\d+\(\s*(\d+)\s*\)$", RegexOptions.Compiled);
-
-    public class ManualPsdButton
-    {
-        public string Name { get; set; } = "";
-        public string Path { get; set; } = "";
-        public string ShortcutKey { get; set; } = "";
-        public string ColorHex { get; set; } = "#6366F1";
-    }
 
     public PsdBucinViewModel()
     {
@@ -150,8 +167,7 @@ public partial class PsdBucinViewModel : ObservableObject
         {
             var files = Directory.EnumerateFiles(PhotoDirectory, "*.*", SearchOption.AllDirectories)
                 .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || 
-                            f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || 
-                            f.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
+                            f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
             
             foreach (var f in files)
             {
@@ -177,90 +193,7 @@ public partial class PsdBucinViewModel : ObservableObject
         return n;
     }
 
-    [RelayCommand]
-    public async Task StartAutoAsync()
-    {
-        if (!CanStart || IsProcessing) return;
-        
-        IsProcessing = true;
-        _isCancelled = false;
-        Logs.Clear();
-        PrepareData();
-
-        ProgressMaximum = _jpgPhotos.Count;
-        ProgressValue = 0;
-
-        var psdMap = new Dictionary<string, string>();
-        string? fallbackPsd = _psdMasters.FirstOrDefault().FullPath;
-
-        foreach (var (relPath, fullPath) in _psdMasters)
-        {
-            var pDir = Path.GetDirectoryName(relPath)?.Replace("\\", "/").Trim().ToLower() ?? "";
-            if (!psdMap.ContainsKey(pDir))
-            {
-                psdMap[pDir] = fullPath;
-            }
-        }
-
-        await Task.Run(() =>
-        {
-            for (int i = 0; i < _jpgPhotos.Count; i++)
-            {
-                if (_isCancelled) break;
-                
-                var (fullJpg, relJpg) = _jpgPhotos[i];
-                var jpgDir = Path.GetDirectoryName(relJpg)?.Replace("\\", "/").Trim().ToLower() ?? "";
-                
-                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
-                {
-                    ProgressValue = i + 1;
-                    ProgressText = $"{i + 1}/{_jpgPhotos.Count}: {relJpg}";
-                });
-
-                try
-                {
-                    if (!psdMap.TryGetValue(jpgDir, out string? selectedMaster))
-                    {
-                        selectedMaster = fallbackPsd;
-                    }
-
-                    if (string.IsNullOrEmpty(selectedMaster))
-                    {
-                        throw new Exception("Master PSD tidak ditemukan");
-                    }
-
-                    var masterExt = Path.GetExtension(selectedMaster).ToLower();
-                    var masterName = Path.GetFileName(selectedMaster);
-                    var tname = ComputeTargetName(Path.GetFileName(relJpg));
-                    var tdir = Path.Combine(MasterDirectory, Path.GetDirectoryName(relJpg) ?? "");
-                    
-                    Directory.CreateDirectory(tdir);
-                    var dst = Path.Combine(tdir, $"{tname}{masterExt}");
-                    
-                    if (File.Exists(dst))
-                    {
-                        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => Logs.Add($"[EXIST] {relJpg} -> Sudah ada"));
-                    }
-                    else
-                    {
-                        File.Copy(selectedMaster, dst);
-                        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => Logs.Add($"[OK] {relJpg} -> Sukses -> {masterName}"));
-                    }
-                }
-                catch (Exception e)
-                {
-                    Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => Logs.Add($"[FAIL] {relJpg} -> {e.Message}"));
-                }
-            }
-        });
-
-        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
-        {
-            ProgressText = "Selesai";
-            IsProcessing = false;
-            OnAutoProcessCompleted?.Invoke();
-        });
-    }
+    // StartAutoAsync was removed because we are switching to manual mode only
 
     [RelayCommand]
     public void StartManualViewer()
@@ -300,6 +233,7 @@ public partial class PsdBucinViewModel : ObservableObject
         }
 
         LoadNextImage();
+        if (IsTypingMode) OnTypingModeExecuted?.Invoke();
     }
 
     private void LoadNextImage()
@@ -318,6 +252,7 @@ public partial class PsdBucinViewModel : ObservableObject
         ManualProgressText = $"{_currentIndex + 1} / {_jpgPhotos.Count}";
         ManualFilename = relJpg;
 
+        IsLoadingImage = true;
         Task.Run(() => 
         {
             try
@@ -328,22 +263,36 @@ public partial class PsdBucinViewModel : ObservableObject
                 fs.CopyTo(ms);
                 ms.Position = 0;
                 var bmp = new Bitmap(ms);
+                int rotation = bmp.Size.Width > bmp.Size.Height ? 270 : 0;
 
                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
                 {
+                    ImageRotation = rotation;
                     var oldBmp = CurrentManualImage;
                     CurrentManualImage = bmp;
                     oldBmp?.Dispose();
+                    IsLoadingImage = false;
                 });
             }
             catch (Exception)
             {
                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
                 {
+                    ImageRotation = 0;
                     CurrentManualImage = null;
+                    IsLoadingImage = false;
                 });
             }
         });
+    }
+
+    [RelayCommand]
+    public void SkipManual()
+    {
+        if (!IsManualModeActive || IsProcessing) return;
+        Logs.Add($"[SKIP] {_jpgPhotos[_currentIndex].RelPath}");
+        LoadNextImage();
+        if (IsTypingMode) OnTypingModeExecuted?.Invoke();
     }
 
     [RelayCommand]
@@ -375,6 +324,26 @@ public partial class PsdBucinViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task ExecuteTypingMode()
+    {
+        if (!IsManualModeActive || IsProcessing || string.IsNullOrWhiteSpace(SearchQuery)) return;
+        
+        var q = SearchQuery.Trim();
+        var match = ManualPsdButtons.FirstOrDefault(x => 
+            x.Name.Contains(q, StringComparison.OrdinalIgnoreCase) || 
+            x.ShortcutKey.Equals(q, StringComparison.OrdinalIgnoreCase));
+            
+        if (match != null)
+        {
+            SearchQuery = "";
+            await ProcessSingleManualAsync(match.Path);
+            if (IsTypingMode) OnTypingModeExecuted?.Invoke();
+        }
+    }
+
+    public event Action? OnTypingModeExecuted;
+
+    [RelayCommand]
     public async Task ProcessSingleManualAsync(string masterPath)
     {
         if (!IsManualModeActive || IsProcessing) return;
@@ -388,11 +357,8 @@ public partial class PsdBucinViewModel : ObservableObject
             try
             {
                 var tname = ComputeTargetName(Path.GetFileName(relJpg));
-                var tdir = Path.Combine(MasterDirectory, Path.GetDirectoryName(relJpg) ?? "");
                 var ext = Path.GetExtension(masterPath);
-                
-                Directory.CreateDirectory(tdir);
-                var dst = Path.Combine(tdir, $"{tname}{ext}");
+                var dst = Path.Combine(MasterDirectory, $"{tname}{ext}");
 
                 if (File.Exists(dst))
                 {
@@ -438,8 +404,7 @@ public partial class PsdBucinViewModel : ObservableObject
         Logs.Clear();
         
         var validFiles = droppedFiles.Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || 
-                                                 f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || 
-                                                 f.EndsWith(".png", StringComparison.OrdinalIgnoreCase)).ToList();
+                                                 f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)).ToList();
 
         ProgressMaximum = validFiles.Count;
         ProgressValue = 0;
@@ -484,12 +449,7 @@ public partial class PsdBucinViewModel : ObservableObject
         });
     }
 
-    [RelayCommand]
-    public void CancelAuto()
-    {
-        _isCancelled = true;
-        ProgressText = "Membatalkan...";
-    }
+    // CancelAuto removed
 
     public event Action? OnAutoProcessCompleted;
 }

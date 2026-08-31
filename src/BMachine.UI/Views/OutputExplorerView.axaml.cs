@@ -61,6 +61,7 @@ public partial class OutputExplorerView : UserControl
         });
         // NOTE: OnFileAreaPointerPressed/Moved/Released are wired in XAML on FileAreaGrid
         this.AddHandler(KeyDownEvent, OnRootKeyDown, RoutingStrategies.Tunnel);
+        this.AddHandler(PointerPressedEvent, OnRootPointerPressed, RoutingStrategies.Tunnel);
         Loaded += OnViewLoaded;
         Unloaded += OnViewUnloaded;
         
@@ -696,16 +697,28 @@ public partial class OutputExplorerView : UserControl
         {
             vm?.UpdateClipboardStateAsync();
         }
+    }
+
+    private void OnRootPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var vm = DataContext as OutputExplorerViewModel;
+        var point = e.GetCurrentPoint(this);
 
         if (point.Properties.IsXButton1Pressed)
         {
             if (vm?.GoBackCommand.CanExecute(null) == true)
-            { vm.GoBackCommand.Execute(null); e.Handled = true; }
+            {
+                vm.GoBackCommand.Execute(null);
+                e.Handled = true;
+            }
         }
         else if (point.Properties.IsXButton2Pressed)
         {
             if (vm?.GoForwardCommand.CanExecute(null) == true)
-            { vm.GoForwardCommand.Execute(null); e.Handled = true; }
+            {
+                vm.GoForwardCommand.Execute(null);
+                e.Handled = true;
+            }
         }
     }
 

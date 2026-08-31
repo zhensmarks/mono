@@ -2,11 +2,14 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using BMachine.UI.ViewModels;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace BMachine.UI.Views;
 
@@ -17,7 +20,22 @@ public partial class ToolboxWindow : Window
     public ToolboxWindow()
     {
         InitializeComponent();
-        DataContext = new ToolboxViewModel();
+        var vm = new ToolboxViewModel();
+        DataContext = vm;
+
+        vm.PsdBucinVM.OnTypingModeExecuted += () =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await System.Threading.Tasks.Task.Delay(50);
+                var txt = this.FindControl<AutoCompleteBox>("TypingModeTextBox");
+                if (txt != null)
+                {
+                    var innerTextBox = txt.GetVisualDescendants().OfType<TextBox>().FirstOrDefault();
+                    (innerTextBox ?? (Control)txt).Focus();
+                }
+            }, Avalonia.Threading.DispatcherPriority.Background);
+        };
 
         // Drag & Drop
         AddHandler(DragDrop.DropEvent, Drop);
@@ -41,6 +59,15 @@ public partial class ToolboxWindow : Window
     {
         base.OnKeyDown(e);
 
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && (e.Key == Key.E || e.Key == Key.N))
+        {
+            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.RequestOpenExplorerWindowMessage());
+            e.Handled = true;
+            return;
+        }
+
+        if ((e.Source is TextBox || e.Source is AutoCompleteBox) && e.Key != Key.Escape) return;
+
         if (DataContext is ToolboxViewModel vm && vm.IsPsdBucinVisible && vm.PsdBucinVM.IsManualModeActive)
         {
             string key = e.Key.ToString();
@@ -62,6 +89,9 @@ public partial class ToolboxWindow : Window
     {
         public double Width { get; set; }
         public double Height { get; set; }
+        public int? X { get; set; }
+        public int? Y { get; set; }
+        public bool? IsTypingMode { get; set; }
     }
 
     private void LoadWindowState()
@@ -76,6 +106,15 @@ public partial class ToolboxWindow : Window
                 {
                     if (config.Width > 0) Width = config.Width;
                     if (config.Height > 0) Height = config.Height;
+                    if (config.X.HasValue && config.Y.HasValue)
+                    {
+                        WindowStartupLocation = WindowStartupLocation.Manual;
+                        Position = new Avalonia.PixelPoint(config.X.Value, config.Y.Value);
+                    }
+                    if (config.IsTypingMode.HasValue && DataContext is ToolboxViewModel vm)
+                    {
+                        vm.PsdBucinVM.IsTypingMode = config.IsTypingMode.Value;
+                    }
                 }
             }
         }
@@ -86,7 +125,14 @@ public partial class ToolboxWindow : Window
     {
         try
         {
-            var config = new WindowStateConfig { Width = Bounds.Width, Height = Bounds.Height };
+            var config = new WindowStateConfig 
+            { 
+                Width = Bounds.Width, 
+                Height = Bounds.Height,
+                X = Position.X,
+                Y = Position.Y,
+                IsTypingMode = (DataContext as ToolboxViewModel)?.PsdBucinVM.IsTypingMode
+            };
             var json = JsonSerializer.Serialize(config);
             File.WriteAllText(_settingsPath, json);
         }
@@ -105,12 +151,26 @@ public partial class ToolboxWindow : Window
         {
             if (isDir)
             {
-                // Simple heuristic: if it contains PSDs, it's Master. Otherwise Photo.
-                bool hasPsd = Directory.EnumerateFiles(firstPath, "*.*", SearchOption.TopDirectoryOnly)
-                    .Any(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase));
-                
-                if (hasPsd) vm.PsdBucinVM.MasterDirectory = firstPath;
-                else vm.PsdBucinVM.PhotoDirectory = firstPath;
+                bool isPhotoZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name == "PhotoDropZone") == true || (e.Source as Control)?.Name == "PhotoDropZone";
+                bool isMasterZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name == "MasterDropZone") == true || (e.Source as Control)?.Name == "MasterDropZone";
+
+                if (isPhotoZone)
+                {
+                    vm.PsdBucinVM.PhotoDirectory = firstPath;
+                }
+                else if (isMasterZone)
+                {
+                    vm.PsdBucinVM.MasterDirectory = firstPath;
+                }
+                else
+                {
+                    // Simple heuristic: if it contains PSDs, it's Master. Otherwise Photo.
+                    bool hasPsd = Directory.EnumerateFiles(firstPath, "*.*", SearchOption.TopDirectoryOnly)
+                        .Any(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase));
+                    
+                    if (hasPsd) vm.PsdBucinVM.MasterDirectory = firstPath;
+                    else vm.PsdBucinVM.PhotoDirectory = firstPath;
+                }
             }
             else
             {
@@ -133,6 +193,10 @@ public partial class ToolboxWindow : Window
             if (!isDir)
             {
                 vm.MantraGandaVM.SourceFile = firstPath;
+            }
+            else
+            {
+                vm.MantraGandaVM.DataFolder = firstPath;
             }
         }
     }
@@ -205,6 +269,20 @@ public partial class ToolboxWindow : Window
         if (files != null && files.Count > 0 && DataContext is ToolboxViewModel vm)
         {
             vm.MantraGandaVM.SourceFile = files[0].Path.LocalPath;
+        }
+    }
+
+    private async void OnGandaSelectDataFolderClick(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Pilih Folder Data",
+            AllowMultiple = false
+        });
+
+        if (folders != null && folders.Count > 0 && DataContext is ToolboxViewModel vm)
+        {
+            vm.MantraGandaVM.DataFolder = folders[0].Path.LocalPath;
         }
     }
 }

@@ -19,6 +19,20 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _pathLocalOutput = "";
 
+    [ObservableProperty]
+    private string _defaultExplorerPath = "";
+
+    // --- Tab Navigation ---
+    [ObservableProperty] private bool _isGeneralTabVisible = true;
+    [ObservableProperty] private bool _isShortcutsTabVisible;
+
+    [RelayCommand]
+    private void SwitchTab(string tabName)
+    {
+        IsGeneralTabVisible = tabName == "General";
+        IsShortcutsTabVisible = tabName == "Shortcuts";
+    }
+
     // --- Shortcuts (all editable via Record) ---
     [ObservableProperty] private string _shortcutNewFolder = "Ctrl+Shift+N";
     [ObservableProperty] private string _shortcutNewFile = "Ctrl+Shift+T";
@@ -62,6 +76,7 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     private async Task LoadSettings()
     {
         PathLocalOutput = await _database.GetAsync<string>("Configs.Path.LocalOutput") ?? "";
+        DefaultExplorerPath = await _database.GetAsync<string>("Configs.Explorer.DefaultPath") ?? "";
         ShortcutNewFolder = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewFolder") ?? "Ctrl+Shift+N";
         ShortcutNewFile = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewFile") ?? "Ctrl+Shift+T";
         ShortcutFocusSearch = await _database.GetAsync<string>("Configs.Explorer.ShortcutFocusSearch") ?? "Ctrl+L";
@@ -191,11 +206,23 @@ public partial class ExplorerSettingsViewModel : ObservableObject
             PathLocalOutput = buffer;
             await _database.SetAsync("Configs.Path.LocalOutput", buffer);
         }
+        else if (key == "DefaultExplorerPath")
+        {
+            DefaultExplorerPath = buffer;
+            await _database.SetAsync("Configs.Explorer.DefaultPath", buffer);
+            WeakReferenceMessenger.Default.Send(new ExplorerSettingsChangedMessage()); // Force reload
+        }
     }
 
     partial void OnPathLocalOutputChanged(string value)
     {
         _ = _database.SetAsync("Configs.Path.LocalOutput", value ?? "");
+    }
+
+    partial void OnDefaultExplorerPathChanged(string value)
+    {
+        _ = _database.SetAsync("Configs.Explorer.DefaultPath", value ?? "");
+        WeakReferenceMessenger.Default.Send(new ExplorerSettingsChangedMessage());
     }
 
     partial void OnShowHiddenFilesChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.ShowHiddenFiles", value.ToString());

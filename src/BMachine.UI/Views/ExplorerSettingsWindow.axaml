@@ -4,138 +4,173 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:BMachine.UI.ViewModels"
         xmlns:views="using:BMachine.UI.Views"
-        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="550"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
         x:Class="BMachine.UI.Views.ExplorerSettingsWindow"
         x:DataType="vm:OutputExplorerViewModel"
         Title="Explorer Settings"
-        Width="420" Height="500"
+        Width="400" Height="450"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="{DynamicResource CardBackgroundBrush}">
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
 
-    <Grid RowDefinitions="Auto, *, Auto">
-        <!-- Header -->
-        <Border Grid.Row="0" Padding="15,12" Background="{DynamicResource SubCardBackgroundBrush}">
-            <DockPanel>
-                <TextBlock Text="Explorer Settings" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" DockPanel.Dock="Left" VerticalAlignment="Center"/>
-            </DockPanel>
-        </Border>
-        
-        <Border Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{DynamicResource SeparatorBrush}"/>
-        
-        <!-- Tab Content -->
-        <TabControl Grid.Row="1" Margin="0" Padding="0">
-            <TabControl.Styles>
-                <Style Selector="TabItem">
-                    <Setter Property="FontSize" Value="13"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
-                    <Setter Property="MinHeight" Value="40"/>
-                    <Setter Property="Padding" Value="16,0"/>
-                    <Setter Property="Margin" Value="0,0,12,0"/>
-                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                    <Setter Property="Background" Value="Transparent"/>
-                </Style>
-                <Style Selector="TabItem:selected">
-                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                </Style>
-                <Style Selector="TabItem:pointerover">
-                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                </Style>
-                <Style Selector="TabItem /template/ Border#PART_SelectedPipe">
-                    <Setter Property="IsVisible" Value="False"/>
-                </Style>
-                
-                <!-- Segmented Control Styles for View Mode -->
-                <Style Selector="RadioButton.Segmented">
-                    <Setter Property="Background" Value="Transparent"/>
-                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                    <Setter Property="Padding" Value="12,6"/>
-                    <Setter Property="CornerRadius" Value="4"/>
-                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                    <Setter Property="VerticalContentAlignment" Value="Center"/>
-                    <Setter Property="BorderThickness" Value="1"/>
-                    <Setter Property="BorderBrush" Value="Transparent"/>
-                    <Setter Property="Template">
-                        <ControlTemplate>
-                            <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}">
-                                 <ContentPresenter Content="{TemplateBinding Content}"
-                                                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                            </Border>
-                        </ControlTemplate>
-                    </Setter>
-                    <Setter Property="Transitions">
-                        <Transitions>
-                            <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                            <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                        </Transitions>
-                    </Setter>
-                </Style>
-                <Style Selector="RadioButton.Segmented:checked">
-                    <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
-                    <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
-                </Style>
-                <Style Selector="RadioButton.Segmented:pointerover">
-                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                    <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
-                </Style>
-                
-                <!-- Toggle Switch styling for minimalism -->
-                <Style Selector="ToggleSwitch">
-                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                </Style>
-            </TabControl.Styles>
-            
-            <!-- TAB: GENERAL -->
-            <TabItem Header="General">
-                <ScrollViewer Padding="32">
-                    <StackPanel Spacing="32">
-                        <!-- View Mode Section -->
-                        <StackPanel Spacing="16">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="VIEW MODE" FontWeight="Bold" FontSize="11" LetterSpacing="1.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <TextBlock Text="Default style for files &amp; folders." FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            </StackPanel>
-                            
-                            <Border Background="{DynamicResource SubCardBackgroundBrush}" CornerRadius="6" Padding="4" HorizontalAlignment="Left" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <RadioButton Content="List" IsChecked="{Binding IsVerticalLayout}" Classes="Segmented" FontSize="12"/>
-                                    <RadioButton Content="Grid" IsChecked="{Binding IsHorizontalLayout}" Classes="Segmented" FontSize="12"/>
-                                    <RadioButton Content="Thumbnails" IsChecked="{Binding IsThumbnailLayout}" Classes="Segmented" FontSize="12"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+    <Window.Styles>
+        <Style Selector="Button.Tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Tab:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.Tab.on">
+            <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <!-- Segmented Control Styles for View Mode -->
+        <Style Selector="RadioButton.Segmented">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}">
+                         <ContentPresenter Content="{TemplateBinding Content}"
+                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.Segmented:checked">
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="RadioButton.Segmented:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+
+    </Window.Styles>
+
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+        <Grid>
+        <!-- ═══ CONTENT ═══ -->
+        <ScrollViewer ZIndex="0" Padding="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+                <!-- ═══════════════════════
+                     GENERAL TAB
+                ═══════════════════════ -->
+                <Grid IsVisible="{Binding ExplorerSettingsVM.IsGeneralTabVisible}">
+                    <StackPanel Spacing="16" Margin="20,70,20,40">
                         
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                        <!-- Default Path Section -->
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                            <StackPanel Spacing="12">
+                                <Grid RowDefinitions="Auto,Auto">
+                                    <TextBlock Grid.Row="0" Text="DEFAULT EXPLORER PATH" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                                    <TextBlock Grid.Row="1" Text="The root folder to open when the Explorer starts." FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding ExplorerSettingsVM.DefaultExplorerPath}" Margin="0,0,8,0" Watermark="C:\Output..." VerticalContentAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="Browse" Classes="Primary" Command="{Binding ExplorerSettingsVM.BrowsePathCommand}" CommandParameter="DefaultExplorerPath" VerticalAlignment="Stretch"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- View Mode Section -->
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                            <StackPanel Spacing="12">
+                                <Grid RowDefinitions="Auto,Auto">
+                                    <TextBlock Grid.Row="0" Text="VIEW MODE" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                                    <TextBlock Grid.Row="1" Text="Choose how files and folders are displayed by default." FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </Grid>
+                                
+                                <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" Padding="4" HorizontalAlignment="Left" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <RadioButton Content="List" IsChecked="{Binding IsVerticalLayout}" Classes="Segmented" FontSize="11"/>
+                                        <RadioButton Content="Grid" IsChecked="{Binding IsHorizontalLayout}" Classes="Segmented" FontSize="11"/>
+                                        <RadioButton Content="Thumbnails" IsChecked="{Binding IsThumbnailLayout}" Classes="Segmented" FontSize="11"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
                         
                         <!-- Layout Section -->
-                        <StackPanel Spacing="16">
-                            <TextBlock Text="LAYOUT &amp; NAVIGATION" FontWeight="Bold" FontSize="11" LetterSpacing="1.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            
-                            <Grid ColumnDefinitions="*, Auto">
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Show Path Bar" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <TextBlock Text="Display the breadcrumb path bar at the top of the explorer." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
-                                </StackPanel>
-                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsShowPathBar}" Margin="0,0,0,0"/>
-                            </Grid>
-                        </StackPanel>
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="LAYOUT &amp; NAVIGATION" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <Grid Grid.Column="0" RowDefinitions="Auto,Auto" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <TextBlock Grid.Row="0" Text="Show Path Bar" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Grid.Row="1" Text="Display breadcrumb path bar at the top." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                    </Grid>
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsShowPathBar}" Margin="0,0,0,0"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            
-            <!-- TAB: SHORTCUTS -->
-            <TabItem Header="Shortcuts">
-                <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" />
-            </TabItem>
-        </TabControl>
-        
-        <Border Grid.Row="2" Background="{DynamicResource SubCardBackgroundBrush}" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SeparatorBrush}" Padding="10">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Close" Click="Close_Click" Classes="Primary" MinWidth="70" FontSize="12" Padding="15,6"/>
+                </Grid>
+
+                <!-- ═══════════════════════
+                     SHORTCUTS TAB
+                ═══════════════════════ -->
+                <Grid IsVisible="{Binding ExplorerSettingsVM.IsShortcutsTabVisible}">
+                    <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" Padding="10,70,10,40" />
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- ═══ NAV (FLOATING) ═══ -->
+        <Border ZIndex="10" Classes="Nav" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="3" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" BoxShadow="0 4 12 0 #33000000">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button Classes="Tab" Content="General"
+                        Classes.on="{Binding ExplorerSettingsVM.IsGeneralTabVisible}"
+                        Command="{Binding ExplorerSettingsVM.SwitchTabCommand}"
+                        CommandParameter="General"/>
+                <Button Classes="Tab" Content="Shortcuts"
+                        Classes.on="{Binding ExplorerSettingsVM.IsShortcutsTabVisible}"
+                        Command="{Binding ExplorerSettingsVM.SwitchTabCommand}"
+                        CommandParameter="Shortcuts"/>
             </StackPanel>
         </Border>
-    </Grid>
+        
+        </Grid>
+    </Border>
 </Window>

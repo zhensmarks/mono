@@ -314,7 +314,10 @@ public partial class OutputExplorerViewModel : ObservableObject
 
     private async void LoadRootPath()
     {
-        var path = await _database.GetAsync<string>("Configs.Master.LocalOutput") ?? "";
+        var explorerPath = await _database.GetAsync<string>("Configs.Explorer.DefaultPath");
+        var localOutput = await _database.GetAsync<string>("Configs.Master.LocalOutput") ?? "";
+        var path = !string.IsNullOrWhiteSpace(explorerPath) ? explorerPath : localOutput;
+
         var savedHeightStr = await _database.GetAsync<string>("Configs.Explorer.TaskMonitorHeight");
         // Load global view settings first so they apply before path (persist across restart)
         var gSort = await _database.GetAsync<string>("Configs.Explorer.SortBy");

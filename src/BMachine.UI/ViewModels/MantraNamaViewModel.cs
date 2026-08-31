@@ -5,6 +5,8 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Linq;
+using NaturalSort.Extension;
 
 namespace BMachine.UI.ViewModels;
 
@@ -56,6 +58,14 @@ public partial class MantraNamaViewModel : ObservableObject
     [ObservableProperty]
     private string _statusText = "Siap untuk merename";
 
+    [RelayCommand]
+    public void ClearList()
+    {
+        PreviewList.Clear();
+        SourceDirectory = string.Empty;
+        StatusText = "List dibersihkan";
+    }
+
     public ObservableCollection<RenamePreviewItem> PreviewList { get; } = new();
 
     partial void OnSourceDirectoryChanged(string value) => RefreshPreview();
@@ -77,8 +87,10 @@ public partial class MantraNamaViewModel : ObservableObject
 
         if (PreviewList.Count == 0)
         {
-            // Initial load of files
-            var files = Directory.GetFiles(SourceDirectory);
+            // Initial load of files (Natural Sort)
+            var files = Directory.GetFiles(SourceDirectory)
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase.WithNaturalSort())
+                .ToList();
             foreach (var f in files)
             {
                 PreviewList.Add(new RenamePreviewItem

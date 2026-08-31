@@ -21,7 +21,7 @@ using BMachine.Core.Platform;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>, IRecipient<NavigateToPageMessage>, IRecipient<OpenSpreadsheetWithSearchMessage>
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>, IRecipient<NavigateToPageMessage>, IRecipient<OpenSpreadsheetWithSearchMessage>, IRecipient<RequestOpenExplorerWindowMessage>
 {
     private readonly IActivityService _activityService;
     private readonly IDatabase _database;
@@ -149,6 +149,14 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              case "Locker": SelectedTabIndex = 2; break;
              case "Points": SelectedTabIndex = 5; break;
              case "Explorer": SelectedTabIndex = 6; break;
+        }
+    }
+
+    public void Receive(RequestOpenExplorerWindowMessage message)
+    {
+        if (_outputExplorerVM != null && _outputExplorerVM.NewExplorerWindowCommand.CanExecute(null))
+        {
+            _outputExplorerVM.NewExplorerWindowCommand.Execute(null);
         }
     }
 

@@ -7,8 +7,8 @@
         x:Class="BMachine.UI.Views.ToolboxWindow"
         x:DataType="vm:ToolboxViewModel"
         Title="BMachine Toolbox"
-        Width="1024" Height="700"
-        MinWidth="680" MinHeight="540"
+        Width="1024" Height="730"
+        MinWidth="680" MinHeight="580"
         WindowStartupLocation="CenterScreen"
         Background="#09090B"
         Foreground="#E8E8E6"
@@ -62,6 +62,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="24,20"/>
+            <Setter Property="ClipToBounds" Value="True"/>
         </Style>
 
         <!-- SECTION LABEL — uppercase monospace eyebrow -->
@@ -210,75 +211,55 @@
 
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,*">
-
-        <!-- ═══ NAV ═══ -->
-        <Border Grid.Row="0" Classes="Nav" HorizontalAlignment="Center" Margin="0,20,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="2">
-                <Button Classes="Tab" Content="PSD Bucin"
-                        Classes.on="{Binding IsPsdBucinVisible}"
-                        Command="{Binding SwitchTabCommand}"
-                        CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}"/>
-                <Button Classes="Tab" Content="Mantra Nama"
-                        Classes.on="{Binding IsMantraNamaVisible}"
-                        Command="{Binding SwitchTabCommand}"
-                        CommandParameter="{x:Static vm:ToolboxTab.MantraNama}"/>
-                <Button Classes="Tab" Content="Mantra Ganda"
-                        Classes.on="{Binding IsMantraGandaVisible}"
-                        Command="{Binding SwitchTabCommand}"
-                        CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}"/>
-            </StackPanel>
-        </Border>
+    <Grid>
+        <!-- LAYOUT CONSTRAINT MOCKS (Independent from content to prevent shrink-lock & ensure stretching) -->
+        <!-- PathTextBoxWidth simulates Window width minus left/right paddings and button sizes -->
+        <Panel x:Name="PathTextBoxWidth" Margin="44,0,150,0" IsHitTestVisible="False" />
+        <!-- StatusTextWidth simulates Window width minus two buttons in the action bar -->
+        <Panel x:Name="StatusTextWidth" Margin="44,0,320,0" IsHitTestVisible="False" />
 
         <!-- ═══ CONTENT ═══ -->
-        <ScrollViewer Grid.Row="1"
-                      Padding="20,16,20,20"
+        <ScrollViewer ZIndex="0"
+                      Padding="20,85,20,20"
                       VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
+                      HorizontalScrollBarVisibility="Disabled"
+                      IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
             <Grid>
 
                 <!-- ═══════════════════════
                      PSD BUCIN
                 ═══════════════════════ -->
-                <Grid IsVisible="{Binding IsPsdBucinVisible}">
+                <Grid IsVisible="{Binding IsPsdBucinVisible}" RowDefinitions="*,16,Auto" MinHeight="480">
 
                     <!-- SETUP VIEW -->
-                    <Grid RowDefinitions="Auto,16,Auto" ColumnDefinitions="*,16,*" IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
+                    <Grid Grid.Row="0" IsVisible="{Binding !PsdBucinVM.IsManualModeActive}" RowDefinitions="*,16,*,16,Auto">
 
                         <!-- Master PSD -->
-                        <Border Grid.Row="0" Grid.Column="0" Classes="Card">
-                            <StackPanel Spacing="14">
-                                <TextBlock Classes="Section" Text="TEMPLATE MASTER"/>
-                                <Rectangle Classes="Divider" Margin="0,0,0,0"/>
-                                <TextBlock Classes="Path" Text="{Binding PsdBucinVM.MasterDirectory}"
-                                           IsVisible="{Binding PsdBucinVM.MasterDirectory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                                <TextBlock Classes="Body" Text="Belum dipilih"
-                                           IsVisible="{Binding PsdBucinVM.MasterDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
-                                <Button Classes="Muted" Content="Pilih Folder PSD"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        Click="OnPsdSelectMasterClick"/>
-                            </StackPanel>
+                        <Border Grid.Row="0" x:Name="MasterDropZone" Classes="Card" DragDrop.AllowDrop="True">
+                            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                                <TextBlock Grid.Row="0" Classes="Section" Text="MASTER &amp; OUTPUT" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
+                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding PsdBucinVM.MasterDirectory}" Watermark="Ketik/Paste path, atau Drag &amp; Drop folder kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnPsdSelectMasterClick"/>
+                                </Grid>
+                            </Grid>
                         </Border>
 
                         <!-- Foto JPG -->
-                        <Border Grid.Row="0" Grid.Column="2" Classes="Card">
-                            <StackPanel Spacing="14">
-                                <TextBlock Classes="Section" Text="FOLDER FOTO JPG"/>
-                                <Rectangle Classes="Divider" Margin="0,0,0,0"/>
-                                <TextBlock Classes="Path" Text="{Binding PsdBucinVM.PhotoDirectory}"
-                                           IsVisible="{Binding PsdBucinVM.PhotoDirectory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                                <TextBlock Classes="Body" Text="Belum dipilih"
-                                           IsVisible="{Binding PsdBucinVM.PhotoDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
-                                <Button Classes="Muted" Content="Pilih Folder Foto"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Center"
-                                        Click="OnPsdSelectPhotoClick"/>
-                            </StackPanel>
+                        <Border Grid.Row="2" x:Name="PhotoDropZone" Classes="Card" DragDrop.AllowDrop="True">
+                            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                                <TextBlock Grid.Row="0" Classes="Section" Text="INPUT" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
+                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding PsdBucinVM.PhotoDirectory}" Watermark="Ketik/Paste path, atau Drag &amp; Drop folder kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnPsdSelectPhotoClick"/>
+                                </Grid>
+                            </Grid>
                         </Border>
 
                         <!-- Progress -->
-                        <Border Grid.Row="2" Grid.ColumnSpan="3" Classes="Card" IsVisible="{Binding PsdBucinVM.IsProcessing}">
+                        <Border Grid.Row="4" Classes="Card" IsVisible="{Binding PsdBucinVM.IsProcessing}">
                             <StackPanel Spacing="10">
                                 <TextBlock Classes="Section" Text="MEMPROSES"/>
                                 <ProgressBar Classes="Bar"
@@ -288,96 +269,30 @@
                                 <TextBlock Classes="Body" Text="{Binding PsdBucinVM.ProgressText}"/>
                             </StackPanel>
                         </Border>
+                    </Grid>
 
-                        <!-- Action Bar — ColumnDefinitions prevents overlap -->
-                        <Grid Grid.Row="2" Grid.ColumnSpan="3" ColumnDefinitions="*,12,Auto" IsVisible="{Binding !PsdBucinVM.IsProcessing}">
+                    <!-- Action Bar (Rata Bawah) -->
+                    <Border Grid.Row="2" Classes="Card" IsVisible="{Binding !PsdBucinVM.IsProcessing}">
+                        <Grid ColumnDefinitions="*,12,Auto">
                             <TextBlock Grid.Column="0" Classes="Body"
                                        Text="{Binding PsdBucinVM.StatusText}"
                                        VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"/>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                                <Button Classes="Muted" Content="Mode Manual"
-                                        Command="{Binding PsdBucinVM.StartManualViewerCommand}"/>
-                                <Button Classes="Action" Content="Jalankan Otomatis"
-                                        Command="{Binding PsdBucinVM.StartAutoCommand}"/>
-                            </StackPanel>
+                                       TextWrapping="Wrap" Width="{Binding #StatusTextWidth.Bounds.Width}"/>
+                            <Button Grid.Column="2" Classes="Action" Content="MULAI"
+                                    Command="{Binding PsdBucinVM.StartManualViewerCommand}"/>
                         </Grid>
-
-                    </Grid>
-
-                    <!-- VIEWER VIEW (manual) -->
-                    <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding PsdBucinVM.IsManualModeActive}" MinHeight="380">
-
-                        <!-- Top bar -->
-                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
-                            <TextBlock Grid.Column="0" Classes="Section"
-                                       Text="{Binding PsdBucinVM.ManualProgressText}"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Classes="Path"
-                                       Text="{Binding PsdBucinVM.ManualFilename}"
-                                       VerticalAlignment="Center" Margin="14,0"/>
-                            <Button Grid.Column="2" Classes="Warn" Content="Keluar"
-                                    Command="{Binding PsdBucinVM.ExitManualModeCommand}"/>
-                        </Grid>
-
-                        <!-- Image -->
-                        <Border Grid.Row="1"
-                                Background="#000000"
-                                BorderBrush="#1A1A1D"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                ClipToBounds="True"
-                                Margin="0,0,0,14">
-                            <Image Source="{Binding PsdBucinVM.CurrentManualImage}" Stretch="Uniform"/>
-                        </Border>
-
-                        <!-- Shortcut buttons -->
-                        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                            <ItemsControl ItemsSource="{Binding PsdBucinVM.ManualPsdButtons}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Background="Transparent" Padding="0" Cursor="Hand"
-                                                Command="{Binding $parent[Window].((vm:ToolboxViewModel)DataContext).PsdBucinVM.ProcessSingleManualCommand}"
-                                                CommandParameter="{Binding Path}">
-                                            <Border CornerRadius="7" Padding="16,10"
-                                                    Background="{Binding ColorHex}"
-                                                    BorderBrush="#FFFFFF14" BorderThickness="1">
-                                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                                    <TextBlock Text="{Binding Name}"
-                                                               Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="13"/>
-                                                    <!-- KBD key badge -->
-                                                    <Border Background="#00000030"
-                                                            BorderBrush="#FFFFFF22" BorderThickness="1"
-                                                            CornerRadius="4" Padding="6,2">
-                                                        <TextBlock Text="{Binding ShortcutKey}"
-                                                                   Foreground="#FFFFFFBB" FontSize="11"
-                                                                   FontFamily="'Cascadia Code', Consolas, monospace"/>
-                                                    </Border>
-                                                </StackPanel>
-                                            </Border>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-
-                    </Grid>
+                    </Border>
                 </Grid>
 
                 <!-- ═══════════════════════
                      MANTRA NAMA
                 ═══════════════════════ -->
-                <Grid ColumnDefinitions="*,16,360" IsVisible="{Binding IsMantraNamaVisible}">
+                <Grid RowDefinitions="*,16,Auto" IsVisible="{Binding IsMantraNamaVisible}" MinHeight="480">
 
-                    <!-- Preview table (Kiri - Fluid Width) -->
-                    <Border Grid.Column="0" Classes="Card">
+                    <!-- Preview table (Atas - Fluid Height) -->
+                    <Border Grid.Row="0" Classes="Card">
                         <Grid RowDefinitions="Auto,12,Auto,12,*">
-                            <TextBlock Grid.Row="0" Classes="Section" Text="PREVIEW HASIL"/>
+                            <TextBlock Grid.Row="0" Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)"/>
                             <Rectangle Grid.Row="1" Classes="Divider" Margin="0"/>
                             <!-- Column headers -->
                             <Grid Grid.Row="2" ColumnDefinitions="*,28,*">
@@ -409,28 +324,12 @@
                         </Grid>
                     </Border>
 
-                    <!-- Single compact card: Search + Options toggle + Action (Kanan - Fixed Width) -->
-                    <Border Grid.Column="2" Classes="Card" VerticalAlignment="Top">
-                            <StackPanel Spacing="12">
-
-                                <TextBlock Classes="Section" Text="MANTRA NAMA"/>
-                                <Rectangle Classes="Divider" Margin="0,0,0,0"/>
-
-                                <!-- Folder row -->
-                                <Grid ColumnDefinitions="*,10,Auto">
-                                    <TextBlock Grid.Column="0" Classes="Path"
-                                               Text="{Binding MantraNamaVM.SourceDirectory}"
-                                               IsVisible="{Binding MantraNamaVM.SourceDirectory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="0" Classes="Body" Text="Belum pilih folder"
-                                               IsVisible="{Binding MantraNamaVM.SourceDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                               VerticalAlignment="Center"/>
-                                    <Button Grid.Column="2" Classes="Muted" Content="Pilih Folder"
-                                            Click="OnNamaSelectFolderClick"/>
-                                </Grid>
+                    <!-- Konfigurasi & Action (Bawah - Fixed Height) -->
+                    <Border Grid.Row="2" Classes="Card">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
 
                                 <!-- Find / Replace row -->
-                                <Grid ColumnDefinitions="*,10,*">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,10,*" Margin="0,0,0,12">
                                     <StackPanel Grid.Column="0" Spacing="5">
                                         <TextBlock Classes="FieldLabel" Text="Cari"/>
                                         <TextBox Classes="Input" Text="{Binding MantraNamaVM.FindText}"
@@ -443,21 +342,10 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <!-- Options Accordion Toggle -->
-                                <Button Classes="Muted"
-                                        Command="{Binding MantraNamaVM.ToggleOptionsCommand}">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Grid.Column="0" Text="Opsi Lanjutan" VerticalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="11"
-                                                   Text="{Binding MantraNamaVM.IsOptionsExpanded, Converter={x:Static BoolConverters.Not}, ConverterParameter='▸', FallbackValue='▾'}"
-                                                   VerticalAlignment="Center" Foreground="#52525B"/>
-                                    </Grid>
-                                </Button>
-
-                                <!-- Options Panel (collapsible) -->
-                                <Border IsVisible="{Binding MantraNamaVM.IsOptionsExpanded}"
+                                <!-- Opsi Lanjutan Panel (Dipindah ke atas tombol) -->
+                                <Border Grid.Row="1" IsVisible="{Binding MantraNamaVM.IsOptionsExpanded}"
                                         Background="#0C0C0E" CornerRadius="7" Padding="14,12"
-                                        BorderBrush="#232326" BorderThickness="1">
+                                        BorderBrush="#232326" BorderThickness="1" Margin="0,0,0,12">
                                     <WrapPanel Orientation="Horizontal">
                                         <CheckBox Classes="Option" Content="Regex" Width="140"
                                                   IsChecked="{Binding MantraNamaVM.UseRegex}" Margin="0,0,0,6"/>
@@ -470,17 +358,32 @@
                                     </WrapPanel>
                                 </Border>
 
+                                <Button Grid.Row="2" Classes="Muted" HorizontalAlignment="Center" Command="{Binding MantraNamaVM.ToggleOptionsCommand}" Margin="0,0,0,12">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="Opsi Lanjutan" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="11"
+                                                   Text="▸" IsVisible="{Binding !MantraNamaVM.IsOptionsExpanded}"
+                                                   VerticalAlignment="Center" Foreground="#52525B"/>
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="11"
+                                                   Text="▾" IsVisible="{Binding MantraNamaVM.IsOptionsExpanded}"
+                                                   VerticalAlignment="Center" Foreground="#52525B"/>
+                                    </Grid>
+                                </Button>
+
+
                                 <!-- Action row -->
-                                <Grid ColumnDefinitions="*,10,Auto">
+                                <Grid Grid.Row="3" ColumnDefinitions="*,10,Auto,8,Auto">
                                     <TextBlock Grid.Column="0" Classes="Body"
                                                Text="{Binding MantraNamaVM.StatusText}"
                                                VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <Button Grid.Column="2" Classes="Action" Content="Eksekusi Rename"
-                                            Command="{Binding MantraNamaVM.ExecuteRenameAsyncCommand}"/>
+                                               TextWrapping="Wrap" Width="{Binding #StatusTextWidth.Bounds.Width}"/>
+                                    <Button Grid.Column="2" Classes="Muted" Content="Clear"
+                                            Command="{Binding MantraNamaVM.ClearListCommand}"/>
+                                    <Button Grid.Column="4" Classes="Action" Content="Eksekusi Rename"
+                                            Command="{Binding MantraNamaVM.ExecuteRenameCommand}"/>
                                 </Grid>
 
-                            </StackPanel>
+                            </Grid>
                     </Border>
 
                 </Grid>
@@ -489,73 +392,229 @@
                 <!-- ═══════════════════════
                      MANTRA GANDA
                 ═══════════════════════ -->
-                <Grid RowDefinitions="Auto,16,Auto" ColumnDefinitions="*,16,*" IsVisible="{Binding IsMantraGandaVisible}">
+                <Grid IsVisible="{Binding IsMantraGandaVisible}" RowDefinitions="*,16,Auto" MinHeight="480">
 
-                    <!-- File Master -->
-                    <Border Grid.Row="0" Grid.Column="0" Classes="Card">
-                        <StackPanel Spacing="14">
-                            <TextBlock Classes="Section" Text="FILE MASTER"/>
-                            <Rectangle Classes="Divider" Margin="0,0,0,0"/>
-                            <TextBlock Classes="Path" Text="{Binding MantraGandaVM.SourceFile}"
-                                       IsVisible="{Binding MantraGandaVM.SourceFile, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                            <TextBlock Classes="Body" Text="Belum dipilih"
-                                       IsVisible="{Binding MantraGandaVM.SourceFile, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
-                            <Button Classes="Muted" Content="Pilih File"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"
-                                    Click="OnGandaSelectFileClick"/>
-                        </StackPanel>
-                    </Border>
+                    <!-- Content (Atas) -->
+                    <Grid Grid.Row="0" RowDefinitions="*,16,*,16,Auto">
+                        <!-- File Master -->
+                        <Border Grid.Row="0" Classes="Card" DragDrop.AllowDrop="True">
+                            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                                <TextBlock Grid.Row="0" Classes="Section" Text="FILE MASTER" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
+                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.SourceFile}" Watermark="Ketik/Paste path, atau Drag &amp; Drop file kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectFileClick"/>
+                                </Grid>
+                            </Grid>
+                        </Border>
 
-                    <!-- Konfigurasi -->
-                    <Border Grid.Row="0" Grid.Column="2" Classes="Card">
-                        <StackPanel Spacing="12">
-                            <TextBlock Classes="Section" Text="KONFIGURASI"/>
-                            <Rectangle Classes="Divider" Margin="0,0,0,0"/>
-                            <StackPanel Spacing="6">
-                                <TextBlock Classes="FieldLabel" Text="Jumlah duplikat"/>
-                                <NumericUpDown Classes="Input"
-                                               Value="{Binding MantraGandaVM.DuplicateCount}"
-                                               Minimum="1" Maximum="10000"/>
+                        <!-- Folder Data -->
+                        <Border Grid.Row="2" Classes="Card" DragDrop.AllowDrop="True">
+                            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                                <TextBlock Grid.Row="0" Classes="Section" Text="FOLDER DATA (OPSIONAL)" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
+                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.DataFolder}" Watermark="Ketik/Paste path, atau Drag &amp; Drop folder kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectDataFolderClick"/>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Progress -->
+                        <Border Grid.Row="4" Classes="Card" IsVisible="{Binding MantraGandaVM.IsProcessing}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="Section" Text="MENGGANDAKAN"/>
+                                <ProgressBar Classes="Bar"
+                                             Minimum="0"
+                                             Maximum="{Binding MantraGandaVM.ProgressMaximum}"
+                                             Value="{Binding MantraGandaVM.ProgressValue}"/>
+                                <TextBlock Classes="Body" Text="{Binding MantraGandaVM.StatusText}"/>
                             </StackPanel>
-                            <StackPanel Spacing="6">
-                                <TextBlock Classes="FieldLabel" Text="Mulai dari nomor"/>
-                                <NumericUpDown Classes="Input"
-                                               Value="{Binding MantraGandaVM.StartNumber}"
-                                               Minimum="0"/>
-                            </StackPanel>
-                            <StackPanel Spacing="6">
-                                <TextBlock Classes="FieldLabel" Text="Pemisah (_, -, spasi)"/>
-                                <TextBox Classes="Input" Text="{Binding MantraGandaVM.Separator}"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Progress -->
-                    <Border Grid.Row="2" Grid.ColumnSpan="3" Classes="Card" IsVisible="{Binding MantraGandaVM.IsProcessing}">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="Section" Text="MENGGANDAKAN"/>
-                            <ProgressBar Classes="Bar"
-                                         Minimum="0"
-                                         Maximum="{Binding MantraGandaVM.ProgressMaximum}"
-                                         Value="{Binding MantraGandaVM.ProgressValue}"/>
-                            <TextBlock Classes="Body" Text="{Binding MantraGandaVM.StatusText}"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Action bar -->
-                    <Grid Grid.Row="2" Grid.ColumnSpan="3" ColumnDefinitions="*,12,Auto" IsVisible="{Binding !MantraGandaVM.IsProcessing}">
-                        <TextBlock Grid.Column="0" Classes="Body"
-                                   Text="{Binding MantraGandaVM.StatusText}"
-                                   VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"/>
-                        <Button Grid.Column="2" Classes="Action" Content="Gandakan Sekarang"
-                                Command="{Binding MantraGandaVM.ExecuteDuplicateAsyncCommand}"/>
+                        </Border>
                     </Grid>
+
+                    <!-- Konfigurasi & Action (Bawah) -->
+                    <Border Grid.Row="2" Classes="Card">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Classes="Section" Text="KONFIGURASI" Margin="0,0,0,12"/>
+                            <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,12"/>
+                            <Grid Grid.Row="2" RowDefinitions="Auto,12,Auto" ColumnDefinitions="*,16,*" Margin="0,0,0,12">
+                                <!-- Row 0 -->
+                                <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
+                                    <TextBlock Classes="FieldLabel" Text="Jumlah duplikat"/>
+                                    <NumericUpDown Classes="Input"
+                                                   Value="{Binding MantraGandaVM.DuplicateCount}"
+                                                   Minimum="1" Maximum="10000"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="2" Spacing="6">
+                                    <TextBlock Classes="FieldLabel" Text="Mulai dari nomor"/>
+                                    <NumericUpDown Classes="Input"
+                                                   Value="{Binding MantraGandaVM.StartNumber}"
+                                                   Minimum="0"/>
+                                </StackPanel>
+                                <!-- Row 2 -->
+                                <StackPanel Grid.Row="2" Grid.Column="0" Spacing="6">
+                                    <TextBlock Classes="FieldLabel" Text="Pemisah (_, -, spasi)"/>
+                                    <TextBox Classes="Input" Text="{Binding MantraGandaVM.Separator}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="2" Spacing="6">
+                                    <TextBlock Classes="FieldLabel" Text="Nama Dasar (Opsional)"/>
+                                    <TextBox Classes="Input" Text="{Binding MantraGandaVM.CustomBaseName}" Watermark="kosong = nama asli"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Rectangle Grid.Row="3" Classes="Divider" Margin="0,0,0,12"/>
+
+                            <!-- Action bar rata bawah -->
+                            <Grid Grid.Row="4" ColumnDefinitions="*,12,Auto,8,Auto">
+                                <TextBlock Grid.Column="0" Classes="Body"
+                                           Text="{Binding MantraGandaVM.StatusText}"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap" Width="{Binding #StatusTextWidth.Bounds.Width}"/>
+                                <Button Grid.Column="2" Classes="Warn" Content="Stop"
+                                        IsVisible="{Binding MantraGandaVM.IsProcessing}"
+                                        Command="{Binding MantraGandaVM.StopDuplicateCommand}"/>
+                                <Button Grid.Column="4" Classes="Action" Content="{Binding MantraGandaVM.ActionButtonText}"
+                                        IsVisible="{Binding !MantraGandaVM.IsProcessing}"
+                                        Command="{Binding MantraGandaVM.ExecuteDuplicateCommand}"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
 
                 </Grid>
 
             </Grid>
         </ScrollViewer>
+
+        <!-- VIEWER VIEW (manual) -->
+        <Grid Grid.Row="1" Margin="20,16,20,20" RowDefinitions="Auto,*,Auto" IsVisible="{Binding PsdBucinVM.IsManualModeActive}" MinHeight="480">
+
+            <!-- Top bar -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,14,Auto,8,Auto" Margin="0,0,0,14">
+                <TextBlock Grid.Column="0" Classes="Section"
+                           Text="{Binding PsdBucinVM.ManualProgressText}"
+                           VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Classes="Path"
+                           Text="{Binding PsdBucinVM.ManualFilename}"
+                           VerticalAlignment="Center" Margin="14,0"/>
+                
+                <CheckBox Grid.Column="2" Classes="Option" Content="Mode Ketik"
+                          IsChecked="{Binding PsdBucinVM.IsTypingMode}" VerticalAlignment="Center"/>
+
+                <Button Grid.Column="4" Classes="Muted" Content="Skip (Esc)"
+                        Command="{Binding PsdBucinVM.SkipManualCommand}"/>
+                <Button Grid.Column="6" Classes="Warn" Content="Keluar"
+                        Command="{Binding PsdBucinVM.ExitManualModeCommand}"/>
+            </Grid>
+
+            <!-- Image & Loading Overlay -->
+            <Border Grid.Row="1"
+                    Background="#000000"
+                    BorderBrush="#1A1A1D"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    ClipToBounds="True"
+                    Margin="0,0,0,14">
+                <Grid>
+                    <Image Source="{Binding PsdBucinVM.CurrentManualImage}" Stretch="Uniform"
+                           IsVisible="{Binding !PsdBucinVM.IsLoadingImage}">
+                        <Image.RenderTransform>
+                            <RotateTransform Angle="{Binding PsdBucinVM.ImageRotation}" />
+                        </Image.RenderTransform>
+                    </Image>
+                    
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                IsVisible="{Binding PsdBucinVM.IsLoadingImage}" Spacing="10">
+                        <TextBlock Text="Membuka gambar..." Foreground="#A1A1AA" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Border Background="#99000000" IsVisible="{Binding PsdBucinVM.IsProcessing}">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                            <TextBlock Text="Menyimpan..." Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="16" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Shortcut buttons -->
+            <Grid Grid.Row="2">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                              IsVisible="{Binding !PsdBucinVM.IsTypingMode}">
+                    <ItemsControl ItemsSource="{Binding PsdBucinVM.ManualPsdButtons}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ManualPsdButton">
+                                <Button Background="Transparent" Padding="0" Cursor="Hand" Margin="4"
+                                        x:CompileBindings="False"
+                                        Command="{Binding $parent[Window].DataContext.PsdBucinVM.ProcessSingleManualCommand}"
+                                        CommandParameter="{Binding Path}">
+                                    <Border CornerRadius="7" Padding="16,10"
+                                            Background="{Binding ColorHex}"
+                                            BorderBrush="#FFFFFF14" BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="13"/>
+                                            <!-- Editable KBD key badge -->
+                                            <Border Background="#00000030"
+                                                    BorderBrush="#FFFFFF22" BorderThickness="1"
+                                                    CornerRadius="4" Padding="4,0">
+                                                <TextBox Text="{Binding ShortcutKey, Mode=TwoWay}"
+                                                         Foreground="#FFFFFFBB" FontSize="12"
+                                                         FontFamily="'Cascadia Code', Consolas, monospace"
+                                                         Background="Transparent" BorderThickness="0"
+                                                         Padding="4,2" MinWidth="24" MaxLength="1"
+                                                         TextAlignment="Center"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Typing Mode -->
+                <StackPanel IsVisible="{Binding PsdBucinVM.IsTypingMode}" Spacing="10" HorizontalAlignment="Center">
+                    <AutoCompleteBox Classes="Input" Width="400"
+                                     Watermark="Ketik nama template lalu tekan Enter..."
+                                     Text="{Binding PsdBucinVM.SearchQuery, Mode=TwoWay}"
+                                     ItemsSource="{Binding PsdBucinVM.ManualPsdButtons}"
+                                     ValueMemberBinding="{ReflectionBinding Name}"
+                                     FilterMode="ContainsOrdinal"
+                                     MinimumPrefixLength="1"
+                                     x:Name="TypingModeTextBox">
+                        <AutoCompleteBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding PsdBucinVM.ExecuteTypingModeCommand}"/>
+                        </AutoCompleteBox.KeyBindings>
+                    </AutoCompleteBox>
+                    <TextBlock Classes="Body" Text="Ketik nama atau shortcut lalu tekan Enter. Tekan Esc untuk skip." HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+
+        </Grid>
+
+        <!-- ═══ NAV (FLOATING) ═══ -->
+        <Border ZIndex="10" Classes="Nav" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,20,0,0"
+                IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button Classes="Tab" Content="PSD Bucin"
+                        Classes.on="{Binding IsPsdBucinVisible}"
+                        Command="{Binding SwitchTabCommand}"
+                        CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}"/>
+                <Button Classes="Tab" Content="Mantra Nama"
+                        Classes.on="{Binding IsMantraNamaVisible}"
+                        Command="{Binding SwitchTabCommand}"
+                        CommandParameter="{x:Static vm:ToolboxTab.MantraNama}"/>
+                <Button Classes="Tab" Content="Mantra Ganda"
+                        Classes.on="{Binding IsMantraGandaVisible}"
+                        Command="{Binding SwitchTabCommand}"
+                        CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}"/>
+            </StackPanel>
+        </Border>
+
     </Grid>
 </Window>

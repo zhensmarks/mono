@@ -37,7 +37,17 @@ public partial class MainWindow : Window
         this.Close();
     }
 
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
 
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && (e.Key == Key.E || e.Key == Key.N))
+        {
+            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.RequestOpenExplorerWindowMessage());
+            e.Handled = true;
+            return;
+        }
+    }
     // Constructor Continuation
     private void InitializeMessenger()
     {
