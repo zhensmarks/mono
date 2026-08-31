@@ -288,7 +288,8 @@
                     </Grid.ColumnDefinitions>
                     
                     <!-- File list area (left) -->
-                    <Grid Grid.Column="0" x:Name="FileAreaGrid"
+                    <Border Grid.Column="0" Padding="8,0,0,0" Background="Transparent" ContextMenu="{StaticResource BackgroundMenu}">
+                    <Grid x:Name="FileAreaGrid"
                           PointerPressed="OnFileAreaPointerPressed"
                           PointerMoved="OnFileAreaPointerMoved"
                           PointerReleased="OnFileAreaPointerReleased"
@@ -363,9 +364,8 @@
                                           <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
                                               <!-- Open actions -->
                                               <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
+                                              <MenuItem Header="Open in New Tab" Command="{Binding #ExplorerRoot.DataContext.OpenItemInNewTabCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                               <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
-                                              <Separator/>
-
 
                                               <!-- Batch Scripts injected dynamically -->
                                               <Separator Tag="BatchMarker"/>
@@ -867,18 +867,35 @@
                     </Canvas>
                     
                     </Grid>
+                    </Border>
 
                     <!-- Preview panel (right): .txt content, .docx placeholder -->
                     <Border Grid.Column="1"  BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,0,0,0" MinWidth="0" ClipToBounds="True">
                         <Grid RowDefinitions="Auto, *" Margin="8">
                             <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,6">
                                 <TextBlock Grid.Column="0" Text="{Binding PreviewPanelTitle}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                <Button Grid.Column="1" Command="{Binding ClosePreviewPanelCommand}" Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Close Preview">
+                                <Button Grid.Column="1" Classes="Clear" Command="{Binding ClosePreviewPanelCommand}" Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Close Preview">
                                     <PathIcon Data="{StaticResource IconX}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <Button.Styles>
+                                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                        </Style>
+                                    </Button.Styles>
                                 </Button>
                             </Grid>
-                            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                                <TextBox Text="{Binding PreviewPanelContent, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" FontFamily="Consolas, monospace" FontSize="12"/>
+                            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                <TextBox Text="{Binding PreviewPanelContent, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" FontFamily="Consolas, monospace" FontSize="12">
+                                    <TextBox.Styles>
+                                        <Style Selector="TextBox:pointerover /template/ Border">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                        </Style>
+                                        <Style Selector="TextBox:focus /template/ Border">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                        </Style>
+                                    </TextBox.Styles>
+                                </TextBox>
                             </ScrollViewer>
                         </Grid>
                     </Border>

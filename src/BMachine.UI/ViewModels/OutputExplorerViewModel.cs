@@ -475,7 +475,7 @@ public partial class OutputExplorerViewModel : ObservableObject
 
 
     [RelayCommand]
-    private void NavigateTo(string path)
+    public void NavigateTo(string path)
     {
         if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
         if (CurrentPath == path) return;
@@ -975,6 +975,18 @@ public partial class OutputExplorerViewModel : ObservableObject
             {
                 OpenFileOrShortcut(item.FullPath);
             }
+        }
+    }
+
+    public event Action<string>? RequestOpenNewTab;
+
+    [RelayCommand]
+    public void OpenItemInNewTab(object parameter)
+    {
+        if (parameter is ExplorerItemViewModel item && item.IsDirectory)
+        {
+            var path = !string.IsNullOrEmpty(item.TargetPath) ? item.TargetPath : item.FullPath;
+            RequestOpenNewTab?.Invoke(path);
         }
     }
 
