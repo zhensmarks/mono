@@ -506,7 +506,6 @@
                                               <!-- REMOVED New Folder/File per request -->
                                               <MenuItem Header="Refresh" Command="{Binding #ExplorerRoot.DataContext.RefreshCommand}"/>
                                               <Separator/>
-                                              <Separator/>
                                               <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
                                           </ContextMenu>
                                        </Grid.ContextMenu>

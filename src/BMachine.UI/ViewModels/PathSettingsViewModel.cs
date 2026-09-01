@@ -38,6 +38,7 @@ public partial class PathSettingsViewModel : ObservableObject
     }
 
     [ObservableProperty] private string _pathProfesi = "";
+    [ObservableProperty] private string _pathProfesi8R = "";
     [ObservableProperty] private string _pathSporty = "";
     [ObservableProperty] private string _pathManasik10RP = "";
     [ObservableProperty] private string _pathManasik8R = "";
@@ -54,6 +55,7 @@ public partial class PathSettingsViewModel : ObservableObject
     partial void OnPathOkeBaseChanged(string value)       => _ = PersistPathAsync("Configs.Master.OkeBase", value);
     partial void OnPathPhotoshopChanged(string value)     => _ = PersistPathAsync("Configs.Master.PhotoshopPath", value);
     partial void OnPathProfesiChanged(string value)       => _ = PersistPathAsync("Configs.Master.Profesi", value);
+    partial void OnPathProfesi8RChanged(string value)     => _ = PersistPathAsync("Configs.Master.Profesi8R", value);
     partial void OnPathSportyChanged(string value)        => _ = PersistPathAsync("Configs.Master.Sporty", value);
     partial void OnPathManasik10RPChanged(string value)   => _ = PersistPathAsync("Configs.Master.Manasik10RP", value);
     partial void OnPathManasik8RChanged(string value)     => _ = PersistPathAsync("Configs.Master.Manasik8R", value);
@@ -79,6 +81,7 @@ public partial class PathSettingsViewModel : ObservableObject
     {
         if (_database == null) return;
         PathProfesi = await _database.GetAsync<string>("Configs.Master.Profesi") ?? "";
+        PathProfesi8R = await _database.GetAsync<string>("Configs.Master.Profesi8R") ?? "";
         PathSporty = await _database.GetAsync<string>("Configs.Master.Sporty") ?? "";
         PathManasik10RP = await _database.GetAsync<string>("Configs.Master.Manasik10RP") ?? "";
         PathManasik8R = await _database.GetAsync<string>("Configs.Master.Manasik8R") ?? "";
@@ -421,6 +424,11 @@ public partial class PathSettingsViewModel : ObservableObject
             PathProfesi = buffer;
             await _database.SetAsync("Configs.Master.Profesi", buffer);
         }
+        else if (key == "Profesi8R")
+        {
+            PathProfesi8R = buffer;
+            await _database.SetAsync("Configs.Master.Profesi8R", buffer);
+        }
         else if (key == "Sporty")
         {
             PathSporty = buffer;
@@ -462,6 +470,7 @@ public partial class PathSettingsViewModel : ObservableObject
             "Wisuda10RP"     => PathWisuda10RP,
             "Wisuda8R"       => PathWisuda8R,
             "Profesi"        => PathProfesi,
+            "Profesi8R"      => PathProfesi8R,
             "Sporty"         => PathSporty,
             "PasFoto"        => PathPasFoto,
             "OkeBase"        => PathOkeBase,
@@ -477,6 +486,7 @@ public partial class PathSettingsViewModel : ObservableObject
             "Wisuda10RP"     => "Configs.Master.Wisuda10RP",
             "Wisuda8R"       => "Configs.Master.Wisuda8R",
             "Profesi"        => "Configs.Master.Profesi",
+            "Profesi8R"      => "Configs.Master.Profesi8R",
             "Sporty"         => "Configs.Master.Sporty",
             "PasFoto"        => "Configs.Master.PasFoto",
             "OkeBase"        => "Configs.Master.OkeBase",

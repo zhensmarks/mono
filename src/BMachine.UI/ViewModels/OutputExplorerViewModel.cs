@@ -2280,31 +2280,34 @@ try {{
                  masterPrimary = await _database.GetAsync<string>("Configs.Master.LastTemplatePath") ?? "";
             }
 
-            foreach (var folder in folders)
+            _ = Task.Run(async () => 
             {
-                string CleanPath(string p) => string.IsNullOrEmpty(p) ? "" : p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-                var args = new List<string>
+                foreach (var folder in folders)
                 {
-                    "Scripts/batch_wrapper.py",
-                    "--target", scriptName,
-                    "--pilihan", CleanPath(folder.FullPath), 
-                    "--master", CleanPath(masterPrimary),
-                    "--master2", CleanPath(masterSecondary),
-                    "--output", CleanPath(outputBasePath),
-                    "--okebase", CleanPath(okeBasePath)
-                };
+                    string CleanPath(string p) => string.IsNullOrEmpty(p) ? "" : p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-                var envVars = new Dictionary<string, string> { { "BMACHINE_USER_NAME", userName } };
+                    var args = new List<string>
+                    {
+                        "Scripts/batch_wrapper.py",
+                        "--target", scriptName,
+                        "--pilihan", CleanPath(folder.FullPath), 
+                        "--master", CleanPath(masterPrimary),
+                        "--master2", CleanPath(masterSecondary),
+                        "--output", CleanPath(outputBasePath),
+                        "--okebase", CleanPath(okeBasePath)
+                    };
 
-                await _platformService.RunPythonScriptAsync(
-                    "Scripts/batch_wrapper.py",
-                    args.Skip(1).ToList(), 
-                    envVars,
-                    onOutput: (s) => {},
-                    onError: (s) => {}
-                );
-            }
+                    var envVars = new Dictionary<string, string> { { "BMACHINE_USER_NAME", userName } };
+
+                    await _platformService.RunPythonScriptAsync(
+                        "Scripts/batch_wrapper.py",
+                        args.Skip(1).ToList(), 
+                        envVars,
+                        onOutput: (s) => {},
+                        onError: (s) => {}
+                    );
+                }
+            });
         }
         catch (Exception ex)
         {

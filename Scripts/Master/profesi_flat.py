@@ -435,10 +435,21 @@ def copy_txt_files_recursive(source_folder, output_folder):
 
 
 
+def is_8r_path(pilihan_path, rel_dir):
+    parts = rel_dir.split(os.sep) if rel_dir not in ('.', '') else []
+    # Cek dari folder terdalam ke atas (prioritas folder terdekat)
+    for p in reversed(parts):
+        if '8R' in p.upper(): return True
+        if '10RP' in p.upper(): return False
+    return '8R' in os.path.basename(pilihan_path).upper()
+
 # ---------- Core ----------
 def process_images(master_path_profesi, master_path_sporty, pilihan_path, output_path, config_data,
-                   files_to_reprocess=None, mappings_b64=None, oke_base_path=None):
+                   files_to_reprocess=None, mappings_b64=None, oke_base_path=None, master_path_profesi_8r=None):
     print("--- Memulai Jurus: PROFESI | SPORTY ---")
+    print(f"[DEBUG] Master 8R Path: {master_path_profesi_8r}")
+    if master_path_profesi_8r:
+        print(f"[DEBUG] Master 8R Exists: {os.path.exists(master_path_profesi_8r)}")
 
     if not all([master_path_profesi, pilihan_path, output_path]):
         print("[ERROR] Argumen tidak lengkap (butuh master_profesi, pilihan, output).", file=sys.stderr)
@@ -513,6 +524,13 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
         if ext:
             master_files_profesi[stem.lower()] = f
 
+    master_files_profesi_8r = {}
+    if master_path_profesi_8r and os.path.exists(master_path_profesi_8r):
+        for f in os.listdir(master_path_profesi_8r):
+            stem, ext = os.path.splitext(f)
+            if ext:
+                master_files_profesi_8r[stem.lower()] = f
+
     master_files_sporty = {}
     if master_sporty_exists:
         for f in os.listdir(master_path_sporty):
@@ -567,9 +585,15 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
             found_key = None
             
             # Cek Profesi
-            k_prof = try_find_master_key(part, master_files_profesi)
-            if k_prof:
-                found_key = (k_prof, 'profesi')
+            is_8r_context = is_8r_path(pilihan_path, rel_dir)
+            if is_8r_context and master_path_profesi_8r:
+                k_prof = try_find_master_key(part, master_files_profesi_8r)
+                if k_prof:
+                    found_key = (k_prof, 'profesi')
+            else:
+                k_prof = try_find_master_key(part, master_files_profesi)
+                if k_prof:
+                    found_key = (k_prof, 'profesi')
             
             # Cek Sporty (jika belum ketemu di Profesi)
             if not found_key and master_sporty_exists:
@@ -627,11 +651,19 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                 
                 if not final_master_key and label_from_name:
                     # Coba cari master dari nama file
-                    mk = try_find_master_key(label_from_name, master_files_profesi)
-                    if mk: 
-                        final_master_key = mk
-                        category_mode = 'profesi'
-                    elif master_sporty_exists:
+                    is_8r_context = is_8r_path(pilihan_path, rel_dir)
+                    if is_8r_context and master_path_profesi_8r:
+                        mk = try_find_master_key(label_from_name, master_files_profesi_8r)
+                        if mk:
+                            final_master_key = mk
+                            category_mode = 'profesi'
+                    else:
+                        mk = try_find_master_key(label_from_name, master_files_profesi)
+                        if mk: 
+                            final_master_key = mk
+                            category_mode = 'profesi'
+                            
+                    if not final_master_key and master_sporty_exists:
                         mk_sport = try_find_master_key(label_from_name, master_files_sporty)
                         if mk_sport:
                             final_master_key = mk_sport
@@ -650,8 +682,26 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                      continue
 
                 # Dapatkan file master
-                master_dict = master_files_profesi if category_mode == 'profesi' else master_files_sporty
-                master_root = master_path_profesi if category_mode == 'profesi' else master_path_sporty
+                is_8r = is_8r_path(pilihan_path, rel_dir)
+                if category_mode == 'profesi':
+                    if is_8r and master_path_profesi_8r:
+                        if final_master_key in master_files_profesi_8r:
+                            master_dict = master_files_profesi_8r
+                            master_root = master_path_profesi_8r
+                        else:
+                            # Jika tidak ada, jangan fallback ke 10RP. Abaikan saja (continue)
+                            print(f"  [SKIP] '{filename}' - Master 8R '{final_master_key}' tidak ditemukan.")
+                            continue
+                    else:
+                        if final_master_key in master_files_profesi:
+                            master_dict = master_files_profesi
+                            master_root = master_path_profesi
+                        else:
+                            print(f"  [SKIP] '{filename}' - Master 10RP '{final_master_key}' tidak ditemukan.")
+                            continue
+                else:
+                    master_dict = master_files_sporty
+                    master_root = master_path_sporty
                 
                 file_master_name = master_dict[final_master_key]
                 file_master_path = os.path.join(master_root, file_master_name)
@@ -720,10 +770,11 @@ def main():
         oke_base_path  = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else None
         mappings_b64   = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else None
         files_reproc   = sys.argv[7].split(',') if len(sys.argv) > 7 and sys.argv[7] else []
+        master_profesi_8r = sys.argv[8] if len(sys.argv) > 8 and sys.argv[8] else None
 
         cfg = load_config()
         process_images(master_profesi, master_sporty, pilihan, output, cfg,
-                       files_to_reprocess=files_reproc, mappings_b64=mappings_b64, oke_base_path=oke_base_path)
+                       files_to_reprocess=files_reproc, mappings_b64=mappings_b64, oke_base_path=oke_base_path, master_path_profesi_8r=master_profesi_8r)
     except Exception as e:
         print(f"[FATAL] Terjadi error yang menyebabkan force-close: {e}", file=sys.stderr)
         traceback.print_exc()

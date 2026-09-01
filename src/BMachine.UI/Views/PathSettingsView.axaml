@@ -194,9 +194,15 @@
                     <TextBlock Text="Profesi &amp; Sporty" FontWeight="SemiBold" FontSize="16"/>
                     
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Profesi" VerticalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Profesi 10RP (Biasa)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathProfesi}" Watermark="Not Set" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Profesi" Classes="Primary"/>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Profesi 8R" VerticalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathProfesi8R}" Watermark="Not Set" Margin="0,0,10,0"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Profesi8R" Classes="Primary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">

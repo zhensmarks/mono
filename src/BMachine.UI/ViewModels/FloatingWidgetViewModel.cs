@@ -491,6 +491,10 @@ public partial class FloatingWidgetViewModel : ObservableObject
             {
                 await RunSporty(path);
             }
+            else if (fileName == "buat_master.py")
+            {
+                await RunBuatMaster(path);
+            }
             else if (fileName.Contains("manasik") && fileName.EndsWith(".py")) // Matches manasik (1).py
             {
                 await RunManasik(path);
@@ -627,9 +631,11 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         // 3. Run
         var okeBase = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? "";
+        var masterProfesi8R = await _database.GetAsync<string>("Configs.Master.Profesi8R") ?? "";
         var userName = await _database.GetAsync<string>("User.Name") ?? "USER";
-        // Args: <master_profesi> <master_sporty> <pilihan> <output> [oke_base]
-        var args = new List<string> { scriptPath, masterProfesi, masterSporty, folders.Input, folders.Output, okeBase };
+        
+        // Args: <master_profesi> <master_sporty> <pilihan> <output> <oke_base> <mappings_b64> <files_to_reprocess> <master_profesi_8r>
+        var args = new List<string> { scriptPath, masterProfesi, masterSporty, folders.Input, folders.Output, okeBase, "", "", masterProfesi8R };
         RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
     }
 
@@ -751,6 +757,44 @@ public partial class FloatingWidgetViewModel : ObservableObject
         RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
     }
 
+    /// <summary>
+    /// BUAT MASTER — One-For-All: auto-detect jenis folder dan jalankan semua master sekaligus.
+    /// Tidak perlu pilih folder — cukup path PILIHAN sudah cukup, output dari database.
+    /// </summary>
+    private async Task RunBuatMaster(string scriptPath)
+    {
+        if (_database == null) return;
+
+        // Minta user pilih folder PILIHAN saja (tidak perlu output, diambil dari DB)
+        var window = GetActiveWindow();
+        if (window == null)
+        {
+            _logService?.AddLog("[ERROR] Tidak ada window aktif untuk dialog.");
+            return;
+        }
+
+        _logService?.AddLog("[BUAT MASTER] Pilih folder PILIHAN...");
+        var inputResult = await window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Pilih Folder PILIHAN untuk Buat Master",
+            AllowMultiple = false
+        });
+
+        if (inputResult == null || inputResult.Count == 0)
+        {
+            _logService?.AddLog("[INFO] Folder selection cancelled.");
+            return;
+        }
+
+        var pilihanPath = inputResult[0].Path.LocalPath;
+        var okeBase     = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? "";
+        var userName    = await _database.GetAsync<string>("User.Name") ?? "USER";
+
+        // Args: <pilihan_path> <output_base> <oke_base>
+        var args = new List<string> { scriptPath, pilihanPath, okeBase, okeBase };
+        RunPythonProcess(args, userName, Path.GetDirectoryName(scriptPath));
+    }
+
     private void RunPythonProcess(IEnumerable<string> argsList, string userName = "USER", string? workingDir = null)
     {
         _logService?.AddLog($"[DEBUG] RunPythonProcess called. User: {userName}");
@@ -781,13 +825,13 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
         foreach(var arg in argsList) startInfo.ArgumentList.Add(arg);
 
-        // Set Environment Variable explicitly
-
-        // Set Environment Variable explicitly
         startInfo.EnvironmentVariables["BMACHINE_USER_NAME"] = userName;
-        startInfo.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8"; // Ensure UTF-8 output
+        startInfo.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        // Ensure Python does NOT block waiting for main thread  
+        startInfo.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
         
-        Task.Run(() =>
+        // Fire-and-forget: run in background thread, NEVER awaited on UI thread
+        _ = Task.Run(() =>
         {
             try
             {
@@ -932,5 +976,81 @@ public partial class FloatingWidgetViewModel : ObservableObject
             return (x, y);
         }
         return null;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Context Menu Windows Explorer Integration
+    // ──────────────────────────────────────────────────────────────
+
+    private const string ContextMenuKeyName = "BMachine.BuatMaster";
+
+    [RelayCommand]
+    public void InstallContextMenu()
+    {
+        try
+        {
+            var scriptDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Master");
+            var buatMasterScript = Path.Combine(scriptDir, "buat_master.py");
+            var pythonExe = "python"; // fallback; bisa spesifik path jika diperlukan
+
+            // Try to find the actual Python path
+            try
+            {
+                var pyResult = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "where",
+                    Arguments = "python",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                pyResult?.WaitForExit(2000);
+                var pyPath = pyResult?.StandardOutput.ReadLine()?.Trim();
+                if (!string.IsNullOrEmpty(pyPath) && File.Exists(pyPath))
+                    pythonExe = pyPath;
+            }
+            catch { /* fallback to "python" */ }
+
+            // Command: python "C:\path\to\buat_master.py" "%V"
+            var command = $"\"{pythonExe}\" \"{buatMasterScript}\" \"%V\"";
+
+            // Write to HKEY_CURRENT_USER (no admin needed)
+            var keyPath = $@"Software\Classes\Directory\shell\{ContextMenuKeyName}";
+            var cmdKeyPath = $@"Software\Classes\Directory\shell\{ContextMenuKeyName}\command";
+
+            using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(keyPath))
+            {
+                key?.SetValue("", "📋 Buat Master");
+                key?.SetValue("Icon", "shell32.dll,162");
+                key?.SetValue("Position", "Top");
+            }
+
+            using (var cmdKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(cmdKeyPath))
+            {
+                cmdKey?.SetValue("", command);
+            }
+
+            _logService?.AddLog($"[INFO] Context Menu 'Buat Master' berhasil dipasang.");
+            _logService?.AddLog($"[INFO] Command: {command}");
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Gagal pasang Context Menu: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    public void UninstallContextMenu()
+    {
+        try
+        {
+            var keyPath = $@"Software\Classes\Directory\shell\{ContextMenuKeyName}";
+            Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(keyPath, throwOnMissingSubKey: false);
+            _logService?.AddLog("[INFO] Context Menu 'Buat Master' berhasil dihapus.");
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Gagal hapus Context Menu: {ex.Message}");
+        }
     }
 }

@@ -1696,6 +1696,7 @@ if ($img -ne $null) {{
             // --- Determine Master Paths based on Script Type ---
             string masterPrimary = "";
             string masterSecondary = "";
+            string masterTertiary = "";
             string okeBasePath = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? ""; // Fetch OKE BASE
             string userName = await _database.GetAsync<string>("User.Name") ?? "USER"; // Fetch User Name
 
@@ -1717,9 +1718,10 @@ if ($img -ne $null) {{
                 }
                 else if (lowerScript.Contains("profesi"))
                 {
-                     // Profesi: Profesi (Primary), Sporty (Secondary)
+                     // Profesi: Profesi (Primary), Sporty (Secondary), Profesi8R (Tertiary)
                      masterPrimary = await _database.GetAsync<string>("Configs.Master.Profesi") ?? "";
                      masterSecondary = await _database.GetAsync<string>("Configs.Master.Sporty") ?? "";
+                     masterTertiary = await _database.GetAsync<string>("Configs.Master.Profesi8R") ?? "";
                 }
                 else if (lowerScript.Contains("pasfoto") || lowerScript.Contains("pas_foto"))
                 {
@@ -1740,15 +1742,22 @@ if ($img -ne $null) {{
             }
 
             // Validation
-            if (string.IsNullOrEmpty(masterPrimary))
+            bool isBuatMaster = lowerScript.Contains("buat_master");
+            if (string.IsNullOrEmpty(masterPrimary) && !isBuatMaster)
             {
                 _logService?.AddLog($"[ERROR] Master Template belum diset untuk '{scriptName}' di Settings > Paths, dan belum dipilih manual.");
                 IsProcessing = false;
                 return;
             }
             
+            if (isBuatMaster)
+            {
+                masterPrimary = "Auto-detected by Buat Master Orchestrator";
+            }
+            
             _logService?.AddLog($"[INFO] Master 1: {masterPrimary}");
             if (!string.IsNullOrEmpty(masterSecondary)) _logService?.AddLog($"[INFO] Master 2: {masterSecondary}");
+            if (!string.IsNullOrEmpty(masterTertiary)) _logService?.AddLog($"[INFO] Master 3: {masterTertiary}");
 
 
             // ALL Root Folders in the list are processed (Implicit selection)
@@ -1788,16 +1797,22 @@ if ($img -ne $null) {{
                     "--okebase", CleanPath(okeBasePath)  // Pass OKE Base
                 };
 
+                if (!string.IsNullOrEmpty(masterTertiary))
+                {
+                    args.Add("--master3");
+                    args.Add(CleanPath(masterTertiary));
+                }
+
                 // Pass User Name via Environment Variable
                 var envVars = new Dictionary<string, string>
                 {
                     { "BMACHINE_USER_NAME", userName }
                 };
 
-                await RunPythonProcess(args, envVars);
+                await Task.Run(async () => await RunPythonProcess(args, envVars));
                 
                 // Refresh Output
-                item.RefreshOutput();
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => item.RefreshOutput());
             }
             
             _logService?.AddLog("[SUCCESS] Batch Selesai.");

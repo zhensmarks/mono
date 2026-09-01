@@ -186,70 +186,36 @@ public partial class OutputExplorerView : UserControl
                 menu.Items.RemoveAt(i);
         }
 
+        // Try to find buat_master.py from the ScriptOptions
+        var buatMasterScript = vm.ScriptOptions.FirstOrDefault(s => s.OriginalName == "buat_master.py");
+        if (buatMasterScript == null) return;
+
         // Try to get the fallback icon geometry from resources
         Avalonia.Media.StreamGeometry? fallbackIcon = null;
         if (this.TryFindResource("IconScript", out var res) && res is Avalonia.Media.StreamGeometry sg)
             fallbackIcon = sg;
 
-        // Create buttons in a centered horizontal StackPanel
-        var panel = new StackPanel
+        var iconData = buatMasterScript.IconGeometry ?? fallbackIcon;
+
+        var icon = new Avalonia.Controls.PathIcon
         {
-            Orientation = Avalonia.Layout.Orientation.Horizontal,
-            Spacing = 4,
-            Margin = new Thickness(4, 2),
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Data = iconData,
+            Width = 14,
+            Height = 14,
+            Foreground = Avalonia.Media.Brushes.White,
         };
 
-        foreach (var script in vm.ScriptOptions)
-        {
-            var iconData = script.IconGeometry ?? fallbackIcon;
-
-            var icon = new Avalonia.Controls.PathIcon
-            {
-                Data = iconData,
-                Width = 16,
-                Height = 16,
-                Foreground = Avalonia.Media.Brushes.White,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            };
-
-            var btn = new Button
-            {
-                Content = icon,
-                Width = 32,
-                Height = 32,
-                Padding = new Thickness(0),
-                CornerRadius = new CornerRadius(8),
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
-                Background = Avalonia.Media.SolidColorBrush.Parse("#2A2A2A"),
-                BorderThickness = new Thickness(0),
-                Command = vm.BatchScriptCommand,
-                CommandParameter = script,
-            };
-            ToolTip.SetTip(btn, script.Name);
-
-            panel.Children.Add(btn);
-        }
-
-        // Wrap in a custom-templated MenuItem so it sits in the context menu
         var rowItem = new MenuItem
         {
-            Header = null,
+            Header = "📋 BUAT MASTER",
+            FontWeight = Avalonia.Media.FontWeight.Bold,
             Tag = "BatchButtonRow",
+            Command = vm.BatchScriptCommand,
+            CommandParameter = buatMasterScript,
         };
-        rowItem.Template = new Avalonia.Controls.Templates.FuncControlTemplate<MenuItem>((_, _) => panel);
 
-        menu.Items.Insert(markerIndex + 1, rowItem);
-
-        // Add a separator after the batch buttons to separate from items below
-        // Check if one already exists (tagged "BatchSeparator")
-        int afterRow = markerIndex + 2;
-        if (afterRow >= menu.Items.Count || !(menu.Items[afterRow] is Separator sepAfter && sepAfter.Tag is string st && st == "BatchSeparator"))
-        {
-            var batchSep = new Separator { Tag = "BatchSeparator" };
-            menu.Items.Insert(afterRow, batchSep);
-        }
+        menu.Items.Insert(markerIndex + 1, rowItem);        var finalSep = new Separator { Tag = "BatchSeparator" };
+        menu.Items.Insert(markerIndex + 2, finalSep);
     }
 
     private void OnViewLoaded(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)

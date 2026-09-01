@@ -57,6 +57,7 @@ def main():
     parser.add_argument('--pilihan', required=True, help='Pilihan path')
     parser.add_argument('--master', required=False, default='', help='Master path (Primary)')
     parser.add_argument('--master2', required=False, default='', help='Master path (Secondary/Sporty/8R)')
+    parser.add_argument('--master3', required=False, default='', help='Master path (Tertiary/8R Profesi)')
     parser.add_argument('--output', required=False, default='', help='Output path')
     parser.add_argument('--okebase', required=False, default='', help='Oke Base Path')
 
@@ -105,9 +106,10 @@ def main():
         # wisuda.py <master> <pilihan> <output> <master2> <okebase>
         cmd = [sys.executable, target_path, args.master, args.pilihan, args.output, args.master2, args.okebase]
     elif args.target == 'profesi_flat.py':
-        # profesi_flat.py <master_profesi> <master_sporty> <pilihan> <output> <oke_base>
+        # profesi_flat.py <master_profesi> <master_sporty> <pilihan> <output> <oke_base> <mappings_b64> <files_to_reprocess> <master_profesi_8r>
         master_profesi = args.master
         master_sporty = args.master2 
+        master_profesi_8r = getattr(args, 'master3', '')
         
         # Fallback to Config lookup if master2 is empty (backward compatibility)
         if not master_sporty:
@@ -132,7 +134,16 @@ def main():
         if not oke_base:
             oke_base = args.output
         
-        cmd = [sys.executable, target_path, master_profesi, master_sporty, args.pilihan, args.output, oke_base]
+        cmd = [sys.executable, target_path, master_profesi, master_sporty, args.pilihan, args.output, oke_base, "", "", master_profesi_8r]
+    elif args.target == 'buat_master.py':
+        # buat_master.py <pilihan_path> <output_base> <oke_base>
+        oke_base = args.okebase
+        if not oke_base:
+            oke_base = get_path_from_config(config, "OKE BASE")
+        if not oke_base:
+            oke_base = args.output
+        
+        cmd = [sys.executable, target_path, args.pilihan, args.output or oke_base, oke_base]
     else:
         print(f"ERROR: Unknown target script: {args.target}", file=sys.stderr)
         return 4
