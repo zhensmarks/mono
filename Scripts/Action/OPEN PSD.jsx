@@ -1,6 +1,7 @@
 // Photoshop JSX Script
 // Buka banyak file PSD dari folder (natural sort A-Z + angka)
 // Update: 2-Column Layout, Filter Revisi, Sort Options, Restore "Buka Semua", Fix Cancel Logic
+// Backup v2: Fix isFileMatchNumber + filter angle bracket + numbered list "1. NO 7"
 
 #target photoshop
 
@@ -74,40 +75,10 @@ function extractNumbers(str, arr) {
     }
 }
 
-function parseRevisionNumbers(text) {
-    var numbers = [];
-
-    // Step 1: Normalize — pecah "- " (dash-space) inline jadi newline
-    //   "GRADASI- 1 MULUSIN" → "GRADASI\n1 MULUSIN"
-    var normalized = text.replace(/-\s/g, '\n');
-
-    // Step 2: Pecah jadi baris
-    var lines = normalized.split(/[\r\n]+/);
-
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].replace(/^\s+/, ''); // Trim left
-        if (!line) continue;
-
-        // A. Keyword eksplisit: NO 1, NOMOR 2, NO. 3, #4, NOMOR 16,34
-        var keywordMatch = line.match(/(?:NO\.?|NOMOR|NUM|#)\s*([\d\s,]+)/i);
-        if (keywordMatch && keywordMatch[1]) {
-            extractNumbers(keywordMatch[1], numbers);
-            continue;
-        }
-
-        // B. Angka di awal segment (termasuk deret koma: "1, 2, 3, 5 ILANGIN")
-        var startMatch = line.match(/^([\d][\d,\s]*)/);
-        if (startMatch && startMatch[1]) {
-            extractNumbers(startMatch[1], numbers);
-        }
-    }
-
-    return numbers;
-}
-
 function isFileMatchNumber(file, number) {
     var name = decodeURI(file.name);
-    var match = name.match(/^(\d+)/);
+    // Support: "4 - retouch.psd", "(4) - retouch.psd", "[4] - retouch.psd"
+    var match = name.match(/^[\(\[]?(\d+)[\)\]]?/);
     if (match && parseInt(match[1], 10) === number) return true;
     return false;
 }
@@ -187,21 +158,54 @@ function main() {
     var prevText = "";
     txtFilter.onChanging = function() {
         var currentText = txtFilter.text;
-        
+
         // Deteksi apakah user melakukan Paste (perubahan karakter banyak sekaligus)
         var isPasted = Math.abs(currentText.length - prevText.length) > 5;
-        
+
         if (isPasted) {
             var newText = currentText;
-            
+
             // 1. Teks menyatu tapi angka memiliki titik (contoh: "onta3.retouch" atau "onta 3.")
-            newText = newText.replace(/([a-zA-Z,])\s*(\d+\.)/g, "$1\r\n$2");
-            
+            //    SKIP jika yang sebelum titik adalah keyword: "NO." → jangan pecah
+            newText = newText.replace(/([a-zA-Z,])\s*(\d+\.)/g, function(match, prefix, numDot) {
+                var upper = prefix.toUpperCase();
+                if (upper.match(/(?:NO|NOMOR|NUM|REV|ULANG)$/)) return match;
+                return prefix + "\r\n" + numDot;
+            });
+
             // 2. Teks menyatu tanpa titik, diikuti aksi (contoh: "anak3 hilangkan" atau "anak 15, 19 hilangkan")
-            newText = newText.replace(/([a-zA-Z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[a-zA-Z])/g, "$1\r\n");
+            //    SKIP jika yang sebelum angka adalah keyword: "NO1" → jangan pecah
+            newText = newText.replace(/([a-zA-Z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[a-zA-Z])/g, function(match, prefix) {
+                var upper = prefix.toUpperCase();
+                if (upper.match(/(?:NO|NOMOR|NUM|REV|ULANG)$/)) return match;
+                return prefix + "\r\n";
+            });
 
             // 3. Pisahkan teks yang menyatu dengan strip (contoh: "lagi- 4 serabut")
-            newText = newText.replace(/([^\s\r\n])\s*-\s*(\d+)/g, "$1\r\n- $2");
+            //    SKIP jika yang sebelum strip adalah keyword: "NO- 4" → jangan pecah
+            newText = newText.replace(/([^\s\r\n])\s*-\s*(\d+)/g, function(match, prefix, num) {
+                var upper = prefix.toUpperCase();
+                if (upper.match(/(?:NO|NOMOR|NUM|REV|ULANG)$/)) return match;
+                return prefix + "\r\n- " + num;
+            });
+
+            // 4. Merge: "NO" sendirian + baris angka berikut → gabung
+            //    Proses baris per baris agar aman (tidak pakai regex global yang salah)
+            var arr = newText.split(/\r?\n/);
+            var out = [];
+            for (var i = 0; i < arr.length; i++) {
+                var t = arr[i].replace(/^\s+/, '').replace(/\s+$/, '');
+                if (/^(NO\.?|NOMOR|NUM|REV|ULANG|PERBAIKI|UBAH)$/i.test(t) && i + 1 < arr.length) {
+                    var next = arr[i + 1].replace(/^\s+/, '');
+                    if (/^\d/.test(next)) {
+                        out.push(t + " " + next);
+                        i++;
+                        continue;
+                    }
+                }
+                out.push(arr[i]);
+            }
+            newText = out.join("\r\n");
 
             if (newText !== currentText) {
                 txtFilter.text = newText;
@@ -301,6 +305,25 @@ function main() {
 
         var lines = processedText.split(/[\r\n]+/);
 
+        // PRE-PROCESS 4: Merge baris keyword sendirian ("NO") dengan baris angka berikutnya
+        // WhatsApp/Telegram sering paste: "NO\r\n1 TURUNKAN..."
+        // Hasil: "NO 1 TURUNKAN..."
+        var mergedLines = [];
+        var mergeKeywords = /^(?:NO\.?|NOMOR|NUM|REV|ULANG|PERBAIKI|UBAH)$/i;
+        for (var m = 0; m < lines.length; m++) {
+            var trimLine = lines[m].replace(/^\s+/, '').replace(/\s+$/, '');
+            if (mergeKeywords.test(trimLine) && m + 1 < lines.length) {
+                var nextLine = lines[m + 1].replace(/^\s+/, '');
+                if (/^\d/.test(nextLine)) {
+                    mergedLines.push(trimLine + " " + nextLine);
+                    m++; // skip baris berikutnya
+                    continue;
+                }
+            }
+            mergedLines.push(lines[m]);
+        }
+        lines = mergedLines;
+
         var currentContextTokens = [];
         var filteredFiles = [];
         var extractedNumbers = [];
@@ -343,13 +366,25 @@ function main() {
             }
 
             // Pola B: Baris dimulai dengan angka (atau tanda list)
+            //   "3.SHADOW DIPIPI" atau "1. NO 7, TOLONG..." atau "- 4 revisi"
             if (!isNumberLine && line.match(/^(?:[-*•]\s*)?\d/)) {
-                var prefixMatch = line.match(/^(?:[-*•]\s*)?([\d\.,\s]+)/);
-                if (prefixMatch && prefixMatch[1]) {
-                    var bParts = prefixMatch[1].split(/[\.,\s]+/);
-                    for (var p = 0; p < bParts.length; p++) {
-                        var cln = bParts[p].replace(/\D/g, '');
+                // SUB-POLA B1: "1. NO 7" → extract NO 7 (bukan 1)
+                var subKwMatch = line.match(/^(?:[-*•]\s*)?\d+[\.\)]\s*(?:NO\.?|NOMOR|NUM|#)\s*([\d\.,\s]+)/i);
+                if (subKwMatch && subKwMatch[1]) {
+                    var subParts = subKwMatch[1].split(/[\.,\s]+/);
+                    for (var p = 0; p < subParts.length; p++) {
+                        var cln = subParts[p].replace(/\D/g, '');
                         if (cln && cln.length < 5) numbersInLine.push(parseInt(cln, 10));
+                    }
+                } else {
+                    // SUB-POLA B2: "3.SHADOW DIPIPI" → extract 3
+                    var prefixMatch = line.match(/^(?:[-*•]\s*)?([\d\.,\s]+)/);
+                    if (prefixMatch && prefixMatch[1]) {
+                        var bParts = prefixMatch[1].split(/[\.,\s]+/);
+                        for (var p = 0; p < bParts.length; p++) {
+                            var cln = bParts[p].replace(/\D/g, '');
+                            if (cln && cln.length < 5) numbersInLine.push(parseInt(cln, 10));
+                        }
                     }
                 }
                 if (numbersInLine.length > 0) isNumberLine = true;

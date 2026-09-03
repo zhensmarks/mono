@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest
+    Version="7.0"
+    ExtensionBundleId="com.kalkulatorbagi.panel"
+    ExtensionBundleVersion="1.0.1"
+    ExtensionBundleName="Kalkulator">
+
+    <ExtensionList>
+        <Extension Id="com.kalkulatorbagi.panel.main"/>
+    </ExtensionList>
+
+    <ExecutionEnvironment>
+        <HostList>
+            <Host Name="PHXS" Version="[21.0,99.9)"/>
+            <Host Name="ILST" Version="[21.0,99.9)"/>
+            <Host Name="AEFT" Version="[16.0,99.9)"/>
+            <Host Name="PPRO" Version="[13.0,99.9)"/>
+        </HostList>
+        <LocaleList>
+            <Locale Code="All"/>
+        </LocaleList>
+        <RequiredRuntimeList>
+            <RequiredRuntime Name="CSXS" Version="9.0"/>
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
+
+    <DispatchInfoList>
+        <Extension Id="com.kalkulatorbagi.panel.main">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./index.html</MainPath>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>Kalkulator</Menu>
+                    <Geometry>
+                        <Size>
+                            <Height>40</Height>
+                            <Width>235</Width>
+                        </Size>
+                        <MinSize>
+                            <Height>32</Height>
+                            <Width>80</Width>
+                        </MinSize>
+                        <MaxSize>
+                            <Height>220</Height>
+                            <Width>235</Width>
+                        </MaxSize>
+                    </Geometry>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>

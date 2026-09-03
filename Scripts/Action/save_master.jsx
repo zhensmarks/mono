@@ -40,6 +40,24 @@ function main() {
 
     var settings = loadSettings();
 
+    // ========== File Pengaturan Redaksi ==========
+    var settingFile = new File(Folder.userData + "/bmachine_fendi_redaksi.txt");
+    var defaultText = "TK DELAPAN MATA AIR\nTAAM AISYAH MIFTAHUL KHAER\nJL. BIMA NO. 10 RT. 04 RW. 04  KEL. ARJUNA KEC. CICENDO\nJl. Sari Endah No. 7A Gegerkalong Hilir Bandung\nJl. Sari Endah No.7A, Sukarasa, Kec. Sukasari Kota Bandung, Jaw";
+    var currentRedaksi = defaultText;
+    if (settingFile.exists) {
+        try {
+            settingFile.open("r");
+            currentRedaksi = settingFile.read();
+            settingFile.close();
+        } catch(e){}
+    } else {
+        try {
+            settingFile.open("w");
+            settingFile.write(defaultText);
+            settingFile.close();
+        } catch(e){}
+    }
+
     // === DIALOG UTAMA ===
     var dlg = new Window("dialog", "Save Master Options", undefined, { borderless: true }); // Borderless removed white title bar
     dlg.orientation = "column";
@@ -160,8 +178,44 @@ function main() {
 
 
     // --- BOTTOM ---
-    var btnCancel = dlg.add("button", undefined, "Cancel");
-    btnCancel.alignment = "center";
+    var grpBottom = dlg.add("group");
+    grpBottom.orientation = "row";
+    grpBottom.alignChildren = ["center", "center"];
+    grpBottom.alignment = "center";
+    
+    var btnSettingRedaksi = grpBottom.add("button", undefined, "Pengaturan Redaksi");
+    var btnCancel = grpBottom.add("button", undefined, "Cancel");
+
+    btnSettingRedaksi.onClick = function() {
+        var redaksiDlg = new Window("dialog", "Pengaturan Redaksi");
+        redaksiDlg.orientation = "column";
+        redaksiDlg.alignChildren = ["fill", "top"];
+        redaksiDlg.spacing = 10;
+        redaksiDlg.margins = 15;
+        
+        redaksiDlg.add("statictext", undefined, "Daftar Teks Terlarang (Otomatis Aktif):");
+        var wordsEdit = redaksiDlg.add("edittext", [0,0,400,150], currentRedaksi, {multiline:true, wantReturn:true});
+        
+        var grpRedaksiBtn = redaksiDlg.add("group");
+        grpRedaksiBtn.alignment = "center";
+        var btnSaveRedaksi = grpRedaksiBtn.add("button", undefined, "Simpan");
+        var btnCloseRedaksi = grpRedaksiBtn.add("button", undefined, "Batal");
+        
+        btnSaveRedaksi.onClick = function() {
+            try {
+                settingFile.open("w");
+                settingFile.write(wordsEdit.text);
+                settingFile.close();
+                currentRedaksi = wordsEdit.text;
+                alert("Teks redaksi berhasil disimpan!");
+                redaksiDlg.close();
+            } catch(e) {
+                alert("Gagal menyimpan teks redaksi: " + e.message);
+            }
+        };
+        btnCloseRedaksi.onClick = function() { redaksiDlg.close(); };
+        redaksiDlg.show();
+    };
 
     // --- EVENTS ---
     btnJpg.onClick = function () { dlg.close(1); };
@@ -292,6 +346,17 @@ function main() {
                 docsToProcess.push(allDocs[selectedIndices[m]]);
             }
 
+            // === JALANKAN CEK REDAKSI UNTUK DOKUMEN TERPILIH ===
+            var resCheck = runTextCheckOnDocs(docsToProcess, currentRedaksi);
+            if (!resCheck.ok) {
+                showScrollableAlert("Peringatan Cek Redaksi", resCheck.msg);
+                return;
+            }
+            if (resCheck.hit) {
+                showScrollableAlert("Peringatan Cek Redaksi", resCheck.msg + "\n\nProses Save Dibatalkan.");
+                return;
+            }
+
             for (var d = 0; d < docsToProcess.length; d++) {
                 var docName = docsToProcess[d] ? docsToProcess[d].name : "Unknown Document";
                 try {
@@ -348,6 +413,24 @@ function main() {
             showScrollableAlert("Laporan Proses Dokumen Terpilih", msg);
         }
         return; // Exit main
+    }
+
+    // === JALANKAN CEK REDAKSI OTOMATIS UNTUK SEMUA DOKUMEN (KECUALI SAVE ORIGINAL) ===
+    if (choice != 99) {
+        var allOpenDocs = [];
+        for (var i = 0; i < app.documents.length; i++) {
+            allOpenDocs.push(app.documents[i]);
+        }
+        
+        var resCheck = runTextCheckOnDocs(allOpenDocs, currentRedaksi);
+        if (!resCheck.ok) {
+            showScrollableAlert("Peringatan Cek Redaksi", resCheck.msg);
+            return;
+        }
+        if (resCheck.hit) {
+            showScrollableAlert("Peringatan Cek Redaksi", resCheck.msg + "\n\nProses Save Dibatalkan.");
+            return;
+        }
     }
 
     // --- SPECIAL MODE: ARTBOARD (401) ---
@@ -896,4 +979,65 @@ function getArtboardsData() {
         }
     }
     return artboards;
+}
+
+
+function buildRegex(wordsStr) {
+    var tmp = String(wordsStr||"").replace(/\r/g,"\n").split(/[,|\n]/);
+    var words = [];
+    for (var i=0;i<tmp.length;i++){
+        var s = tmp[i].replace(/^\s+|\s+$/g,"");
+        if (s.length>0) words.push(s);
+    }
+    return words.length === 0 ? null : words;
+}
+
+function fullLayerPath(layer) {
+    var parts = [layer.name];
+    var p = layer.parent;
+    while (p && p.typename === "LayerSet") { parts.unshift(p.name); p = p.parent; }
+    return parts.join(">");
+}
+
+function layerContainsBlacklist(text, wordsArray) {
+    if (!text || !wordsArray) return false;
+    var cleanText = text.replace(/^\s+|\s+$/g,"").toLowerCase();
+    for (var i = 0; i < wordsArray.length; i++) {
+        if (cleanText === wordsArray[i].toLowerCase()) return true; // EXACT MATCH 100%
+    }
+    return false;
+}
+
+function scanContainer(container, docName, wordsArray, results) {
+    var layers = container.layers;
+    for (var i=0;i<layers.length;i++){
+        var L = layers[i];
+        if (!L.visible) continue; // Abaikan layer atau grup yang disembunyikan (hide)
+        
+        if (L.typename === "ArtLayer" && L.kind === LayerKind.TEXT) {
+            var isi = ""; try { isi = L.textItem.contents; } catch(e){}
+            if (layerContainsBlacklist(isi, wordsArray)) {
+                try { L.color = LayerColor.RED; } catch(e){}
+                results.push(docName + " > " + fullLayerPath(L));
+            }
+        } else if (L.typename === "LayerSet") {
+            scanContainer(L, docName, wordsArray, results);
+        }
+    }
+}
+
+function runTextCheckOnDocs(docs, wordsStr) {
+    var wArray = buildRegex(wordsStr);
+    if (!wArray) return { ok:false, hit:false, msg: "Daftar kalimat terlarang kosong." };
+
+    var hasil = [];
+    var originalDoc = app.activeDocument;
+    for (var d=0; d<docs.length; d++){
+        app.activeDocument = docs[d];
+        scanContainer(docs[d], docs[d].name, wArray, hasil);
+    }
+    try { app.activeDocument = originalDoc; } catch(e){}
+
+    if (hasil.length===0) return { ok:true, hit:false };
+    return { ok:true, hit:true, msg:"Layer terdeteksi kalimat terlarang (Sama Persis):\n\n" + hasil.join("\n") + "\n\nTotal: " + hasil.length + " layer" };
 }
