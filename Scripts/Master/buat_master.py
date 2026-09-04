@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 buat_master.py — One-For-All Master Orchestrator
@@ -65,10 +65,10 @@ def get_script_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 
-_PASFOTO_KEYWORDS   = ["PAS FOTO", "PAS_FOTO", "PASFOTO", "FREE PAS FOTO", "FREE PAS_FOTO", "PAS FOTO FREE"]
+_PASFOTO_KEYWORDS   = ["PAS FOTO", "PAS_FOTO", "PASFOTO", "FREE PAS FOTO", "FREE PAS_FOTO", "PAS FOTO FREE", "PFM", "PFB"]
 _PROFESI_KEYWORDS   = ["PROFESI", "SPORTY", "FOTO PROFESI"]
-_MANASIK_KEYWORDS   = ["MANASIK"]
-_WISUDA_KEYWORDS    = ["WISUDA"]
+_MANASIK_KEYWORDS   = ["MANASIK", "MSK"]
+_WISUDA_KEYWORDS    = ["WISUDA", "WSD"]
 
 
 def detect_folder_types(pilihan_path):
@@ -79,27 +79,52 @@ def detect_folder_types(pilihan_path):
         entries = os.listdir(pilihan_path)
     except Exception:
         return found
+        
+    def check_txt(txt_path):
+        try:
+            filename = os.path.basename(txt_path).upper()
+            content = ""
+            try:
+                with open(txt_path, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read().upper()
+            except Exception:
+                pass
+                
+            combined = filename + " " + content
+            
+            for kw in _PASFOTO_KEYWORDS:
+                if kw in combined: found.add('pasfoto')
+            for kw in _MANASIK_KEYWORDS:
+                if kw in combined: found.add('manasik')
+            for kw in _WISUDA_KEYWORDS:
+                if kw in combined: found.add('wisuda')
+        except Exception:
+            pass
+
     for entry in entries:
-        entry_upper = entry.upper()
         full = os.path.join(pilihan_path, entry)
-        if not os.path.isdir(full):
-            continue
-        for kw in _PROFESI_KEYWORDS:
-            if kw in entry_upper:
-                found.add('profesi')
-                break
-        for kw in _PASFOTO_KEYWORDS:
-            if kw in entry_upper:
-                found.add('pasfoto')
-                break
-        for kw in _MANASIK_KEYWORDS:
-            if kw in entry_upper:
-                found.add('manasik')
-                break
-        for kw in _WISUDA_KEYWORDS:
-            if kw in entry_upper:
-                found.add('wisuda')
-                break
+        
+        if os.path.isdir(full):
+            # Cek nama folder HANYA untuk PROFESI
+            entry_upper = entry.upper()
+            for kw in _PROFESI_KEYWORDS:
+                if kw in entry_upper:
+                    found.add('profesi')
+                    break
+                    
+            # Cari file .txt di dalam subfolder untuk Pas Foto, Manasik, Wisuda
+            try:
+                sub_entries = os.listdir(full)
+                for sub in sub_entries:
+                    if sub.lower().endswith('.txt'):
+                        check_txt(os.path.join(full, sub))
+            except Exception:
+                pass
+                
+        elif entry.lower().endswith('.txt'):
+            # Jika ada .txt langsung di folder pilihan
+            check_txt(full)
+            
     return found
 
 

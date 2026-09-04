@@ -98,6 +98,13 @@ public partial class PsdBucinViewModel : ObservableObject
 
     private void ValidateSetup()
     {
+        if (string.IsNullOrWhiteSpace(MasterDirectory) && string.IsNullOrWhiteSpace(PhotoDirectory))
+        {
+            StatusText = "Menunggu Folder...";
+            CanStart = false;
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(MasterDirectory) || string.IsNullOrWhiteSpace(PhotoDirectory))
         {
             StatusText = "Pilih kedua folder terlebih dahulu";
@@ -144,6 +151,15 @@ public partial class PsdBucinViewModel : ObservableObject
             StatusText = $"Error: {ex.Message}";
             CanStart = false;
         }
+    }
+
+    [RelayCommand]
+    public void ClearPaths()
+    {
+        MasterDirectory = string.Empty;
+        PhotoDirectory = string.Empty;
+        StatusText = "Menunggu Folder...";
+        CanStart = false;
     }
 
     private void PrepareData()

@@ -49,6 +49,19 @@ public partial class ToolboxWindow : Window
         LoadWindowState();
     }
 
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            this.BeginMoveDrag(e);
+        }
+    }
+
+    private void OnCloseButtonClick(object? sender, RoutedEventArgs e)
+    {
+        this.Close();
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
@@ -181,22 +194,23 @@ public partial class ToolboxWindow : Window
         {
             if (isDir)
             {
-                vm.MantraNamaVM.SourceDirectory = firstPath;
+                vm.MantraNamaVM.AddFromDirectory(firstPath);
             }
             else
             {
-                vm.MantraNamaVM.SourceDirectory = Path.GetDirectoryName(firstPath) ?? "";
+                vm.MantraNamaVM.AddFiles(files);
             }
         }
         else if (vm.IsMantraGandaVisible)
         {
-            if (!isDir)
+            bool isDataZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name == "GandaDataDropZone") == true || (e.Source as Control)?.Name == "GandaDataDropZone";
+            if (isDataZone)
             {
-                vm.MantraGandaVM.SourceFile = firstPath;
+                vm.MantraGandaVM.DataFolder = firstPath;
             }
             else
             {
-                vm.MantraGandaVM.DataFolder = firstPath;
+                vm.MantraGandaVM.MasterPath = firstPath;
             }
         }
     }
@@ -254,7 +268,7 @@ public partial class ToolboxWindow : Window
 
         if (folders != null && folders.Count > 0 && DataContext is ToolboxViewModel vm)
         {
-            vm.MantraNamaVM.SourceDirectory = folders[0].Path.LocalPath;
+            vm.MantraNamaVM.AddFromDirectory(folders[0].Path.LocalPath);
         }
     }
 
@@ -268,7 +282,7 @@ public partial class ToolboxWindow : Window
 
         if (files != null && files.Count > 0 && DataContext is ToolboxViewModel vm)
         {
-            vm.MantraGandaVM.SourceFile = files[0].Path.LocalPath;
+            vm.MantraGandaVM.MasterPath = files[0].Path.LocalPath;
         }
     }
 

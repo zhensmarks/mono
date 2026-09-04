@@ -167,7 +167,7 @@ function main() {
 
             // 1. Teks menyatu tapi angka memiliki titik (contoh: "onta3.retouch" atau "onta 3.")
             //    SKIP jika yang sebelum titik adalah keyword: "NO." → jangan pecah
-            newText = newText.replace(/([a-zA-Z,])\s*(\d+\.)/g, function(match, prefix, numDot) {
+            newText = newText.replace(/([a-zA-Z])\s*(\d+\.)/g, function(match, prefix, numDot) {
                 var upper = prefix.toUpperCase();
                 if (upper.match(/(?:NO|NOMOR|NUM|REV|ULANG)$/)) return match;
                 return prefix + "\r\n" + numDot;
@@ -175,7 +175,7 @@ function main() {
 
             // 2. Teks menyatu tanpa titik, diikuti aksi (contoh: "anak3 hilangkan" atau "anak 15, 19 hilangkan")
             //    SKIP jika yang sebelum angka adalah keyword: "NO1" → jangan pecah
-            newText = newText.replace(/([a-zA-Z,])\s*(?=\d+(?:[,\s]+\d+)*\s+[a-zA-Z])/g, function(match, prefix) {
+            newText = newText.replace(/([a-zA-Z])\s*(?=\d+(?:[,\s]+\d+)*\s+[a-zA-Z])/g, function(match, prefix) {
                 var upper = prefix.toUpperCase();
                 if (upper.match(/(?:NO|NOMOR|NUM|REV|ULANG)$/)) return match;
                 return prefix + "\r\n";
@@ -189,7 +189,8 @@ function main() {
                 return prefix + "\r\n- " + num;
             });
 
-            // 4. Merge: "NO" sendirian + baris angka berikut → gabung
+
+            // 5. Merge: "NO" sendirian + baris angka berikut → gabung
             //    Proses baris per baris agar aman (tidak pakai regex global yang salah)
             var arr = newText.split(/\r?\n/);
             var out = [];

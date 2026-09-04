@@ -29,6 +29,10 @@ public partial class MantraNamaViewModel : ObservableObject
     private string _sourceDirectory = string.Empty;
 
     [ObservableProperty]
+    private string _filterText = string.Empty;
+    partial void OnFilterTextChanged(string value) => ApplyFilter();
+
+    [ObservableProperty]
     private string _findText = string.Empty;
 
     [ObservableProperty]
@@ -61,14 +65,15 @@ public partial class MantraNamaViewModel : ObservableObject
     [RelayCommand]
     public void ClearList()
     {
+        _masterList.Clear();
         PreviewList.Clear();
         SourceDirectory = string.Empty;
         StatusText = "List dibersihkan";
     }
 
+    private List<RenamePreviewItem> _masterList = new();
     public ObservableCollection<RenamePreviewItem> PreviewList { get; } = new();
 
-    partial void OnSourceDirectoryChanged(string value) => RefreshPreview();
     partial void OnFindTextChanged(string value) => RefreshPreview();
     partial void OnReplaceTextChanged(string value) => RefreshPreview();
     partial void OnUseRegexChanged(bool value) => RefreshPreview();
@@ -76,30 +81,67 @@ public partial class MantraNamaViewModel : ObservableObject
     partial void OnMatchAllOccurrencesChanged(bool value) => RefreshPreview();
     partial void OnExcludeExtensionChanged(bool value) => RefreshPreview();
 
-    private void RefreshPreview()
+    public void AddFromDirectory(string directory)
     {
-        if (string.IsNullOrWhiteSpace(SourceDirectory) || !Directory.Exists(SourceDirectory))
-        {
-            StatusText = "Pilih folder sumber terlebih dahulu";
-            PreviewList.Clear();
-            return;
-        }
+        SourceDirectory = directory;
+        var files = Directory.GetFiles(directory).ToList();
+        AddFiles(files);
+    }
 
-        if (PreviewList.Count == 0)
+    public void AddFiles(System.Collections.Generic.IEnumerable<string> files)
+    {
+        var newFiles = files.OrderBy(x => x, StringComparer.OrdinalIgnoreCase.WithNaturalSort()).ToList();
+        foreach (var f in newFiles)
         {
-            // Initial load of files (Natural Sort)
-            var files = Directory.GetFiles(SourceDirectory)
-                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase.WithNaturalSort())
-                .ToList();
-            foreach (var f in files)
+            if (!_masterList.Any(x => string.Equals(x.OriginalPath, f, StringComparison.OrdinalIgnoreCase)))
             {
-                PreviewList.Add(new RenamePreviewItem
+                _masterList.Add(new RenamePreviewItem
                 {
                     OriginalName = Path.GetFileName(f),
                     OriginalPath = f,
                     NewName = Path.GetFileName(f)
                 });
             }
+        }
+        
+        if (_masterList.Any() && string.IsNullOrEmpty(SourceDirectory))
+        {
+            SourceDirectory = Path.GetDirectoryName(_masterList.First().OriginalPath) ?? "";
+        }
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        PreviewList.Clear();
+        foreach (var item in _masterList)
+        {
+            if (string.IsNullOrWhiteSpace(FilterText) || 
+                item.OriginalName.Contains(FilterText, StringComparison.OrdinalIgnoreCase))
+            {
+                PreviewList.Add(item);
+            }
+        }
+        RefreshPreview();
+    }
+
+    [RelayCommand]
+    public void RemoveItem(RenamePreviewItem item)
+    {
+        if (item != null)
+        {
+            _masterList.Remove(item);
+            PreviewList.Remove(item);
+            RefreshPreview();
+        }
+    }
+
+    private void RefreshPreview()
+    {
+        if (PreviewList.Count == 0)
+        {
+            StatusText = "Pilih file atau folder sumber terlebih dahulu";
+            return;
         }
 
         if (string.IsNullOrEmpty(FindText))
@@ -176,7 +218,10 @@ public partial class MantraNamaViewModel : ObservableObject
             try
             {
                 int count = 0;
-                foreach (var item in PreviewList)
+                var itemsToProcess = PreviewList.ToList();
+                var successfulItems = new System.Collections.Generic.List<RenamePreviewItem>();
+
+                foreach (var item in itemsToProcess)
                 {
                     if (item.OriginalName == item.NewName) continue;
                     
@@ -186,14 +231,19 @@ public partial class MantraNamaViewModel : ObservableObject
                     if (!File.Exists(newPath))
                     {
                         File.Move(oldPath, newPath);
+                        successfulItems.Add(item);
                         count++;
                     }
                 }
                 
                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
                 {
+                    foreach (var item in successfulItems)
+                    {
+                        _masterList.Remove(item);
+                        PreviewList.Remove(item);
+                    }
                     StatusText = $"Selesai. {count} file berhasil direname.";
-                    PreviewList.Clear();
                     RefreshPreview();
                 });
             }

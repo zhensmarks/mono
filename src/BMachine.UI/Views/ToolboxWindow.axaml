@@ -12,7 +12,10 @@
         WindowStartupLocation="CenterScreen"
         Background="#09090B"
         Foreground="#E8E8E6"
-        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
+        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
 
     <Window.Styles>
 
@@ -211,7 +214,24 @@
 
     </Window.Styles>
 
-    <Grid>
+    <Grid RowDefinitions="Auto,*">
+        
+        <!-- ═══ WINDOW CHROME / TITLE BAR ═══ -->
+        <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            
+            <TextBlock Grid.Column="0" Text="BMachine Toolbox" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold" FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False" />
+            
+            <Button Grid.Column="1" Classes="Tab" Content="✕" Width="45" Height="40" Padding="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Click="OnCloseButtonClick" CornerRadius="0" FontSize="14" />
+            
+            <!-- Separator -->
+            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom" />
+        </Grid>
+
+        <Grid Grid.Row="1">
         <!-- LAYOUT CONSTRAINT MOCKS (Independent from content to prevent shrink-lock & ensure stretching) -->
         <!-- PathTextBoxWidth simulates Window width minus left/right paddings and button sizes -->
         <Panel x:Name="PathTextBoxWidth" Margin="44,0,150,0" IsHitTestVisible="False" />
@@ -219,11 +239,9 @@
         <Panel x:Name="StatusTextWidth" Margin="44,0,320,0" IsHitTestVisible="False" />
 
         <!-- ═══ CONTENT ═══ -->
-        <ScrollViewer ZIndex="0"
-                      Padding="20,85,20,20"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled"
-                      IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
+        <Grid ZIndex="0"
+              Margin="20,85,20,20"
+              IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
             <Grid>
 
                 <!-- ═══════════════════════
@@ -273,12 +291,14 @@
 
                     <!-- Action Bar (Rata Bawah) -->
                     <Border Grid.Row="2" Classes="Card" IsVisible="{Binding !PsdBucinVM.IsProcessing}">
-                        <Grid ColumnDefinitions="*,12,Auto">
+                        <Grid ColumnDefinitions="*,12,Auto,8,Auto">
                             <TextBlock Grid.Column="0" Classes="Body"
                                        Text="{Binding PsdBucinVM.StatusText}"
                                        VerticalAlignment="Center"
                                        TextWrapping="Wrap" Width="{Binding #StatusTextWidth.Bounds.Width}"/>
-                            <Button Grid.Column="2" Classes="Action" Content="MULAI"
+                            <Button Grid.Column="2" Classes="Muted" Content="Clear"
+                                    Command="{Binding PsdBucinVM.ClearPathsCommand}"/>
+                            <Button Grid.Column="4" Classes="Action" Content="MULAI"
                                     Command="{Binding PsdBucinVM.StartManualViewerCommand}"/>
                         </Grid>
                     </Border>
@@ -292,7 +312,11 @@
                     <!-- Preview table (Atas - Fluid Height) -->
                     <Border Grid.Row="0" Classes="Card">
                         <Grid RowDefinitions="Auto,12,Auto,12,*">
-                            <TextBlock Grid.Row="0" Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)"/>
+                            <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
+                                <TextBlock Grid.Column="0" Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" Classes="Input" Width="200" Padding="8,4" FontSize="11" 
+                                         Watermark="Filter nama/ekstensi..." Text="{Binding MantraNamaVM.FilterText}"/>
+                            </Grid>
                             <Rectangle Grid.Row="1" Classes="Divider" Margin="0"/>
                             <!-- Column headers -->
                             <Grid Grid.Row="2" ColumnDefinitions="*,28,*">
@@ -301,13 +325,16 @@
                             </Grid>
                             <!-- Rows -->
                             <ListBox Grid.Row="4" Classes="Preview"
+                                     ScrollViewer.IsScrollChainingEnabled="False"
+                                     ScrollViewer.IsScrollInertiaEnabled="False"
                                      ItemsSource="{Binding MantraNamaVM.PreviewList}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="*,28,*" Margin="0,2">
+                                        <Grid ColumnDefinitions="*,28,*,Auto" Margin="0,2">
                                             <TextBlock Grid.Column="0" Text="{Binding OriginalName}"
                                                        FontSize="12" Foreground="#3F3F46"
                                                        TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"
                                                        FontFamily="'Cascadia Code', Consolas, monospace"/>
                                             <TextBlock Grid.Column="1" Text="→"
                                                        Foreground="#2A2A2E"
@@ -316,7 +343,13 @@
                                                        FontSize="12" Foreground="#9CA3AF"
                                                        FontWeight="Medium"
                                                        TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"
                                                        FontFamily="'Cascadia Code', Consolas, monospace"/>
+                                            <Button Grid.Column="3" Content="✕" Width="24" Height="24" 
+                                                    Padding="0" Background="Transparent" Foreground="#71717A"
+                                                    Cursor="Hand" VerticalAlignment="Center" Margin="8,0,0,0"
+                                                    Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveItemCommand}"
+                                                    CommandParameter="{Binding}"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
@@ -397,19 +430,19 @@
                     <!-- Content (Atas) -->
                     <Grid Grid.Row="0" RowDefinitions="*,16,*,16,Auto">
                         <!-- File Master -->
-                        <Border Grid.Row="0" Classes="Card" DragDrop.AllowDrop="True">
+                        <Border Grid.Row="0" x:Name="GandaMasterDropZone" Classes="Card" DragDrop.AllowDrop="True">
                             <Grid RowDefinitions="Auto,Auto,*,Auto">
-                                <TextBlock Grid.Row="0" Classes="Section" Text="FILE MASTER" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Row="0" Classes="Section" Text="FILE / FOLDER MASTER" FontWeight="Bold" HorizontalAlignment="Center"/>
                                 <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
                                 <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.SourceFile}" Watermark="Ketik/Paste path, atau Drag &amp; Drop file kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.MasterPath}" Watermark="Ketik/Paste path, atau Drag &amp; Drop file/folder kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
                                     <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectFileClick"/>
                                 </Grid>
                             </Grid>
                         </Border>
 
                         <!-- Folder Data -->
-                        <Border Grid.Row="2" Classes="Card" DragDrop.AllowDrop="True">
+                        <Border Grid.Row="2" x:Name="GandaDataDropZone" Classes="Card" DragDrop.AllowDrop="True">
                             <Grid RowDefinitions="Auto,Auto,*,Auto">
                                 <TextBlock Grid.Row="0" Classes="Section" Text="FOLDER DATA (OPSIONAL)" FontWeight="Bold" HorizontalAlignment="Center"/>
                                 <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
@@ -436,9 +469,9 @@
                     <!-- Konfigurasi & Action (Bawah) -->
                     <Border Grid.Row="2" Classes="Card">
                         <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-                            <TextBlock Grid.Row="0" Classes="Section" Text="KONFIGURASI" Margin="0,0,0,12"/>
-                            <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,12"/>
-                            <Grid Grid.Row="2" RowDefinitions="Auto,12,Auto" ColumnDefinitions="*,16,*" Margin="0,0,0,12">
+                            <TextBlock Grid.Row="0" Classes="Section" Text="KONFIGURASI" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
+                            <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
+                            <Grid Grid.Row="2" RowDefinitions="Auto,12,Auto" ColumnDefinitions="*,16,*" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}">
                                 <!-- Row 0 -->
                                 <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
                                     <TextBlock Classes="FieldLabel" Text="Jumlah duplikat"/>
@@ -463,18 +496,20 @@
                                 </StackPanel>
                             </Grid>
 
-                            <Rectangle Grid.Row="3" Classes="Divider" Margin="0,0,0,12"/>
+                            <Rectangle Grid.Row="3" Classes="Divider" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
 
                             <!-- Action bar rata bawah -->
-                            <Grid Grid.Row="4" ColumnDefinitions="*,12,Auto,8,Auto">
+                            <Grid Grid.Row="4" ColumnDefinitions="*,12,Auto,8,Auto,8,Auto">
                                 <TextBlock Grid.Column="0" Classes="Body"
                                            Text="{Binding MantraGandaVM.StatusText}"
                                            VerticalAlignment="Center"
                                            TextWrapping="Wrap" Width="{Binding #StatusTextWidth.Bounds.Width}"/>
-                                <Button Grid.Column="2" Classes="Warn" Content="Stop"
+                                <Button Grid.Column="2" Classes="Muted" Content="Clear"
+                                        Command="{Binding MantraGandaVM.ClearPathsCommand}"/>
+                                <Button Grid.Column="4" Classes="Warn" Content="Stop"
                                         IsVisible="{Binding MantraGandaVM.IsProcessing}"
                                         Command="{Binding MantraGandaVM.StopDuplicateCommand}"/>
-                                <Button Grid.Column="4" Classes="Action" Content="{Binding MantraGandaVM.ActionButtonText}"
+                                <Button Grid.Column="6" Classes="Action" Content="{Binding MantraGandaVM.ActionButtonText}"
                                         IsVisible="{Binding !MantraGandaVM.IsProcessing}"
                                         Command="{Binding MantraGandaVM.ExecuteDuplicateCommand}"/>
                             </Grid>
@@ -484,7 +519,7 @@
                 </Grid>
 
             </Grid>
-        </ScrollViewer>
+        </Grid>
 
         <!-- VIEWER VIEW (manual) -->
         <Grid Grid.Row="1" Margin="20,16,20,20" RowDefinitions="Auto,*,Auto" IsVisible="{Binding PsdBucinVM.IsManualModeActive}" MinHeight="480">
@@ -616,5 +651,6 @@
             </StackPanel>
         </Border>
 
+        </Grid>
     </Grid>
 </Window>
