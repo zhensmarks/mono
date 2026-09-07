@@ -677,6 +677,16 @@ function main() {
                     saveJPG(dupDoc, docPath + "/" + baseName + ".jpg", JPG_QUALITY);
                     successList.push(baseName + (MODE_JPG_FOLDER ? " (JPG Folder)" : " (PSD+JPG)"));
                     dupDoc.close(SaveOptions.DONOTSAVECHANGES);
+                    
+                    app.activeDocument = doc;
+                    if (choice == 9) {
+                        try {
+                            var scriptFile = new File(new File($.fileName).parent + "/_kembalikan_seleksi.jsx");
+                            if (scriptFile.exists) {
+                                $.evalFile(scriptFile);
+                            }
+                        } catch (err) {}
+                    }
                 }
 
             } else if (MODE_PNG) {

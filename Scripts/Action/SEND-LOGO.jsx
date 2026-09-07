@@ -1,7 +1,7 @@
 #target photoshop
 
 /*
-    DOC-QUICK-COPY.jsx (Modified: Send Logo to Photoshop)
+    SEND-LOGO.jsx
     Langsung menempatkan logo ke dalam dokumen aktif di Photoshop, 
     atau membukanya sebagai dokumen baru jika tidak ada dokumen yang terbuka.
     Mendukung banyak logo (logo utama dan logo kedua).

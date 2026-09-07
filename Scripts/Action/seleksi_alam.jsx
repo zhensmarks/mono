@@ -56,42 +56,55 @@
         }
     }
 
-    function processDocument(mode, isBatch) {
+    function processDocument(list, useOrtuLogic, isBatch) {
         if (isBatch) {
             for (var i = 0; i < app.documents.length; i++) {
                 app.activeDocument = app.documents[i];
-                applyToDoc(app.activeDocument, mode);
+                applyToDoc(app.activeDocument, list, useOrtuLogic);
             }
         } else {
-            applyToDoc(app.activeDocument, mode);
+            applyToDoc(app.activeDocument, list, useOrtuLogic);
         }
     }
 
-    function applyToDoc(doc, mode) {
+    function applyToDoc(doc, list, useOrtuLogic) {
         var baseName = doc.name.replace(/\.[^\.]+$/, ""); // Ambil nama file tanpa ekstensi (misal "3" dari "3.psd")
 
-        if (mode === 1) {
-            // 1. ANAK SAJA
-            var list = ["REDAKSI SEKOLAH", "ASET", "KOLASE", "BG KOLASE", "BG", "PROP", "KARPET", "karpet"];
-            hideLayers(doc, list);
-        }
-        else if (mode === 2) {
-            // 2. ORTU SAJA
-            var list = ["REDAKSI SEKOLAH", "ASET", "BG", "PROP", "KARPET", "karpet", "BG KOLASE", "UTAMA"];
-            
+        var finalList = list.slice(); // Copy
+
+        if (useOrtuLogic) {
             // 1. Selalu hide X(1) dan X (1)
-            list.push(baseName + "(1)", baseName + " (1)");
+            finalList.push(baseName + "(1)", baseName + " (1)");
             
             // 2. Cek apakah ada layer X(3) atau X (3)
             var hasLayer3 = findLayerRecursive(doc, baseName + "(3)") || findLayerRecursive(doc, baseName + " (3)");
             
             // 3. Hide X(2) dan X (2) HANYA JIKA X(3) ada
             if (hasLayer3) {
-                list.push(baseName + "(2)", baseName + " (2)");
+                finalList.push(baseName + "(2)", baseName + " (2)");
             }
-            
-            hideLayers(doc, list);
+
+            // 4. Jika "BG KOLASE" tidak di-hide, lepaskan clipping mask dari "BG copy"
+            var bgKolaseHidden = false;
+            for (var k = 0; k < list.length; k++) {
+                if (list[k] === "BG KOLASE") {
+                    bgKolaseHidden = true;
+                    break;
+                }
+            }
+            if (!bgKolaseHidden) {
+                var bgCopyLayer = findLayerRecursive(doc, "BG copy");
+                if (bgCopyLayer && bgCopyLayer.grouped) {
+                    try {
+                        bgCopyLayer.grouped = false;
+                    } catch (e) {
+                        // Abaikan jika tidak bisa dilepas
+                    }
+                }
+            }
         }
+        
+        hideLayers(doc, finalList);
     }
 
     // === UI ===
@@ -101,26 +114,87 @@
     w.spacing = 10;
     w.margins = 16;
 
-    var grp = w.add("group");
-    grp.orientation = "row";
-    grp.alignChildren = ["fill", "top"];
-    grp.spacing = 10;
+    var panelCb = w.add("panel", undefined, "Daftar Layer (Ceklis = Hide)");
+    panelCb.orientation = "column";
+    panelCb.alignChildren = ["left", "top"];
+    panelCb.spacing = 5;
 
-    // Kolom 1 (Kiri)
-    var btnAnak = grp.add("button", [0, 0, 140, 50], "ANAK SAJA");
+    var groupCb = panelCb.add("group");
+    groupCb.orientation = "row";
+    groupCb.alignChildren = ["left", "top"];
+    groupCb.spacing = 20;
 
-    // Kolom 2 (Kanan)
-    var btnOrtu = grp.add("button", [0, 0, 140, 50], "ORTU SAJA");
+    var col1 = groupCb.add("group");
+    col1.orientation = "column";
+    col1.alignChildren = ["left", "top"];
 
-    // Batch Checkbox
+    var col2 = groupCb.add("group");
+    col2.orientation = "column";
+    col2.alignChildren = ["left", "top"];
+
+    var cbRedaksi = col1.add("checkbox", undefined, "REDAKSI SEKOLAH");
+    var cbAset = col1.add("checkbox", undefined, "ASET");
+    var cbKolase = col1.add("checkbox", undefined, "KOLASE");
+    var cbBgKolase = col1.add("checkbox", undefined, "BG KOLASE");
+    var cbBg = col1.add("checkbox", undefined, "BG");
+
+    var cbProp = col2.add("checkbox", undefined, "PROP");
+    var cbKarpet = col2.add("checkbox", undefined, "KARPET");
+    var cbUtama = col2.add("checkbox", undefined, "UTAMA");
+    var cbOrtuLogic = col2.add("checkbox", undefined, "Logika Ortu (Layer Anak)");
+
+    var pnlPreset = w.add("panel", undefined, "Preset Cepat");
+    pnlPreset.orientation = "row";
+    pnlPreset.alignChildren = ["fill", "top"];
+    var btnPresetAnak = pnlPreset.add("button", undefined, "ANAK SAJA");
+    var btnPresetOrtu = pnlPreset.add("button", undefined, "ORTU SAJA");
+
+    function setPreset(mode) {
+        cbRedaksi.value = true;
+        cbAset.value = true;
+        cbBg.value = true;
+        cbProp.value = true;
+        cbKarpet.value = true;
+        
+        if (mode === 1) { // ANAK SAJA
+            cbKolase.value = true;
+            cbBgKolase.value = true;
+            cbUtama.value = false;
+            cbOrtuLogic.value = false;
+        } else { // ORTU SAJA
+            cbKolase.value = false;
+            cbBgKolase.value = true;
+            cbUtama.value = true;
+            cbOrtuLogic.value = true;
+        }
+    }
+
+    btnPresetAnak.onClick = function() { setPreset(1); };
+    btnPresetOrtu.onClick = function() { setPreset(2); };
+
     var cbBatch = w.add("checkbox", undefined, "Batch (Semua File Terbuka)");
     cbBatch.alignment = "center";
 
-    var btnCancel = w.add("button", undefined, "Cancel");
+    var grpAction = w.add("group");
+    grpAction.alignment = "center";
+    var btnProses = grpAction.add("button", undefined, "PROSES HIDE", {name: "ok"});
+    var btnCancel = grpAction.add("button", undefined, "Cancel");
 
     // Handlers
-    btnAnak.onClick = function () { processDocument(1, cbBatch.value); w.close(); };
-    btnOrtu.onClick = function () { processDocument(2, cbBatch.value); w.close(); };
+    btnProses.onClick = function () { 
+        var list = [];
+        if (cbRedaksi.value) list.push("REDAKSI SEKOLAH");
+        if (cbAset.value) list.push("ASET");
+        if (cbKolase.value) list.push("KOLASE");
+        if (cbBgKolase.value) list.push("BG KOLASE");
+        if (cbBg.value) list.push("BG");
+        if (cbProp.value) list.push("PROP");
+        if (cbKarpet.value) { list.push("KARPET"); list.push("karpet"); }
+        if (cbUtama.value) list.push("UTAMA");
+
+        processDocument(list, cbOrtuLogic.value, cbBatch.value);
+        w.close(); 
+    };
     btnCancel.onClick = function () { w.close(); };
 
     // Restore Position

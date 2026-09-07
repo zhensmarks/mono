@@ -450,6 +450,7 @@ namespace BMachine.UI.ViewModels;
     [NotifyPropertyChangedFor(nameof(IsMasterVisible))]
     [NotifyPropertyChangedFor(nameof(IsPhotoshopVisible))]
     [NotifyPropertyChangedFor(nameof(IsDocVisible))]
+    [NotifyPropertyChangedFor(nameof(IsDocVisibleInline))]
     [NotifyPropertyChangedFor(nameof(IsSearchVisible))]
     [NotifyPropertyChangedFor(nameof(IsStatusVisible))]
     private int _selectedActivityMode = 0; // 0=Console, 1=Master, 2=Photoshop, 3=Doc
@@ -458,6 +459,62 @@ namespace BMachine.UI.ViewModels;
     public bool IsMasterVisible => SelectedActivityMode == 1;
     public bool IsPhotoshopVisible => SelectedActivityMode == 2;
     public bool IsDocVisible => SelectedActivityMode == 3;
+    public bool IsDocVisibleInline => SelectedActivityMode == 3 && !IsDocFloating;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDocVisibleInline))]
+    private bool _isDocFloating;
+
+    [RelayCommand]
+    private void ToggleDocFloating()
+    {
+        IsDocFloating = !IsDocFloating;
+        
+        // When popping out, we need to open the floating window
+        if (IsDocFloating)
+        {
+            // Send a message or handle it at the View level
+            WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(true));
+        }
+        else
+        {
+            WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(false));
+        }
+    }
+
+    public async Task SaveFloatingDocBounds(int x, int y, double width, double height)
+    {
+        if (_database == null) return;
+        try
+        {
+            await _database.SetAsync("Settings.DocFloating.X", x.ToString());
+            await _database.SetAsync("Settings.DocFloating.Y", y.ToString());
+            await _database.SetAsync("Settings.DocFloating.Width", width.ToString());
+            await _database.SetAsync("Settings.DocFloating.Height", height.ToString());
+        }
+        catch { }
+    }
+
+    public async Task<(int X, int Y, double Width, double Height)?> GetFloatingDocBounds()
+    {
+        if (_database == null) return null;
+        try
+        {
+            var xStr = await _database.GetAsync<string>("Settings.DocFloating.X");
+            var yStr = await _database.GetAsync<string>("Settings.DocFloating.Y");
+            var wStr = await _database.GetAsync<string>("Settings.DocFloating.Width");
+            var hStr = await _database.GetAsync<string>("Settings.DocFloating.Height");
+
+            if (int.TryParse(xStr, out int x) && int.TryParse(yStr, out int y) &&
+                double.TryParse(wStr, out double w) && double.TryParse(hStr, out double h))
+            {
+                return (x, y, w, h);
+            }
+        }
+        catch { }
+        return null;
+    }
+    
     public bool IsSearchVisible => SelectedActivityMode == 1 || SelectedActivityMode == 2;
     public bool IsStatusVisible => SelectedActivityMode == 0 || SelectedActivityMode == 1;
 
@@ -617,6 +674,65 @@ namespace BMachine.UI.ViewModels;
     private async Task CopySchoolAddress() => await CopyTextToClipboard(SchoolAddress);
 
     [RelayCommand]
+    private async Task PasteTextFromPS(string field)
+    {
+        // 1. Cek apakah Photoshop sedang berjalan
+        if (!System.Diagnostics.Process.GetProcessesByName("Photoshop").Any())
+        {
+            _logService?.AddLog("[WARNING] Photoshop tidak berjalan. Tidak bisa mengambil teks.");
+            return;
+        }
+
+        var tempTxt = Path.Combine(Path.GetTempPath(), $"ps_text_{Guid.NewGuid()}.txt");
+        var jsxScript = $@"
+try {{
+    if (app.documents.length > 0 && app.activeDocument.activeLayer.kind === LayerKind.TEXT) {{
+        var txt = app.activeDocument.activeLayer.textItem.contents;
+        var f = new File('{tempTxt.Replace("\\", "/")}');
+        f.open('w');
+        f.encoding = 'UTF-8';
+        f.write(txt);
+        f.close();
+    }}
+}} catch(e) {{}}";
+        
+        var tempJsx = Path.Combine(Path.GetTempPath(), $"ps_get_text_{Guid.NewGuid()}.jsx");
+        await File.WriteAllTextAsync(tempJsx, jsxScript);
+        
+        var photoshopExePath = "photoshop";
+        if (_database != null)
+        {
+            var dbPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+            if (!string.IsNullOrEmpty(dbPath)) photoshopExePath = dbPath;
+        }
+        
+        if (_platformService != null)
+        {
+            _platformService.RunJsxInPhotoshop(tempJsx, photoshopExePath);
+            
+            for (int i = 0; i < 15; i++)
+            {
+                await Task.Delay(200);
+                if (File.Exists(tempTxt))
+                {
+                    await Task.Delay(50);
+                    var txt = await File.ReadAllTextAsync(tempTxt);
+                    if (field == "name") SchoolName = txt.Trim();
+                    else if (field == "address") SchoolAddress = txt.Trim();
+                    
+                    _logService?.AddLog($"[INFO] Teks berhasil di-paste dari Photoshop ({(field == "name" ? "Nama" : "Alamat")})");
+                    try { File.Delete(tempTxt); } catch {}
+                    try { File.Delete(tempJsx); } catch {}
+                    return;
+                }
+            }
+        }
+        
+        _logService?.AddLog("[WARNING] Gagal mengambil teks. Pastikan layer teks di Photoshop sedang aktif/terpilih.");
+        try { File.Delete(tempJsx); } catch {}
+    }
+
+    [RelayCommand]
     private async Task CopySchoolLogo(string? slot)
     {
         var targetSlot = slot ?? "1";
@@ -741,19 +857,69 @@ namespace BMachine.UI.ViewModels;
                     }
                 }
 
-                // 4. Fallback: gunakan PowerShell untuk mengambil gambar dari native Windows clipboard
+                // 3.5 Fallback Khusus Photoshop (JSX) - Sangat efektif jika gambar di-copy dari layer Photoshop
+                if (System.Diagnostics.Process.GetProcessesByName("Photoshop").Any())
+                {
+                    System.Diagnostics.Debug.WriteLine("[PasteLogo] Mencoba mendapatkan gambar via Photoshop JSX...");
+                    var tempPsExport = Path.Combine(Path.GetTempPath(), $"ps_export_{Guid.NewGuid()}.png");
+                    var jsxScript = $@"
+try {{
+    var tempFile = new File('{tempPsExport.Replace("\\", "/")}');
+    var doc = app.documents.add(UnitValue(3000,""px""), UnitValue(3000,""px""), 72, ""temp_paste"", NewDocumentMode.RGB, DocumentFill.TRANSPARENT);
+    doc.paste();
+    try {{ doc.revealAll(); }} catch(e) {{}}
+    doc.trim(TrimType.TRANSPARENT);
+    var opts = new PNGSaveOptions();
+    doc.saveAs(tempFile, opts, true);
+    doc.close(SaveOptions.DONOTSAVECHANGES);
+}} catch(e) {{}}";
+                    var tempJsx = Path.Combine(Path.GetTempPath(), $"ps_paste_{Guid.NewGuid()}.jsx");
+                    await File.WriteAllTextAsync(tempJsx, jsxScript);
+                    
+                    var photoshopExePath = "photoshop";
+                    if (_database != null)
+                    {
+                        var dbPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+                        if (!string.IsNullOrEmpty(dbPath)) photoshopExePath = dbPath;
+                    }
+                    
+                    if (_platformService != null)
+                    {
+                        _platformService.RunJsxInPhotoshop(tempJsx, photoshopExePath);
+                        
+                        // Wait up to 2.5 seconds for Photoshop to save the file
+                        for(int i = 0; i < 10; i++)
+                        {
+                            await Task.Delay(250);
+                            if (File.Exists(tempPsExport))
+                            {
+                                await Task.Delay(100); // Give it a tiny bit of time to finish writing
+                                await ProcessLogoFile(tempPsExport, targetSlot);
+                                _logService?.AddLog("[INFO] Logo di-paste langsung dari Photoshop (JSX)");
+                                try { File.Delete(tempJsx); } catch {}
+                                return;
+                            }
+                        }
+                    }
+                    try { File.Delete(tempJsx); } catch {}
+                }
+
+                // 4. Fallback: gunakan PowerShell untuk mengambil gambar dari native Windows clipboard (WPF untuk transparansi)
                 System.Diagnostics.Debug.WriteLine("[PasteLogo] Avalonia clipboard tidak menemukan gambar, mencoba PowerShell fallback...");
                 var tempPsFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
                 var psScript = $@"
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$img = [System.Windows.Forms.Clipboard]::GetImage()
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
+$img = [System.Windows.Clipboard]::GetImage()
 if ($img -ne $null) {{
-    $img.Save('{tempPsFile.Replace("'", "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
-    $img.Dispose()
+    $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+    $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($img))
+    $fs = New-Object System.IO.FileStream('{tempPsFile.Replace("'", "''")}', [System.IO.FileMode]::Create)
+    $encoder.Save($fs)
+    $fs.Close()
     Write-Output 'OK'
 }} else {{
-    $files = [System.Windows.Forms.Clipboard]::GetFileDropList()
+    $files = [System.Windows.Clipboard]::GetFileDropList()
     if ($files.Count -gt 0) {{
         $f = $files[0]
         $ext = [System.IO.Path]::GetExtension($f).ToLower()
@@ -765,7 +931,7 @@ if ($img -ne $null) {{
 }}";
                 var process = new System.Diagnostics.Process();
                 process.StartInfo.FileName = "powershell";
-                process.StartInfo.Arguments = $"-NoProfile -NonInteractive -Command \"{psScript.Replace("\"", "\\\"")}\"";
+                process.StartInfo.Arguments = $"-STA -NoProfile -NonInteractive -Command \"{psScript.Replace("\"", "\\\"")}\"";
                 process.StartInfo.UseShellExecute = false;
                 process.StartInfo.CreateNoWindow = true;
                 process.StartInfo.RedirectStandardOutput = true;

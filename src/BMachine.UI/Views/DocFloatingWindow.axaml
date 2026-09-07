@@ -1,0 +1,24 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="using:BMachine.UI.Views"
+        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
+        x:Class="BMachine.UI.Views.DocFloatingWindow"
+        Title="Instan Redaksi"
+        Width="320" Height="400"
+        MinWidth="280" MinHeight="150"
+        SizeToContent="Manual"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True"
+        SystemDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        Background="{DynamicResource CardBackgroundBrush}">
+    <Grid PointerPressed="OnPointerPressed" Background="Transparent">
+        <!-- Main Content -->
+        <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0">
+            <views:DocPanelView />
+        </Border>
+    </Grid>
+</Window>

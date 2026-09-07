@@ -9,14 +9,46 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using Avalonia.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using BMachine.UI.Messages;
 
 namespace BMachine.UI.Views;
 
 public partial class LogPanelSidebar : UserControl
 {
+    private DocFloatingWindow? _docFloatingWindow;
+
     public LogPanelSidebar()
     {
         InitializeComponent();
+        
+        WeakReferenceMessenger.Default.Register<DocFloatingChangedMessage>(this, (r, m) =>
+        {
+            var sidebar = (LogPanelSidebar)r;
+            if (TopLevel.GetTopLevel(sidebar) == null) return; // Ignore if detached
+
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (m.Value)
+                {
+                    // Open floating window if not already open
+                    if (sidebar._docFloatingWindow == null)
+                    {
+                        sidebar._docFloatingWindow = new DocFloatingWindow
+                        {
+                            DataContext = sidebar.DataContext // Inherit ViewModel
+                        };
+                        sidebar._docFloatingWindow.Closed += (s, e) => sidebar._docFloatingWindow = null;
+                        sidebar._docFloatingWindow.Show();
+                    }
+                }
+                else
+                {
+                    // Close if open
+                    sidebar._docFloatingWindow?.Close();
+                }
+            });
+        });
     }
 
     protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
@@ -357,52 +389,6 @@ public partial class LogPanelSidebar : UserControl
     {
         if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
             vm.BatchVM.SelectedActivityMode = 3;
-    }
-
-    private void OnLogo1Drop(object? sender, Avalonia.Input.DragEventArgs e) => HandleLogoDrop(e, "1");
-    private void OnLogo2Drop(object? sender, Avalonia.Input.DragEventArgs e) => HandleLogoDrop(e, "2");
-
-    private void HandleLogoDrop(Avalonia.Input.DragEventArgs e, string slot)
-    {
-        if (DataContext is not DashboardViewModel vm || vm.BatchVM == null) return;
-
-        var paths = new List<string>();
-
-        if (e.Data.Contains(Avalonia.Input.DataFormats.Files))
-        {
-            var files = e.Data.GetFiles();
-            if (files != null)
-            {
-                foreach (var file in files)
-                {
-                    try
-                    {
-                        var path = file.Path?.LocalPath ?? file.Path?.ToString();
-                        if (!string.IsNullOrEmpty(path)) paths.Add(path);
-                    }
-                    catch { /* skip */ }
-                }
-            }
-        }
-
-        if (paths.Count == 0 && e.Data.Contains(Avalonia.Input.DataFormats.FileNames))
-        {
-            var names = e.Data.GetFileNames();
-            if (names != null) paths.AddRange(names);
-        }
-        
-        var imageExtensions = new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp" };
-        foreach (var path in paths)
-        {
-            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) continue;
-            var ext = System.IO.Path.GetExtension(path);
-            if (imageExtensions.Any(ext2 => ext.Equals(ext2, StringComparison.OrdinalIgnoreCase)))
-            {
-                _ = vm.BatchVM.ProcessLogoFile(path, slot);
-                e.Handled = true; // Stop event from bubbling up to the generic log file dropper
-                return;
-            }
-        }
     }
 
     private void OnDragOver(object? sender, Avalonia.Input.DragEventArgs e)

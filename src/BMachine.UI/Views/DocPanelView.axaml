@@ -1,0 +1,323 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
+             x:Class="BMachine.UI.Views.DocPanelView">
+    
+    <UserControl.Styles>
+        <!-- Hover Mode for Buttons -->
+        <Style Selector="Grid.hoverGroup StackPanel.hoverActions">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Grid.hoverGroup:pointerover StackPanel.hoverActions">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="IsHitTestVisible" Value="True"/>
+        </Style>
+        <Style Selector="Grid.hoverGroup Border.hoverActions">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Grid.hoverGroup:pointerover Border.hoverActions">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="IsHitTestVisible" Value="True"/>
+        </Style>
+
+        <!-- Auto-Collapse Address -->
+        <Style Selector="TextBox.autoExpand">
+            <Setter Property="MaxHeight" Value="34"/>
+        </Style>
+        <Style Selector="TextBox.autoExpand:focus">
+            <Setter Property="MaxHeight" Value="300"/>
+            <Setter Property="MinHeight" Value="60"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <!-- ========================================== -->
+        <!-- 1. SIDEBAR LAYOUT (Default, Non-Floating)  -->
+        <!-- ========================================== -->
+        <Grid IsVisible="{Binding !BatchVM.IsDocFloating}" RowDefinitions="Auto, *" Margin="10,0,10,10">
+            <StackPanel Grid.Row="0" Spacing="6" Margin="0,10,0,10">
+                <Grid ColumnDefinitions="*, Auto, Auto, Auto">
+                        <TextBlock Grid.Column="0" Text="INSTAN REDAKSI" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Command="{Binding BatchVM.ToggleDocFloatingCommand}" ToolTip.Tip="Buka di Jendela Baru / Pop Out"
+                                Background="Transparent" BorderThickness="1" BorderBrush="#30FFFFFF" Padding="4" CornerRadius="0" Cursor="Hand" Margin="0,0,4,0">
+                            <PathIcon Data="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </Button>
+                        <Button Grid.Column="2" Command="{Binding BatchVM.ToggleSecondLogoCommand}" ToolTip.Tip="Tambah / Hapus Logo Alternatif"
+                                Background="Transparent" BorderThickness="1" BorderBrush="#30FFFFFF" Padding="4" CornerRadius="0" Cursor="Hand" Margin="0,0,4,0">
+                            <PathIcon Data="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                        </Button>
+                        <Button Grid.Column="3" Command="{Binding BatchVM.ResetDocCommand}" ToolTip.Tip="Reset Semua (Nama, Alamat, Logo)"
+                                Background="#B54845" BorderThickness="0" Padding="4" CornerRadius="0" Cursor="Hand">
+                            <PathIcon Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" Width="10" Height="10" Foreground="White"/>
+                        </Button>
+                    </Grid>
+                    
+            <Grid Classes="hoverGroup">
+                <TextBox Text="{Binding BatchVM.SchoolName, Mode=TwoWay}" Watermark="Nama Kelompok / Sekolah" FontSize="12" CornerRadius="0" Padding="6,6,40,6" Margin="0" VerticalAlignment="Stretch"/>
+                <StackPanel Classes="hoverActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="4" Margin="0,0,4,0">
+                    <Button Classes="iconBtn" Command="{Binding BatchVM.PasteTextFromPSCommand}" CommandParameter="name" ToolTip.Tip="Ambil Teks dari Layer Photoshop">
+                        <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                    <Button Classes="iconBtn" Command="{Binding BatchVM.CopySchoolNameCommand}" ToolTip.Tip="Copy Nama">
+                        <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <Grid Classes="hoverGroup">
+                <TextBox Classes="autoExpand" Text="{Binding BatchVM.SchoolAddress, Mode=TwoWay}" Watermark="Alamat Lengkap" FontSize="12" CornerRadius="0" AcceptsReturn="True" TextWrapping="Wrap" Padding="6,6,40,6" Margin="0" VerticalAlignment="Top"/>
+                <StackPanel Classes="hoverActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0" Spacing="4">
+                    <Button Classes="iconBtn" Command="{Binding BatchVM.PasteTextFromPSCommand}" CommandParameter="address" ToolTip.Tip="Ambil Teks dari Layer Photoshop">
+                        <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                    <Button Classes="iconBtn" Command="{Binding BatchVM.CopySchoolAddressCommand}" ToolTip.Tip="Copy Alamat">
+                        <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+        
+        <Grid Grid.Row="1">
+            <!-- SLOT 1 ONLY -->
+            <Grid ColumnDefinitions="*" IsVisible="{Binding !BatchVM.IsSecondLogoVisible}">
+                <Grid Grid.Column="0" Classes="hoverGroup">
+                    <Border Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="0" Padding="4" MinHeight="100"
+                            DragDrop.AllowDrop="True" DragDrop.Drop="OnLogo1Drop" DragDrop.DragOver="OnDragOver" ToolTip.Tip="Logo Utama (Drag &amp; Drop)">
+                         <Grid>
+                             <TextBlock Text="[Logo Utama]&#xa;Drop Di Sini" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding BatchVM.SchoolLogoImage, Converter={x:Static ObjectConverters.IsNull}}"/>
+                             <Image Source="{Binding BatchVM.SchoolLogoImage}" Stretch="Uniform" Margin="4"/>
+                         </Grid>
+                    </Border>
+                    <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="1" ToolTip.Tip="Copy Logo" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- 2 Column Mode -->
+            <Grid ColumnDefinitions="*,10,*" IsVisible="{Binding BatchVM.IsSecondLogoVisible}">
+                <Grid Grid.Column="0" Classes="hoverGroup">
+                    <Border Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="0" Padding="4" MinHeight="80"
+                            DragDrop.AllowDrop="True" DragDrop.Drop="OnLogo1Drop" DragDrop.DragOver="OnDragOver" ToolTip.Tip="Logo 1 (Drag &amp; Drop)">
+                         <Grid>
+                             <TextBlock Text="[Logo Utama]&#xa;Drop Di Sini" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding BatchVM.SchoolLogoImage, Converter={x:Static ObjectConverters.IsNull}}"/>
+                             <Image Source="{Binding BatchVM.SchoolLogoImage}" Stretch="Uniform" Margin="4"/>
+                         </Grid>
+                    </Border>
+                    <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4">
+                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="1" ToolTip.Tip="Copy Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop (Logo 1)" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                <Grid Grid.Column="2" Classes="hoverGroup">
+                    <Border Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="0" Padding="4" MinHeight="80"
+                            DragDrop.AllowDrop="True" DragDrop.Drop="OnLogo2Drop" DragDrop.DragOver="OnDragOver" ToolTip.Tip="Logo 2 (Drag &amp; Drop)">
+                         <Grid>
+                             <TextBlock Text="[Logo Alternatif]&#xa;Drop Di Sini" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding BatchVM.SchoolLogoImage2, Converter={x:Static ObjectConverters.IsNull}}"/>
+                             <Image Source="{Binding BatchVM.SchoolLogoImage2}" Stretch="Uniform" Margin="4"/>
+                         </Grid>
+                    </Border>
+                    <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4">
+                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="2" ToolTip.Tip="Paste Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="2" ToolTip.Tip="Copy Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="2" ToolTip.Tip="Kirim ke Photoshop (Logo 2)" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                                <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+            </Grid>
+        </Grid>
+
+
+        <!-- ========================================== -->
+        <!-- 2. FLOATING LAYOUT (Minimalist Hover)      -->
+        <!-- ========================================== -->
+        <Grid IsVisible="{Binding BatchVM.IsDocFloating}" RowDefinitions="*, Auto" Margin="14">
+            
+            <!-- Logo + Text Content Row -->
+            <Grid Grid.Row="0">
+                <!-- 1 Logo Mode (Left/Right) -->
+                <Grid ColumnDefinitions="Auto, *" IsVisible="{Binding !BatchVM.IsSecondLogoVisible}">
+                    
+                    <!-- Logo Column (Left) -->
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0" Spacing="10" VerticalAlignment="Top" Orientation="Horizontal">
+                        <!-- SLOT 1 -->
+                        <Grid Classes="hoverGroup">
+                            <Border Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="0" Padding="4" Width="90" Height="90"
+                                    DragDrop.AllowDrop="True" DragDrop.Drop="OnLogo1Drop" DragDrop.DragOver="OnDragOver" ToolTip.Tip="Logo Utama (Drag &amp; Drop)">
+                                 <Grid>
+                                     <TextBlock Text="[Logo 1]" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding BatchVM.SchoolLogoImage, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                     <Image Source="{Binding BatchVM.SchoolLogoImage}" Stretch="Uniform" Margin="4"/>
+                                 </Grid>
+                            </Border>
+                            <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
+                                    <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                        <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </Button>
+                                    <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                        <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Text Column (Right) -->
+                    <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Top">
+                        <Grid Classes="hoverGroup">
+                            <TextBox Text="{Binding BatchVM.SchoolName, Mode=TwoWay}" Watermark="Nama Kelompok / Sekolah" FontSize="12" CornerRadius="0" Padding="8,8,44,8" Margin="0" Height="36"/>
+                            <StackPanel Classes="hoverActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="4" Margin="0,0,6,0">
+                                <Button Classes="iconBtn" Command="{Binding BatchVM.PasteTextFromPSCommand}" CommandParameter="name" ToolTip.Tip="Ambil Teks dari Layer Photoshop">
+                                    <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                                <Button Classes="iconBtn" Command="{Binding BatchVM.CopySchoolNameCommand}" ToolTip.Tip="Copy Nama">
+                                    <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Classes="hoverGroup">
+                            <TextBox Text="{Binding BatchVM.SchoolAddress, Mode=TwoWay}" Watermark="Alamat Lengkap" FontSize="12" CornerRadius="0" AcceptsReturn="True" TextWrapping="Wrap" Height="50" Padding="8,8,44,8" Margin="0"/>
+                            <StackPanel Classes="hoverActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0" Spacing="4">
+                                <Button Classes="iconBtn" Command="{Binding BatchVM.PasteTextFromPSCommand}" CommandParameter="address" ToolTip.Tip="Ambil Teks dari Layer Photoshop">
+                                    <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                                <Button Classes="iconBtn" Command="{Binding BatchVM.CopySchoolAddressCommand}" ToolTip.Tip="Copy Alamat">
+                                    <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 2 Logo Mode (2x2 Grid) -->
+                <Grid RowDefinitions="Auto, Auto" ColumnDefinitions="*, *" IsVisible="{Binding BatchVM.IsSecondLogoVisible}">
+                    <!-- Row 0: Logos -->
+                    <Grid Grid.Row="0" Grid.Column="0" Margin="0,0,6,10" Classes="hoverGroup">
+                        <Border Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="0" Padding="4" Height="90"
+                                DragDrop.AllowDrop="True" DragDrop.Drop="OnLogo1Drop" DragDrop.DragOver="OnDragOver" ToolTip.Tip="Logo Utama (Drag &amp; Drop)">
+                             <Grid>
+                                 <TextBlock Text="[Logo 1]" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding BatchVM.SchoolLogoImage, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                 <Image Source="{Binding BatchVM.SchoolLogoImage}" Stretch="Uniform" Margin="4"/>
+                             </Grid>
+                        </Border>
+                        <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
+                                <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                    <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                                <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                    <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="0" Grid.Column="1" Margin="6,0,0,10" Classes="hoverGroup">
+                        <Border Background="#0AFFFFFF" BorderBrush="#20FFFFFF" BorderThickness="1" CornerRadius="0" Padding="4" Height="90"
+                                DragDrop.AllowDrop="True" DragDrop.Drop="OnLogo2Drop" DragDrop.DragOver="OnDragOver" ToolTip.Tip="Logo 2 (Drag &amp; Drop)">
+                             <Grid>
+                                 <TextBlock Text="[Logo 2]" TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding BatchVM.SchoolLogoImage2, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                 <Image Source="{Binding BatchVM.SchoolLogoImage2}" Stretch="Uniform" Margin="4"/>
+                             </Grid>
+                        </Border>
+                        <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
+                                <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="2" ToolTip.Tip="Paste Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                    <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                                <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="2" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                    <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Row 1: TextBoxes -->
+                    <Grid Grid.Row="1" Grid.Column="0" Margin="0,0,6,0" Classes="hoverGroup">
+                        <TextBox Text="{Binding BatchVM.SchoolName, Mode=TwoWay}" Watermark="Nama Sekolah" FontSize="12" CornerRadius="0" Padding="8,8,44,8" Margin="0" Height="36"/>
+                        <StackPanel Classes="hoverActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="4" Margin="0,0,6,0">
+                            <Button Classes="iconBtn" Command="{Binding BatchVM.PasteTextFromPSCommand}" CommandParameter="name" ToolTip.Tip="Ambil Teks dari Layer Photoshop">
+                                <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Grid.Column="1" Margin="6,0,0,0" Classes="hoverGroup">
+                        <TextBox Text="{Binding BatchVM.SchoolAddress, Mode=TwoWay}" Watermark="Alamat Lengkap" FontSize="12" CornerRadius="0" AcceptsReturn="True" TextWrapping="Wrap" Height="46" Padding="8,8,44,8" Margin="0"/>
+                        <StackPanel Classes="hoverActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0" Spacing="4">
+                            <Button Classes="iconBtn" Command="{Binding BatchVM.PasteTextFromPSCommand}" CommandParameter="address" ToolTip.Tip="Ambil Teks dari Layer Photoshop">
+                                <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <!-- Bottom Action Bar (Row 1) -->
+            <Grid Grid.Row="1" Margin="0,16,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Command="{Binding BatchVM.ResetDocCommand}" ToolTip.Tip="Reset Semua (Nama, Alamat, Logo)"
+                            Background="#B54845" BorderThickness="0" Padding="6" CornerRadius="4" Cursor="Hand">
+                        <PathIcon Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" Width="12" Height="12" Foreground="White"/>
+                    </Button>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Command="{Binding BatchVM.ToggleSecondLogoCommand}" ToolTip.Tip="Tambah / Hapus Logo Alternatif"
+                            Background="Transparent" BorderThickness="1" BorderBrush="#30FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                        <PathIcon Data="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
+                    </Button>
+                    <!-- Close Floating Window Button -->
+                    <Button Command="{Binding BatchVM.ToggleDocFloatingCommand}" ToolTip.Tip="Tutup Jendela"
+                            Background="Transparent" BorderThickness="1" BorderBrush="#30FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                        <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+        </Grid>
+
+    </Grid>
+</UserControl>
