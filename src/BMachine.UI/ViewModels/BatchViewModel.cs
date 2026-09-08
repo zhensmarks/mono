@@ -1065,7 +1065,7 @@ if ($img -ne $null) {{
         {
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => MasterNodes.Clear());
 
-            var paths = new List<string>();
+            var pathEntries = new List<(string Path, string Name)>();
             
             // 1. Get Additional Paths from Settings
             if (_database != null)
@@ -1073,17 +1073,14 @@ if ($img -ne $null) {{
                 var json = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
                 if (!string.IsNullOrEmpty(json))
                 {
-                    try {
-                        var loaded = System.Text.Json.JsonSerializer.Deserialize<string[]>(json);
-                        if (loaded != null) paths.AddRange(loaded);
-                    } catch {}
+                    pathEntries.AddRange(EditablePathItem.ParseStoredPaths(json));
                 }
             }
 
             // 1.5. Include Main Master Path
             if (!string.IsNullOrEmpty(MasterTemplatePath) && Directory.Exists(MasterTemplatePath))
             {
-                paths.Add(MasterTemplatePath);
+                pathEntries.Add((MasterTemplatePath, EditablePathItem.GetFolderName(MasterTemplatePath)));
             }
 
             // 2. Linear Scan (Top-Level Only)
@@ -1091,11 +1088,11 @@ if ($img -ne $null) {{
             {
                 var result = new List<MasterNode>();
                 
-                foreach (var path in paths)
+                foreach (var (path, customName) in pathEntries)
                 {
                     if (Directory.Exists(path))
                     {
-                        var rootName = Path.GetFileName(path);
+                        var rootName = !string.IsNullOrWhiteSpace(customName) ? customName : Path.GetFileName(path);
                         if (string.IsNullOrEmpty(rootName)) rootName = path;
 
                         bool nameMatches = string.IsNullOrEmpty(filter) || rootName.Contains(filter, StringComparison.OrdinalIgnoreCase);
@@ -1111,7 +1108,7 @@ if ($img -ne $null) {{
                         if (string.IsNullOrEmpty(filter) || nameMatches || matchingChildren.Any())
                         {
                             string childFilter = nameMatches ? "" : filter;
-                            var rootNode = new MasterNode(path, true, (p) => ScanDirectory(p, childFilter));
+                            var rootNode = new MasterNode(path, true, (p) => ScanDirectory(p, childFilter), customDisplayName: rootName);
                             
                             if (matchingChildren.Any())
                             {
@@ -1151,7 +1148,7 @@ if ($img -ne $null) {{
         try
         {
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => PhotoshopNodes.Clear());
-            var paths = new List<string>();
+            var pathEntries = new List<(string Path, string Name)>();
             
             // USE NEW SETTING KEY: Configs.Master.PhotoshopPaths
             if (_database != null)
@@ -1159,28 +1156,25 @@ if ($img -ne $null) {{
                 var json = await _database.GetAsync<string>("Configs.Master.PhotoshopPaths");
                 if (!string.IsNullOrEmpty(json))
                 {
-                    try {
-                        var loaded = System.Text.Json.JsonSerializer.Deserialize<string[]>(json);
-                        if (loaded != null) paths.AddRange(loaded);
-                    } catch {}
+                    pathEntries.AddRange(EditablePathItem.ParseStoredPaths(json));
                 }
             }
             
             // Also include global Photoshop Path if not empty and not already added
             var globalPsPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
-            if (!string.IsNullOrEmpty(globalPsPath) && Directory.Exists(globalPsPath) && !paths.Contains(globalPsPath))
+            if (!string.IsNullOrEmpty(globalPsPath) && Directory.Exists(globalPsPath) && !pathEntries.Any(e => e.Path == globalPsPath))
             {
-                paths.Add(globalPsPath);
+                pathEntries.Add((globalPsPath, EditablePathItem.GetFolderName(globalPsPath)));
             }
 
             var nodes = await Task.Run(() => 
             {
                 var result = new List<MasterNode>();
-                foreach (var path in paths)
+                foreach (var (path, customName) in pathEntries)
                 {
                     if (Directory.Exists(path))
                     {
-                        var rootName = Path.GetFileName(path);
+                        var rootName = !string.IsNullOrWhiteSpace(customName) ? customName : Path.GetFileName(path);
                         if (string.IsNullOrEmpty(rootName)) rootName = path;
 
                         bool nameMatches = string.IsNullOrEmpty(filter) || rootName.Contains(filter, StringComparison.OrdinalIgnoreCase);
@@ -1194,7 +1188,7 @@ if ($img -ne $null) {{
                         if (string.IsNullOrEmpty(filter) || nameMatches || matchingChildren.Any())
                         {
                             string childFilter = nameMatches ? "" : filter;
-                            var rootNode = new MasterNode(path, true, (p) => ScanDirectoryImages(p, childFilter));
+                            var rootNode = new MasterNode(path, true, (p) => ScanDirectoryImages(p, childFilter), customDisplayName: rootName);
                             
                             if (matchingChildren.Any())
                             {

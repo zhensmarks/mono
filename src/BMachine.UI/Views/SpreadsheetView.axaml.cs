@@ -190,40 +190,89 @@ public partial class SpreadsheetView : UserControl
                     return border;
                 });
 
-                // Editing Template (DatePicker + Today Button)
+                // Editing Template (Wide TODAY Button + Manual Date Picker Button, no typing)
                 templateCol.CellEditingTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
-                    var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-
-                    var picker = new CalendarDatePicker { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
-                    // Bind SelectedDate with Converter
-                    picker.Bind(CalendarDatePicker.SelectedDateProperty, 
-                        new Binding($"Cells[{col.Index}].Value") { 
-                            Mode = BindingMode.TwoWay, 
-                            Converter = StringToDateTimeConverter.Instance 
-                        });
-                    
-                    Grid.SetColumn(picker, 0);
+                    var grid = new Grid 
+                    { 
+                        ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                        Margin = new Thickness(1)
+                    };
 
                     var todayBtn = new Button 
                     { 
-                        Content = "Today",
-                        FontSize = 10,
-                        Padding = new Thickness(4, 2),
-                        Margin = new Thickness(2, 0, 0, 0),
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                        Content = "TODAY",
+                        FontWeight = Avalonia.Media.FontWeight.Bold,
+                        FontSize = 11,
+                        Padding = new Thickness(8, 2),
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                        HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        CornerRadius = new CornerRadius(4)
                     };
-                    ToolTip.SetTip(todayBtn, "Isi dengan hari ini");
+                    ToolTip.SetTip(todayBtn, "Isi dengan tanggal hari ini");
                     
                     todayBtn.Click += (s, e) => 
                     {
-                        picker.SelectedDate = DateTime.Today;
+                        if (col.Index < row.Cells.Count)
+                        {
+                            row.Cells[col.Index].Value = DateTime.Today.ToString("yyyy-MM-dd");
+                        }
                     };
 
-                    Grid.SetColumn(todayBtn, 1);
+                    Grid.SetColumn(todayBtn, 0);
 
-                    grid.Children.Add(picker);
+                    var manualBtn = new Button 
+                    { 
+                        Padding = new Thickness(6, 2),
+                        Margin = new Thickness(2, 0, 0, 0),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        CornerRadius = new CornerRadius(4)
+                    };
+                    ToolTip.SetTip(manualBtn, "Pilih tanggal manual...");
+
+                    var icon = new PathIcon { Width = 13, Height = 13 };
+                    if (Application.Current?.TryFindResource("IconCalendarFilled", out var iconRes) == true && iconRes is Avalonia.Media.Geometry geom)
+                    {
+                        icon.Data = geom;
+                    }
+                    manualBtn.Content = icon;
+
+                    var flyout = new Flyout
+                    {
+                        Placement = PlacementMode.BottomEdgeAlignedRight
+                    };
+                    var calendar = new Avalonia.Controls.Calendar
+                    {
+                        SelectionMode = CalendarSelectionMode.SingleDate
+                    };
+                    if (col.Index < row.Cells.Count && DateTime.TryParse(row.Cells[col.Index].Value, out var curDate))
+                    {
+                        calendar.SelectedDate = curDate;
+                        calendar.DisplayDate = curDate;
+                    }
+                    else
+                    {
+                        calendar.SelectedDate = DateTime.Today;
+                        calendar.DisplayDate = DateTime.Today;
+                    }
+
+                    calendar.SelectedDatesChanged += (s, e) =>
+                    {
+                        if (calendar.SelectedDate.HasValue && col.Index < row.Cells.Count)
+                        {
+                            row.Cells[col.Index].Value = calendar.SelectedDate.Value.ToString("yyyy-MM-dd");
+                            flyout.Hide();
+                        }
+                    };
+
+                    flyout.Content = calendar;
+                    manualBtn.Flyout = flyout;
+
+                    Grid.SetColumn(manualBtn, 1);
+
                     grid.Children.Add(todayBtn);
+                    grid.Children.Add(manualBtn);
 
                     return grid;
                 });

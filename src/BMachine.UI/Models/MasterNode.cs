@@ -26,15 +26,22 @@ public partial class MasterNode : ObservableObject
     public bool HasUnloadedChildren { get; private set; }
     private readonly Func<string, IEnumerable<MasterNode>>? _loadChildrenAction;
 
-    public MasterNode(string path, bool isDirectory, Func<string, IEnumerable<MasterNode>>? loadChildrenAction = null)
+    public MasterNode(string path, bool isDirectory, Func<string, IEnumerable<MasterNode>>? loadChildrenAction = null, string? customDisplayName = null)
     {
         FullPath = path;
         IsDirectory = isDirectory;
         _loadChildrenAction = loadChildrenAction;
         
-        var cleanPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        Name = Path.GetFileName(cleanPath);
-        if (string.IsNullOrEmpty(Name)) Name = cleanPath;
+        if (!string.IsNullOrWhiteSpace(customDisplayName))
+        {
+            Name = customDisplayName;
+        }
+        else
+        {
+            var cleanPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            Name = Path.GetFileName(cleanPath);
+            if (string.IsNullOrEmpty(Name)) Name = cleanPath;
+        }
         
         IsExpanded = false; 
 

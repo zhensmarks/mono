@@ -100,21 +100,72 @@
 
                  <!-- Right Side: Order Time & Search -->
                  <StackPanel Grid.Column="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="15">
-                    <!-- Date Filter -->
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                         <CalendarDatePicker SelectedDate="{Binding SelectedDateFilter}" 
-                                          Watermark="Filter by Date..." 
-                                          Width="160"
-                                          VerticalAlignment="Center"
-                                          CornerRadius="6"/>
-                        
-                         <Button Command="{Binding ClearDateFilterCommand}" 
-                                Classes="Clear"
-                                ToolTip.Tip="Clear Date Filter"
-                                IsVisible="{Binding SelectedDateFilter, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                <PathIcon Data="{StaticResource IconX}" Width="14" Height="14"/>
-                         </Button>
-                    </StackPanel>
+                    <!-- Date Filter: No typing needed, wide TODAY button + manual picker button -->
+                    <Border Background="{DynamicResource AppBackgroundBrush}" 
+                            CornerRadius="8" 
+                            BorderBrush="{DynamicResource SeparatorBrush}" 
+                            BorderThickness="1" 
+                            Padding="2"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <!-- Wide TODAY button -->
+                            <Button Command="{Binding FilterTodayCommand}"
+                                    Classes.Primary="{Binding IsTodayFilterActive}"
+                                    Classes.Clear="{Binding !IsTodayFilterActive}"
+                                    ToolTip.Tip="Filter pesanan hari ini (TODAY)"
+                                    CornerRadius="6"
+                                    Height="30"
+                                    MinWidth="85"
+                                    Padding="10,0">
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconCalendarFilled}" Width="12" Height="12" 
+                                              Foreground="{DynamicResource AccentColorBrush}"
+                                              IsVisible="{Binding !IsTodayFilterActive}"/>
+                                    <PathIcon Data="{StaticResource IconCalendarFilled}" Width="12" Height="12" 
+                                              Foreground="White"
+                                              IsVisible="{Binding IsTodayFilterActive}"/>
+                                    <TextBlock Text="TODAY" FontWeight="Bold" FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Manual Date Picker Button (Flyout Calendar, no typing) -->
+                            <Button ToolTip.Tip="Pilih tanggal manual"
+                                    Classes="Clear"
+                                    CornerRadius="6"
+                                    Height="30"
+                                    Padding="8,0"
+                                    VerticalAlignment="Center">
+                                <Button.Flyout>
+                                    <Flyout Placement="BottomEdgeAlignedRight">
+                                        <Border CornerRadius="8" Padding="6" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                                            <Calendar SelectedDate="{Binding SelectedDateFilter, Mode=TwoWay}" />
+                                        </Border>
+                                    </Flyout>
+                                </Button.Flyout>
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconCalendarFilled}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding FilterDateDisplay}" 
+                                               FontSize="11" 
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentColorBrush}"
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding HasManualDateFilter}"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Clear Filter Button (Visible when any date filter is active) -->
+                            <Button Command="{Binding ClearDateFilterCommand}" 
+                                    Classes="Clear"
+                                    ToolTip.Tip="Hapus filter tanggal"
+                                    CornerRadius="6"
+                                    Height="30"
+                                    Width="26"
+                                    Padding="0"
+                                    IsVisible="{Binding SelectedDateFilter, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+                        </StackPanel>
+                    </Border>
 
                     <!-- Search (Rightmost) -->
                     <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="20" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="4,0">

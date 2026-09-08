@@ -48,9 +48,17 @@ public partial class SpreadsheetViewModel : ObservableObject
     }
 
     [ObservableProperty] private DateTime? _selectedDateFilter;
+    [ObservableProperty] private bool _isTodayFilterActive;
+    [ObservableProperty] private bool _hasManualDateFilter;
+    [ObservableProperty] private string _filterDateDisplay = "";
 
     partial void OnSelectedDateFilterChanged(DateTime? value)
     {
+        IsTodayFilterActive = value.HasValue && value.Value.Date == DateTime.Today;
+        HasManualDateFilter = value.HasValue && value.Value.Date != DateTime.Today;
+        FilterDateDisplay = value.HasValue 
+            ? (value.Value.Date == DateTime.Today ? "Today" : value.Value.ToString("dd MMM yyyy")) 
+            : "";
         FilterRows();
     }
 
@@ -505,6 +513,19 @@ public partial class SpreadsheetViewModel : ObservableObject
 
     [RelayCommand]
     private void ZoomOut() => ZoomLevel = Math.Max(ZoomLevel - 0.1, 0.5);
+
+    [RelayCommand]
+    private void FilterToday()
+    {
+        if (SelectedDateFilter.HasValue && SelectedDateFilter.Value.Date == DateTime.Today)
+        {
+            SelectedDateFilter = null;
+        }
+        else
+        {
+            SelectedDateFilter = DateTime.Today;
+        }
+    }
 
     [RelayCommand]
     private void ClearDateFilter()

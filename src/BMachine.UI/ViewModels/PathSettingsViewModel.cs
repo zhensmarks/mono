@@ -101,32 +101,32 @@ public partial class PathSettingsViewModel : ObservableObject
         var jsonPaths = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
         if (!string.IsNullOrEmpty(jsonPaths))
         {
-            try 
+            var entries = EditablePathItem.ParseStoredPaths(jsonPaths);
+            AdditionalMasterPaths = new ObservableCollection<EditablePathItem>(entries.Select(e => new EditablePathItem(e.Path, e.Name)));
+            foreach (var item in AdditionalMasterPaths)
             {
-                var paths = JsonSerializer.Deserialize<string[]>(jsonPaths);
-                if (paths != null)
+                item.PropertyChanged += async (s, e) =>
                 {
-                    AdditionalMasterPaths = new ObservableCollection<EditablePathItem>(paths.Select(p => new EditablePathItem(p)));
-                    foreach (var item in AdditionalMasterPaths) item.PropertyChanged += async (s, e) => await SaveAdditionalPaths();
-                }
+                    if (e.PropertyName != nameof(EditablePathItem.IsEditingPath))
+                        await SaveAdditionalPaths();
+                };
             }
-            catch { }
         }
 
         // Load Additional Photoshop Paths
         var jsonPsPaths = await _database.GetAsync<string>("Configs.Master.PhotoshopPaths");
         if (!string.IsNullOrEmpty(jsonPsPaths))
         {
-            try 
+            var entries = EditablePathItem.ParseStoredPaths(jsonPsPaths);
+            AdditionalPhotoshopPaths = new ObservableCollection<EditablePathItem>(entries.Select(e => new EditablePathItem(e.Path, e.Name)));
+            foreach (var item in AdditionalPhotoshopPaths)
             {
-                var paths = JsonSerializer.Deserialize<string[]>(jsonPsPaths);
-                if (paths != null)
+                item.PropertyChanged += async (s, e) =>
                 {
-                    AdditionalPhotoshopPaths = new ObservableCollection<EditablePathItem>(paths.Select(p => new EditablePathItem(p)));
-                    foreach (var item in AdditionalPhotoshopPaths) item.PropertyChanged += async (s, e) => await SaveAdditionalPhotoshopPaths();
-                }
+                    if (e.PropertyName != nameof(EditablePathItem.IsEditingPath))
+                        await SaveAdditionalPhotoshopPaths();
+                };
             }
-            catch { }
         }
         
         // Notify any listeners
@@ -151,7 +151,11 @@ public partial class PathSettingsViewModel : ObservableObject
              if (!AdditionalMasterPaths.Any(p => p.Path == path))
              {
                  var newItem = new EditablePathItem(path);
-                 newItem.PropertyChanged += async (s, e) => await SaveAdditionalPaths();
+                 newItem.PropertyChanged += async (s, e) =>
+                 {
+                     if (e.PropertyName != nameof(EditablePathItem.IsEditingPath))
+                         await SaveAdditionalPaths();
+                 };
                  AdditionalMasterPaths.Add(newItem);
                  await SaveAdditionalPaths();
              }
@@ -207,15 +211,26 @@ public partial class PathSettingsViewModel : ObservableObject
          
         if (result != null && result.Count > 0)
         {
-            item.Path = result[0].Path.LocalPath;
+            var oldAutoName = EditablePathItem.GetFolderName(item.Path);
+            var newPath = result[0].Path.LocalPath;
+            item.Path = newPath;
+            if (string.IsNullOrWhiteSpace(item.Name) || item.Name == oldAutoName)
+            {
+                item.Name = EditablePathItem.GetFolderName(newPath);
+            }
+            await SaveAdditionalPaths();
         }
     }
 
     private async Task SaveAdditionalPaths()
     {
         if (_database == null) return;
-        var paths = AdditionalMasterPaths.Select(x => x.Path).ToArray();
-        var json = JsonSerializer.Serialize(paths);
+        var entries = AdditionalMasterPaths.Select(x => new StoredPathEntry
+        {
+            Path = x.Path,
+            Name = !string.IsNullOrWhiteSpace(x.Name) ? x.Name : x.AutoDetectedName
+        }).ToArray();
+        var json = JsonSerializer.Serialize(entries);
         await _database.SetAsync("Configs.Master.AdditionalPaths", json);
         
         // Notify listeners (Dashboard/BatchVM) to reload
@@ -240,7 +255,11 @@ public partial class PathSettingsViewModel : ObservableObject
              if (!AdditionalPhotoshopPaths.Any(p => p.Path == path))
              {
                  var newItem = new EditablePathItem(path);
-                 newItem.PropertyChanged += async (s, e) => await SaveAdditionalPhotoshopPaths();
+                 newItem.PropertyChanged += async (s, e) =>
+                 {
+                     if (e.PropertyName != nameof(EditablePathItem.IsEditingPath))
+                         await SaveAdditionalPhotoshopPaths();
+                 };
                  AdditionalPhotoshopPaths.Add(newItem);
                  await SaveAdditionalPhotoshopPaths();
              }
@@ -296,15 +315,26 @@ public partial class PathSettingsViewModel : ObservableObject
          
         if (result != null && result.Count > 0)
         {
-            item.Path = result[0].Path.LocalPath;
+            var oldAutoName = EditablePathItem.GetFolderName(item.Path);
+            var newPath = result[0].Path.LocalPath;
+            item.Path = newPath;
+            if (string.IsNullOrWhiteSpace(item.Name) || item.Name == oldAutoName)
+            {
+                item.Name = EditablePathItem.GetFolderName(newPath);
+            }
+            await SaveAdditionalPhotoshopPaths();
         }
     }
 
     private async Task SaveAdditionalPhotoshopPaths()
     {
         if (_database == null) return;
-        var paths = AdditionalPhotoshopPaths.Select(x => x.Path).ToArray();
-        var json = JsonSerializer.Serialize(paths);
+        var entries = AdditionalPhotoshopPaths.Select(x => new StoredPathEntry
+        {
+            Path = x.Path,
+            Name = !string.IsNullOrWhiteSpace(x.Name) ? x.Name : x.AutoDetectedName
+        }).ToArray();
+        var json = JsonSerializer.Serialize(entries);
         await _database.SetAsync("Configs.Master.PhotoshopPaths", json);
         
         WeakReferenceMessenger.Default.Send(new MasterPathsChangedMessage());
