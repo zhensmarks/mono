@@ -40,47 +40,43 @@
 
                         <WrapPanel Orientation="Horizontal">
                             <!-- ID Badge -->
-                            <Button Classes="Clear" Padding="0" Background="Transparent" VerticalAlignment="Center" Margin="0,0,6,6"
-                                    Command="{Binding OpenSpreadsheetAndSearchCommand}" CommandParameter="{Binding SelectedCard.DisplayId}"
-                                    IsVisible="{Binding SelectedCard.HasDisplayId}" Cursor="Hand" ToolTip.Tip="Click to Open Sheet &amp; Search ID">
+                            <Button Command="{Binding OpenSpreadsheetAndSearchCommand}" CommandParameter="{Binding SelectedCard.DisplayId}"
+                                    IsVisible="{Binding SelectedCard.HasDisplayId}" Cursor="Hand" ToolTip.Tip="Click to Open Sheet &amp; Search ID"
+                                    Background="#140EA5E9" BorderBrush="#0EA5E9" BorderThickness="1" Padding="12,6" CornerRadius="8" Margin="0,0,8,6">
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="Opacity" Value="0.85"/>
+                                        <Setter Property="Background" Value="#250EA5E9"/>
+                                        <Setter Property="BorderBrush" Value="#38BDF8"/>
                                     </Style>
                                 </Button.Styles>
-                                <Border Background="{Binding AccentColor}" CornerRadius="12" Height="28" Padding="12,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <TextBlock Text="ID:" FontSize="12" FontWeight="SemiBold" Foreground="#0A0A0A" Opacity="0.6"/>
-                                        <TextBlock Text="{Binding SelectedCard.DisplayId}" FontSize="12" FontWeight="Bold" Foreground="#0A0A0A"/>
-                                    </StackPanel>
-                                </Border>
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Text="ID:" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8" Opacity="0.8"/>
+                                    <TextBlock Text="{Binding SelectedCard.DisplayId}" FontSize="12" FontWeight="Bold" Foreground="#38BDF8"/>
+                                </StackPanel>
                             </Button>
                             
                             <!-- Attachments Badge -->
-                            <Button Classes="Clear" Padding="0" Background="Transparent" VerticalAlignment="Center" Margin="0,0,6,6"
-                                    Command="{Binding $parent[UserControl].DataContext.ShowAttachmentsCommand}" CommandParameter="{Binding SelectedCard}"
-                                    IsVisible="{Binding SelectedCard.HasAttachments}" Cursor="Hand" ToolTip.Tip="View Attachments">
+                            <Button Command="{Binding $parent[UserControl].DataContext.ShowAttachmentsCommand}" CommandParameter="{Binding SelectedCard}"
+                                    IsVisible="{Binding SelectedCard.HasAttachments}" Cursor="Hand" ToolTip.Tip="View Attachments"
+                                    Background="#14F59E0B" BorderBrush="#F59E0B" BorderThickness="1" Padding="12,6" CornerRadius="8" Margin="0,0,8,6">
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="Opacity" Value="0.85"/>
+                                        <Setter Property="Background" Value="#25F59E0B"/>
+                                        <Setter Property="BorderBrush" Value="#FBBF24"/>
                                     </Style>
                                 </Button.Styles>
-                                <Border Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12" Height="28" Padding="12,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <PathIcon Data="{StaticResource IconPaperclip}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <TextBlock Text="{Binding SelectedCard.AttachmentCount}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    </StackPanel>
-                                </Border>
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Text="Attachments:" FontSize="12" FontWeight="SemiBold" Foreground="#FBBF24" Opacity="0.8"/>
+                                    <TextBlock Text="{Binding SelectedCard.AttachmentCount}" FontSize="12" FontWeight="Bold" Foreground="#FBBF24"/>
+                                </StackPanel>
                             </Button>
                             
                             <!-- Due Date Badge -->
-                            <Border Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12" Height="28" Padding="12,0" Margin="0,0,6,6" VerticalAlignment="Center"
+                            <Border Background="#14F97316" BorderBrush="#F97316" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,0,8,6" VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedCard.DueDateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconClock}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="{Binding SelectedCard.DueDateText}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                    <TextBlock Text="Due:" FontSize="12" FontWeight="SemiBold" Foreground="#FB923C" Opacity="0.8"/>
+                                    <TextBlock Text="{Binding SelectedCard.DueDateText}" FontSize="12" FontWeight="Bold" Foreground="#FB923C"/>
                                 </StackPanel>
                             </Border>
                             
@@ -89,7 +85,8 @@
                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{Binding ColorHex}" CornerRadius="12" Height="28" Padding="12,0" Margin="0,0,6,6">
+                                        <Border Background="{Binding BgColorHex}" BorderBrush="{Binding BorderColorHex}" BorderThickness="1"
+                                                CornerRadius="8" Padding="12,6" Margin="0,0,8,6" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" Foreground="{Binding TextColorHex}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
                                         </Border>
                                     </DataTemplate>

@@ -218,6 +218,14 @@ public partial class SpreadsheetView : UserControl
                         {
                             row.Cells[col.Index].Value = DateTime.Today.ToString("yyyy-MM-dd");
                         }
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            if (_dataGrid != null)
+                            {
+                                _dataGrid.CommitEdit();
+                                _dataGrid.IsReadOnly = true;
+                            }
+                        });
                     };
 
                     Grid.SetColumn(todayBtn, 0);
@@ -263,6 +271,14 @@ public partial class SpreadsheetView : UserControl
                         {
                             row.Cells[col.Index].Value = calendar.SelectedDate.Value.ToString("yyyy-MM-dd");
                             flyout.Hide();
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            {
+                                if (_dataGrid != null)
+                                {
+                                    _dataGrid.CommitEdit();
+                                    _dataGrid.IsReadOnly = true;
+                                }
+                            });
                         }
                     };
 

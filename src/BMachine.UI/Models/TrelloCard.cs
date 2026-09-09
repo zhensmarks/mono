@@ -178,33 +178,62 @@ public class TrelloLabel
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Color { get; set; } = ""; // Trello color name: green, yellow, etc.
-    public string ColorHex => GetColorHex(Color);
+    public string ColorHex => BorderColorHex;
+    public string BorderColorHex => GetBorderColorHex(Color);
+    public string BgColorHex => GetBgColorHex(Color);
     public string TextColorHex => GetTextColorHex(Color);
 
-    private string GetColorHex(string trelloColor)
+    public static string GetColorHex(string? trelloColor) => GetBorderColorHex(trelloColor);
+
+    public static string GetBorderColorHex(string? trelloColor)
     {
-        return trelloColor switch
+        if (!string.IsNullOrEmpty(trelloColor) && trelloColor.StartsWith("#") && trelloColor.Length == 7)
         {
-            "green" => "#4bce97",
-            "yellow" => "#e2b203",
-            "orange" => "#faa53d",
-            "red" => "#f87168",
-            "purple" => "#9f8fef",
-            "blue" => "#579dff",
-            "sky" => "#6cc3e0",
-            "lime" => "#94c748",
-            "pink" => "#e774bb",
-            "black" => "#8590a2",
-            _ => "#626f86" // Default gray
+            return trelloColor;
+        }
+
+        return trelloColor?.ToLowerInvariant() switch
+        {
+            "green" => "#22C55E",
+            "yellow" => "#EAB308",
+            "orange" => "#F97316",
+            "red" => "#EF4444",
+            "purple" => "#A855F7",
+            "blue" => "#3B82F6",
+            "sky" => "#0EA5E9",
+            "lime" => "#84CC16",
+            "pink" => "#EC4899",
+            "black" => "#64748B",
+            _ => "#64748B"
         };
     }
-    
-    private string GetTextColorHex(string trelloColor)
+
+    public static string GetBgColorHex(string? trelloColor)
     {
-         // Most Trello labels use dark text on pastel backgrounds, or white on dark?
-         // Modern Trello uses dark text on these specific pastel shades, except maybe formatting.
-         // Actually, let's keep it simple: #1d2125 (Dark) for most, maybe White for others if needed.
-         // The hex codes above are standard Trello "light" tokens. Text is usually dark.
-         return "#1d2125"; 
+        var border = GetBorderColorHex(trelloColor);
+        return border.StartsWith("#") && border.Length == 7 ? $"#14{border.Substring(1)}" : "#1464748B";
+    }
+
+    public static string GetTextColorHex(string? trelloColor)
+    {
+        if (!string.IsNullOrEmpty(trelloColor) && trelloColor.StartsWith("#") && trelloColor.Length == 7)
+        {
+            return trelloColor;
+        }
+
+        return trelloColor?.ToLowerInvariant() switch
+        {
+            "green" => "#4ADE80",
+            "yellow" => "#FDE047",
+            "orange" => "#FB923C",
+            "red" => "#F87168",
+            "purple" => "#C084FC",
+            "blue" => "#60A5FA",
+            "sky" => "#38BDF8",
+            "lime" => "#A3E635",
+            "pink" => "#F472B6",
+            "black" => "#94A3B8",
+            _ => "#94A3B8"
+        };
     }
 }
