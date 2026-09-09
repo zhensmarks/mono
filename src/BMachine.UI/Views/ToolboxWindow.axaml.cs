@@ -213,6 +213,13 @@ public partial class ToolboxWindow : Window
                 vm.MantraGandaVM.MasterPath = firstPath;
             }
         }
+        else if (vm.IsMantraDataVisible)
+        {
+            if (!isDir && files.Count > 0)
+            {
+                _ = vm.MantraDataVM.LoadFileByPathAsync(files[0]);
+            }
+        }
     }
 
     private async void OnPsdSelectMasterClick(object? sender, RoutedEventArgs e)

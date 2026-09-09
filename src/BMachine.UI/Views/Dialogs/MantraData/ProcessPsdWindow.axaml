@@ -1,0 +1,182 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BMachine.UI.Views.Dialogs.MantraData.ProcessPsdWindow"
+        Title="Proses Rendering Photoshop"
+        Width="580" Height="530"
+        MinWidth="520" MinHeight="480"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#09090B"
+        Foreground="#E8E8E6"
+        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
+
+    <Window.Styles>
+        <!-- Primary Action Button with solid card background -->
+        <Style Selector="Button.Action">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="BorderBrush" Value="#EDEDED"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="TextElement.Foreground" Value="#52525B"/>
+        </Style>
+
+        <!-- Secondary Muted Button with clear border & dark card background -->
+        <Style Selector="Button.Muted">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Muted /template/ ContentPresenter">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+        </Style>
+
+        <!-- Small card button -->
+        <Style Selector="Button.SmallBtn">
+            <Setter Property="Background" Value="#1F1F23"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#2C2C30"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.SmallBtn /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1F1F23"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#2C2C30"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.SmallBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2A2A30"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+        <Grid RowDefinitions="Auto, *, Auto">
+            <!-- 1. Header -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                <TextBlock Text="Proses Rendering Photoshop" FontSize="15" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+                <TextBlock Text="Pilih folder template PSD dan folder foto siswa yang akan dirender."
+                           FontSize="12" Foreground="#71717A" Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- 2. Form Zones -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12">
+                    <!-- Zone 1: Folder Template PSD -->
+                    <Border x:Name="DropZonePsd" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="14">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*, Auto">
+                                <TextBlock Grid.Column="0" Text="Folder Template PSD" FontSize="12" FontWeight="SemiBold" Foreground="#E6EDF3"/>
+                                <Border x:Name="BadgePsd" Grid.Column="1" Background="#21262D" CornerRadius="10" Padding="8,2">
+                                    <TextBlock x:Name="TxtBadgePsd" Text="Belum Dipilih" FontSize="11" Foreground="#8B949E"/>
+                                </Border>
+                            </Grid>
+
+                            <StackPanel Spacing="2">
+                                <TextBlock x:Name="TxtPsdFolderName" Text="Pilih folder template layout PSD"
+                                           FontSize="12" FontWeight="Medium" Foreground="#C9D1D9" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="TxtPsdPath" Text="Mendukung folder berisikan file dokumen .psd"
+                                           FontSize="11" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                                <Button x:Name="BtnClearPsd" Classes="SmallBtn" Content="Reset"
+                                        IsVisible="False" Click="OnClearPsdClick"/>
+                                <Button Classes="SmallBtn" Content="Pilih Folder PSD" Click="OnBrowsePsdClick"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Zone 2: Folder Foto Siswa -->
+                    <Border x:Name="DropZonePhoto" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="14">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*, Auto">
+                                <TextBlock Grid.Column="0" Text="Folder Foto Siswa / Objek" FontSize="12" FontWeight="SemiBold" Foreground="#E6EDF3"/>
+                                <Border x:Name="BadgePhoto" Grid.Column="1" Background="#21262D" CornerRadius="10" Padding="8,2">
+                                    <TextBlock x:Name="TxtBadgePhoto" Text="Belum Dipilih" FontSize="11" Foreground="#8B949E"/>
+                                </Border>
+                            </Grid>
+
+                            <StackPanel Spacing="2">
+                                <TextBlock x:Name="TxtPhotoFolderName" Text="Pilih folder foto siswa atau guru"
+                                           FontSize="12" FontWeight="Medium" Foreground="#C9D1D9" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="TxtPhotoPath" Text="Mendukung format gambar .jpg, .jpeg, .png, .psd"
+                                           FontSize="11" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                                <Button x:Name="BtnClearPhoto" Classes="SmallBtn" Content="Reset"
+                                        IsVisible="False" Click="OnClearPhotoClick"/>
+                                <Button Classes="SmallBtn" Content="Pilih Folder Foto" Click="OnBrowsePhotoClick"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Zone 3: Verification & Readiness Summary -->
+                    <Border Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="12,10">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
+                                <TextBlock x:Name="TxtSummaryTitle" Text="Status Verifikasi"
+                                           FontSize="11.5" FontWeight="SemiBold" Foreground="#828896"/>
+                                <TextBlock x:Name="TxtSummaryMessage" Text="Menunggu pemilihan folder..."
+                                           FontSize="11.5" Foreground="#8B949E" TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                                <Border x:Name="PillPsdReady" CornerRadius="10" Background="#21262D" Padding="8,2">
+                                    <TextBlock x:Name="TxtPillPsd" Text="PSD: -" FontSize="11" Foreground="#8B949E"/>
+                                </Border>
+                                <Border x:Name="PillPhotoReady" CornerRadius="10" Background="#21262D" Padding="8,2">
+                                    <TextBlock x:Name="TxtPillPhoto" Text="Foto: -" FontSize="11" Foreground="#8B949E"/>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 3. Bottom Action Buttons -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+                <Button Classes="Muted" Content="Batal" MinWidth="90" Click="OnCancelClick"/>
+                <Button x:Name="BtnSubmit" Classes="Action" Content="Mulai Proses ke Photoshop" MinWidth="200"
+                        Click="OnSubmitClick" IsEnabled="False"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

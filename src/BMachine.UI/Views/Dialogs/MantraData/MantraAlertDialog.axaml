@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BMachine.UI.Views.Dialogs.MantraData.MantraAlertDialog"
+        Title="Pemberitahuan"
+        Width="440" Height="210"
+        MinWidth="440" MinHeight="210"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#09090B"
+        Foreground="#E8E8E6"
+        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
+
+    <Window.Styles>
+        <Style Selector="Button.Action">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="BorderBrush" Value="#EDEDED"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="20,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+        <Grid RowDefinitions="Auto, *, Auto">
+            <TextBlock x:Name="TxtTitle" Grid.Row="0" Text="Perhatian" FontSize="15" FontWeight="SemiBold" Foreground="#F4F4F5" Margin="0,0,0,8"/>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="TxtMessage" Text="Pesan" FontSize="12.5" Foreground="#A1A1AA" TextWrapping="Wrap" LineHeight="18"/>
+            </ScrollViewer>
+            <Button Grid.Row="2" Classes="Action" Content="OK" MinWidth="100" Background="#EDEDED" Foreground="#111111" HorizontalAlignment="Right" Margin="0,16,0,0" Click="OnOkClick"/>
+        </Grid>
+    </Border>
+</Window>

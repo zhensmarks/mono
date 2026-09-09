@@ -927,7 +927,6 @@
                                           IsVisible="{Binding DataContext.IsExplorerTabSelected, ElementName=Root}"
                                           Margin="20,0,20,0"/>
 
-
                 <!-- EMBEDDED VIEW OVERLAY -->
                 <Grid IsVisible="{Binding IsEmbeddedViewOpen}" Background="{DynamicResource AppBackgroundBrush}" ZIndex="100">
                     <ContentControl Content="{Binding CurrentEmbeddedView}" 

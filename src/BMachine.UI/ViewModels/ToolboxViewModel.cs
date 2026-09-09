@@ -8,7 +8,8 @@ public enum ToolboxTab
 {
     PsdBucin,
     MantraNama,
-    MantraGanda
+    MantraGanda,
+    MantraData
 }
 
 public partial class ToolboxViewModel : ObservableObject
@@ -19,9 +20,12 @@ public partial class ToolboxViewModel : ObservableObject
     public PsdBucinViewModel PsdBucinVM { get; } = new();
     public MantraNamaViewModel MantraNamaVM { get; } = new();
     public MantraGandaViewModel MantraGandaVM { get; } = new();
+    public MantraDataViewModel MantraDataVM { get; }
 
     public ToolboxViewModel()
     {
+        var db = new BMachine.Core.Database.DatabaseService();
+        MantraDataVM = new MantraDataViewModel(db);
     }
 
     [RelayCommand]
@@ -35,6 +39,7 @@ public partial class ToolboxViewModel : ObservableObject
         OnPropertyChanged(nameof(IsPsdBucinVisible));
         OnPropertyChanged(nameof(IsMantraNamaVisible));
         OnPropertyChanged(nameof(IsMantraGandaVisible));
+        OnPropertyChanged(nameof(IsMantraDataVisible));
     }
 
     public bool IsPsdBucinVisible 
@@ -53,5 +58,11 @@ public partial class ToolboxViewModel : ObservableObject
     { 
         get => CurrentTab == ToolboxTab.MantraGanda; 
         set { if(value) CurrentTab = ToolboxTab.MantraGanda; } 
+    }
+
+    public bool IsMantraDataVisible
+    {
+        get => CurrentTab == ToolboxTab.MantraData;
+        set { if(value) CurrentTab = ToolboxTab.MantraData; }
     }
 }

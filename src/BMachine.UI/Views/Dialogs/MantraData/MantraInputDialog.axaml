@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BMachine.UI.Views.Dialogs.MantraData.MantraInputDialog"
+        Title="Input"
+        Width="460" Height="230"
+        MinWidth="460" MinHeight="230"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#09090B"
+        Foreground="#E8E8E6"
+        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
+
+    <Window.Styles>
+        <Style Selector="Button.Action">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="BorderBrush" Value="#EDEDED"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+
+        <Style Selector="Button.Muted">
+            <Setter Property="Background" Value="#1C1C1F"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Muted /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1C1C1F"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#52525B"/>
+            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+        <Grid RowDefinitions="Auto, Auto, *, Auto">
+            <TextBlock x:Name="TxtTitle" Grid.Row="0" Text="Input Data" FontSize="15" FontWeight="SemiBold" Foreground="#F4F4F5" Margin="0,0,0,4"/>
+            <TextBlock x:Name="TxtPrompt" Grid.Row="1" Text="Masukkan nilai:" FontSize="12" Foreground="#A1A1AA" Margin="0,0,0,12"/>
+            <TextBox x:Name="InputBox" Grid.Row="2" Height="34" FontSize="12.5" VerticalContentAlignment="Center"
+                     Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1"
+                     CornerRadius="6" Padding="10,0" KeyDown="OnInputBoxKeyDown"/>
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+                <Button Classes="Muted" Content="Batal" MinWidth="90" Click="OnCancelClick"/>
+                <Button Classes="Action" Content="Simpan" MinWidth="110" Background="#EDEDED" Foreground="#111111" Click="OnOkClick"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

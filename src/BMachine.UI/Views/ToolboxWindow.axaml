@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:BMachine.UI.ViewModels"
+        xmlns:views="using:BMachine.UI.Views"
         mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="720"
         x:Class="BMachine.UI.Views.ToolboxWindow"
         x:DataType="vm:ToolboxViewModel"
@@ -518,6 +519,13 @@
 
                 </Grid>
 
+                <!-- ═══════════════════════
+                     MANTRA DATA
+                ═══════════════════════ -->
+                <Grid IsVisible="{Binding IsMantraDataVisible}">
+                    <views:MantraDataView DataContext="{Binding MantraDataVM}"/>
+                </Grid>
+
             </Grid>
         </Grid>
 
@@ -648,6 +656,10 @@
                         Classes.on="{Binding IsMantraGandaVisible}"
                         Command="{Binding SwitchTabCommand}"
                         CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}"/>
+                <Button Classes="Tab" Content="Mantra Data"
+                        Classes.on="{Binding IsMantraDataVisible}"
+                        Command="{Binding SwitchTabCommand}"
+                        CommandParameter="{x:Static vm:ToolboxTab.MantraData}"/>
             </StackPanel>
         </Border>
 

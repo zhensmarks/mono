@@ -1,0 +1,331 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:models="using:BMachine.UI.Models.MantraData"
+             mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="700"
+             x:Class="BMachine.UI.Views.MantraDataView"
+             x:DataType="vm:MantraDataViewModel"
+             Background="Transparent"
+             DragDrop.AllowDrop="True">
+
+    <UserControl.Styles>
+        <!-- DataGrid Excel-Like Minimalist Dark -->
+        <Style Selector="DataGridCell">
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="BorderBrush" Value="#1A1A1D"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <Style Selector="DataGridCell:selected">
+            <Setter Property="Background" Value="#2A3F66"/>
+            <Setter Property="BorderBrush" Value="#38BDF8"/>
+        </Style>
+
+        <Style Selector="DataGridCell:current">
+            <Setter Property="Background" Value="#334E7D"/>
+            <Setter Property="BorderBrush" Value="#60A5FA"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+        </Style>
+
+        <Style Selector="DataGridRow">
+            <Setter Property="MinHeight" Value="28"/>
+        </Style>
+
+        <Style Selector="DataGridRow:pointerover">
+            <Setter Property="Background" Value="#11FFFFFF"/>
+        </Style>
+
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="#16161A"/>
+            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="DataGridColumnHeader:pointerover">
+            <Setter Property="Background" Value="#212126"/>
+            <Setter Property="Foreground" Value="#F4F4F5"/>
+        </Style>
+
+        <!-- Toolbox-matched secondary buttons (Pure Typographic, No Icon) -->
+        <Style Selector="Button.ToolBtn">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+        <Style Selector="Button.ToolBtn /template/ ContentPresenter">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.ToolBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+        </Style>
+
+        <!-- Toolbox-matched primary action button -->
+        <Style Selector="Button.ActionBtn">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="14,5"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="Button.ActionBtn /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.ActionBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.ActionBtn:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#BDBDBD"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto, *, Auto">
+
+        <!-- ═══ 1. PURE TYPOGRAPHIC TOOLBAR (NO ICONS) ═══ -->
+        <Border Grid.Row="0" Background="#111113" BorderBrush="#232326" BorderThickness="1"
+                CornerRadius="10" Padding="12,10" Margin="0,0,0,10">
+            <StackPanel Spacing="8">
+                
+                <!-- ROW 1: Action Cluster + Search -->
+                <Grid ColumnDefinitions="*, Auto">
+                    <!-- Left: Core Actions -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <!-- Tabel Baru -->
+                        <Button Classes="ToolBtn" Content="Tabel Baru" Command="{Binding NewTableCommand}"
+                                ToolTip.Tip="Buat tabel baru sesuai template (Ctrl+N)"/>
+
+                        <!-- Buka File -->
+                        <Button Classes="ToolBtn" Content="Buka" Click="OnOpenFileClicked"
+                                ToolTip.Tip="Buka file Excel / Word (Ctrl+O)"/>
+
+                        <!-- Export Dropdown -->
+                        <Button Classes="ToolBtn" Content="Export" ToolTip.Tip="Pilih format export data">
+                            <Button.Flyout>
+                                <MenuFlyout Placement="Bottom">
+                                    <MenuItem Header="Export ke DATER (TXT + JSON + XLSX)" Click="OnExportDaterMenuClick"/>
+                                    <Separator Background="#232326"/>
+                                    <MenuItem Header="Export ke Excel (.xlsx)" Tag="xlsx" Click="OnExportFormatMenuClick"/>
+                                    <MenuItem Header="Export ke TXT (Tab-delimited)" Tag="txt" Click="OnExportFormatMenuClick"/>
+                                    <MenuItem Header="Export ke CSV (.csv)" Tag="csv" Click="OnExportFormatMenuClick"/>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+
+                        <!-- Process PSD (Primary CTA) -->
+                        <Button Classes="ActionBtn" Content="Process PSD" Command="{Binding ProcessPhotoshopCommand}"
+                                ToolTip.Tip="Kirim data dan render ke Photoshop (Ctrl+Enter)"/>
+
+                        <!-- Undo Button -->
+                        <Button Classes="ToolBtn" Content="Undo" Command="{Binding UndoCommand}"
+                                IsEnabled="{Binding CanUndo}" ToolTip.Tip="Urungkan perubahan (Ctrl+Z)"/>
+                    </StackPanel>
+
+                    <!-- Right: Search Filter Box (No Icon) -->
+                    <TextBox Grid.Column="1" Text="{Binding SearchFilter, Mode=TwoWay}"
+                             Height="32" MinWidth="110" MaxWidth="160" VerticalContentAlignment="Center"
+                             Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1"
+                             CornerRadius="6" Padding="10,0" FontSize="11.5"
+                             Watermark="Cari data..."/>
+                </Grid>
+
+                <!-- ROW 2: Job Kind + Quick Clean + Formula Bar + Apply (Pure Text) -->
+                <Grid ColumnDefinitions="Auto, Auto, *, Auto">
+                    <!-- Job Kind Dropdown -->
+                    <ComboBox Grid.Column="0" Width="150" Height="32" Margin="0,0,8,0"
+                              VerticalAlignment="Center" FontSize="11.5" Padding="8,4"
+                              Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"
+                              ItemsSource="{Binding JobKinds}"
+                              SelectedItem="{Binding JobKind, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:DataJobKind">
+                                <TextBlock Text="{Binding Converter={x:Null}, ConverterParameter={Binding}, Mode=OneWay}"
+                                           Loaded="OnJobKindTextBlockLoaded"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <!-- Susun Kolom & Rapikan Menu -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <Button Classes="ToolBtn" Content="Susun Kolom" Command="{Binding ApplyLayoutCommand}"
+                                ToolTip.Tip="Sesuaikan nama kolom dengan jenis pekerjaan"/>
+
+                        <Button Classes="ToolBtn" Content="Rapikan" ToolTip.Tip="Opsi perapian data otomatis">
+                            <Button.Flyout>
+                                <MenuFlyout Placement="Bottom">
+                                    <MenuItem Header="Rapikan Semua (Smart Clean)" Command="{Binding CleanupAllCommand}"/>
+                                    <Separator Background="#232326"/>
+                                    <MenuItem Header="Rapikan Huruf (Title Case)" Click="OnMenuTitleCaseClicked"/>
+                                    <MenuItem Header="Format Tanggal (DD MMMM YYYY)" Click="OnMenuDateFormatFullClicked"/>
+                                    <MenuItem Header="Format No. HP (+62)" Click="OnMenuPhonePrefixClicked"/>
+                                    <MenuItem Header="Normalisasi Gender (L/P)" Click="OnMenuNormalizeGenderClicked"/>
+                                    <MenuItem Header="Trim Spasi Berlebih" Click="OnMenuTrimSpacesClicked"/>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Formula Bar (No fx Icon, Pure Clean Input) -->
+                    <TextBox x:Name="FormulaBox" Grid.Column="2" Text="{Binding FormulaText, Mode=TwoWay}"
+                             Height="32" Margin="0,0,8,0" VerticalContentAlignment="Center"
+                             Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1"
+                             CornerRadius="6" Padding="10,0"
+                             FontFamily="'Cascadia Code', Consolas, monospace" FontSize="11.5"
+                             Watermark="Rumus: =PROPER([NAMA])  =TTL([TEMPAT LAHIR],[TGL LAHIR])"
+                             KeyDown="OnFormulaBoxKeyDown"/>
+
+                    <!-- Compact Formula Apply Dropdown (Pure Text) -->
+                    <Button Grid.Column="3" Classes="ToolBtn" Content="Terapkan" VerticalAlignment="Center"
+                            ToolTip.Tip="Pilih target aplikasi rumus">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="Bottom">
+                                <MenuItem Header="Terapkan ke Seluruh Kolom" Click="OnApplyFormulaColumnClicked"/>
+                                <MenuItem Header="Terapkan ke Sel Terpilih" Click="OnApplyFormulaSelectionClicked"/>
+                                <Separator Background="#232326"/>
+                                <MenuItem Header="Hitung Ulang Semua Rumus" Command="{Binding RecalcFormulasCommand}"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </Grid>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ═══ 2. DATAGRID BENTO CARD SURFACE ═══ -->
+        <Border Grid.Row="1" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+            <Grid x:Name="GridContainer">
+                <DataGrid x:Name="MainDataGrid"
+                          ItemsSource="{Binding FilteredRows}"
+                          AutoGenerateColumns="False"
+                          CanUserResizeColumns="True"
+                          CanUserReorderColumns="True"
+                          CanUserSortColumns="False"
+                          SelectionMode="Extended"
+                          GridLinesVisibility="All"
+                          HeadersVisibility="All"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          BorderThickness="0"
+                          Background="Transparent"
+                          Foreground="#E8E8E6"
+                          HorizontalGridLinesBrush="#1A1A1D"
+                          VerticalGridLinesBrush="#1A1A1D"
+                          SelectionChanged="OnDataGridSelectionChanged"
+                          CellEditEnded="OnDataGridCellEditEnded">
+
+                    <!-- Context Menu -->
+                    <DataGrid.ContextMenu>
+                        <ContextMenu Background="#111113" BorderBrush="#232326" BorderThickness="1">
+                            <!-- 1. Clipboard & Edit -->
+                            <MenuItem Header="Salin" InputGesture="Ctrl+C" Click="OnMenuCopyClicked"/>
+                            <MenuItem Header="Tempel" InputGesture="Ctrl+V" Click="OnMenuPasteClicked"/>
+                            <MenuItem Header="Kosongkan Sel" InputGesture="Delete" Click="OnMenuClearCellsClicked"/>
+                            <Separator Background="#232326"/>
+
+                            <!-- 2. Data Actions -->
+                            <MenuItem Header="Gabung Kolom..." Click="OnMenuCustomMergeClicked"/>
+                            <MenuItem Header="Rapikan Teks (Title Case)" Click="OnMenuTitleCaseClicked"/>
+                            <MenuItem Header="Format Tanggal (DD MMMM YYYY)" Click="OnMenuDateFormatFullClicked"/>
+                            <MenuItem Header="Format No. HP (+62 / 08)" Click="OnMenuPhonePrefixClicked"/>
+                            <MenuItem Header="Cari dan Ganti..." InputGesture="Ctrl+H" Click="OnMenuFindReplaceClicked"/>
+                            <MenuItem Header="Pisah Kolom..." Click="OnMenuSplitColumnClicked"/>
+                            <Separator Background="#232326"/>
+
+                            <!-- 3. Manage Columns -->
+                            <MenuItem Header="Sisipkan Kolom di Kiri..." Click="OnMenuInsertColumnLeftClicked"/>
+                            <MenuItem Header="Sisipkan Kolom di Kanan..." Click="OnMenuInsertColumnRightClicked"/>
+                            <MenuItem Header="Pindahkan Kolom ke Kiri" Click="OnMenuMoveColumnLeftClicked"/>
+                            <MenuItem Header="Pindahkan Kolom ke Kanan" Click="OnMenuMoveColumnRightClicked"/>
+                            <MenuItem Header="Ubah Nama Kolom..." Click="OnMenuRenameColumnClicked"/>
+                            <MenuItem Header="Hapus Kolom" Click="OnMenuDeleteColumnClicked"/>
+                            <Separator Background="#232326"/>
+
+                            <!-- 4. Manage Rows -->
+                            <MenuItem Header="Sisipkan Baris Baru" Click="OnMenuInsertRowClicked"/>
+                            <MenuItem Header="Hapus Baris Terpilih" InputGesture="Shift+Delete" Click="OnMenuDeleteRowsClicked"/>
+                            <Separator Background="#232326"/>
+
+                            <!-- 5. Row Coloring -->
+                            <MenuItem Header="Tandai Warna Baris">
+                                <MenuItem Header="Hijau" Click="OnMenuColorGreenClicked"/>
+                                <MenuItem Header="Biru" Click="OnMenuColorBlueClicked"/>
+                                <MenuItem Header="Kuning" Click="OnMenuColorAmberClicked"/>
+                                <MenuItem Header="Merah" Click="OnMenuColorRedClicked"/>
+                                <Separator Background="#232326"/>
+                                <MenuItem Header="Hapus Warna" Click="OnMenuColorClearClicked"/>
+                            </MenuItem>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                </DataGrid>
+
+                <!-- Empty State Prompt (Pure Text, No Icons) -->
+                <Border x:Name="EmptyPrompt" Background="#111113" BorderBrush="#232326" BorderThickness="1"
+                        CornerRadius="10" Margin="30" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440" Margin="32,28">
+                        <TextBlock Text="Tarik &amp; Lepas File Data ke Sini" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="#F4F4F5" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock Text="Mendukung spreadsheet Excel (.xlsx, .xls) dan biodata Word (.docx). Klik tombol di bawah atau seret dokumen dari folder."
+                                   Foreground="#71717A" TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Margin="0,0,0,22" LineHeight="18"/>
+                        <Button Classes="ActionBtn" Content="Pilih File dari Komputer"
+                                Padding="20,8" Height="36" HorizontalAlignment="Center"
+                                Click="OnOpenFileClicked" Margin="0,0,0,10"/>
+                        <Button Classes="ToolBtn" Content="Buat tabel buku tahunan / ID card"
+                                Padding="18,7" Height="34" HorizontalAlignment="Center"
+                                Command="{Binding NewTableCommand}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Drag Glow Overlay (Pure Text, No Icons) -->
+                <Border x:Name="DragOverlay" Background="#203B82F6" BorderBrush="#60A5FA" BorderThickness="2"
+                        CornerRadius="10" IsVisible="False" IsHitTestVisible="False">
+                    <TextBlock Text="Lepaskan file untuk membaca data tabel" FontWeight="SemiBold" FontSize="15"
+                               Foreground="#93C5FD" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ═══ 3. STATUS BAR FOOTER BENTO (Pure Text) ═══ -->
+        <Border Grid.Row="2" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1"
+                CornerRadius="8" Padding="14,6" Margin="0,8,0,0">
+            <Grid ColumnDefinitions="*, Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True" Width="14" Height="14" IsVisible="{Binding IsLoading}"/>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="#71717A" FontSize="11.5" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding TotalRows, StringFormat='Data: {0} baris'}"
+                               FontFamily="'Cascadia Code', Consolas, monospace" FontSize="11" Foreground="#71717A"/>
+                    <TextBlock Text="{Binding SelectedRowCount, StringFormat='Terpilih: {0}'}"
+                               FontFamily="'Cascadia Code', Consolas, monospace" FontSize="11" Foreground="#52525B"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+    </Grid>
+</UserControl>
