@@ -78,6 +78,7 @@
 
                 <TextBlock Text="Lingkup kolom" FontSize="12" FontWeight="Medium" Foreground="#A1A1AA" Margin="0,4,0,0"/>
                 <ComboBox x:Name="CmbColumn" HorizontalAlignment="Stretch" Height="34" FontSize="12"
+                          VerticalContentAlignment="Center" Padding="10,0,8,0"
                           Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"/>
 
                 <CheckBox x:Name="ChkMatchCase" Content="Cocokkan huruf besar/kecil" FontSize="12" Foreground="#71717A" Margin="0,6,0,0"/>

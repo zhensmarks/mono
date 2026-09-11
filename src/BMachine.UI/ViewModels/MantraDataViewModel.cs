@@ -21,9 +21,13 @@ public partial class MantraDataViewModel : ObservableObject
     private readonly WordParserService _wordService;
     private readonly PhotoMatcherService _photoService;
     private readonly PhotoshopBridgeService _psBridge;
+    private readonly TransformService _transformService;
+    private readonly LocalAIService _aiService;
     private readonly IDatabase? _database;
 
     public MantraDataSettings Settings => _settings;
+    public TransformService TransformService => _transformService;
+    public LocalAIService AiService => _aiService;
 
     [ObservableProperty]
     private string _currentFilePath = string.Empty;
@@ -54,6 +58,22 @@ public partial class MantraDataViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _canUndo = false;
+    [ObservableProperty]
+    private bool _canRedo = false;
+
+    [ObservableProperty]
+    private bool _hasData = false;
+
+    [ObservableProperty]
+    private string _replaceText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isAdvancedSearchOpen = false;
+
+    // Multi-sheet support
+    private List<SheetResult> _allSheets = new();
+    [ObservableProperty] private ObservableCollection<string> _sheetNames = new();
+    [ObservableProperty] private int _currentSheetIndex = -1;
 
     // Callbacks for View to present dialogs
     public Func<Task<(string? PsdFolder, string? PhotoFolder)>>? RequestProcessPsdDialogFunc { get; set; }
@@ -63,6 +83,8 @@ public partial class MantraDataViewModel : ObservableObject
     public Func<IEnumerable<string>, string?, Task<(bool Confirmed, string Find, string Replace, string? TargetColumn, bool MatchCase)>>? RequestFindReplaceFunc { get; set; }
     public Func<IEnumerable<string>, string?, Task<(bool Confirmed, string Source, string Separator, string ColA, string ColB, bool DeleteSource)>>? RequestSplitColumnFunc { get; set; }
     public Func<IEnumerable<string>, IEnumerable<string>?, TableDataRow?, Task<(bool Confirmed, List<string> SelectedColumns, string MergeFormat, string Separator, string NewColumnName, bool DeleteSource)>>? RequestCustomMergeFunc { get; set; }
+    public Func<List<string>, List<TableDataRow>, Task<TransformDialogResult>>? RequestTransformFunc { get; set; }
+    public Func<List<DataCleaningSuggestion>, Task<CleanerDialogResult>>? RequestCleanerFunc { get; set; }
 
     public ObservableCollection<string> Columns { get; } = new();
     public ObservableCollection<TableDataRow> Rows { get; } = new();
@@ -73,6 +95,7 @@ public partial class MantraDataViewModel : ObservableObject
         Enum.GetValues<DataJobKind>().ToList();
 
     private readonly Stack<TableSnapshot> _undoStack = new();
+    private readonly Stack<TableSnapshot> _redoStack = new();
     private const int MaxUndo = 30;
     private bool _skipUndo;
 
@@ -84,6 +107,8 @@ public partial class MantraDataViewModel : ObservableObject
         _wordService = new WordParserService();
         _photoService = new PhotoMatcherService();
         _psBridge = new PhotoshopBridgeService(_settings);
+        _transformService = new TransformService();
+        _aiService = new LocalAIService { IsEnabled = _settings.AiEnabled };
 
         Rows.CollectionChanged += (s, e) => RefreshFilteredRows();
     }
@@ -125,6 +150,43 @@ public partial class MantraDataViewModel : ObservableObject
         RefreshFilteredRows();
     }
 
+    partial void OnCurrentSheetIndexChanged(int value)
+    {
+        SwitchToSheet(value);
+    }
+
+    public void SwitchToSheet(int index)
+    {
+        if (index < 0 || index >= _allSheets.Count) return;
+        var target = _allSheets[index];
+
+        PushUndo();
+        ColumnFormulas.Clear();
+        Columns.Clear();
+        foreach (var c in target.Columns) Columns.Add(c);
+
+        Rows.Clear();
+        foreach (var r in target.Rows) Rows.Add(r);
+
+        TotalRows = Rows.Count; HasData = Rows.Count > 0;
+        StatusMessage = "Menampilkan sheet: " + target.Name + " (" + TotalRows + " baris)";
+        RefreshFilteredRows();
+    }
+
+    [RelayCommand]
+    public void NextSheet()
+    {
+        if (SheetNames.Count == 0) return;
+        CurrentSheetIndex = (CurrentSheetIndex + 1) % SheetNames.Count;
+    }
+
+    [RelayCommand]
+    public void PreviousSheet()
+    {
+        if (SheetNames.Count == 0) return;
+        CurrentSheetIndex = (CurrentSheetIndex - 1 + SheetNames.Count) % SheetNames.Count;
+    }
+
     public async Task LoadFileByPathAsync(string path)
     {
         if (!File.Exists(path)) return;
@@ -160,7 +222,20 @@ public partial class MantraDataViewModel : ObservableObject
                     foreach (var r in dataRows) Rows.Add(r);
 
                     CurrentFilePath = path;
-                    TotalRows = Rows.Count;
+                    TotalRows = Rows.Count; HasData = Rows.Count > 0;
+                    if (ext == ".docx")
+                    {
+                        _allSheets = new List<SheetResult>();
+                        SheetNames.Clear();
+                        CurrentSheetIndex = -1;
+                    }
+                    else
+                    {
+                        _allSheets = new List<SheetResult>(_excelService.GetAllSheets());
+                        SheetNames.Clear();
+                        foreach (var s in _allSheets) SheetNames.Add(s.Name);
+                        CurrentSheetIndex = SheetNames.Count > 0 ? 0 : -1;
+                    }
                     StatusMessage = $"Berhasil memuat {TotalRows} baris dari {Path.GetFileName(path)}";
                     RefreshFilteredRows();
                 });
@@ -411,6 +486,136 @@ public partial class MantraDataViewModel : ObservableObject
         RefreshFilteredRows();
     }
 
+    [RelayCommand]
+    public async Task OpenTransformDialog()
+    {
+        if (Rows.Count == 0)
+        {
+            if (RequestAlertFunc != null)
+                await RequestAlertFunc("Info", "Tidak ada data untuk ditransformasi. Buka file terlebih dahulu.");
+            return;
+        }
+
+        if (RequestTransformFunc == null) return;
+
+        var result = await RequestTransformFunc(Columns.ToList(), Rows.ToList());
+        if (!result.Confirmed) return;
+
+        PushUndo();
+
+        try
+        {
+            if (result.PresetCode == "custom")
+            {
+                var (newHeaders, newRows) = _transformService.BuildCustomMerge(
+                    Columns.ToList(),
+                    Rows.ToList(),
+                    result.MergeColumns,
+                    result.TargetHeader,
+                    result.Separator,
+                    result.KeepSources);
+                ReplaceTable(newHeaders, newRows);
+                StatusMessage = $"Gabungan kustom diterapkan ke kolom '{result.TargetHeader}'. {newRows.Count} baris hasil.";
+            }
+            else if (!string.IsNullOrEmpty(result.PresetCode))
+            {
+                var (newHeaders, newRows) = _transformService.ApplyPreset(
+                    result.PresetCode,
+                    Columns.ToList(),
+                    Rows.ToList());
+                ReplaceTable(newHeaders, newRows);
+                StatusMessage = $"Transformasi '{result.PresetCode}' diterapkan. {TotalRows} baris hasil.";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (RequestAlertFunc != null)
+                await RequestAlertFunc("Error", $"Error transformasi: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    public async Task OpenCleanerDialog()
+    {
+        if (Rows.Count == 0)
+        {
+            if (RequestAlertFunc != null)
+                await RequestAlertFunc("Info", "Tidak ada data untuk dibersihkan. Buka file terlebih dahulu.");
+            return;
+        }
+
+        if (RequestCleanerFunc == null) return;
+
+        var suggestions = DataCleanerService.AnalyzeSheet(Columns.ToList(), Rows.ToList());
+        var merged = new List<DataCleaningSuggestion>(suggestions);
+
+        if (Settings.AiEnabled &&
+            !string.IsNullOrWhiteSpace(Settings.AiEndpoint) &&
+            !string.IsNullOrWhiteSpace(Settings.AiModel))
+        {
+            try
+            {
+                var sample = Rows.Take(20)
+                    .Select(r => Columns.Select(c => r[c] ?? "").ToList())
+                    .ToList();
+                var ai = await AiService.AnalyzeCleanupSuggestionsAsync(
+                    Columns.ToList(), sample, Settings.AiEndpoint, Settings.AiModel);
+                if (ai.Count > 0)
+                {
+                    var existing = new HashSet<string>(
+                        merged.Select(s => s.Code), StringComparer.OrdinalIgnoreCase);
+                    foreach (var s in ai)
+                    {
+                        if (existing.Add(s.Code))
+                            merged.Add(s);
+                    }
+                }
+            }
+            catch
+            {
+                // AI tidak tersedia; lanjut dengan rekomendasi automatis saja.
+            }
+        }
+
+        var result = await RequestCleanerFunc(merged);
+        if (!result.Applied || result.SelectedCodes.Count == 0) return;
+
+        PushUndo();
+
+        try
+        {
+            DataCleanerService.ApplySuggestions(Columns, Rows, result.SelectedCodes);
+
+            int num = 1;
+            foreach (var r in Rows)
+                r.RowNumber = num++;
+
+            TotalRows = Rows.Count; HasData = Rows.Count > 0;
+            StatusMessage = $"Pembersihan data diterapkan: {result.SelectedCodes.Count} tindakan.";
+            RefreshFilteredRows();
+        }
+        catch (Exception ex)
+        {
+            if (RequestAlertFunc != null)
+                await RequestAlertFunc("Error", $"Error pembersihan: {ex.Message}");
+        }
+    }
+
+    private void ReplaceTable(List<string> newHeaders, List<TableDataRow> newRows)
+    {
+        ColumnFormulas.Clear();
+
+        Columns.Clear();
+        foreach (var h in newHeaders) Columns.Add(h);
+
+        Rows.Clear();
+        foreach (var r in newRows) Rows.Add(r);
+
+        TotalRows = Rows.Count;
+        HasData = Rows.Count > 0;
+        RefreshFilteredRows();
+    }
+
     public void InsertColumn(string newColName, int targetIndex = -1)
     {
         if (string.IsNullOrWhiteSpace(newColName)) return;
@@ -554,7 +759,7 @@ public partial class MantraDataViewModel : ObservableObject
             r.RowNumber = num++;
         }
 
-        TotalRows = Rows.Count;
+        TotalRows = Rows.Count; HasData = Rows.Count > 0;
         StatusMessage = $"{list.Count} baris dihapus dari tabel.";
         RefreshFilteredRows();
     }
@@ -724,16 +929,28 @@ public partial class MantraDataViewModel : ObservableObject
             foreach (var s in keep)
                 _undoStack.Push(s);
         }
+        _redoStack.Clear();
+        CanRedo = false;
         CanUndo = _undoStack.Count > 0;
     }
 
     public void Undo()
     {
         if (_undoStack.Count == 0) return;
+        var currentSnap = TableSnapshot.Capture(Columns, Rows, ColumnFormulas);
+        _redoStack.Push(currentSnap);
+        if (_redoStack.Count > MaxUndo)
+        {
+            var keep = _redoStack.Take(MaxUndo).Reverse().ToList();
+            _redoStack.Clear();
+            foreach (var s in keep)
+                _redoStack.Push(s);
+        }
         var snap = _undoStack.Pop();
         snap.Restore(Columns, Rows, ColumnFormulas);
-        TotalRows = Rows.Count;
+        TotalRows = Rows.Count; HasData = Rows.Count > 0;
         CanUndo = _undoStack.Count > 0;
+        CanRedo = _redoStack.Count > 0;
         StatusMessage = "Urungkan: langkah terakhir dibatalkan.";
         RefreshFilteredRows();
     }
@@ -877,7 +1094,7 @@ public partial class MantraDataViewModel : ObservableObject
             r.RowNumber = num++;
             Rows.Add(r);
         }
-        TotalRows = Rows.Count;
+        TotalRows = Rows.Count; HasData = Rows.Count > 0;
         StatusMessage = ascending
             ? $"Diurutkan A-Z menurut {column}."
             : $"Diurutkan Z-A menurut {column}.";
@@ -975,6 +1192,111 @@ public partial class MantraDataViewModel : ObservableObject
 
     [RelayCommand]
     public void UndoLast() => Undo();
+
+    public void Redo()
+    {
+        if (_redoStack.Count == 0) return;
+        var currentSnap = TableSnapshot.Capture(Columns, Rows, ColumnFormulas);
+        _undoStack.Push(currentSnap);
+        CanUndo = _undoStack.Count > 0;
+
+        var snap = _redoStack.Pop();
+        snap.Restore(Columns, Rows, ColumnFormulas);
+        TotalRows = Rows.Count; HasData = Rows.Count > 0;
+        CanRedo = _redoStack.Count > 0;
+        StatusMessage = "Ulangi (Redo): perubahan diterapkan kembali.";
+        RefreshFilteredRows();
+    }
+
+    [RelayCommand]
+    public void RedoLast() => Redo();
+
+    [RelayCommand]
+    public void ClearData()
+    {
+        if (Rows.Count == 0 && Columns.Count == 0) return;
+        PushUndo();
+        Rows.Clear();
+        Columns.Clear();
+        ColumnFormulas.Clear();
+        _allSheets.Clear();
+        SheetNames.Clear();
+        CurrentSheetIndex = -1;
+        CurrentFilePath = string.Empty;
+        TotalRows = 0;
+        HasData = false;
+        SearchFilter = string.Empty;
+        ReplaceText = string.Empty;
+        IsAdvancedSearchOpen = false;
+        StatusMessage = "Data telah ditutup. Siap membuka file data baru.";
+        RefreshFilteredRows();
+    }
+
+    [RelayCommand]
+    public void ToggleAdvancedSearch()
+    {
+        IsAdvancedSearchOpen = !IsAdvancedSearchOpen;
+    }
+
+    [RelayCommand]
+    public async Task QuickReplaceAll()
+    {
+        if (string.IsNullOrEmpty(SearchFilter))
+        {
+            if (RequestAlertFunc != null) _ = RequestAlertFunc("Peringatan", "Masukkan teks yang ingin dicari terlebih dahulu.");
+            return;
+        }
+        var pattern = System.Text.RegularExpressions.Regex.Escape(SearchFilter);
+        int count = 0;
+        var previewValues = new List<string>();
+        foreach (var row in Rows)
+        {
+            foreach (var col in Columns)
+            {
+                var val = row[col];
+                if (!string.IsNullOrEmpty(val) && val.IndexOf(SearchFilter, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    count++;
+                    if (previewValues.Count < 5)
+                        previewValues.Add(val);
+                }
+            }
+        }
+
+        if (count == 0)
+        {
+            StatusMessage = "Cari & Ganti: tidak ada nilai yang cocok.";
+            if (RequestAlertFunc != null) _ = RequestAlertFunc("Cari & Ganti", $"Tidak ada nilai sel yang cocok dengan '{SearchFilter}'.");
+            return;
+        }
+
+        string preview = count > 5
+            ? $"Ditemukan {count} nilai sel yang cocok dengan '{SearchFilter}'.\n\n5 contoh nilai yang akan diganti:\n" + string.Join("\n", previewValues.Select(v => $"- {v}"))
+            : $"Ditemukan {count} nilai sel yang cocok dengan '{SearchFilter}'.\n\nSemua nilai yang akan diganti:\n" + string.Join("\n", previewValues.Select(v => $"- {v}"));
+
+        if (RequestConfirmFunc != null)
+        {
+            var ok = await RequestConfirmFunc("Konfirmasi Cari & Ganti", $"{preview}\n\nLanjutkan mengganti semua dengan '{ReplaceText ?? string.Empty}'?");
+            if (!ok) return;
+        }
+
+        PushUndo();
+        int applied = 0;
+        foreach (var row in Rows)
+        {
+            foreach (var col in Columns)
+            {
+                var val = row[col];
+                if (!string.IsNullOrEmpty(val) && val.IndexOf(SearchFilter, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    row[col] = System.Text.RegularExpressions.Regex.Replace(val, pattern, ReplaceText ?? string.Empty, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    applied++;
+                }
+            }
+        }
+        StatusMessage = $"Cari & Ganti selesai: {applied} nilai sel diperbarui.";
+        RefreshFilteredRows();
+    }
 
     [RelayCommand]
     public async Task ApplyLayoutAsync()
@@ -1155,7 +1477,7 @@ public partial class MantraDataViewModel : ObservableObject
         int num = 1;
         foreach (var r in Rows)
             r.RowNumber = num++;
-        TotalRows = Rows.Count;
+        TotalRows = Rows.Count; HasData = Rows.Count > 0;
         StatusMessage = "Baris baru disisipkan.";
         RefreshFilteredRows();
     }
@@ -1301,3 +1623,4 @@ public partial class MantraDataViewModel : ObservableObject
         }
     }
 }
+

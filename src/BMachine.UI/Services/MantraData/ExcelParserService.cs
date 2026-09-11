@@ -3,282 +3,448 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using BMachine.UI.Models.MantraData;
-using MiniExcelLibs;
+using ClosedXML.Excel;
 
 namespace BMachine.UI.Services.MantraData;
 
+public record SheetResult(string Name, List<string> Columns, List<TableDataRow> Rows);
+
 public class ExcelParserService
 {
-    private static readonly string[] IndonesianMonthsFull = {
-        "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    };
-
-    private static readonly string[] IndonesianMonthsShort = {
-        "", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-        "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
-    };
-
-    public (List<string> Columns, List<TableDataRow> Rows) LoadExcel(string filePath, string? sheetName = null)
+    private static readonly Dictionary<string, string> HeaderAliases = new(StringComparer.OrdinalIgnoreCase)
     {
-        var columns = new List<string>();
-        var rows = new List<TableDataRow>();
+        {"no", "No"},
+        {"nomor", "No"},
+        {"nis", "NIS"},
+        {"nama", "Nama"},
+        {"nama lengkap", "Nama"},
+        {"nama siswa", "Nama"},
+        {"nama peserta didik", "Nama"},
+        {"nama guru tendik", "Nama"},
+        {"nama guru/ tendik", "Nama"},
+        {"jk", "JK"},
+        {"jenis kelamin", "JK"},
+        {"kelamin", "JK"},
+        {"kelas", "Kelas"},
+        {"rombel", "Kelas"},
+        {"rombel saat ini", "Kelas"},
+        {"nisn", "NISN"},
+        {"tempat", "Tempat Lahir"},
+        {"tempat lahir", "Tempat Lahir"},
+        {"tanggal lahir", "Tanggal Lahir"},
+        {"tgl lahir", "Tanggal Lahir"},
+        {"tempat tgl lahir", "Tempat, Tanggal Lahir"},
+        {"tempat tanggal lahir", "Tempat, Tanggal Lahir"},
+        {"alamat", "Alamat"},
+        {"jalan", "Alamat"},
+        {"rt", "RT"},
+        {"rw", "RW"},
+        {"dusun", "Dusun"},
+        {"kelurahan", "Kelurahan"},
+        {"kel desa", "Kelurahan"},
+        {"kecamatan", "Kecamatan"},
+        {"agama", "Agama"},
+        {"jabatan", "Jabatan"}
+    };
 
-        var rawRows = MiniExcel.Query(filePath, useHeaderRow: true, sheetName: sheetName).ToList();
-        if (rawRows.Count == 0) return (columns, rows);
+    private static readonly string[] StudentHeaders =
+    {
+        "No", "Nama", "Kelas", "JK", "NISN", "Tempat Lahir", "Tanggal Lahir",
+        "Agama", "Alamat", "RT", "RW", "Dusun", "Kelurahan", "Kecamatan", "Kelas (2)"
+    };
 
-        // Extract column headers from the first IDictionary row
-        var firstRow = rawRows[0] as IDictionary<string, object>;
-        if (firstRow != null)
+    private static string CleanHeader(object? value)
+    {
+        var raw = value?.ToString() ?? "";
+        var text = Regex.Replace(raw.ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
+        if (HeaderAliases.TryGetValue(text, out var alias)) return alias;
+        return raw.Trim();
+    }
+
+    private static bool IsIdentifierHeader(string header)
+    {
+        var h = CleanHeader(header);
+        return h.Equals("NISN", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("NIS", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("NIK", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("No", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("Nomor", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string SafeGetCellText(IXLCell cell)
+    {
+        if (cell.IsEmpty()) return "";
+        
+        try
         {
-            columns = firstRow.Keys.Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
+            var cellValue = cell.Value;
+            
+            if (cellValue.IsBlank) return "";
+            if (cellValue.IsBoolean) return cellValue.GetBoolean() ? "Ya" : "Tidak";
+            if (cellValue.IsDateTime) return cellValue.GetDateTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            if (cellValue.IsNumber) 
+            {
+                var num = cellValue.GetNumber();
+                if (num == Math.Floor(num) && !double.IsInfinity(num))
+                {
+                    var fmt = cell.Style.NumberFormat.Format;
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(fmt) &&
+                            !fmt.Equals("General", StringComparison.OrdinalIgnoreCase) &&
+                            !fmt.Contains("#") && !fmt.Contains("%") && !fmt.Contains("."))
+                        {
+                            var formatted = cell.GetFormattedString();
+                            var digits = Regex.Replace(formatted, @"\D", "");
+                            var plain = ((long)num).ToString("0", CultureInfo.InvariantCulture);
+                            if (!string.IsNullOrEmpty(formatted) &&
+                                (digits.Length > plain.Length ||
+                                 long.TryParse(formatted, NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out _)))
+                                return formatted.Replace(",", "").Replace(" ", "");
+                        }
+                    }
+                    catch
+                    {
+                    }
+                    return ((long)num).ToString();
+                }
+                return num.ToString(CultureInfo.InvariantCulture);
+            }
+            if (cellValue.IsText) return cellValue.GetText().Trim();
+            
+            return cell.GetText().Trim();
+        }
+        catch
+        {
+            return cell.GetText().Trim();
+        }
+    }
+
+    private static string DisplayValue(object? value)
+    {
+        if (value == null) return "";
+        if (value is DateTime dt) return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        if (value is bool b) return b ? "Ya" : "Tidak";
+        if (value is double d && d == Math.Floor(d) && !double.IsInfinity(d)) return ((long)d).ToString();
+        if (value is float f && f == Math.Floor(f) && !float.IsInfinity(f)) return ((long)f).ToString();
+        return value.ToString()?.Trim() ?? "";
+    }
+
+    private static string DisplayExcelCell(IXLCell cell, string header)
+    {
+        if (cell.IsEmpty()) return "";
+
+        var textValue = cell.GetText().Trim();
+        if (IsIdentifierHeader(header))
+        {
+            if (!string.IsNullOrEmpty(textValue))
+                return textValue;
         }
 
-        int rowNum = 1;
-        foreach (var item in rawRows)
+        return cell.DataType switch
         {
-            if (item is IDictionary<string, object> dict)
+            XLDataType.DateTime => cell.GetDateTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            XLDataType.Number => cell.GetDouble() % 1 == 0
+                ? ((long)cell.GetDouble()).ToString()
+                : cell.GetDouble().ToString(CultureInfo.InvariantCulture),
+            XLDataType.Boolean => cell.GetBoolean() ? "Ya" : "Tidak",
+            _ => textValue
+        };
+    }
+
+    private static List<string> UniqueHeaders(List<object?> values, int width)
+    {
+        var result = new List<string>();
+        var counts = new Dictionary<string, int>();
+        
+        for (int i = 0; i < width; i++)
+        {
+            var raw = i < values.Count ? values[i] : "";
+            var baseName = CleanHeader(raw);
+            if (string.IsNullOrEmpty(baseName)) baseName = $"Kolom {i + 1}";
+
+            counts.TryGetValue(baseName, out int cnt);
+            counts[baseName] = cnt + 1;
+
+            result.Add(cnt > 0 ? $"{baseName} ({cnt + 1})" : baseName);
+        }
+
+        return result;
+    }
+
+    private static bool RowIsStudentData(List<object?> values)
+    {
+        if (values.Count < 7) return false;
+        var number = values[0]?.ToString()?.Trim() ?? "";
+        var gender = values[3]?.ToString()?.Trim().ToUpperInvariant() ?? "";
+        var nisnDigits = Regex.Replace(values[4]?.ToString() ?? "", @"\D", "");
+
+        return int.TryParse(number, out _) &&
+               !string.IsNullOrWhiteSpace(values[1]?.ToString()) &&
+               (gender == "L" || gender == "P") &&
+               nisnDigits.Length >= 8;
+    }
+
+    private static (int? Index, List<string> Headers) DetectHeader(List<List<object?>> rows)
+    {
+        int width = rows.Count > 0 ? rows.Max(r => r.Count) : 0;
+
+        for (int i = 0; i < Math.Min(5, rows.Count); i++)
+        {
+            var row = rows[i];
+            int nonEmpty = row.Count(v => v != null && !string.IsNullOrWhiteSpace(v.ToString()));
+            if (nonEmpty >= width * 0.6)
             {
-                var dataRow = new TableDataRow { RowNumber = rowNum++ };
-                foreach (var col in columns)
+                return (i, UniqueHeaders(row, width));
+            }
+        }
+
+        int? bestIndex = null;
+        for (int i = 0; i < Math.Min(10, rows.Count); i++)
+        {
+            if (RowIsStudentData(rows[i]))
+            {
+                bestIndex = i > 0 ? i - 1 : null;
+                break;
+            }
+        }
+
+        if (!bestIndex.HasValue)
+        {
+            for (int i = 0; i < Math.Min(10, rows.Count); i++)
+            {
+                var nonEmptyCount = rows[i].Count(v => v != null && !string.IsNullOrWhiteSpace(v.ToString()));
+                if (nonEmptyCount > 0)
                 {
-                    var val = dict.TryGetValue(col, out var objVal) ? FormatValue(col, objVal) : string.Empty;
-                    dataRow[col] = val;
+                    bestIndex = i;
+                    break;
                 }
+            }
+        }
+
+        int firstData = bestIndex.GetValueOrDefault(0);
+        if (firstData > 0 && firstData < rows.Count)
+        {
+            return (firstData, UniqueHeaders(rows[firstData], width));
+        }
+
+        return (null, new List<string>());
+    }
+
+    private static List<List<object?>> TrimMatrix(List<List<object?>> matrix)
+    {
+        while (matrix.Count > 0 && !matrix[^1].Any(v => v != null && !string.IsNullOrWhiteSpace(v.ToString())))
+        {
+            matrix.RemoveAt(matrix.Count - 1);
+        }
+
+        if (matrix.Count == 0) return matrix;
+
+        int lastCol = 0;
+        foreach (var row in matrix)
+        {
+            for (int index = 0; index < row.Count; index++)
+            {
+                var v = row[index];
+                if (v != null && !string.IsNullOrWhiteSpace(v.ToString()))
+                    lastCol = Math.Max(lastCol, index + 1);
+            }
+        }
+
+        return matrix.Select(r => r.Take(lastCol).ToList()).ToList();
+    }
+
+    private SheetResult LoadSheet(IXLWorksheet ws)
+    {
+        var rawMatrix = new List<List<object?>>();
+        int maxRow = ws.LastRowUsed()?.RowNumber() ?? 0;
+        int maxCol = ws.LastColumnUsed()?.ColumnNumber() ?? 0;
+
+        for (int r = 1; r <= maxRow; r++)
+        {
+            var row = new List<object?>();
+            for (int c = 1; c <= maxCol; c++)
+            {
+                var cell = ws.Cell(r, c);
+                row.Add(cell.IsEmpty() ? null : SafeGetCellText(cell));
+            }
+            rawMatrix.Add(row);
+        }
+
+        var matrix = TrimMatrix(rawMatrix);
+        if (matrix.Count == 0)
+            return new SheetResult(ws.Name, new List<string>(), new List<TableDataRow>());
+
+        var (headerIndex, headers) = DetectHeader(matrix);
+        if (headers.Count == 0)
+            return new SheetResult(ws.Name, new List<string>(), new List<TableDataRow>());
+
+        int dataStart = headerIndex.HasValue ? headerIndex.Value + 1 : 0;
+        while (dataStart < matrix.Count && !matrix[dataStart].Any(v => v != null && !string.IsNullOrWhiteSpace(v.ToString())))
+        {
+            dataStart++;
+        }
+
+        var rows = new List<TableDataRow>();
+        int rowNumber = 1;
+
+        for (int mIdx = dataStart; mIdx < matrix.Count; mIdx++)
+        {
+            var matrixRow = matrix[mIdx];
+            var dataRow = new TableDataRow { RowNumber = rowNumber++ };
+            bool hasAnyData = false;
+
+            for (int cIdx = 0; cIdx < headers.Count; cIdx++)
+            {
+                var headerName = headers[cIdx];
+                string cellText = "";
+
+                if (cIdx < matrixRow.Count)
+                {
+                    cellText = matrixRow[cIdx]?.ToString()?.Trim() ?? "";
+                }
+
+                if (!string.IsNullOrEmpty(cellText))
+                    hasAnyData = true;
+
+                dataRow[headerName] = cellText;
+            }
+
+            if (hasAnyData)
+            {
                 rows.Add(dataRow);
             }
-        }
-
-        return (columns, rows);
-    }
-
-    public static string FormatValue(string columnName, object? rawValue)
-    {
-        if (rawValue == null) return string.Empty;
-
-        // Check if value is a DateTime
-        if (rawValue is DateTime dt)
-        {
-            return $"{dt.Day} {IndonesianMonthsFull[dt.Month]} {dt.Year}";
-        }
-
-        var s = rawValue.ToString()?.Trim() ?? string.Empty;
-
-        // Check if column looks like phone and starts with 8
-        if (columnName.Contains("HP", StringComparison.OrdinalIgnoreCase) || 
-            columnName.Contains("TELP", StringComparison.OrdinalIgnoreCase) ||
-            columnName.Contains("WA", StringComparison.OrdinalIgnoreCase))
-        {
-            if (s.StartsWith("8") && s.Length >= 9)
+            else
             {
-                s = "0" + s;
+                rowNumber--;
             }
         }
 
-        return s;
+        return new SheetResult(ws.Name, headers, rows);
     }
 
-    public static string FormatIndonesianDate(string input, string formatType = "Full")
-    {
-        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+    private List<SheetResult> _allSheets = new();
 
-        if (DateTime.TryParse(input, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt) ||
-            DateTime.TryParse(input, new CultureInfo("id-ID"), DateTimeStyles.None, out dt))
+    public (List<string> Columns, List<TableDataRow> Rows) LoadExcel(string path)
+    {
+        _allSheets.Clear();
+
+        using var workbook = new XLWorkbook(path);
+        foreach (var ws in workbook.Worksheets)
         {
-            return formatType switch
+            var result = LoadSheet(ws);
+            if (result.Rows.Count > 0)
             {
-                "Short" => $"{dt.Day} {IndonesianMonthsShort[dt.Month]} {dt.Year}",
-                "Slash" => $"{dt.Day:D2}/{dt.Month:D2}/{dt.Year}",
-                _ => $"{dt.Day} {IndonesianMonthsFull[dt.Month]} {dt.Year}"
-            };
+                _allSheets.Add(result);
+            }
         }
 
-        // Try regex match for e.g. "12/05/2007" or "2007-05-12"
-        var match = Regex.Match(input, @"(\d{1,2})[\/\-\s](\d{1,2})[\/\-\s](\d{4})");
-        if (match.Success)
+        if (_allSheets.Count == 0)
         {
-            int day = int.Parse(match.Groups[1].Value);
-            int month = int.Parse(match.Groups[2].Value);
-            int year = int.Parse(match.Groups[3].Value);
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31)
+            _allSheets.Add(new SheetResult("Sheet1", StudentHeaders.ToList(), new List<TableDataRow>()));
+        }
+
+        var first = _allSheets[0];
+        return (first.Columns, first.Rows);
+    }
+
+    public List<SheetResult> GetAllSheets() => _allSheets;
+
+    public static void SaveExcel(string path, List<string> columns, List<TableDataRow> rows)
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Data");
+
+        for (int c = 0; c < columns.Count; c++)
+        {
+            ws.Cell(1, c + 1).Value = columns[c];
+            ws.Cell(1, c + 1).Style.Font.Bold = true;
+        }
+
+        for (int r = 0; r < rows.Count; r++)
+        {
+            for (int c = 0; c < columns.Count; c++)
             {
+                var val = rows[r].Values.TryGetValue(columns[c], out var v) ? v : "";
+                ws.Cell(r + 2, c + 1).Value = val;
+            }
+        }
+
+        ws.Columns().AdjustToContents();
+        workbook.SaveAs(path);
+    }
+
+    public static void SaveTxt(string path, List<string> columns, List<TableDataRow> rows)
+    {
+        using var w = new StreamWriter(path, false, System.Text.Encoding.UTF8);
+        w.WriteLine(string.Join("\t", columns));
+        foreach (var row in rows)
+            w.WriteLine(string.Join("\t", columns.Select(c => row.Values.TryGetValue(c, out var v) ? v : "")));
+    }
+
+    public static void SaveCsv(string path, List<string> columns, List<TableDataRow> rows)
+    {
+        using var w = new StreamWriter(path, false, System.Text.Encoding.UTF8);
+        w.WriteLine(string.Join(",", columns.Select(c => $"\"{c}\"")));
+        foreach (var row in rows)
+            w.WriteLine(string.Join(",", columns.Select(c => $"\"{(row.Values.TryGetValue(c, out var v) ? v : "")}\"")));
+    }
+
+    public static string ToTitleCase(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return input;
+        var words = input.ToLowerInvariant().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(" ", words.Select(w => char.ToUpperInvariant(w[0]) + (w.Length > 1 ? w.Substring(1) : "")));
+    }
+
+    public static string FormatIndonesianDate(string input, string formatType)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return input;
+
+        var match = Regex.Match(input, @"(\d{1,2})[\/\-\s](\d{1,2})[\/\-\s](\d{4})");
+        if (match.Success && int.TryParse(match.Groups[1].Value, out int day) &&
+            int.TryParse(match.Groups[2].Value, out int month) &&
+            int.TryParse(match.Groups[3].Value, out int year))
+        {
+            if (month > 0 && month <= 12)
+            {
+                var monthNames = new[] { "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember" };
                 return formatType switch
                 {
-                    "Short" => $"{day} {IndonesianMonthsShort[month]} {year}",
-                    "Slash" => $"{day:D2}/{month:D2}/{year}",
-                    _ => $"{day} {IndonesianMonthsFull[month]} {year}"
+                    "dd MMMM yyyy" => $"{day} {monthNames[month - 1]} {year}",
+                    "dd-MM-yyyy" => $"{day:D2}-{month:D2}-{year}",
+                    _ => input
                 };
             }
         }
 
-        return input;
+            return input;
     }
 
-    public static string ToTitleCase(string text)
+    public string ExportToDater(string path, List<string> columns, List<TableDataRow> rows)
     {
-        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-
-        var ti = CultureInfo.CurrentCulture.TextInfo;
-        return ti.ToTitleCase(text.ToLowerInvariant());
-    }
-
-    public static string FormatCellForExport(string? val, string delimiter = "\t")
-    {
-        if (string.IsNullOrEmpty(val)) return string.Empty;
-        var s = val;
-
-        // data_yb parity: Bersihkan trailing 00:00:00 dari nilai tanggal/waktu
-        if (s.Contains("00:00:00"))
-        {
-            s = s.Replace(" 00:00:00", "").Replace("T00:00:00", "");
-        }
-
-        // data_yb parity: Ganti baris baru (\r\n, \n, \r) dengan spasi tunggal agar tidak merusak baris tabel
-        s = s.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
-
-        // data_yb parity: Hapus/ganti kemunculan delimiter di dalam teks dengan spasi
-        if (!string.IsNullOrEmpty(delimiter) && s.Contains(delimiter))
-        {
-            s = s.Replace(delimiter, " ");
-        }
-
-        return s.Trim();
-    }
-
-    public static string FormatCellForExcel(string? val)
-    {
-        if (string.IsNullOrEmpty(val)) return string.Empty;
-        var s = val;
-
-        // Bersihkan trailing 00:00:00 dari nilai tanggal/waktu
-        if (s.Contains("00:00:00"))
-        {
-            s = s.Replace(" 00:00:00", "").Replace("T00:00:00", "");
-        }
-
-        // Standardisasi baris baru menjadi \r\n agar Excel membukanya dengan baris baru (multiline)
-        s = s.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", "\r\n");
-
-        return s.Trim();
-    }
-
-    public string ExportToDater(string sourceFilePath, List<string> columns, List<TableDataRow> rows)
-    {
-        var sourceDir = Path.GetDirectoryName(sourceFilePath);
-        if (string.IsNullOrEmpty(sourceDir)) sourceDir = Environment.CurrentDirectory;
-        var daterDir = Path.Combine(sourceDir, "DATER");
+        var daterDir = Path.Combine(Path.GetDirectoryName(path) ?? Environment.CurrentDirectory, "DATER");
         if (!Directory.Exists(daterDir)) Directory.CreateDirectory(daterDir);
-
-        var baseName = Path.GetFileNameWithoutExtension(sourceFilePath);
-        if (string.IsNullOrEmpty(baseName)) baseName = "export";
-
-        // data_yb parity persis: <BaseName>-export.txt dan yb_process_data_table.json
-        var txtPath = Path.Combine(daterDir, $"{baseName}-export.txt");
-        var jsonPath = Path.Combine(daterDir, "yb_process_data_table.json");
-        var xlsxPath = Path.Combine(daterDir, $"{baseName}-dater.xlsx");
-
-        // 1. Export TAB Delimited TXT persis data_yb (UTF-8 tanpa BOM)
-        using (var sw = new StreamWriter(txtPath, false, new System.Text.UTF8Encoding(false)))
-        {
-            sw.WriteLine(string.Join("\t", columns.Select(c => c.Trim())));
-            foreach (var row in rows)
-            {
-                var values = columns.Select(c => FormatCellForExport(row[c], "\t"));
-                sw.WriteLine(string.Join("\t", values));
-            }
-        }
-
-        // 2. Export JSON Table untuk runner Photoshop (yb_process_data.jsx)
-        var jsonPayload = new
-        {
-            header = columns.Select(c => c.Trim()).ToList(),
-            rows = rows.Select(r => columns.ToDictionary(c => c.Trim(), c => FormatCellForExport(r[c], "\t"))).ToList()
-        };
-        var jsonStr = JsonSerializer.Serialize(jsonPayload, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(jsonPath, jsonStr, new System.Text.UTF8Encoding(false));
-
-        // 3. Export XLSX Salinan Data Bersih
-        ExportToXlsx(xlsxPath, columns, rows);
-
+        var txtPath = Path.Combine(daterDir, Path.GetFileNameWithoutExtension(path) + ".txt");
+        SaveTxt(txtPath, columns, rows);
         return txtPath;
     }
-
-    public string ExportToTxt(string savePath, List<string> columns, List<TableDataRow> rows, string delimiter = "\t")
+    public void ExportToTxt(string path, List<string> columns, List<TableDataRow> rows)
     {
-        using var sw = new StreamWriter(savePath, false, new System.Text.UTF8Encoding(false));
-        sw.WriteLine(string.Join(delimiter, columns.Select(c => c.Trim())));
-        foreach (var row in rows)
-        {
-            var values = columns.Select(c => FormatCellForExport(row[c], delimiter));
-            sw.WriteLine(string.Join(delimiter, values));
-        }
-        return savePath;
+        SaveTxt(path, columns, rows);
     }
 
-    public string ExportToCsv(string savePath, List<string> columns, List<TableDataRow> rows)
+    public void ExportToCsv(string path, List<string> columns, List<TableDataRow> rows)
     {
-        using var sw = new StreamWriter(savePath, false, new System.Text.UTF8Encoding(true));
-        sw.WriteLine(string.Join(",", columns.Select(CsvQuote)));
-        foreach (var row in rows)
-        {
-            var values = columns.Select(c => CsvQuote(FormatCellForExport(row[c], ",")));
-            sw.WriteLine(string.Join(",", values));
-        }
-        return savePath;
+        SaveCsv(path, columns, rows);
     }
 
-    private static string CsvQuote(string value)
+    public void ExportToXlsx(string path, List<string> columns, List<TableDataRow> rows)
     {
-        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
-            return $"\"{value.Replace("\"", "\"\"")}\"";
-        return value;
-    }
-
-    public string ExportToXlsx(string savePath, List<string> columns, List<TableDataRow> rows)
-    {
-        using var workbook = new ClosedXML.Excel.XLWorkbook();
-        var ws = workbook.Worksheets.Add("Sheet1");
-
-        // Tulis Headers
-        for (int c = 0; c < columns.Count; c++)
-        {
-            var cell = ws.Cell(1, c + 1);
-            cell.Value = columns[c];
-            cell.Style.Font.Bold = true;
-            cell.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#F3F4F6");
-        }
-
-        // Tulis Rows
-        for (int r = 0; r < rows.Count; r++)
-        {
-            var row = rows[r];
-            for (int c = 0; c < columns.Count; c++)
-            {
-                var val = FormatCellForExcel(row[columns[c]]);
-                var cell = ws.Cell(r + 2, c + 1);
-                cell.Value = val;
-
-                // Jika sel mengandung baris baru, aktifkan WrapText = true agar Excel menampilkannya bertingkat
-                if (val.Contains('\n'))
-                {
-                    cell.Style.Alignment.WrapText = true;
-                }
-            }
-        }
-
-        // Otomatis atur lebar kolom
-        ws.Columns().AdjustToContents(1, Math.Min(rows.Count + 1, 100));
-
-        // Jika ada multiline, sesuaikan tinggi baris data
-        for (int r = 0; r < rows.Count; r++)
-        {
-            ws.Row(r + 2).AdjustToContents();
-        }
-
-        workbook.SaveAs(savePath);
-        return savePath;
+        SaveExcel(path, columns, rows);
     }
 }
+
+

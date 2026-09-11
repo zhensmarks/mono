@@ -70,6 +70,7 @@
             <StackPanel Grid.Row="1" Spacing="8">
                 <TextBlock Text="Kolom yang akan dipisah" FontSize="12" FontWeight="Medium" Foreground="#A1A1AA"/>
                 <ComboBox x:Name="CmbSource" HorizontalAlignment="Stretch" Height="34" FontSize="12"
+                          VerticalContentAlignment="Center" Padding="10,0,8,0"
                           Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"/>
 
                 <TextBlock Text="Karakter pemisah (koma, titik dua, strip, dll)" FontSize="12" FontWeight="Medium" Foreground="#A1A1AA" Margin="0,4,0,0"/>

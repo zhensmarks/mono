@@ -103,8 +103,8 @@
             } catch (e) { }
         }
 
-        // === PROCESS LOGIC ===
-        function processAction(mode, isBatch, useColorRange, useManasik, selectedDocsIndex) {
+                // === PROCESS LOGIC ===
+        function processAction(mode, isBatch, useColorRange, useManasik, useRetouch, selectedDocsIndex) {
             if (selectedDocsIndex && selectedDocsIndex.length > 0) {
                 // REDAKSI TERPILIH dengan dokumen spesifik yang dipilih via dialog
                 for (var i = 0; i < selectedDocsIndex.length; i++) {
@@ -120,6 +120,7 @@
             } else {
                 doRedaksiAction(app.activeDocument, mode, useColorRange, useManasik);
             }
+
         }
 
         function doRedaksiAction(doc, mode, useColorRange, useManasik) {
@@ -336,14 +337,18 @@
 
         // Checkboxes Group
         var grpCheckboxes = w.add("panel", undefined, "Options");
-        grpCheckboxes.orientation = "row";
-        grpCheckboxes.alignChildren = ["left", "center"];
-        grpCheckboxes.spacing = 15;
-        grpCheckboxes.margins = 15;
+        grpCheckboxes.orientation = "column";
+        grpCheckboxes.alignChildren = ["fill", "top"];
+        grpCheckboxes.spacing = 6;
+        grpCheckboxes.margins = 12;
 
-        var cbBatch = grpCheckboxes.add("checkbox", undefined, "Batch All");
-        var cbColorRange = grpCheckboxes.add("checkbox", undefined, "COLOR RANGE");
-        var cbManasik = grpCheckboxes.add("checkbox", undefined, "MANASIK (Onta)");
+        var cbRow1 = grpCheckboxes.add("group");
+        cbRow1.orientation = "row";
+        cbRow1.alignChildren = ["left", "center"];
+        cbRow1.spacing = 10;
+        var cbBatch = cbRow1.add("checkbox", undefined, "BATCH");
+        var cbColorRange = cbRow1.add("checkbox", undefined, "CR ORI");
+        var cbManasik = cbRow1.add("checkbox", undefined, "R-MSK");
 
         var btnCancel = w.add("button", undefined, "Cancel");
 

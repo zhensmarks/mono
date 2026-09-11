@@ -1,0 +1,384 @@
+#target photoshop
+
+    /*
+        C-REDAKSI.jsx
+        Fitur: Otomatisasi Redaksi & Seleksi Warna
+        1. HIDE REDAKSI: Sembunyi Redaksi
+        2. REDAKSI: Ganti Redaksi
+        
+        Options:
+        - MANASIK: Tampilkan ONTA + Transform
+        - COLOR RANGE: Action "COLORRANGE" set "ABENG"
+    */
+
+    (function () {
+        if (app.documents.length === 0) {
+            alert("Tidak ada dokumen yang terbuka!");
+            return;
+        }
+
+        // === UTILS: Window Position Persistence ===
+        function loadWindowLocation() {
+            var f = new File(Folder.userData + "/bmachine_credaksi_pos.json");
+            if (f.exists) {
+                f.open("r");
+                var data = f.read();
+                f.close();
+                try {
+                    var obj = eval("(" + data + ")");
+                    if (obj && typeof obj.x === 'number' && typeof obj.y === 'number') return obj;
+                } catch (e) { }
+            }
+            return null;
+        }
+
+        function saveWindowLocation(loc) {
+            if (!loc) return;
+            var f = new File(Folder.userData + "/bmachine_credaksi_pos.json");
+            f.open("w");
+            f.write('{"x": ' + Math.round(loc.x) + ', "y": ' + Math.round(loc.y) + '}');
+            f.close();
+        }
+
+        // === ACTION MANAGER HELPERS ===
+        function findLayerRecursive(root, name) {
+            try { return root.layers.getByName(name); } catch (e) { }
+            for (var i = 0; i < root.layers.length; i++) {
+                if (root.layers[i].typename == "LayerSet") {
+                    var found = findLayerRecursive(root.layers[i], name);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        function pasteInPlace() {
+            try {
+                var idpast = charIDToTypeID("past");
+                var desc = new ActionDescriptor();
+                desc.putBoolean(stringIDToTypeID("inPlace"), true);
+                desc.putEnumerated(charIDToTypeID("AntA"), charIDToTypeID("Annt"), charIDToTypeID("Anno"));
+                executeAction(idpast, desc, DialogModes.NO);
+            } catch (e) {
+                try { app.activeDocument.paste(); } catch (err) { }
+            }
+        }
+
+        function playAction(actionName, setName) {
+            try {
+                var idPly = charIDToTypeID("Ply ");
+                var desc = new ActionDescriptor();
+                var ref = new ActionReference();
+                ref.putName(charIDToTypeID("Actn"), actionName);
+                ref.putName(charIDToTypeID("ASet"), setName);
+                desc.putReference(charIDToTypeID("null"), ref);
+                executeAction(idPly, desc, DialogModes.NO);
+            } catch (e) {
+                // Silently fail or alert if needed. 
+            }
+        }
+
+        // === TRANSFORM FUNCTIONS ===
+        function transformOnta() {
+            try {
+                var idTrnf = charIDToTypeID("Trnf");
+                var desc = new ActionDescriptor();
+                var idnull = charIDToTypeID("null");
+                var ref = new ActionReference();
+                ref.putEnumerated(charIDToTypeID("Lyr "), charIDToTypeID("Ordn"), charIDToTypeID("Trgt"));
+                desc.putReference(idnull, ref);
+                desc.putEnumerated(charIDToTypeID("FTTr"), charIDToTypeID("FTTr"), charIDToTypeID("FTQu"));
+
+                var descOffset = new ActionDescriptor();
+                descOffset.putUnitDouble(charIDToTypeID("Hrzn"), charIDToTypeID("#Dist"), 0.66);
+                descOffset.putUnitDouble(charIDToTypeID("Vrtc"), charIDToTypeID("#Dist"), -0.99);
+                desc.putObject(charIDToTypeID("Offs"), charIDToTypeID("Ofst"), descOffset);
+
+                desc.putUnitDouble(charIDToTypeID("Wdth"), charIDToTypeID("#Prc"), 113.6);
+                desc.putUnitDouble(charIDToTypeID("Hght"), charIDToTypeID("#Prc"), 113.6);
+
+                desc.putBoolean(stringIDToTypeID("linked"), true);
+                desc.putEnumerated(charIDToTypeID("Intr"), charIDToTypeID("Intr"), charIDToTypeID("Bcbc"));
+                executeAction(idTrnf, desc, DialogModes.NO);
+            } catch (e) { }
+        }
+
+        // === PROCESS LOGIC ===
+        function processAction(mode, isBatch, useColorRange, useManasik, selectedDocsIndex) {
+            if (selectedDocsIndex && selectedDocsIndex.length > 0) {
+                // REDAKSI TERPILIH dengan dokumen spesifik yang dipilih via dialog
+                for (var i = 0; i < selectedDocsIndex.length; i++) {
+                    var idx = selectedDocsIndex[i];
+                    app.activeDocument = app.documents[idx];
+                    doRedaksiAction(app.activeDocument, mode, useColorRange, useManasik);
+                }
+            } else if (isBatch) {
+                for (var i = 0; i < app.documents.length; i++) {
+                    app.activeDocument = app.documents[i];
+                    doRedaksiAction(app.activeDocument, mode, useColorRange, useManasik);
+                }
+            } else {
+                doRedaksiAction(app.activeDocument, mode, useColorRange, useManasik);
+            }
+        }
+
+        function doRedaksiAction(doc, mode, useColorRange, useManasik) {
+            try {
+                // Modes:
+                // 2: HIDE REDAKSI
+                // 3: REDAKSI (Replace)
+
+                // MANASIK Option: Show ONTA + Transform
+                if (useManasik) {
+                    var onta = findLayerRecursive(doc, "ONTA");
+                    if (onta) {
+                        onta.visible = true;
+                        doc.activeLayer = onta;
+                        transformOnta();
+                    }
+                }
+
+                // Handle REDAKSI SEKOLAH layer
+                var redaksi = findLayerRecursive(doc, "REDAKSI SEKOLAH");
+                if (redaksi) {
+                    if (mode === 2) {
+                        // HIDE REDAKSI
+                        redaksi.visible = false;
+                    } else if (mode === 3) {
+                        // REDAKSI (Replace)
+                        doc.activeLayer = redaksi;
+                        redaksi.remove();
+                        pasteInPlace();
+                    }
+                }
+
+                // Execute COLOR RANGE Action if checkbox is checked
+                if (useColorRange) {
+                    playAction("COLORRANGE", "ABENG");
+                }
+
+            } catch (err) { alert("Main Error: " + err); }
+        }
+
+        // === DOCUMENT SELECTION DIALOG ===
+        function showDocumentSelectionDialog() {
+            var docDialog = new Window("dialog", "Pilih Dokumen untuk REDAKSI TERPILIH");
+            docDialog.orientation = "column";
+            docDialog.alignChildren = ["fill", "top"];
+            docDialog.spacing = 10;
+            docDialog.margins = 16;
+            
+            docDialog.add("statictext", undefined, "Pilih dokumen (Klik+Shift/Ctrl untuk multi-select):");
+            
+            var listbox = docDialog.add("listbox", [0, 0, 380, 220], [], {multiselect: true});
+            
+            var grpOptions = docDialog.add("group");
+            grpOptions.orientation = "row";
+            grpOptions.alignChildren = ["left", "center"];
+            grpOptions.spacing = 15;
+            var cbShowFolder = grpOptions.add("checkbox", undefined, "Tampilkan Nama Folder");
+            var cbSortFolder = grpOptions.add("checkbox", undefined, "Urutkan berdasarkan Folder");
+            
+            function populateList() {
+                var selectedIndices = {};
+                if (listbox.items.length > 0) {
+                    for (var i = 0; i < listbox.items.length; i++) {
+                        if (listbox.items[i].selected && listbox.items[i].originalIndex !== undefined) {
+                            selectedIndices[listbox.items[i].originalIndex] = true;
+                        }
+                    }
+                } else {
+                    // Default select active doc
+                    for (var i = 0; i < app.documents.length; i++) {
+                        if (app.documents[i] === app.activeDocument) {
+                            selectedIndices[i] = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Gather documents data
+                var itemsData = [];
+                for (var i = 0; i < app.documents.length; i++) {
+                    var doc = app.documents[i];
+                    var folderName = "";
+                    try {
+                        if (doc.path) {
+                            folderName = doc.path.name;
+                        }
+                    } catch (e) {
+                        folderName = "Belum Disimpan";
+                    }
+                    itemsData.push({
+                        index: i,
+                        name: doc.name,
+                        folderName: folderName
+                    });
+                }
+                
+                // Sort by folder name if checked
+                if (cbSortFolder.value) {
+                    itemsData.sort(function(a, b) {
+                        var fA = a.folderName.toLowerCase();
+                        var fB = b.folderName.toLowerCase();
+                        if (fA < fB) return -1;
+                        if (fA > fB) return 1;
+                        
+                        // Secondary sort by file name
+                        var nA = a.name.toLowerCase();
+                        var nB = b.name.toLowerCase();
+                        if (nA < nB) return -1;
+                        if (nA > nB) return 1;
+                        return 0;
+                    });
+                }
+                
+                listbox.removeAll();
+                for (var i = 0; i < itemsData.length; i++) {
+                    var itemData = itemsData[i];
+                    var displayName = itemData.name;
+                    if (cbShowFolder.value) {
+                        if (itemData.folderName === "Belum Disimpan") {
+                            displayName = itemData.name + " (Belum Disimpan)";
+                        } else {
+                            displayName = itemData.name + " (" + itemData.folderName + ")";
+                        }
+                    }
+                    
+                    var item = listbox.add("item", displayName);
+                    item.originalIndex = itemData.index;
+                    if (selectedIndices[itemData.index]) {
+                        item.selected = true;
+                    }
+                }
+            }
+            
+            cbShowFolder.onClick = populateList;
+            cbSortFolder.onClick = populateList;
+            populateList();
+            
+            var grpSelectBtns = docDialog.add("group");
+            grpSelectBtns.orientation = "row";
+            grpSelectBtns.alignChildren = ["center", "top"];
+            var btnSelectAll = grpSelectBtns.add("button", undefined, "Pilih Semua");
+            var btnDesellecAll = grpSelectBtns.add("button", undefined, "Batal Pilih");
+            
+            btnSelectAll.onClick = function() {
+                for (var i = 0; i < listbox.items.length; i++) {
+                    listbox.items[i].selected = true;
+                }
+            };
+            btnDesellecAll.onClick = function() {
+                for (var i = 0; i < listbox.items.length; i++) {
+                    listbox.items[i].selected = false;
+                }
+            };
+            
+            var grpBtns = docDialog.add("group");
+            grpBtns.orientation = "row";
+            grpBtns.alignChildren = ["center", "top"];
+            var btnOk = grpBtns.add("button", undefined, "OK");
+            var btnCancel = grpBtns.add("button", undefined, "Batal");
+            
+            var selectedIndicesResult = [];
+            
+            btnOk.onClick = function() {
+                for (var i = 0; i < listbox.items.length; i++) {
+                    if (listbox.items[i].selected && listbox.items[i].originalIndex !== undefined) {
+                        selectedIndicesResult.push(listbox.items[i].originalIndex);
+                    }
+                }
+                
+                if (selectedIndicesResult.length === 0) {
+                    alert("Pilih minimal satu dokumen!");
+                    return;
+                }
+                
+                // Sort selected indices numerically so Photoshop processes in tab order (left-to-right)
+                selectedIndicesResult.sort(function(a, b) { return a - b; });
+                
+                docDialog.close(1);
+            };
+            
+            btnCancel.onClick = function() {
+                docDialog.close(0);
+            };
+            
+            var result = docDialog.show();
+            if (result === 1) {
+                return selectedIndicesResult;
+            }
+            return null;
+        }
+
+        // === UI ===
+        var w = new Window("dialog", "Redaksi & Color");
+        w.orientation = "column";
+        w.alignChildren = ["fill", "top"];
+        w.spacing = 10;
+        w.margins = 16;
+
+        var grp = w.add("group");
+        grp.orientation = "row";
+        grp.alignChildren = ["fill", "top"];
+        grp.spacing = 10;
+
+        // Kolom 1
+        var col1 = grp.add("group");
+        col1.orientation = "column";
+        var btnRedaksi = col1.add("button", [0, 0, 140, 40], "REDAKSI");
+        var btnRedaksiTerpilih = col1.add("button", [0, 0, 140, 40], "REDAKSI TERPILIH");
+
+        // Kolom 2
+        var col2 = grp.add("group");
+        col2.orientation = "column";
+        var btnHideRedaksi = col2.add("button", [0, 0, 140, 40], "HIDE REDAKSI");
+
+        // Checkboxes Group
+        var grpCheckboxes = w.add("panel", undefined, "Options");
+        grpCheckboxes.orientation = "row";
+        grpCheckboxes.alignChildren = ["left", "center"];
+        grpCheckboxes.spacing = 15;
+        grpCheckboxes.margins = 15;
+
+        var cbBatch = grpCheckboxes.add("checkbox", undefined, "Batch All");
+        var cbColorRange = grpCheckboxes.add("checkbox", undefined, "COLOR RANGE");
+        var cbManasik = grpCheckboxes.add("checkbox", undefined, "MANASIK (Onta)");
+
+        var btnCancel = w.add("button", undefined, "Cancel");
+
+        // Handlers
+        // Mode 3: REDAKSI (Replace)
+        btnRedaksi.onClick = function () {
+            processAction(3, cbBatch.value, cbColorRange.value, cbManasik.value);
+            w.close();
+        };
+
+        // REDAKSI TERPILIH (Replace in Selected Documents)
+        btnRedaksiTerpilih.onClick = function () {
+            w.hide(); // Sembunyikan main window sementara
+            var selectedDocs = showDocumentSelectionDialog();
+            if (selectedDocs) {
+                processAction(3, false, cbColorRange.value, cbManasik.value, selectedDocs);
+                w.close();
+            } else {
+                w.show(); // Tampilkan kembali jika batal
+            }
+        };
+
+        // Mode 2: HIDE REDAKSI
+        btnHideRedaksi.onClick = function () {
+            processAction(2, cbBatch.value, cbColorRange.value, cbManasik.value);
+            w.close();
+        };
+
+        btnCancel.onClick = function () { w.close(); };
+
+        // Restore Position
+        var savedLoc = loadWindowLocation();
+        if (savedLoc) w.location = [savedLoc.x, savedLoc.y];
+        else w.center();
+
+        var res = w.show();
+        if (res != 2) saveWindowLocation(w.location);
+    })();

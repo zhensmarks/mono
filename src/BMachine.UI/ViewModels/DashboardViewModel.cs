@@ -1489,13 +1489,16 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                     }
                     else
                     {
-                        await Task.Run(async () => 
+                        // Fire-and-forget: never block the splash/startup on the network.
+                        _ = Task.Run(async () => 
                         {
-                            int retries = 3;
-                            int delay = 1000;
+                            int retries = 2;
+                            int delay = 500;
+                            int attempts = 0;
                             
                             while (retries > 0)
                             {
+                                attempts++;
                                 try
                                 {
                                     // Initialize Google Sheets Service
@@ -1512,7 +1515,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                                         ApplicationName = "BMachine"
                                     }))
                                     {
-                                        service.HttpClient.Timeout = TimeSpan.FromMinutes(1); // Reduced timeout
+                                        service.HttpClient.Timeout = TimeSpan.FromSeconds(20);
                                         var range = $"{sheetName}!{sheetCol}{sheetRow}";
                                         
                                         var request = service.Spreadsheets.Values.Get(sheetId, range);
@@ -1542,7 +1545,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                                     retries--;
                                     if (retries == 0)
                                     {
-                                        _logService?.AddLog($"[GSheet Fail] After 3 attempts: {ex.Message}");
+                                        _logService?.AddLog($"[GSheet Fail] After {attempts} attempts: {ex.Message}");
                                         // Keep previous value or show Err?
                                         // StatPoints = "Err"; // Maybe keep last known
                                     }

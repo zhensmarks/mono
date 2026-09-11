@@ -1,0 +1,217 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BMachine.UI.Views.Dialogs.MantraData.TransformWindow"
+        Title="Studio Rapikan Data"
+        Width="900" Height="640"
+        MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#09090B"
+        Foreground="#E8E8E6"
+        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
+
+    <Window.Styles>
+        <Style Selector="Button.Action">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="BorderBrush" Value="#EDEDED"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+
+        <Style Selector="Button.Muted">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Muted /template/ ContentPresenter">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+        </Style>
+
+        <Style Selector="Button.AiBtn">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.AiBtn /template/ ContentPresenter">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.AiBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#A5B4FC"/>
+        </Style>
+        <Style Selector="Button.AiBtn:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+
+        <Style Selector="ListBox.PresetList ListBoxItem">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="ListBox.PresetList ListBoxItem:selected">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+        </Style>
+        <Style Selector="ListBox.PresetList ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#232328"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Studio Rapikan Data" FontSize="18" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+            <TextBlock Text="Pilih preset transformasi atau atur sendiri untuk menggabungkan kolom. Preview ditampilkan di bawah."
+                       Foreground="#71717A" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <!-- Content -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Presets -->
+            <Border Grid.Column="0" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1"
+                    CornerRadius="8" Padding="12" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Preset Transformasi" FontWeight="SemiBold" Foreground="#E4E4E7" Margin="0,0,0,8"/>
+                    <ListBox x:Name="PresetListBox" Classes="PresetList" Background="Transparent" BorderThickness="0"
+                             SelectionChanged="OnPresetSelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontWeight="Medium" Foreground="#E4E4E7" FontSize="12"/>
+                                    <TextBlock Text="{Binding Description}" Foreground="#71717A" FontSize="10.5"
+                                               TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Right: Custom Configuration -->
+            <Border Grid.Column="1" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="16">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="CustomPanel" IsVisible="False" Spacing="10">
+                    <TextBlock Text="Konfigurasi Kustom" FontWeight="SemiBold" Foreground="#E4E4E7" Margin="0,0,0,2"/>
+
+                    <!-- Kolom sumber badges -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Kolom Sumber (pilih di tabel utama):" Foreground="#A1A1AA" FontSize="11"/>
+                        <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" MinHeight="72" Padding="8,6">
+                            <WrapPanel x:Name="PanelSelectedColumns"/>
+                        </Border>
+                    </StackPanel>
+
+                    <TextBlock Text="Nama Header Hasil:" Foreground="#A1A1AA" FontSize="11"/>
+                    <TextBox x:Name="TargetHeaderTextBox" Height="32" FontSize="12" VerticalContentAlignment="Center"
+                             Background="#18181B" Foreground="#E8E8E6" BorderBrush="#27272A"
+                             CornerRadius="6" Padding="10,0"/>
+
+                    <TextBlock Text="Pemisah Default:" Foreground="#A1A1AA" FontSize="11"/>
+                    <ComboBox x:Name="SeparatorComboBox" Height="32" FontSize="12"
+                              VerticalContentAlignment="Center" Padding="10,0,8,0"
+                              Background="#18181B" Foreground="#E8E8E6" BorderBrush="#27272A"
+                              CornerRadius="6">
+                        <ComboBoxItem Content="Spasi" Tag=" " IsSelected="True"/>
+                        <ComboBoxItem Content="Koma + Spasi" Tag=", "/>
+                        <ComboBoxItem Content="Baris Baru" Tag="&#10;"/>
+                        <ComboBoxItem Content="Kosong" Tag=""/>
+                    </ComboBox>
+
+                    <CheckBox x:Name="KeepSourcesCheckBox" Content="Pertahankan kolom sumber"
+                              Foreground="#E4E4E7" IsChecked="False" FontSize="12"/>
+
+                    <!-- Live preview -->
+                    <Border Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="12,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Hasil Baris 1:" FontSize="12" Foreground="#71717A"/>
+                            <TextBlock x:Name="TxtPreview" Text="—" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#38BDF8" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Saran AI -->
+                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Saran AI (opsional)" Foreground="#A1A1AA" FontSize="11"/>
+                            <CheckBox x:Name="AiEnabledCheckBox" Content="Gunakan AI lokal saat meminta saran"
+                                      Foreground="#E4E4E7" IsChecked="{Binding AiEnabled, Mode=TwoWay}" FontSize="12"
+                                      IsCheckedChanged="OnAiEnabledChanged"/>
+                            <TextBlock Text="Alamat server:" Foreground="#71717A" FontSize="11"/>
+                            <TextBox x:Name="AiEndpointTextBox" Height="30" FontSize="12" VerticalContentAlignment="Center"
+                                     Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#27272A" CornerRadius="6" Padding="8,0"
+                                     Watermark="http://127.0.0.1:11434"/>
+                            <TextBlock Text="Nama model:" Foreground="#71717A" FontSize="11"/>
+                            <TextBox x:Name="AiModelTextBox" Height="30" FontSize="12" VerticalContentAlignment="Center"
+                                     Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#27272A" CornerRadius="6" Padding="8,0"
+                                     Watermark="contoh: qwen2.5:7b"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button x:Name="AiTestButton" Classes="AiBtn" Content="Tes Koneksi" Click="OnAiTestClicked"/>
+                                <Button x:Name="AiSuggestButton" Classes="AiBtn" Content="Saran AI" Click="OnAiSuggestClicked" IsEnabled="False"/>
+                            </StackPanel>
+                            <TextBlock x:Name="AiStatusText" Text="" Foreground="#93C5FD" FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- Actions -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+            <Button Classes="Muted" Content="Terapkan" MinWidth="100" Click="OnApplyClicked"/>
+            <Button Classes="Action" Content="Batal" MinWidth="100" Click="OnCancelClick"/>
+        </StackPanel>
+    </Grid>
+</Window>

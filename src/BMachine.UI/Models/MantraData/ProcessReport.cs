@@ -12,6 +12,8 @@ public class PhotoMatchResult
     public string BestCandidateName { get; set; } = string.Empty;
     public string BestCandidatePath { get; set; } = string.Empty;
     public bool IsForced { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string Note { get; set; } = string.Empty;
 }
 
 public class ProcessReportItem

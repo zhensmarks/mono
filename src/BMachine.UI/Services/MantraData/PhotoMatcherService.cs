@@ -3,134 +3,108 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Globalization;
+using System.Text;
 using BMachine.UI.Models.MantraData;
 
 namespace BMachine.UI.Services.MantraData;
 
 public class PhotoMatcherService
 {
-    private static readonly Regex LeadingNumberRegex = new(@"^\d+\s*[\.\-\)]\s*", RegexOptions.Compiled);
+    private static readonly Regex FileExtRegex = new(@"\.(jpe?g|png)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex LeadingNumRegex = new(@"^\s*\d+\s*[.\-)]+\s*", RegexOptions.Compiled);
     private static readonly Regex TrailingDupRegex = new(@"\(\s*\d+\s*\)\s*$", RegexOptions.Compiled);
-    private static readonly Regex CleanNonAlphaRegex = new(@"[^a-z0-9 ]", RegexOptions.Compiled);
-    private static readonly Regex MultiSpaceRegex = new(@"\s+", RegexOptions.Compiled);
+    private static readonly Regex NonAlnumRegex = new(@"[^a-z0-9]+", RegexOptions.Compiled);
 
-    public static string Normalize(string str)
+    public static string NormalizePersonName(string value)
     {
-        if (string.IsNullOrWhiteSpace(str)) return string.Empty;
-        var s = Path.GetFileNameWithoutExtension(str).ToLowerInvariant();
-        s = CleanNonAlphaRegex.Replace(s, " ");
-        s = MultiSpaceRegex.Replace(s, " ").Trim();
-        return s;
-    }
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
 
-    private static readonly Regex NamaPrefixRegex = new(@"^\s*nama\s*:\s*", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex DegreeSuffixRegex = new(@"\s+(?:(?:[smd]\.[a-z.]+)|(?:gr|dr|dra|drs|ir)\.?)\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        var text = value.Normalize(NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(text.Length);
+        foreach (var c in text)
+        {
+            var cat = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (cat != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        var result = sb.ToString().Normalize(NormalizationForm.FormC);
+        result = result.ToLower(CultureInfo.GetCultureInfo("id-ID"));
+
+        result = FileExtRegex.Replace(result, "");
+        result = LeadingNumRegex.Replace(result, "");
+        result = TrailingDupRegex.Replace(result, "");
+        result = NonAlnumRegex.Replace(result, " ");
+        return result.Trim();
+    }
 
     public static string CleanFileNameForMatch(string fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName)) return string.Empty;
+
         var s = Path.GetFileNameWithoutExtension(fileName);
 
-        // Buang label "Nama :" jika ada di dalam nilai data
-        s = NamaPrefixRegex.Replace(s, "");
+        s = Regex.Replace(s, @"^\s*nama\s*:\s*", "", RegexOptions.IgnoreCase);
 
-        // Buang gelar setelah koma (misal: "Deni Setiawan, S.Pd." -> "Deni Setiawan")
         int commaAt = s.IndexOf(',');
         if (commaAt >= 0) s = s.Substring(0, commaAt);
 
-        // Buang gelar sederhana tanpa koma (misal: "Deni Setiawan S.Pd.")
-        s = DegreeSuffixRegex.Replace(s, "");
+        s = Regex.Replace(s, @"\s+(?:(?:[smd]\.[a-z.]+)|(?:gr|dr|dra|drs|ir)\.?)\s*$", "", RegexOptions.IgnoreCase);
 
-        s = Normalize(s);
-        s = LeadingNumberRegex.Replace(s, "");
-        s = TrailingDupRegex.Replace(s, "");
-        return Normalize(s);
+        return NormalizePersonName(s);
     }
 
-    public static List<string> Tokenize(string s)
+    public static int Score(string name, string photoStem)
     {
-        var parts = Normalize(s).Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var tokens = new List<string>();
-        foreach (var p in parts)
-        {
-            if (p.Length < 2) continue;
-            if (int.TryParse(p, out _)) continue;
-            tokens.Add(p);
-        }
-        return tokens;
+        var wanted = NormalizePersonName(name);
+        var candidate = NormalizePersonName(photoStem);
+        if (string.IsNullOrEmpty(wanted) || string.IsNullOrEmpty(candidate)) return 0;
+        if (wanted == candidate) return 100;
+
+        var wantedTokens = new HashSet<string>(wanted.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var candidateTokens = new HashSet<string>(candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        int overlap = wantedTokens.Intersect(candidateTokens).Count();
+        int union = wantedTokens.Union(candidateTokens).Count();
+        if (union == 0) union = 1;
+
+        double tokenScore = 45.0 * overlap / union;
+        double sequenceScore = 35.0 * SequenceRatio(wanted, candidate);
+        double containsBonus = (wanted.Contains(candidate, StringComparison.Ordinal) || candidate.Contains(wanted, StringComparison.Ordinal)) ? 20.0 : 0.0;
+
+        return Math.Min(99, (int)Math.Round(tokenScore + sequenceScore + containsBonus));
     }
 
-    public static int OverlapScore(string a, string b)
+    private static double SequenceRatio(string a, string b)
     {
-        var ta = Tokenize(a);
-        var tb = Tokenize(b);
-        if (ta.Count == 0 || tb.Count == 0) return 0;
+        int la = a.Length, lb = b.Length;
+        if (la == 0 && lb == 0) return 1.0;
+        if (la == 0 || lb == 0) return 0.0;
 
-        var setA = new HashSet<string>(ta, StringComparer.OrdinalIgnoreCase);
-        int score = 0;
-        foreach (var t in tb)
-        {
-            if (setA.Contains(t)) score++;
-        }
-        return score;
-    }
+        var d = new int[la + 1, lb + 1];
+        for (int i = 0; i <= la; i++) d[i, 0] = i;
+        for (int j = 0; j <= lb; j++) d[0, j] = j;
 
-    public static int BestMatchScore(string nameText, string fileName)
-    {
-        var fileNorm = CleanFileNameForMatch(fileName);
-        var want = Normalize(nameText);
-        if (string.IsNullOrEmpty(want) || want.Length < 3) return 0;
-
-        int score = OverlapScore(want, fileNorm);
-        if (fileNorm == want)
-        {
-            score += 100;
-        }
-        else if (fileNorm.Contains(want, StringComparison.OrdinalIgnoreCase) || want.Contains(fileNorm, StringComparison.OrdinalIgnoreCase))
-        {
-            score += 50;
-        }
-        return score;
-    }
-
-    public PhotoMatchResult FindBestMatch(string studentName, List<string> photoFiles, int threshold = 12, bool forcePick = false)
-    {
-        string? bestFile = null;
-        int bestScore = 0;
-
-        foreach (var file in photoFiles)
-        {
-            var fileName = Path.GetFileName(file);
-            int score = BestMatchScore(studentName, fileName);
-            if (score > bestScore)
+        for (int i = 1; i <= la; i++)
+            for (int j = 1; j <= lb; j++)
             {
-                bestScore = score;
-                bestFile = file;
+                int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+                d[i, j] = Math.Min(
+                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                    d[i - 1, j - 1] + cost);
             }
-        }
 
-        bool passed = forcePick ? (bestScore > 0 && bestFile != null) : (bestScore >= threshold && bestFile != null);
-
-        return new PhotoMatchResult
-        {
-            StudentName = studentName,
-            MatchedFilePath = passed ? bestFile : null,
-            Score = bestScore,
-            IsPassed = passed,
-            BestCandidateName = bestFile != null ? Path.GetFileName(bestFile) : string.Empty,
-            BestCandidatePath = bestFile ?? string.Empty,
-            IsForced = forcePick && passed
-        };
+        return 1.0 - (double)d[la, lb] / Math.Max(la, lb);
     }
 
-    public List<string> CollectPhotosRecursive(string rootFolder)
+    public static List<string> CollectPhotos(string rootFolder)
     {
         if (!Directory.Exists(rootFolder)) return new List<string>();
-        var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".psd" };
+        var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
         try
         {
             return Directory.EnumerateFiles(rootFolder, "*.*", SearchOption.AllDirectories)
-                .Where(f => extensions.Contains(Path.GetExtension(f)))
+                .Where(f => exts.Contains(Path.GetExtension(f)))
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
         catch
@@ -139,100 +113,52 @@ public class PhotoMatcherService
         }
     }
 
-    /// <summary>
-    /// Logika pencocokan foto berdasarkan nama file Template PSD (ala BMachine replace.jsx)
-    /// Mendukung format .png, .psd, .jpg dengan prioritas: PNG > PSD > JPG
-    /// Memiliki toleransi terhadap spasi, suffix " (1)", penomoran angka, dan typo kecil
-    /// </summary>
+    public List<string> CollectPhotosRecursive(string rootFolder) => CollectPhotos(rootFolder);
+
+    private static readonly Regex NumberRegex = new(@"\b(\d+)\b", RegexOptions.Compiled);
+
     public string? MatchPhotoToPsd(string psdFileName, List<string> photoFiles)
     {
         if (string.IsNullOrWhiteSpace(psdFileName) || photoFiles == null || photoFiles.Count == 0) return null;
 
         var psdBase = Path.GetFileNameWithoutExtension(psdFileName).Trim();
-        var psdNorm = Normalize(psdBase);
         var psdClean = CleanFileNameForMatch(psdBase);
-
-        // Ekstrak angka murni dari PSD jika ada (misal "01", "1")
-        var psdNumMatch = Regex.Match(psdBase, @"\b(\d+)\b");
+        var psdNumMatch = NumberRegex.Match(psdBase);
         var psdNumber = psdNumMatch.Success ? int.Parse(psdNumMatch.Groups[1].Value).ToString() : string.Empty;
 
-        var candidates = new List<(string Path, int Priority, int Score)>();
+        var candidates = new List<(string Path, int Score)>();
 
         foreach (var file in photoFiles)
         {
-            var fName = Path.GetFileName(file);
-            var fExt = Path.GetExtension(file).ToLowerInvariant();
-            var fBase = Path.GetFileNameWithoutExtension(fName).Trim();
-            var fNorm = Normalize(fBase);
+            var fBase = Path.GetFileNameWithoutExtension(file);
             var fClean = CleanFileNameForMatch(fBase);
 
-            // Format priority (BMachine pattern: PNG > PSD > JPG)
-            int formatPriority = fExt switch
-            {
-                ".png" => 3,
-                ".psd" => 2,
-                _ => 1
-            };
-
             int score = 0;
-
-            // 1. Exact match tanpa ekstensi (case-insensitive)
             if (string.Equals(fBase, psdBase, StringComparison.OrdinalIgnoreCase))
-            {
                 score = 1000;
-            }
-            // 2. Exact match setelah stripping spasi dan duplicate suffix "(1)"
             else if (string.Equals(fClean, psdClean, StringComparison.OrdinalIgnoreCase))
-            {
                 score = 800;
-            }
-            // 3. Substring match (salah satu mengandung yang lain)
-            else if (!string.IsNullOrEmpty(psdClean) && (fClean.Contains(psdClean, StringComparison.OrdinalIgnoreCase) || psdClean.Contains(fClean, StringComparison.OrdinalIgnoreCase)))
-            {
+            else if (!string.IsNullOrEmpty(psdClean) &&
+                     (fClean.Contains(psdClean, StringComparison.OrdinalIgnoreCase) || psdClean.Contains(fClean, StringComparison.OrdinalIgnoreCase)))
                 score = 600;
-            }
-            // 4. Match angka murni jika template hanya penomoran (misal "1" cocok dengan "Foto (1).png" atau "1.jpg")
             else if (!string.IsNullOrEmpty(psdNumber))
             {
-                var fNumMatch = Regex.Match(fBase, @"\b(\d+)\b");
+                var fNumMatch = NumberRegex.Match(fBase);
                 if (fNumMatch.Success && int.Parse(fNumMatch.Groups[1].Value).ToString() == psdNumber)
-                {
                     score = 400;
-                }
-            }
-
-            // 5. Toleransi Typo (Levenshtein distance)
-            if (score == 0 && psdClean.Length >= 4 && fClean.Length >= 4)
-            {
-                int dist = ComputeLevenshteinDistance(psdClean, fClean);
-                int maxLen = Math.Max(psdClean.Length, fClean.Length);
-                double similarity = 1.0 - ((double)dist / maxLen);
-                if (similarity >= 0.75) // toleransi typo 1-2 huruf
-                {
-                    score = (int)(similarity * 500);
-                }
             }
 
             if (score > 0)
-            {
-                candidates.Add((file, formatPriority, score));
-            }
+                candidates.Add((file, score));
         }
 
         if (candidates.Count == 0) return null;
 
-        // Urutkan berdasarkan Skor kemiripan tertinggi, lalu Prioritas Format (.png > .psd > .jpg)
-        var best = candidates
+        return candidates
             .OrderByDescending(c => c.Score)
-            .ThenByDescending(c => c.Priority)
-            .First();
-
-        return best.Path;
+            .First().Path;
     }
 
-    /// <summary>
-    /// Logika pencocokan baris data siswa ke file template PSD (Mode B)
-    /// </summary>
     public int MatchDataRowToPsd(string studentName, string psdFileName)
     {
         if (string.IsNullOrWhiteSpace(studentName) || string.IsNullOrWhiteSpace(psdFileName)) return 0;
@@ -244,43 +170,114 @@ public class PhotoMatcherService
         if (string.Equals(sClean, pClean, StringComparison.OrdinalIgnoreCase)) return 1000;
         if (pClean.Contains(sClean, StringComparison.OrdinalIgnoreCase) || sClean.Contains(pClean, StringComparison.OrdinalIgnoreCase)) return 600;
 
-        int overlap = OverlapScore(sClean, pClean);
+        var sTokens = new HashSet<string>(sClean.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var pTokens = new HashSet<string>(pClean.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        int overlap = sTokens.Intersect(pTokens).Count();
         if (overlap >= 2) return 400 + overlap * 50;
-
-        // Typo tolerance
-        if (sClean.Length >= 4 && pClean.Length >= 4)
-        {
-            int dist = ComputeLevenshteinDistance(sClean, pClean);
-            int maxLen = Math.Max(sClean.Length, pClean.Length);
-            double sim = 1.0 - ((double)dist / maxLen);
-            if (sim >= 0.75) return (int)(sim * 350);
-        }
 
         return 0;
     }
 
-    private static int ComputeLevenshteinDistance(string s, string t)
+    public PhotoMatchResult FindBestMatch(string studentName, List<string> photoFiles, int threshold = 62, bool forcePick = false)
     {
-        int n = s.Length;
-        int m = t.Length;
-        var d = new int[n + 1, m + 1];
+        var candidates = photoFiles
+            .Select(f => (Path: f, Normalized: NormalizePersonName(Path.GetFileNameWithoutExtension(f))))
+            .ToList();
 
-        if (n == 0) return m;
-        if (m == 0) return n;
+        var ranked = candidates
+            .Select(c => (Score: Score(studentName, c.Normalized), c.Path))
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        for (int i = 0; i <= n; d[i, 0] = i++) { }
-        for (int j = 0; j <= m; d[0, j] = j++) { }
-
-        for (int i = 1; i <= n; i++)
+        if (string.IsNullOrWhiteSpace(studentName) || string.IsNullOrEmpty(studentName.Trim()))
         {
-            for (int j = 1; j <= m; j++)
+            return new PhotoMatchResult { StudentName = studentName, Status = "NAMA KOSONG", Score = 0 };
+        }
+
+        if (ranked.Count == 0 || ranked[0].Score < threshold)
+        {
+            int lowScore = 0;
+            string? lowPath = null;
+            if (ranked.Count > 0)
             {
-                int cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
-                d[i, j] = Math.Min(
-                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-                    d[i - 1, j - 1] + cost);
+                lowScore = ranked[0].Score;
+                lowPath = ranked[0].Path;
+            }
+            return new PhotoMatchResult
+            {
+                StudentName = studentName,
+                MatchedFilePath = lowPath,
+                Score = lowScore,
+                IsPassed = false,
+                Status = "TIDAK ADA",
+                Note = "Skor di bawah batas"
+            };
+        }
+
+        var bestScore = ranked[0].Score;
+        var bestPath = ranked[0].Path;
+        var secondScore = ranked.Count > 1 ? ranked[1].Score : 0;
+
+        bool ambiguous = secondScore >= threshold && bestScore - secondScore <= 3;
+        string status;
+        string note = string.Empty;
+
+        if (ambiguous)
+        {
+            status = "AMBIGU";
+            note = $"Kandidat kedua terlalu dekat ({secondScore})";
+        }
+        else if (bestScore == 100)
+        {
+            status = "PERSIS";
+        }
+        else
+        {
+            status = "COCOK";
+        }
+
+        return new PhotoMatchResult
+        {
+            StudentName = studentName,
+            MatchedFilePath = bestPath,
+            Score = bestScore,
+            IsPassed = true,
+            Status = status,
+            Note = note,
+            BestCandidateName = Path.GetFileName(bestPath),
+            BestCandidatePath = bestPath
+        };
+    }
+
+    public List<PhotoMatchResult> MatchAll(List<string> names, List<string> photoFiles, int threshold = 62)
+    {
+        var results = new List<PhotoMatchResult>();
+        var chosen = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < names.Count; i++)
+        {
+            var result = FindBestMatch(names[i], photoFiles, threshold);
+            results.Add(result);
+
+            if (!string.IsNullOrEmpty(result.MatchedFilePath))
+            {
+                var key = result.MatchedFilePath.ToLowerInvariant();
+                if (!chosen.ContainsKey(key)) chosen[key] = new List<int>();
+                chosen[key].Add(i);
             }
         }
-        return d[n, m];
+
+        foreach (var kv in chosen)
+        {
+            if (kv.Value.Count <= 1) continue;
+            foreach (var idx in kv.Value)
+            {
+                results[idx].Status = "FOTO GANDA";
+                results[idx].Note = "Foto yang sama terpilih untuk lebih dari satu data";
+            }
+        }
+
+        return results;
     }
 }

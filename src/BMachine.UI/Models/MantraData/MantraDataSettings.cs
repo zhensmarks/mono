@@ -10,7 +10,10 @@ public class MantraDataSettings
     public string PhotoshopExePath { get; set; } = @"C:\Program Files\Adobe\Adobe Photoshop 2020\Photoshop.exe";
     public string LastPsdFolder { get; set; } = string.Empty;
     public string LastPhotoFolder { get; set; } = string.Empty;
-    public int PhotoMatchThreshold { get; set; } = 12;
+    public int PhotoMatchThreshold { get; set; } = 62;
+    public bool AiEnabled { get; set; } = false;
+    public string AiEndpoint { get; set; } = "http://127.0.0.1:11434";
+    public string AiModel { get; set; } = "";
     public bool FreezeColumnsEnabled { get; set; } = false;
     public int FrozenColumnCount { get; set; } = 2;
     public List<string> RecentFiles { get; set; } = new();
