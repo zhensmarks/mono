@@ -24,12 +24,12 @@
         </Style>
 
         <!-- ==================================================================== -->
-        <!-- GLOBAL TYPOGRAPHY ENHANCEMENTS (TERMINAL STYLE)                      -->
+        <!-- GLOBAL TYPOGRAPHY ENHANCEMENTS (CLEAN MODERN UI SANS)                -->
         <!-- ==================================================================== -->
         <Style Selector="TextBlock">
-            <Setter Property="FontFamily" Value="SF Mono, Menlo, Monaco, Consolas, Courier New, monospace"/>
-            <Setter Property="FontWeight" Value="Medium"/> <!-- Standard default vibe -->
-            <Setter Property="LetterSpacing" Value="0.25"/>
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, -apple-system, sans-serif"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="LetterSpacing" Value="0"/>
         </Style>
         <Style Selector="TextBlock.Light">
             <Setter Property="FontWeight" Value="Light"/>
@@ -42,20 +42,20 @@
             <Setter Property="FontWeight" Value="Black"/>
         </Style>
         <Style Selector="TextBlock.Title">
-            <Setter Property="FontWeight" Value="Black"/> <!-- Heavy Terminal Header -->
+            <Setter Property="FontWeight" Value="Black"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FontSize" Value="24"/>
-            <Setter Property="LetterSpacing" Value="1.0"/>
+            <Setter Property="LetterSpacing" Value="0.5"/>
         </Style>
         <Style Selector="TextBlock.Subtitle">
             <Setter Property="FontWeight" Value="Light"/>
-            <Setter Property="LetterSpacing" Value="0.5"/>
+            <Setter Property="LetterSpacing" Value="0"/>
             <Setter Property="Opacity" Value="0.6"/>
         </Style>
         
         <!-- CONTROL-WIDE FONT OVERRIDES -->
         <Style Selector="TemplatedControl">
-            <Setter Property="FontFamily" Value="SF Mono, Menlo, Monaco, Consolas, Courier New, monospace"/>
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, -apple-system, sans-serif"/>
         </Style>
 
         <!-- ==================================================================== -->
@@ -254,6 +254,72 @@
         </Style>
         <Style Selector="Button.Accent:pressed">
             <Setter Property="RenderTransform" Value="scale(0.97)"/>
+        </Style>
+
+        <!-- Global Canonical Primary Action Button -->
+        <Style Selector="Button.Action">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, -apple-system, sans-serif"/>
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:disabled">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#52525B"/>
+        </Style>
+        <Style Selector="Button.Action:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#52525B"/>
+        </Style>
+
+        <!-- Global Canonical Muted / Outline Button -->
+        <Style Selector="Button.Muted">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, -apple-system, sans-serif"/>
+            <Setter Property="Background" Value="#1C1C1F"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Muted /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1C1C1F"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+        </Style>
+        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#52525B"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#222226"/>
         </Style>
 
         <!-- Global Compact ToolTip Style (Premium Terminal Aesthetic) -->

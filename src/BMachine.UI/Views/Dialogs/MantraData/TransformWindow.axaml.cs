@@ -1,36 +1,33 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using BMachine.UI.Models.MantraData;
 using BMachine.UI.Services.MantraData;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class TransformWindow : Window
+public partial class TransformWindow : MantraDialogBase
 {
     private readonly TransformService _transformService;
     private readonly LocalAIService _aiService;
     private readonly MantraDataSettings _settings;
     private readonly List<string> _headers;
     private readonly List<List<string>> _sampleRows;
-    private readonly List<TransformPreset> _presets;
+    private readonly ObservableCollection<LayerItemView> _layers = new();
 
-    private readonly List<string> _chosen = new();
-    private readonly List<(string Column, string Prefix, string Separator)> _layout = new();
-
-    public string SelectedPresetCode { get; private set; } = "";
-    public string TargetHeader { get; private set; } = "";
-    public string Separator { get; private set; } = " ";
-    public bool KeepSources { get; private set; }
-    public List<MergeColumn> MergeColumns { get; private set; } = new();
+    public List<LayerTransformSpec> Layers { get; private set; } = new();
     public bool Confirmed { get; private set; }
+
+    public event Action? PreviewChanged;
+
+    private bool _loading;
+    private bool _suppressPreview;
+    private int _currentIndex = -1;
 
     public TransformWindow(
         List<string> headers,
@@ -40,7 +37,12 @@ public partial class TransformWindow : Window
         MantraDataSettings settings,
         IEnumerable<string>? preselected = null)
     {
+        System.Diagnostics.Debug.WriteLine($"[TransformWindow] Headers count: {headers.Count}");
+        
+        _loading = true;
         InitializeComponent();
+        _loading = false;
+        DataContext = _layers;
 
         _headers = headers;
         _sampleRows = sampleRows;
@@ -48,338 +50,429 @@ public partial class TransformWindow : Window
         _aiService = aiService;
         _settings = settings;
 
-        AiEnabledCheckBox.IsChecked = settings.AiEnabled;
-        AiEndpointTextBox.Text = settings.AiEndpoint;
-        AiModelTextBox.Text = settings.AiModel;
-
-        _presets = transformService.GetAvailablePresets(headers);
-        PresetListBox.ItemsSource = _presets;
-        if (_presets.Count > 0)
-            PresetListBox.SelectedIndex = 0;
-
-        var pre = preselected?.Where(c => headers.Contains(c)).ToList() ?? new List<string>();
-        _chosen.AddRange(pre.Distinct());
-        foreach (var c in _chosen)
+        var pre = preselected?.Where(headers.Contains).Distinct().ToList() ?? new List<string>();
+        var initial = new LayerItemView("HASIL 1")
         {
-            _layout.Add((c, "", ""));
-        }
-        if (_chosen.Count == 0 && headers.Count >= 2)
+            DefaultSeparator = "\n"
+        };
+        foreach (var header in headers)
         {
-            _chosen.AddRange(headers.Take(2));
-            foreach (var c in _chosen) _layout.Add((c, "", ""));
-        }
-
-        RebuildColumnBadges();
-        UpdateAiButtonState();
-        UpdatePreview();
-    }
-
-    private List<int> SelectedIndexes =>
-        _layout.Select(item => _headers.IndexOf(item.Column))
-            .Where(i => i >= 0)
-            .ToList();
-
-    private void RebuildColumnBadges()
-    {
-        if (PanelSelectedColumns == null) return;
-        PanelSelectedColumns.Children.Clear();
-
-        foreach (var (col, prefix, sep) in _layout)
-        {
-            var labelText = string.IsNullOrEmpty(prefix) ? col : $"{prefix}{col}";
-            var border = new Border
+            initial.Entries.Add(new ColumnEntryItem(headers.IndexOf(header), header)
             {
-                Background = SolidColorBrush.Parse("#1E2433"),
-                BorderBrush = SolidColorBrush.Parse("#2E384D"),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(4),
-                Margin = new Thickness(0, 2, 6, 2),
-                Padding = new Thickness(8, 3, 6, 3)
-            };
-
-            var sp = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6 };
-            sp.Children.Add(new TextBlock
-            {
-                Text = labelText,
-                FontSize = 11,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = SolidColorBrush.Parse("#EDEDED"),
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                IsUsed = pre.Contains(header)
             });
-
-            var btnRemove = new Button
-            {
-                Content = "x",
-                FontSize = 9,
-                Width = 16,
-                Height = 16,
-                Padding = new Thickness(0),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                Foreground = SolidColorBrush.Parse("#828896"),
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
-                Tag = col
-            };
-            btnRemove.Click += (s, e) =>
-            {
-                if (s is Button b && b.Tag is string cName)
-                {
-                    _layout.RemoveAll(item => item.Column == cName);
-                    _chosen.RemoveAll(c => c == cName);
-                    RebuildColumnBadges();
-                    UpdatePreview();
-                }
-            };
-            sp.Children.Add(btnRemove);
-
-            border.Child = sp;
-            PanelSelectedColumns.Children.Add(border);
         }
+        
+        System.Diagnostics.Debug.WriteLine($"[TransformWindow] Initial layer entries count: {initial.Entries.Count}");
+        
+        _layers.Add(initial);
 
-        var remaining = _headers.Except(_layout.Select(item => item.Column)).ToList();
-        if (remaining.Count > 0)
+        Subscribe(initial);
+        TxtLayerName.TextChanged += (_, _) => RaisePreview();
+        CmbDefaultSeparator.SelectionChanged += (_, _) =>
         {
-            var btnAdd = new Button
-            {
-                Content = "Tambah Kolom",
-                FontSize = 11,
-                Padding = new Thickness(8, 2, 8, 2),
-                Margin = new Thickness(0, 2, 0, 2),
-                Background = SolidColorBrush.Parse("#181B24"),
-                BorderBrush = SolidColorBrush.Parse("#2E3342"),
-                BorderThickness = new Thickness(1),
-                Foreground = SolidColorBrush.Parse("#60A5FA"),
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
-            };
+            if (CurrentLayer is { } layer && CmbDefaultSeparator.SelectedItem is SeparatorOption opt)
+                layer.DefaultSeparator = opt.Value;
+            RaisePreview();
+        };
 
-            var flyout = new MenuFlyout();
-            foreach (var rCol in remaining)
-            {
-                var item = new MenuItem { Header = rCol, Tag = rCol };
-                item.Click += (s, e) =>
-                {
-                    if (s is MenuItem mi && mi.Tag is string colToAdd)
-                    {
-                        _layout.Add((colToAdd, "", ""));
-                        _chosen.Add(colToAdd);
-                        RebuildColumnBadges();
-                        UpdatePreview();
-                    }
-                };
-                flyout.Items.Add(item);
-            }
-
-            btnAdd.Flyout = flyout;
-            PanelSelectedColumns.Children.Add(btnAdd);
-        }
+        AddDefaultSeparators();
+        LoadLayer(0);
     }
 
-    private void OnPresetSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void AddDefaultSeparators()
     {
-        if (CustomPanel == null || PresetListBox == null) return;
-        if (PresetListBox.SelectedItem is TransformPreset preset)
+        CmbDefaultSeparator.ItemsSource = new List<SeparatorOption>
         {
-            CustomPanel.IsVisible = preset.Code == "custom";
-            if (preset.Code != "custom")
-            {
-                TxtPreview.Text = $"Preset '{preset.Title}' siap diterapkan.";
-            }
-        }
+            new("Baris baru", "\n"),
+            new("Spasi", " "),
+            new("Koma + spasi", ", "),
+            new("Garis miring", " / "),
+            new("Strip", " - "),
+            new("Tanpa pemisah", "")
+        };
     }
 
-    private void OnAiEnabledChanged(object? sender, RoutedEventArgs e)
+    private void OnLayerSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        bool enabled = AiEnabledCheckBox.IsChecked == true;
-        _settings.AiEnabled = enabled;
-        _settings.Save();
-        _aiService.IsEnabled = enabled;
-        UpdateAiButtonState();
-    }
-
-    private void UpdateAiButtonState()
-    {
-        if (AiSuggestButton == null) return;
-        AiSuggestButton.IsEnabled = _layout.Count >= 2;
-    }
-
-    private void SaveAiSettings()
-    {
-        _settings.AiEndpoint = AiEndpointTextBox.Text?.Trim() ?? "";
-        _settings.AiModel = AiModelTextBox.Text?.Trim() ?? "";
-        _settings.AiEnabled = AiEnabledCheckBox.IsChecked == true;
-        _settings.Save();
-        _aiService.IsEnabled = _settings.AiEnabled;
-    }
-
-    private async void OnAiTestClicked(object? sender, RoutedEventArgs e)
-    {
-        SaveAiSettings();
-        AiStatusText.Text = "Menghubungi server AI lokal...";
-        AiTestButton.IsEnabled = false;
+        if (_loading || LstLayers is null) return;
+        _suppressPreview = true;
         try
         {
-            var models = await _aiService.ListModelsAsync(_settings.AiEndpoint);
-            if (models.Count == 0)
-            {
-                AiStatusText.Text = "Terhubung. Model tersedia: (belum ada model).";
-            }
-            else
-            {
-                AiStatusText.Text = "Terhubung. Model tersedia: " + string.Join(", ", models.Take(6));
-                if (string.IsNullOrWhiteSpace(_settings.AiModel) && models.Count > 0)
-                {
-                    AiModelTextBox.Text = models[0];
-                    _settings.AiModel = models[0];
-                    _settings.Save();
-                }
-            }
-            UpdateAiButtonState();
-        }
-        catch (LocalAIException ex)
-        {
-            AiStatusText.Text = ex.Message;
+            LoadLayer(LstLayers.SelectedIndex);
         }
         finally
         {
-            AiTestButton.IsEnabled = true;
+            _suppressPreview = false;
         }
     }
 
-    private async void OnAiSuggestClicked(object? sender, RoutedEventArgs e)
+    private void LoadLayer(int index)
     {
-        SaveAiSettings();
+        if (index < 0 || index >= _layers.Count) return;
+        _currentIndex = index;
+        var layer = _layers[index];
+        RightPanel.DataContext = layer;
+        DgEntries.ItemsSource = layer.Entries;
+        TxtLayerName.Text = layer.Name;
+        SelectDefaultSeparator(layer.DefaultSeparator);
+        AiStatusText.Text = "";
+    }
 
-        if (_layout.Count < 2)
+    private void SelectDefaultSeparator(string value)
+    {
+        foreach (var item in CmbDefaultSeparator.Items)
         {
-            AiStatusText.Text = "Pilih minimal 2 kolom sumber terlebih dahulu.";
+            if (item is SeparatorOption opt && opt.Value == value)
+            {
+                CmbDefaultSeparator.SelectedItem = item;
+                return;
+            }
+        }
+        CmbDefaultSeparator.SelectedItem = CmbDefaultSeparator.Items.Cast<SeparatorOption>().FirstOrDefault();
+    }
+
+    private LayerItemView? CurrentLayer =>
+        _currentIndex >= 0 && _currentIndex < _layers.Count ? _layers[_currentIndex] : null;
+
+    private void Subscribe(LayerItemView layer)
+    {
+        foreach (var entry in layer.Entries)
+            entry.PropertyChanged += OnEntryChanged;
+    }
+
+    private void OnEntryChanged(object? sender, PropertyChangedEventArgs e) => RaisePreview();
+
+    private void RaisePreview()
+    {
+        if (_loading || _suppressPreview) return;
+        PreviewChanged?.Invoke();
+    }
+
+    public List<LayerTransformSpec> BuildSpecs()
+    {
+        if (CurrentLayer != null)
+        {
+            CurrentLayer.DefaultSeparator = GetDefaultSeparatorValue();
+            CurrentLayer.Name = TxtLayerName.Text;
+        }
+
+        return _layers.Select(layer => new LayerTransformSpec
+        {
+            Name = (layer.Name ?? "").Trim(),
+            Separator = ResolveValue(layer.DefaultSeparator),
+            Entries = layer.Entries.Select(entry => new LayerTransformEntry
+            {
+                SourceIndex = entry.SourceIndex,
+                Header = entry.Header,
+                Use = entry.IsUsed,
+                Prefix = entry.Prefix,
+                Separator = ResolveValue(entry.Separator)
+            }).ToList()
+        }).ToList();
+    }
+
+    private void OnAddLayerClicked(object? sender, RoutedEventArgs e)
+    {
+        var layer = new LayerItemView($"LAYER {_layers.Count + 1}")
+        {
+            DefaultSeparator = "\n"
+        };
+        foreach (var header in _headers)
+        {
+            layer.Entries.Add(new ColumnEntryItem(_headers.IndexOf(header), header));
+        }
+        _layers.Add(layer);
+        Subscribe(layer);
+        _loading = true;
+        try
+        {
+            LstLayers.SelectedIndex = _layers.Count - 1;
+        }
+        finally
+        {
+            _loading = false;
+        }
+        LoadLayer(_layers.Count - 1);
+    }
+
+    private void OnRemoveLayerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_layers.Count <= 1)
+        {
+            AiStatusText.Text = "Minimal harus ada satu layer hasil.";
+            return;
+        }
+        var index = LstLayers.SelectedIndex;
+        if (index < 0) return;
+        _layers.RemoveAt(index);
+        _currentIndex = -1;
+        _loading = true;
+        try
+        {
+            LstLayers.SelectedIndex = Math.Min(index, _layers.Count - 1);
+        }
+        finally
+        {
+            _loading = false;
+        }
+        LoadLayer(LstLayers.SelectedIndex);
+    }
+
+    private List<ColumnEntryItem> SelectedEntries(LayerItemView layer) =>
+        layer.Entries.Where(e => e.IsUsed).ToList();
+
+    private async void OnSuggestClicked(object? sender, RoutedEventArgs e)
+    {
+        var layer = CurrentLayer;
+        if (layer == null) return;
+
+        var selected = SelectedEntries(layer);
+        if (selected.Count == 0)
+        {
+            AiStatusText.Text = "Centang dahulu kolom sumber untuk layer ini.";
             return;
         }
 
-        AiSuggestButton.IsEnabled = false;
-
-        bool aiEnabled = AiEnabledCheckBox.IsChecked == true && !string.IsNullOrWhiteSpace(_settings.AiModel);
+        bool aiEnabled = _settings.AiEnabled && !string.IsNullOrWhiteSpace(_settings.AiModel);
         if (aiEnabled)
         {
             AiStatusText.Text = "Memproses...";
+            BtnSuggest.IsEnabled = false;
             try
             {
                 var suggestions = await _aiService.SuggestMergeLayoutAsync(
                     _headers,
                     _sampleRows,
-                    SelectedIndexes,
+                    selected.Select(c => c.SourceIndex).ToList(),
+                    _settings.AiProvider,
                     _settings.AiEndpoint,
+                    _settings.AiApiKey,
                     _settings.AiModel);
 
-                _layout.Clear();
-                _layout.AddRange(suggestions.Select(s => (s.Header, s.Prefix, s.Separator)));
-                _chosen.Clear();
-                _chosen.AddRange(_layout.Select(item => item.Column));
+                var bySource = layer.Entries.ToDictionary(c => c.SourceIndex, c => c);
+                var ordered = new List<ColumnEntryItem>();
+                foreach (var s in suggestions)
+                {
+                    if (bySource.TryGetValue(s.SourceIndex, out var entry))
+                    {
+                        entry.Prefix = s.Prefix;
+                        entry.Separator = ToToken(s.Separator);
+                        ordered.Add(entry);
+                    }
+                }
+                ordered.AddRange(layer.Entries.Where(c => !ordered.Contains(c)));
 
-                RebuildColumnBadges();
-                UpdatePreview();
+                layer.Entries.Clear();
+                foreach (var entry in ordered)
+                    layer.Entries.Add(entry);
 
-                var summary = string.Join(" | ", _layout.Select(item =>
-                    string.IsNullOrEmpty(item.Prefix)
-                        ? item.Column
-                        : $"{item.Prefix}{item.Column}"));
-                AiStatusText.Text = "Saran AI diterapkan: " + summary;
-                UpdateAiButtonState();
-                return;
+                AiStatusText.Text = "Saran AI diterapkan.";
             }
             catch (LocalAIException ex)
             {
                 AiStatusText.Text = ex.Message + " Saran offline digunakan.";
+                ApplyOfflineFormat(layer, selected);
+            }
+            finally
+            {
+                BtnSuggest.IsEnabled = true;
             }
         }
-
-        ApplyOfflineSuggestion();
-        RebuildColumnBadges();
-        UpdatePreview();
-        UpdateAiButtonState();
-        if (string.IsNullOrEmpty(AiStatusText.Text) || !AiStatusText.Text.Contains("offline"))
+        else
+        {
             AiStatusText.Text = "Saran offline digunakan.";
+            ApplyOfflineFormat(layer, selected);
+        }
+
+        RaisePreview();
     }
 
-    private void ApplyOfflineSuggestion()
+    private void ApplyOfflineFormat(LayerItemView layer, List<ColumnEntryItem> selected)
     {
-        for (int i = 0; i < _layout.Count; i++)
+        for (int position = 0; position < selected.Count; position++)
         {
-            var col = _layout[i].Column;
-            var key = NormalizeHeaderKey(col);
-            var prefix = "";
-            var separator = "\n";
-            if (key == "nisn") prefix = "NISN : ";
-            else if (key == "jabatan") prefix = "Jabatan : ";
-            else if (key.Contains("tempat") && key.Contains("tanggal")) prefix = "TTL : ";
-            else if (key == "tempat lahir") { prefix = "TTL : "; separator = ", "; }
-            else if (key == "alamat") prefix = "Alamat : ";
-            if (i == _layout.Count - 1) separator = "";
-            _layout[i] = (col, prefix, separator);
+            var entry = selected[position];
+            string prefix = "";
+            string separator = TokenFromValue("\n");
+            var header = CleanHeader(entry.Header);
+
+            if (header == "nisn") prefix = "NISN : ";
+            else if (header == "nis") prefix = "NIS : ";
+            else if (header == "jabatan") prefix = "Jabatan : ";
+            else if (header.Contains("tempat") && header.Contains("tanggal")) prefix = "TTL : ";
+            else if (header == "tempat lahir") { prefix = "TTL : "; separator = TokenFromValue(", "); }
+            else if (header == "alamat") prefix = "Alamat : ";
+            else if (header == "rt") { prefix = "RT "; separator = TokenFromValue(", "); }
+            else if (header == "rw") { prefix = "RW "; separator = TokenFromValue(", "); }
+            else if (new[] { "kelurahan", "kecamatan", "kode pos", "dusun" }.Any(key => header == key))
+                separator = TokenFromValue(", ");
+
+            if (position == selected.Count - 1) separator = TokenFromValue("");
+
+            entry.Prefix = prefix;
+            entry.Separator = separator;
         }
     }
 
-    private static string NormalizeHeaderKey(string header)
+    private async void OnAutoArrangeClicked(object? sender, RoutedEventArgs e)
     {
-        var text = Regex.Replace(header.ToLowerInvariant(), "[^a-z0-9]+", " ").Trim();
-        return text switch
-        {
-            "tempat" => "tempat lahir",
-            "tempat lahir" => "tempat lahir",
-            "tanggal lahir" or "tgl lahir" => "tanggal lahir",
-            "tempat tgl lahir" or "tempat tanggal lahir" => "tempat, tanggal lahir",
-            _ => text
-        };
+        await RunAutoArrange(true);
     }
 
-    private void UpdatePreview()
+    private async void OnArrangeManualClicked(object? sender, RoutedEventArgs e)
     {
-        if (TxtPreview == null || TargetHeaderTextBox == null) return;
+        await RunAutoArrange(false);
+    }
 
-        TargetHeaderTextBox.Text = string.IsNullOrEmpty(TargetHeaderTextBox.Text)
-            ? string.Join(" + ", _layout.Select(item => item.Column))
-            : TargetHeaderTextBox.Text;
+    private async Task RunAutoArrange(bool useAi)
+    {
+        var normalized = _headers.Select(CleanHeader).ToList();
+        int noIndex = normalized.FindIndex(h => h == "no");
+        int nameIndex = normalized.FindIndex(h => h is "nama" or "nama lengkap");
+        var identity = new List<int>();
+        if (noIndex >= 0) identity.Add(noIndex);
+        if (nameIndex >= 0) identity.Add(nameIndex);
+        var used = identity.ToHashSet();
 
-        if (_layout.Count < 2)
+        var specs = new List<(string Name, string Separator, HashSet<int> Sources)>();
+        if (identity.Count > 0)
         {
-            TxtPreview.Text = "Pilih minimal 2 kolom";
+            var layerName = identity.Count > 1 ? "IDENTITAS" : nameIndex >= 0 ? "NAMA" : "NO";
+            specs.Add((layerName, " ", identity.ToList().ToHashSet()));
+        }
+        var remaining = Enumerable.Range(0, _headers.Count).Where(i => !used.Contains(i)).ToList();
+        if (remaining.Count > 0)
+        {
+            specs.Add(("DATA", "\n", remaining.ToHashSet()));
+        }
+        if (specs.Count == 0)
+        {
+            AiStatusText.Text = "Tidak ada kolom untuk diatur.";
             return;
         }
 
-        var vals = _layout.Select(item =>
+        var newLayers = new List<LayerItemView>();
+        foreach (var (name, separator, sources) in specs)
         {
-            var idx = _headers.IndexOf(item.Column);
-            var value = idx >= 0 && _sampleRows.Count > 0 && idx < _sampleRows[0].Count
-                ? _sampleRows[0][idx] ?? ""
-                : item.Column;
-            return string.IsNullOrEmpty(item.Prefix) ? value.Trim() : item.Prefix + value.Trim();
-        }).Where(v => !string.IsNullOrEmpty(v)).ToList();
+            var layer = new LayerItemView(name) { DefaultSeparator = separator };
+            foreach (var header in _headers)
+            {
+                var index = _headers.IndexOf(header);
+                layer.Entries.Add(new ColumnEntryItem(index, header) { IsUsed = sources.Contains(index) });
+            }
+            newLayers.Add(layer);
+        }
 
-        var sep = GetValidSeparator() ?? " ";
-        TxtPreview.Text = string.Join(sep == "\n" ? " [Baris Baru] " : sep, vals);
+        foreach (var layer in newLayers)
+        {
+            if (int.TryParse(layer.Name, out _))
+                continue;
+            if (layer.Name == "IDENTITAS" || layer.Name == "NAMA" || layer.Name == "NO")
+            {
+                var selected = SelectedEntries(layer);
+                for (int position = 0; position < selected.Count; position++)
+                    selected[position].Separator = position < selected.Count - 1 ? TokenFromValue(" ") : TokenFromValue("");
+            }
+            else
+            {
+                ApplyOfflineFormat(layer, SelectedEntries(layer));
+            }
+        }
+
+        bool doAi = useAi && _settings.AiEnabled && !string.IsNullOrWhiteSpace(_settings.AiModel);
+        if (doAi)
+        {
+            AiStatusText.Text = "Memproses...";
+            BtnAutoArrange.IsEnabled = false;
+            try
+            {
+                foreach (var layer in newLayers)
+                {
+                    var selected = SelectedEntries(layer);
+                    if (selected.Count == 0) continue;
+                    var suggestions = await _aiService.SuggestMergeLayoutAsync(
+                        _headers,
+                        _sampleRows,
+                        selected.Select(c => c.SourceIndex).ToList(),
+                        _settings.AiProvider,
+                        _settings.AiEndpoint,
+                        _settings.AiApiKey,
+                        _settings.AiModel);
+
+                    var bySource = layer.Entries.ToDictionary(c => c.SourceIndex, c => c);
+                    var ordered = new List<ColumnEntryItem>();
+                    foreach (var s in suggestions)
+                    {
+                        if (bySource.TryGetValue(s.SourceIndex, out var entry))
+                        {
+                            entry.Prefix = s.Prefix;
+                            entry.Separator = ToToken(s.Separator);
+                            ordered.Add(entry);
+                        }
+                    }
+                    ordered.AddRange(layer.Entries.Where(c => !ordered.Contains(c)));
+                    layer.Entries.Clear();
+                    foreach (var entry in ordered)
+                        layer.Entries.Add(entry);
+                }
+                AiStatusText.Text = "Susunan otomatis AI diterapkan.";
+            }
+            catch (LocalAIException ex)
+            {
+                AiStatusText.Text = ex.Message + " Susunan otomatis offline tetap digunakan.";
+            }
+            finally
+            {
+                BtnAutoArrange.IsEnabled = true;
+            }
+        }
+        else
+        {
+            AiStatusText.Text = "Susunan manual diterapkan.";
+        }
+
+        foreach (var layer in newLayers)
+            Subscribe(layer);
+
+        _layers.Clear();
+        foreach (var layer in newLayers)
+            _layers.Add(layer);
+        _currentIndex = -1;
+        _loading = true;
+        try
+        {
+            LstLayers.SelectedIndex = 0;
+        }
+        finally
+        {
+            _loading = false;
+        }
+        LoadLayer(0);
+        RaisePreview();
+    }
+
+    private void OnAiSettingsClicked(object? sender, RoutedEventArgs e)
+    {
+        var dlg = new AiSettingsWindow(_aiService, _settings);
+        dlg.ShowDialog(this);
     }
 
     private void OnApplyClicked(object? sender, RoutedEventArgs e)
     {
-        if (!ValidateInput()) return;
+        var specs = BuildSpecs();
 
-        if (PresetListBox.SelectedItem is TransformPreset preset)
+        try
         {
-            SelectedPresetCode = preset.Code;
-            if (preset.Code == "custom")
-            {
-                TargetHeader = TargetHeaderTextBox.Text?.Trim() ?? "";
-                KeepSources = KeepSourcesCheckBox.IsChecked == true;
-                Separator = GetValidSeparator() ?? " ";
-                MergeColumns = _layout.Select(item => new MergeColumn
-                {
-                    SourceIndex = _headers.IndexOf(item.Column),
-                    Prefix = item.Prefix,
-                    Separator = string.IsNullOrEmpty(item.Separator) ? Separator : item.Separator
-                }).Where(m => m.SourceIndex >= 0).ToList();
-            }
+            _transformService.BuildLayerSheet(_headers, BuildSampleRows(), specs);
+        }
+        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException)
+        {
+            AiStatusText.Text = "Rencana layer belum lengkap: " + ex.Message;
+            return;
         }
 
-        SaveAiSettings();
+        Layers = specs;
         Confirmed = true;
         Close(true);
     }
@@ -390,35 +483,57 @@ public partial class TransformWindow : Window
         Close(false);
     }
 
-    private string? GetValidSeparator()
+    private List<TableDataRow> BuildSampleRows()
     {
-        if (SeparatorComboBox.SelectedItem is ComboBoxItem item)
-            return item.Tag?.ToString() ?? " ";
-        return " ";
+        return _sampleRows.Select((values, i) =>
+        {
+            var row = new TableDataRow { RowNumber = i + 1 };
+            for (int c = 0; c < _headers.Count && c < values.Count; c++)
+                row[_headers[c]] = values[c] ?? "";
+            return row;
+        }).ToList();
     }
 
-    private bool ValidateInput()
+    private string GetDefaultSeparatorValue()
     {
-        if (PresetListBox.SelectedItem is not TransformPreset preset)
-        {
-            AiStatusText.Text = "Pilih preset transformasi terlebih dahulu.";
-            return false;
-        }
-
-        if (preset.Code == "custom")
-        {
-            if (string.IsNullOrWhiteSpace(TargetHeaderTextBox.Text))
-            {
-                AiStatusText.Text = "Masukkan nama header hasil.";
-                return false;
-            }
-            if (_layout.Count == 0)
-            {
-                AiStatusText.Text = "Pilih minimal satu kolom sumber di tabel utama.";
-                return false;
-            }
-        }
-
-        return true;
+        if (CmbDefaultSeparator.SelectedItem is SeparatorOption opt)
+            return opt.Value;
+        return "\n";
     }
+
+    private static string CleanHeader(string header)
+    {
+        return Regex.Replace(header?.ToLowerInvariant() ?? "", @"[^a-z0-9]+", " ").Trim();
+    }
+
+    private static string TokenFromValue(string value) =>
+        value.ToLowerInvariant() switch
+        {
+            "\n" => "Baris baru",
+            "\\n" => "Baris baru",
+            " " => "Spasi",
+            ", " => "Koma + spasi",
+            " / " => "Garis miring",
+            " - " => "Strip",
+            "" => "Tanpa pemisah",
+            _ => value
+        };
+
+    private static string ToToken(string raw)
+    {
+        if (raw == "\n" || raw == "\\n") return "Baris baru";
+        return TokenFromValue(raw);
+    }
+
+    private static string ResolveValue(string token) =>
+        token switch
+        {
+            "Baris baru" => "\n",
+            "Spasi" => " ",
+            "Koma + spasi" => ", ",
+            "Garis miring" => " / ",
+            "Strip" => " - ",
+            "Tanpa pemisah" => "",
+            _ => token
+        };
 }

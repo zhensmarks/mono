@@ -70,7 +70,14 @@ public class ExcelParserService
                h.Equals("NIS", StringComparison.OrdinalIgnoreCase) ||
                h.Equals("NIK", StringComparison.OrdinalIgnoreCase) ||
                h.Equals("No", StringComparison.OrdinalIgnoreCase) ||
-               h.Equals("Nomor", StringComparison.OrdinalIgnoreCase);
+               h.Equals("Nomor", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("Nomor Peserta", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("No Peserta", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("Nomor Induk", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("Id", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("Kode", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("Kode Siswa", StringComparison.OrdinalIgnoreCase) ||
+               h.Equals("Kode Guru", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string SafeGetCellText(IXLCell cell)
@@ -256,6 +263,70 @@ public class ExcelParserService
         return matrix.Select(r => r.Take(lastCol).ToList()).ToList();
     }
 
+    private static char DetectDelimiter(string sample)
+    {
+        char best = ',';
+        int bestScore = -1;
+        foreach (var d in new[] { ',', ';', '\t', '|' })
+        {
+            var lineCounts = sample.Split('\n').Take(5)
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .Select(l => l.Count(ch => ch == d))
+                .ToList();
+            int total = lineCounts.Sum();
+            int withHits = lineCounts.Count(c => c > 0);
+            int score = total + withHits * 10;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = d;
+            }
+        }
+        return best;
+    }
+
+    public (List<string> Columns, List<TableDataRow> Rows) LoadDelimited(string path)
+    {
+        string text;
+        try
+        {
+            text = File.ReadAllText(path, new System.Text.UTF8Encoding(false));
+        }
+        catch
+        {
+            text = File.ReadAllText(path, System.Text.Encoding.Default);
+        }
+
+        if (text.Length > 0 && text[0] == '\uFEFF')
+            text = text.Substring(1);
+
+        string sniff = text.Length > 8192 ? text.Substring(0, 8192) : text;
+        var delimiter = DetectDelimiter(sniff);
+
+        var rawMatrix = new List<List<object?>>();
+        foreach (var rawLine in text.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                rawMatrix.Add(new List<object?> { null });
+                continue;
+            }
+            rawMatrix.Add(line.Split(delimiter).Select(s => (object?)s.Trim()).ToList());
+        }
+
+        _allSheets.Clear();
+        var result = BuildTableFromMatrix(rawMatrix, "Data");
+        if (result.Rows.Count > 0)
+            _allSheets.Add(result);
+
+        if (_allSheets.Count == 0)
+            _allSheets.Add(new SheetResult("Data", StudentHeaders.ToList(), new List<TableDataRow>()));
+
+        var first = _allSheets[0];
+        return (first.Columns, first.Rows);
+    }
+
     private SheetResult LoadSheet(IXLWorksheet ws)
     {
         var rawMatrix = new List<List<object?>>();
@@ -273,13 +344,18 @@ public class ExcelParserService
             rawMatrix.Add(row);
         }
 
-        var matrix = TrimMatrix(rawMatrix);
+        return BuildTableFromMatrix(rawMatrix, ws.Name);
+    }
+
+    private SheetResult BuildTableFromMatrix(List<List<object?>> matrix, string sheetName)
+    {
+        matrix = TrimMatrix(matrix);
         if (matrix.Count == 0)
-            return new SheetResult(ws.Name, new List<string>(), new List<TableDataRow>());
+            return new SheetResult(sheetName, new List<string>(), new List<TableDataRow>());
 
         var (headerIndex, headers) = DetectHeader(matrix);
         if (headers.Count == 0)
-            return new SheetResult(ws.Name, new List<string>(), new List<TableDataRow>());
+            return new SheetResult(sheetName, new List<string>(), new List<TableDataRow>());
 
         int dataStart = headerIndex.HasValue ? headerIndex.Value + 1 : 0;
         while (dataStart < matrix.Count && !matrix[dataStart].Any(v => v != null && !string.IsNullOrWhiteSpace(v.ToString())))
@@ -322,7 +398,7 @@ public class ExcelParserService
             }
         }
 
-        return new SheetResult(ws.Name, headers, rows);
+        return new SheetResult(sheetName, headers, rows);
     }
 
     private List<SheetResult> _allSheets = new();
@@ -332,7 +408,7 @@ public class ExcelParserService
         _allSheets.Clear();
 
         using var workbook = new XLWorkbook(path);
-        foreach (var ws in workbook.Worksheets)
+        foreach (var ws in workbook.Worksheets.Where(w => w.Visibility == XLWorksheetVisibility.Visible))
         {
             var result = LoadSheet(ws);
             if (result.Rows.Count > 0)

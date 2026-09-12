@@ -9,7 +9,7 @@ using BMachine.UI.Models.MantraData;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class CustomMergeWindow : Window
+public partial class CustomMergeWindow : MantraDialogBase
 {
     public List<string> SelectedColumns { get; private set; } = new();
     public string MergeFormat { get; private set; } = "{A} {B}";

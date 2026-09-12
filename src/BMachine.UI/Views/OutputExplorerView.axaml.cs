@@ -38,6 +38,9 @@ public partial class OutputExplorerView : UserControl
 
 
 
+    private Avalonia.Media.ScaleTransform? _zoomTransform;
+    private LayoutTransformControl? _zoomHost;
+
     public OutputExplorerView()
     {
         InitializeComponent();
@@ -128,6 +131,14 @@ public partial class OutputExplorerView : UserControl
     private void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);
+    }
+
+    private void SetupZoom(OutputExplorerViewModel vm)
+    {
+        _zoomHost = this.FindControl<Avalonia.Controls.LayoutTransformControl>("ZoomHost");
+        if (_zoomHost == null) return;
+        _zoomTransform = new Avalonia.Media.ScaleTransform(vm.ContentScale, vm.ContentScale);
+        _zoomHost.LayoutTransform = _zoomTransform;
     }
 
     private void OpenSettings_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -239,12 +250,18 @@ public partial class OutputExplorerView : UserControl
         if (DataContext is OutputExplorerViewModel vm)
         {
             vm.PropertyChanged += OnViewModelPropertyChanged;
+            SetupZoom(vm);
         }
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(OutputExplorerViewModel.LayoutMode) ||
+        if (e.PropertyName == nameof(OutputExplorerViewModel.ContentScale) && _zoomTransform != null && DataContext is OutputExplorerViewModel vm)
+        {
+            _zoomTransform.ScaleX = vm.ContentScale;
+            _zoomTransform.ScaleY = vm.ContentScale;
+        }
+        else if (e.PropertyName == nameof(OutputExplorerViewModel.LayoutMode) ||
             e.PropertyName == nameof(OutputExplorerViewModel.IsVerticalLayout) ||
             e.PropertyName == nameof(OutputExplorerViewModel.IsHorizontalLayout) ||
             e.PropertyName == nameof(OutputExplorerViewModel.IsThumbnailLayout) ||

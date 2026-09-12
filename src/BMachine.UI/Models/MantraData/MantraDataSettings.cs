@@ -12,7 +12,9 @@ public class MantraDataSettings
     public string LastPhotoFolder { get; set; } = string.Empty;
     public int PhotoMatchThreshold { get; set; } = 62;
     public bool AiEnabled { get; set; } = false;
+    public string AiProvider { get; set; } = "ollama";
     public string AiEndpoint { get; set; } = "http://127.0.0.1:11434";
+    public string AiApiKey { get; set; } = "";
     public string AiModel { get; set; } = "";
     public bool FreezeColumnsEnabled { get; set; } = false;
     public int FrozenColumnCount { get; set; } = 2;

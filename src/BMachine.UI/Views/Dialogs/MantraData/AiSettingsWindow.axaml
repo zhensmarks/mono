@@ -1,0 +1,231 @@
+<local:MantraDialogBase xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
+        x:Class="BMachine.UI.Views.Dialogs.MantraData.AiSettingsWindow"
+        Title="Pengaturan AI"
+        Width="560" Height="430"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="#09090B"
+        Foreground="#E8E8E6"
+        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
+
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="TemplatedControl">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="RadioButton">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+
+        <Style Selector="Button.ChromeClose">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ChromeClose:pointerover">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+
+        <Style Selector="Button.Action">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+
+        <Style Selector="Button.Muted">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Muted /template/ ContentPresenter">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+        </Style>
+        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#222226"/>
+        </Style>
+
+        <Style Selector="Button.AiBtn">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.AiBtn /template/ ContentPresenter">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+        </Style>
+        <Style Selector="Button.AiBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.AiBtn:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#0C0C0E"/>
+            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#0C0C0E"/>
+            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Background="#09090B" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+
+            <!-- ═══ WINDOW TITLE BAR ═══ -->
+            <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="{Binding $parent[Window].Title, FallbackValue=Pengaturan AI}"
+                       VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
+                       FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
+
+            <Button Grid.Column="1" Classes="ChromeClose" Content="X" Width="45" Height="40"
+                    VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                    Click="OnCloseButtonClick"/>
+
+            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+        </Grid>
+
+        <Border Grid.Row="1" Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+            <Grid RowDefinitions="Auto, Auto, *, Auto, Auto">
+
+                <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock Text="AI Lokal (Ollama atau API kompatibel)" FontSize="16" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+                    <TextBlock Text="Hanya contoh dari kolom yang Anda pilih yang dikirim ke server lokal. Nilai hasil tetap dibuat oleh aplikasi ini."
+                               Foreground="#71717A" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <Grid Grid.Row="1" ColumnDefinitions="140, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                    <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" x:Name="ChkAiEnabled"
+                              Content="Gunakan AI lokal saat meminta saran" VerticalAlignment="Center" Margin="0,4,0,0"/>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Penyedia AI:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="CmbAiProvider" Height="32" Margin="0,8,0,0" VerticalContentAlignment="Center"
+                              Padding="10,0,8,0" SelectionChanged="OnProviderChanged">
+                        <ComboBoxItem Content="Lokal (Ollama)" Tag="ollama"/>
+                        <ComboBoxItem Content="API (OpenAI-compatible)" Tag="openai"/>
+                        <ComboBoxItem Content="9Router" Tag="9router"/>
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Alamat server:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" x:Name="TxtAiEndpoint" Height="32" Margin="0,8,0,0" VerticalContentAlignment="Center" Padding="10,0"/>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Nama model:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" x:Name="TxtAiModel" Height="32" Margin="0,8,0,0" VerticalContentAlignment="Center" Padding="10,0"
+                             Watermark="contoh: qwen2.5:7b"/>
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="API key:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" x:Name="TxtAiApiKey" Height="32" Margin="0,8,0,0" VerticalContentAlignment="Center" Padding="10,0"
+                             PasswordChar="*" Watermark="API key (opsional)"/>
+                </Grid>
+
+                <Grid Grid.Row="2" ColumnDefinitions="Auto, *" Margin="0,10,0,0">
+                    <Button x:Name="BtnAiTest" Classes="AiBtn" Content="Tes Koneksi" Click="OnTestClicked" VerticalAlignment="Top"/>
+                    <TextBlock x:Name="TestStatusText" Grid.Column="1" Text="" Foreground="#60A5FA" FontSize="11.5" VerticalAlignment="Top"
+                               TextWrapping="Wrap" Margin="8,0,0,0"/>
+                </Grid>
+
+                <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+                    <Button Classes="Muted" Content="Batal" MinWidth="100" Click="OnCancelClick"/>
+                    <Button Classes="Action" Content="Simpan" MinWidth="110" Click="OnSaveClick"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        </Grid>
+    </Border>
+</local:MantraDialogBase>

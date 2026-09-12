@@ -492,7 +492,7 @@
                             </Grid>
                         </Grid>
                     </Border>
-                    <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,16,0,0"/>
+                    <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Action" Height="34" Padding="16,0" Margin="0,16,0,0"/>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
@@ -530,7 +530,7 @@
                             <TextBlock Text="{Binding Language[General.Storage]}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBlock Text="{Binding Language[General.StorageDesc]}" FontSize="11" Foreground="#555" TextWrapping="Wrap"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Classes="Clear" Content="›" Foreground="#555" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Classes="Clear" Content=">" Foreground="#555" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
                 <Border Classes="SR">
@@ -540,8 +540,8 @@
                             <TextBlock Text="Export untuk simpan pengaturan, Import untuk memulihkan." FontSize="11" Foreground="#555" TextWrapping="Wrap"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <Button Command="{Binding ExportDatabaseCommand}" Content="Export" Classes="Accent"/>
-                            <Button Command="{Binding ImportDatabaseCommand}" Content="Import" Classes="Primary"/>
+                            <Button Command="{Binding ExportDatabaseCommand}" Content="Export" Classes="Muted" Height="32" Padding="12,0"/>
+                            <Button Command="{Binding ImportDatabaseCommand}" Content="Import" Classes="Action" Height="32" Padding="12,0"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -575,8 +575,8 @@
                             <TextBlock Text="LISTENING... Press any key or mouse button!" FontSize="11" Foreground="#ef4444" FontWeight="Bold" IsVisible="{Binding IsRecordingShortcut}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center" Spacing="5">
-                            <Button Content="Record New" Command="{Binding StartRecordingShortcutCommand}" IsVisible="{Binding !IsRecordingShortcut}" Classes="Primary" HorizontalAlignment="Right"/>
-                            <Button Content="Cancel (Esc)" Command="{Binding CancelRecordingShortcutCommand}" IsVisible="{Binding IsRecordingShortcut}" Classes="Accent" HorizontalAlignment="Right"/>
+                            <Button Content="Record New" Command="{Binding StartRecordingShortcutCommand}" IsVisible="{Binding !IsRecordingShortcut}" Classes="Action" Height="30" Padding="12,0" HorizontalAlignment="Right"/>
+                            <Button Content="Cancel (Esc)" Command="{Binding CancelRecordingShortcutCommand}" IsVisible="{Binding IsRecordingShortcut}" Classes="Muted" Height="30" Padding="12,0" HorizontalAlignment="Right"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -586,7 +586,7 @@
                             <TextBlock Text="Date &amp; Time" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBlock Text="Buka pengaturan jam Windows untuk sinkronisasi waktu." FontSize="11" Foreground="#555" TextWrapping="Wrap"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Command="{Binding SyncSystemTimeCommand}" Content="Sync Time" Classes="Primary" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Command="{Binding SyncSystemTimeCommand}" Content="Sync Time" Classes="Action" Height="32" Padding="12,0" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
                 <TextBlock Classes="SL" Text="PROFILE" Margin="0,24,0,6"/>
@@ -613,7 +613,7 @@
                         </Grid>
                     </Grid>
                 </Border>
-                <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,16,0,0"/>
+                <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Action" Height="34" Padding="16,0" Margin="0,16,0,0"/>
             </StackPanel>
         </ScrollViewer>
 
@@ -631,7 +631,7 @@
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Token" FontSize="12" Foreground="#555" VerticalAlignment="Center" IsVisible="{Binding IsTrelloKeyProvided}"/>
                         <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto" IsVisible="{Binding IsTrelloKeyProvided}">
                             <TextBox Grid.Column="0" Text="{Binding TrelloToken, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" Watermark="Trello Token"/>
-                            <Button Grid.Column="1" Command="{Binding SmartTrelloActionCommand}" Content="{Binding SmartTrelloButtonText}" Classes="Primary" Margin="8,0,0,0"/>
+                            <Button Grid.Column="1" Command="{Binding SmartTrelloActionCommand}" Content="{Binding SmartTrelloButtonText}" Classes="Action" Height="32" Padding="12,0" Margin="8,0,0,0"/>
                         </Grid>
                     </Grid>
                 </Border>
@@ -641,7 +641,7 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Credentials JSON" FontSize="12" Foreground="#555" VerticalAlignment="Center"/>
                         <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,8">
                             <TextBox Grid.Column="0" Text="{Binding GoogleCredsPath}" Watermark="Path to json credentials"/>
-                            <Button Grid.Column="1" Classes="Primary" Margin="8,0,0,0" Click="OnBrowseCredsClick" Padding="8,5">
+                            <Button Grid.Column="1" Classes="Action" Margin="8,0,0,0" Click="OnBrowseCredsClick" Height="32" Padding="10,0">
                                  <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13"/>
                             </Button>
                         </Grid>
@@ -727,7 +727,7 @@
                         </StackPanel>
                     </UniformGrid>
                 </Border>
-                <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Primary" Margin="0,16,0,0"/>
+                <Button HorizontalAlignment="Right" Content="{Binding Language[General.Save]}" Command="{Binding SaveProfileCommand}" Classes="Action" Height="34" Padding="16,0" Margin="0,16,0,0"/>
             </StackPanel>
         </ScrollViewer>
 
@@ -768,7 +768,7 @@
                          </ItemsControl.ItemTemplate>
                      </ItemsControl>
                  </ScrollViewer>
-                 <Button Command="{Binding AddExtensionCommand}" Classes="Primary" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                 <Button Command="{Binding AddExtensionCommand}" Classes="Action" Height="34" Padding="14,0" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                      <StackPanel Orientation="Horizontal" Spacing="8">
                          <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="White" VerticalAlignment="Center"/>
                          <TextBlock Text="{Binding Language[Extensions.Add]}" VerticalAlignment="Center"/>
@@ -887,8 +887,8 @@
                                                                 </TextBox.KeyBindings>
                                                             </TextBox>
                                                             <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
-                                                                <Button Content="Cancel" Command="{Binding ToggleEditCommand}" Classes="Clear" Foreground="{DynamicResource AccentColorBrush}" FontSize="12" Padding="10,5"/>
-                                                                <Button Content="Save Changes" Command="{Binding SaveRenameCommand}" Classes="Primary" FontSize="12" Padding="12,5"/>
+                                                                <Button Content="Cancel" Command="{Binding ToggleEditCommand}" Classes="Muted" FontSize="12" Height="30" Padding="10,0"/>
+                                                                <Button Content="Save Changes" Command="{Binding SaveRenameCommand}" Classes="Action" FontSize="12" Height="30" Padding="12,0"/>
                                                             </StackPanel>
                                                         </Grid>
                                                         <Button Grid.Column="3" Command="{Binding ToggleEditCommand}" Classes="Clear" IsVisible="{Binding !IsEditing}" Margin="8,0,0,0" ToolTip.Tip="Edit Script">
@@ -1010,10 +1010,10 @@
                                                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRadialSlot.Script.EditShortCode}" Watermark="CODE" MaxLength="4" FontSize="13" HorizontalContentAlignment="Center" Padding="10"/>
                                                     </Grid>
                                                     <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-                                                        <Button Classes="Clear" Content="⬅ Mundur" Command="{Binding DataContext.MoveRadialSlotUpCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi berlawanan jarum jam" Margin="0,4,4,0"/>
-                                                        <Button Classes="Clear" Content="Maju ➡" Command="{Binding DataContext.MoveRadialSlotDownCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi searah jarum jam" Margin="0,4,4,0"/>
+                                                        <Button Classes="Clear" Content="Mundur" Command="{Binding DataContext.MoveRadialSlotUpCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi berlawanan jarum jam" Margin="0,4,4,0"/>
+                                                        <Button Classes="Clear" Content="Maju" Command="{Binding DataContext.MoveRadialSlotDownCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi searah jarum jam" Margin="0,4,4,0"/>
                                                         <Button Classes="Clear" Content="Hapus" Foreground="#ef4444" Command="{Binding DataContext.RemoveFromRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" FontWeight="SemiBold" Margin="0,4,4,0"/>
-                                                        <Button Classes="Primary" Content="Simpan" Command="{Binding SelectedRadialSlot.Script.SaveRenameCommand}" Padding="14,7" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                        <Button Classes="Action" Content="Simpan" Command="{Binding SelectedRadialSlot.Script.SaveRenameCommand}" Height="32" Padding="14,0" FontWeight="SemiBold" Margin="0,4,0,0"/>
                                                     </WrapPanel>
                                                 </Grid>
                                             </Grid>
@@ -1093,7 +1093,7 @@
                          </StackPanel>
                      </StackPanel>
                      <StackPanel Spacing="12" HorizontalAlignment="Center" Width="280">
-                         <Button Command="{Binding CheckForUpdatesCommand}" IsEnabled="{Binding !IsCheckingUpdate}" Classes="Primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Height="38">
+                         <Button Command="{Binding CheckForUpdatesCommand}" IsEnabled="{Binding !IsCheckingUpdate}" Classes="Action" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Height="36">
                              <StackPanel Orientation="Horizontal" Spacing="8">
                                  <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" IsVisible="{Binding !IsCheckingUpdate}"/>
                                  <TextBlock Text="Check for Updates" IsVisible="{Binding !IsCheckingUpdate}" FontSize="13"/>
@@ -1102,7 +1102,7 @@
                          </Button>
                          <StackPanel Spacing="8" IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                              <TextBlock Text="{Binding UpdateStatusText}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                             <Button Command="{Binding OpenDownloadPageCommand}" IsVisible="{Binding IsUpdateAvailable}" Classes="Accent" HorizontalAlignment="Stretch" Content="Download Update"/>
+                             <Button Command="{Binding OpenDownloadPageCommand}" IsVisible="{Binding IsUpdateAvailable}" Classes="Action" HorizontalAlignment="Stretch" Content="Download Update" Height="34"/>
                              <TextBlock Text="{Binding UpdateReleaseNotes}" IsVisible="{Binding IsUpdateAvailable}" Foreground="#555" FontSize="11" TextWrapping="Wrap" MaxHeight="80" TextTrimming="CharacterEllipsis"/>
                          </StackPanel>
                      </StackPanel>

@@ -64,7 +64,7 @@
                                    LetterSpacing="4"/>
                     </StackPanel>
                 </StackPanel>
-                    <TextBlock Text="VERSION 6.5" 
+                    <TextBlock Text="{Binding VersionText}" 
                                FontSize="10" 
                                FontWeight="Medium"
                                FontFamily="Inter, Segoe UI, sans-serif"

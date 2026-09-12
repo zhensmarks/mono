@@ -92,6 +92,23 @@ public partial class OutputExplorerViewModel : ObservableObject
         {
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => Refresh());
         });
+        // Apply appearance changes (zoom / system icons) live without restart
+        WeakReferenceMessenger.Default.Register<ExplorerSettingsChangedMessage>(this, (r, m) =>
+        {
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                var zoomStr = await _database.GetAsync<string>("Configs.Explorer.ContentZoom");
+                if (double.TryParse(zoomStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var cz) && cz >= 50 && cz <= 250)
+                    ContentScale = cz / 100.0;
+
+                var useStr = await _database.GetAsync<string>("Configs.Explorer.UseSystemIcons");
+                var use = bool.TryParse(useStr, out var u) && u;
+                if (use != UseSystemIcons) UseSystemIcons = use;
+
+                var customIconPathStr = await _database.GetAsync<string>("Configs.Explorer.CustomIconPath") ?? "";
+                if (customIconPathStr != CustomIconPath) CustomIconPath = customIconPathStr;
+            });
+        });
     }
 
     // Resilience
@@ -201,6 +218,27 @@ public partial class OutputExplorerViewModel : ObservableObject
         {
             _database.SetAsync("Configs.Explorer.SidebarWidth", value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
+    }
+
+    // --- Appearance (live from Settings) ---
+    [ObservableProperty] private double _contentScale = 1.0; // 1.0 = 100% zoom
+    [ObservableProperty] private bool _useSystemIcons;       // Windows shell icons (7tsp themes)
+    [ObservableProperty] private string _customIconPath = ""; // Custom 7tsp icon pack path
+
+    partial void OnUseSystemIconsChanged(bool value)
+    {
+        ExplorerItemViewModel.PushSystemIconsSetting(value);
+        foreach (var item in Items.OfType<ExplorerItemViewModel>()) item.ApplySystemIconMode(value);
+        foreach (var item in SplitLeftItems) item.ApplySystemIconMode(value);
+        foreach (var item in SplitRightItems) item.ApplySystemIconMode(value);
+    }
+
+    partial void OnCustomIconPathChanged(string value)
+    {
+        ExplorerItemViewModel.PushCustomIconPathSetting(value);
+        foreach (var item in Items.OfType<ExplorerItemViewModel>()) item.ReloadSystemIcon();
+        foreach (var item in SplitLeftItems) item.ReloadSystemIcon();
+        foreach (var item in SplitRightItems) item.ReloadSystemIcon();
     }
     
     // Quick Access / Sidebar Items
@@ -360,6 +398,17 @@ public partial class OutputExplorerViewModel : ObservableObject
             {
                 IsShowPathBar = showPath;
             }
+
+            // Load Appearance (zoom + system icons)
+            var zoomStr = await _database.GetAsync<string>("Configs.Explorer.ContentZoom");
+            if (double.TryParse(zoomStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double zoom) && zoom >= 50 && zoom <= 250)
+                ContentScale = zoom / 100.0;
+            var useIconsStr = await _database.GetAsync<string>("Configs.Explorer.UseSystemIcons");
+            UseSystemIcons = bool.TryParse(useIconsStr, out var useI) && useI;
+
+            var customIconPathStr = await _database.GetAsync<string>("Configs.Explorer.CustomIconPath");
+            CustomIconPath = customIconPathStr ?? "";
+            ExplorerItemViewModel.PushCustomIconPathSetting(CustomIconPath);
 
             await LoadExplorerShortcutsAsync();
 
@@ -2718,6 +2767,106 @@ public partial class ExplorerItemViewModel : ObservableObject
     public string DisplaySize => IsDirectory ? $"{ItemsCount} items" : BytesToString(Size);
     
     public bool IsSelectable => true;
+
+    // --- System icon support (matches OS / 7tsp theme) ---
+    private static volatile bool s_useSystemIcons;
+    private static volatile string s_customIconPath = "";
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Avalonia.Media.Imaging.Bitmap> s_iconCache = new();
+
+    public static void PushSystemIconsSetting(bool enabled) => s_useSystemIcons = enabled;
+
+    public static void PushCustomIconPathSetting(string path)
+    {
+        s_customIconPath = path ?? "";
+        s_iconCache.Clear();
+    }
+
+    public bool UseSystemIcons => s_useSystemIcons;
+
+    private Avalonia.Media.Imaging.Bitmap? _systemIcon;
+    private bool _systemIconLoaded;
+
+    /// <summary>Lazy-loaded Windows shell / 7tsp icon for this item. Null until requested / if extraction fails.</summary>
+    public Avalonia.Media.Imaging.Bitmap? SystemIcon
+    {
+        get
+        {
+            if (!_systemIconLoaded && UseSystemIcons)
+            {
+                _systemIconLoaded = true;
+                LoadSystemIconAsync();
+            }
+            return _systemIcon;
+        }
+    }
+
+    public bool ShowSystemIcon => UseSystemIcons && _systemIcon != null;
+    public bool ShowFolderFallback => !ShowSystemIcon && IsDirectory;
+    public bool ShowFileFallback => !ShowSystemIcon && !IsDirectory;
+    /// <summary>File fallback for icon views that preview real images separately (Thumbnail/Tiles).</summary>
+    public bool ShowIconViewFileFallback => ShowFileFallback && !IsImageFile;
+
+    /// <summary>Reapplies the global system-icon setting on already created items.</summary>
+    public void ApplySystemIconMode(bool enabled)
+    {
+        s_useSystemIcons = enabled;
+        NotifyIconStateChanged();
+    }
+
+    /// <summary>Forces reload of the icon when the custom 7tsp icon path is changed.</summary>
+    public void ReloadSystemIcon()
+    {
+        _systemIconLoaded = false;
+        _systemIcon = null;
+        NotifyIconStateChanged();
+    }
+
+    private void NotifyIconStateChanged()
+    {
+        OnPropertyChanged(nameof(SystemIcon));
+        OnPropertyChanged(nameof(ShowSystemIcon));
+        OnPropertyChanged(nameof(ShowFolderFallback));
+        OnPropertyChanged(nameof(ShowFileFallback));
+        OnPropertyChanged(nameof(ShowIconViewFileFallback));
+    }
+
+    private async void LoadSystemIconAsync()
+    {
+        try
+        {
+            var key = IsDirectory
+                ? "folder"
+                : Path.GetExtension(FullPath).ToLowerInvariant();
+
+            // Shortcuts (.lnk) can carry their own resolved icon: cache per path.
+            if (Path.GetExtension(FullPath).Equals(".lnk", System.StringComparison.OrdinalIgnoreCase))
+                key = "lnk:" + FullPath.ToLowerInvariant();
+
+            var customPath = s_customIconPath;
+            var cacheKey = string.IsNullOrEmpty(customPath) ? key : $"{customPath}:{key}";
+
+            if (s_iconCache.TryGetValue(cacheKey, out var cached))
+            {
+                _systemIcon = cached;
+                NotifyIconStateChanged();
+                return;
+            }
+
+            const int iconSize = 32;
+            var isDir = IsDirectory;
+            var fullPath = FullPath;
+            var bmp = await System.Threading.Tasks.Task.Run(() => Services.SystemIconService.ResolveIcon(fullPath, isDir, customPath, iconSize));
+            if (bmp == null) return;
+
+            s_iconCache[cacheKey] = bmp;
+            _systemIcon = bmp;
+            NotifyIconStateChanged();
+        }
+        catch
+        {
+            // Extraction failed: keep fallback glyph icons.
+        }
+    }
 
     public override string ToString() => Name ?? "";
 

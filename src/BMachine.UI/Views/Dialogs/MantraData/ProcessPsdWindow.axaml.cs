@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
@@ -9,11 +10,15 @@ using Avalonia.Platform.Storage;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class ProcessPsdWindow : Window
+public partial class ProcessPsdWindow : MantraDialogBase
 {
     public string PsdFolder { get; private set; } = string.Empty;
     public string PhotoFolder { get; private set; } = string.Empty;
     public bool Confirmed { get; private set; } = false;
+    public bool IsRevision { get; private set; } = false;
+    public List<string> RevisionFields { get; private set; } = new();
+
+    private readonly List<CheckBox> _revisionFieldBoxes = new();
 
     private readonly IBrush _defaultBadgeBg = SolidColorBrush.Parse("#21262D");
     private readonly IBrush _defaultBadgeText = SolidColorBrush.Parse("#8B949E");
@@ -21,13 +26,14 @@ public partial class ProcessPsdWindow : Window
     private readonly IBrush _successBadgeText = SolidColorBrush.Parse("#3FB950");
     private readonly IBrush _successBorder = SolidColorBrush.Parse("#2EA043");
     private readonly IBrush _defaultBorder = SolidColorBrush.Parse("#30363D");
+    private readonly IBrush _dragBorder = SolidColorBrush.Parse("#388BFD");
 
     public ProcessPsdWindow()
     {
         InitializeComponent();
     }
 
-    public ProcessPsdWindow(string initialPsdFolder, string initialPhotoFolder) : this()
+    public ProcessPsdWindow(string initialPsdFolder, string initialPhotoFolder, IEnumerable<string>? columnHeaders = null) : this()
     {
         if (!string.IsNullOrEmpty(initialPsdFolder) && Directory.Exists(initialPsdFolder))
             PsdFolder = initialPsdFolder;
@@ -35,9 +41,26 @@ public partial class ProcessPsdWindow : Window
         if (!string.IsNullOrEmpty(initialPhotoFolder) && Directory.Exists(initialPhotoFolder))
             PhotoFolder = initialPhotoFolder;
 
+        if (columnHeaders != null)
+        {
+            foreach (var header in columnHeaders.Where(h => !string.IsNullOrWhiteSpace(h)))
+            {
+                var box = new CheckBox
+                {
+                    Content = header,
+                    FontSize = 11.5,
+                    Foreground = SolidColorBrush.Parse("#C9D1D9"),
+                    Margin = new Avalonia.Thickness(0, 0, 12, 6)
+                };
+                box.IsCheckedChanged += (_, _) => UpdateRevisionUi();
+                _revisionFieldBoxes.Add(box);
+                RevFieldsWrap.Children.Add(box);
+            }
+        }
+
         UpdatePsdUi();
         UpdatePhotoUi();
-        UpdateOverallSummary();
+        UpdateRevisionUi();
     }
 
     private void UpdatePsdUi()
@@ -73,7 +96,7 @@ public partial class ProcessPsdWindow : Window
         }
         else
         {
-            TxtPsdFolderName.Text = "Pilih folder template layout PSD";
+            TxtPsdFolderName.Text = "Tarik & lepas folder PSD ke sini atau klik untuk browse";
             TxtPsdFolderName.Foreground = SolidColorBrush.Parse("#C9D1D9");
             TxtPsdPath.Text = "Mendukung folder berisikan file dokumen .psd";
             TxtPsdPath.Foreground = SolidColorBrush.Parse("#8B949E");
@@ -127,9 +150,9 @@ public partial class ProcessPsdWindow : Window
         }
         else
         {
-            TxtPhotoFolderName.Text = "Pilih folder foto siswa atau guru";
+            TxtPhotoFolderName.Text = "Tarik & lepas folder foto ke sini atau klik untuk browse";
             TxtPhotoFolderName.Foreground = SolidColorBrush.Parse("#C9D1D9");
-            TxtPhotoPath.Text = "Mendukung format gambar .jpg, .jpeg, .png, .psd";
+            TxtPhotoPath.Text = "Mendukung file foto format .png, .jpg, .jpeg, atau .psd";
             TxtPhotoPath.Foreground = SolidColorBrush.Parse("#8B949E");
 
             BadgePhoto.Background = _defaultBadgeBg;
@@ -149,6 +172,31 @@ public partial class ProcessPsdWindow : Window
     {
         bool psdOk = Directory.Exists(PsdFolder);
         bool photoOk = Directory.Exists(PhotoFolder);
+        bool isRev = ChkRevision.IsChecked == true;
+        int selected = _revisionFieldBoxes.Count(b => b.IsChecked == true);
+
+        if (isRev)
+        {
+            if (psdOk && selected > 0)
+            {
+                TxtSummaryMessage.Text = $"Revisi siap. {selected} kolom akan diperbarui tanpa ganti foto.";
+                TxtSummaryMessage.Foreground = _successBadgeText;
+                BtnSubmit.IsEnabled = true;
+            }
+            else if (psdOk)
+            {
+                TxtSummaryMessage.Text = "Centang minimal satu kolom untuk diperbarui.";
+                TxtSummaryMessage.Foreground = SolidColorBrush.Parse("#FBBF24");
+                BtnSubmit.IsEnabled = false;
+            }
+            else
+            {
+                TxtSummaryMessage.Text = "Pilih folder template PSD untuk merevisi.";
+                TxtSummaryMessage.Foreground = _defaultBadgeText;
+                BtnSubmit.IsEnabled = false;
+            }
+            return;
+        }
 
         if (psdOk && photoOk)
         {
@@ -228,8 +276,119 @@ public partial class ProcessPsdWindow : Window
         UpdateOverallSummary();
     }
 
+    private void OnRevisionModeChanged(object? sender, RoutedEventArgs e) => UpdateRevisionUi();
+
+    private void OnClearRevisionFieldsClick(object? sender, RoutedEventArgs e)
+    {
+        foreach (var box in _revisionFieldBoxes) box.IsChecked = false;
+        UpdateRevisionUi();
+    }
+
+    private void UpdateRevisionUi()
+    {
+        bool isRev = ChkRevision.IsChecked == true;
+        IsRevision = isRev;
+        PanelRevision.IsVisible = isRev;
+        DropZonePhoto.IsEnabled = !isRev;
+        DropZonePhoto.Opacity = isRev ? 0.55 : 1.0;
+
+        if (isRev)
+        {
+            TxtPhotoFolderName.Text = "Opsional dalam mode revisi — foto tidak dimasukkan ulang";
+            TxtPhotoFolderName.Foreground = SolidColorBrush.Parse("#C9D1D9");
+            TxtPhotoPath.Text = "Biarkan pilihan lama atau kosongkan";
+            TxtPhotoPath.Foreground = SolidColorBrush.Parse("#8B949E");
+            DropZonePhoto.BorderBrush = _defaultBorder;
+        }
+        else
+        {
+            UpdatePhotoUi();
+        }
+
+        UpdateOverallSummary();
+    }
+
+    private void OnPsdDragEnter(object? sender, DragEventArgs e) => HandleDragEnter(DropZonePsd, e);
+    private void OnPsdDragOver(object? sender, DragEventArgs e) => HandleDragOver(e);
+    private void OnPsdDragLeave(object? sender, DragEventArgs e) => UpdatePsdUi();
+
+    private void OnPsdDrop(object? sender, DragEventArgs e)
+    {
+        var folder = ExtractFolderPathFromDrop(e);
+        if (!string.IsNullOrEmpty(folder))
+        {
+            PsdFolder = folder;
+        }
+        UpdatePsdUi();
+        UpdateOverallSummary();
+    }
+
+    private void OnPhotoDragEnter(object? sender, DragEventArgs e) => HandleDragEnter(DropZonePhoto, e);
+    private void OnPhotoDragOver(object? sender, DragEventArgs e) => HandleDragOver(e);
+    private void OnPhotoDragLeave(object? sender, DragEventArgs e) => UpdatePhotoUi();
+
+    private void OnPhotoDrop(object? sender, DragEventArgs e)
+    {
+        var folder = ExtractFolderPathFromDrop(e);
+        if (!string.IsNullOrEmpty(folder))
+        {
+            PhotoFolder = folder;
+        }
+        UpdatePhotoUi();
+        UpdateOverallSummary();
+    }
+
+    private void HandleDragEnter(Border zone, DragEventArgs e)
+    {
+        if (e.Data.Contains(DataFormats.Files))
+        {
+            zone.BorderBrush = _dragBorder;
+            e.DragEffects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private static void HandleDragOver(DragEventArgs e)
+    {
+        e.DragEffects = e.Data.Contains(DataFormats.Files) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private static string? ExtractFolderPathFromDrop(DragEventArgs e)
+    {
+        var files = e.Data.GetFiles()?.ToList();
+        if (files == null || files.Count == 0) return null;
+
+        var first = files[0].Path.LocalPath;
+        if (string.IsNullOrEmpty(first)) return null;
+        if (Directory.Exists(first)) return first;
+        if (File.Exists(first)) return Path.GetDirectoryName(first);
+        return null;
+    }
+
     private void OnSubmitClick(object? sender, RoutedEventArgs e)
     {
+        bool isRev = ChkRevision.IsChecked == true;
+
+        if (isRev)
+        {
+            if (!Directory.Exists(PsdFolder)) return;
+            RevisionFields = _revisionFieldBoxes
+                .Where(b => b.IsChecked == true)
+                .Select(b => (string)(b.Content ?? ""))
+                .Where(h => !string.IsNullOrWhiteSpace(h))
+                .ToList();
+            if (RevisionFields.Count == 0) return;
+            IsRevision = true;
+            Confirmed = true;
+            Close(true);
+            return;
+        }
+
         if (Directory.Exists(PsdFolder) && Directory.Exists(PhotoFolder))
         {
             Confirmed = true;

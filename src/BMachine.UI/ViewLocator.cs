@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using CommunityToolkit.Mvvm.ComponentModel;
 using BMachine.UI.ViewModels;
 using System;
 
@@ -25,6 +26,6 @@ public class ViewLocator : IDataTemplate
 
     public bool Match(object? data)
     {
-        return data is System.ComponentModel.INotifyPropertyChanged;
+        return data is ObservableObject;
     }
 }

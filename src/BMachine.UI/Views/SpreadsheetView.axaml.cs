@@ -152,24 +152,30 @@ public partial class SpreadsheetView : UserControl
                     return border;
                 });
 
-                // Editing Template (AutoCompleteBox)
+                // Editing Template (ComboBox)
                 templateCol.CellEditingTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
-                    var autoComplete = new AutoCompleteBox 
+                    var comboBox = new ComboBox 
                     { 
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-                        FilterMode = AutoCompleteFilterMode.Contains,
-                        MinimumPrefixLength = 0,
-                        IsTextCompletionEnabled = true 
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        MaxDropDownHeight = 220
                     };
-                    
-                    // Bind ItemsSource to Column's DropdownItems
-                    autoComplete.Bind(AutoCompleteBox.ItemsSourceProperty, new Binding(nameof(SpreadsheetColumnViewModel.DropdownItems)) { Source = col });
-                    
-                    // Bind Text to Cell Value (TwoWay)
-                    autoComplete.Bind(AutoCompleteBox.TextProperty, new Binding($"Cells[{col.Index}].Value") { Mode = BindingMode.TwoWay });
-                    
-                    return autoComplete;
+
+                    var items = new List<string>(col.DropdownItems);
+                    var curVal = (row != null && col.Index < row.Cells.Count) ? row.Cells[col.Index].Value : null;
+                    if (!string.IsNullOrEmpty(curVal) && !items.Contains(curVal))
+                    {
+                        items.Add(curVal);
+                    }
+                    if (!items.Contains(""))
+                    {
+                        items.Insert(0, "");
+                    }
+                    comboBox.ItemsSource = items;
+                    comboBox.Bind(ComboBox.SelectedItemProperty, new Binding($"Cells[{col.Index}].Value") { Mode = BindingMode.TwoWay });
+
+                    return comboBox;
                 });
             }
             // 2. Date Column
@@ -220,11 +226,14 @@ public partial class SpreadsheetView : UserControl
                         }
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         {
-                            if (_dataGrid != null)
+                            try
                             {
-                                _dataGrid.CommitEdit();
-                                _dataGrid.IsReadOnly = true;
+                                if (_dataGrid != null)
+                                {
+                                    _dataGrid.CommitEdit();
+                                }
                             }
+                            catch { }
                         });
                     };
 
@@ -273,11 +282,14 @@ public partial class SpreadsheetView : UserControl
                             flyout.Hide();
                             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                             {
-                                if (_dataGrid != null)
+                                try
                                 {
-                                    _dataGrid.CommitEdit();
-                                    _dataGrid.IsReadOnly = true;
+                                    if (_dataGrid != null)
+                                    {
+                                        _dataGrid.CommitEdit();
+                                    }
                                 }
+                                catch { }
                             });
                         }
                     };
@@ -469,13 +481,16 @@ public partial class SpreadsheetView : UserControl
         // Skip if Shift or Ctrl held (those are for selection)
         if (e.ClickCount >= 2 && !_isExtendingSelection)
         {
-            e.Handled = true; // Stop DataGrid from processing
             if (_dataGrid != null && DataContext is SpreadsheetViewModel vm)
             {
                 _dataGrid.IsReadOnly = false;
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
-                    if (_dataGrid != null) _dataGrid.BeginEdit();
+                    try
+                    {
+                        _dataGrid?.BeginEdit();
+                    }
+                    catch { }
                 }, Avalonia.Threading.DispatcherPriority.Input);
                 vm.StatusText = "Editing...";
             }
@@ -484,10 +499,10 @@ public partial class SpreadsheetView : UserControl
 
     private void OnDataGridCellEditEnded(object? sender, DataGridCellEditEndedEventArgs e)
     {
-        if (_dataGrid == null) return;
-        
-        // Revert to ReadOnly to restore robust selection behavior
-        _dataGrid.IsReadOnly = true;
+        if (DataContext is SpreadsheetViewModel vm)
+        {
+            vm.StatusText = "Ready";
+        }
     }
 
     private void OnDataGridCurrentCellChanged(object? sender, EventArgs e)

@@ -61,6 +61,10 @@ class Program
             // Ensure .logs folder exists
             System.IO.Directory.CreateDirectory(logFolder);
             System.IO.File.WriteAllText(debugLog, $"App Starting... [{DateTime.Now}]\n");
+#if DEBUG
+            global::System.Diagnostics.Trace.Listeners.Add(new global::System.Diagnostics.TextWriterTraceListener(debugLog));
+            global::System.Diagnostics.Trace.AutoFlush = true;
+#endif
             
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);

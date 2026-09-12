@@ -3,7 +3,7 @@ using Avalonia.Interactivity;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class MantraAlertDialog : Window
+public partial class MantraAlertDialog : MantraDialogBase
 {
     public MantraAlertDialog()
     {

@@ -29,6 +29,89 @@
             <TextBlock Text="Explorer Features" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock Text="Customize the behavior and defaults of the Explorer." FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,-12,0,0"/>
 
+            <!-- Appearance: Zoom & 7tsp/OS System Icons -->
+            <StackPanel Spacing="16">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="APPEARANCE" FontWeight="Bold" FontSize="11" LetterSpacing="1.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="Adjust size of content and select icon style." FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </StackPanel>
+
+                <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="4" Padding="20">
+                    <StackPanel Spacing="16">
+                        <!-- Content Zoom -->
+                        <Grid ColumnDefinitions="180, *, Auto, Auto" RowDefinitions="Auto, Auto">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,0,0,8">
+                                <TextBlock Text="Content Zoom" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Scale the entire explorer content up or down." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0"
+                                       Text="{Binding ContentZoom, StringFormat='{}{0:0}%'}"
+                                       VerticalAlignment="Center" FontWeight="Bold" FontSize="13"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                            <Slider Grid.Row="1" Grid.Column="1"
+                                    Minimum="75" Maximum="200"
+                                    Value="{Binding ContentZoom, Mode=TwoWay}"
+                                    TickFrequency="5" IsSnapToTickEnabled="True"
+                                    VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                            <Button Grid.Row="1" Grid.Column="2" Content="-"
+                                    Command="{Binding AdjustZoomCommand}" CommandParameter="-10"
+                                    Classes="Secondary" Padding="10,2" Margin="0,0,4,0"
+                                    ToolTip.Tip="Zoom Out (-10%)"/>
+
+                            <Button Grid.Row="1" Grid.Column="3" Content="+"
+                                    Command="{Binding AdjustZoomCommand}" CommandParameter="10"
+                                    Classes="Secondary" Padding="10,2"
+                                    ToolTip.Tip="Zoom In (+10%)"/>
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{DynamicResource SeparatorBrush}" Opacity="0.5"/>
+
+                        <!-- 7tsp / OS System Icons -->
+                        <Grid ColumnDefinitions="*, Auto">
+                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <TextBlock Text="Use 7tsp / OS System Icons" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Load Windows shell icons from shell32 / imageres so icons sync with 7tsp themes. When off, built-in minimal glyphs are used."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding UseSystemIcons, Mode=TwoWay}" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{DynamicResource SeparatorBrush}" Opacity="0.5"/>
+
+                        <!-- Custom 7tsp / Icon Pack Path -->
+                        <Grid RowDefinitions="Auto, Auto" ColumnDefinitions="*, Auto, Auto, Auto">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Spacing="2" Margin="0,0,0,8">
+                                <TextBlock Text="Custom 7tsp / Icon Pack Path" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Folder icon (7tsp) atau file library (.dll, .res, .ico, .png). Kosongkan untuk menggunakan icon default sistem."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <TextBox Grid.Row="1" Grid.Column="0"
+                                     Text="{Binding CustomIconPath, Mode=TwoWay}"
+                                     Watermark="Folder atau file path 7tsp..."
+                                     VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
+
+                            <Button Grid.Row="1" Grid.Column="1" Content="Folder"
+                                    Command="{Binding BrowseCustomIconFolderCommand}"
+                                    Classes="Secondary" Margin="0,0,4,0"
+                                    ToolTip.Tip="Pilih folder icon pack"/>
+
+                            <Button Grid.Row="1" Grid.Column="2" Content="File"
+                                    Command="{Binding BrowseCustomIconFileCommand}"
+                                    Classes="Secondary" Margin="0,0,4,0"
+                                    ToolTip.Tip="Pilih file icon library (.dll, .res, .ico, .png)"/>
+
+                            <Button Grid.Row="1" Grid.Column="3" Content="Reset"
+                                    Command="{Binding ClearCustomIconPathCommand}"
+                                    Classes="Secondary"
+                                    ToolTip.Tip="Kembalikan ke icon default"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
 
             <!-- Shortcuts: Record keyboard -->
             <StackPanel Spacing="16">

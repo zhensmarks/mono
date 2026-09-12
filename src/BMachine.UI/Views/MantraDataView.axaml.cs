@@ -83,19 +83,19 @@ public partial class MantraDataView : UserControl
 
     private void WireViewModelDialogs(MantraDataViewModel vm)
     {
-        vm.RequestProcessPsdDialogFunc = async () =>
+vm.RequestProcessPsdDialogFunc = async () =>
         {
             var topLevel = TopLevel.GetTopLevel(this) as Window;
-            var dlg = new ProcessPsdWindow(vm.Settings.LastPsdFolder, vm.Settings.LastPhotoFolder);
+            var dlg = new ProcessPsdWindow(vm.Settings.LastPsdFolder, vm.Settings.LastPhotoFolder, vm.Columns.ToList());
             if (topLevel != null)
                 await dlg.ShowDialog(topLevel);
             else
                 dlg.Show();
 
             if (dlg.Confirmed)
-                return (dlg.PsdFolder, dlg.PhotoFolder);
+                return (dlg.PsdFolder, dlg.PhotoFolder, dlg.IsRevision, dlg.RevisionFields);
 
-            return (null, null);
+            return (null, null, false, new List<string>());
         };
 
         vm.RequestAlertFunc = async (title, message) =>
@@ -171,7 +171,7 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
         vm.RequestTransformFunc = async (headers, rows) =>
         {
             var topLevel = TopLevel.GetTopLevel(this) as Window;
-            var sample = rows.Take(4)
+            var sample = rows.Take(8)
                 .Select(r => headers.Select(h => r.Values.TryGetValue(h, out var v) ? v ?? "" : "").ToList())
                 .ToList();
 
@@ -180,6 +180,7 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
             if (!string.IsNullOrEmpty(cur)) preselected.Add(cur);
 
             var dlg = new TransformWindow(headers, sample, _viewModel.TransformService, _viewModel.AiService, _viewModel.Settings, preselected);
+            dlg.PreviewChanged += () => _viewModel.ApplyTransformPreview(headers, dlg.BuildSpecs());
             if (topLevel != null)
                 await dlg.ShowDialog(topLevel);
             else
@@ -187,11 +188,7 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
 
             return new TransformDialogResult(
                 dlg.Confirmed,
-                dlg.SelectedPresetCode,
-                dlg.TargetHeader,
-                dlg.Separator,
-                dlg.KeepSources,
-                dlg.MergeColumns
+                dlg.Layers
             );
         };
 
@@ -236,7 +233,7 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
             var templateCol = new DataGridTemplateColumn
             {
                 Header = col,
-                Width = new DataGridLength(120, DataGridLengthUnitType.Pixel),
+                Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells),
                 CanUserSort = false
             };
 
@@ -323,7 +320,7 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
                 return border;
             });
 
-            // Edit Template
+// Edit Template (identik dengan tampilan: transparan, tanpa border ekstra, padding sama)
             templateCol.CellEditingTemplate = new FuncDataTemplate<TableDataRow>((initialRow, ns) =>
             {
                 var textBox = new TextBox
@@ -331,10 +328,12 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
                     VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
                     HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                     VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    Background = SolidColorBrush.Parse("#1A1E27"),
+                    Background = Brushes.Transparent,
                     Foreground = SolidColorBrush.Parse("#EDEDED"),
-                    BorderThickness = new Thickness(1),
-                    BorderBrush = SolidColorBrush.Parse("#3B82F6"),
+                    BorderThickness = new Thickness(0),
+                    BorderBrush = Brushes.Transparent,
+                    Padding = new Thickness(6, 4),
+                    TextWrapping = TextWrapping.Wrap,
                     FontSize = 12
                 };
 
@@ -389,10 +388,11 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
         {
             Title = "Pilih File Data Buku Tahunan / ID Card",
             AllowMultiple = false,
-            FileTypeFilter = new List<FilePickerFileType>
+FileTypeFilter = new List<FilePickerFileType>
             {
-                new("Data Files (*.xlsx, *.xls, *.docx)") { Patterns = new[] { "*.xlsx", "*.xls", "*.docx" } },
-                new("Excel Files (*.xlsx, *.xls)") { Patterns = new[] { "*.xlsx", "*.xls" } },
+                new("Data Files (*.xlsx, *.xls, *.xlsm, *.csv, *.tsv, *.txt, *.docx)") { Patterns = new[] { "*.xlsx", "*.xls", "*.xlsm", "*.csv", "*.tsv", "*.txt", "*.docx" } },
+                new("Excel Files (*.xlsx, *.xls, *.xlsm, *.csv, *.tsv)") { Patterns = new[] { "*.xlsx", "*.xls", "*.xlsm", "*.csv", "*.tsv" } },
+                new("Text/CSV Files (*.csv, *.tsv, *.txt)") { Patterns = new[] { "*.csv", "*.tsv", "*.txt" } },
                 new("Word Files (*.docx)") { Patterns = new[] { "*.docx" } },
                 new("All Files (*.*)") { Patterns = new[] { "*.*" } }
             }
@@ -620,7 +620,7 @@ private void OnDataGridBeginningEdit(object? sender, DataGridBeginningEditEventA
                 _ = _viewModel?.ProcessPhotoshopAsync();
                 e.Handled = true;
             }
-else if (e.Key == Key.H)
+else if (e.Key == Key.F)
             {
                 OnMenuFindReplaceClicked(null, e);
                 e.Handled = true;
@@ -948,6 +948,15 @@ private void DeleteSelectedRows()
         }
     }
 
+    private void OnMenuAutoFitClicked(object? sender, RoutedEventArgs e)
+    {
+        if (MainDataGrid == null) return;
+        foreach (var col in MainDataGrid.Columns)
+        {
+            col.Width = new Avalonia.Controls.DataGridLength(1, Avalonia.Controls.DataGridLengthUnitType.SizeToCells);
+        }
+    }
+
     private void OnMenuInsertRowClicked(object? sender, RoutedEventArgs e)
     {
         var rows = GetSelectedRows();
@@ -1268,7 +1277,7 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
                 {
                     var path = file.Path.LocalPath;
                     var ext = Path.GetExtension(path).ToLowerInvariant();
-                    if (ext is ".xlsx" or ".xls" or ".docx" && _viewModel != null)
+                    if (ext is ".xlsx" or ".xls" or ".xlsm" or ".csv" or ".tsv" or ".txt" or ".docx" && _viewModel != null)
                     {
                         await _viewModel.LoadFileByPathAsync(path);
                         break;

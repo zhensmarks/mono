@@ -316,6 +316,10 @@ public partial class SpreadsheetViewModel : ObservableObject
                                 }
                                 items = uniqueValues.OrderBy(x => x).ToList();
                             }
+                            if (!items.Contains(""))
+                            {
+                                items.Insert(0, "");
+                            }
                             colVM.DropdownItems = items;
                         }
                     }

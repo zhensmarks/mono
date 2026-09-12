@@ -255,7 +255,8 @@
 
         <!-- CONTENT: Explorer views per tab -->
         <Border Grid.Row="1"
-                Background="{DynamicResource AppBackgroundBrush}">
+                Background="{DynamicResource AppBackgroundBrush}"
+                Padding="0">
             <Grid>
                 <ItemsControl ItemsSource="{Binding Tabs}">
                     <ItemsControl.ItemsPanel>

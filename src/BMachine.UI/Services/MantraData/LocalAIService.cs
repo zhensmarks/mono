@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -14,24 +15,71 @@ public class LocalAIException : Exception
     public LocalAIException(string message, Exception inner) : base(message, inner) { }
 }
 
+public static class AiProviderNames
+{
+    public const string Ollama = "ollama";
+    public const string OpenAiCompatible = "openai";
+    public const string NineRouter = "9router";
+
+    public static bool IsOpenAiCompatible(string provider) =>
+        provider is OpenAiCompatible or NineRouter;
+}
+
 public class LocalAIService
 {
     public bool IsEnabled { get; set; }
-    private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(60) };
 
-    public async Task<List<string>> ListModelsAsync(string endpoint)
+    private static string EndpointFor(string provider, string endpoint) =>
+        endpoint.TrimEnd('/');
+
+    private static HttpRequestMessage OpenAiRequest(string url, string apiKey, HttpMethod method, object? payload = null)
+    {
+        var request = new HttpRequestMessage(method, url);
+        if (!string.IsNullOrWhiteSpace(apiKey))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
+        if (payload != null)
+        {
+            request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        }
+        return request;
+    }
+
+    public async Task<List<string>> ListModelsAsync(string endpoint, string provider, string apiKey)
     {
         try
         {
-            var url = endpoint.TrimEnd('/') + "/api/tags";
-            var response = await _client.GetAsync(url);
-            response.EnsureSuccessStatusCode();
+if (AiProviderNames.IsOpenAiCompatible(provider))
+            {
+                var url = EndpointFor(provider, endpoint) + "/models";
+                using var request = OpenAiRequest(url, apiKey, HttpMethod.Get);
+                var response = await _client.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                var models = new List<string>();
+                if (doc.RootElement.TryGetProperty("data", out var dataElem))
+                {
+                    foreach (var item in dataElem.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("id", out var idElem))
+                        {
+                            var id = idElem.GetString();
+                            if (!string.IsNullOrEmpty(id))
+                                models.Add(id);
+                        }
+                    }
+                }
+                return models;
+            }
 
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
-
-            var models = new List<string>();
-            if (doc.RootElement.TryGetProperty("models", out var modelsElem))
+            var ollamaUrl = EndpointFor(provider, endpoint) + "/api/tags";
+            var ollamaResponse = await _client.GetAsync(ollamaUrl);
+            ollamaResponse.EnsureSuccessStatusCode();
+            var ollamaJson = await ollamaResponse.Content.ReadAsStringAsync();
+            using var ollamaDoc = JsonDocument.Parse(ollamaJson);
+            var ollamaModels = new List<string>();
+            if (ollamaDoc.RootElement.TryGetProperty("models", out var modelsElem))
             {
                 foreach (var item in modelsElem.EnumerateArray())
                 {
@@ -39,16 +87,15 @@ public class LocalAIService
                     {
                         var name = nameElem.GetString();
                         if (!string.IsNullOrEmpty(name))
-                            models.Add(name);
+                            ollamaModels.Add(name);
                     }
                 }
             }
-
-            return models;
+            return ollamaModels;
         }
         catch (Exception ex)
         {
-            throw new LocalAIException($"Server AI lokal tidak merespons: {ex.Message}", ex);
+            throw new LocalAIException($"Server AI tidak merespons: {ex.Message}", ex);
         }
     }
 
@@ -56,7 +103,9 @@ public class LocalAIService
         List<string> headers,
         List<List<string>> sampleRows,
         List<int> selectedIndexes,
+        string provider,
         string endpoint,
+        string apiKey,
         string model)
     {
         var selected = selectedIndexes.Select(i => headers[i]).ToList();
@@ -72,32 +121,16 @@ public class LocalAIService
 
         var prompt = "Anda membantu menyiapkan layer teks Photoshop untuk ID card. Pengguna sudah memilih kolom; " +
                      "jangan menambah, menghapus, mengubah nilai, atau memilih kolom lain. Tentukan urutan, prefix singkat, " +
-                     "dan separator setelah setiap nilai. Separator harus salah satu: \\n, koma-spasi, spasi, atau kosong. " +
-                     "Balas JSON saja: {\"items\":[{\"source\":nama_header,\"prefix\":teks,\"separator\":teks}]}. " +
+                     "dan separator setelah setiap nilai. Separator harus salah satu: baris-baru, koma-spasi, spasi, atau kosong. " +
+                     "Balas JSON saja dengan format: {\"items\":[{\"source\":nama_header,\"prefix\":teks,\"separator\":teks}]} " +
                      $"Kolom terpilih: {JsonSerializer.Serialize(selected)}. " +
                      $"Contoh data: {JsonSerializer.Serialize(samples)}";
 
         try
         {
-            var url = endpoint.TrimEnd('/') + "/api/generate";
-            var payload = new
-            {
-                model = model,
-                prompt = prompt,
-                stream = false,
-                format = "json"
-            };
+            var rawResponse = await ChatAsync(provider, endpoint, apiKey, model, prompt);
 
-            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-            var response = await _client.PostAsync(url, content);
-            response.EnsureSuccessStatusCode();
-
-            var respJson = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(respJson);
-
-            var rawResponse = doc.RootElement.GetProperty("response").GetString() ?? "";
             using var responseDoc = JsonDocument.Parse(rawResponse);
-
             var itemsElem = responseDoc.RootElement.GetProperty("items");
             var allowed = new Dictionary<string, (int Index, string Header)>(StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < selectedIndexes.Count; i++)
@@ -117,6 +150,8 @@ public class LocalAIService
 
                 var separator = item.GetProperty("separator").GetString() ?? "";
                 if (separator == "\\n") separator = "\n";
+                if (separator == "baris-baru" || separator == "baris baru" || separator == "newline") separator = "\n";
+                if (separator == "koma-spasi" || separator == "comma" || separator == "koma") separator = ", ";
                 if (!validSeparators.Contains(separator))
                     throw new LocalAIException("AI memberikan pemisah yang tidak diizinkan.");
 
@@ -134,14 +169,16 @@ public class LocalAIService
         }
         catch (Exception ex) when (ex is not LocalAIException)
         {
-            throw new LocalAIException($"AI lokal tidak dapat dihubungi: {ex.Message}", ex);
+            throw new LocalAIException($"AI tidak dapat dihubungi: {ex.Message}", ex);
         }
     }
 
     public async Task<List<DataCleaningSuggestion>> AnalyzeCleanupSuggestionsAsync(
         List<string> headers,
         List<List<string>> sampleRows,
+        string provider,
         string endpoint,
+        string apiKey,
         string model)
     {
         var actionable = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -162,22 +199,7 @@ public class LocalAIService
 
         try
         {
-            var url = endpoint.TrimEnd('/') + "/api/generate";
-            var payload = new
-            {
-                model = model,
-                prompt = prompt,
-                stream = false,
-                format = "json"
-            };
-
-            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-            var response = await _client.PostAsync(url, content);
-            response.EnsureSuccessStatusCode();
-
-            var respJson = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(respJson);
-            var rawResponse = doc.RootElement.GetProperty("response").GetString() ?? "";
+            var rawResponse = await ChatAsync(provider, endpoint, apiKey, model, prompt);
             using var responseDoc = JsonDocument.Parse(rawResponse);
             var itemsElem = responseDoc.RootElement.GetProperty("suggestions");
 
@@ -224,8 +246,72 @@ public class LocalAIService
         }
         catch (Exception ex) when (ex is not LocalAIException)
         {
-            throw new LocalAIException($"AI lokal tidak dapat dihubungi: {ex.Message}", ex);
+            throw new LocalAIException($"AI tidak dapat dihubungi: {ex.Message}", ex);
         }
+    }
+
+    private async Task<string> ChatAsync(string provider, string endpoint, string apiKey, string model, string prompt)
+    {
+        if (AiProviderNames.IsOpenAiCompatible(provider))
+        {
+            var url = EndpointFor(provider, endpoint) + "/chat/completions";
+            var payload = new
+            {
+                model = model,
+                messages = new object[]
+                {
+                    new { role = "system", content = "Anda adalah asisten penyusun layer teks dan pemeriksa kualitas data. Selalu jujur dan konsisten, balas sesuai format yang diminta." },
+                    new { role = "user", content = prompt }
+                },
+                temperature = 0,
+                response_format = new { type = "json_object" }
+            };
+
+            using var request = OpenAiRequest(url, apiKey, HttpMethod.Post, payload);
+            var response = await _client.SendAsync(request);
+            var body = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                throw new LocalAIException($"API mengembalikan {(int)response.StatusCode}: {body}");
+
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
+                throw new LocalAIException("API tidak mengembalikan pilihan jawaban.");
+            var content = choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+            return ExtractJsonObject(content);
+        }
+
+        var urlOllama = EndpointFor(provider, endpoint) + "/api/generate";
+        var payloadOllama = new
+        {
+            model = model,
+            prompt = prompt,
+            stream = false,
+            format = "json"
+        };
+        var contentOllama = new StringContent(JsonSerializer.Serialize(payloadOllama), Encoding.UTF8, "application/json");
+        var responseOllama = await _client.PostAsync(urlOllama, contentOllama);
+        responseOllama.EnsureSuccessStatusCode();
+        var respJson = await responseOllama.Content.ReadAsStringAsync();
+        using var docOllama = JsonDocument.Parse(respJson);
+        return docOllama.RootElement.GetProperty("response").GetString() ?? "";
+    }
+
+    private static string ExtractJsonObject(string content)
+    {
+        var trimmed = content.Trim();
+        if (trimmed.StartsWith("```"))
+        {
+            var marker = trimmed.IndexOf('\n');
+            if (marker >= 0) trimmed = trimmed[(marker + 1)..];
+            var end = trimmed.LastIndexOf("```");
+            if (end >= 0) trimmed = trimmed[..end];
+        }
+        trimmed = trimmed.Trim();
+        var firstBrace = trimmed.IndexOf('{');
+        var lastBrace = trimmed.LastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace)
+            return trimmed[firstBrace..(lastBrace + 1)];
+        return trimmed;
     }
 }
 

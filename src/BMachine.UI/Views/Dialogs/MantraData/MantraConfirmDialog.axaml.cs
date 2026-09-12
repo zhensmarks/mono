@@ -3,7 +3,7 @@ using Avalonia.Interactivity;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class MantraConfirmDialog : Window
+public partial class MantraConfirmDialog : MantraDialogBase
 {
     public bool Confirmed { get; private set; } = false;
 

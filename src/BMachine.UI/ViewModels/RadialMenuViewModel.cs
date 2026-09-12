@@ -522,8 +522,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             };
             
             var json = System.Text.Json.JsonSerializer.Serialize(context, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            var tempPath = Path.Combine(Path.GetTempPath(), "bmachine_context.json");
-            await File.WriteAllTextAsync(tempPath, json);
+            var tempPath = await Services.BmachineContextService.WriteContextAsync(
+                json, msg => _logService?.AddLog($"[INFO] Context written to: {msg}"));
             
             _logService?.AddLog($"[INFO] Context written to: {tempPath}");
             

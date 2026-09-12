@@ -4,7 +4,7 @@ using Avalonia.Interactivity;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class FindReplaceWindow : Window
+public partial class FindReplaceWindow : MantraDialogBase
 {
     public string FindText { get; private set; } = string.Empty;
     public string ReplaceText { get; private set; } = string.Empty;

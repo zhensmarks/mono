@@ -1,22 +1,57 @@
-<Window xmlns="https://github.com/avaloniaui"
+<local:MantraDialogBase xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
         x:Class="BMachine.UI.Views.Dialogs.MantraData.ProcessPsdWindow"
         Title="Proses Rendering Photoshop"
-        Width="580" Height="530"
-        MinWidth="520" MinHeight="480"
+        Width="580" Height="570"
+        MinWidth="520" MinHeight="520"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
         Background="#09090B"
         Foreground="#E8E8E6"
         FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
 
     <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="TemplatedControl">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+
+        <Style Selector="Button.ChromeClose">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ChromeClose:pointerover">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+
         <!-- Primary Action Button with solid card background -->
         <Style Selector="Button.Action">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#EDEDED"/>
             <Setter Property="Foreground" Value="#111111"/>
-            <Setter Property="BorderBrush" Value="#EDEDED"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="18,8"/>
             <Setter Property="Height" Value="36"/>
@@ -26,19 +61,32 @@
         </Style>
         <Style Selector="Button.Action /template/ ContentPresenter">
             <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="TextElement.Foreground" Value="#111111"/>
         </Style>
         <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#FFFFFF"/>
             <Setter Property="TextElement.Foreground" Value="#111111"/>
         </Style>
+        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:disabled">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#52525B"/>
+        </Style>
         <Style Selector="Button.Action:disabled /template/ ContentPresenter">
             <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="TextElement.Foreground" Value="#52525B"/>
         </Style>
 
         <!-- Secondary Muted Button with clear border & dark card background -->
         <Style Selector="Button.Muted">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#18181B"/>
             <Setter Property="Foreground" Value="#E4E4E7"/>
             <Setter Property="BorderBrush" Value="#27272A"/>
@@ -51,18 +99,23 @@
         </Style>
         <Style Selector="Button.Muted /template/ ContentPresenter">
             <Setter Property="Background" Value="#18181B"/>
-            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
             <Setter Property="BorderBrush" Value="#27272A"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
         </Style>
         <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#27272B"/>
             <Setter Property="BorderBrush" Value="#3F3F46"/>
-            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#222226"/>
         </Style>
 
         <!-- Small card button -->
         <Style Selector="Button.SmallBtn">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#1F1F23"/>
             <Setter Property="Foreground" Value="#E4E4E7"/>
             <Setter Property="BorderBrush" Value="#2C2C30"/>
@@ -75,18 +128,43 @@
         </Style>
         <Style Selector="Button.SmallBtn /template/ ContentPresenter">
             <Setter Property="Background" Value="#1F1F23"/>
-            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
             <Setter Property="BorderBrush" Value="#2C2C30"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
         </Style>
         <Style Selector="Button.SmallBtn:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#2A2A30"/>
             <Setter Property="BorderBrush" Value="#3F3F46"/>
-            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.SmallBtn:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#25252A"/>
         </Style>
     </Window.Styles>
 
-    <Border Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+    <Border Background="#09090B" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+
+        <!-- ═══ WINDOW TITLE BAR ═══ -->
+        <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="{Binding $parent[Window].Title, FallbackValue=Proses Rendering Photoshop}"
+                       VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
+                       FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
+
+            <Button Grid.Column="1" Classes="ChromeClose" Content="X" Width="45" Height="40"
+                    VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                    Click="OnCloseButtonClick"/>
+
+            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+        </Grid>
+
+    <Border Grid.Row="1" Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
         <Grid RowDefinitions="Auto, *, Auto">
             <!-- 1. Header -->
             <StackPanel Grid.Row="0" Margin="0,0,0,16">
@@ -98,8 +176,14 @@
             <!-- 2. Form Zones -->
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="12">
+                    <!-- Mode toggle -->
+                    <CheckBox x:Name="ChkRevision" Content="Mode Revisi — perbarui kolom terpilih tanpa mengganti foto"
+                              FontSize="12" Foreground="#C9D1D9" IsChecked="False"
+                              Checked="OnRevisionModeChanged" Unchecked="OnRevisionModeChanged"/>
+
                     <!-- Zone 1: Folder Template PSD -->
-                    <Border x:Name="DropZonePsd" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="14">
+                    <Border x:Name="DropZonePsd" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="14"
+                            DragDrop.AllowDrop="True" DragDrop.DragEnter="OnPsdDragEnter" DragDrop.DragOver="OnPsdDragOver" DragDrop.DragLeave="OnPsdDragLeave" DragDrop.Drop="OnPsdDrop">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBlock Grid.Column="0" Text="Folder Template PSD" FontSize="12" FontWeight="SemiBold" Foreground="#E6EDF3"/>
@@ -109,7 +193,7 @@
                             </Grid>
 
                             <StackPanel Spacing="2">
-                                <TextBlock x:Name="TxtPsdFolderName" Text="Pilih folder template layout PSD"
+                                <TextBlock x:Name="TxtPsdFolderName" Text="Tarik &amp; lepas folder PSD ke sini atau klik untuk browse"
                                            FontSize="12" FontWeight="Medium" Foreground="#C9D1D9" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock x:Name="TxtPsdPath" Text="Mendukung folder berisikan file dokumen .psd"
                                            FontSize="11" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
@@ -124,7 +208,8 @@
                     </Border>
 
                     <!-- Zone 2: Folder Foto Siswa -->
-                    <Border x:Name="DropZonePhoto" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="14">
+                    <Border x:Name="DropZonePhoto" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="14"
+                            DragDrop.AllowDrop="True" DragDrop.DragEnter="OnPhotoDragEnter" DragDrop.DragOver="OnPhotoDragOver" DragDrop.DragLeave="OnPhotoDragLeave" DragDrop.Drop="OnPhotoDrop">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBlock Grid.Column="0" Text="Folder Foto Siswa / Objek" FontSize="12" FontWeight="SemiBold" Foreground="#E6EDF3"/>
@@ -134,9 +219,9 @@
                             </Grid>
 
                             <StackPanel Spacing="2">
-                                <TextBlock x:Name="TxtPhotoFolderName" Text="Pilih folder foto siswa atau guru"
+                                <TextBlock x:Name="TxtPhotoFolderName" Text="Tarik &amp; lepas folder foto ke sini atau klik untuk browse"
                                            FontSize="12" FontWeight="Medium" Foreground="#C9D1D9" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock x:Name="TxtPhotoPath" Text="Mendukung format gambar .jpg, .jpeg, .png, .psd"
+                                <TextBlock x:Name="TxtPhotoPath" Text="Mendukung file foto format .png, .jpg, .jpeg, atau .psd"
                                            FontSize="11" Foreground="#8B949E" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
 
@@ -145,6 +230,19 @@
                                         IsVisible="False" Click="OnClearPhotoClick"/>
                                 <Button Classes="SmallBtn" Content="Pilih Folder Foto" Click="OnBrowsePhotoClick"/>
                             </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Zone Revisi: pemilihan kolom -->
+                    <Border x:Name="PanelRevision" Background="#0C0C0E" BorderBrush="#2D333B" BorderThickness="1" CornerRadius="8" Padding="14" IsVisible="False">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*, Auto">
+                                <TextBlock Grid.Column="0" Text="Kolom yang ingin diperbarui" FontSize="12" FontWeight="SemiBold" Foreground="#E6EDF3"/>
+                                <Button Grid.Column="1" Classes="SmallBtn" Content="Kosongkan Pilihan" Click="OnClearRevisionFieldsClick"/>
+                            </Grid>
+                            <TextBlock Text="Hanya teks pada kolom yang dicentang akan diperbarui. Foto tidak dimasukkan ulang."
+                                       FontSize="11" Foreground="#8B949E" TextWrapping="Wrap"/>
+                            <WrapPanel x:Name="RevFieldsWrap"/>
                         </StackPanel>
                     </Border>
 
@@ -174,9 +272,11 @@
             <!-- 3. Bottom Action Buttons -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
                 <Button Classes="Muted" Content="Batal" MinWidth="90" Click="OnCancelClick"/>
-                <Button x:Name="BtnSubmit" Classes="Action" Content="Mulai Proses ke Photoshop" MinWidth="200"
+                <Button x:Name="BtnSubmit" Classes="Action" Content="Mulai" MinWidth="180"
                         Click="OnSubmitClick" IsEnabled="False"/>
             </StackPanel>
         </Grid>
     </Border>
-</Window>
+    </Grid>
+    </Border>
+</local:MantraDialogBase>

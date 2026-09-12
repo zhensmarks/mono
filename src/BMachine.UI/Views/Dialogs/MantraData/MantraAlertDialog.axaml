@@ -1,21 +1,50 @@
-<Window xmlns="https://github.com/avaloniaui"
+<local:MantraDialogBase xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
         x:Class="BMachine.UI.Views.Dialogs.MantraData.MantraAlertDialog"
         Title="Pemberitahuan"
-        Width="440" Height="210"
-        MinWidth="440" MinHeight="210"
+        Width="440" Height="250"
+        MinWidth="440" MinHeight="250"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
         Background="#09090B"
         Foreground="#E8E8E6"
         FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
 
     <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="TemplatedControl">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+
+        <Style Selector="Button.ChromeClose">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ChromeClose:pointerover">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+
         <Style Selector="Button.Action">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#EDEDED"/>
             <Setter Property="Foreground" Value="#111111"/>
-            <Setter Property="BorderBrush" Value="#EDEDED"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="20,8"/>
             <Setter Property="Height" Value="36"/>
@@ -27,21 +56,50 @@
         </Style>
         <Style Selector="Button.Action /template/ ContentPresenter">
             <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="TextElement.Foreground" Value="#111111"/>
         </Style>
         <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#FFFFFF"/>
             <Setter Property="TextElement.Foreground" Value="#111111"/>
         </Style>
+        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
     </Window.Styles>
 
-    <Border Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
-        <Grid RowDefinitions="Auto, *, Auto">
-            <TextBlock x:Name="TxtTitle" Grid.Row="0" Text="Perhatian" FontSize="15" FontWeight="SemiBold" Foreground="#F4F4F5" Margin="0,0,0,8"/>
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                <TextBlock x:Name="TxtMessage" Text="Pesan" FontSize="12.5" Foreground="#A1A1AA" TextWrapping="Wrap" LineHeight="18"/>
-            </ScrollViewer>
-            <Button Grid.Row="2" Classes="Action" Content="OK" MinWidth="100" Background="#EDEDED" Foreground="#111111" HorizontalAlignment="Right" Margin="0,16,0,0" Click="OnOkClick"/>
+    <Border Background="#09090B" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+
+            <!-- ═══ WINDOW TITLE BAR ═══ -->
+            <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="{Binding $parent[Window].Title, FallbackValue=Pemberitahuan}"
+                           VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
+                           FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
+
+                <Button Grid.Column="1" Classes="ChromeClose" Content="X" Width="45" Height="40"
+                        VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                        Click="OnCloseButtonClick"/>
+
+                <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+            </Grid>
+
+            <!-- ═══ CONTENT ═══ -->
+            <Border Grid.Row="1" Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+                <Grid RowDefinitions="Auto, *, Auto">
+                    <TextBlock x:Name="TxtTitle" Grid.Row="0" Text="Perhatian" FontSize="15" FontWeight="SemiBold" Foreground="#F4F4F5" Margin="0,0,0,8"/>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <TextBlock x:Name="TxtMessage" Text="Pesan" FontSize="12.5" Foreground="#A1A1AA" TextWrapping="Wrap" LineHeight="18"/>
+                    </ScrollViewer>
+                    <Button Grid.Row="2" Classes="Action" Content="OK" MinWidth="100" HorizontalAlignment="Right" Margin="0,16,0,0" Click="OnOkClick"/>
+                </Grid>
+            </Border>
         </Grid>
     </Border>
-</Window>
+</local:MantraDialogBase>

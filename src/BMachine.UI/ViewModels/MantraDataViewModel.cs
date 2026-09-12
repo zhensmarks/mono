@@ -76,7 +76,7 @@ public partial class MantraDataViewModel : ObservableObject
     [ObservableProperty] private int _currentSheetIndex = -1;
 
     // Callbacks for View to present dialogs
-    public Func<Task<(string? PsdFolder, string? PhotoFolder)>>? RequestProcessPsdDialogFunc { get; set; }
+    public Func<Task<(string? PsdFolder, string? PhotoFolder, bool IsRevision, List<string> RevisionFields)>>? RequestProcessPsdDialogFunc { get; set; }
     public Func<string, string, Task>? RequestAlertFunc { get; set; }
     public Func<string, string, Task<bool>>? RequestConfirmFunc { get; set; }
     public Func<string, string, string, Task<(bool Confirmed, string Value)>>? RequestInputFunc { get; set; }
@@ -98,6 +98,7 @@ public partial class MantraDataViewModel : ObservableObject
     private readonly Stack<TableSnapshot> _redoStack = new();
     private const int MaxUndo = 30;
     private bool _skipUndo;
+    private TableSnapshot? _transformPreviewBase;
 
     public MantraDataViewModel(IDatabase? database = null)
     {
@@ -190,6 +191,7 @@ public partial class MantraDataViewModel : ObservableObject
     public async Task LoadFileByPathAsync(string path)
     {
         if (!File.Exists(path)) return;
+        if (IsLoading) return;
 
         IsLoading = true;
         StatusMessage = $"Membaca {Path.GetFileName(path)}...";
@@ -205,6 +207,10 @@ public partial class MantraDataViewModel : ObservableObject
                 if (ext == ".docx")
                 {
                     (cols, dataRows) = _wordService.LoadWordDocx(path);
+                }
+                else if (ext is ".csv" or ".tsv" or ".txt")
+                {
+                    (cols, dataRows) = _excelService.LoadDelimited(path);
                 }
                 else
                 {
@@ -226,14 +232,16 @@ public partial class MantraDataViewModel : ObservableObject
                     if (ext == ".docx")
                     {
                         _allSheets = new List<SheetResult>();
-                        SheetNames.Clear();
+                        SheetNames = new ObservableCollection<string>();
                         CurrentSheetIndex = -1;
                     }
                     else
                     {
-                        _allSheets = new List<SheetResult>(_excelService.GetAllSheets());
-                        SheetNames.Clear();
-                        foreach (var s in _allSheets) SheetNames.Add(s.Name);
+                        _allSheets = _excelService.GetAllSheets()
+                            .GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+                            .Select(g => g.First())
+                            .ToList();
+                        SheetNames = new ObservableCollection<string>(_allSheets.Select(s => s.Name));
                         CurrentSheetIndex = SheetNames.Count > 0 ? 0 : -1;
                     }
                     StatusMessage = $"Berhasil memuat {TotalRows} baris dari {Path.GetFileName(path)}";
@@ -489,7 +497,7 @@ public partial class MantraDataViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenTransformDialog()
     {
-        if (Rows.Count == 0)
+        if (Rows.Count == 0 || Columns.Count == 0)
         {
             if (RequestAlertFunc != null)
                 await RequestAlertFunc("Info", "Tidak ada data untuk ditransformasi. Buka file terlebih dahulu.");
@@ -499,33 +507,35 @@ public partial class MantraDataViewModel : ObservableObject
         if (RequestTransformFunc == null) return;
 
         var result = await RequestTransformFunc(Columns.ToList(), Rows.ToList());
-        if (!result.Confirmed) return;
+        if (!result.Confirmed)
+        {
+            RestoreTransformPreview();
+            return;
+        }
 
-        PushUndo();
+        List<string> baseHeaders;
+        List<TableDataRow> baseRows;
+        if (_transformPreviewBase != null)
+        {
+            (baseHeaders, baseRows) = SnapshotToTable(_transformPreviewBase);
+            CommitTransformPreview();
+        }
+        else
+        {
+            baseHeaders = Columns.ToList();
+            baseRows = Rows.ToList();
+            PushUndo();
+        }
 
         try
         {
-            if (result.PresetCode == "custom")
-            {
-                var (newHeaders, newRows) = _transformService.BuildCustomMerge(
-                    Columns.ToList(),
-                    Rows.ToList(),
-                    result.MergeColumns,
-                    result.TargetHeader,
-                    result.Separator,
-                    result.KeepSources);
-                ReplaceTable(newHeaders, newRows);
-                StatusMessage = $"Gabungan kustom diterapkan ke kolom '{result.TargetHeader}'. {newRows.Count} baris hasil.";
-            }
-            else if (!string.IsNullOrEmpty(result.PresetCode))
-            {
-                var (newHeaders, newRows) = _transformService.ApplyPreset(
-                    result.PresetCode,
-                    Columns.ToList(),
-                    Rows.ToList());
-                ReplaceTable(newHeaders, newRows);
-                StatusMessage = $"Transformasi '{result.PresetCode}' diterapkan. {TotalRows} baris hasil.";
-            }
+            var (newHeaders, newRows) = _transformService.BuildLayerSheet(
+                baseHeaders,
+                baseRows,
+                result.Layers);
+            ReplaceTable(newHeaders, newRows);
+            var names = string.Join(", ", result.Layers.Select(l => l.Name));
+            StatusMessage = $"Kolom hasil diterapkan: {names}. {newRows.Count} baris hasil.";
         }
         catch (Exception ex)
         {
@@ -559,7 +569,7 @@ public partial class MantraDataViewModel : ObservableObject
                     .Select(r => Columns.Select(c => r[c] ?? "").ToList())
                     .ToList();
                 var ai = await AiService.AnalyzeCleanupSuggestionsAsync(
-                    Columns.ToList(), sample, Settings.AiEndpoint, Settings.AiModel);
+                    Columns.ToList(), sample, Settings.AiProvider, Settings.AiEndpoint, Settings.AiApiKey, Settings.AiModel);
                 if (ai.Count > 0)
                 {
                     var existing = new HashSet<string>(
@@ -614,6 +624,68 @@ public partial class MantraDataViewModel : ObservableObject
         TotalRows = Rows.Count;
         HasData = Rows.Count > 0;
         RefreshFilteredRows();
+    }
+
+    public void ApplyTransformPreview(IReadOnlyList<string> headers, IReadOnlyList<LayerTransformSpec> specs)
+    {
+        if (_transformPreviewBase == null)
+            _transformPreviewBase = TableSnapshot.Capture(Columns, Rows, ColumnFormulas);
+
+        if (specs.Count == 0) return;
+
+        try
+        {
+            var (baseHeaders, baseRows) = SnapshotToTable(_transformPreviewBase);
+            var (newHeaders, newRows) = _transformService.BuildLayerSheet(
+                baseHeaders,
+                baseRows,
+                specs.ToList());
+            ReplaceTable(newHeaders, newRows);
+        }
+        catch (Exception)
+        {
+            // Spesifikasi belum lengkap saat mengetik — biarkan preview terakhir yang valid.
+        }
+    }
+
+    public void CommitTransformPreview()
+    {
+        if (_transformPreviewBase == null) return;
+
+        _undoStack.Push(_transformPreviewBase);
+        if (_undoStack.Count > MaxUndo)
+        {
+            var keep = _undoStack.Take(MaxUndo).Reverse().ToList();
+            _undoStack.Clear();
+            foreach (var s in keep)
+                _undoStack.Push(s);
+        }
+        _redoStack.Clear();
+        CanRedo = false;
+        CanUndo = _undoStack.Count > 0;
+        _transformPreviewBase = null;
+    }
+
+    public void RestoreTransformPreview()
+    {
+        if (_transformPreviewBase == null) return;
+
+        _transformPreviewBase.Restore(Columns, Rows, ColumnFormulas);
+        _transformPreviewBase = null;
+        TotalRows = Rows.Count;
+        HasData = Rows.Count > 0;
+        RefreshFilteredRows();
+    }
+
+    private static (List<string> Headers, List<TableDataRow> Rows) SnapshotToTable(TableSnapshot snapshot)
+    {
+        var rows = snapshot.Rows.Select(s => new TableDataRow
+        {
+            RowNumber = s.RowNumber,
+            TagColor = s.TagColor,
+            Values = new Dictionary<string, string>(s.Values)
+        }).ToList();
+        return (snapshot.Columns.ToList(), rows);
     }
 
     public void InsertColumn(string newColName, int targetIndex = -1)
@@ -776,99 +848,134 @@ public partial class MantraDataViewModel : ObservableObject
 
         string psdDir = string.Empty;
         string photoDir = string.Empty;
+        bool isRevision = false;
+        List<string> revisionFields = new();
 
         if (RequestProcessPsdDialogFunc != null)
         {
             var res = await RequestProcessPsdDialogFunc();
-            if (string.IsNullOrEmpty(res.PsdFolder) || string.IsNullOrEmpty(res.PhotoFolder))
+            if (string.IsNullOrEmpty(res.PsdFolder))
                 return;
 
             psdDir = res.PsdFolder;
-            photoDir = res.PhotoFolder;
+            isRevision = res.IsRevision;
+            revisionFields = res.RevisionFields ?? new List<string>();
+
+            if (isRevision)
+            {
+                if (revisionFields.Count == 0)
+                    return;
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(res.PhotoFolder))
+                    return;
+                photoDir = res.PhotoFolder;
+            }
         }
 
-        if (string.IsNullOrEmpty(psdDir) || string.IsNullOrEmpty(photoDir))
+        if (string.IsNullOrEmpty(psdDir))
             return;
 
         _settings.LastPsdFolder = psdDir;
-        _settings.LastPhotoFolder = photoDir;
+        if (!isRevision)
+        {
+            _settings.LastPhotoFolder = photoDir;
+        }
         _settings.Save();
 
         IsLoading = true;
-        StatusMessage = "Menganalisis template PSD dan mencocokkan foto...";
+        StatusMessage = isRevision
+            ? "Menganalisis template PSD untuk revisi..."
+            : "Menganalisis template PSD dan mencocokkan foto...";
 
-        await Task.Run(() =>
+        if (!isRevision)
         {
-            var photos = _photoService.CollectPhotosRecursive(photoDir);
-            var psdFiles = Directory.Exists(psdDir)
-                ? Directory.EnumerateFiles(psdDir, "*.psd", SearchOption.AllDirectories).ToList()
-                : new List<string>();
-
-            int matchCount = 0;
-
-            foreach (var row in Rows)
+            await Task.Run(() =>
             {
-                var name = row["NAMA"];
-                if (string.IsNullOrEmpty(name)) name = row["Nama"];
+                var photos = _photoService.CollectPhotosRecursive(photoDir);
+                var psdFiles = Directory.Exists(psdDir)
+                    ? Directory.EnumerateFiles(psdDir, "*.psd", SearchOption.AllDirectories).ToList()
+                    : new List<string>();
 
-                string? matchedPhotoPath = null;
-                string matchedFileName = "-";
-                int matchScore = 0;
+                int matchCount = 0;
 
-                var matchedPsd = psdFiles.FirstOrDefault(p => _photoService.MatchDataRowToPsd(name, Path.GetFileName(p)) >= 300);
-                if (!string.IsNullOrEmpty(matchedPsd))
+                foreach (var row in Rows)
                 {
-                    matchedPhotoPath = _photoService.MatchPhotoToPsd(Path.GetFileName(matchedPsd), photos);
-                    if (!string.IsNullOrEmpty(matchedPhotoPath))
+                    var name = row["NAMA"];
+                    if (string.IsNullOrEmpty(name)) name = row["Nama"];
+
+                    string? matchedPhotoPath = null;
+                    string matchedFileName = "-";
+                    int matchScore = 0;
+
+                    var matchedPsd = psdFiles.FirstOrDefault(p => _photoService.MatchDataRowToPsd(name, Path.GetFileName(p)) >= 300);
+                    if (!string.IsNullOrEmpty(matchedPsd))
                     {
-                        matchedFileName = Path.GetFileName(matchedPhotoPath);
-                        matchScore = 100;
+                        matchedPhotoPath = _photoService.MatchPhotoToPsd(Path.GetFileName(matchedPsd), photos);
+                        if (!string.IsNullOrEmpty(matchedPhotoPath))
+                        {
+                            matchedFileName = Path.GetFileName(matchedPhotoPath);
+                            matchScore = 100;
+                        }
+                        else
+                        {
+                            matchedFileName = $"[PSD] {Path.GetFileName(matchedPsd)}";
+                            matchScore = 100;
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(matchedPhotoPath) && !string.IsNullOrEmpty(name))
+                    {
+                        var match = _photoService.FindBestMatch(name, photos, _settings.PhotoMatchThreshold);
+                        if (match.IsPassed)
+                        {
+                            matchedPhotoPath = match.MatchedFilePath;
+                            matchedFileName = match.MatchedFileName;
+                            matchScore = match.Score;
+                        }
+                    }
+
+                    bool isPassed = !string.IsNullOrEmpty(matchedPhotoPath) || !string.IsNullOrEmpty(matchedPsd);
+                    row.MatchedPhoto = matchedFileName;
+                    row.MatchScore = matchScore;
+                    row.IsPhotoMatched = isPassed;
+
+                    if (isPassed)
+                    {
+                        row["_MATCHED_PHOTO_PATH"] = matchedPhotoPath ?? string.Empty;
+                        matchCount++;
                     }
                     else
                     {
-                        matchedFileName = $"[PSD] {Path.GetFileName(matchedPsd)}";
-                        matchScore = 100;
+                        row["_MATCHED_PHOTO_PATH"] = string.Empty;
                     }
                 }
 
-                if (string.IsNullOrEmpty(matchedPhotoPath) && !string.IsNullOrEmpty(name))
+                Dispatcher.UIThread.Post(() =>
                 {
-                    var match = _photoService.FindBestMatch(name, photos, _settings.PhotoMatchThreshold);
-                    if (match.IsPassed)
-                    {
-                        matchedPhotoPath = match.MatchedFilePath;
-                        matchedFileName = match.MatchedFileName;
-                        matchScore = match.Score;
-                    }
-                }
-
-                bool isPassed = !string.IsNullOrEmpty(matchedPhotoPath) || !string.IsNullOrEmpty(matchedPsd);
-                row.MatchedPhoto = matchedFileName;
-                row.MatchScore = matchScore;
-                row.IsPhotoMatched = isPassed;
-
-                if (isPassed)
-                {
-                    row["_MATCHED_PHOTO_PATH"] = matchedPhotoPath ?? string.Empty;
-                    matchCount++;
-                }
-                else
-                {
-                    row["_MATCHED_PHOTO_PATH"] = string.Empty;
-                }
-            }
-
-            Dispatcher.UIThread.Post(() =>
-            {
-                MatchedPhotosCount = matchCount;
+                    MatchedPhotosCount = matchCount;
+                });
             });
-        });
+        }
 
-        var confirmMsg = $"Siap memproses data ke Photoshop:\n\n" +
+        string confirmMsg;
+        if (isRevision)
+        {
+            confirmMsg = $"Siap merevisi data pada template PSD:\n\n" +
+                         $"• Kolom Diperbarui: {string.Join(", ", revisionFields)}\n" +
+                         $"• Jumlah Siswa: {Rows.Count}\n" +
+                         $"• Folder PSD: {Path.GetFileName(psdDir)}\n\n" +
+                         $"Foto tidak dimasukkan ulang. Lanjutkan proses revisi ke Photoshop?";
+        }
+        else
+        {
+            confirmMsg = $"Siap memproses data ke Photoshop:\n\n" +
                          $"• Jumlah Siswa: {Rows.Count}\n" +
                          $"• Foto Cocok: {MatchedPhotosCount} dari {Rows.Count}\n" +
                          $"• Folder PSD: {Path.GetFileName(psdDir)}\n\n" +
                          $"Lanjutkan proses rendering otomatis ke Photoshop?";
+        }
 
         if (RequestConfirmFunc != null)
         {
@@ -876,7 +983,9 @@ public partial class MantraDataViewModel : ObservableObject
             if (!confirmRes)
             {
                 IsLoading = false;
-                StatusMessage = "Proses Photoshop dibatalkan oleh pengguna.";
+                StatusMessage = isRevision
+                    ? "Proses revisi Photoshop dibatalkan oleh pengguna."
+                    : "Proses Photoshop dibatalkan oleh pengguna.";
                 return;
             }
         }
@@ -891,7 +1000,7 @@ public partial class MantraDataViewModel : ObservableObject
             rows = Rows.Select(r =>
             {
                 var dict = Columns.ToDictionary(c => c, c => r[c]);
-                dict["_MATCHED_PHOTO_PATH"] = r["_MATCHED_PHOTO_PATH"];
+                dict["_MATCHED_PHOTO_PATH"] = isRevision ? "" : r["_MATCHED_PHOTO_PATH"];
                 return dict;
             }).ToList()
         };
@@ -900,11 +1009,15 @@ public partial class MantraDataViewModel : ObservableObject
         try
         {
             var progress = new Progress<string>(msg => StatusMessage = msg);
-            var report = await _psBridge.RunProcessAsync(jsonPath, psdDir, photoDir, progress);
+            var report = await _psBridge.RunProcessAsync(jsonPath, psdDir, photoDir, progress,
+                operation: isRevision ? "revision" : "full",
+                fields: isRevision ? revisionFields : null);
 
-            StatusMessage = $"Proses Photoshop selesai! {report.RowsProcessed} data diproses.";
+            StatusMessage = isRevision
+                ? $"Proses revisi selesai! {report.RowsProcessed} data diperbarui."
+                : $"Proses Photoshop selesai! {report.RowsProcessed} data diproses.";
             if (RequestAlertFunc != null)
-                await RequestAlertFunc("BDater Selesai", $"Proses Photoshop selesai dengan sukses!\nTotal Halaman: {report.Pages.Count}\nData Terisi: {report.RowsProcessed}");
+                await RequestAlertFunc("BDater Selesai", $"Proses {(isRevision ? "revisi" : "Photoshop")} selesai dengan sukses!\nTotal Halaman: {report.Pages.Count}\nData Terisi: {report.RowsProcessed}");
         }
         catch (Exception ex)
         {

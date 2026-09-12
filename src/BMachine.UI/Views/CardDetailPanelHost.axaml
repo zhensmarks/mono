@@ -42,41 +42,29 @@
                             <!-- ID Badge -->
                             <Button Command="{Binding OpenSpreadsheetAndSearchCommand}" CommandParameter="{Binding SelectedCard.DisplayId}"
                                     IsVisible="{Binding SelectedCard.HasDisplayId}" Cursor="Hand" ToolTip.Tip="Click to Open Sheet &amp; Search ID"
-                                    Background="#140EA5E9" BorderBrush="#0EA5E9" BorderThickness="1" Padding="12,6" CornerRadius="8" Margin="0,0,8,6">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="#250EA5E9"/>
-                                        <Setter Property="BorderBrush" Value="#38BDF8"/>
-                                    </Style>
-                                </Button.Styles>
+                                    Classes="Muted" Height="30" Padding="10,0" CornerRadius="6" Margin="0,0,8,6">
                                 <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                                    <TextBlock Text="ID:" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8" Opacity="0.8"/>
-                                    <TextBlock Text="{Binding SelectedCard.DisplayId}" FontSize="12" FontWeight="Bold" Foreground="#38BDF8"/>
+                                    <TextBlock Text="ID:" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding SelectedCard.DisplayId}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </StackPanel>
                             </Button>
                             
                             <!-- Attachments Badge -->
                             <Button Command="{Binding $parent[UserControl].DataContext.ShowAttachmentsCommand}" CommandParameter="{Binding SelectedCard}"
                                     IsVisible="{Binding SelectedCard.HasAttachments}" Cursor="Hand" ToolTip.Tip="View Attachments"
-                                    Background="#14F59E0B" BorderBrush="#F59E0B" BorderThickness="1" Padding="12,6" CornerRadius="8" Margin="0,0,8,6">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="#25F59E0B"/>
-                                        <Setter Property="BorderBrush" Value="#FBBF24"/>
-                                    </Style>
-                                </Button.Styles>
+                                    Classes="Muted" Height="30" Padding="10,0" CornerRadius="6" Margin="0,0,8,6">
                                 <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                                    <TextBlock Text="Attachments:" FontSize="12" FontWeight="SemiBold" Foreground="#FBBF24" Opacity="0.8"/>
-                                    <TextBlock Text="{Binding SelectedCard.AttachmentCount}" FontSize="12" FontWeight="Bold" Foreground="#FBBF24"/>
+                                    <TextBlock Text="Attachments:" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding SelectedCard.AttachmentCount}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </StackPanel>
                             </Button>
                             
                             <!-- Due Date Badge -->
-                            <Border Background="#14F97316" BorderBrush="#F97316" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,0,8,6" VerticalAlignment="Center"
+                            <Border Background="#1C1C1F" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="6" Height="30" Padding="10,0" Margin="0,0,8,6" VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedCard.DueDateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                                    <TextBlock Text="Due:" FontSize="12" FontWeight="SemiBold" Foreground="#FB923C" Opacity="0.8"/>
-                                    <TextBlock Text="{Binding SelectedCard.DueDateText}" FontSize="12" FontWeight="Bold" Foreground="#FB923C"/>
+                                    <TextBlock Text="Due:" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="{Binding SelectedCard.DueDateText}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </StackPanel>
                             </Border>
                             
@@ -86,7 +74,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="{Binding BgColorHex}" BorderBrush="{Binding BorderColorHex}" BorderThickness="1"
-                                                CornerRadius="8" Padding="12,6" Margin="0,0,8,6" VerticalAlignment="Center">
+                                                CornerRadius="6" Padding="10,5" Margin="0,0,8,6" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" Foreground="{Binding TextColorHex}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
                                         </Border>
                                     </DataTemplate>
@@ -99,63 +87,39 @@
                         <WrapPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <!-- Comment Button -->
                             <Button Command="{Binding $parent[UserControl].DataContext.ShowCommentsCommand}" CommandParameter="{Binding SelectedCard}"
-                                    Background="#143B82F6" BorderBrush="#3B82F6" BorderThickness="1" Padding="12,6" CornerRadius="8" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Comments">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="#253B82F6"/>
-                                        <Setter Property="BorderBrush" Value="#60A5FA"/>
-                                    </Style>
-                                </Button.Styles>
+                                    Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Comments">
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconMessage}" Width="13" Height="13" Foreground="#60A5FA"/>
-                                    <TextBlock Text="Comment" FontSize="12" FontWeight="SemiBold" Foreground="#60A5FA" VerticalAlignment="Center"/>
+                                    <PathIcon Data="{StaticResource IconMessage}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Comment" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                             
                             <!-- Checklist Button -->
                             <Button Command="{Binding $parent[UserControl].DataContext.ShowChecklistsCommand}" CommandParameter="{Binding SelectedCard}"
-                                    Background="#1422C55E" BorderBrush="#22C55E" BorderThickness="1" Padding="12,6" CornerRadius="8" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Checklists">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="#2522C55E"/>
-                                        <Setter Property="BorderBrush" Value="#4ADE80"/>
-                                    </Style>
-                                </Button.Styles>
+                                    Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Checklists">
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconCheckSquare}" Width="13" Height="13" Foreground="#4ADE80"/>
-                                    <TextBlock Text="Checklist" FontSize="12" FontWeight="SemiBold" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                                    <PathIcon Data="{StaticResource IconCheckSquare}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Checklist" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                             
                             <!-- Move Button -->
                             <Button Command="{Binding $parent[UserControl].DataContext.StartMoveCardCommand}" CommandParameter="{Binding SelectedCard}"
                                     IsEnabled="{Binding IsOnline}" IsVisible="{Binding !SelectedCard.IsManual}"
-                                    Background="#14A855F7" BorderBrush="#A855F7" BorderThickness="1" Padding="12,6" CornerRadius="8" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Move Card">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="#25A855F7"/>
-                                        <Setter Property="BorderBrush" Value="#C084FC"/>
-                                    </Style>
-                                </Button.Styles>
+                                    Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Move Card">
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconArrowRight}" Width="13" Height="13" Foreground="#C084FC"/>
-                                    <TextBlock Text="Move" FontSize="12" FontWeight="SemiBold" Foreground="#C084FC" VerticalAlignment="Center"/>
+                                    <PathIcon Data="{StaticResource IconArrowRight}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Move" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                             
                             <!-- Unlink Button -->
                             <Button Command="{ReflectionBinding $parent[UserControl].DataContext.RemoveManualCardCommand}" CommandParameter="{Binding SelectedCard}"
                                     IsVisible="{Binding SelectedCard.IsManual}"
-                                    Background="#14EF4444" BorderBrush="#EF4444" BorderThickness="1" Padding="12,6" CornerRadius="8" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Unlink Card">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="#25EF4444"/>
-                                        <Setter Property="BorderBrush" Value="#F87171"/>
-                                    </Style>
-                                </Button.Styles>
+                                    Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Unlink Card">
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconTrash}" Width="13" Height="13" Foreground="#F87171"/>
-                                    <TextBlock Text="Unlink" FontSize="12" FontWeight="SemiBold" Foreground="#F87171" VerticalAlignment="Center"/>
+                                    <PathIcon Data="{StaticResource IconTrash}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Unlink" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </WrapPanel>
@@ -195,7 +159,7 @@
                             </Button.Styles>
                             <PathIcon Data="{StaticResource IconOpenWindow}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </Button>
-                        <Button Command="{Binding $parent[UserControl].DataContext.CloseCommentsPanelCommand}" Content="✕"
+                        <Button Command="{Binding $parent[UserControl].DataContext.CloseCommentsPanelCommand}" Content="X"
                                 Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
                             <Button.Styles>
                                 <Style Selector="Button:pointerover">
@@ -307,7 +271,7 @@
                                                             Width="16" Height="16" CornerRadius="0" Padding="0"
                                                             Background="#CC000000" BorderThickness="0" Cursor="Hand"
                                                             HorizontalAlignment="Right" VerticalAlignment="Top">
-                                                        <TextBlock Text="✕" FontSize="9" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="X" FontSize="9" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
                                                 </Grid>
                                             </Border>
@@ -447,7 +411,7 @@
                         <TextBlock Text="Checklists" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseChecklistPanelCommand}" Content="✕"
+                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseChecklistPanelCommand}" Content="X"
                             Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
                         <Button.Styles>
                             <Style Selector="Button:pointerover">
@@ -535,7 +499,7 @@
                                                          MinimumPrefixLength="0"
                                                          MaxDropDownHeight="160" Background="Transparent" BorderThickness="0" Padding="10,8" FontSize="13"/>
                                     </Border>
-                                    <Button Grid.Column="1" Content="✕" ToolTip.Tip="Clear"
+                                    <Button Grid.Column="1" Content="X" ToolTip.Tip="Clear"
                                             Background="Transparent" BorderThickness="0" Padding="6,4" Cursor="Hand"
                                             Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14"
                                             Command="{Binding $parent[UserControl].DataContext.ClearSourceChecklistCommand}"
@@ -573,7 +537,7 @@
                         <TextBlock Text="Move Card" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseMovePanelCommand}" Content="✕"
+                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseMovePanelCommand}" Content="X"
                             Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
                         <Button.Styles>
                             <Style Selector="Button:pointerover">
@@ -646,7 +610,7 @@
                         <TextBlock Text="Attachments" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseAttachmentPanelCommand}" Content="✕"
+                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseAttachmentPanelCommand}" Content="X"
                             Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
                         <Button.Styles>
                             <Style Selector="Button:pointerover">

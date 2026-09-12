@@ -177,38 +177,35 @@
                       </StackPanel>
                       
                       <!-- Right: Batch Actions -->
-                      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                           <!-- Batch Unlink for Manual Cards -->
-                           <Button Command="{Binding ActiveViewModel.BatchUnlinkCommand}"
-                                   IsVisible="{Binding ActiveViewModel.HasSelectedManualCards}"
-                                   ToolTip.Tip="Putus Tautan"
-                                   Background="#10EF4444" Foreground="#EF4444" Padding="12,6" CornerRadius="16" Cursor="Hand" FontSize="12">
-                               <StackPanel Orientation="Horizontal" Spacing="6">
-                                   <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#EF4444"/>
-                                   <TextBlock Text="Unlink" FontWeight="Medium"/>
-                               </StackPanel>
-                           </Button>
-                               
-                               <!-- Batch ACC for Regular Cards -->
-                               <Button Command="{Binding ActiveViewModel.BatchAccCommand}"
-                                       IsVisible="{Binding ActiveViewModel.HasSelectedRegularCards}"
-                                       ToolTip.Tip="ACC Marketing"
-                                       Background="#100078D7" Foreground="#0078D7" Padding="12,6" CornerRadius="16" Cursor="Hand" FontSize="12">
-                                   <StackPanel Orientation="Horizontal" Spacing="6">
-                                       <TextBlock Text="🕒" FontSize="12" VerticalAlignment="Center"/>
-                                       <TextBlock Text="ACC" FontWeight="Medium"/>
-                                   </StackPanel>
-                               </Button>
+                       <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <!-- Batch Unlink for Manual Cards -->
+                            <Button Command="{Binding ActiveViewModel.BatchUnlinkCommand}"
+                                    IsVisible="{Binding ActiveViewModel.HasSelectedManualCards}"
+                                    ToolTip.Tip="Putus Tautan"
+                                    Background="#18EF4444" BorderBrush="#30EF4444" BorderThickness="1" Foreground="#EF4444" Padding="12,6" CornerRadius="6" Cursor="Hand" FontSize="12">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#EF4444"/>
+                                    <TextBlock Text="Unlink" FontWeight="Medium"/>
+                                </StackPanel>
+                            </Button>
+                                
+                                <!-- Batch ACC for Regular Cards -->
+                                <Button Command="{Binding ActiveViewModel.BatchAccCommand}"
+                                        IsVisible="{Binding ActiveViewModel.HasSelectedRegularCards}"
+                                        ToolTip.Tip="ACC Marketing"
+                                        Background="#180078D7" BorderBrush="#300078D7" BorderThickness="1" Foreground="#0078D7" Padding="12,6" CornerRadius="6" Cursor="Hand" FontSize="12">
+                                    <TextBlock Text="ACC" FontWeight="Medium"/>
+                                </Button>
 
-                           <Button Command="{Binding ActiveViewModel.ShowBatchMovePanelCommand}"
-                                   ToolTip.Tip="Pindah Massal"
-                                   Classes="Primary" Padding="12,6" CornerRadius="16" Cursor="Hand" FontSize="12">
-                               <StackPanel Orientation="Horizontal" Spacing="6">
-                                   <PathIcon Data="{StaticResource IconArrowRight}" Width="12" Height="12"/>
-                                   <TextBlock Text="Move" FontWeight="Medium"/>
-                               </StackPanel>
-                           </Button>
-                      </StackPanel>
+                            <Button Command="{Binding ActiveViewModel.ShowBatchMovePanelCommand}"
+                                    ToolTip.Tip="Pindah Massal"
+                                    Classes="Action" Height="30" Padding="12,0" CornerRadius="6" Cursor="Hand" FontSize="12">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconArrowRight}" Width="12" Height="12" Foreground="#111111"/>
+                                    <TextBlock Text="Move" FontWeight="Medium" Foreground="#111111"/>
+                                </StackPanel>
+                            </Button>
+                       </StackPanel>
                   </StackPanel>
              </Border>
             
@@ -322,7 +319,7 @@
                                 <TextBlock Text="Add Manual Cards" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBlock Text="Paste Trello links below to manually track them." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
-                            <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}" Content="✕" 
+                            <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}" Content="X" 
                                     Background="Transparent" BorderThickness="0" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Center">
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover">
@@ -342,20 +339,15 @@
                                          Padding="15" FontSize="13" TextWrapping="Wrap" VerticalContentAlignment="Top"
                                          Height="200" SelectionBrush="{DynamicResource AccentColorBrush}"/>
                             </Border>
-                            <!-- Pill Button -->
                             <Button Command="{Binding ConfirmAddManualCardCommand}"
                                     IsEnabled="{Binding !IsLoadingManualAdd}"
+                                    Classes="Action"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                    Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="12" Padding="15,12" Cursor="Hand">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover">
-                                     <Setter Property="Opacity" Value="0.8"/>
-                                </Style>
-                            </Button.Styles>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="White"/>
-                                <TextBlock Text="Import Cards" FontWeight="SemiBold" FontSize="13" Foreground="White"/>
-                            </StackPanel>
+                                    Height="38" CornerRadius="6" Cursor="Hand">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="#111111"/>
+                                    <TextBlock Text="Import Cards" FontWeight="SemiBold" FontSize="13" Foreground="#111111"/>
+                                </StackPanel>
                             </Button>
                         </StackPanel>
                     </ScrollViewer>
@@ -395,7 +387,7 @@
                              <TextBlock Text="{Binding ActiveViewModel.SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" IsVisible="{Binding !ActiveViewModel.IsBatchMoveMode}"/>
                              <TextBlock Text="{Binding ActiveViewModel.CardsSelectedCount, StringFormat='{}{0} Cards Selected'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Command="{Binding ActiveViewModel.CloseMovePanelCommand}" Content="✕" 
+                        <Button Grid.Column="1" Command="{Binding ActiveViewModel.CloseMovePanelCommand}" Content="X" 
                                 Background="Transparent" BorderThickness="0" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Center">
                             <Button.Styles>
                                 <Style Selector="Button:pointerover">
@@ -441,17 +433,13 @@
                         </StackPanel>
                         
                         <Button Command="{Binding ActiveViewModel.MoveCardCommand}" 
+                                Classes="Action"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="12" Padding="15,12" Margin="0,10,0,0" Cursor="Hand"
+                                Height="38" CornerRadius="6" Margin="0,10,0,0" Cursor="Hand"
                                 IsEnabled="{Binding ActiveViewModel.SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover">
-                                    <Setter Property="Opacity" Value="0.8"/>
-                                </Style>
-                            </Button.Styles>
                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                                 <TextBlock Text="Confirm Move" FontWeight="SemiBold" FontSize="13" Foreground="White"/>
-                                 <PathIcon Data="{StaticResource IconArrowRight}" Foreground="White" Width="12" Height="12"/>
+                                 <TextBlock Text="Confirm Move" FontWeight="SemiBold" FontSize="13" Foreground="#111111"/>
+                                 <PathIcon Data="{StaticResource IconArrowRight}" Foreground="#111111" Width="12" Height="12"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>

@@ -1,9 +1,13 @@
 # AGENTS.md — BMachine.v2
 
-BMachine is the **source of truth** for the entire project's feature set and UI language.
-All changes start here, then are mirrored to BDater.
+BMachine.v2 is the primary project. It is **independent** — do NOT mirror or sync changes
+to `BDater/`. BDater is no longer coupled to BMachine.
 
-See `../AGENTS.md` for the full sync contract and file-pair table.
+## Focus
+
+Current work: `src/BMachine.UI/Models/MantraData` (MantraData feature area).
+
+See `../AGENTS.md` for the workspace-level rules.
 
 ## Code style
 
@@ -22,3 +26,13 @@ Hybrid Minimalist Dark (Bento). Token set from `ToolboxWindow.axaml`:
   `Height="32"`, `FontWeight="SemiBold"`
 - No icons in toolbar buttons — plain `Content="Text"` only (typographic, no glyphs)
 - Formula bar: monospace `'Cascadia Code', Consolas, monospace`; no glyph prefix in ViewModel
+
+## Dialog buttons (MantraData dialogs)
+
+- `Button.Action` — light, solid `#EDEDED`, dark text; the default primary action button.
+- `Button.Muted` — dark card `#1C1C1F`, light text; secondary/cancel button.
+- `Button.ChromeClose` — transparent titlebar close button.
+- Avoid `Button.Primary` inside MantraData dialogs unless a blue accent is explicitly requested:
+  `App.axaml` defines a global `Button.Primary` with a **custom template** whose
+  `ContentPresenter` does not inherit a font family reliably, which caused the "block text /
+  blok pada teks" rendering issue on the Ganti Semua button.

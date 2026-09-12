@@ -5,7 +5,7 @@ using Avalonia.Interactivity;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class SplitColumnWindow : Window
+public partial class SplitColumnWindow : MantraDialogBase
 {
     public string SourceColumn { get; private set; } = string.Empty;
     public string Separator { get; private set; } = ", ";

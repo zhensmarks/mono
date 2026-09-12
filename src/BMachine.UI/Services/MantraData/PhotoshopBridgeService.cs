@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
@@ -16,7 +17,7 @@ public class PhotoshopBridgeService
         _settings = settings;
     }
 
-    public async Task<ProcessReport> RunProcessAsync(string dataJsonPath, string psdDir, string fotoDir, IProgress<string>? progress = null)
+    public async Task<ProcessReport> RunProcessAsync(string dataJsonPath, string psdDir, string fotoDir, IProgress<string>? progress = null, string operation = "full", IReadOnlyList<string>? fields = null)
     {
         var tempDir = Path.GetTempPath();
         var cfgPath = Path.Combine(tempDir, "yb_process_config.json");
@@ -32,7 +33,9 @@ public class PhotoshopBridgeService
             data_json = dataJsonPath,
             psd_dir = psdDir,
             foto_dir = fotoDir,
-            report_json = reportPath
+            report_json = reportPath,
+            operation,
+            fields = fields ?? Array.Empty<string>()
         };
         File.WriteAllText(cfgPath, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
         File.WriteAllText(pointerPath, cfgPath);

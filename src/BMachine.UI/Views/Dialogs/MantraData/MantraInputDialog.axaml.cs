@@ -4,7 +4,7 @@ using Avalonia.Interactivity;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class MantraInputDialog : Window
+public partial class MantraInputDialog : MantraDialogBase
 {
     public string InputValue { get; private set; } = string.Empty;
     public bool Confirmed { get; private set; } = false;

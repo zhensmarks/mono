@@ -226,7 +226,7 @@
             
             <TextBlock Grid.Column="0" Text="BMachine Toolbox" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold" FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False" />
             
-            <Button Grid.Column="1" Classes="Tab" Content="✕" Width="45" Height="40" Padding="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Click="OnCloseButtonClick" CornerRadius="0" FontSize="14" />
+            <Button Grid.Column="1" Classes="Tab" Content="X" Width="45" Height="40" Padding="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Click="OnCloseButtonClick" CornerRadius="0" FontSize="14" />
             
             <!-- Separator -->
             <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom" />
@@ -337,7 +337,7 @@
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"
                                                        FontFamily="'Cascadia Code', Consolas, monospace"/>
-                                            <TextBlock Grid.Column="1" Text="→"
+                                            <TextBlock Grid.Column="1" Text="->"
                                                        Foreground="#2A2A2E"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             <TextBlock Grid.Column="2" Text="{Binding NewName}"
@@ -346,7 +346,7 @@
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"
                                                        FontFamily="'Cascadia Code', Consolas, monospace"/>
-                                            <Button Grid.Column="3" Content="✕" Width="24" Height="24" 
+                                            <Button Grid.Column="3" Content="X" Width="24" Height="24" 
                                                     Padding="0" Background="Transparent" Foreground="#71717A"
                                                     Cursor="Hand" VerticalAlignment="Center" Margin="8,0,0,0"
                                                     Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveItemCommand}"
@@ -396,10 +396,10 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Grid.Column="0" Text="Opsi Lanjutan" VerticalAlignment="Center"/>
                                         <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="11"
-                                                   Text="▸" IsVisible="{Binding !MantraNamaVM.IsOptionsExpanded}"
+                                                   Text=">" IsVisible="{Binding !MantraNamaVM.IsOptionsExpanded}"
                                                    VerticalAlignment="Center" Foreground="#52525B"/>
                                         <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="11"
-                                                   Text="▾" IsVisible="{Binding MantraNamaVM.IsOptionsExpanded}"
+                                                   Text="v" IsVisible="{Binding MantraNamaVM.IsOptionsExpanded}"
                                                    VerticalAlignment="Center" Foreground="#52525B"/>
                                     </Grid>
                                 </Button>

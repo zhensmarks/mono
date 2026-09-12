@@ -1,21 +1,62 @@
-<Window xmlns="https://github.com/avaloniaui"
+<local:MantraDialogBase xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
         x:Class="BMachine.UI.Views.Dialogs.MantraData.CustomMergeWindow"
         Title="Gabung Kolom"
-        Width="520" Height="520"
-        MinWidth="480" MinHeight="480"
+        Width="520" Height="560"
+        MinWidth="480" MinHeight="520"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
         Background="#09090B"
         Foreground="#E8E8E6"
         FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
 
     <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="TemplatedControl">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+        <Style Selector="RadioButton">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+        </Style>
+
+        <Style Selector="Button.ChromeClose">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ChromeClose:pointerover">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+
         <Style Selector="Button.Action">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#EDEDED"/>
             <Setter Property="Foreground" Value="#111111"/>
-            <Setter Property="BorderBrush" Value="#EDEDED"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="18,8"/>
             <Setter Property="Height" Value="36"/>
@@ -25,14 +66,20 @@
         </Style>
         <Style Selector="Button.Action /template/ ContentPresenter">
             <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="TextElement.Foreground" Value="#111111"/>
         </Style>
         <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#FFFFFF"/>
             <Setter Property="TextElement.Foreground" Value="#111111"/>
         </Style>
+        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
 
         <Style Selector="Button.Muted">
+            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#18181B"/>
             <Setter Property="Foreground" Value="#E4E4E7"/>
             <Setter Property="BorderBrush" Value="#27272A"/>
@@ -45,18 +92,43 @@
         </Style>
         <Style Selector="Button.Muted /template/ ContentPresenter">
             <Setter Property="Background" Value="#18181B"/>
-            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
             <Setter Property="BorderBrush" Value="#27272A"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
         </Style>
         <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#27272B"/>
             <Setter Property="BorderBrush" Value="#3F3F46"/>
-            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#222226"/>
         </Style>
     </Window.Styles>
 
-    <Border Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+    <Border Background="#09090B" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+
+        <!-- ═══ WINDOW TITLE BAR ═══ -->
+        <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="{Binding $parent[Window].Title, FallbackValue=Gabung Kolom}"
+                       VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
+                       FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
+
+            <Button Grid.Column="1" Classes="ChromeClose" Content="X" Width="45" Height="40"
+                    VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                    Click="OnCloseButtonClick"/>
+
+            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+        </Grid>
+
+    <Border Grid.Row="1" Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
         <Grid RowDefinitions="Auto, *, Auto">
             <!-- Header -->
             <StackPanel Grid.Row="0" Margin="0,0,0,14">
@@ -130,4 +202,6 @@
             </StackPanel>
         </Grid>
     </Border>
-</Window>
+    </Grid>
+    </Border>
+</local:MantraDialogBase>

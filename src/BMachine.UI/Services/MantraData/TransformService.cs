@@ -294,6 +294,69 @@ public class TransformService
         return (newHeaders, newRows);
     }
 
+    public (List<string> Headers, List<TableDataRow> Rows) BuildLayerSheet(
+        List<string> sourceHeaders,
+        List<TableDataRow> sourceRows,
+        List<LayerTransformSpec> layers)
+    {
+        if (layers == null || layers.Count == 0)
+            throw new ArgumentException("Tambahkan minimal satu kolom hasil.");
+
+        var headers = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var layer in layers)
+        {
+            var name = layer.Name?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Nama kolom hasil belum diisi.");
+            var key = CleanHeader(name);
+            if (seen.Contains(key))
+                throw new ArgumentException($"Nama kolom hasil duplikat: {name}");
+            if (layer.Entries == null || layer.Entries.Count(e => e.Use) == 0)
+                throw new ArgumentException($"Hasil {name} belum mempunyai kolom sumber.");
+            foreach (var entry in layer.Entries)
+            {
+                if (entry.SourceIndex < 0 || entry.SourceIndex >= sourceHeaders.Count)
+                    throw new ArgumentException($"Kolom sumber untuk hasil {name} tidak valid.");
+            }
+            seen.Add(key);
+            headers.Add(name);
+        }
+
+        var newRows = new List<TableDataRow>();
+        int rowNum = 1;
+        foreach (var sourceRow in sourceRows)
+        {
+            var row = new TableDataRow { RowNumber = rowNum++ };
+            foreach (var layer in layers)
+            {
+                var parts = new List<(string Value, string Separator)>();
+                foreach (var entry in layer.Entries)
+                {
+                    if (!entry.Use) continue;
+                    var sourceHeader = sourceHeaders[entry.SourceIndex];
+                    var value = sourceRow.Values.ContainsKey(sourceHeader)
+                        ? sourceRow[sourceHeader].Trim()
+                        : "";
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        var separator = string.IsNullOrEmpty(entry.Separator) || entry.Separator == "<default>"
+                            ? layer.Separator
+                            : entry.Separator;
+                        separator = separator.Replace("\\n", "\n").Replace("\\t", "\t");
+                        parts.Add((entry.Prefix + value, separator));
+                    }
+                }
+                var merged = string.Join("", parts.Select((p, i) =>
+                    p.Value + (i < parts.Count - 1 ? p.Separator : "")));
+                row[layer.Name.Trim()] = merged;
+            }
+            newRows.Add(row);
+        }
+
+        return (headers, newRows);
+    }
+
     private string GetValue(TableDataRow row, Dictionary<string, (int Index, string Header)> headerMap, string key)
     {
         if (headerMap.TryGetValue(key, out var mapping))
@@ -352,8 +415,4 @@ public class MergeColumn
 
 public record TransformDialogResult(
     bool Confirmed,
-    string PresetCode,
-    string TargetHeader,
-    string Separator,
-    bool KeepSources,
-    List<MergeColumn> MergeColumns);
+    List<LayerTransformSpec> Layers);

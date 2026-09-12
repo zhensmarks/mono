@@ -10,7 +10,7 @@ using BMachine.UI.Services.MantraData;
 
 namespace BMachine.UI.Views.Dialogs.MantraData;
 
-public partial class CleanerWindow : Window
+public partial class CleanerWindow : MantraDialogBase
 {
     public ObservableCollection<CleanerSuggestionItem> Suggestions { get; } = new();
     public List<string> SelectedCodes { get; private set; } = new();
@@ -40,13 +40,6 @@ public partial class CleanerWindow : Window
         EmptyStatePanel.IsVisible = Suggestions.Count == 0;
     }
 
-    private void OnPreviewClicked(object? sender, RoutedEventArgs e)
-    {
-        SelectedCodes = Suggestions.Where(s => s.IsSelected).Select(s => s.Code).ToList();
-        Applied = false;
-        Close();
-    }
-
     private void OnApplyClicked(object? sender, RoutedEventArgs e)
     {
         SelectedCodes = Suggestions.Where(s => s.IsSelected).Select(s => s.Code).ToList();
@@ -71,6 +64,8 @@ public class CleanerSuggestionItem : INotifyPropertyChanged
     public string Detail { get; set; } = "";
     public int Count { get; set; }
     public bool Applicable { get; set; }
+
+    public string Label => $"{Title} ({Count})";
 
     public bool IsSelected
     {

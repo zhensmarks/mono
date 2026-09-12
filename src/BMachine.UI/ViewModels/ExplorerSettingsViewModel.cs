@@ -67,6 +67,79 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [ObservableProperty] private bool _defaultSortDescending;
     [ObservableProperty] private string _defaultGroupBy = "None";
 
+    // --- Appearance Settings ---
+    [ObservableProperty] private double _contentZoom = 100; // Percent, 75..200
+    [ObservableProperty] private bool _useSystemIcons;      // Use Windows shell icons (7tsp themes)
+    [ObservableProperty] private string _customIconPath = ""; // Custom 7tsp icon pack path
+
+    [RelayCommand]
+    private async Task BrowseCustomIconFolder()
+    {
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
+
+        var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select 7tsp / Icon Folder",
+            AllowMultiple = false
+        });
+
+        if (result == null || result.Count == 0) return;
+        var buffer = result[0].Path.LocalPath;
+        if (!string.IsNullOrEmpty(buffer))
+        {
+            CustomIconPath = buffer;
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseCustomIconFile()
+    {
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
+
+        var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Select Icon Library or File (.dll, .res, .ico, .png, .exe)",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Icons and Libraries")
+                {
+                    Patterns = new[] { "*.dll", "*.res", "*.ico", "*.png", "*.exe", "*.icl" }
+                },
+                new FilePickerFileType("All Files")
+                {
+                    Patterns = new[] { "*.*" }
+                }
+            }
+        });
+
+        if (result == null || result.Count == 0) return;
+        var buffer = result[0].Path.LocalPath;
+        if (!string.IsNullOrEmpty(buffer))
+        {
+            CustomIconPath = buffer;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearCustomIconPath()
+    {
+        CustomIconPath = "";
+    }
+
+    [RelayCommand]
+    private void AdjustZoom(object? deltaParam)
+    {
+        double delta = 0;
+        if (deltaParam is double d) delta = d;
+        else if (deltaParam is int i) delta = i;
+        else if (deltaParam is string s && double.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed)) delta = parsed;
+        if (delta != 0)
+            ContentZoom = Math.Clamp(ContentZoom + delta, 75, 200);
+    }
+
     public ExplorerSettingsViewModel(IDatabase database)
     {
         _database = database;
@@ -105,6 +178,10 @@ public partial class ExplorerSettingsViewModel : ObservableObject
         DefaultSortBy = await _database.GetAsync<string>("Configs.Explorer.DefaultSortBy") ?? "Name";
         DefaultSortDescending = bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.DefaultSortDescending"), out var dsd) && dsd;
         DefaultGroupBy = await _database.GetAsync<string>("Configs.Explorer.DefaultGroupBy") ?? "None";
+
+        ContentZoom = double.TryParse(await _database.GetAsync<string>("Configs.Explorer.ContentZoom"), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var cz) && cz >= 50 ? cz : 100;
+        UseSystemIcons = bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.UseSystemIcons"), out var usi) && usi;
+        CustomIconPath = await _database.GetAsync<string>("Configs.Explorer.CustomIconPath") ?? "";
     }
 
     [RelayCommand]
@@ -231,6 +308,10 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     partial void OnDefaultSortByChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.DefaultSortBy", value);
     partial void OnDefaultSortDescendingChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.DefaultSortDescending", value.ToString());
     partial void OnDefaultGroupByChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.DefaultGroupBy", value);
+
+    partial void OnContentZoomChanged(double value) => _ = SaveSettingAsync("Configs.Explorer.ContentZoom", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    partial void OnUseSystemIconsChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.UseSystemIcons", value.ToString());
+    partial void OnCustomIconPathChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.CustomIconPath", value ?? "");
 
     private async Task SaveSettingAsync(string key, string value)
     {

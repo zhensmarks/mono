@@ -506,6 +506,15 @@
         return "";
     }
 
+    function fieldSelected(name, fields) {
+        if (!fields || !fields.length) return true;
+        var wanted = trimText(name).toLowerCase();
+        for (var f = 0; f < fields.length; f++) {
+            if (trimText(fields[f]).toLowerCase() === wanted) return true;
+        }
+        return false;
+    }
+
     function getTemplateLayers(doc) {
         // 1. Standar robot_idcard_experiment.jsx: LAYER n > ISI n dan FOTO n
         var candidates = [];
@@ -520,25 +529,20 @@
             var n = candidates[c].number;
             var isi = findCompactLayerSet(candidates[c].group, "ISI " + n);
             var foto = findCompactLayerSet(candidates[c].group, "FOTO " + n);
-            if (!isi || !foto) continue;
-
-            var photoLayer = findPhotoSmartObject(foto);
-            if (!photoLayer) {
-                throw new Error(
-                    "Smart Object wajib 'XL' atau 'S' tidak ditemukan di LAYER " + n + " > FOTO " + n + "."
-                );
+            var photoLayer = null;
+            if (foto) photoLayer = findPhotoSmartObject(foto);
+            if (revisionMode ? isi : (isi && foto && photoLayer)) {
+                return { number: n, isi: isi, foto: photoLayer };
             }
-            return { number: n, isi: isi, foto: photoLayer };
         }
 
         // 2. Fallback untuk layout single-slot (misal group DATA / ISI & FOTO di root level)
         var fallbackIsi = findCompactLayerSet(doc, "ISI") || findCompactLayerSet(doc, "DATA");
         var fallbackFoto = findCompactLayerSet(doc, "FOTO");
-        if (fallbackIsi && fallbackFoto) {
-            var fbPhotoLayer = findPhotoSmartObject(fallbackFoto);
-            if (fbPhotoLayer) {
-                return { number: 1, isi: fallbackIsi, foto: fbPhotoLayer };
-            }
+        var fbPhotoLayer = null;
+        if (fallbackFoto) fbPhotoLayer = findPhotoSmartObject(fallbackFoto);
+        if (fallbackIsi && (revisionMode || (fallbackFoto && fbPhotoLayer))) {
+            return { number: 1, isi: fallbackIsi, foto: fbPhotoLayer };
         }
 
         throw new Error(
@@ -586,11 +590,13 @@
                 var cfg = jsonParse(cfgRaw);
                 return {
                     dataFile: new File(cfg.data_json || cfg.dataPath),
-                    photoFolder: new Folder(cfg.foto_dir || cfg.photoPath),
+                    photoFolder: new Folder(cfg.foto_dir || cfg.photoPath || Folder.temp.fsName),
                     psdFolder: new Folder(cfg.psd_dir || cfg.psdPath),
                     reportJsonPath: cfg.report_json || (Folder.temp.fsName + "/yb_process_report.json"),
                     photoFormat: "all",
-                    autoConfirm: true
+                    autoConfirm: true,
+                    operation: cfg.operation || "full",
+                    fields: cfg.fields || []
                 };
             } catch (eCfg) {}
         }
@@ -600,11 +606,13 @@
             var external = $.global.ROBOT_IDCARD_CONFIG;
             return {
                 dataFile: new File(external.dataPath),
-                photoFolder: new Folder(external.photoPath),
+                photoFolder: new Folder(external.photoPath || Folder.temp.fsName),
                 psdFolder: new Folder(external.psdPath),
                 reportJsonPath: external.reportJsonPath || (Folder.temp.fsName + "/yb_process_report.json"),
                 photoFormat: external.photoFormat || "all",
-                autoConfirm: external.autoConfirm === true
+                autoConfirm: external.autoConfirm === true,
+                operation: external.operation || "full",
+                fields: external.fields || []
             };
         }
 
@@ -723,11 +731,15 @@
     var missingLayers = [];
     var missingLayerSeen = {};
     var inputs = null;
+    var revisionMode = false;
+    var revisionFields = [];
     var startTime = new Date();
 
     try {
         inputs = chooseInputs();
         if (!inputs) return;
+        revisionMode = inputs.operation === "revision";
+        revisionFields = inputs.fields || [];
 
         var dataFile = inputs.dataFile;
         var photoFolder = inputs.photoFolder;
@@ -754,7 +766,7 @@
             if (!inputs.autoConfirm) alert(msgNoPsd);
             return;
         }
-        if (!photoFiles.length) {
+        if (!revisionMode && !photoFiles.length) {
             var msgNoPhoto = "Tidak ada file foto (PNG/PSD/JPG) di folder foto. Proses akan tetap dilanjutkan untuk mengisi teks saja.";
             log.push(msgNoPhoto);
         }
@@ -857,7 +869,7 @@
                 items: []
             };
 
-            if (!entry || !photo) {
+            if (!entry || (!revisionMode && !photo)) {
                 var reasons = [];
                 if (!entry) reasons.push("data tidak ditemukan");
                 if (!photo) reasons.push("foto tidak ditemukan");
@@ -890,6 +902,7 @@
                 for (var h = 0; h < dataResult.headers.length; h++) {
                     var header = trimText(dataResult.headers[h]);
                     if (!header) continue;
+                    if (revisionMode && !fieldSelected(header, revisionFields)) continue;
                     var textLayer = findTextLayerDeep(layers.isi, header);
                     if (textLayer) {
                         var val = getEntryField(entry, header);
@@ -900,9 +913,9 @@
                     }
                 }
 
-                replaceSmartObjectContents(doc, layers.foto, photo);
+                if (!revisionMode && photo) replaceSmartObjectContents(doc, layers.foto, photo);
                 completed = true;
-                var okMsg = "OK     | " + decodeName(psdFile.name) + " | pasangan ke-" + (occurrence + 1) + " | " + decodeName(photo.name);
+                var okMsg = "OK     | " + decodeName(psdFile.name) + " | pasangan ke-" + (occurrence + 1) + " | " + decodeName(photo ? photo.name : "(tanpa foto)");
                 log.push(okMsg);
                 success++;
 

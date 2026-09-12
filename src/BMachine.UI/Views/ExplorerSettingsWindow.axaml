@@ -164,7 +164,7 @@
                         Classes.on="{Binding ExplorerSettingsVM.IsGeneralTabVisible}"
                         Command="{Binding ExplorerSettingsVM.SwitchTabCommand}"
                         CommandParameter="General"/>
-                <Button Classes="Tab" Content="Shortcuts"
+                <Button Classes="Tab" Content="Settings"
                         Classes.on="{Binding ExplorerSettingsVM.IsShortcutsTabVisible}"
                         Command="{Binding ExplorerSettingsVM.SwitchTabCommand}"
                         CommandParameter="Shortcuts"/>

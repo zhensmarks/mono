@@ -23,14 +23,35 @@ function saveSettings(x, y) {
     } catch (e) { }
 }
 
+function findLatestContextFile() {
+    var tmp = new Folder(Folder.temp);
+    var matches = tmp.getFiles("bmachine_context_*.json");
+    var best = null;
+    if (matches.length > 0) {
+        for (var i = 0; i < matches.length; i++) {
+            try {
+                matches[i].open("r");
+                var t = matches[i].lastModified;
+                matches[i].close();
+                if (best === null || t > best.t) best = { f: matches[i], t: t };
+            } catch (e) { }
+        }
+        if (best !== null) return best.f;
+    }
+    var legacy = new File(tmp.fsName + "/bmachine_context.json");
+    return legacy;
+}
+
 function main() {
     // === BMachine Integration (Pre-load context if available) ===
     var bmachineContext = null;
-    var tempFile = new File(Folder.temp + "/bmachine_context.json");
+    var tempFile = null;
     var defaultMasterPath = "";
     var defaultInputPath = "";
 
-    if (tempFile.exists) {
+    // Prefer the newest bmachine_context_*.json, fall back to fixed name.
+    tempFile = findLatestContextFile();
+    if (tempFile !== null && tempFile.exists) {
         try {
             tempFile.open("r");
             var jsonContent = tempFile.read();
