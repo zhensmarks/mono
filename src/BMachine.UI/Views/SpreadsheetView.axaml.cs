@@ -69,8 +69,6 @@ public partial class SpreadsheetView : UserControl
                 GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, // Only horizontal lines
                 HeadersVisibility = DataGridHeadersVisibility.Column,
                 IsReadOnly = false, // Allow direct cell editing
-                HorizontalGridLinesBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#1AFFFFFF")), // Very subtle lines
-                RowBackground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#00000000")),
                 BorderThickness = new Avalonia.Thickness(0), // Remove outer border
                 Background = Avalonia.Media.Brushes.Transparent
             };
@@ -97,6 +95,7 @@ public partial class SpreadsheetView : UserControl
             
             _dataGrid.AddHandler(KeyDownEvent, OnDataGridKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             _dataGrid.AddHandler(PointerPressedEvent, OnDataGridPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            _dataGrid.BeginningEdit += OnDataGridBeginningEdit;
             _dataGrid.CellEditEnded += OnDataGridCellEditEnded;
             _dataGrid.CurrentCellChanged += OnDataGridCurrentCellChanged;
 
@@ -137,28 +136,17 @@ public partial class SpreadsheetView : UserControl
             if (col.IsDropdown)
             {
                 // Cell Template (Display)
-                templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
-                {
-                    // Wrap in Border to capture clicks on full cell area and store Tag
-                    var border = new Border { Tag = col.Index };
-                    border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
-                    
-                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, TextAlignment = Avalonia.Media.TextAlignment.Center, Margin = new Thickness(4, 0) };
-                    textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
-                    textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
-                    textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
-                    
-                    border.Child = textBlock;
-                    return border;
-                });
+                templateCol.CellTemplate = CreateCellDisplayTemplate(vm, col);
 
-                // Editing Template (ComboBox)
+                // Editing Template (ComboBox) - sized to the cell so row height never jumps
                 templateCol.CellEditingTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
                     var comboBox = new ComboBox 
                     { 
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
+                        MinHeight = 0,
+                        FontSize = 12,
                         MaxDropDownHeight = 220
                     };
 
@@ -182,21 +170,10 @@ public partial class SpreadsheetView : UserControl
             else if (col.IsDate)
             {
                 // Cell Template (Display)
-                templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
-                {
-                    var border = new Border { Tag = col.Index };
-                    border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
-
-                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, TextAlignment = Avalonia.Media.TextAlignment.Center, Margin = new Thickness(4, 0) };
-                    textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
-                    textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
-                    textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
-                    
-                    border.Child = textBlock;
-                    return border;
-                });
+                templateCol.CellTemplate = CreateCellDisplayTemplate(vm, col);
 
                 // Editing Template (Wide TODAY Button + Manual Date Picker Button, no typing)
+                // All controls are stretch-filled so entering edit mode never changes width/height.
                 templateCol.CellEditingTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
                     var grid = new Grid 
@@ -210,11 +187,12 @@ public partial class SpreadsheetView : UserControl
                         Content = "TODAY",
                         FontWeight = Avalonia.Media.FontWeight.Bold,
                         FontSize = 11,
-                        Padding = new Thickness(8, 2),
+                        Padding = new Thickness(8, 0),
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                         HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                        CornerRadius = new CornerRadius(4)
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
+                        MinHeight = 0,
+                        CornerRadius = new CornerRadius(3)
                     };
                     ToolTip.SetTip(todayBtn, "Isi dengan tanggal hari ini");
                     
@@ -241,10 +219,11 @@ public partial class SpreadsheetView : UserControl
 
                     var manualBtn = new Button 
                     { 
-                        Padding = new Thickness(6, 2),
+                        Padding = new Thickness(6, 0),
                         Margin = new Thickness(2, 0, 0, 0),
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                        CornerRadius = new CornerRadius(4)
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
+                        MinHeight = 0,
+                        CornerRadius = new CornerRadius(3)
                     };
                     ToolTip.SetTip(manualBtn, "Pilih tanggal manual...");
 
@@ -309,24 +288,19 @@ public partial class SpreadsheetView : UserControl
             else
             {
                 // Cell Template (Display)
-                templateCol.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
-                {
-                    var border = new Border { Tag = col.Index };
-                    border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
+                templateCol.CellTemplate = CreateCellDisplayTemplate(vm, col);
 
-                    var textBlock = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, TextAlignment = Avalonia.Media.TextAlignment.Center, Margin = new Thickness(4, 0) };
-                    textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
-                    textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
-                    textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
-
-                    border.Child = textBlock;
-                    return border;
-                });
-
-                // Editing Template (TextBox)
+                // Editing Template (TextBox) - fills the cell exactly, so row height stays stable
                 templateCol.CellEditingTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
                 {
-                    var textBox = new TextBox { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
+                    var textBox = new TextBox 
+                    { 
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
+                        MinHeight = 0,
+                        Padding = new Thickness(6, 2),
+                        FontSize = 12
+                    };
                     textBox.Bind(TextBox.TextProperty, new Binding($"Cells[{col.Index}].Value") { Mode = BindingMode.TwoWay });
                     return textBox;
                 });
@@ -343,6 +317,69 @@ public partial class SpreadsheetView : UserControl
 
             _dataGrid.Columns.Add(templateCol);
         }
+    }
+
+    /// <summary>
+    /// Shared Excel-like display cell: centered text plus a small "fill handle"
+    /// square rendered on the active cell's corner (toggled via the .fh styles).
+    /// </summary>
+    private Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel> CreateCellDisplayTemplate(SpreadsheetViewModel vm, SpreadsheetColumnViewModel col)
+    {
+        return new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
+        {
+            // Wrap in Border to capture clicks on full cell area and store Tag
+            var border = new Border { Tag = col.Index };
+            border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
+
+            var grid = new Grid();
+
+            var textBlock = new TextBlock
+            {
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                TextAlignment = Avalonia.Media.TextAlignment.Center,
+                Margin = new Thickness(4, 0),
+                IsHitTestVisible = false
+            };
+            textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
+            textBlock.Bind(TextBlock.FontWeightProperty, new Binding($"Cells[{col.Index}].FontWeight") { FallbackValue = Avalonia.Media.FontWeight.Normal, TargetNullValue = Avalonia.Media.FontWeight.Normal });
+            textBlock.Bind(TextBlock.FontStyleProperty, new Binding($"Cells[{col.Index}].FontStyle") { FallbackValue = Avalonia.Media.FontStyle.Normal, TargetNullValue = Avalonia.Media.FontStyle.Normal });
+            grid.Children.Add(textBlock);
+
+            // Fill handle: tiny accent square, visible only on the current cell
+            var handle = new Border
+            {
+                Classes = { "fh" },
+                Width = 9,
+                Height = 9,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom,
+                Margin = new Thickness(2, 2, 1, 1),
+                CornerRadius = new CornerRadius(1.5),
+                BorderThickness = new Thickness(1),
+                IsHitTestVisible = false
+            };
+            if (Application.Current?.TryFindResource("AccentColorBrush", out var accent) == true && accent is Avalonia.Media.IBrush accentBrush)
+                handle.Background = accentBrush;
+            else
+                handle.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#3B82F6"));
+            if (Application.Current?.TryFindResource("TextOnPrimaryBrush", out var onPrimary) == true && onPrimary is Avalonia.Media.IBrush onPrimaryBrush)
+                handle.BorderBrush = onPrimaryBrush;
+            grid.Children.Add(handle);
+
+            border.Child = grid;
+            return border;
+        });
+    }
+
+    /// <summary>
+    /// A single click must never drop the cell into edit mode.
+    /// Editing is only allowed through a double-click, F2, or a programmatic BeginEdit.
+    /// </summary>
+    private void OnDataGridBeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        if (e.EditingEventArgs is Avalonia.Input.PointerPressedEventArgs pp && pp.ClickCount < 2)
+            e.Cancel = true;
     }
 
     private void OnDataGridKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)

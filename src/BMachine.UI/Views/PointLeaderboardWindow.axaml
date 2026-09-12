@@ -18,7 +18,7 @@
     <Grid>
         <!-- Content Wrapper -->
         <Border Margin="0" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="0" BorderThickness="0"
+                CornerRadius="6" BorderThickness="0"
                 PointerPressed="OnHeaderPointerPressed">
             <Grid>
                  <!-- Title Bar / Header -->
@@ -38,7 +38,7 @@
                             </Style>
                         </Button.Styles>
                         <PathIcon Data="M13.46,12L19,17.54V19H17.54L12,13.46L6.46,19H5V17.54L10.54,12L5,6.46V5H6.46L12,10.54L17.54,5H19V6.46L13.46,12Z" 
-                                  Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                  Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </Grid>
 

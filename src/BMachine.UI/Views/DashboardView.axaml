@@ -51,7 +51,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="Margin" Value="0,4,0,0"/>
@@ -211,95 +211,25 @@
         
         <!-- MAIN DASHBOARD AREA (Content) -->
         <Grid Grid.Column="1" RowDefinitions="Auto, *">
-            <!-- NAVIGATION BAR (Horizontal, at top) - MINIMALIST SEGMENTED CONTROL -->
-            <Border Grid.Row="0" HorizontalAlignment="Center" 
-                    Background="{DynamicResource MenuHoverBrush}" 
-                    CornerRadius="6" 
-                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
-                    Padding="4" Margin="12,12,12,12">
-                <WrapPanel Orientation="Horizontal" Margin="0">
-                    <WrapPanel.Styles>
-                        <Style Selector="RadioButton.NavTab">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                            <Setter Property="Cursor" Value="Hand"/>
-                            <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="2,0"/>
-                            <Setter Property="CornerRadius" Value="4"/>
-                            <Setter Property="BorderThickness" Value="1"/>
-                            <Setter Property="BorderBrush" Value="Transparent"/>
-                            <Setter Property="Transitions">
-                                <Transitions>
-                                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
-                                </Transitions>
-                            </Setter>
-                            <Setter Property="Template">
-                                <ControlTemplate>
-                                    <Border Background="{TemplateBinding Background}" 
-                                            CornerRadius="{TemplateBinding CornerRadius}"
-                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                            Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter Content="{TemplateBinding Content}" 
-                                                          HorizontalAlignment="Center" 
-                                                          VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Setter>
-                        </Style>
-                        
-                        <Style Selector="RadioButton.NavTab:pointerover">
-                            <Setter Property="Background" Value="#10FFFFFF"/>
-                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                        </Style>
-                        
-                        <Style Selector="RadioButton.NavTab:checked">
-                            <!-- Flat, punchy active segment -->
-                            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
-                            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-                        </Style>
-                        
-                        <Style Selector="RadioButton.NavTab:checked PathIcon">
-                            <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-                        </Style>
-                    </WrapPanel.Styles>
-
-                    <!-- Explorer Tab -->
-                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}"
-                                 IsVisible="{Binding IsOutputExplorerVisible}"
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 ToolTip.Tip="Output Explorer">
-                        <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
+            <!-- NAVIGATION BAR - CARD BORDERED, NO ICON (sesuai editing list yang benar) -->
+            <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="4"
+                    HorizontalAlignment="Center" Margin="12,12,12,12">
+                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                    <RadioButton Classes="TrelloBoardTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}" IsVisible="{Binding IsOutputExplorerVisible}">
+                        <TextBlock Text="EXPLORER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </RadioButton>
-
-                    <!-- Dashboard Tab -->
-                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}"
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 ToolTip.Tip="Dashboard">
-                        <PathIcon Data="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
+                    <RadioButton Classes="TrelloBoardTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}">
+                        <TextBlock Text="DASHBOARD" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </RadioButton>
-
-                    <!-- Batch Tab -->
-                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}"
-                                 IsVisible="{Binding IsBatchVisible}"
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 ToolTip.Tip="Batch Processing">
-                         <PathIcon Data="M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z" Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
+                    <RadioButton Classes="TrelloBoardTab" GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}" IsVisible="{Binding IsBatchVisible}">
+                        <TextBlock Text="BATCH" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </RadioButton>
-
-                    <!-- Locker Tab -->
-                    <RadioButton Classes="NavTab" GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}"
-                                 IsVisible="{Binding IsFolderLockerVisible}"
-                                 Width="{Binding NavButtonWidth}" Height="{Binding NavButtonHeight}"
-                                 ToolTip.Tip="Locker">
-                        <PathIcon Data="M12,17C10.89,17 10,16.1 10,15C10,13.89 10.89,13 12,13A2,2 0 0,1 14,15A2,2 0 0,1 12,17M18,20V10H6V20H18M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V10C4,8.89 4.89,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"
-                                  Width="{Binding NavFontSize}" Height="{Binding NavFontSize}" HorizontalAlignment="Center"/>
+                    <RadioButton Classes="TrelloBoardTab" GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}" IsVisible="{Binding IsFolderLockerVisible}">
+                        <TextBlock Text="LOCKER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </RadioButton>
-
-                </WrapPanel>
+                </StackPanel>
             </Border>
             
             <!-- MAIN CONTENT AREA -->
@@ -339,8 +269,8 @@
                     <Border Grid.Row="0" x:Name="BatchDropZone"
                             IsVisible="{Binding BatchVM.ShowDropZone}"
                             Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="0" Padding="40"
-                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="2"
+                            CornerRadius="6" Padding="40"
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="2"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             MinHeight="200"
                             DragDrop.AllowDrop="True">
@@ -362,7 +292,7 @@
                             <!-- Header Area -->
                             <TextBlock Grid.Row="0" Text="SOURCE" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="10,0,0,5"/>
                             
-                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
@@ -376,24 +306,24 @@
                                                   <StackPanel Orientation="Horizontal" Spacing="2">
                                                        <!-- MENU BUTTON (Replaces Expander) -->
                                                        <Button Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,4,0">
-                                                           <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                           <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            <Button.Flyout>
                                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                                                        <StackPanel Spacing="8">
                                                                            <TextBlock Text="Folder Options" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                            <!-- Create Subfolder (Horizontal) -->
                                                                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder..." Width="140" FontSize="11" CornerRadius="0" Padding="6,4">
+                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder..." Width="140" FontSize="11" CornerRadius="6" Padding="6,4">
                                                                                    <TextBox.KeyBindings>
                                                                                        <KeyBinding Gesture="Enter" Command="{Binding CreateSubFolderCommand}"/>
                                                                                    </TextBox.KeyBindings>
                                                                                </TextBox>
-                                                                               <Button Command="{Binding CreateSubFolderCommand}" Content="Add" HorizontalContentAlignment="Center" FontSize="11" Padding="8,4" Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="0"/>
+                                                                               <Button Command="{Binding CreateSubFolderCommand}" Content="Add" HorizontalContentAlignment="Center" FontSize="11" Padding="8,4" Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="6"/>
                                                                            </StackPanel>
-                                                                           <Separator Height="1" Background="{DynamicResource CardBorderBrush}"/>
+                                                                           <Separator Height="1" Background="{DynamicResource SeparatorBrush}"/>
                                                                            <!-- Delete -->
-                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="0"/>
+                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="6"/>
                                                                        </StackPanel>
                                                                    </Border>
                                                                </Flyout>
@@ -422,7 +352,7 @@
                                                                    </MultiBinding>
                                                                </Button.IsVisible>
                                                                <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" 
-                                                                         Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                         Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            </Button>
     
                                                            <!-- 2. ACTION BAR (Visible when OPEN) -->
@@ -437,9 +367,9 @@
                                                                <Button Command="{Binding CancelActionCommand}"
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="#303030" CornerRadius="0" BorderThickness="0"
+                                                                       Background="#303030" CornerRadius="6" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Cancel">
-                                                                   <PathIcon Data="{StaticResource IconX}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                </Button>
                                                                
                                                                <!-- NEW FOLDER (Only for Directories) -->
@@ -447,10 +377,10 @@
                                                                        Classes="actionBtn"
                                                                        IsVisible="{Binding IsDirectory}"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="#303030" CornerRadius="0" BorderThickness="0"
+                                                                       Background="#303030" CornerRadius="6" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="New Subfolder">
                                                                    <Grid>
-                                                                       <PathIcon Data="{StaticResource IconFolder}" Width="10" Height="10" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                                       <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                                        <PathIcon Data="{StaticResource IconPlus}" Width="6" Height="6" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                                                                    </Grid>
                                                                </Button>
@@ -459,7 +389,7 @@
                                                                <Button Command="{Binding DeleteCommand}"
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="#33FF0000" CornerRadius="0" BorderThickness="0"
+                                                                       Background="#33FF0000" CornerRadius="6" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Delete Item">
                                                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#FF5555"/>
                                                                </Button>
@@ -468,9 +398,9 @@
                                                                        CommandParameter="Left" 
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="#330055FF" CornerRadius="0" BorderThickness="0"
+                                                                       Background="#330055FF" CornerRadius="6" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Buka Master File Browser">
-                                                                   <PathIcon Data="{StaticResource IconFolder}" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                                </Button>
                                                                <!-- MASTER FILE BROWSER (Removed) -->
                                                            </StackPanel>
@@ -543,7 +473,7 @@
                                         </Grid>
                                         
                                         <!-- Search -->
-                                        <TextBox Grid.Row="1" Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}" Watermark="Cari Master..." Classes="searchBox" Margin="0,0,0,10"/>
+                                        <TextBox Grid.Row="1" Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}" Watermark="Cari Master..." Classes="search" Margin="0,0,0,10"/>
                                         
                                         <!-- Files Tree -->
                                         <TreeView Grid.Row="2" ItemsSource="{Binding BatchVM.MasterNodes}"
@@ -586,9 +516,9 @@
 
                             <!-- Add Folder Button (Source) - Left Aligned -->
                             <Button Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,0"
-                                    Width="28" Height="28" CornerRadius="0" Padding="0"
+                                    Width="28" Height="28" CornerRadius="6" Padding="0"
                                     Background="{DynamicResource CardBackgroundBrush}"
-                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Source Folder"
                                     Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Source"
                                     Cursor="Hand">
@@ -611,7 +541,7 @@
                             <TextBlock Grid.Row="0" Text="OUTPUT" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="0,0,10,5" HorizontalAlignment="Right"/>
 
                             <!-- Main Output Area -->
-                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
@@ -625,20 +555,20 @@
                                                   <StackPanel Orientation="Horizontal" Spacing="2">
                                                        <!-- MENU BUTTON -->
                                                        <Button Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,4,0">
-                                                           <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                           <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            <Button.Flyout>
                                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                                                        <StackPanel Spacing="8" Width="160">
                                                                            <TextBlock Text="Folder Options" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                            <!-- Create Subfolder -->
                                                                            <StackPanel Spacing="4">
-                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder Name..." FontSize="11" CornerRadius="0"/>
+                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder Name..." FontSize="11" CornerRadius="6"/>
                                                                                <Button Content="Add Subfolder" Command="{Binding CreateSubFolderCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11"/>
                                                                            </StackPanel>
-                                                                           <Separator Height="1" Background="{DynamicResource CardBorderBrush}"/>
+                                                                           <Separator Height="1" Background="{DynamicResource SeparatorBrush}"/>
                                                                            <!-- Delete -->
-                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="0"/>
+                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="6"/>
                                                                        </StackPanel>
                                                                    </Border>
                                                                </Flyout>
@@ -668,7 +598,7 @@
                                                                    </MultiBinding>
                                                                </Button.IsVisible>
                                                                <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" 
-                                                                         Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                         Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            </Button>
     
                                                            <!-- 2. ACTION BAR (Visible when OPEN) -->
@@ -683,9 +613,9 @@
                                                                <Button Command="{Binding CancelActionCommand}"
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="#303030" CornerRadius="0" BorderThickness="0"
+                                                                       Background="#303030" CornerRadius="6" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Cancel">
-                                                                   <PathIcon Data="{StaticResource IconX}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                </Button>
                                                                
                                                                <!-- NEW FOLDER (Only for Directories) -->
@@ -693,10 +623,10 @@
                                                                        Classes="actionBtn"
                                                                        IsVisible="{Binding IsDirectory}"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="#303030" CornerRadius="0" BorderThickness="0"
+                                                                       Background="#303030" CornerRadius="6" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="New Subfolder">
                                                                    <Grid>
-                                                                       <PathIcon Data="{StaticResource IconFolder}" Width="10" Height="10" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                                       <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                                        <PathIcon Data="{StaticResource IconPlus}" Width="6" Height="6" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                                                                    </Grid>
                                                                </Button>
@@ -705,7 +635,7 @@
                                                                <Button Command="{Binding DeleteCommand}"
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="#33FF0000" CornerRadius="0" BorderThickness="0"
+                                                                       Background="#33FF0000" CornerRadius="6" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Delete Item">
                                                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#FF5555"/>
                                                                </Button>
@@ -714,9 +644,9 @@
                                                                        CommandParameter="Right" 
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="#330055FF" CornerRadius="0" BorderThickness="0"
+                                                                       Background="#330055FF" CornerRadius="6" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Buka Master File Browser">
-                                                                   <PathIcon Data="{StaticResource IconFolder}" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                                </Button>
                                                                <!-- MASTER FILE BROWSER (Removed) -->
                                                            </StackPanel>
@@ -785,7 +715,7 @@
                                         </Grid>
                                         
                                         <!-- Search -->
-                                        <TextBox Grid.Row="1" Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}" Watermark="Cari Master..." Classes="searchBox" Margin="0,0,0,10"/>
+                                        <TextBox Grid.Row="1" Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}" Watermark="Cari Master..." Classes="search" Margin="0,0,0,10"/>
                                         
                                         <!-- Files Tree -->
                                         <TreeView Grid.Row="2" ItemsSource="{Binding BatchVM.MasterNodes}"
@@ -827,9 +757,9 @@
 
                             <!-- Add Folder Button (Output) - Right Aligned Overlapping Bottom -->
                             <Button Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,0"
-                                    Width="32" Height="32" CornerRadius="0" Padding="0"
+                                    Width="32" Height="32" CornerRadius="6" Padding="0"
                                     Background="{DynamicResource CardBackgroundBrush}"
-                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Output Folder"
                                     Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Output"
                                     ZIndex="5" Cursor="Hand">
@@ -851,8 +781,8 @@
                     <!-- NEW FOOTER LAYOUT (REDESIGNED) -->
                     <Border Grid.Row="1" Margin="0,10,0,0" 
                             Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="0" Padding="15,10"
-                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0"
+                            CornerRadius="6" Padding="15,10"
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,1,1,0"
                             IsVisible="{Binding BatchVM.HasFolders}">
                             <Grid ColumnDefinitions="*, Auto">
                                 <!-- Horizontal Scrollable Master Buttons -->
@@ -870,7 +800,7 @@
                                                 <DataTemplate>
                                                     <Button Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
                                                             CommandParameter="{Binding}"
-                                                            Width="32" Height="32" Padding="0" CornerRadius="0" Cursor="Hand"
+                                                            Width="32" Height="32" Padding="0" CornerRadius="6" Cursor="Hand"
                                                             Background="#2A2A2A" BorderThickness="0"
                                                             ToolTip.Tip="{Binding Name}"
                                                             Margin="0,0,6,0">
@@ -899,8 +829,8 @@
                                     <!-- Scripts Path Button -->
                                     <Button Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
                                             Width="32" Height="32" Padding="0"
-                                            Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                            CornerRadius="0" ToolTip.Tip="Set Scripts Folder">
+                                            Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                            CornerRadius="6" ToolTip.Tip="Set Scripts Folder">
                                         <shapes:Path Data="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" 
                                                      Width="14" Height="14" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
                                     </Button>
@@ -908,8 +838,8 @@
                                     <!-- Clear Button -->
                                     <Button Command="{Binding BatchVM.ClearCommand}" 
                                             Width="32" Height="32" Padding="0"
-                                            Background="Transparent" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                            CornerRadius="0" ToolTip.Tip="Clear All">
+                                            Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                            CornerRadius="6" ToolTip.Tip="Clear All">
                                         <PathIcon Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="{DynamicResource AccentRedBrush}"/>
                                     </Button>
                                 </StackPanel>
@@ -936,7 +866,7 @@
                 <!-- NEW FOLDER OVERLAY -->
                 <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="500">
                     <!-- Dimmed transparent backdrop: content behind stays visible -->
-                    <Button Background="#55000000" CornerRadius="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    <Button Background="#55000000" CornerRadius="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             Command="{Binding BatchVM.CloseFolderOverlayCommand}" BorderThickness="0">
                         <Button.Styles>
                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -949,7 +879,7 @@
                     <Border Background="{DynamicResource AppBackgroundBrush}" 
                             BorderBrush="{DynamicResource AccentBlueBrush}" 
                             BorderThickness="1" 
-                            CornerRadius="0" 
+                            CornerRadius="6" 
                             Padding="20" 
                             Width="320" 
                             HorizontalAlignment="Center" 
@@ -966,7 +896,7 @@
                                          x:Name="FolderInputBox"
                                          Text="{Binding BatchVM.NewFolderName, Mode=TwoWay}" 
                                          Watermark="Enter folder name..." 
-                                         CornerRadius="0" 
+                                         CornerRadius="6" 
                                          FontSize="13"
                                          Padding="10,8">
                                     <TextBox.KeyBindings>
@@ -978,8 +908,8 @@
                                 <!-- Add Template Button (+) -->
                                 <Button Grid.Column="1" 
                                         Command="{Binding BatchVM.AddFolderTemplateCommand}"
-                                        Background="#15FFFFFF" 
-                                        CornerRadius="0" 
+                                        Background="{DynamicResource CardBackgroundBrush}" 
+                                        CornerRadius="6" 
                                         Width="36" 
                                         VerticalAlignment="Stretch"
                                         ToolTip.Tip="Save as Template">
@@ -990,7 +920,7 @@
                                 <Button Grid.Column="2" 
                                         Command="{Binding BatchVM.ToggleFolderTemplatesCommand}"
                                         Background="#25FFFFFF" 
-                                        CornerRadius="0" 
+                                        CornerRadius="6" 
                                         Width="36" 
                                         VerticalAlignment="Stretch"
                                         ToolTip.Tip="Select Template">
@@ -1008,7 +938,7 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="#15FFFFFF" CornerRadius="0" Margin="0,0,6,6">
+                                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Margin="0,0,6,6">
                                             <StackPanel Orientation="Horizontal">
                                                 <Button Content="{Binding}" 
                                                         Command="{Binding DataContext.BatchVM.ApplyFolderTemplateCommand, ElementName=Root}" 
@@ -1018,13 +948,13 @@
                                                         Foreground="{DynamicResource TextPrimaryBrush}"
                                                         Padding="8,4" 
                                                         Background="Transparent" 
-                                                        CornerRadius="0"/>
+                                                        CornerRadius="6"/>
                                                 <Button Command="{Binding DataContext.BatchVM.RemoveFolderTemplateCommand, ElementName=Root}" 
                                                         CommandParameter="{Binding}"
                                                         Classes="iconBtn"
                                                         Padding="6,4" 
                                                         Background="#B54845" 
-                                                        CornerRadius="0"
+                                                        CornerRadius="6"
                                                         ToolTip.Tip="Remove Template">
                                                     <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Width="8" Height="8" Foreground="White"/>
                                                 </Button>
@@ -1041,7 +971,7 @@
                                     HorizontalContentAlignment="Center"
                                     Background="{DynamicResource AccentBlueBrush}" 
                                     Foreground="White" 
-                                    CornerRadius="0"
+                                    CornerRadius="6"
                                     Padding="10,8"
                                     FontWeight="SemiBold"/>
                         </StackPanel>

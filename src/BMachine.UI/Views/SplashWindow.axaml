@@ -100,7 +100,7 @@
                 <ProgressBar Value="{Binding Progress}" Maximum="100" Height="3" 
                              Background="#18181B"
                              Foreground="#3B82F6" 
-                             BorderThickness="0" CornerRadius="0"
+                             BorderThickness="0" CornerRadius="6"
                              ShowProgressText="False"
                              HorizontalAlignment="Stretch">
                     <ProgressBar.Transitions>

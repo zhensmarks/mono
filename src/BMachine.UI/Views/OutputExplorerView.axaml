@@ -17,8 +17,6 @@
              Loaded="OnViewLoaded"
              x:Name="ExplorerRoot">
 
-
-
     <UserControl.Resources>
         <StreamGeometry x:Key="IconChevronRight">M9 18l6-6-6-6</StreamGeometry>
         <StreamGeometry x:Key="IconArrowUp">M12 19V5M5 12l7-7 7 7</StreamGeometry>
@@ -127,7 +125,6 @@
     </ContextMenu>
     </UserControl.Resources>
 
-
     <ct:LayoutTransformControl x:Name="ZoomHost">
     <Grid RowDefinitions="*, Auto">
         <!-- TOP: EXPLORER MAIN AREA -->
@@ -160,7 +157,7 @@
                     <!-- Center: DUAL-MODE ADDRESS BAR -->
                     <Border Grid.Column="1" Margin="4,0" CornerRadius="5" ClipToBounds="True"
                             Background="{DynamicResource CardBackgroundBrush}"
-                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                         <Panel>
                             <!-- MODE 1: Breadcrumb display (default) -->
                             <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
@@ -205,7 +202,7 @@
                                      BorderThickness="0" Background="Transparent"
                                      VerticalAlignment="Center"
                                      VerticalContentAlignment="Center"
-                                     FontFamily="Consolas, Monospace, monospace">
+                                     FontFamily="Cascadia Code, JetBrains Mono, Consolas">
                                 <TextBox.KeyBindings>
                                     <KeyBinding Gesture="Enter" Command="{Binding CommitAddressBarCommand}"/>
                                     <KeyBinding Gesture="Escape" Command="{Binding CancelAddressBarCommand}"/>
@@ -222,12 +219,10 @@
                     <!-- Right: Search toggle -->
                     <Button Grid.Column="2" Command="{Binding ToggleSearchCommand}" Classes="Clear"
                             ToolTip.Tip="Search (Ctrl+F)" Padding="5,4">
-                        <PathIcon Data="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 0M21 21l-4.35-4.35" Width="13" Height="13"/>
+                        <PathIcon Data="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 0M21 21l-4.35-4.35" Width="14" Height="14"/>
                     </Button>
                 </Grid>
             </Border>
-
-
 
             <!-- 2. Main Content (Sidebar | Splitter | Files) -->
             <Grid Grid.Row="1">
@@ -255,7 +250,7 @@
                                              </EventTriggerBehavior>
                                          </Interaction.Behaviors>
                                          
-                                         <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="13" Height="13" Margin="8,0,6,0" Foreground="#E8A447"/>
+                                         <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="14" Height="14" Margin="8,0,6,0" Foreground="#E8A447"/>
                                          <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                      </Grid>
                                 </DataTemplate>
@@ -333,7 +328,6 @@
                              ContextMenu="{StaticResource BackgroundMenu}"
                              Focusable="True">
 
-
                         <ListBox.Styles>
                              <Style Selector="ListBoxItem">
                                 <!-- Custom TypeAhead handles this now -->
@@ -392,7 +386,7 @@
                                           <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="15" Height="15"
                                                     HorizontalAlignment="Center"
                                                     Foreground="#E8A447"/>
-                                          <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="13" Height="13"
+                                          <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="14" Height="14"
                                                     HorizontalAlignment="Center"
                                                     Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.75"/>
                                       </Grid>
@@ -517,7 +511,7 @@
                                        <Grid Grid.Column="0" Width="28" VerticalAlignment="Center">
                                            <Image Source="{Binding SystemIcon}" IsVisible="{Binding ShowSystemIcon}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                            <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="15" Height="15" Margin="6,0" Foreground="#E8A447"/>
-                                           <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="13" Height="13" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.75"/>
+                                           <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="14" Height="14" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.75"/>
                                        </Grid>
                                        <Panel Grid.Column="1" VerticalAlignment="Center">
                                            <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Medium" TextTrimming="CharacterEllipsis" IsVisible="{Binding !IsEditing}"/>
@@ -577,7 +571,7 @@
                                         Height="{Binding #ExplorerRoot.DataContext.ThumbnailHeight}" 
                                         CornerRadius="8" ClipToBounds="True"
                                         Background="{DynamicResource CardBackgroundBrush}"
-                                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
                                         PointerPressed="OnItemPointerPressed"
                                         PointerMoved="OnItemPointerMoved"
@@ -638,7 +632,6 @@
                         </ListBox.DataTemplates>
                     </ListBox>
 
-
                     <!-- TILES / SMALL ICONS VIEW (Horizontal Flow, Icon + Text side-by-side) -->
                     <ListBox x:Name="TilesListBox"
                              ItemsSource="{Binding Items}"
@@ -673,7 +666,7 @@
                             </DataTemplate>
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                <Border CornerRadius="0" ClipToBounds="True"
+                                <Border CornerRadius="6" ClipToBounds="True"
                                         Background="Transparent" 
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
                                         PointerPressed="OnItemPointerPressed"
@@ -888,7 +881,7 @@
                             <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,6">
                                 <TextBlock Grid.Column="0" Text="{Binding PreviewPanelTitle}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                 <Button Grid.Column="1" Classes="Clear" Command="{Binding ClosePreviewPanelCommand}" Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Close Preview">
-                                    <PathIcon Data="{StaticResource IconX}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <Button.Styles>
                                         <Style Selector="Button:pointerover /template/ ContentPresenter">
                                             <Setter Property="Background" Value="Transparent"/>
@@ -897,7 +890,7 @@
                                 </Button>
                             </Grid>
                             <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                                <TextBox Text="{Binding PreviewPanelContent, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" FontFamily="Consolas, monospace" FontSize="12">
+                                <TextBox Text="{Binding PreviewPanelContent, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontSize="12">
                                     <TextBox.Styles>
                                         <Style Selector="TextBox:pointerover /template/ Border">
                                             <Setter Property="Background" Value="Transparent"/>
@@ -922,7 +915,7 @@
                 Margin="0,0,24,24" 
                 IsVisible="{Binding IsSearchVisible}"
                 BoxShadow="0 4 12 0 #40000000"
-                CornerRadius="0"
+                CornerRadius="6"
                 BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
                 
                 Padding="6,4" Width="240">
@@ -936,7 +929,7 @@
                  </TextBox>
                  <Button Grid.Column="1" Command="{Binding CloseSearchCommand}" 
                          Background="Transparent" BorderThickness="0" Padding="4" Margin="4,0,0,0" Cursor="Hand">
-                     <PathIcon Data="{StaticResource IconX}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                     <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                  </Button>
              </Grid>
         </Border>

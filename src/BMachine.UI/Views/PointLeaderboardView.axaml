@@ -18,58 +18,20 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Tab Bar (Compact) -->
+            <!-- Tab Bar - Trello style (card bordered, no icon) -->
             <Border Grid.Row="1" HorizontalAlignment="Center" 
-                    Background="{DynamicResource MenuHoverBrush}" 
-                    CornerRadius="6" 
+                    Background="{DynamicResource CardBackgroundBrush}" 
+                    CornerRadius="8" 
                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
                     Padding="4" Margin="20,0,20,8">
-                <StackPanel Orientation="Horizontal" Spacing="0">
-                    <StackPanel.Styles>
-                        <Style Selector="RadioButton.TabButton">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                            <Setter Property="BorderThickness" Value="1"/>
-                            <Setter Property="BorderBrush" Value="Transparent"/>
-                            <Setter Property="FontWeight" Value="SemiBold"/>
-                            <Setter Property="Cursor" Value="Hand"/>
-                            <Setter Property="Padding" Value="24,10"/>
-                            <Setter Property="CornerRadius" Value="4"/>
-                            <Setter Property="Margin" Value="2,0"/>
-                            <Setter Property="Transitions">
-                                <Transitions>
-                                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
-                                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
-                                </Transitions>
-                            </Setter>
-                            <Setter Property="Template">
-                                <ControlTemplate>
-                                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
-                                        <TextBlock Text="{TemplateBinding Content}" FontSize="11" 
-                                                   Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Setter>
-                        </Style>
-                        <Style Selector="RadioButton.TabButton:pointerover">
-                            <Setter Property="Background" Value="#10FFFFFF"/>
-                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                        </Style>
-                        <Style Selector="RadioButton.TabButton:checked">
-                             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
-                             <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-                        </Style>
-                    </StackPanel.Styles>
-                    
-                    <RadioButton Classes="TabButton" Content="HARIAN" IsChecked="{Binding IsHarianSelected}" Command="{Binding SwitchToHarianCommand}"/>
-                    <RadioButton Classes="TabButton" Content="BULANAN" IsChecked="{Binding IsBulananSelected}" Command="{Binding SwitchToBulananCommand}"/>
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <RadioButton Classes="TrelloBoardTab" Content="HARIAN" IsChecked="{Binding IsHarianSelected}" Command="{Binding SwitchToHarianCommand}"/>
+                    <RadioButton Classes="TrelloBoardTab" Content="BULANAN" IsChecked="{Binding IsBulananSelected}" Command="{Binding SwitchToBulananCommand}"/>
                 </StackPanel>
             </Border>
 
             <!-- List Content -->
-            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" ClipToBounds="True" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" ClipToBounds="True" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                 <Grid>
                     <TextBlock Text="Loading..." HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}"/>
                     
@@ -79,7 +41,7 @@
                                 <Grid ColumnDefinitions="30, *, Auto" Margin="5">
                                     <TextBlock Text="{Binding Rank}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <Border Grid.Column="2" Background="{DynamicResource AccentPointsBrush}" CornerRadius="0" Padding="8,2">
+                                    <Border Grid.Column="2" Background="{DynamicResource AccentPointsBrush}" CornerRadius="6" Padding="8,2">
                                         <TextBlock Text="{Binding FormattedPoints, StringFormat='{}{0} Pts'}" FontSize="12" FontWeight="Bold" Foreground="White"/>
                                     </Border>
                                 </Grid>

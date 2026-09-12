@@ -8,7 +8,6 @@
              x:Class="BMachine.UI.Views.MantraDataView"
              x:DataType="vm:MantraDataViewModel"
              Background="Transparent"
-             FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"
              DragDrop.AllowDrop="True">
 
     <UserControl.KeyBindings>
@@ -17,30 +16,7 @@
     </UserControl.KeyBindings>
 
     <UserControl.Styles>
-        <!-- Application Default Typography -->
-        <Style Selector="TextBlock">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="TemplatedControl">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="Button">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="TextBox">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="Menu">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="MenuItem">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="DataGrid">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-
-        <!-- DataGrid Excel-Like Minimalist Dark: Solid border, absolutely no jump/scale animation on click.
+        <!-- Application Default Typography --><!-- DataGrid Excel-Like Minimalist Dark: Solid border, absolutely no jump/scale animation on click.
              Cell selection is driven by code (per-cell Background/BorderBrush), not by row selection. -->
         <Style Selector="DataGridCell">
             <Setter Property="BorderThickness" Value="1"/>
@@ -49,7 +25,6 @@
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="Foreground" Value="#E8E8E6"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
         </Style>
 
         <Style Selector="DataGridRow">
@@ -82,7 +57,6 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
         </Style>
 
         <Style Selector="DataGridColumnHeader:pointerover">
@@ -343,7 +317,7 @@ SelectionChanged="OnDataGridSelectionChanged"
         <!-- Floating: Dropdown Cari & Ganti Cepat (menurun ke bawah, rata tengah dgn kotak Cari data) -->
         <Border Grid.Row="1" IsVisible="{Binding IsAdvancedSearchOpen}"
                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-36,31,0"
-                Background="#111113" BorderBrush="#3F3F46" BorderThickness="1"
+                Background="#111113" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                 CornerRadius="8" Padding="10,8" BoxShadow="0 4 16 6 #1A000000">
             <StackPanel Orientation="Vertical" Spacing="6" Width="140">
                 <TextBlock Text="Ganti dengan" Foreground="#A1A1AA" FontSize="11"/>

@@ -34,36 +34,24 @@
             <!-- HEADER: Navigation Bar (Row 0) -->
             <Border Grid.Row="0" Padding="12,12,12,8">
                 <StackPanel Spacing="8">
-                    <!-- Navigation Tab Buttons (Minimalist Segmented Control) -->
+                    <!-- Navigation Tab Buttons - Trello style (icon-only, keep icon) -->
                     <Border Background="{DynamicResource CardBackgroundBrush}" 
                             CornerRadius="8" Padding="4"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
-                        <UniformGrid Rows="1">
-                            <Button Classes="panelTab" Click="OnConsoleTabClick"
-                                    Height="{Binding LogNavButtonHeight}"
-                                    Tag="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Console">
-                                <PathIcon Data="{StaticResource IconTerminal}" Width="{Binding LogNavFontSize}" Height="{Binding LogNavFontSize}"/>
-                            </Button>
-                            
-                            <Button Classes="panelTab" Click="OnMasterTabClick"
-                                    Height="{Binding LogNavButtonHeight}"
-                                    Tag="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Master">
-                                <PathIcon Data="{StaticResource IconGrid}" Width="{Binding LogNavFontSize}" Height="{Binding LogNavFontSize}"/>
-                            </Button>
-                            
-                            <Button Classes="panelTab" Click="OnPhotoshopTabClick"
-                                    Height="{Binding LogNavButtonHeight}"
-                                    Tag="{Binding BatchVM.IsPhotoshopVisible}" ToolTip.Tip="Photoshop">
-                                <PathIcon Data="{StaticResource IconImageSimple}" Width="{Binding LogNavFontSize}" Height="{Binding LogNavFontSize}"/>
-                            </Button>
-
-                            <Button Classes="panelTab" Click="OnDocTabClick"
-                                    Height="{Binding LogNavButtonHeight}"
-                                    IsVisible="{Binding !BatchVM.IsDocFloating}"
-                                    Tag="{Binding BatchVM.IsDocVisible}" ToolTip.Tip="DOC">
-                                <PathIcon Data="{StaticResource IconFileText}" Width="{Binding LogNavFontSize}" Height="{Binding LogNavFontSize}"/>
-                            </Button>
-                        </UniformGrid>
+                        <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
+                            <RadioButton Classes="TrelloBoardTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsConsoleVisible}" Click="OnConsoleTabClick" ToolTip.Tip="Console">
+                                <PathIcon Data="{StaticResource IconTerminal}" Width="14" Height="14"/>
+                            </RadioButton>
+                            <RadioButton Classes="TrelloBoardTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsMasterVisible}" Click="OnMasterTabClick" ToolTip.Tip="Master">
+                                <PathIcon Data="{StaticResource IconGrid}" Width="14" Height="14"/>
+                            </RadioButton>
+                            <RadioButton Classes="TrelloBoardTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
+                                <PathIcon Data="{StaticResource IconImageSimple}" Width="14" Height="14"/>
+                            </RadioButton>
+                            <RadioButton Classes="TrelloBoardTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsDocVisible}" IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
+                                <PathIcon Data="{StaticResource IconFileText}" Width="14" Height="14"/>
+                            </RadioButton>
+                        </StackPanel>
                     </Border>
                     
                     <!-- Integrated Compact Search -->
@@ -120,7 +108,7 @@
                                                    Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
                                                    Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
                                                    Classes.accent="{Binding Level, Converter={x:Static vm:LogConverters.IsAccent}}"
-                                                   FontSize="11" FontFamily="Consolas, Monospace" 
+                                                   FontSize="11" FontFamily="Cascadia Code, JetBrains Mono, Consolas" 
                                                    TextWrapping="Wrap"/>
                                     </Border>
                                 </DataTemplate>
@@ -164,7 +152,7 @@
             
             <!-- FOOTER (Row 2) : Floating Minimalist Status Bar -->
             <Border Grid.Row="2" Background="#0CFFFFFF" Margin="10,2,10,10" Padding="10,4" 
-                    BorderBrush="#1AFFFFFF" BorderThickness="1" CornerRadius="6" 
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" 
                     IsVisible="{Binding BatchVM.IsStatusVisible}">
                 <Grid ColumnDefinitions="*, Auto">
                      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -183,7 +171,7 @@
                              <TextBlock Text="{Binding ProcessStatusText, Converter={StaticResource StringToUpperConverter}}" 
                                         IsVisible="{Binding !BatchVM.IsMasterVisible}"
                                         Foreground="{DynamicResource TextSecondaryBrush}" 
-                                        FontSize="9" FontFamily="Consolas, Monospace" FontWeight="Bold" LetterSpacing="1.5"
+                                        FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1.5"
                                         TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              
                              <!-- Master Browser Target -->
@@ -194,14 +182,14 @@
                                          <Binding Path="!BatchVM.IsBusy"/>
                                      </MultiBinding>
                                  </StackPanel.IsVisible>
-                                 <TextBlock Text="TARGET:" Foreground="#666666" FontSize="9" FontFamily="Consolas, Monospace" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
-                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="Consolas, Monospace" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="100" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                 <TextBlock Text="TARGET:" Foreground="#666666" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="100" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              </StackPanel>
  
                              <!-- BUSY INDICATOR -->
                              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding BatchVM.IsBusy}">
-                                 <ProgressBar IsIndeterminate="True" Width="20" Height="2" CornerRadius="1" VerticalAlignment="Center" Foreground="{DynamicResource AccentBlueBrush}" Background="#1AFFFFFF"/>
-                                 <TextBlock Text="{Binding BatchVM.BusyMessage, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="9" FontFamily="Consolas, Monospace" FontWeight="Bold" LetterSpacing="1.5" TextTrimming="CharacterEllipsis" MaxWidth="110" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                 <ProgressBar IsIndeterminate="True" Width="20" Height="2" CornerRadius="1" VerticalAlignment="Center" Foreground="{DynamicResource AccentBlueBrush}" Background="{DynamicResource CardBackgroundBrush}"/>
+                                 <TextBlock Text="{Binding BatchVM.BusyMessage, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1.5" TextTrimming="CharacterEllipsis" MaxWidth="110" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              </StackPanel>
                          </Grid>
                      </StackPanel>
@@ -209,16 +197,16 @@
                      <!-- Actions -->
                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                          <Button Classes="statusBtn" Command="{Binding StopProcessCommand}" IsVisible="{Binding IsProcessing}" ToolTip.Tip="Stop">
-                             <PathIcon Data="{StaticResource IconSquare}" Width="10" Height="10" Foreground="#ef4444"/>
+                             <PathIcon Data="{StaticResource IconSquare}" Width="12" Height="12" Foreground="#ef4444"/>
                          </Button>
                          <Button Classes="statusBtn" Command="{Binding CopyAllLogsCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Copy Log">
-                             <PathIcon Data="{StaticResource IconCopy}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
                          <Button Classes="statusBtn" Command="{Binding ClearLogCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Clear Log">
-                             <PathIcon Data="{StaticResource IconTrash}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
                          <Button Classes="statusBtn" Command="{Binding BatchVM.RefreshMasterCommand}" IsVisible="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Refresh">
-                             <PathIcon Data="{StaticResource IconRefresh}" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
                      </StackPanel>
                 </Grid>

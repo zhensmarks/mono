@@ -12,28 +12,9 @@
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
         Background="#09090B"
-        Foreground="#E8E8E6"
-        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif">
+        Foreground="#E8E8E6">
 
-    <Window.Styles>
-        <Style Selector="TextBlock">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="TemplatedControl">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="Button">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="TextBox">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-        <Style Selector="CheckBox">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
-        </Style>
-
-        <Style Selector="Button.ChromeClose">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
+    <Window.Styles><Style Selector="Button.ChromeClose">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#71717A"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -48,7 +29,6 @@
 
         <!-- Primary Action Button with solid card background -->
         <Style Selector="Button.Action">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#EDEDED"/>
             <Setter Property="Foreground" Value="#111111"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -86,7 +66,6 @@
 
         <!-- Secondary Muted Button with clear border & dark card background -->
         <Style Selector="Button.Muted">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#18181B"/>
             <Setter Property="Foreground" Value="#E4E4E7"/>
             <Setter Property="BorderBrush" Value="#27272A"/>
@@ -115,7 +94,6 @@
 
         <!-- Small card button -->
         <Style Selector="Button.SmallBtn">
-            <Setter Property="FontFamily" Value="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"/>
             <Setter Property="Background" Value="#1F1F23"/>
             <Setter Property="Foreground" Value="#E4E4E7"/>
             <Setter Property="BorderBrush" Value="#2C2C30"/>

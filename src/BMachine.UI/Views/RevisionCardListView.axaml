@@ -61,7 +61,7 @@
                                         IsVisible="{Binding !IsSeparator}"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                         Padding="0" BorderThickness="0" Background="Transparent"
-                                        Margin="0,0,0,1" CornerRadius="0">
+                                        Margin="0,0,0,1" CornerRadius="6">
                                     <Button.Styles>
                                         <Style Selector="Button:pointerover /template/ ContentPresenter">
                                             <Setter Property="Background" Value="Transparent"/>
@@ -76,7 +76,7 @@
                                         </Style>
                                     </Button.Styles>
                                     
-                                    <Border x:Name="CardContainer" ClipToBounds="True" CornerRadius="0" 
+                                    <Border x:Name="CardContainer" ClipToBounds="True" CornerRadius="6" 
                                             BorderThickness="0,0,0,1"
                                             Classes.selected="{Binding IsActive}"
                                             DragDrop.AllowDrop="True" DragDrop.DragOver="OnCardDragOver" DragDrop.Drop="OnCardDrop">
@@ -93,7 +93,7 @@
                                         
                                         <Grid RowDefinitions="Auto, *">
                                             <!-- Cover Overlay (Thin line on top instead of full background) -->
-                                            <Border Grid.Row="0" Height="2" CornerRadius="0" HorizontalAlignment="Stretch"
+                                            <Border Grid.Row="0" Height="2" CornerRadius="6" HorizontalAlignment="Stretch"
                                                     IsVisible="{Binding HasCover}">
                                                 <Panel>
                                                     <Border Background="{Binding CoverColor}" IsVisible="{Binding !IsCoverImage}" Opacity="0.8"/>
@@ -116,7 +116,7 @@
                                                 </Border>
                                                 
                                                 <!-- Hidden Drag Handle (Visible on hover) -->
-                                                <PathIcon x:Name="DragHandle" Data="M12 2v20M2 12h20" Width="10" Height="10" Foreground="#666666"
+                                                <PathIcon x:Name="DragHandle" Data="M12 2v20M2 12h20" Width="12" Height="12" Foreground="#666666"
                                                           HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="SizeAll" Opacity="0"
                                                           ToolTip.Tip="Drag to Reorder" PointerPressed="OnCardPointerPressed">
                                                     <PathIcon.Transitions>
@@ -146,7 +146,7 @@
                                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0" Spacing="8">
                                                 
                                                 <!-- Checklist Progress (Minimalist Terminal Style) -->
-                                                <Border CornerRadius="0" Padding="4,2" BorderBrush="#333333" BorderThickness="1" Background="Transparent"
+                                                <Border CornerRadius="6" Padding="4,2" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Background="Transparent"
                                                         IsVisible="{Binding HasChecklist}"
                                                         ToolTip.Tip="{Binding ChecklistTooltip}">
                                                  <Border.Styles>

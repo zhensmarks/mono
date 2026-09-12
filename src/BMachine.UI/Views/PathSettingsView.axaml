@@ -9,12 +9,12 @@
 
     <ScrollViewer>
         <StackPanel Spacing="20" Margin="20">
-            <TextBlock Text="Explorer &amp; Paths Configuration" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextControlForeground}"/>
+            <TextBlock Text="Explorer &amp; Paths Configuration" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock Text="Set default locations for Local Output, Photoshop, and Master Design assets." 
-                       FontSize="14" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
+                       FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.7"/>
 
             <!-- Explorer Defaults (Global Settings - MOVED TO TOP) -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
                     
@@ -37,7 +37,7 @@
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" Watermark="Select Photoshop.exe or .app" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary" Margin="0,0,6,0"/>
                         <Button Grid.Row="1" Grid.Column="2" Command="{Binding FixPhotoshopWarningCommand}"
-                                Classes="Primary" Background="#E07020" Padding="8" CornerRadius="0"
+                                Classes="Primary" Background="#E07020" Padding="8" CornerRadius="6"
                                 ToolTip.Tip="Fix PS Warning: Automatically suppress the Photoshop script security warning by writing to PSUserConfig.txt">
                             <PathIcon Data="{StaticResource IconBolt}" Width="16" Height="16" Foreground="White" />
                         </Button>
@@ -46,14 +46,14 @@
             </Border>
 
             <!-- TAMBAHAN MASTER (New Feature) -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
                 <Expander IsExpanded="False" Background="Transparent" BorderThickness="0" Padding="0">
                     <Expander.Header>
-                        <TextBlock Text="TAMBAHAN MASTER" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextControlForeground}"/>
+                        <TextBlock Text="TAMBAHAN MASTER" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </Expander.Header>
                     <StackPanel Spacing="10" Margin="0,10,0,0">
                          <TextBlock Text="Folder master tambahan yang akan muncul di Master File Browser." 
-                                    FontSize="12" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
+                                    FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.7"/>
                         
                         <!-- List of Paths -->
                         <ItemsControl ItemsSource="{Binding AdditionalMasterPaths}">
@@ -150,14 +150,14 @@
             </Border>
 
             <!-- TAMBAHAN PHOTOSHOP (New Feature) -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
                 <Expander IsExpanded="False" Background="Transparent" BorderThickness="0" Padding="0">
                     <Expander.Header>
-                        <TextBlock Text="TAMBAHAN PHOTOSHOP" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextControlForeground}"/>
+                        <TextBlock Text="TAMBAHAN PHOTOSHOP" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </Expander.Header>
                     <StackPanel Spacing="10" Margin="0,10,0,0">
                          <TextBlock Text="Folder khusus gambar (jpg/png) yang akan muncul di tab PHOTOSHOP." 
-                                    FontSize="12" Foreground="{DynamicResource TextControlForeground}" Opacity="0.7"/>
+                                    FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.7"/>
                         
                         <!-- List of Paths -->
                         <ItemsControl ItemsSource="{Binding AdditionalPhotoshopPaths}">
@@ -254,7 +254,7 @@
             </Border>
 
             <!-- Storage Settings -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Storage Settings" FontWeight="SemiBold" FontSize="16"/>
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
@@ -267,7 +267,7 @@
             </Border>
 
             <!-- Profesi Group -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Profesi &amp; Sporty" FontWeight="SemiBold" FontSize="16"/>
                     
@@ -292,7 +292,7 @@
             </Border>
 
             <!-- Manasik Group -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Manasik" FontWeight="SemiBold" FontSize="16"/>
 
@@ -311,7 +311,7 @@
             </Border>
 
             <!-- Wisuda Group -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Wisuda" FontWeight="SemiBold" FontSize="16"/>
 
@@ -330,7 +330,7 @@
             </Border>
 
             <!-- Pas Foto Group -->
-            <Border Classes="Card" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="0" Padding="15">
+            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Pas Foto" FontWeight="SemiBold" FontSize="16"/>
 

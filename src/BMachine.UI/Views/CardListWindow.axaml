@@ -18,7 +18,7 @@
         <!-- Content Area -->
         <!-- ContentControl will resolve the VM to its associated View via ViewLocator -->
         <Border Margin="0" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="0" BorderThickness="0"
+                CornerRadius="6" BorderThickness="0"
                 PointerPressed="OnHeaderPointerPressed">
              <ContentControl Content="{Binding}" Margin="0,0,0,0"/>
         </Border>

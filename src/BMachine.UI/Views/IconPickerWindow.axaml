@@ -32,8 +32,8 @@
         </Style>
     </Window.Styles>
 
-    <Border CornerRadius="0" ClipToBounds="True" 
-            BorderThickness="1" BorderBrush="#30FFFFFF"
+    <Border CornerRadius="6" ClipToBounds="True" 
+            BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}"
             BoxShadow="0 10 30 0 #80000000">
         <Border.Background>
             <SolidColorBrush Color="#1e1e1e" Opacity="0.98"/>

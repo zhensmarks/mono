@@ -1,0 +1,271 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- ================================================================ -->
+    <!-- TRELLO NAVIGATION DESIGN SYSTEM                                  -->
+    <!-- Mimics trello.com header + board navigation                      -->
+    <!-- Header: #026AA7 / #0079BF, buttons rgba(255,255,255,0.2-0.4)     -->
+    <!-- Board tabs: underline indicator #0079BF, hover #091E4214         -->
+    <!-- Adapted for BMachine dark theme (#121212 / #1A1C20)              -->
+    <!-- ================================================================ -->
+    <Styles.Resources>
+        <!-- Trello core palette -->
+        <Color x:Key="TrelloBlue">#0079BF</Color>
+        <Color x:Key="TrelloDarkBlue">#026AA7</Color>
+        <Color x:Key="TrelloHeaderBg">#026AA7</Color>
+        <Color x:Key="TrelloBoardBg">#0079BF</Color>
+        <!-- Translucent whites for header buttons -->
+        <Color x:Key="TrelloBtnBg">#33FFFFFF</Color>        <!-- 20% white -->
+        <Color x:Key="TrelloBtnHoverBg">#4DFFFFFF</Color>   <!-- 30% white -->
+        <Color x:Key="TrelloBtnActiveBg">#66FFFFFF</Color>  <!-- 40% white -->
+        <Color x:Key="TrelloBtnPressedBg">#80FFFFFF</Color> <!-- 50% white -->
+        <SolidColorBrush x:Key="TrelloBlueBrush" Color="{StaticResource TrelloBlue}" />
+        <SolidColorBrush x:Key="TrelloDarkBlueBrush" Color="{StaticResource TrelloDarkBlue}" />
+        <SolidColorBrush x:Key="TrelloHeaderBrush" Color="{StaticResource TrelloHeaderBg}" />
+        <SolidColorBrush x:Key="TrelloBtnBgBrush" Color="{StaticResource TrelloBtnBg}" />
+        <SolidColorBrush x:Key="TrelloBtnHoverBrush" Color="{StaticResource TrelloBtnHoverBg}" />
+        <SolidColorBrush x:Key="TrelloBtnActiveBrush" Color="{StaticResource TrelloBtnActiveBg}" />
+        <SolidColorBrush x:Key="TrelloTextBrush" Color="White" />
+        <SolidColorBrush x:Key="TrelloTextSecondaryBrush" Color="#CCFFFFFF" />
+        <!-- Board tab tokens (light/dark adaptive via DynamicResource fallback) -->
+        <SolidColorBrush x:Key="TrelloTabHoverBg" Color="#14FFFFFF" />
+        <SolidColorBrush x:Key="TrelloTabActiveBg" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="TrelloTabActiveTextBrush" Color="{StaticResource TrelloBlue}" />
+    </Styles.Resources>
+
+    <!-- ================================================================ -->
+    <!-- TRELLO HEADER BAR CONTAINER                                      -->
+    <!-- Usage: <Border Classes="TrelloHeaderBar">                        -->
+    <!-- ================================================================ -->
+    <Style Selector="Border.TrelloHeaderBar">
+        <Setter Property="Background" Value="{StaticResource TrelloHeaderBrush}" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="BoxShadow" Value="0 1 0 0 #1A000000" />
+    </Style>
+    <Style Selector="Border.TrelloHeaderBarDark">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="8,6" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- TRELLO NAV BUTTON (Header pill)                                  -->
+    <!-- RadioButton with icon+text, Trello header logic                  -->
+    <!-- States: default translucent, hover 30%, checked solid white/blue -->
+    <!-- ================================================================ -->
+    <Style Selector="RadioButton.TrelloNavButton">
+        <Setter Property="Background" Value="{StaticResource TrelloBtnBgBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TrelloTextBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Margin" Value="2,0" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12" />
+                <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Border"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <!-- Hover: 30% white -->
+    <Style Selector="RadioButton.TrelloNavButton:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{StaticResource TrelloBtnHoverBrush}" />
+    </Style>
+    <!-- Checked: solid white bg, Trello blue text, bold -->
+    <Style Selector="RadioButton.TrelloNavButton:checked">
+        <Setter Property="Background" Value="{StaticResource TrelloTabActiveBg}" />
+        <Setter Property="Foreground" Value="{StaticResource TrelloBlueBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="RadioButton.TrelloNavButton:checked /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{StaticResource TrelloTabActiveBg}" />
+        <Setter Property="BoxShadow" Value="0 1 2 0 #1A000000" />
+    </Style>
+    <Style Selector="RadioButton.TrelloNavButton:checked PathIcon">
+        <Setter Property="Foreground" Value="{StaticResource TrelloBlueBrush}" />
+    </Style>
+    <Style Selector="RadioButton.TrelloNavButton:checked TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TrelloBlueBrush}" />
+    </Style>
+    <!-- Pressed -->
+    <Style Selector="RadioButton.TrelloNavButton:pressed /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{StaticResource TrelloBtnPressedBg}" />
+        <Setter Property="RenderTransform" Value="scale(0.97)" />
+    </Style>
+    <Style Selector="RadioButton.TrelloNavButton:checked:pressed /template/ Border#PART_Border">
+        <Setter Property="Background" Value="#E6E6E6" />
+    </Style>
+    <!-- Disabled -->
+    <Style Selector="RadioButton.TrelloNavButton:disabled">
+        <Setter Property="Opacity" Value="0.45" />
+    </Style>
+
+    <!-- Dark variant for use on dark backgrounds (CardBackground) -->
+    <Style Selector="RadioButton.TrelloNavButton.dark">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="RadioButton.TrelloNavButton.dark:pointerover">
+        <Setter Property="Background" Value="{StaticResource TrelloTabHoverBg}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="RadioButton.TrelloNavButton.dark:checked">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- TRELLO BOARD TAB - trello.com style                              -->
+    <!-- Active: subtle background #22272B + short centered underline 20px -->
+    <!-- Mimics screenshot: dark pill with 3px short blue line at bottom  -->
+    <!-- ================================================================ -->
+    <Style Selector="RadioButton.TrelloBoardTab">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="Margin" Value="2,0" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Root"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <ContentPresenter Grid.Row="0"
+                                          Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                        <Border Grid.Row="1" Name="PART_Indicator"
+                                Height="3" Width="20" CornerRadius="1.5"
+                                Background="{DynamicResource AccentBlueBrush}"
+                                HorizontalAlignment="Center"
+                                Margin="0,5,0,0"
+                                Opacity="0" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="RadioButton.TrelloBoardTab:pointerover">
+        <Setter Property="Background" Value="#22272B" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="RadioButton.TrelloBoardTab:checked">
+        <Setter Property="Background" Value="#263B82F6" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="RadioButton.TrelloBoardTab:checked /template/ Border#PART_Indicator">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="RadioButton.TrelloBoardTab:checked:pointerover">
+        <Setter Property="Background" Value="#333B82F6" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- TRELLO HEADER BUTTON (regular Button, not Radio)                 -->
+    <!-- For Create, Search, etc.                                         -->
+    <!-- ================================================================ -->
+    <Style Selector="Button.TrelloHeaderButton">
+        <Setter Property="Background" Value="{StaticResource TrelloBtnBgBrush}" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}"
+                        BorderThickness="{TemplateBinding BorderThickness}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.TrelloHeaderButton:pointerover /template/ Border">
+        <Setter Property="Background" Value="{StaticResource TrelloBtnHoverBrush}" />
+    </Style>
+    <Style Selector="Button.TrelloHeaderButton:pressed /template/ Border">
+        <Setter Property="Background" Value="{StaticResource TrelloBtnActiveBrush}" />
+        <Setter Property="RenderTransform" Value="scale(0.97)" />
+    </Style>
+    <!-- Primary variant (solid white) -->
+    <Style Selector="Button.TrelloHeaderButton.primary">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource TrelloBlueBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.TrelloHeaderButton.primary:pointerover /template/ Border">
+        <Setter Property="Background" Value="#F0F0F0" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- TRELLO PILL CONTAINER (segmented control wrapper)                -->
+    <!-- Mimics Trello's board menu pill container                        -->
+    <!-- ================================================================ -->
+    <Style Selector="Border.TrelloPillContainer">
+        <Setter Property="Background" Value="#0F1A2E" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="#1E2D4A" />
+    </Style>
+    <Style Selector="Border.TrelloPillContainer.light">
+        <Setter Property="Background" Value="#F1F2F4" />
+        <Setter Property="BorderBrush" Value="#DFE1E6" />
+    </Style>
+</Styles>

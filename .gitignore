@@ -98,3 +98,7 @@ Scripts/Temp/
 # Executables and installers
 src/PixelcutCompact/rembg_installer.exe
 *.exe
+
+# Machine-specific agent skill symlinks
+.agents/skills/antislop*
+.agents/skills/taste-skill

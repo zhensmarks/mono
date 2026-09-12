@@ -1,0 +1,470 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- ================================================================ -->
+    <!-- BMACHINE DESIGN SYSTEM v1.0                                      -->
+    <!-- Aturan terpusat: font, warna, radius, hover, icon, spacing       -->
+    <!-- Semua view WAJIB pakai token & Classes di file ini.              -->
+    <!-- Jangan hardcode warna/radius/font di View lagi.                  -->
+    <!-- ================================================================ -->
+
+    <Styles.Resources>
+        <!-- ── Typography ── -->
+        <FontFamily x:Key="FontPrimary">Segoe UI Variable, SF Pro Text, Helvetica Neue</FontFamily>
+        <FontFamily x:Key="FontMono">Cascadia Code, JetBrains Mono, Consolas</FontFamily>
+
+        <!-- ── Radius scale (selaras) ── -->
+        <CornerRadius x:Key="RadiusSm">6</CornerRadius>
+        <CornerRadius x:Key="RadiusMd">8</CornerRadius>
+        <CornerRadius x:Key="RadiusLg">10</CornerRadius>
+        <CornerRadius x:Key="RadiusXl">12</CornerRadius>
+        <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+
+        <!-- ── Spacing scale ── -->
+        <Thickness x:Key="SpaceXs">4</Thickness>
+        <Thickness x:Key="SpaceSm">8</Thickness>
+        <Thickness x:Key="SpaceMd">12</Thickness>
+        <Thickness x:Key="SpaceLg">16</Thickness>
+        <Thickness x:Key="SpaceXl">20</Thickness>
+
+        <!-- ── Icon sizes (selaras) ── -->
+        <x:Double x:Key="IconXs">12</x:Double>
+        <x:Double x:Key="IconSm">14</x:Double>
+        <x:Double x:Key="IconMd">16</x:Double>
+        <x:Double x:Key="IconLg">18</x:Double>
+        <x:Double x:Key="IconXl">24</x:Double>
+
+        <!-- ── Semantic brushes (alias ke Dark/LightTheme) ── -->
+        <!-- Background -->
+        <!-- AppBackgroundBrush, CardBackgroundBrush, SeparatorBrush sudah ada di Theme -->
+        <!-- Tambahan subtle untuk hover/active yang konsisten -->
+        <SolidColorBrush x:Key="BgHoverBrush" Color="#22272B" />
+        <SolidColorBrush x:Key="BgActiveBrush" Color="#263B82F6" />
+        <SolidColorBrush x:Key="BgInputBrush" Color="#0C0C0E" />
+        <SolidColorBrush x:Key="BgInputHoverBrush" Color="#111113" />
+
+        <!-- Border -->
+        <SolidColorBrush x:Key="BorderDefaultBrush" Color="#232326" />
+        <SolidColorBrush x:Key="BorderHoverBrush" Color="#3F3F46" />
+        <SolidColorBrush x:Key="BorderFocusBrush" Color="#4B4B52" />
+
+        <!-- Text -->
+        <!-- TextPrimaryBrush, TextSecondaryBrush sudah ada -->
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#71717A" />
+        <SolidColorBrush x:Key="TextFaintBrush" Color="#52525B" />
+
+        <!-- Accent subtle (15% opacity) -->
+        <SolidColorBrush x:Key="AccentSubtleBrush" Color="#263B82F6" />
+        <SolidColorBrush x:Key="AccentSubtleHoverBrush" Color="#333B82F6" />
+    </Styles.Resources>
+
+    <!-- ================================================================ -->
+    <!-- TYPOGRAPHY                                                       -->
+    <!-- ================================================================ -->
+    <Style Selector="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontWeight" Value="Regular" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.h1">
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="LetterSpacing" Value="0.3" />
+    </Style>
+    <Style Selector="TextBlock.h2">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.h3">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.body">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.eyebrow">
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextFaintBrush}" />
+        <Setter Property="LetterSpacing" Value="1.2" />
+        <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+        <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- CARD / BENTO                                                     -->
+    <!-- Selaras: Background CardBackgroundBrush, Border SeparatorBrush,   -->
+    <!-- Radius 10, Padding 16-20, tanpa shadow/glow                      -->
+    <!-- ================================================================ -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="Border.cardSm">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}" />
+        <Setter Property="Padding" Value="12" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- BUTTON — 4 varian selaras                                        -->
+    <!-- primary (Action) : solid #EDEDED / hover #FFFFFF / pressed #D4D4D4 -->
+    <!-- secondary (Muted): #1C1C1F + border #3F3F46 / hover #27272B       -->
+    <!-- ghost (Clear)    : transparent / hover #10FFFFFF                 -->
+    <!-- danger (Warn)    : #1C0F0F + border #5A2020 / hover #2A1010      -->
+    <!-- Semua: Radius 6, Height 36, Font 12.5 SemiBold, transition 0.15s -->
+    <!-- ================================================================ -->
+    <Style Selector="Button">
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                <DoubleTransition Property="Opacity" Duration="0:0:0.1" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <!-- StatWidget exception: allow auto height, not 36 -->
+    <Style Selector="Button.StatBtn">
+        <Setter Property="Height" Value="NaN" />
+        <Setter Property="MinHeight" Value="110" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <!-- Primary = Action (canonical) -->
+    <Style Selector="Button.primary, Button.Action">
+        <Setter Property="Background" Value="#EDEDED" />
+        <Setter Property="Foreground" Value="#111111" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.primary /template/ ContentPresenter, Button.Action /template/ ContentPresenter">
+        <Setter Property="Background" Value="#EDEDED" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="TextElement.Foreground" Value="#111111" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter, Button.Action:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter, Button.Action:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#D4D4D4" />
+    </Style>
+    <Style Selector="Button.primary:disabled, Button.Action:disabled">
+        <Setter Property="Opacity" Value="0.4" />
+    </Style>
+
+    <!-- Secondary = Muted (canonical) -->
+    <Style Selector="Button.secondary, Button.Muted">
+        <Setter Property="Background" Value="#1C1C1F" />
+        <Setter Property="Foreground" Value="#E4E4E7" />
+        <Setter Property="BorderBrush" Value="#3F3F46" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.secondary /template/ ContentPresenter, Button.Muted /template/ ContentPresenter">
+        <Setter Property="Background" Value="#1C1C1F" />
+        <Setter Property="BorderBrush" Value="#3F3F46" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="TextElement.Foreground" Value="#E4E4E7" />
+    </Style>
+    <Style Selector="Button.secondary:pointerover /template/ ContentPresenter, Button.Muted:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#27272B" />
+        <Setter Property="BorderBrush" Value="#52525B" />
+        <Setter Property="TextElement.Foreground" Value="#F4F4F5" />
+    </Style>
+    <Style Selector="Button.secondary:pressed /template/ ContentPresenter, Button.Muted:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#222226" />
+    </Style>
+
+    <!-- Ghost = Clear -->
+    <Style Selector="Button.ghost, Button.Clear">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Height" Value="NaN" />
+    </Style>
+    <Style Selector="Button.ghost /template/ ContentPresenter, Button.Clear /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter, Button.Clear:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#10FFFFFF" />
+    </Style>
+    <Style Selector="Button.ghost:pressed /template/ ContentPresenter, Button.Clear:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#1AFFFFFF" />
+    </Style>
+
+    <!-- Danger = Warn -->
+    <Style Selector="Button.danger, Button.Warn">
+        <Setter Property="Background" Value="#1C0F0F" />
+        <Setter Property="Foreground" Value="#A05252" />
+        <Setter Property="BorderBrush" Value="#5A2020" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.danger /template/ ContentPresenter, Button.Warn /template/ ContentPresenter">
+        <Setter Property="Background" Value="#1C0F0F" />
+        <Setter Property="TextElement.Foreground" Value="#A05252" />
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter, Button.Warn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#2A1010" />
+    </Style>
+
+    <!-- Accent (outline) -->
+    <Style Selector="Button.accent, Button.Accent">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.accent:pointerover /template/ Border#PART_Border, Button.Accent:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{StaticResource AccentSubtleBrush}" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- TEXTBOX — selaras                                                -->
+    <!-- Default: Bg #0C0C0E, Border #232326, Radius 6, Padding 10,       -->
+    <!-- Height 36, hover Border #3F3F46, focus Border #4B4B52 + 1px      -->
+    <!-- ================================================================ -->
+    <Style Selector="TextBox">
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentColorBrush}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource AccentColorBrush}" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{StaticResource BorderHoverBrush}" />
+        <Setter Property="Background" Value="{StaticResource BgInputHoverBrush}" />
+    </Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{StaticResource BorderFocusBrush}" />
+        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+    </Style>
+    <Style Selector="TextBox:disabled /template/ Border#PART_BorderElement">
+        <Setter Property="Opacity" Value="0.4" />
+    </Style>
+    <!-- Variants -->
+    <Style Selector="TextBox.mono">
+        <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBox.search">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="10,6" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- COMBOBOX / AUTOCOMPLETEBOX / NUMERICUPDOWN — selaras dengan TextBox -->
+    <!-- ================================================================ -->
+    <Style Selector="ComboBox">
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,0,8,0" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ComboBox:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{StaticResource BorderHoverBrush}" />
+    </Style>
+    <Style Selector="ComboBox:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{StaticResource BorderFocusBrush}" />
+    </Style>
+    <Style Selector="ComboBoxItem">
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Margin" Value="2" />
+    </Style>
+    <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource BgHoverBrush}" />
+    </Style>
+    <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentSubtleBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="AutoCompleteBox">
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="MinHeight" Value="36" />
+    </Style>
+
+    <Style Selector="NumericUpDown">
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="8,0" />
+    </Style>
+    <Style Selector="NumericUpDown:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{StaticResource BorderHoverBrush}" />
+    </Style>
+    <Style Selector="NumericUpDown:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{StaticResource BorderFocusBrush}" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- CHECKBOX — selaras                                               -->
+    <!-- Box 16x16, Radius 4, Border #3F3F46, checked Bg Accent,          -->
+    <!-- hover Border #52525B, transition 0.15s                           -->
+    <!-- ================================================================ -->
+    <Style Selector="CheckBox">
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Padding" Value="6,0,0,0" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="CheckBox /template/ Border#PART_Border">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="#3F3F46" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="CheckBox:pointerover /template/ Border#PART_Border">
+        <Setter Property="BorderBrush" Value="#52525B" />
+        <Setter Property="Background" Value="#1A1A1D" />
+    </Style>
+    <Style Selector="CheckBox:checked /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{DynamicResource AccentColorBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}" />
+    </Style>
+    <Style Selector="CheckBox:checked:pointerover /template/ Border#PART_Border">
+        <Setter Property="Opacity" Value="0.85" />
+    </Style>
+    <Style Selector="CheckBox:disabled">
+        <Setter Property="Opacity" Value="0.4" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- TOGGLE SWITCH — sudah ada di App.axaml, diselaraskan di sini     -->
+    <!-- Track 44x24, Thumb 18, Radius 12, transition 0.25s               -->
+    <!-- ================================================================ -->
+    <!-- Switch style tetap di App.axaml (ToggleButton.Switch) agar tidak duplikat.
+         Token di sini memastikan warna konsisten. -->
+
+    <!-- ================================================================ -->
+    <!-- ICON — selaras                                                   -->
+    <!-- PathIcon default 16, warna TextSecondary, hover TextPrimary      -->
+    <!-- Ukuran pakai token: IconXs 12, IconSm 14, IconMd 16, IconLg 18  -->
+    <!-- ================================================================ -->
+    <Style Selector="PathIcon">
+        <Setter Property="Width" Value="{StaticResource IconMd}" />
+        <Setter Property="Height" Value="{StaticResource IconMd}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="PathIcon.xs">
+        <Setter Property="Width" Value="{StaticResource IconXs}" />
+        <Setter Property="Height" Value="{StaticResource IconXs}" />
+    </Style>
+    <Style Selector="PathIcon.sm">
+        <Setter Property="Width" Value="{StaticResource IconSm}" />
+        <Setter Property="Height" Value="{StaticResource IconSm}" />
+    </Style>
+    <Style Selector="PathIcon.lg">
+        <Setter Property="Width" Value="{StaticResource IconLg}" />
+        <Setter Property="Height" Value="{StaticResource IconLg}" />
+    </Style>
+    <Style Selector="PathIcon.xl">
+        <Setter Property="Width" Value="{StaticResource IconXl}" />
+        <Setter Property="Height" Value="{StaticResource IconXl}" />
+    </Style>
+    <!-- Icon di dalam button: ikut warna button -->
+    <Style Selector="Button PathIcon">
+        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- SEPARATOR / DIVIDER                                              -->
+    <!-- ================================================================ -->
+    <Style Selector="Separator">
+        <Setter Property="Background" Value="{DynamicResource SeparatorBrush}" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Margin" Value="0,12" />
+    </Style>
+    <Style Selector="Rectangle.divider">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Fill" Value="{DynamicResource SeparatorBrush}" />
+        <Setter Property="Margin" Value="0,12" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- TOOLTIP — selaras                                                -->
+    <!-- ================================================================ -->
+    <Style Selector="ToolTip">
+        <Setter Property="Background" Value="#0A0A0A" />
+        <Setter Property="Foreground" Value="#E4E4E7" />
+        <Setter Property="BorderBrush" Value="#232326" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- SCROLLBAR — hidden tapi tetap scrollable (sudah di App.axaml)    -->
+    <!-- ================================================================ -->
+</Styles>

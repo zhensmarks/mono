@@ -9,47 +9,14 @@
              Background="{DynamicResource AppBackgroundBrush}">
     
     <Grid RowDefinitions="Auto, *, Auto" PointerPressed="OnRootPointerPressed" Background="Transparent">
-        <!-- Compact Tab Bar (Top) -->
-        <Border Grid.Row="0" Margin="20,15,20,10" Background="Transparent" 
-                CornerRadius="0" Padding="0"
+        <!-- Tab Bar - Trello style (card bordered, no icon) -->
+        <Border Grid.Row="0" Margin="20,15,20,10" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="8" Padding="4" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                 HorizontalAlignment="Center">
-            
-            <StackPanel Orientation="Horizontal" Spacing="0">
-                <!-- HARIAN Tab -->
-                <RadioButton Classes="TabButton" Content="HARIAN" IsChecked="{Binding IsHarianSelected}" Command="{Binding SwitchToHarianCommand}"/>
-                
-                <!-- BULANAN Tab -->
-                <RadioButton Classes="TabButton" Content="BULANAN" IsChecked="{Binding IsBulananSelected}" Command="{Binding SwitchToBulananCommand}"/>
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <RadioButton Classes="TrelloBoardTab" Content="HARIAN" IsChecked="{Binding IsHarianSelected}" Command="{Binding SwitchToHarianCommand}"/>
+                <RadioButton Classes="TrelloBoardTab" Content="BULANAN" IsChecked="{Binding IsBulananSelected}" Command="{Binding SwitchToBulananCommand}"/>
             </StackPanel>
-
-            <!-- Style for the compact rounded tabs -->
-            <Border.Styles>
-                <Style Selector="RadioButton.TabButton">
-                    <Setter Property="Background" Value="Transparent"/>
-                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                    <Setter Property="BorderThickness" Value="0,0,0,3"/>
-                    <Setter Property="BorderBrush" Value="Transparent"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
-                    <Setter Property="Cursor" Value="Hand"/>
-                    <Setter Property="Template">
-                        <ControlTemplate>
-                            <Border x:Name="TabBorder" Background="{TemplateBinding Background}" CornerRadius="0" Padding="12,8" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
-                                <TextBlock Text="{TemplateBinding Content}" FontSize="11" 
-                                           Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center"/>
-                            </Border>
-                        </ControlTemplate>
-                    </Setter>
-                </Style>
-                <Style Selector="RadioButton.TabButton:pointerover">
-                    <Setter Property="Background" Value="#10FFFFFF"/>
-                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                </Style>
-                <Style Selector="RadioButton.TabButton:checked">
-                     <Setter Property="Background" Value="#1E1E1E"/>
-                     <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
-                     <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-                </Style>
-            </Border.Styles>
         </Border>
 
         <!-- List -->
@@ -60,8 +27,8 @@
                 <ItemsControl ItemsSource="{Binding ActiveItems}" IsVisible="{Binding !IsLoading}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="0" Padding="15" Margin="0,0,0,10"
-                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="15" Margin="0,0,0,10"
+                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid ColumnDefinitions="Auto, *, Auto">
                                     <TextBlock Text="{Binding Rank}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" 
                                                VerticalAlignment="Center" Width="40" TextAlignment="Center"/>
@@ -90,10 +57,10 @@
                 
                 <!-- Refresh FAB (Right) -->
                 <Button Grid.Column="1" Command="{Binding LoadDataCommand}" ToolTip.Tip="Refresh"
-                        Width="30" Height="30" CornerRadius="0"
+                        Width="30" Height="30" CornerRadius="6"
                         Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Padding="0" Cursor="Hand">
                     <PathIcon Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" 
-                              Width="13" Height="13" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                              Width="14" Height="14" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
             </Grid>
         </Border>

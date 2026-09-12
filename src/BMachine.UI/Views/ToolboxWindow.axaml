@@ -13,7 +13,6 @@
         WindowStartupLocation="CenterScreen"
         Background="#09090B"
         Foreground="#E8E8E6"
-        FontFamily="'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
@@ -35,18 +34,22 @@
             <Setter Property="Padding" Value="4"/>
         </Style>
 
-        <!-- TAB BUTTONS — clean typographic toggle -->
+        <!-- TAB BUTTONS — modern minimal planner-style with bottom indicator -->
         <Style Selector="Button.Tab">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#71717A"/>
-            <Setter Property="CornerRadius" Value="7"/>
-            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="14,8,14,6"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
                 </Transitions>
             </Setter>
         </Style>
@@ -54,9 +57,13 @@
             <Setter Property="Background" Value="#1A1A1D"/>
             <Setter Property="TextElement.Foreground" Value="#C4C4C0"/>
         </Style>
+        <Style Selector="Button.Tab.on">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
         <Style Selector="Button.Tab.on /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1F1F23"/>
-            <Setter Property="TextElement.Foreground" Value="#F0F0EE"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 
         <!-- BENTO CARD — flat, 1px border, no shadow -->
@@ -75,7 +82,7 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="#52525B"/>
             <Setter Property="LetterSpacing" Value="1.2"/>
-            <Setter Property="FontFamily" Value="'Cascadia Code', 'JetBrains Mono', Consolas, monospace"/>
+            <Setter Property="FontFamily" Value="Cascadia Code, JetBrains Mono, Consolas"/>
         </Style>
 
         <!-- PATH — monospace, dim -->
@@ -83,7 +90,7 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="#3F3F46"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="FontFamily" Value="'Cascadia Code', Consolas, monospace"/>
+            <Setter Property="FontFamily" Value="Cascadia Code, JetBrains Mono, Consolas"/>
             <Setter Property="MaxLines" Value="2"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
@@ -226,7 +233,7 @@
             
             <TextBlock Grid.Column="0" Text="BMachine Toolbox" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold" FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False" />
             
-            <Button Grid.Column="1" Classes="Tab" Content="X" Width="45" Height="40" Padding="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Click="OnCloseButtonClick" CornerRadius="0" FontSize="14" />
+            <Button Grid.Column="1" Classes="Tab" Content="X" Width="45" Height="40" Padding="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Click="OnCloseButtonClick" CornerRadius="6" FontSize="14" />
             
             <!-- Separator -->
             <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom" />
@@ -336,7 +343,7 @@
                                                        FontSize="12" Foreground="#3F3F46"
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"
-                                                       FontFamily="'Cascadia Code', Consolas, monospace"/>
+                                                       FontFamily="Cascadia Code, JetBrains Mono, Consolas"/>
                                             <TextBlock Grid.Column="1" Text="->"
                                                        Foreground="#2A2A2E"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -345,7 +352,7 @@
                                                        FontWeight="Medium"
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"
-                                                       FontFamily="'Cascadia Code', Consolas, monospace"/>
+                                                       FontFamily="Cascadia Code, JetBrains Mono, Consolas"/>
                                             <Button Grid.Column="3" Content="X" Width="24" Height="24" 
                                                     Padding="0" Background="Transparent" Foreground="#71717A"
                                                     Cursor="Hand" VerticalAlignment="Center" Margin="8,0,0,0"
@@ -404,7 +411,6 @@
                                     </Grid>
                                 </Button>
 
-
                                 <!-- Action row -->
                                 <Grid Grid.Row="3" ColumnDefinitions="*,10,Auto,8,Auto">
                                     <TextBlock Grid.Column="0" Classes="Body"
@@ -421,7 +427,6 @@
                     </Border>
 
                 </Grid>
-
 
                 <!-- ═══════════════════════
                      MANTRA GANDA
@@ -607,7 +612,7 @@
                                                     CornerRadius="4" Padding="4,0">
                                                 <TextBox Text="{Binding ShortcutKey, Mode=TwoWay}"
                                                          Foreground="#FFFFFFBB" FontSize="12"
-                                                         FontFamily="'Cascadia Code', Consolas, monospace"
+                                                         FontFamily="Cascadia Code, JetBrains Mono, Consolas"
                                                          Background="Transparent" BorderThickness="0"
                                                          Padding="4,2" MinWidth="24" MaxLength="1"
                                                          TextAlignment="Center"/>
@@ -640,26 +645,22 @@
 
         </Grid>
 
-        <!-- ═══ NAV (FLOATING) ═══ -->
-        <Border ZIndex="10" Classes="Nav" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,20,0,0"
+        <!-- ═══ NAV (FLOATING) — Trello board pill (card bordered, short indicator) ═══ -->
+        <Border ZIndex="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,20,0,0"
                 IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
             <StackPanel Orientation="Horizontal" Spacing="2">
-                <Button Classes="Tab" Content="PSD Bucin"
-                        Classes.on="{Binding IsPsdBucinVisible}"
-                        Command="{Binding SwitchTabCommand}"
-                        CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}"/>
-                <Button Classes="Tab" Content="Mantra Nama"
-                        Classes.on="{Binding IsMantraNamaVisible}"
-                        Command="{Binding SwitchTabCommand}"
-                        CommandParameter="{x:Static vm:ToolboxTab.MantraNama}"/>
-                <Button Classes="Tab" Content="Mantra Ganda"
-                        Classes.on="{Binding IsMantraGandaVisible}"
-                        Command="{Binding SwitchTabCommand}"
-                        CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}"/>
-                <Button Classes="Tab" Content="Mantra Data"
-                        Classes.on="{Binding IsMantraDataVisible}"
-                        Command="{Binding SwitchTabCommand}"
-                        CommandParameter="{x:Static vm:ToolboxTab.MantraData}"/>
+                <RadioButton Classes="TrelloBoardTab" GroupName="ToolboxTabs" IsChecked="{Binding IsPsdBucinVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}">
+                    <TextBlock Text="PSD Bucin" FontSize="12" FontWeight="SemiBold"/>
+                </RadioButton>
+                <RadioButton Classes="TrelloBoardTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraNamaVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraNama}">
+                    <TextBlock Text="Mantra Nama" FontSize="12" FontWeight="SemiBold"/>
+                </RadioButton>
+                <RadioButton Classes="TrelloBoardTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraGandaVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}">
+                    <TextBlock Text="Mantra Ganda" FontSize="12" FontWeight="SemiBold"/>
+                </RadioButton>
+                <RadioButton Classes="TrelloBoardTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraDataVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraData}">
+                    <TextBlock Text="Mantra Data" FontSize="12" FontWeight="SemiBold"/>
+                </RadioButton>
             </StackPanel>
         </Border>
 
