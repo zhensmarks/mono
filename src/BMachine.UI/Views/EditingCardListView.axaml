@@ -137,12 +137,13 @@
                                             </CheckBox>
                                             
                                             <!-- Name & Meta -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="4,12,12,12" Spacing="4">
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="4,8,12,8" Spacing="4" HorizontalAlignment="Stretch">
                                                 <TextBlock Text="{Binding Name}" 
                                                            FontWeight="Black" FontSize="13" LetterSpacing="0"
                                                            Foreground="{DynamicResource TextPrimaryBrush}" 
-                                                           TextWrapping="Wrap" MaxLines="2"
-                                                           TextTrimming="CharacterEllipsis"/>
+                                                           TextWrapping="Wrap" MaxLines="3"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           HorizontalAlignment="Stretch"/>
                                                 
                                                 <!-- Manual Card URL -->
                                                 <TextBlock Text="{Binding Url}" 
@@ -160,35 +161,35 @@
                                                     <TextBlock Text="ACC" FontSize="9" FontWeight="Bold" LetterSpacing="2" Foreground="#0078D7"/>
                                                 </Border>
 
-                                                <!-- Checklist Progress (Minimalist Terminal Style) -->
-                                                <Border CornerRadius="6" Padding="4,2" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Background="Transparent"
-                                                        IsVisible="{Binding HasChecklist}"
-                                                        ToolTip.Tip="{Binding ChecklistTooltip}">
-                                                 <Border.Styles>
-                                                     <Style Selector="Border.valid">
-                                                         <Setter Property="BorderBrush" Value="#22C55E"/>
-                                                     </Style>
-                                                 </Border.Styles>
-                                                 <Classes.valid>
-                                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                                         <Binding Path="HasEditingChecklist"/>
-                                                     </MultiBinding>
-                                                 </Classes.valid>
-                                                 
+                                                  <!-- Checklist status -->
+                                              <Border CornerRadius="5" Padding="5,2" BorderThickness="1" IsVisible="{Binding HasChecklist}" ToolTip.Tip="{Binding ChecklistTooltip}">
+                                                  <Border.BorderBrush>
+                                                      <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="border">
+                                                          <Binding Path="IsChecklistDone"/>
+                                                      </MultiBinding>
+                                                  </Border.BorderBrush>
+                                                  <Border.Background>
+                                                      <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="bg">
+                                                          <Binding Path="IsChecklistDone"/>
+                                                      </MultiBinding>
+                                                  </Border.Background>
                                                   <StackPanel Orientation="Horizontal" Spacing="4">
-                                                      <PathIcon Width="8" Height="8" Data="{StaticResource IconChecklistBadge}">
-                                                          <PathIcon.Styles>
-                                                              <Style Selector="PathIcon">
-                                                                  <Setter Property="Foreground" Value="#555555"/>
-                                                              </Style>
-                                                              <Style Selector="Border.valid PathIcon">
-                                                                  <Setter Property="Foreground" Value="#22C55E"/>
-                                                              </Style>
-                                                          </PathIcon.Styles>
-                                                      </PathIcon>
-                                                      <!-- Terminal style tracking text could be added if we had the count, but we only have icon for now -->
+                                                      <Ellipse Width="6" Height="6">
+                                                          <Ellipse.Fill>
+                                                              <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="dot">
+                                                                  <Binding Path="IsChecklistDone"/>
+                                                              </MultiBinding>
+                                                          </Ellipse.Fill>
+                                                      </Ellipse>
+                                                      <TextBlock Text="{Binding ChecklistStatusLabel}" FontSize="8" FontWeight="SemiBold">
+                                                          <TextBlock.Foreground>
+                                                              <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="text">
+                                                                  <Binding Path="IsChecklistDone"/>
+                                                              </MultiBinding>
+                                                          </TextBlock.Foreground>
+                                                      </TextBlock>
                                                   </StackPanel>
-                                             </Border>
+                                              </Border>
 
                                             </StackPanel>
 
@@ -235,7 +236,7 @@
                                   </Grid>
                                   <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Black" FontSize="20" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
                               </StackPanel>
-                              <Button Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Content="✕"
+                              <Button Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Content="âœ•"
                                       Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black"
                                       Foreground="#666666"
                                       Cursor="Hand" VerticalAlignment="Top" Padding="8,0" CornerRadius="6">
@@ -420,7 +421,7 @@
                             <TextBlock Text="ADD MANUAL CARD" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                             <TextBlock Text="PASTE TRELLO LINKS BELOW" FontSize="11" FontWeight="Bold" LetterSpacing="1" Foreground="#666666"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}" Content="✕" 
+                        <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}" Content="âœ•" 
                                 Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black"
                                 Foreground="#666666" Cursor="Hand" VerticalAlignment="Top">
                                 <Button.Styles>
@@ -476,7 +477,7 @@
                                 Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Open in New Window">
                             <PathIcon Data="{StaticResource IconOpenWindow}" Width="16" Height="16" Foreground="#888888"/>
                         </Button>
-                        <Button Command="{Binding CloseCommentsPanelCommand}" Content="✕" 
+                        <Button Command="{Binding CloseCommentsPanelCommand}" Content="âœ•" 
                                 Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black" Foreground="#666666" Cursor="Hand">
                             <Button.Styles>
                                 <Style Selector="Button:pointerover /template/ ContentPresenter">
@@ -579,7 +580,7 @@
                                                             Width="20" Height="20" CornerRadius="6" Padding="0"
                                                             Background="#CC000000" BorderThickness="0" Cursor="Hand"
                                                             HorizontalAlignment="Right" VerticalAlignment="Top">
-                                                        <TextBlock Text="✕" FontSize="10" FontWeight="Black" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="âœ•" FontSize="10" FontWeight="Black" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
                                                 </Grid>
                                             </Border>
@@ -706,7 +707,7 @@
                          <TextBlock Text="CHECKLISTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="#666666" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}" Content="✕" 
+                    <Button Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}" Content="âœ•" 
                             Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black" Foreground="#666666" Cursor="Hand">
                          <Button.Styles>
                              <Style Selector="Button:pointerover /template/ ContentPresenter">
@@ -823,7 +824,7 @@
                          <TextBlock Text="ATTACHMENTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="#666666" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding CloseAttachmentPanelCommand}" Content="✕" 
+                    <Button Grid.Column="1" Command="{Binding CloseAttachmentPanelCommand}" Content="âœ•" 
                             Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black" Foreground="#666666" Cursor="Hand">
                          <Button.Styles>
                              <Style Selector="Button:pointerover /template/ ContentPresenter">
@@ -892,3 +893,5 @@
         </Grid> <!-- End Part_PanelsContainer -->
     </Grid>
 </UserControl>
+
+

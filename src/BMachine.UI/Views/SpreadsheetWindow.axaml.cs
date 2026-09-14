@@ -18,6 +18,15 @@ public partial class SpreadsheetWindow : Window
         AvaloniaXamlLoader.Load(this);
     }
 
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        if (DataContext is BMachine.UI.ViewModels.SpreadsheetViewModel vm)
+        {
+            _ = vm.SaveColumnWidthsAsync();
+        }
+        base.OnClosing(e);
+    }
+
     private void CloseButton_Click(object? sender, RoutedEventArgs e)
     {
         Close();

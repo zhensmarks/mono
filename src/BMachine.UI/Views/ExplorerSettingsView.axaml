@@ -6,6 +6,7 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="700"
              x:Class="BMachine.UI.Views.ExplorerSettingsView"
              x:DataType="vm:ExplorerSettingsViewModel"
+             FontFamily="{DynamicResource FontPrimary}"
              Focusable="True">
 
     <UserControl.Styles>
@@ -14,10 +15,21 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="ToggleSwitch">
+            <Setter Property="Width" Value="64"/>
+            <Setter Property="MinWidth" Value="64"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}"/>
+            <Setter Property="FontSize" Value="12"/>
         </Style>
         <Style Selector="Button.Secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
@@ -25,10 +37,7 @@
     </UserControl.Styles>
 
     <ScrollViewer>
-        <StackPanel Spacing="20" Margin="0,0,20,20">
-            <TextBlock Text="Explorer Features" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-            <TextBlock Text="Customize the behavior and defaults of the Explorer." FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,-12,0,0"/>
-
+        <StackPanel Spacing="16" Margin="0,0,20,20">
             <!-- Appearance: Zoom & 7tsp/OS System Icons -->
             <StackPanel Spacing="16">
                 <StackPanel Spacing="4">
@@ -69,7 +78,26 @@
 
                         <Rectangle Height="1" Fill="{DynamicResource SeparatorBrush}" Opacity="0.5"/>
 
-                        <!-- 7tsp / OS System Icons -->
+                        <Grid ColumnDefinitions="*, 180" RowDefinitions="Auto, Auto, Auto">
+                            <StackPanel Grid.Column="0" Grid.ColumnSpan="2" Spacing="2" Margin="0,0,16,8">
+                                <TextBlock Text="Explorer Font" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Type or choose an installed font from this OS for Explorer text." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <AutoCompleteBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                             ItemsSource="{Binding AvailableFontFamilies}"
+                                             Text="{Binding ExplorerFontFamily, Mode=TwoWay}"
+                                             Watermark="Type font name"
+                                             FilterMode="Contains"
+                                             MinimumPrefixLength="0"
+                                             MaxDropDownHeight="220"
+                                             HorizontalAlignment="Stretch"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"
+                                             FontSize="12"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Current: {Binding ExplorerFontFamily, StringFormat='{}{0}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Aa Bb Cc 0123" FontFamily="{Binding ExplorerFontFamily}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,0" HorizontalAlignment="Right"/> 
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{DynamicResource SeparatorBrush}" Opacity="0.5"/>
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
                                 <TextBlock Text="Use 7tsp / OS System Icons" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -94,20 +122,20 @@
                                      Watermark="Folder atau file path 7tsp..."
                                      VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12"/>
 
-                            <Button Grid.Row="1" Grid.Column="1" Content="Folder"
-                                    Command="{Binding BrowseCustomIconFolderCommand}"
-                                    Classes="Secondary" Margin="0,0,4,0"
-                                    ToolTip.Tip="Pilih folder icon pack"/>
+                             <Button Grid.Row="1" Grid.Column="1" Content="Folder"
+                                     Command="{Binding BrowseCustomIconFolderCommand}"
+                                     Classes="Secondary" Height="32" Margin="0,0,4,0"
+                                     ToolTip.Tip="Pilih folder icon pack"/>
 
-                            <Button Grid.Row="1" Grid.Column="2" Content="File"
-                                    Command="{Binding BrowseCustomIconFileCommand}"
-                                    Classes="Secondary" Margin="0,0,4,0"
-                                    ToolTip.Tip="Pilih file icon library (.dll, .res, .ico, .png)"/>
+                             <Button Grid.Row="1" Grid.Column="2" Content="File"
+                                     Command="{Binding BrowseCustomIconFileCommand}"
+                                     Classes="Secondary" Height="32" Margin="0,0,4,0"
+                                     ToolTip.Tip="Pilih file icon library (.dll, .res, .ico, .png)"/>
 
-                            <Button Grid.Row="1" Grid.Column="3" Content="Reset"
-                                    Command="{Binding ClearCustomIconPathCommand}"
-                                    Classes="Secondary"
-                                    ToolTip.Tip="Kembalikan ke icon default"/>
+                             <Button Grid.Row="1" Grid.Column="3" Content="Reset"
+                                     Command="{Binding ClearCustomIconPathCommand}"
+                                     Classes="Secondary" Height="32"
+                                     ToolTip.Tip="Kembalikan ke icon default"/>
                         </Grid>
                     </StackPanel>
                 </Border>

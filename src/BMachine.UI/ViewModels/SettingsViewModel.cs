@@ -371,7 +371,6 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsNotificationsSelected))]
     [NotifyPropertyChangedFor(nameof(IsScriptsManagerSelected))]
     [NotifyPropertyChangedFor(nameof(IsPathsSelected))]
-    [NotifyPropertyChangedFor(nameof(IsLogPanelSelected))]
     [NotifyPropertyChangedFor(nameof(IsAboutSelected))] 
     private int _selectedMenuIndex = -1;
     
@@ -392,7 +391,6 @@ public partial class SettingsViewModel : ObservableObject
         // OnPropertyChanged(nameof(IsScriptsManagerSelected)); // Removed duplicate/wrong name
         OnPropertyChanged(nameof(IsPathsSelected));
         OnPropertyChanged(nameof(IsAboutSelected));
-        OnPropertyChanged(nameof(IsLogPanelSelected));
         
         // Lazy Load Logic
         if (value == 2 && IsTrelloConnected) // 2 = Account
@@ -419,8 +417,7 @@ public partial class SettingsViewModel : ObservableObject
     // "Shortcuts" (was Scripts?) is now likely 5 or removed?
     // Let's look at UI again.
     public bool IsPathsSelected => SelectedMenuIndex == 5;
-    public bool IsLogPanelSelected => SelectedMenuIndex == 6; // Log Panel Tab
-    public bool IsAboutSelected => SelectedMenuIndex == 7; // About Tab
+    public bool IsAboutSelected => SelectedMenuIndex == 6; // About Tab
 
     // Sub-ViewModels
     public PathSettingsViewModel? PathSettingsVM { get; private set; }

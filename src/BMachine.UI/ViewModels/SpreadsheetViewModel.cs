@@ -139,6 +139,8 @@ public partial class SpreadsheetViewModel : ObservableObject
     private async Task LoadData()
     {
         IsLoading = true;
+        _isLoadingWidths = true;
+        _widthSaveTimer?.Dispose();
         StatusText = "Loading data...";
         Rows.Clear();
         Columns.Clear();
@@ -329,31 +331,62 @@ public partial class SpreadsheetViewModel : ObservableObject
                     System.Diagnostics.Debug.WriteLine($"Metadata Fetch Error (non-fatal): {metaEx.Message}");
                 }
 
-                // Build column & row collections
-                Columns.Clear();
-                foreach (var col in columnViewModels) Columns.Add(col);
-                await LoadColumnSettings();
+                // Load saved column widths (saved widths override Google Sheets metadata widths)
+                Dictionary<string, double>? widths = null;
+                try
+                {
+                    widths = await _database.GetAsync<Dictionary<string, double>>("Configs.Spreadsheet.ColumnWidths");
+                }
+                catch { /* ignore */ }
 
-                // Load saved column widths (override metadata widths if user has custom ones)
-                _isLoadingWidths = true;
-                var savedWidthsJson = await _database.GetAsync<string>("Configs.Spreadsheet.ColumnWidths");
-                if (!string.IsNullOrEmpty(savedWidthsJson))
+                if (widths == null)
                 {
                     try
                     {
-                        var widths = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(savedWidthsJson);
-                        if (widths != null)
+                        var rawStr = await _database.GetAsync<string>("Configs.Spreadsheet.ColumnWidths");
+                        if (!string.IsNullOrEmpty(rawStr))
                         {
-                            foreach (var col in Columns)
+                            if (rawStr.StartsWith("\"") && rawStr.EndsWith("\""))
                             {
-                                if (widths.TryGetValue(col.Header, out var width))
-                                    col.Width = new Avalonia.Controls.DataGridLength(width, Avalonia.Controls.DataGridLengthUnitType.Pixel);
+                                rawStr = System.Text.Json.JsonSerializer.Deserialize<string>(rawStr);
+                            }
+                            if (!string.IsNullOrEmpty(rawStr))
+                            {
+                                widths = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(rawStr);
                             }
                         }
                     }
                     catch { /* ignore */ }
                 }
-                _isLoadingWidths = false;
+
+                if (widths != null)
+                {
+                    foreach (var col in columnViewModels)
+                    {
+                        if (widths.TryGetValue(col.Header, out var width) && width >= 30)
+                        {
+                            col.Width = new Avalonia.Controls.DataGridLength(width, Avalonia.Controls.DataGridLengthUnitType.Pixel);
+                        }
+                    }
+                }
+
+                // Load hidden column settings
+                var hiddenStr = await _database.GetAsync<string>("Spreadsheet.HiddenColumns");
+                if (!string.IsNullOrEmpty(hiddenStr))
+                {
+                    var hidden = new HashSet<string>(hiddenStr.Split(','));
+                    foreach (var col in columnViewModels)
+                    {
+                        if (hidden.Contains(col.Header))
+                        {
+                            col.IsVisible = false;
+                        }
+                    }
+                }
+
+                // Build column & row collections (Columns will already have correct saved widths & visibility)
+                Columns.Clear();
+                foreach (var col in columnViewModels) Columns.Add(col);
 
                 // Process Data Rows (simple & fast - no per-cell format mirroring for performance)
                 for (int i = 1; i < values.Count; i++)
@@ -397,6 +430,7 @@ public partial class SpreadsheetViewModel : ObservableObject
         }
         finally
         {
+            _isLoadingWidths = false;
             IsLoading = false;
         }
     }
@@ -570,8 +604,9 @@ public partial class SpreadsheetViewModel : ObservableObject
         }
     }
 
-    private void DebounceSaveColumnWidths()
+    public void DebounceSaveColumnWidths()
     {
+        if (_isLoadingWidths) return;
         _widthSaveTimer?.Dispose();
         _widthSaveTimer = new System.Threading.Timer(async _ =>
         {
@@ -584,22 +619,25 @@ public partial class SpreadsheetViewModel : ObservableObject
             {
                 System.Diagnostics.Debug.WriteLine($"Column width save error: {ex.Message}");
             }
-        }, null, 1500, System.Threading.Timeout.Infinite);
+        }, null, 500, System.Threading.Timeout.Infinite);
     }
 
     public async Task SaveColumnWidthsAsync()
     {
-        if (_database == null) return;
+        if (_database == null || _isLoadingWidths) return;
         var widths = new Dictionary<string, double>();
-        foreach (var col in Columns)
+        var cols = Columns.ToList();
+        foreach (var col in cols)
         {
-            if (col.Width.IsAbsolute)
+            if (col.Width.IsAbsolute && col.Width.Value >= 30)
             {
-                widths[col.Header] = col.Width.Value;
+                widths[col.Header] = Math.Round(col.Width.Value, 1);
             }
         }
-        var json = System.Text.Json.JsonSerializer.Serialize(widths);
-        await _database.SetAsync("Configs.Spreadsheet.ColumnWidths", json);
+        if (widths.Count > 0)
+        {
+            await _database.SetAsync("Configs.Spreadsheet.ColumnWidths", widths);
+        }
     }
 
     private async Task SaveColumnWidthsToSheetAsync()
@@ -607,9 +645,10 @@ public partial class SpreadsheetViewModel : ObservableObject
         if (_sheetsService == null || string.IsNullOrEmpty(_sheetId) || !_sheetGid.HasValue) return;
 
         var requests = new List<Request>();
-        for (int i = 0; i < Columns.Count; i++)
+        var cols = Columns.ToList();
+        for (int i = 0; i < cols.Count; i++)
         {
-            var col = Columns[i];
+            var col = cols[i];
             if (!col.Width.IsAbsolute) continue;
 
             var currentPx = col.Width.Value;
@@ -627,7 +666,7 @@ public partial class SpreadsheetViewModel : ObservableObject
                         StartIndex = i + _rangeStartCol,
                         EndIndex = i + _rangeStartCol + 1
                     },
-                    Properties = new DimensionProperties { PixelSize = (int)currentPx },
+                    Properties = new DimensionProperties { PixelSize = (int)Math.Round(currentPx) },
                     Fields = "pixelSize"
                 }
             });
@@ -739,7 +778,7 @@ public partial class SpreadsheetColumnViewModel : ObservableObject
     public double OriginalWidthPixels { get; set; } = 100;
     
     // Width property for binding
-    private Avalonia.Controls.DataGridLength _width = new(1, Avalonia.Controls.DataGridLengthUnitType.Star);
+    private Avalonia.Controls.DataGridLength _width = new(120, Avalonia.Controls.DataGridLengthUnitType.Pixel);
     public Avalonia.Controls.DataGridLength Width
     {
         get => _width;

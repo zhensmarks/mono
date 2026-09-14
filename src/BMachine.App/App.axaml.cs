@@ -11,8 +11,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using System; 
 using System.Threading.Tasks;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-
 namespace BMachine.App;
 
 public partial class App : Application, 
@@ -30,20 +28,6 @@ public partial class App : Application,
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
-
-        // Global AutoCompleteBox behavior: Open Dropdown on click and focus
-        InputElement.PointerReleasedEvent.AddClassHandler<AutoCompleteBox>((x, e) =>
-        {
-            if (e.Source is TextBox or AutoCompleteBox)
-            {
-                x.IsDropDownOpen = true;
-            }
-        }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
-
-        InputElement.GotFocusEvent.AddClassHandler<AutoCompleteBox>((x, e) =>
-        {
-            x.IsDropDownOpen = true;
-        }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -155,16 +139,19 @@ public partial class App : Application,
 
                 if (isOnScreen)
                 {
-                    mainWindow.Width = saved.Value.W;
-                    mainWindow.Height = saved.Value.H;
-                    mainWindow.WindowState = saved.Value.State;
+                    mainWindow.Width = Math.Clamp(saved.Value.W, 800, 3840);
+                    mainWindow.Height = Math.Clamp(saved.Value.H, 500, 2160);
+                    mainWindow.WindowState = saved.Value.State == WindowState.Maximized
+                        ? WindowState.Maximized
+                        : WindowState.Normal;
                     mainWindow.Position = new Avalonia.PixelPoint(saved.Value.X, saved.Value.Y);
                     mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
                 }
                 else
                 {
-                    mainWindow.Width = saved.Value.W; 
-                    mainWindow.Height = saved.Value.H;
+                    mainWindow.Width = 1280;
+                    mainWindow.Height = 800;
+                    mainWindow.WindowState = WindowState.Normal;
                     mainWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
                 }
                 mainVm.InitialLogPanelOpen = saved.Value.LogPanel;

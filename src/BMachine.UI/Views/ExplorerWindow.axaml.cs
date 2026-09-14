@@ -83,14 +83,57 @@ public partial class ExplorerWindow : Window
             wvm.PropertyChanged += OnExplorerWindowViewModelPropertyChanged;
             ApplyWindowExplorerShortcuts();
         }
+        
+        // Listen for global Explorer settings changes (font, zoom, icons)
+        WeakReferenceMessenger.Default.Register<ExplorerSettingsChangedMessage>(this, (r, m) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(ApplyExplorerFontToWindow);
+        });
+        
         Avalonia.Threading.Dispatcher.UIThread.Post(FocusActiveExplorerView, Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
+    protected override void OnClosed(System.EventArgs e)
+    {
+        // Unregister message listener
+        WeakReferenceMessenger.Default.Unregister<ExplorerSettingsChangedMessage>(this);
+        
+        if (DataContext is ExplorerWindowViewModel wvm)
+        {
+            wvm.PropertyChanged -= OnExplorerWindowViewModelPropertyChanged;
+        }
+        
+        base.OnClosed(e);
     }
 
     private void OnExplorerWindowViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ExplorerWindowViewModel.SelectedTab))
+        {
             ApplyWindowExplorerShortcuts();
+            ApplyExplorerFontToWindow();
+        }
     }
+
+    private void ApplyExplorerFontToWindow()
+    {
+        if (DataContext is not ExplorerWindowViewModel wvm || wvm.SelectedTab?.ExplorerViewModel == null)
+            return;
+
+        var font = wvm.SelectedTab.ExplorerViewModel.ExplorerFontFamily;
+        if (string.IsNullOrWhiteSpace(font))
+            return;
+
+        try
+        {
+            Resources["FontPrimary"] = new Avalonia.Media.FontFamily(font);
+        }
+        catch
+        {
+            // Invalid font name, skip
+        }
+    }
+
 
     /// <summary>Apply explorer shortcuts at window level so they work when e.g. list has focus.</summary>
     private void ApplyWindowExplorerShortcuts()

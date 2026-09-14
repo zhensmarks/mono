@@ -14,6 +14,7 @@
              x:Class="BMachine.UI.Views.OutputExplorerView"
              x:DataType="vm:OutputExplorerViewModel"
              Focusable="True"
+             FontFamily="{Binding ExplorerFontFamily}"
              Loaded="OnViewLoaded"
              x:Name="ExplorerRoot">
 
@@ -198,11 +199,7 @@
                             <TextBox x:Name="AddressBarTextBox"
                                      Text="{Binding AddressBarText, Mode=TwoWay}"
                                      IsVisible="{Binding IsAddressBarEditing}"
-                                     FontSize="12" Padding="6,0" MinHeight="0" Height="26"
-                                     BorderThickness="0" Background="Transparent"
-                                     VerticalAlignment="Center"
-                                     VerticalContentAlignment="Center"
-                                     FontFamily="Cascadia Code, JetBrains Mono, Consolas">
+                                     VerticalContentAlignment="Center">
                                 <TextBox.KeyBindings>
                                     <KeyBinding Gesture="Enter" Command="{Binding CommitAddressBarCommand}"/>
                                     <KeyBinding Gesture="Escape" Command="{Binding CancelAddressBarCommand}"/>
@@ -232,38 +229,43 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- SIDEBAR (LEFT) -->
                 <Grid Grid.Column="0" RowDefinitions="*, Auto">
                     <!-- Sidebar Items List -->
-                    <ListBox Grid.Row="0" ItemsSource="{Binding QuickAccessItems}" Background="Transparent" BorderThickness="0" Padding="0,2">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="models:SidebarItemViewModel">
-                                     <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="28" ToolTip.Tip="{Binding Name}">
-                                         <Grid.ContextMenu>
-                                             <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
-                                                 <MenuItem Header="Remove Pin" Command="{Binding #ExplorerRoot.DataContext.RemoveFromQuickAccessCommand}" CommandParameter="{Binding}"/>
-                                             </ContextMenu>
-                                         </Grid.ContextMenu>
-                                         <Interaction.Behaviors>
-                                             <EventTriggerBehavior EventName="PointerPressed">
-                                                 <InvokeCommandAction Command="{Binding #ExplorerRoot.DataContext.NavigateToQuickAccessCommand}" CommandParameter="{Binding}"/>
-                                             </EventTriggerBehavior>
-                                         </Interaction.Behaviors>
-                                         
-                                         <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="14" Height="14" Margin="8,0,6,0" Foreground="#E8A447"/>
-                                         <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                     </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <!-- Custom TypeAhead handles this now -->
-                                    <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="Margin" Value="4,1"/>
-                                    <Setter Property="CornerRadius" Value="5"/>
-                                </Style>
-                             </ListBox.Styles>
-                         </ListBox>
+                    <ListBox Grid.Row="0" ItemsSource="{Binding QuickAccessItems}" Background="Transparent" BorderThickness="0" Padding="0,0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:SidebarItemViewModel">
+                                <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="28" ToolTip.Tip="{Binding Name}">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
+                                            <MenuItem Header="Remove Pin" Command="{Binding #ExplorerRoot.DataContext.RemoveFromQuickAccessCommand}" CommandParameter="{Binding}"/>
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                    <Interaction.Behaviors>
+                                        <EventTriggerBehavior EventName="PointerPressed">
+                                            <InvokeCommandAction Command="{Binding #ExplorerRoot.DataContext.NavigateToQuickAccessCommand}" CommandParameter="{Binding}"/>
+                                        </EventTriggerBehavior>
+                                    </Interaction.Behaviors>
+
+                                    <Grid Grid.Column="0" Width="28" VerticalAlignment="Center">
+                                        <Image Source="{Binding SystemIcon}" IsVisible="{Binding ShowSystemIcon}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="15" Height="15" HorizontalAlignment="Center" Foreground="#E8A447"/>
+                                    </Grid>
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="4,0,8,0"/>
+                                <Setter Property="Margin" Value="0,0"/>
+                                <Setter Property="Height" Value="28"/>
+                                <Setter Property="MinHeight" Value="28"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="CornerRadius" Value="5"/>
+                            </Style>
+                        </ListBox.Styles>
+                    </ListBox>
                          
                     <!-- Settings Button -->
                     <Button Grid.Row="1" Classes="Clear" Margin="4,5" HorizontalAlignment="Center" ToolTip.Tip="Explorer Settings" Click="OpenSettings_Click">
@@ -890,7 +892,7 @@
                                 </Button>
                             </Grid>
                             <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                                <TextBox Text="{Binding PreviewPanelContent, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontSize="12">
+                                <TextBox Text="{Binding PreviewPanelContent, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" FontSize="12">
                                     <TextBox.Styles>
                                         <Style Selector="TextBox:pointerover /template/ Border">
                                             <Setter Property="Background" Value="Transparent"/>

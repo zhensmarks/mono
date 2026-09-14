@@ -13,8 +13,7 @@
             <TextBlock Text="Set default locations for Local Output, Photoshop, and Master Design assets." 
                        FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.7"/>
 
-            <!-- Explorer Defaults (Global Settings - MOVED TO TOP) -->
-            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
                     
@@ -22,24 +21,24 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Default Local Output (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="If set, you only need to pick Input folder." FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="LocalOutput" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="LocalOutput" Classes="secondary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master OKE BASE (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathOkeBase}" Watermark="Not Set (Fitur OKE BASE Non-aktif)" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OkeBase" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OkeBase" Classes="secondary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Photoshop Executable (.exe / .app)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Required for JSX Scripts" FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" Watermark="Select Photoshop.exe or .app" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="Primary" Margin="0,0,6,0"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="secondary" Margin="0,0,6,0"/>
                         <Button Grid.Row="1" Grid.Column="2" Command="{Binding FixPhotoshopWarningCommand}"
-                                Classes="Primary" Background="#E07020" Padding="8" CornerRadius="6"
+                                Classes="Warn" Padding="8" CornerRadius="6"
                                 ToolTip.Tip="Fix PS Warning: Automatically suppress the Photoshop script security warning by writing to PSUserConfig.txt">
-                            <PathIcon Data="{StaticResource IconBolt}" Width="16" Height="16" Foreground="White" />
+                            <PathIcon Data="{StaticResource IconBolt}" Width="16" Height="16" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </Button>
                     </Grid>
                 </StackPanel>
@@ -68,12 +67,12 @@
                                                     <Button Command="{Binding $parent[UserControl].DataContext.MoveMasterPathUpCommand}" 
                                                             CommandParameter="{Binding}"
                                                             Classes="Clear" Padding="3" ToolTip.Tip="Move Up">
-                                                         <TextBlock Text="▲" FontSize="9" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                          <PathIcon Data="{StaticResource IconChevronUp}" Classes="xs" />
                                                     </Button>
                                                     <Button Command="{Binding $parent[UserControl].DataContext.MoveMasterPathDownCommand}" 
                                                             CommandParameter="{Binding}"
                                                             Classes="Clear" Padding="3" ToolTip.Tip="Move Down">
-                                                         <TextBlock Text="▼" FontSize="9" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                          <PathIcon Data="{StaticResource IconChevronDown}" Classes="xs" />
                                                     </Button>
                                                 </StackPanel>
 
@@ -90,7 +89,7 @@
 
                                                 <!-- Toggle Edit Link Button -->
                                                 <Button Grid.Column="3" Command="{Binding ToggleEditPathCommand}"
-                                                        Classes="Clear" Margin="4,0" Padding="6,4" CornerRadius="6"
+                                                        Classes="secondary" Margin="4,0" Padding="6,4" CornerRadius="6"
                                                         ToolTip.Tip="Tampilkan / Edit Link Path Manual">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                         <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -101,14 +100,14 @@
                                                 <!-- Browse Button -->
                                                 <Button Grid.Column="4" Command="{Binding $parent[UserControl].DataContext.BrowseEditMasterPathCommand}" 
                                                         CommandParameter="{Binding}"
-                                                        Classes="Clear" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Pilih Folder Baru (Browse)">
+                                                        Classes="secondary" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Pilih Folder Baru (Browse)">
                                                      <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}" Opacity="0.9"/>
                                                 </Button>
                                                 
                                                 <!-- Remove Button -->
                                                 <Button Grid.Column="5" Command="{Binding $parent[UserControl].DataContext.RemoveMasterPathCommand}" 
                                                         CommandParameter="{Binding}"
-                                                        Classes="Clear" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Hapus Folder">
+                                                        Classes="danger" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Hapus Folder">
                                                      <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
                                                 </Button>
                                             </Grid>
@@ -127,7 +126,7 @@
                                                              Background="Transparent" BorderThickness="0" Padding="2"
                                                              Watermark="Masukkan path folder manual..."/>
                                                     <Button Grid.Column="2" Command="{Binding ToggleEditPathCommand}"
-                                                            Classes="Clear" Padding="6,2" Margin="4,0,0,0" ToolTip.Tip="Selesai Edit Link">
+                                                            Classes="secondary" Padding="6,2" Margin="4,0,0,0" ToolTip.Tip="Selesai Edit Link">
                                                         <TextBlock Text="Selesai" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                     </Button>
                                                 </Grid>
@@ -139,18 +138,18 @@
                         </ItemsControl>
                         
                         <!-- Add Button -->
-                        <Button Command="{Binding AddMasterPathCommand}" Classes="Primary" HorizontalAlignment="Left" Margin="0,5,0,0">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
-                                <TextBlock Text="Tambah Folder Master" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
+                         <Button Command="{Binding AddMasterPathCommand}" Classes="secondary" HorizontalAlignment="Left" Height="34" Padding="12,0" Margin="0,5,0,0">
+                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                 <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                 <TextBlock Text="Tambah Folder Master" FontFamily="{DynamicResource FontPrimary}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                             </StackPanel>
+                         </Button>
                     </StackPanel>
                 </Expander>
             </Border>
 
             <!-- TAMBAHAN PHOTOSHOP (New Feature) -->
-            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card">
                 <Expander IsExpanded="False" Background="Transparent" BorderThickness="0" Padding="0">
                     <Expander.Header>
                         <TextBlock Text="TAMBAHAN PHOTOSHOP" FontWeight="SemiBold" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -194,7 +193,7 @@
 
                                                 <!-- Toggle Edit Link Button -->
                                                 <Button Grid.Column="3" Command="{Binding ToggleEditPathCommand}"
-                                                        Classes="Clear" Margin="4,0" Padding="6,4" CornerRadius="6"
+                                                        Classes="secondary" Margin="4,0" Padding="6,4" CornerRadius="6"
                                                         ToolTip.Tip="Tampilkan / Edit Link Path Manual">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                         <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -205,14 +204,14 @@
                                                 <!-- Browse Button -->
                                                 <Button Grid.Column="4" Command="{Binding $parent[UserControl].DataContext.BrowseEditPhotoshopPathCommand}" 
                                                         CommandParameter="{Binding}"
-                                                        Classes="Clear" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Pilih Folder Baru (Browse)">
+                                                        Classes="secondary" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Pilih Folder Baru (Browse)">
                                                      <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}" Opacity="0.9"/>
                                                 </Button>
                                                 
                                                 <!-- Remove Button -->
                                                 <Button Grid.Column="5" Command="{Binding $parent[UserControl].DataContext.RemovePhotoshopPathCommand}" 
                                                         CommandParameter="{Binding}"
-                                                        Classes="Clear" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Hapus Folder">
+                                                        Classes="danger" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Hapus Folder">
                                                      <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
                                                 </Button>
                                             </Grid>
@@ -231,7 +230,7 @@
                                                              Background="Transparent" BorderThickness="0" Padding="2"
                                                              Watermark="Masukkan path folder manual..."/>
                                                     <Button Grid.Column="2" Command="{Binding ToggleEditPathCommand}"
-                                                            Classes="Clear" Padding="6,2" Margin="4,0,0,0" ToolTip.Tip="Selesai Edit Link">
+                                                            Classes="secondary" Padding="6,2" Margin="4,0,0,0" ToolTip.Tip="Selesai Edit Link">
                                                         <TextBlock Text="Selesai" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                     </Button>
                                                 </Grid>
@@ -243,101 +242,101 @@
                         </ItemsControl>
                         
                         <!-- Add Button -->
-                        <Button Command="{Binding AddPhotoshopPathCommand}" Classes="Primary" HorizontalAlignment="Left" Margin="0,5,0,0">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="White" VerticalAlignment="Center"/>
-                                <TextBlock Text="Tambah Folder Photoshop" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
+                         <Button Command="{Binding AddPhotoshopPathCommand}" Classes="secondary" HorizontalAlignment="Left" Height="34" Padding="12,0" Margin="0,5,0,0">
+                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                 <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                 <TextBlock Text="Tambah Folder Photoshop" FontFamily="{DynamicResource FontPrimary}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                             </StackPanel>
+                         </Button>
                     </StackPanel>
                 </Expander>
             </Border>
 
             <!-- Storage Settings -->
-            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Storage Settings" FontWeight="SemiBold" FontSize="16"/>
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Attachment Download Path" VerticalAlignment="Center" Margin="0,0,0,5"/>
                          <TextBlock Grid.Row="0" Grid.Column="0" Text="Files from Trello attachments will be saved here." FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding OfflineStoragePath}" Watermark="Select Download Folder" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OfflineStorage" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OfflineStorage" Classes="secondary"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
             <!-- Profesi Group -->
-            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Profesi &amp; Sporty" FontWeight="SemiBold" FontSize="16"/>
                     
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Profesi 10RP (Biasa)" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathProfesi}" Watermark="Not Set" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Profesi" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Profesi" Classes="secondary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Profesi 8R" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathProfesi8R}" Watermark="Not Set" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Profesi8R" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Profesi8R" Classes="secondary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Sporty" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathSporty}" Watermark="Not Set" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Sporty" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Sporty" Classes="secondary"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
             <!-- Manasik Group -->
-            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Manasik" FontWeight="SemiBold" FontSize="16"/>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Manasik 10RP" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathManasik10RP}" Watermark="Not Set" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Manasik10RP" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Manasik10RP" Classes="secondary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Manasik 8R" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathManasik8R}" Watermark="Not Set" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Manasik8R" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Manasik8R" Classes="secondary"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
             <!-- Wisuda Group -->
-            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Wisuda" FontWeight="SemiBold" FontSize="16"/>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Wisuda 10RP" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathWisuda10RP}" Watermark="Not Set" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Wisuda10RP" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Wisuda10RP" Classes="secondary"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Wisuda 8R" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathWisuda8R}" Watermark="Not Set" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Wisuda8R" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="Wisuda8R" Classes="secondary"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
             <!-- Pas Foto Group -->
-            <Border Classes="Card" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="15">
+            <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Pas Foto" FontWeight="SemiBold" FontSize="16"/>
 
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Master Pas Foto" VerticalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPasFoto}" Watermark="Not Set" Margin="0,0,10,0"/>
-                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="PasFoto" Classes="Primary"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="PasFoto" Classes="secondary"/>
                     </Grid>
                 </StackPanel>
             </Border>

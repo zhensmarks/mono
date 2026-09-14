@@ -158,12 +158,6 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Transitions">
-            <Transitions>
-                <BrushTransition Property="Background" Duration="0:0:0.15" />
-                <BrushTransition Property="Foreground" Duration="0:0:0.15" />
-            </Transitions>
-        </Setter>
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Name="PART_Root"
@@ -172,16 +166,17 @@
                         Padding="{TemplateBinding Padding}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}">
-                    <Grid RowDefinitions="Auto,Auto">
-                        <ContentPresenter Grid.Row="0"
-                                          Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="Center"
+                    <Grid>
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Center"
                                           VerticalAlignment="Center" />
-                        <Border Grid.Row="1" Name="PART_Indicator"
-                                Height="3" Width="20" CornerRadius="1.5"
+                        <Border Name="PART_Indicator"
+                                Width="20" Height="2"
+                                CornerRadius="1"
                                 Background="{DynamicResource AccentBlueBrush}"
                                 HorizontalAlignment="Center"
-                                Margin="0,5,0,0"
+                                VerticalAlignment="Bottom"
                                 Opacity="0" />
                     </Grid>
                 </Border>
@@ -197,11 +192,30 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+    <Style Selector="RadioButton.TrelloBoardTab:checked /template/ Border#PART_Root">
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
     <Style Selector="RadioButton.TrelloBoardTab:checked /template/ Border#PART_Indicator">
         <Setter Property="Opacity" Value="1" />
     </Style>
     <Style Selector="RadioButton.TrelloBoardTab:checked:pointerover">
         <Setter Property="Background" Value="#333B82F6" />
+    </Style>
+
+    <Style Selector="RadioButton.LogPanelTab, RadioButton.CompactTab">
+        <Setter Property="Padding" Value="7,0" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="RadioButton.CompactTab /template/ ContentPresenter">
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
     <!-- ================================================================ -->

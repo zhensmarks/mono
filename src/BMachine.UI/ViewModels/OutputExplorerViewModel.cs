@@ -71,6 +71,7 @@ public partial class OutputExplorerViewModel : ObservableObject
         LoadRootPath();
         _ = LoadScriptsAsync();
         _ = LoadExplorerShortcutsAsync();
+        _ = LoadExplorerSettingsAsync();
         
         // Listen for path changes
         WeakReferenceMessenger.Default.Register<MasterPathsChangedMessage>(this, (r, m) => 
@@ -107,6 +108,9 @@ public partial class OutputExplorerViewModel : ObservableObject
 
                 var customIconPathStr = await _database.GetAsync<string>("Configs.Explorer.CustomIconPath") ?? "";
                 if (customIconPathStr != CustomIconPath) CustomIconPath = customIconPathStr;
+                var explorerFontFamily = await _database.GetAsync<string>("Configs.Explorer.FontFamily") ?? "";
+                if (explorerFontFamily != ExplorerFontFamily) ExplorerFontFamily = explorerFontFamily;
+                foreach (var item in QuickAccessItems) item.RefreshIcon();
             });
         });
     }
@@ -220,10 +224,12 @@ public partial class OutputExplorerViewModel : ObservableObject
         }
     }
 
-    // --- Appearance (live from Settings) ---
     [ObservableProperty] private double _contentScale = 1.0; // 1.0 = 100% zoom
     [ObservableProperty] private bool _useSystemIcons;       // Windows shell icons (7tsp themes)
     [ObservableProperty] private string _customIconPath = ""; // Custom 7tsp icon pack path
+    [ObservableProperty] private string _explorerFontFamily = "";
+
+    public string ExplorerFontFamilyOrDefault => ExplorerFontFamily;
 
     partial void OnUseSystemIconsChanged(bool value)
     {
@@ -408,6 +414,7 @@ public partial class OutputExplorerViewModel : ObservableObject
 
             var customIconPathStr = await _database.GetAsync<string>("Configs.Explorer.CustomIconPath");
             CustomIconPath = customIconPathStr ?? "";
+            ExplorerFontFamily = await _database.GetAsync<string>("Configs.Explorer.FontFamily") ?? "";
             ExplorerItemViewModel.PushCustomIconPathSetting(CustomIconPath);
 
             await LoadExplorerShortcutsAsync();
@@ -485,6 +492,26 @@ public partial class OutputExplorerViewModel : ObservableObject
         if (!string.IsNullOrEmpty(shortcutCopyPath)) ShortcutCopyPathGesture = shortcutCopyPath;
         var shortcutPastePath = await _database.GetAsync<string>("Configs.Explorer.ShortcutPastePath");
         if (!string.IsNullOrEmpty(shortcutPastePath)) ShortcutPastePathGesture = shortcutPastePath;
+    }
+
+    private async Task LoadExplorerSettingsAsync()
+    {
+        var zoomStr = await _database.GetAsync<string>("Configs.Explorer.ContentZoom");
+        if (double.TryParse(zoomStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var cz) && cz >= 50 && cz <= 250)
+            ContentScale = cz / 100.0;
+
+        var useStr = await _database.GetAsync<string>("Configs.Explorer.UseSystemIcons");
+        var use = bool.TryParse(useStr, out var u) && u;
+        UseSystemIcons = use;
+
+        var customIconPathStr = await _database.GetAsync<string>("Configs.Explorer.CustomIconPath") ?? "";
+        CustomIconPath = customIconPathStr;
+
+        var explorerFontFamily = await _database.GetAsync<string>("Configs.Explorer.FontFamily") ?? "";
+        ExplorerFontFamily = explorerFontFamily;
+        
+        // Notify view that font is loaded so it can re-apply styling
+        OnPropertyChanged(nameof(ExplorerFontFamily));
     }
 
     [RelayCommand]
@@ -2773,6 +2800,9 @@ public partial class ExplorerItemViewModel : ObservableObject
     private static volatile string s_customIconPath = "";
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Avalonia.Media.Imaging.Bitmap> s_iconCache = new();
 
+    public static bool SystemIconsEnabled => s_useSystemIcons;
+    public static string CustomIconPathSetting => s_customIconPath;
+
     public static void PushSystemIconsSetting(bool enabled) => s_useSystemIcons = enabled;
 
     public static void PushCustomIconPathSetting(string path)
@@ -2932,7 +2962,50 @@ public partial class SidebarItemViewModel : ObservableObject
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _path = "";
     [ObservableProperty] private string _icon = "IconFolder";
-    [ObservableProperty] private bool _isDynamic; // True = Relative to Output, False = Absolute
+    [ObservableProperty] private bool _isDynamic;
+
+    private Avalonia.Media.Imaging.Bitmap? _systemIcon;
+    private bool _systemIconLoaded;
+
+    public bool ShowSystemIcon => ExplorerItemViewModel.SystemIconsEnabled && _systemIcon != null;
+    public bool ShowFolderFallback => !ShowSystemIcon;
+    public Avalonia.Media.Imaging.Bitmap? SystemIcon
+    {
+        get
+        {
+            if (!_systemIconLoaded && ExplorerItemViewModel.SystemIconsEnabled)
+            {
+                _systemIconLoaded = true;
+                LoadSystemIconAsync();
+            }
+            return _systemIcon;
+        }
+    }
+
+    public void RefreshIcon()
+    {
+        _systemIconLoaded = false;
+        _systemIcon = null;
+        OnPropertyChanged(nameof(SystemIcon));
+        OnPropertyChanged(nameof(ShowSystemIcon));
+        OnPropertyChanged(nameof(ShowFolderFallback));
+    }
+
+    private async void LoadSystemIconAsync()
+    {
+        try
+        {
+            var targetPath = IsDynamic ? Path : Path;
+            var bitmap = await Task.Run(() => Services.SystemIconService.ResolveIcon(
+                targetPath, true, ExplorerItemViewModel.CustomIconPathSetting, 32));
+            if (bitmap == null) return;
+            _systemIcon = bitmap;
+            OnPropertyChanged(nameof(SystemIcon));
+            OnPropertyChanged(nameof(ShowSystemIcon));
+            OnPropertyChanged(nameof(ShowFolderFallback));
+        }
+        catch { }
+    }
 }
 
 public class SidebarItemDto

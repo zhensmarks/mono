@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using Avalonia.Styling;
@@ -30,30 +31,50 @@ public partial class SpreadsheetView : UserControl
         AvaloniaXamlLoader.Load(this);
     }
 
+    private readonly List<Action> _columnCleanups = new();
+
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         if (DataContext is SpreadsheetViewModel vm)
         {
-            // Unsubscribe old if any (simplified for now as View usually lives with one VM)
+            vm.Columns.CollectionChanged -= OnColumnsCollectionChanged;
             vm.Columns.CollectionChanged += OnColumnsCollectionChanged;
+
+            vm.PropertyChanged -= OnViewModelPropertyChanged;
+            vm.PropertyChanged += OnViewModelPropertyChanged;
             
-            // Build if already has columns
-            if (vm.Columns.Any()) RebuildColumns(vm.Columns, vm);
+            // Build if already has columns and not currently loading
+            if (vm.Columns.Any() && !vm.IsLoading) RebuildColumns(vm.Columns, vm);
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is SpreadsheetViewModel vm && e.PropertyName == nameof(SpreadsheetViewModel.IsLoading) && !vm.IsLoading)
+        {
+            if (vm.Columns.Any())
+            {
+                RebuildColumns(vm.Columns, vm);
+            }
         }
     }
 
     private void OnColumnsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (DataContext is SpreadsheetViewModel vm)
+        if (DataContext is SpreadsheetViewModel vm && !vm.IsLoading)
         {
-            // For simplicity, full rebuild on any change. 
-            // Optimization: handle Add/Remove specific items.
             RebuildColumns(vm.Columns, vm);
         }
     }
 
     private void RebuildColumns(IEnumerable<SpreadsheetColumnViewModel> columns, SpreadsheetViewModel vm)
     {
+        // Detach prior column event handlers to avoid accumulating closures
+        foreach (var cleanup in _columnCleanups)
+        {
+            try { cleanup(); } catch { }
+        }
+        _columnCleanups.Clear();
         // Lazy initialization of DataGrid to avoid XAML issues
         if (_dataGrid == null)
         {
@@ -66,10 +87,11 @@ public partial class SpreadsheetView : UserControl
                 CanUserResizeColumns = true,
                 CanUserSortColumns = false,
                 SelectionMode = DataGridSelectionMode.Extended,
-                GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, // Only horizontal lines
+                GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
                 HeadersVisibility = DataGridHeadersVisibility.Column,
-                IsReadOnly = false, // Allow direct cell editing
-                BorderThickness = new Avalonia.Thickness(0), // Remove outer border
+                MinColumnWidth = 30,
+                IsReadOnly = false,
+                BorderThickness = new Avalonia.Thickness(0),
                 Background = Avalonia.Media.Brushes.Transparent
             };
             
@@ -95,9 +117,14 @@ public partial class SpreadsheetView : UserControl
             
             _dataGrid.AddHandler(KeyDownEvent, OnDataGridKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             _dataGrid.AddHandler(PointerPressedEvent, OnDataGridPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            _dataGrid.AddHandler(PointerReleasedEvent, OnDataGridPointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel | Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+            _dataGrid.AddHandler(PointerCaptureLostEvent, OnDataGridPointerCaptureLost, Avalonia.Interactivity.RoutingStrategies.Tunnel | Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+            _dataGrid.LayoutUpdated += OnDataGridLayoutUpdated;
             _dataGrid.BeginningEdit += OnDataGridBeginningEdit;
             _dataGrid.CellEditEnded += OnDataGridCellEditEnded;
             _dataGrid.CurrentCellChanged += OnDataGridCurrentCellChanged;
+            _dataGrid.SelectionChanged += OnDataGridSelectionChanged;
+            _dataGrid.AddHandler(ScrollViewer.ScrollChangedEvent, (s, e) => UpdateCellSelectionVisuals());
 
             // Click on empty area to deselect
             container.PointerPressed += (s, e) =>
@@ -107,6 +134,7 @@ public partial class SpreadsheetView : UserControl
                 {
                     _dataGrid.SelectedItems.Clear();
                     _dataGrid.SelectedItem = null;
+                    UpdateCellSelectionVisuals();
                 }
             };
         }
@@ -118,19 +146,37 @@ public partial class SpreadsheetView : UserControl
             DataGridTemplateColumn templateCol = new DataGridTemplateColumn
             {
                 Header = col.Header,
-                Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells),
-                MinWidth = 100,
+                Width = col.Width,
+                MinWidth = 30,
                 // Store Column Index in Tag for Fill Down logic (Column level)
                 Tag = col.Index
             };
 
-            // Bind Width to ViewModel
-            var widthBinding = new Binding(nameof(SpreadsheetColumnViewModel.Width))
+            // Sync from View to ViewModel when user resizes column in DataGrid UI
+            templateCol.PropertyChanged += (s, e) =>
             {
-                Source = col,
-                Mode = BindingMode.TwoWay
+                if (e.Property == DataGridColumn.WidthProperty)
+                {
+                    if (templateCol.Width.IsAbsolute && templateCol.Width.Value >= 30 && Math.Abs(col.Width.Value - templateCol.Width.Value) > 0.5)
+                    {
+                        col.Width = templateCol.Width;
+                    }
+                }
             };
-            templateCol.Bind(DataGridColumn.WidthProperty, widthBinding);
+
+            // Sync from ViewModel to View if ViewModel width changes programmatically
+            System.ComponentModel.PropertyChangedEventHandler colWidthHandler = (s, e) =>
+            {
+                if (e.PropertyName == nameof(SpreadsheetColumnViewModel.Width))
+                {
+                    if (col.Width.IsAbsolute && col.Width.Value >= 30 && Math.Abs(templateCol.Width.Value - col.Width.Value) > 0.5)
+                    {
+                        templateCol.Width = col.Width;
+                    }
+                }
+            };
+            col.PropertyChanged += colWidthHandler;
+            _columnCleanups.Add(() => col.PropertyChanged -= colWidthHandler);
 
             // 1. Dropdown Column
             if (col.IsDropdown)
@@ -179,21 +225,25 @@ public partial class SpreadsheetView : UserControl
                     var grid = new Grid 
                     { 
                         ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-                        Margin = new Thickness(1)
+                        Margin = new Thickness(1),
+                        ClipToBounds = true
                     };
 
                     var todayBtn = new Button 
                     { 
                         Content = "TODAY",
                         FontWeight = Avalonia.Media.FontWeight.Bold,
-                        FontSize = 11,
-                        Padding = new Thickness(8, 0),
+                        FontSize = 10,
+                        Padding = new Thickness(4, 0),
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                         HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                         VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
                         MinHeight = 0,
-                        CornerRadius = new CornerRadius(3)
+                        MinWidth = 0,
+                        CornerRadius = new CornerRadius(4),
+                        BorderThickness = new Thickness(1)
                     };
+                    todayBtn.Classes.Add("DateBtn");
                     ToolTip.SetTip(todayBtn, "Isi dengan tanggal hari ini");
                     
                     todayBtn.Click += (s, e) => 
@@ -219,12 +269,15 @@ public partial class SpreadsheetView : UserControl
 
                     var manualBtn = new Button 
                     { 
-                        Padding = new Thickness(6, 0),
+                        Padding = new Thickness(4, 0),
                         Margin = new Thickness(2, 0, 0, 0),
                         VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
                         MinHeight = 0,
-                        CornerRadius = new CornerRadius(3)
+                        MinWidth = 0,
+                        CornerRadius = new CornerRadius(4),
+                        BorderThickness = new Thickness(1)
                     };
+                    manualBtn.Classes.Add("DateBtn");
                     ToolTip.SetTip(manualBtn, "Pilih tanggal manual...");
 
                     var icon = new PathIcon { Width = 13, Height = 13 };
@@ -297,8 +350,10 @@ public partial class SpreadsheetView : UserControl
                     { 
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                         VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
+                        TextAlignment = Avalonia.Media.TextAlignment.Center,
                         MinHeight = 0,
-                        Padding = new Thickness(6, 2),
+                        Margin = new Thickness(-6, -4),
+                        Padding = new Thickness(6, 4),
                         FontSize = 12
                     };
                     textBox.Bind(TextBox.TextProperty, new Binding($"Cells[{col.Index}].Value") { Mode = BindingMode.TwoWay });
@@ -339,6 +394,7 @@ public partial class SpreadsheetView : UserControl
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                 TextAlignment = Avalonia.Media.TextAlignment.Center,
                 Margin = new Thickness(4, 0),
+                TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis,
                 IsHitTestVisible = false
             };
             textBlock.Bind(TextBlock.TextProperty, new Binding($"Cells[{col.Index}].Value"));
@@ -514,6 +570,8 @@ public partial class SpreadsheetView : UserControl
         _isExtendingSelection = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift) 
                              || e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control);
 
+        Avalonia.Threading.Dispatcher.UIThread.Post(UpdateCellSelectionVisuals, Avalonia.Threading.DispatcherPriority.Render);
+
         // Only handle double-click (ClickCount >= 2)
         // Skip if Shift or Ctrl held (those are for selection)
         if (e.ClickCount >= 2 && !_isExtendingSelection)
@@ -549,18 +607,123 @@ public partial class SpreadsheetView : UserControl
         // DON'T update focused column during Shift/Ctrl selection extension
         // User clicked on column X first, then Shift+Clicked to extend rows
         // We want to keep column X as the fill target
-        if (_isExtendingSelection) return;
-        
-        // Track which column is currently focused
-        var currentColumn = _dataGrid.CurrentColumn;
-        if (currentColumn != null && currentColumn.Tag is int colIndex)
+        if (!_isExtendingSelection)
         {
-            _focusedColumnIndex = colIndex;
+            // Track which column is currently focused
+            var currentColumn = _dataGrid.CurrentColumn;
+            if (currentColumn != null && currentColumn.Tag is int colIndex)
+            {
+                _focusedColumnIndex = colIndex;
+            }
+            else
+            {
+                _focusedColumnIndex = null;
+            }
         }
-        else
+
+        UpdateCellSelectionVisuals();
+    }
+
+    private void OnDataGridSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        UpdateCellSelectionVisuals();
+    }
+
+    /// <summary>
+    /// Highlights ONLY the cells in the active/focused column for selected rows,
+    /// so multiple selection does not highlight the entire horizontal rows.
+    /// </summary>
+    private void UpdateCellSelectionVisuals()
+    {
+        if (_dataGrid == null) return;
+
+        var selectedItems = _dataGrid.SelectedItems;
+        bool hasMultiple = selectedItems != null && selectedItems.Count > 1;
+        int? targetCol = _focusedColumnIndex;
+
+        foreach (var desc in _dataGrid.GetVisualDescendants())
         {
-            _focusedColumnIndex = null;
+            if (desc is DataGridRow dataGridRow)
+            {
+                bool isRowSelected = hasMultiple && selectedItems!.Contains(dataGridRow.DataContext);
+
+                var cellsPresenter = dataGridRow.GetVisualDescendants()
+                    .OfType<DataGridCellsPresenter>().FirstOrDefault();
+                if (cellsPresenter == null) continue;
+
+                for (int i = 0; i < cellsPresenter.Children.Count; i++)
+                {
+                    if (cellsPresenter.Children[i] is not DataGridCell cell) continue;
+
+                    var column = DataGridColumn.GetColumnContainingElement(cell);
+                    int colIndex = column?.Tag is int tag ? tag : -1;
+                    bool isCellSelected = isRowSelected && targetCol.HasValue && colIndex == targetCol.Value;
+
+                    if (isCellSelected)
+                    {
+                        if (!cell.Classes.Contains("cell-selected"))
+                            cell.Classes.Add("cell-selected");
+                    }
+                    else
+                    {
+                        if (cell.Classes.Contains("cell-selected"))
+                            cell.Classes.Remove("cell-selected");
+                    }
+                }
+            }
         }
+    }
+
+    private void OnDataGridPointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)
+    {
+        SyncActualColumnWidthsToViewModel();
+    }
+
+    private void OnDataGridPointerCaptureLost(object? sender, Avalonia.Input.PointerCaptureLostEventArgs e)
+    {
+        SyncActualColumnWidthsToViewModel();
+    }
+
+    private void OnDataGridLayoutUpdated(object? sender, EventArgs e)
+    {
+        SyncActualColumnWidthsToViewModel();
+    }
+
+    private void SyncActualColumnWidthsToViewModel()
+    {
+        if (_dataGrid == null || DataContext is not SpreadsheetViewModel vm || vm.IsLoading) return;
+
+        bool changed = false;
+        foreach (var dgc in _dataGrid.Columns)
+        {
+            if (dgc.Tag is int idx && idx >= 0 && idx < vm.Columns.Count)
+            {
+                var colVM = vm.Columns[idx];
+                double w = dgc.ActualWidth;
+                if (w < 30 && dgc.Width.IsAbsolute) w = dgc.Width.Value;
+
+                if (w >= 30 && Math.Abs(colVM.Width.Value - w) > 1.0)
+                {
+                    colVM.Width = new DataGridLength(Math.Round(w, 1), DataGridLengthUnitType.Pixel);
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            vm.DebounceSaveColumnWidths();
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        SyncActualColumnWidthsToViewModel();
+        if (DataContext is SpreadsheetViewModel vm)
+        {
+            _ = vm.SaveColumnWidthsAsync();
+        }
+        base.OnDetachedFromVisualTree(e);
     }
 }
 

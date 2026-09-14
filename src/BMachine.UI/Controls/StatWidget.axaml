@@ -66,88 +66,35 @@
             VerticalAlignment="Stretch"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch">
-            
-        <Grid RowDefinitions="Auto, *">
-            
-            <!-- Header -->
-            <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
-                <Ellipse Width="6" Height="6" Fill="{Binding #Root.Color}" VerticalAlignment="Center" Margin="0,0,8,0">
-                    <Ellipse.Transitions>
-                        <Transitions>
-                            <BrushTransition Property="Fill" Duration="0:0:0.3"/>
-                        </Transitions>
-                    </Ellipse.Transitions>
-                </Ellipse>
-                <TextBlock Grid.Column="1" 
-                           Text="{Binding #Root.Label}" 
-                           FontSize="10" 
-                           FontWeight="Black" 
-                           Foreground="#888888" 
-                           LetterSpacing="1.5" 
-                           VerticalAlignment="Center"/>
-                           
-                <!-- Open Window Icon -->
-                <Button Grid.Column="2" 
-                        Command="{Binding #Root.WindowCommand}"
-                        IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
-                        Width="20" Height="20"
-                        Background="Transparent" BorderThickness="0" Padding="0"
-                        ToolTip.Tip="Open in New Window"
-                        VerticalAlignment="Center"
-                        Cursor="Hand">
-                    <Button.Styles>
-                        <Style Selector="Button:pointerover shapes|Path">
-                            <Setter Property="Fill" Value="{Binding #Root.Color}"/>
-                        </Style>
-                        <Style Selector="Button:pointerover /template/ ContentPresenter">
-                            <Setter Property="Background" Value="Transparent" />
-                        </Style>
-                    </Button.Styles>
-                    <shapes:Path Data="M14 3l-1.4 1.4L17.2 9H3v2h14.2l-4.6 4.6L14 17l7-7z" 
-                                 Fill="#666666"
-                                 Stretch="Uniform"
-                                 Width="10" Height="10"
-                                 VerticalAlignment="Center"/>
-                </Button>
-            </Grid>
-            
-            <!-- Bar Mode -->
-            <StackPanel Grid.Row="1" VerticalAlignment="Bottom" IsVisible="{Binding #Root.IsBarMode}" Margin="0,16,0,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Spacing="6">
-                    <TextBlock Text="{Binding #Root.Value}" 
-                               FontSize="28" 
-                               FontWeight="Black" 
-                               Foreground="White" 
-                               VerticalAlignment="Bottom" 
-                               Margin="0,0,0,-4"/>
-                    <TextBlock Text="{Binding #Root.Suffix}" 
-                               IsVisible="{Binding #Root.Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                               FontSize="10" 
-                               FontWeight="Bold" 
-                               Foreground="{Binding #Root.Color}" 
-                               LetterSpacing="1" 
-                               VerticalAlignment="Bottom" 
-                               Margin="0,0,0,2"/>
-                </StackPanel>
-            </StackPanel>
 
-            <!-- Circular Mode -->
-            <Grid Grid.Row="1" IsVisible="{Binding #Root.IsCircularMode}" Margin="0,16,0,0" VerticalAlignment="Bottom">
-                <Grid ColumnDefinitions="Auto, *">
-                    <Panel Width="36" Height="36" VerticalAlignment="Bottom">
-                        <shapes:Arc Width="36" Height="36" StartAngle="0" SweepAngle="360" Stroke="#22FFFFFF" StrokeThickness="3"/>
-                        <shapes:Arc x:Name="PART_ProgressArc" Width="36" Height="36" StartAngle="-90" SweepAngle="{Binding #Root.SweepAngle}" Stroke="{Binding #Root.Color}" StrokeThickness="3" StrokeLineCap="Round"/>
-                    </Panel>
-                    <TextBlock Grid.Column="1" 
-                               Text="{Binding #Root.Value}" 
-                               FontSize="24" 
-                               FontWeight="Black" 
-                               Foreground="White" 
-                               VerticalAlignment="Center" 
-                               Margin="12,0,0,0"/>
+        <Border Padding="0" Background="Transparent" BorderThickness="0">
+            <Grid RowDefinitions="Auto, *">
+                <!-- Header -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
+                    <Ellipse Width="6" Height="6" Fill="{Binding #Root.Color}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Grid.Column="1" Text="{Binding #Root.Label}" FontSize="10" FontWeight="Black" Foreground="#888888" LetterSpacing="1.5" VerticalAlignment="Center"/>
+                    <Button Grid.Column="2" Command="{Binding #Root.WindowCommand}" IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}" Width="20" Height="20" Background="Transparent" BorderThickness="0" Padding="0" ToolTip.Tip="Open in New Window" VerticalAlignment="Center" Cursor="Hand">
+                        <shapes:Path Data="M14 3l-1.4 1.4L17.2 9H3v2h14.2l-4.6 4.6L14 17l7-7z" Fill="#666666" Stretch="Uniform" Width="10" Height="10" VerticalAlignment="Center"/>
+                    </Button>
+                </Grid>
+
+                <StackPanel Grid.Row="1" VerticalAlignment="Bottom" IsVisible="{Binding #Root.IsBarMode}" Margin="0,16,0,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Spacing="6">
+                        <TextBlock x:Name="PART_BarValue" Text="{Binding #Root.Value}" FontSize="28" FontWeight="Black" Foreground="White" VerticalAlignment="Bottom" Margin="0,0,0,-4"/>
+                        <TextBlock x:Name="PART_BarSuffix" Text="{Binding #Root.Suffix}" IsVisible="{Binding #Root.Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" FontSize="10" FontWeight="Bold" Foreground="{Binding #Root.Color}" LetterSpacing="1" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Grid Grid.Row="1" IsVisible="{Binding #Root.IsCircularMode}" Margin="0,16,0,0" VerticalAlignment="Bottom">
+                    <Grid ColumnDefinitions="Auto, *">
+                        <Panel Width="36" Height="36" VerticalAlignment="Bottom">
+                            <shapes:Arc Width="36" Height="36" StartAngle="0" SweepAngle="360" Stroke="#22FFFFFF" StrokeThickness="3"/>
+                            <shapes:Arc x:Name="PART_ProgressArc" Width="36" Height="36" StartAngle="-90" SweepAngle="{Binding #Root.SweepAngle}" Stroke="{Binding #Root.Color}" StrokeThickness="3" StrokeLineCap="Round"/>
+                        </Panel>
+                        <TextBlock Grid.Column="1" Text="{Binding #Root.Value}" FontSize="24" FontWeight="Black" Foreground="White" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    </Grid>
                 </Grid>
             </Grid>
-            
-        </Grid>
+        </Border>
     </Button>
 </UserControl>

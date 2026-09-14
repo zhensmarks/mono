@@ -568,10 +568,10 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
                     }
                 }
 
-                card.ChecklistNames = names;
+            card.ChecklistNames = names;
                 card.ChecklistTotal = total;
                 card.ChecklistCompleted = completed;
-                card.HasChecklist = total > 0;
+                card.HasChecklist = names.Count > 0;
             }
             // Fallback to badges if checklists missing (shouldn't happen with checklists=all)
             else if (element.TryGetProperty("badges", out var badges))
@@ -586,6 +586,7 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
                     if (badges2.TryGetProperty("attachments", out var att)) card.AttachmentCount = att.GetInt32();
             }
 
+            card.ChecklistOwnerName = await _database.GetAsync<string>("User.Name") ?? "USER";
             card.RefreshChecklistStatus(); // Update Tooltips
             return card;
         }

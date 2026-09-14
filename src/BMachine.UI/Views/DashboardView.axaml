@@ -217,18 +217,18 @@
                     CornerRadius="8" Padding="4"
                     HorizontalAlignment="Center" Margin="12,12,12,12">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                    <RadioButton Classes="TrelloBoardTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}" IsVisible="{Binding IsOutputExplorerVisible}">
-                        <TextBlock Text="EXPLORER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </RadioButton>
-                    <RadioButton Classes="TrelloBoardTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}">
-                        <TextBlock Text="DASHBOARD" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </RadioButton>
-                    <RadioButton Classes="TrelloBoardTab" GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}" IsVisible="{Binding IsBatchVisible}">
-                        <TextBlock Text="BATCH" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </RadioButton>
-                    <RadioButton Classes="TrelloBoardTab" GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}" IsVisible="{Binding IsFolderLockerVisible}">
-                        <TextBlock Text="LOCKER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </RadioButton>
+                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}" IsVisible="{Binding IsOutputExplorerVisible}">
+                         <TextBlock Text="EXPLORER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                     </RadioButton>
+                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}">
+                         <TextBlock Text="DASHBOARD" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                     </RadioButton>
+                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}" IsVisible="{Binding IsBatchVisible}">
+                         <TextBlock Text="BATCH" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                     </RadioButton>
+                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}" IsVisible="{Binding IsFolderLockerVisible}">
+                         <TextBlock Text="LOCKER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                     </RadioButton>
                 </StackPanel>
             </Border>
             

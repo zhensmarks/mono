@@ -31,6 +31,17 @@ public partial class UnifiedTrelloViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCompactMode;
 
+    [ObservableProperty]
+    private double _detailPanelWidth = 400;
+
+    partial void OnDetailPanelWidthChanged(double value)
+    {
+        if (value >= 320 && value <= 650)
+        {
+            _database?.SetAsync("UnifiedTrello.DetailPanelWidth", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+    }
+
     public bool IsNotEmbedded => !IsEmbedded;
 
     /// <summary>True when panel (detail/comment/etc) should be shown as full-screen in compact mode.</summary>
@@ -94,6 +105,21 @@ public partial class UnifiedTrelloViewModel : ObservableObject
         editingVM.PropertyChanged += RaiseShouldShowPanelScreen;
         revisionVM.PropertyChanged += RaiseShouldShowPanelScreen;
         lateVM.PropertyChanged += RaiseShouldShowPanelScreen;
+
+        _ = LoadSettingsAsync();
+    }
+
+    private async System.Threading.Tasks.Task LoadSettingsAsync()
+    {
+        try
+        {
+            var saved = await _database.GetAsync<string>("UnifiedTrello.DetailPanelWidth");
+            if (double.TryParse(saved, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var width) && width >= 320 && width <= 650)
+            {
+                DetailPanelWidth = width;
+            }
+        }
+        catch { }
     }
 
     public BaseTrelloListViewModel ActiveViewModel

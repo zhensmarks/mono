@@ -25,8 +25,8 @@
                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
                     Padding="4" Margin="20,0,20,8">
                 <StackPanel Orientation="Horizontal" Spacing="2">
-                    <RadioButton Classes="TrelloBoardTab" Content="HARIAN" IsChecked="{Binding IsHarianSelected}" Command="{Binding SwitchToHarianCommand}"/>
-                    <RadioButton Classes="TrelloBoardTab" Content="BULANAN" IsChecked="{Binding IsBulananSelected}" Command="{Binding SwitchToBulananCommand}"/>
+                    <RadioButton Classes="TrelloBoardTab CompactTab" Content="HARIAN" IsChecked="{Binding IsHarianSelected}" Command="{Binding SwitchToHarianCommand}"/>
+                    <RadioButton Classes="TrelloBoardTab CompactTab" Content="BULANAN" IsChecked="{Binding IsBulananSelected}" Command="{Binding SwitchToBulananCommand}"/>
                 </StackPanel>
             </Border>
 

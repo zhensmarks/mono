@@ -134,45 +134,47 @@
                                             </CheckBox>
                                             
                                             <!-- Name & Meta -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="4,12,12,12" Spacing="4">
-                                                <TextBlock Text="{Binding Name}" 
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="4,8,12,8" Spacing="4" HorizontalAlignment="Stretch">
+                                                <TextBlock Text="{Binding Name}"
                                                            FontWeight="Black" FontSize="13" LetterSpacing="0"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}" 
-                                                           TextWrapping="Wrap" MaxLines="2"
-                                                           TextTrimming="CharacterEllipsis"/>
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextWrapping="Wrap" MaxLines="3"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           HorizontalAlignment="Stretch"/>
                                             </StackPanel>
                                             
                                             <!-- Status Badges (Right Side) -->
                                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0" Spacing="8">
                                                 
-                                                <!-- Checklist Progress (Minimalist Terminal Style) -->
-                                                <Border CornerRadius="6" Padding="4,2" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Background="Transparent"
-                                                        IsVisible="{Binding HasChecklist}"
-                                                        ToolTip.Tip="{Binding ChecklistTooltip}">
-                                                 <Border.Styles>
-                                                     <Style Selector="Border.valid">
-                                                         <Setter Property="BorderBrush" Value="#22C55E"/>
-                                                     </Style>
-                                                 </Border.Styles>
-                                                 <Classes.valid>
-                                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                                         <Binding Path="HasEditingChecklist"/>
-                                                     </MultiBinding>
-                                                 </Classes.valid>
-                                                 
+                                              <!-- Checklist status -->
+                                              <Border CornerRadius="5" Padding="5,2" BorderThickness="1" IsVisible="{Binding HasChecklist}" ToolTip.Tip="{Binding ChecklistTooltip}">
+                                                  <Border.BorderBrush>
+                                                      <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="border">
+                                                          <Binding Path="IsChecklistDone"/>
+                                                      </MultiBinding>
+                                                  </Border.BorderBrush>
+                                                  <Border.Background>
+                                                      <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="bg">
+                                                          <Binding Path="IsChecklistDone"/>
+                                                      </MultiBinding>
+                                                  </Border.Background>
                                                   <StackPanel Orientation="Horizontal" Spacing="4">
-                                                      <PathIcon Width="8" Height="8" Data="{StaticResource IconChecklistBadge}">
-                                                          <PathIcon.Styles>
-                                                              <Style Selector="PathIcon">
-                                                                  <Setter Property="Foreground" Value="#555555"/>
-                                                              </Style>
-                                                              <Style Selector="Border.valid PathIcon">
-                                                                  <Setter Property="Foreground" Value="#22C55E"/>
-                                                              </Style>
-                                                          </PathIcon.Styles>
-                                                      </PathIcon>
+                                                      <Ellipse Width="6" Height="6">
+                                                          <Ellipse.Fill>
+                                                              <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="dot">
+                                                                  <Binding Path="IsChecklistDone"/>
+                                                              </MultiBinding>
+                                                          </Ellipse.Fill>
+                                                      </Ellipse>
+                                                      <TextBlock Text="{Binding ChecklistStatusLabel}" FontSize="8" FontWeight="SemiBold">
+                                                          <TextBlock.Foreground>
+                                                              <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="text">
+                                                                  <Binding Path="IsChecklistDone"/>
+                                                              </MultiBinding>
+                                                          </TextBlock.Foreground>
+                                                      </TextBlock>
                                                   </StackPanel>
-                                             </Border>
+                                              </Border>
 
                                             </StackPanel>
 
@@ -191,3 +193,5 @@
         <views:CardDetailPanelHost Grid.Column="1" IsVisible="{Binding !IsPanelHostedExternally}"/>
     </Grid>
 </UserControl>
+
+

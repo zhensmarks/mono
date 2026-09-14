@@ -446,7 +446,7 @@ public partial class LogPanelSidebar : UserControl
     {
         if (sender is AutoCompleteBox acb)
         {
-            acb.IsDropDownOpen = true;
+            BMachine.UI.Controls.AutoCompleteBoxHelper.OnGotFocus(acb, e);
         }
     }
     }

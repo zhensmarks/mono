@@ -22,20 +22,18 @@
 
     <Grid Name="MainRoot" RenderTransformOrigin="0.5,0.5">
 
-        <!-- Exit Confirmation Overlay (ZIndex 999) - Premium Glassmorphism Design -->
-        <Grid ZIndex="999" IsVisible="{Binding IsExitConfirmOpen}">
-            
-            <!-- Global Soft Overlay (Full Window) -->
-            <Border Background="#B3000000" CornerRadius="0" IsHitTestVisible="True"/>
-            
-            <!-- Logout Display (Premium Glass Style) -->
-            <Border MaxWidth="360" Margin="20" VerticalAlignment="Center" HorizontalAlignment="Center" 
-                    Background="{DynamicResource CardBackgroundBrush}" 
-                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
-                    CornerRadius="16" Padding="0,0,0,20">
-                <Border.Effect>
-                    <DropShadowEffect Color="Black" BlurRadius="40" Opacity="0.4" OffsetY="10"/>
-                </Border.Effect>
+            <!-- Exit Confirmation Overlay -->
+            <Grid ZIndex="999" IsVisible="{Binding IsExitConfirmOpen}">
+                
+                <!-- Window dimmer -->
+                <Border Background="#B3000000" CornerRadius="0" IsHitTestVisible="True"/>
+                
+                <!-- Logout dialog -->
+                <Border Classes="card" MaxWidth="360" Margin="20" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Padding="0,0,0,20">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#000000" BlurRadius="24" Opacity="0.28" OffsetY="8"/>
+                    </Border.Effect>
                 
                 <Grid RowDefinitions="Auto, *">
                     <!-- Subtle Header Decoration -->
@@ -67,53 +65,52 @@
                                    TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" 
                                    FontSize="12" Margin="24,0,24,20" TextWrapping="Wrap"/>
                         
-                        <!-- Action Buttons (Modern Rounded Pill) -->
-                        <StackPanel Spacing="8" Margin="24,0">
-                            <!-- LOGOUT (Primary Accent Button) -->
-                            <Button Command="{Binding ConfirmExitCommand}" 
-                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                    Background="#ef4444" Foreground="White"
-                                    BorderThickness="0" 
-                                    CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
-                                <TextBlock Text="Sign Out" FontWeight="SemiBold" FontSize="13"/>
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="#dc2626"/>
-                                        <Setter Property="Opacity" Value="0.9"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </Style>
-                                </Button.Styles>
-                            </Button>
+                         <!-- Actions -->
+                         <StackPanel Spacing="8" Margin="24,0">
+                             <Button Command="{Binding ConfirmExitCommand}"
+                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                     Background="#B83A4B" Foreground="#FFFFFF"
+                                     BorderBrush="#D86573" BorderThickness="1"
+                                     CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
+                                 <TextBlock Text="Sign Out" FontWeight="SemiBold" FontSize="12"/>
+                                 <Button.Styles>
+                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                         <Setter Property="Background" Value="#C84A5B"/>
+                                         <Setter Property="BorderBrush" Value="#E27A86"/>
+                                         <Setter Property="Foreground" Value="#FFFFFF"/>
+                                     </Style>
+                                 </Button.Styles>
+                             </Button>
 
-                            <!-- CANCEL (Secondary Muted Button) -->
-                            <Button Command="{Binding CancelExitCommand}" 
-                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                    Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
-                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
-                                    CornerRadius="6" Height="32" Cursor="Hand" Classes="Clear">
-                                <TextBlock Text="Cancel" FontWeight="Medium" FontSize="13"/>
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
-                                    </Style>
-                                </Button.Styles>
-                            </Button>
+                             <Button Command="{Binding CancelExitCommand}"
+                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                     Background="{DynamicResource CardBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                     CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
+                                 <TextBlock Text="Cancel" FontWeight="SemiBold" FontSize="12"/>
+                                 <Button.Styles>
+                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                         <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+                                     </Style>
+                                 </Button.Styles>
+                             </Button>
 
-                            <!-- REBOOT SYSTEM (Subtle Link Style) -->
-                            <Button Command="{Binding RestartApplicationCommand}"
-                                    HorizontalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                    Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}"
-                                    BorderThickness="0" 
-                                    CornerRadius="6" Height="24" Cursor="Hand" Classes="Clear" Margin="0,4,0,0">
-                                <TextBlock Text="Restart Application" FontWeight="Medium" FontSize="11"/>
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                                    </Style>
-                                </Button.Styles>
-                            </Button>
-                        </StackPanel>
+                             <Button Command="{Binding RestartApplicationCommand}"
+                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                     Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}"
+                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                     CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
+                                 <TextBlock Text="Restart" FontWeight="SemiBold" FontSize="12"/>
+                                 <Button.Styles>
+                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                         <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+                                         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                     </Style>
+                                 </Button.Styles>
+                             </Button>
+                         </StackPanel>
                     </StackPanel>
                     </ScrollViewer>
                 </Grid>

@@ -152,7 +152,7 @@ public partial class EditingCardListView : UserControl
     {
         if (sender is AutoCompleteBox acb)
         {
-            acb.IsDropDownOpen = true;
+            BMachine.UI.Controls.AutoCompleteBoxHelper.OnGotFocus(acb, e);
         }
     }
 

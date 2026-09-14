@@ -92,28 +92,40 @@ public partial class TrelloCard : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ChecklistTooltip))]
+    [NotifyPropertyChangedFor(nameof(ChecklistProgressText))]
+    [NotifyPropertyChangedFor(nameof(IsChecklistComplete))]
     private int _checklistTotal;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ChecklistTooltip))]
+    [NotifyPropertyChangedFor(nameof(ChecklistProgressText))]
+    [NotifyPropertyChangedFor(nameof(IsChecklistComplete))]
     private int _checklistCompleted;
 
     public bool IsChecklistComplete => ChecklistTotal > 0 && ChecklistCompleted == ChecklistTotal;
+    public string ChecklistProgressText => $"{ChecklistCompleted}/{ChecklistTotal}";
 
     // Checklist Data
     public List<string> ChecklistNames { get; set; } = new();
+    public string ChecklistOwnerName { get; set; } = "USER";
 
-    public bool HasEditingChecklist => ChecklistNames.Any(n => n.Trim().StartsWith("#EDITING", StringComparison.OrdinalIgnoreCase));
+    public bool HasEditingChecklist => ChecklistNames.Any(n =>
+        n.Trim().Equals($"#EDITING {ChecklistOwnerName}".Trim(), StringComparison.OrdinalIgnoreCase));
 
-    public string ChecklistTooltip 
+    public bool IsChecklistDone => HasChecklist && HasEditingChecklist;
+    public bool IsChecklistTodo => HasChecklist && !HasEditingChecklist;
+
+    public string ChecklistTooltip
     {
         get
         {
-            if (HasEditingChecklist) return "Checklist OK";
-            if (HasChecklist) return "Ada checklist, tapi bukan format #EDITING";
-            return "Tidak ada checklist";
+            if (!HasChecklist) return "Tidak ada checklist";
+            if (HasEditingChecklist) return $"Checklist #EDITING ({ChecklistProgressText})";
+            return $"Checklist ({ChecklistProgressText})";
         }
     }
+
+    public string ChecklistStatusLabel => HasEditingChecklist ? "DONE" : "TODO";
 
     [ObservableProperty]
     private bool _isActive;
@@ -124,6 +136,9 @@ public partial class TrelloCard : ObservableObject
     public void RefreshChecklistStatus()
     {
         OnPropertyChanged(nameof(HasEditingChecklist));
+        OnPropertyChanged(nameof(IsChecklistDone));
+        OnPropertyChanged(nameof(IsChecklistTodo));
+        OnPropertyChanged(nameof(ChecklistStatusLabel));
         OnPropertyChanged(nameof(ChecklistTooltip));
         OnPropertyChanged(nameof(HasChecklist));
     }

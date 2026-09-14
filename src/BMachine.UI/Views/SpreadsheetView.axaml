@@ -44,22 +44,53 @@
             <Setter Property="Fill" Value="{DynamicResource MenuHoverBrush}"/>
         </Style>
 
-        <!-- Selected rows: low-opacity accent so multi-row selection stays visible -->
+        <!-- Selected rows: completely transparent so ONLY the active cell is highlighted (Excel style) -->
         <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
-            <Setter Property="Fill" Value="{DynamicResource AccentLowOpacityBrush}"/>
+            <Setter Property="Fill" Value="Transparent"/>
         </Style>
         <Style Selector="DataGridRow:selected">
-            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="DataGridRow:selected DataGridCell">
-            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="DataGridCell:selected">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="DataGridCell:selected /template/ Rectangle">
+            <Setter Property="Fill" Value="Transparent"/>
         </Style>
 
-        <!-- Current / focused cell: accent outline (Google Sheets / Excel active cell) -->
+        <!-- Current / focused cell: accent outline only on this single cell (Google Sheets / Excel active cell) -->
         <Style Selector="DataGridCell:current">
             <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
             <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+        </Style>
+
+        <!-- Selected cell in column range (only the targeted column cells get highlighted!) -->
+        <Style Selector="DataGridCell.cell-selected">
+            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+        </Style>
+        <Style Selector="DataGridCell.cell-selected /template/ Rectangle">
+            <Setter Property="Fill" Value="{DynamicResource AccentLowOpacityBrush}"/>
+        </Style>
+        <Style Selector="DataGridRow:selected DataGridCell.cell-selected">
+            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+        </Style>
+        <Style Selector="DataGridCell.cell-selected:selected">
+            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+        </Style>
+
+        <!-- Cell Editor TextBox: seamless in-cell editing without outer borders or corner radius -->
+        <Style Selector="DataGridCell TextBox">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="DataGridCell TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
 
         <!-- Excel-style fill handle (small square on the active cell corner) -->
@@ -82,8 +113,8 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="MinHeight" Value="34"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
@@ -95,25 +126,35 @@
         </Style>
         <Style Selector="DataGridColumnHeader /template/ ContentPresenter">
             <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="DataGridColumnHeader TextBlock">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
 
         <!-- ═══ Slim header toggle buttons (theme only) ═══ -->
         <Style Selector="Button.Hdr">
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="FontWeight" Value="Medium"/>
         </Style>
         <Style Selector="Button.Hdr /template/ ContentPresenter">
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
         <Style Selector="Button.Hdr:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
         </Style>
         <Style Selector="Button.Hdr PathIcon">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
@@ -122,13 +163,42 @@
         <!-- Active (on) state: app accent, still theme driven -->
         <Style Selector="Button.Hdr.on">
             <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
         </Style>
         <Style Selector="Button.Hdr.on /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
         </Style>
         <Style Selector="Button.Hdr.on PathIcon">
             <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
+        </Style>
+
+        <!-- ═══ In-Cell Date editing buttons (TODAY & Calendar Icon) ═══ -->
+        <Style Selector="Button.DateBtn">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.DateBtn /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="Button.DateBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="Button.DateBtn PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
         </Style>
     </UserControl.Styles>
 

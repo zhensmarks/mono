@@ -235,7 +235,14 @@ public partial class OutputExplorerView : UserControl
         ApplyExplorerShortcuts();
         EnsureBackgroundMenuDataContext();
         FocusActiveListBox();
+        
+        // Apply saved font on startup
+        if (DataContext is OutputExplorerViewModel vm && !string.IsNullOrWhiteSpace(vm.ExplorerFontFamily))
+        {
+            ApplyExplorerFont(vm.ExplorerFontFamily);
+        }
     }
+
 
     private void OnViewUnloaded(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
     {
@@ -270,7 +277,28 @@ public partial class OutputExplorerView : UserControl
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(FocusActiveListBox);
         }
+        else if (e.PropertyName == nameof(OutputExplorerViewModel.ExplorerFontFamily) && DataContext is OutputExplorerViewModel vm2)
+        {
+            ApplyExplorerFont(vm2.ExplorerFontFamily);
+        }
     }
+
+    private void ApplyExplorerFont(string fontFamily)
+    {
+        if (string.IsNullOrWhiteSpace(fontFamily))
+            return;
+
+        try
+        {
+            Resources["FontPrimary"] = new Avalonia.Media.FontFamily(fontFamily);
+        }
+        catch
+        {
+            // Invalid font name, skip
+        }
+    }
+
+
 
     private void FocusActiveListBox()
     {

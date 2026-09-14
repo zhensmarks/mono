@@ -61,7 +61,7 @@
     <!-- TYPOGRAPHY                                                       -->
     <!-- ================================================================ -->
     <Style Selector="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontWeight" Value="Regular" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
@@ -119,6 +119,15 @@
         <Setter Property="Padding" Value="12" />
     </Style>
 
+    <Style Selector="Border.Card">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
+        <Setter Property="Padding" Value="{StaticResource SpaceLg}" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
     <!-- ================================================================ -->
     <!-- BUTTON — 4 varian selaras                                        -->
     <!-- primary (Action) : solid #EDEDED / hover #FFFFFF / pressed #D4D4D4 -->
@@ -128,7 +137,7 @@
     <!-- Semua: Radius 6, Height 36, Font 12.5 SemiBold, transition 0.15s -->
     <!-- ================================================================ -->
     <Style Selector="Button">
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="12.5" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
@@ -245,7 +254,7 @@
     <!-- Height 36, hover Border #3F3F46, focus Border #4B4B52 + 1px      -->
     <!-- ================================================================ -->
     <Style Selector="TextBox">
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -289,7 +298,7 @@
     <!-- COMBOBOX / AUTOCOMPLETEBOX / NUMERICUPDOWN — selaras dengan TextBox -->
     <!-- ================================================================ -->
     <Style Selector="ComboBox">
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -308,7 +317,7 @@
         <Setter Property="BorderBrush" Value="{StaticResource BorderFocusBrush}" />
     </Style>
     <Style Selector="ComboBoxItem">
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Padding" Value="10,6" />
         <Setter Property="CornerRadius" Value="6" />
@@ -323,7 +332,7 @@
     </Style>
 
     <Style Selector="AutoCompleteBox">
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -335,7 +344,7 @@
     </Style>
 
     <Style Selector="NumericUpDown">
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -358,7 +367,7 @@
     <!-- hover Border #52525B, transition 0.15s                           -->
     <!-- ================================================================ -->
     <Style Selector="CheckBox">
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="12.5" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="Padding" Value="6,0,0,0" />
@@ -461,7 +470,7 @@
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Padding" Value="8,6" />
         <Setter Property="FontSize" Value="11" />
-        <Setter Property="FontFamily" Value="{StaticResource FontPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
     </Style>
 
     <!-- ================================================================ -->

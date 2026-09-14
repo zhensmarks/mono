@@ -1,6 +1,8 @@
 // @target photoshop
 
 // === Settings Persistence ===
+var DEFAULT_BASE_INPUT = "\\\\delapanmataair\\Editor 5\\2. REGULER\\#PROJECT SEKOLAH\\2026-2027";
+
 function loadSettings() {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
     if (settingsFile.exists) {
@@ -8,19 +10,218 @@ function loadSettings() {
             settingsFile.open("r");
             var content = settingsFile.read();
             settingsFile.close();
-            return eval("(" + content + ")");
+            var data = eval("(" + content + ")");
+            if (!data.baseInputServer) data.baseInputServer = DEFAULT_BASE_INPUT;
+            return data;
         } catch (e) { }
     }
-    return { x: -1, y: -1 };
+    return { x: -1, y: -1, baseInputServer: DEFAULT_BASE_INPUT };
 }
 
-function saveSettings(x, y) {
+function saveSettings(x, y, baseInputServer) {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
     try {
+        var base = baseInputServer || DEFAULT_BASE_INPUT;
+        var escapedBase = base.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
         settingsFile.open("w");
-        settingsFile.write('{"x":' + x + ',"y":' + y + '}');
+        settingsFile.write('{"x":' + x + ',"y":' + y + ',"baseInputServer":"' + escapedBase + '"}');
         settingsFile.close();
     } catch (e) { }
+}
+
+// === Path Helpers & Auto-Detect Logic ===
+function normalizePath(p) {
+    if (!p) return "";
+    var s = decodeURI(p);
+    s = s.replace(/^["']+|["']+$/g, ""); // Strip surrounding quotes
+    var isUnc = (s.indexOf("\\\\") === 0 || s.indexOf("//") === 0);
+    s = s.replace(/\\/g, "/");
+    var driveMatch = s.match(/^\/([a-zA-Z])\/(.*)$/);
+    if (driveMatch) {
+        s = driveMatch[1].toUpperCase() + ":/" + driveMatch[2];
+        isUnc = false;
+    }
+    if (isUnc) {
+        s = "//" + s.substring(2).replace(/\/+/g, "/");
+    } else {
+        s = s.replace(/\/+/g, "/");
+    }
+    s = s.replace(/\/+$/, "");
+    return s;
+}
+
+function toWindowsPath(p) {
+    if (!p) return "";
+    var isUnc = (p.indexOf("//") === 0 || p.indexOf("\\\\") === 0);
+    var s = p.replace(/\//g, "\\");
+    if (isUnc) {
+        s = "\\\\" + s.replace(/^\\+/, "");
+    }
+    return s;
+}
+
+function parseMasterPath(rawPath) {
+    if (!rawPath) return null;
+    var norm = normalizePath(rawPath);
+    if (!norm) return null;
+
+    var parts = norm.split("/");
+    if (parts.length < 2) return null;
+
+    var targetItem = parts[parts.length - 1];
+    var schoolName = parts[parts.length - 2];
+    var monthIndex = -1;
+    var monthName = "";
+    var wilayahName = "";
+
+    // Regex format Bulan: misal "03 SEPTEMBER 2026" atau "02 AGUSTUS 2025"
+    var monthRegex = /^\d{2}\s+[A-Za-z]+\s+\d{4}$/;
+
+    for (var i = 0; i < parts.length; i++) {
+        if (monthRegex.test(parts[i])) {
+            monthIndex = i;
+            monthName = parts[i];
+            break;
+        }
+    }
+
+    if (monthIndex !== -1 && monthIndex + 1 < parts.length - 1) {
+        wilayahName = parts[monthIndex + 1];
+    }
+
+    var monthToSchool = "";
+    if (monthIndex !== -1) {
+        monthToSchool = parts.slice(monthIndex, parts.length - 1).join("/");
+    }
+
+    return {
+        norm: norm,
+        targetItem: targetItem,
+        schoolName: schoolName,
+        monthName: monthName,
+        wilayahName: wilayahName,
+        monthToSchool: monthToSchool,
+        monthIndex: monthIndex
+    };
+}
+
+function autoDetectInputFolder(masterPath, baseServer) {
+    var parsed = parseMasterPath(masterPath);
+    if (!parsed) {
+        return { found: false, path: "", schoolName: "-", targetItem: "-", message: "Format path belum lengkap" };
+    }
+
+    var baseNorm = normalizePath(baseServer);
+    var baseFolder = new Folder(baseNorm);
+    var serverReachable = baseFolder.exists;
+
+    // Jika folder bulan ditemukan dalam path
+    if (serverReachable && parsed.monthIndex !== -1 && parsed.monthToSchool !== "") {
+        // 1. Jalur Utama: baseServer / Month / ... / School / PILIHAN / TargetItem
+        var candPilihan = baseNorm + "/" + parsed.monthToSchool + "/PILIHAN/" + parsed.targetItem;
+        var fPilihan = new Folder(candPilihan);
+        if (fPilihan.exists) {
+            return {
+                found: true,
+                path: toWindowsPath(candPilihan),
+                schoolName: parsed.schoolName,
+                targetItem: parsed.targetItem,
+                message: "[OK] Terhubung otomatis di folder PILIHAN"
+            };
+        }
+
+        // 2. Pencarian Fuzzy di dalam folder PILIHAN (mencocokkan nama subfolder)
+        var parentPilihan = new Folder(baseNorm + "/" + parsed.monthToSchool + "/PILIHAN");
+        if (parentPilihan.exists) {
+            try {
+                var subDirs = parentPilihan.getFiles(function (item) { return item instanceof Folder; });
+                var targetLower = parsed.targetItem.toLowerCase();
+                var targetStripped = targetLower.replace(/^\d+[\s._-]+/, "").replace(/^\s+|\s+$/g, "");
+                for (var k = 0; k < subDirs.length; k++) {
+                    var folderName = decodeURI(subDirs[k].name);
+                    var fLower = folderName.toLowerCase();
+                    var fStripped = fLower.replace(/^\d+[\s._-]+/, "").replace(/^\s+|\s+$/g, "");
+                    if (fLower === targetLower || (targetStripped.length > 3 && fStripped === targetStripped)) {
+                        return {
+                            found: true,
+                            path: toWindowsPath(decodeURI(subDirs[k].fsName)),
+                            schoolName: parsed.schoolName,
+                            targetItem: parsed.targetItem,
+                            message: "[OK] Terhubung otomatis di PILIHAN (" + folderName + ")"
+                        };
+                    }
+                }
+            } catch (e) { }
+        }
+
+        // 3. Jalur Langsung tanpa subfolder PILIHAN (di bawah sekolah)
+        var candDirect = baseNorm + "/" + parsed.monthToSchool + "/" + parsed.targetItem;
+        var fDirect = new Folder(candDirect);
+        if (fDirect.exists) {
+            return {
+                found: true,
+                path: toWindowsPath(candDirect),
+                schoolName: parsed.schoolName,
+                targetItem: parsed.targetItem,
+                message: "[OK] Terhubung otomatis di folder Sekolah"
+            };
+        }
+    }
+
+    // 4. Pengecekan Sibling Lokal (jika folder master dan input ada di disk lokal yang sama)
+    var localPilihan = new Folder(parsed.norm + "/../PILIHAN/" + parsed.targetItem);
+    if (localPilihan.exists) {
+        return {
+            found: true,
+            path: toWindowsPath(decodeURI(localPilihan.fsName)),
+            schoolName: parsed.schoolName,
+            targetItem: parsed.targetItem,
+            message: "[OK] Ditemukan di folder lokal PILIHAN"
+        };
+    }
+
+    var notFoundMsg = serverReachable 
+        ? "Input belum ditemukan di server (silakan Browse manual)" 
+        : "Server input tidak terjangkau (silakan Browse manual)";
+
+    return {
+        found: false,
+        path: "",
+        schoolName: parsed.schoolName,
+        targetItem: parsed.targetItem,
+        message: notFoundMsg
+    };
+}
+
+function countFilesFast(folderPath, regex) {
+    if (!folderPath) return 0;
+    var f = new Folder(folderPath);
+    if (!f.exists) return 0;
+    var total = 0;
+    try {
+        var items = f.getFiles();
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (item instanceof File && item.name.match(regex)) {
+                total++;
+            } else if (item instanceof Folder) {
+                try {
+                    var subItems = item.getFiles();
+                    for (var j = 0; j < subItems.length; j++) {
+                        if (subItems[j] instanceof File && subItems[j].name.match(regex)) {
+                            total++;
+                        } else if (subItems[j] instanceof Folder) {
+                            var sub2 = subItems[j].getFiles();
+                            for (var k = 0; k < sub2.length; k++) {
+                                if (sub2[k] instanceof File && sub2[k].name.match(regex)) total++;
+                            }
+                        }
+                    }
+                } catch (e) { }
+            }
+        }
+    } catch (e) { }
+    return total;
 }
 
 function findLatestContextFile() {
@@ -77,112 +278,314 @@ function main() {
 
     // === UI CONFIG ===
     var settings = loadSettings();
+    var currentBaseServer = settings.baseInputServer || DEFAULT_BASE_INPUT;
 
     var w = new Window("dialog", "Smart Object Replacer (Queue Mode)");
     w.orientation = "column";
     w.alignChildren = ["fill", "top"];
-    w.spacing = 15;
-    w.margins = 20;
+    w.spacing = 10;
+    w.margins = 16;
+    w.preferredSize.width = 540;
 
-    // --- PANEL: INPUT CONFIG ---
-    // Make it compact: 2 rows inside 1 panel
-    var pnlConfig = w.add("panel", undefined, "Konfigurasi Folder");
-    pnlConfig.orientation = "column";
-    pnlConfig.alignChildren = ["fill", "top"];
-    pnlConfig.spacing = 10;
-    pnlConfig.margins = 15;
+    // ==========================================
+    // PANEL 1: MASTER (.PSD) & INFORMASI TARGET
+    // ==========================================
+    var pnlMaster = w.add("panel", undefined, " 1. FOLDER MASTER (.PSD) ");
+    pnlMaster.orientation = "column";
+    pnlMaster.alignChildren = ["fill", "top"];
+    pnlMaster.spacing = 8;
+    pnlMaster.margins = 12;
 
-    // Row 1: Master
-    var grpMaster = pnlConfig.add("group");
-    grpMaster.orientation = "row";
-    grpMaster.alignChildren = ["fill", "center"];
+    // Row: Input Text & Buttons
+    var grpMasterRow = pnlMaster.add("group");
+    grpMasterRow.orientation = "row";
+    grpMasterRow.alignChildren = ["fill", "center"];
 
-    var lblMaster = grpMaster.add("statictext", undefined, "Master (.psd):");
-    lblMaster.preferredSize.width = 90;
+    var lblMaster = grpMasterRow.add("statictext", undefined, "Master (.psd):");
+    lblMaster.preferredSize.width = 85;
 
-    var txtMaster = grpMaster.add("edittext", undefined, defaultMasterPath);
-    txtMaster.preferredSize.width = 230;
+    var txtMaster = grpMasterRow.add("edittext", undefined, defaultMasterPath);
+    txtMaster.preferredSize.width = 310;
+    txtMaster.helpTip = "Drag & Drop folder dari Explorer ke sini, atau Paste (Ctrl+V)";
 
-    var btnClearMaster = grpMaster.add("button", undefined, "X");
-    btnClearMaster.size = [25, 25];
-    btnClearMaster.helpTip = "Hapus text";
+    var btnClearMaster = grpMasterRow.add("button", undefined, "X");
+    btnClearMaster.size = [26, 26];
+    btnClearMaster.helpTip = "Hapus text Master";
 
-    var btnBrowseMaster = grpMaster.add("button", undefined, "Browse...");
-    btnBrowseMaster.preferredSize.width = 70;
+    var btnBrowseMaster = grpMasterRow.add("button", undefined, "Browse...");
+    btnBrowseMaster.preferredSize.width = 75;
+
+    // Hint Copy-Paste
+    var lblMasterTip = pnlMaster.add("statictext", undefined, "Tip: Di Explorer klik folder lalu tekan Ctrl+Shift+C (Copy Path), lalu di sini langsung tekan Ctrl+V.");
+    try {
+        lblMasterTip.graphics.foregroundColor = w.graphics.newPen(w.graphics.PenType.SOLID_COLOR, [0.4, 0.4, 0.4, 1], 1);
+    } catch (e) { }
+
+    // Card Informasi Master & Target
+    var pnlMasterInfo = pnlMaster.add("panel", undefined, "Informasi Master & Target");
+    pnlMasterInfo.orientation = "column";
+    pnlMasterInfo.alignChildren = ["fill", "top"];
+    pnlMasterInfo.spacing = 4;
+    pnlMasterInfo.margins = 8;
+
+    var grpSekolah = pnlMasterInfo.add("group");
+    grpSekolah.orientation = "row";
+    var lblSekolahTitle = grpSekolah.add("statictext", undefined, "Sekolah :");
+    lblSekolahTitle.preferredSize.width = 75;
+    var lblSekolahVal = grpSekolah.add("statictext", undefined, "-");
+    lblSekolahVal.preferredSize.width = 400;
+
+    var grpTarget = pnlMasterInfo.add("group");
+    grpTarget.orientation = "row";
+    var lblTargetTitle = grpTarget.add("statictext", undefined, "Target  :");
+    lblTargetTitle.preferredSize.width = 75;
+    var lblTargetVal = grpTarget.add("statictext", undefined, "-");
+    lblTargetVal.preferredSize.width = 400;
+
+    var grpMasterCount = pnlMasterInfo.add("group");
+    grpMasterCount.orientation = "row";
+    var lblMasterCountTitle = grpMasterCount.add("statictext", undefined, "Master  :");
+    lblMasterCountTitle.preferredSize.width = 75;
+    var lblMasterCountVal = grpMasterCount.add("statictext", undefined, "-");
+    lblMasterCountVal.preferredSize.width = 400;
+
+
+    // ==========================================
+    // PANEL 2: INPUT FOTO (SERVER / SELEKSI)
+    // ==========================================
+    var pnlInput = w.add("panel", undefined, " 2. FOLDER INPUT FOTO (SERVER / SELEKSI) ");
+    pnlInput.orientation = "column";
+    pnlInput.alignChildren = ["fill", "top"];
+    pnlInput.spacing = 8;
+    pnlInput.margins = 12;
+
+    // Row: Input Text & Buttons
+    var grpInputRow = pnlInput.add("group");
+    grpInputRow.orientation = "row";
+    grpInputRow.alignChildren = ["fill", "center"];
+
+    var lblInput = grpInputRow.add("statictext", undefined, "Input (Img):");
+    lblInput.preferredSize.width = 85;
+
+    var txtInput = grpInputRow.add("edittext", undefined, defaultInputPath);
+    txtInput.preferredSize.width = 310;
+    txtInput.helpTip = "Folder foto sumber (otomatis terhubung atau pilih manual)";
+
+    var btnClearInput = grpInputRow.add("button", undefined, "X");
+    btnClearInput.size = [26, 26];
+    btnClearInput.helpTip = "Hapus text Input";
+
+    var btnBrowseInput = grpInputRow.add("button", undefined, "Browse...");
+    btnBrowseInput.preferredSize.width = 75;
+
+    // Card Informasi Input & Status
+    var pnlInputInfo = pnlInput.add("panel", undefined, "Informasi Input & Status Sinkronisasi");
+    pnlInputInfo.orientation = "column";
+    pnlInputInfo.alignChildren = ["fill", "top"];
+    pnlInputInfo.spacing = 4;
+    pnlInputInfo.margins = 8;
+
+    var grpInputCount = pnlInputInfo.add("group");
+    grpInputCount.orientation = "row";
+    var lblInputCountTitle = grpInputCount.add("statictext", undefined, "Input   :");
+    lblInputCountTitle.preferredSize.width = 75;
+    var lblInputCountVal = grpInputCount.add("statictext", undefined, "-");
+    lblInputCountVal.preferredSize.width = 400;
+
+    var grpStatus = pnlInputInfo.add("group");
+    grpStatus.orientation = "row";
+    var lblStatusTitle = grpStatus.add("statictext", undefined, "Status  :");
+    lblStatusTitle.preferredSize.width = 75;
+    var lblDetectStatus = grpStatus.add("statictext", undefined, "Menunggu input Master (.psd)...");
+    lblDetectStatus.preferredSize.width = 400;
+
+    // Bottom Actions on Input: Server Config & Add to Queue
+    var grpInputActions = pnlInput.add("group");
+    grpInputActions.orientation = "row";
+    grpInputActions.alignChildren = ["fill", "center"];
+
+    var btnServerConfig = grpInputActions.add("button", undefined, "Base Server...");
+    btnServerConfig.preferredSize.width = 105;
+    btnServerConfig.preferredSize.height = 26;
+    btnServerConfig.helpTip = "Lihat atau ubah folder Base Server untuk auto-detect Input";
+
+    var grpSpacer = grpInputActions.add("group");
+    grpSpacer.alignment = ["fill", "fill"];
+
+    var btnAddQueue = grpInputActions.add("button", undefined, "+ Tambah ke Antrian");
+    btnAddQueue.preferredSize.width = 160;
+    btnAddQueue.preferredSize.height = 26;
+    btnAddQueue.helpTip = "Tambahkan pasangan Master dan Input ini ke Antrian (Queue)";
+
+
+    // ==========================================
+    // LOGIKA AUTO-DETECT & UPDATE REALTIME
+    // ==========================================
+    function updateMasterInfoOnly(raw) {
+        if (!raw || raw.replace(/\s+/g, "") === "") {
+            lblSekolahVal.text = "-";
+            lblTargetVal.text = "-";
+            lblMasterCountVal.text = "-";
+            return;
+        }
+
+        var parsed = parseMasterPath(raw);
+        if (parsed) {
+            lblSekolahVal.text = parsed.schoolName || "-";
+            lblTargetVal.text = parsed.targetItem || "-";
+        } else {
+            lblSekolahVal.text = "-";
+            lblTargetVal.text = "-";
+        }
+
+        var mCount = countFilesFast(raw, /\.(psd|psb)$/i);
+        if (mCount > 0) {
+            lblMasterCountVal.text = mCount + " file .psd ditemukan";
+        } else if (new Folder(raw).exists) {
+            lblMasterCountVal.text = "0 file .psd (folder kosong)";
+        } else {
+            lblMasterCountVal.text = "- (folder belum ada)";
+        }
+    }
+
+    function updateInputInfoOnly(raw) {
+        if (!raw || raw.replace(/\s+/g, "") === "") {
+            lblInputCountVal.text = "-";
+            return;
+        }
+        var iCount = countFilesFast(raw, /\.(png|jpe?g|psd)$/i);
+        if (iCount > 0) {
+            lblInputCountVal.text = iCount + " file gambar ditemukan (termasuk di dalam subfolder)";
+        } else if (new Folder(raw).exists) {
+            lblInputCountVal.text = "0 file gambar di folder ini";
+        } else {
+            lblInputCountVal.text = "-";
+        }
+    }
+
+    function triggerAutoDetect() {
+        var raw = txtMaster.text;
+        if (!raw || raw.replace(/\s+/g, "") === "") {
+            lblSekolahVal.text = "-";
+            lblTargetVal.text = "-";
+            lblMasterCountVal.text = "-";
+            lblDetectStatus.text = "Menunggu input Master (.psd)...";
+            lblInputCountVal.text = "-";
+            return;
+        }
+
+        var normalized = toWindowsPath(normalizePath(raw));
+        if (normalized && normalized !== raw && raw.indexOf("\\") !== -1) {
+            txtMaster.text = normalized;
+            raw = normalized;
+        }
+
+        updateMasterInfoOnly(raw);
+
+        var res = autoDetectInputFolder(raw, currentBaseServer);
+        lblDetectStatus.text = res.message;
+
+        if (res.found && res.path) {
+            txtInput.text = res.path;
+            updateInputInfoOnly(res.path);
+        } else {
+            updateInputInfoOnly(txtInput.text);
+        }
+    }
+
+    // Event Handlers (Instant OnChanging saat Paste/Drop)
+    txtMaster.onChanging = function () {
+        triggerAutoDetect();
+    };
+
+    txtMaster.onChange = function () {
+        triggerAutoDetect();
+    };
+
+    txtInput.onChanging = function () {
+        updateInputInfoOnly(txtInput.text);
+    };
+
+    txtInput.onChange = function () {
+        updateInputInfoOnly(txtInput.text);
+    };
 
     btnBrowseMaster.onClick = function () {
         var f = Folder.selectDialog("Pilih Folder Master");
-        if (f) txtMaster.text = decodeURI(f.fullName);
+        if (f) {
+            txtMaster.text = decodeURI(f.fsName || f.fullName);
+            triggerAutoDetect();
+        }
     };
 
     btnClearMaster.onClick = function () {
         txtMaster.text = "";
+        triggerAutoDetect();
         txtMaster.active = true;
     };
 
-    // Row 2: Input (Seleksi)
-    var grpInput = pnlConfig.add("group");
-    grpInput.orientation = "row";
-    grpInput.alignChildren = ["fill", "center"];
-
-    var lblInput = grpInput.add("statictext", undefined, "Input (Img):");
-    lblInput.preferredSize.width = 90;
-
-    var txtInput = grpInput.add("edittext", undefined, defaultInputPath);
-    txtInput.preferredSize.width = 230;
-
-    var btnClearInput = grpInput.add("button", undefined, "X");
-    btnClearInput.size = [25, 25];
-    btnClearInput.helpTip = "Hapus text";
-
-    var btnBrowseInput = grpInput.add("button", undefined, "Browse...");
-    btnBrowseInput.preferredSize.width = 70;
-
-    // Row 3: Tombol (+) Add to Queue - RIGHT ALIGNED
-    var grpAdd = pnlConfig.add("group");
-    grpAdd.orientation = "row";
-    grpAdd.alignChildren = ["right", "center"];
-
-    var btnAddQueue = grpAdd.add("button", undefined, "+");
-    btnAddQueue.size = [40, 25];
-    btnAddQueue.helpTip = "Tambahkan ke Antrian (Queue)";
-
     btnBrowseInput.onClick = function () {
         var f = Folder.selectDialog("Pilih Folder Seleksi");
-        if (f) txtInput.text = decodeURI(f.fullName);
+        if (f) {
+            txtInput.text = decodeURI(f.fsName || f.fullName);
+            updateInputInfoOnly(txtInput.text);
+        }
     };
 
     btnClearInput.onClick = function () {
         txtInput.text = "";
+        updateInputInfoOnly("");
         txtInput.active = true;
     };
 
+    btnServerConfig.onClick = function () {
+        var promptMsg = "Base Path Server Input saat ini:\n\n" + currentBaseServer + "\n\nMasukkan path baru jika ingin mengubah:";
+        var newBase = prompt(promptMsg, currentBaseServer);
+        if (newBase !== null && newBase !== "") {
+            newBase = newBase.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "");
+            currentBaseServer = newBase;
+            saveSettings(w.location.x, w.location.y, currentBaseServer);
+            triggerAutoDetect();
+        }
+    };
 
-    // --- List Queue (Visible only if items exist) ---
-    var grpQueue = w.add("group");
+    // Auto-detect saat pertama kali dialog terbuka jika Master sudah terisi
+    if (txtMaster.text != "") {
+        triggerAutoDetect();
+    }
+
+    // ==========================================
+    // PANEL 3: DAFTAR ANTRIAN (QUEUE)
+    // ==========================================
+    var grpQueue = w.add("panel", undefined, " 3. DAFTAR ANTRIAN KERJA ");
     grpQueue.orientation = "column";
     grpQueue.alignChildren = ["fill", "top"];
     grpQueue.visible = false;
-    grpQueue.spacing = 5;
+    grpQueue.spacing = 6;
+    grpQueue.margins = 10;
 
     var lblQueue = grpQueue.add("statictext", undefined, "Daftar Antrian (Queue):");
     var listQueue = grpQueue.add("listbox", undefined, [], { multiselect: true });
-    listQueue.preferredSize.height = 120;
-    listQueue.preferredSize.width = 450;
+    listQueue.preferredSize.height = 110;
+    listQueue.preferredSize.width = 500;
 
-    // Queue Controls (Small row below list)
+    // Queue Controls
     var grpQueueControl = grpQueue.add("group");
     grpQueueControl.orientation = "row";
     grpQueueControl.alignChildren = ["left", "center"];
 
     var btnClearQueue = grpQueueControl.add("button", undefined, "Hapus Terpilih");
-    btnClearQueue.size = [100, 24]; // Compact height
+    btnClearQueue.size = [110, 25];
     btnClearQueue.enabled = false;
 
     // Logic Add Queue
     var queueData = []; // Store real objects {master, input}
 
     btnAddQueue.onClick = function () {
+        if (txtMaster.text != "" && txtInput.text == "") {
+            triggerAutoDetect();
+        }
+
         if (txtMaster.text == "" || txtInput.text == "") {
             alert("Isi Folder Master dan Input dulu!");
             return;
@@ -199,12 +602,14 @@ function main() {
         listQueue.add("item", label);
 
         // Update UI state
+        grpQueue.text = " 3. DAFTAR ANTRIAN KERJA (" + queueData.length + ") ";
         grpQueue.visible = true;
-        w.layout.layout(true); // Refresh layout if possible
+        w.layout.layout(true); // Refresh layout
 
         // Clear fields for next entry
         txtInput.text = "";
         txtMaster.text = "";
+        triggerAutoDetect();
     };
 
     listQueue.onChange = function () {
@@ -213,12 +618,7 @@ function main() {
 
     btnClearQueue.onClick = function () {
         if (!listQueue.selection) return;
-        // Remove from UI and Data (reverse loop)
-        // Since listbox selection is object, we need smart removal.
-        // Easier: Rebuild list from data? No.
-        // Standard removal:
         var limits = listQueue.selection;
-        // Sort indices desc
         var indices = [];
         for (var i = 0; i < limits.length; i++) indices.push(limits[i].index);
         indices.sort(function (a, b) { return b - a }); // Descending
@@ -229,24 +629,26 @@ function main() {
             queueData.splice(idx, 1);
         }
 
+        grpQueue.text = " 3. DAFTAR ANTRIAN KERJA (" + queueData.length + ") ";
         if (listQueue.items.length == 0) {
             grpQueue.visible = false;
             w.layout.layout(true);
         }
     };
 
-    // --- Buttons ---
+    // ==========================================
+    // TOMBOL AKSI UTAMA
+    // ==========================================
     var grpBtn = w.add("group");
     grpBtn.alignment = "center";
-    grpBtn.spacing = 10;
+    grpBtn.spacing = 12;
 
-    // Dynamic text update? "REPLACE (QUEUE)" vs "REPLACE"
     var btnRun = grpBtn.add("button", undefined, "REPLACE", { name: "ok" });
-    btnRun.preferredSize.width = 120;
+    btnRun.preferredSize = [130, 32];
     var btnRevisi = grpBtn.add("button", undefined, "REPLACE REVISI");
-    btnRevisi.preferredSize.width = 130;
+    btnRevisi.preferredSize = [140, 32];
     var btnCancel = grpBtn.add("button", undefined, "Batal", { name: "cancel" });
-    btnCancel.preferredSize.width = 80;
+    btnCancel.preferredSize = [80, 32];
 
     // === EXECUTION LOGIC ===
     btnRun.onClick = function () {
@@ -268,10 +670,12 @@ function main() {
         w.center();
     }
 
+    txtMaster.active = true;
+
     var result = w.show();
     if (result != 1 && result != 2) return; // Cancel
 
-    saveSettings(w.location.x, w.location.y);
+    saveSettings(w.location.x, w.location.y, currentBaseServer);
 
     // --- COLLECT JOBS ---
     var jobsToRun = [];
@@ -284,6 +688,10 @@ function main() {
     // 2. Add Current Fields (if valid and not empty)
     // NOTE: Only add if fields are filled. If Queue has items but fields empty, ignore fields.
     // If Queue empty, fields MUST be filled.
+    if (txtMaster.text != "" && txtInput.text == "") {
+        triggerAutoDetect();
+    }
+
     if (txtMaster.text != "" && txtInput.text != "") {
         // Optional: Check duplication?
         jobsToRun.push({ master: txtMaster.text, input: txtInput.text });

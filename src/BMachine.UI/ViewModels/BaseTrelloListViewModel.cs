@@ -971,8 +971,14 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             
             if (response.IsSuccessStatusCode)
             {
-                await LoadChecklists(SelectedCard.Id);
+                Checklists.Remove(checklist);
+                SelectedCard.ChecklistNames.Remove(checklist.Name);
+                SelectedCard.ChecklistTotal -= checklist.Items.Count;
+                SelectedCard.ChecklistCompleted -= checklist.Items.Count(item => item.IsChecked);
+                SelectedCard.HasChecklist = Checklists.Count > 0;
+                SelectedCard.RefreshChecklistStatus();
                 await LogActivity("Checklist", "Deleted Checklist", $"{checklist.Name} on {SelectedCard.Name}");
+                _ = LoadChecklists(SelectedCard.Id);
             }
             else
             {
@@ -1059,13 +1065,16 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                  item.IsChecked = !item.IsChecked; 
                  StatusMessage = "Failed to update item state.";
              }
-             else 
-             {
-                 // Log Toggle? It's frequent. User said "semua cheklis".
-                 // Let's log if it was COMPLETED (checked). Unchecking might be less important? 
-                 // User said "semua".
-                 await LogActivity("Checklist", "Update Item", $"{item.Name} -> {newState} on {SelectedCard.Name}");
-             }
+              else
+              {
+                  var delta = item.IsChecked ? 1 : -1;
+                  SelectedCard.ChecklistCompleted = Math.Clamp(
+                      SelectedCard.ChecklistCompleted + delta,
+                      0,
+                      SelectedCard.ChecklistTotal);
+                  SelectedCard.RefreshChecklistStatus();
+                  await LogActivity("Checklist", "Update Item", $"{item.Name} -> {newState} on {SelectedCard.Name}");
+              }
         }
         catch
         {
@@ -1430,10 +1439,16 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         await LoadMoveBoards();
     }
 
+    private int _moveListsLoadVersion;
+
     partial void OnSelectedMoveBoardChanged(TrelloItem? value)
     {
-        if (value != null) _ = LoadMoveLists(value.Id);
-        else AvailableLists.Clear();
+        var loadVersion = ++_moveListsLoadVersion;
+        SelectedMoveList = null;
+        AvailableLists.Clear();
+
+        if (value == null || string.IsNullOrWhiteSpace(value.Id)) return;
+        _ = LoadMoveLists(value.Id, loadVersion);
     }
 
     [RelayCommand]
@@ -1674,10 +1689,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
     }
 
-    private async Task LoadMoveLists(string boardId)
+    private async Task LoadMoveLists(string boardId, int loadVersion)
     {
+        if (string.IsNullOrWhiteSpace(boardId)) return;
+
         IsLoadingMoveData = true;
-        AvailableLists.Clear();
         try
         {
             var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
@@ -1688,22 +1704,27 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var url = $"https://api.trello.com/1/boards/{boardId}/lists?key={apiKey}&token={token}&fields=name,id";
             var json = await client.GetStringAsync(url);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
-            foreach (var element in doc.RootElement.EnumerateArray())
-            {
-                AvailableLists.Add(new TrelloItem 
-                { 
-                    Id = element.GetProperty("id").GetString() ?? "", 
-                    Name = element.GetProperty("name").GetString() ?? "" 
-                });
-            }
+            if (loadVersion != _moveListsLoadVersion || SelectedMoveBoard?.Id != boardId) return;
+
+            var lists = doc.RootElement.EnumerateArray()
+                .Select(element => new TrelloItem
+                {
+                    Id = element.GetProperty("id").GetString() ?? "",
+                    Name = element.GetProperty("name").GetString() ?? ""
+                })
+                .Where(item => !string.IsNullOrWhiteSpace(item.Id))
+                .ToList();
+
+            AvailableLists.Clear();
+            foreach (var item in lists) AvailableLists.Add(item);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error loading lists: {ex.Message}";
+            if (loadVersion == _moveListsLoadVersion) StatusMessage = $"Error loading lists: {ex.Message}";
         }
         finally
         {
-            IsLoadingMoveData = false;
+            if (loadVersion == _moveListsLoadVersion) IsLoadingMoveData = false;
         }
     }
 
@@ -1800,8 +1821,12 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 existing.Description = newC.Description;
                 existing.DueDate = newC.DueDate;
                 existing.IsOverdue = newC.IsOverdue;
-                existing.LabelsText = newC.LabelsText;
                 existing.HasChecklist = newC.HasChecklist;
+                existing.ChecklistNames = newC.ChecklistNames;
+                existing.ChecklistOwnerName = newC.ChecklistOwnerName;
+                existing.ChecklistTotal = newC.ChecklistTotal;
+                existing.ChecklistCompleted = newC.ChecklistCompleted;
+                existing.RefreshChecklistStatus();
                 existing.AttachmentCount = newC.AttachmentCount;
                 existing.CoverUrl = newC.CoverUrl;
                 existing.CoverColor = newC.CoverColor;
@@ -1966,7 +1991,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     if (badges.TryGetProperty("attachments", out var att)) card.AttachmentCount = att.GetInt32();
                 }
 
-                // Parse Checklists Names
+                // Parse checklist names and item progress
                 if (element.TryGetProperty("checklists", out var checkArr) && checkArr.ValueKind == System.Text.Json.JsonValueKind.Array)
                 {
                     foreach (var checkItem in checkArr.EnumerateArray())
@@ -1975,9 +2000,23 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                         {
                             card.ChecklistNames.Add(cName.GetString() ?? "");
                         }
+
+                        if (checkItem.TryGetProperty("checkItems", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (var item in items.EnumerateArray())
+                            {
+                                card.ChecklistTotal++;
+                                if (item.TryGetProperty("state", out var state) &&
+                                    string.Equals(state.GetString(), "complete", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    card.ChecklistCompleted++;
+                                }
+                            }
+                        }
                     }
                 }
-                card.HasChecklist = card.ChecklistNames.Count > 0; 
+                card.HasChecklist = card.ChecklistNames.Count > 0;
+                card.ChecklistOwnerName = await _database.GetAsync<string>("User.Name") ?? "USER";
 
                 results.Add(card);
             }

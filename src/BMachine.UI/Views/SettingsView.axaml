@@ -19,18 +19,23 @@
         <Style Selector="RadioButton.Segmented">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="MinHeight" Value="30"/>
             <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}">
-                         <ContentPresenter Content="{TemplateBinding Content}"
-                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Center"
+                                          VerticalAlignment="Stretch"
+                                          VerticalContentAlignment="Center"/>
                     </Border>
                 </ControlTemplate>
             </Setter>
@@ -47,7 +52,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
-        <Style Selector="RadioButton.Segmented:pointerover">
+        <Style Selector="RadioButton.Segmented:pointerover:not(:checked)">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
         </Style>
@@ -127,36 +132,40 @@
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
                             <Setter Property="Padding" Value="16,14"/>
-                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="Margin" Value="0,0"/>
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                             <Setter Property="Cursor" Value="Hand"/>
                             <Setter Property="Template">
                                 <ControlTemplate>
-                                    <Grid Background="Transparent">
-                                        <!-- Subtle Hover Glass -->
-                                        <Border x:Name="HoverBg" Background="Transparent" CornerRadius="4" Margin="8,0"/>
-                                        
-                                        <!-- Futuristic Indicator Pill (Left) -->
-                                        <Border x:Name="Indicator" Width="2" Height="0" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                CornerRadius="6" Background="{DynamicResource TextPrimaryBrush}">
-                                            <Border.Transitions>
-                                                <Transitions>
-                                                    <DoubleTransition Property="Height" Duration="0:0:0.3">
-                                                        <DoubleTransition.Easing>
-                                                            <SplineEasing X1="0.1" Y1="0.9" X2="0.2" Y2="1"/>
-                                                        </DoubleTransition.Easing>
-                                                    </DoubleTransition>
-                                                </Transitions>
-                                            </Border.Transitions>
-                                        </Border>
-                                        
-                                        <ContentPresenter x:Name="PART_ContentPresenter"
-                                                          Content="{TemplateBinding Content}"
-                                                          ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                          Padding="{TemplateBinding Padding}"
-                                                          Margin="8,0,0,0"/>
-                                    </Grid>
+                                    <Border Background="Transparent"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}">
+                                        <Grid Background="Transparent">
+                                            <!-- Subtle Hover Glass -->
+                                            <Border x:Name="HoverBg" Background="Transparent" CornerRadius="4" Margin="8,0"/>
+                                            
+                                            <!-- Futuristic Indicator Pill (Left) -->
+                                            <Border x:Name="Indicator" Width="2" Height="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    CornerRadius="6" Background="{DynamicResource TextPrimaryBrush}">
+                                                <Border.Transitions>
+                                                    <Transitions>
+                                                        <DoubleTransition Property="Height" Duration="0:0:0.3">
+                                                            <DoubleTransition.Easing>
+                                                                <SplineEasing X1="0.1" Y1="0.9" X2="0.2" Y2="1"/>
+                                                            </DoubleTransition.Easing>
+                                                        </DoubleTransition>
+                                                    </Transitions>
+                                                </Border.Transitions>
+                                            </Border>
+                                            
+                                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                                              Content="{TemplateBinding Content}"
+                                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                              Padding="{TemplateBinding Padding}"
+                                                              Margin="8,0,0,0"/>
+                                        </Grid>
+                                    </Border>
                                 </ControlTemplate>
                             </Setter>
                             <Setter Property="Transitions">
@@ -164,6 +173,14 @@
                                     <BrushTransition Property="Foreground" Duration="0:0:0.2"/>
                                 </Transitions>
                             </Setter>
+                        </Style>
+
+                        <!-- Separator: thin top line, no gap indent -->
+                        <Style Selector="ListBoxItem.sep">
+                            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+                            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+                            <Setter Property="Padding" Value="16,14"/>
+                            <Setter Property="Margin" Value="0,4,0,0"/>
                         </Style>
 
                         <Style Selector="ListBoxItem TextBlock">
@@ -211,7 +228,7 @@
                         </Style>
                     </ListBox.Styles>
 
-                    <!-- 8 nav items — index must stay 0–7 to match ViewModel.SelectedMenuIndex -->
+                    <!-- 7 nav items — index must stay 0–6 to match ViewModel.SelectedMenuIndex -->
                     <!-- 0: General -->
                     <ListBoxItem>
                         <StackPanel Orientation="Horizontal" Spacing="9">
@@ -227,7 +244,7 @@
                         </StackPanel>
                     </ListBoxItem>
                     <!-- 2: Account -->
-                    <ListBoxItem>
+                    <ListBoxItem Classes="sep">
                         <StackPanel Orientation="Horizontal" Spacing="9">
                             <PathIcon Data="{StaticResource IconUser}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                             <TextBlock Text="{Binding Language[Nav.Account]}" FontSize="12" VerticalAlignment="Center"/>
@@ -241,28 +258,21 @@
                         </StackPanel>
                     </ListBoxItem>
                     <!-- 4: Script Manager -->
-                    <ListBoxItem>
+                    <ListBoxItem Classes="sep">
                         <StackPanel Orientation="Horizontal" Spacing="9">
                              <PathIcon Data="{StaticResource IconScript}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                              <TextBlock Text="Script Manager" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
-                    <!-- 5: Paths — also bound directly to IsPathsSelected -->
-                    <ListBoxItem IsSelected="{Binding IsPathsSelected}">
+                    <!-- 5: Paths -->
+                    <ListBoxItem>
                         <StackPanel Orientation="Horizontal" Spacing="9">
                              <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                              <TextBlock Text="Paths" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
-                    <!-- 6: Log Panel -->
-                    <ListBoxItem>
-                        <StackPanel Orientation="Horizontal" Spacing="9">
-                             <PathIcon Data="{StaticResource IconFileText}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
-                             <TextBlock Text="Log Panel" FontSize="12" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </ListBoxItem>
                     <!-- 7: About -->
-                    <ListBoxItem>
+                    <ListBoxItem Classes="sep">
                         <StackPanel Orientation="Horizontal" Spacing="9">
                              <PathIcon Data="{StaticResource IconInfoCircle}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                              <TextBlock Text="About" FontSize="12" VerticalAlignment="Center"/>
@@ -291,7 +301,7 @@
                                                  Classes="Segmented">
                                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                             <PathIcon Data="{StaticResource IconSun}" Width="12" Height="12" Foreground="{Binding $parent[RadioButton].Foreground}"/>
-                                            <TextBlock Text="Light" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBlock Text="Light" VerticalAlignment="Center" FontSize="12" Foreground="{Binding $parent[RadioButton].Foreground}"/>
                                         </StackPanel>
                                     </RadioButton>
                                     <RadioButton Grid.Column="1" GroupName="ThemeGroup"
@@ -299,7 +309,7 @@
                                                  Classes="Segmented">
                                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                             <PathIcon Data="{StaticResource IconMoon}" Width="12" Height="12" Foreground="{Binding $parent[RadioButton].Foreground}"/>
-                                            <TextBlock Text="Dark" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBlock Text="Dark" VerticalAlignment="Center" FontSize="12" Foreground="{Binding $parent[RadioButton].Foreground}"/>
                                         </StackPanel>
                                     </RadioButton>
                                 </Grid>
@@ -344,60 +354,6 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                             <ColorPicker Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsAccentCustom}" Color="{Binding CustomAccentColor}" Margin="0,8,0,0"/>
-                        </Grid>
-                    </Border>
-                    <TextBlock Classes="SL" Text="NAVIGATION BUTTONS" Margin="0,24,0,6"/>
-                    <Border Classes="SR">
-                        <Grid ColumnDefinitions="*, 120">
-                            <TextBlock Text="Button Width" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <NumericUpDown Grid.Column="1" Value="{Binding NavButtonWidth}" Minimum="80" Maximum="250" Increment="1" FormatString="0"/>
-                        </Grid>
-                    </Border>
-                    <Border Classes="SR">
-                        <Grid ColumnDefinitions="*, 120">
-                            <TextBlock Text="Button Height" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <NumericUpDown Grid.Column="1" Value="{Binding NavButtonHeight}" Minimum="20" Maximum="80" Increment="1" FormatString="0"/>
-                        </Grid>
-                    </Border>
-                    <Border Classes="SR">
-                        <Grid ColumnDefinitions="*, 120">
-                            <TextBlock Text="Corner Radius" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <NumericUpDown Grid.Column="1" Value="{Binding NavCornerRadius}" Minimum="0" Maximum="40" Increment="1" FormatString="0"/>
-                        </Grid>
-                    </Border>
-                    <Border Classes="SR">
-                        <Grid ColumnDefinitions="*, 180">
-                            <TextBlock Text="Button Type" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2">
-                                <Grid ColumnDefinitions="*,*">
-                                    <RadioButton Grid.Column="0" Content="Icon" GroupName="NavStyleGroup"
-                                                IsChecked="{Binding NavStyleIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=0}"
-                                                Classes="Segmented"/>
-                                    <RadioButton Grid.Column="1" Content="Text" GroupName="NavStyleGroup"
-                                                IsChecked="{Binding NavStyleIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=1}"
-                                                Classes="Segmented"/>
-                                </Grid>
-                            </Border>
-                        </Grid>
-                    </Border>
-                    <Border Classes="SR" IsVisible="{Binding NavStyleIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=1}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="180"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Button Texts" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Top" Margin="0,3,0,0"/>
-                            <StackPanel Grid.Column="1" Spacing="5">
-                                <TextBox Text="{Binding NavCustomText}" Watermark="Dashboard"/>
-                                <TextBox Text="{Binding NavBatchText}" Watermark="Batch"/>
-                                <TextBox Text="{Binding NavLockerText}" Watermark="Locker"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                    <Border Classes="SR">
-                        <Grid ColumnDefinitions="*, 120">
-                            <TextBlock Text="Font Size" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <NumericUpDown Grid.Column="1" Value="{Binding NavFontSize}" Minimum="10" Maximum="24" Increment="0.5" FormatString="0.0"/>
                         </Grid>
                     </Border>
                     <TextBlock Classes="SL" Text="ANIMATIONS" Margin="0,24,0,6"/>
@@ -626,7 +582,7 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="API Key" FontSize="12" Foreground="#555" VerticalAlignment="Center"/>
                         <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, Auto" Margin="0,0,0,8">
                             <TextBox Grid.Column="0" Text="{Binding TrelloApiKey, UpdateSourceTrigger=PropertyChanged}" PasswordChar="*" Watermark="Trello API Key"/>
-                            <Button Grid.Column="1" Command="{Binding OpenTrelloAdminCommand}" Content="Get Key" Classes="Clear" Margin="8,0,0,0" ToolTip.Tip="Open Trello Power-Up Admin to generate Key" IsVisible="{Binding IsTrelloKeyMissing}"/>
+                            <Button Grid.Column="1" Command="{Binding OpenTrelloAdminCommand}" Content="Get Key" Classes="secondary" Margin="8,0,0,0" ToolTip.Tip="Open Trello Power-Up Admin to generate Key" IsVisible="{Binding IsTrelloKeyMissing}"/>
                         </Grid>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Token" FontSize="12" Foreground="#555" VerticalAlignment="Center" IsVisible="{Binding IsTrelloKeyProvided}"/>
                         <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto" IsVisible="{Binding IsTrelloKeyProvided}">
@@ -733,9 +689,9 @@
 
         <!-- EXTENSIONS -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsNotificationsSelected}" Margin="0,0,14,20">
-             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" ClipToBounds="True">
-                 <Grid Margin="16">
-                 <TextBlock Text="{Binding Language[Extensions.NoExtensions]}" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+             <Border Classes="Card">
+                 <Grid Margin="{StaticResource SpaceLg}">
+                 <TextBlock Text="{Binding Language[Extensions.NoExtensions]}" Classes="body" HorizontalAlignment="Center" VerticalAlignment="Center">
                      <TextBlock.IsVisible>
                          <Binding Path="Extensions.Count" Converter="{x:Static ObjectConverters.IsNull}"/>
                      </TextBlock.IsVisible>
@@ -744,36 +700,29 @@
                      <ItemsControl ItemsSource="{Binding Extensions}" Margin="0,0,0,60">
                          <ItemsControl.ItemTemplate>
                              <DataTemplate>
-                                 <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1" Padding="0,12">
+                                 <Border HorizontalAlignment="Stretch" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1" Padding="0,12">
                                      <Grid ColumnDefinitions="Auto, *, Auto, Auto" RowDefinitions="Auto, Auto">
-                                         <Border Grid.RowSpan="2" Width="36" Height="36" CornerRadius="6" Background="{DynamicResource AccentColorBrush}" Margin="0,0,12,0">
-                                             <PathIcon Data="{StaticResource IconExtension}" Foreground="White" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                         <Border Grid.RowSpan="2" Width="36" Height="36" CornerRadius="{StaticResource RadiusSm}" Background="{DynamicResource AccentColorBrush}" Margin="0,0,12,0">
+                                             <PathIcon Data="{StaticResource IconExtension}" Classes="sm" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                          </Border>
                                          <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"/>
-                                             <TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                             <TextBlock Text="{Binding Name}" Classes="h3"/>
+                                             <TextBlock Text="{Binding Description}" Classes="caption" TextWrapping="Wrap" MaxHeight="36"/>
                                          </StackPanel>
                                          <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                             <TextBlock Text="{Binding Version, StringFormat='v{0}'}" FontSize="11" Foreground="#555"/>
-                                             <TextBlock Text="|" FontSize="11" Foreground="#333"/>
-                                             <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#555"/>
+                                             <TextBlock Text="{Binding Version, StringFormat='v{0}'}" Classes="caption"/>
+                                             <TextBlock Text="|" Classes="caption"/>
+                                             <TextBlock Text="{Binding Author}" Classes="caption"/>
                                          </StackPanel>
                                          <ToggleButton Grid.Column="2" Classes="Switch" IsChecked="{Binding IsEnabled}" Command="{Binding ToggleCommand}" VerticalAlignment="Center" Margin="10,0"/>
-                                         <Button Grid.Column="3" Classes="Clear" Command="{Binding DeleteCommand}" Foreground="#EF4444" VerticalAlignment="Center">
-                                             <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#EF4444"/>
-                                         </Button>
+                                         <Button Grid.Column="3" Classes="danger" Command="{Binding DeleteCommand}" VerticalAlignment="Center" Content="Delete"/>
                                      </Grid>
                                  </Border>
                              </DataTemplate>
                          </ItemsControl.ItemTemplate>
                      </ItemsControl>
                  </ScrollViewer>
-                 <Button Command="{Binding AddExtensionCommand}" Classes="Action" Height="34" Padding="14,0" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                     <StackPanel Orientation="Horizontal" Spacing="8">
-                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="White" VerticalAlignment="Center"/>
-                         <TextBlock Text="{Binding Language[Extensions.Add]}" VerticalAlignment="Center"/>
-                     </StackPanel>
-                 </Button>
+                 <Button Command="{Binding AddExtensionCommand}" Classes="primary" HorizontalAlignment="Right" VerticalAlignment="Bottom" Content="{Binding Language[Extensions.Add]}"/>
              </Grid>
              </Border>
         </Grid>
@@ -788,8 +737,12 @@
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" 
                             Padding="4" Margin="16,14,16,8">
                         <StackPanel Orientation="Horizontal" Spacing="2">
-                            <RadioButton Classes="TrelloBoardTab" Content="MASTER SCRIPTS (PYTHON)" IsChecked="{Binding IsScriptMasterSelected}" Command="{Binding SwitchToScriptMasterCommand}"/>
-                            <RadioButton Classes="TrelloBoardTab" Content="ACTION SCRIPTS (RADIAL MENU)" IsChecked="{Binding IsScriptActionSelected}" Command="{Binding SwitchToScriptActionCommand}"/>
+                            <RadioButton Classes="TrelloBoardTab CompactTab" IsChecked="{Binding IsScriptMasterSelected}" Command="{Binding SwitchToScriptMasterCommand}">
+                                <TextBlock Text="MASTER SCRIPT" FontSize="12" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </RadioButton>
+                            <RadioButton Classes="TrelloBoardTab CompactTab" IsChecked="{Binding IsScriptActionSelected}" Command="{Binding SwitchToScriptActionCommand}">
+                                <TextBlock Text="RADIAL MENU" FontSize="12" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </RadioButton>
                         </StackPanel>
                     </Border>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -995,25 +948,6 @@
                  <views:PathSettingsView DataContext="{Binding PathSettingsVM}"/>
              </Border>
         </Grid>
-
-        <!-- STATUS TOAST -->
-        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsLogPanelSelected}">
-            <StackPanel Spacing="0" Margin="0,0,14,20">
-                <TextBlock Classes="SL" Text="LOG PANEL NAVIGATION"/>
-                <Border Classes="SR">
-                    <Grid ColumnDefinitions="*, 120">
-                        <TextBlock Text="Tab Button Height" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <NumericUpDown Grid.Column="1" Value="{Binding LogNavButtonHeight}" Minimum="10" Maximum="80" Increment="1" FormatString="0"/>
-                    </Grid>
-                </Border>
-                <Border Classes="SR">
-                    <Grid ColumnDefinitions="*, 120">
-                        <TextBlock Text="Tab Icon Size" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                        <NumericUpDown Grid.Column="1" Value="{Binding LogNavFontSize}" Minimum="10" Maximum="30" Increment="1" FormatString="0"/>
-                    </Grid>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
 
         <!-- ABOUT -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsAboutSelected}" Margin="0,0,14,20">

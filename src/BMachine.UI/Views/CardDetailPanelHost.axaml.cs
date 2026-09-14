@@ -48,6 +48,15 @@ public partial class CardDetailPanelHost : UserControl
             attachButton.AddHandler(DragDrop.DragOverEvent, OnAttachDragOver);
             attachButton.AddHandler(DragDrop.DropEvent, OnAttachDrop);
         }
+
+        var moveBoardBox = this.FindControl<AutoCompleteBox>("Part_MoveBoardBox");
+        if (moveBoardBox != null) BMachine.UI.Controls.AutoCompleteBoxHelper.Hook(moveBoardBox);
+
+        var moveListBox = this.FindControl<AutoCompleteBox>("Part_MoveListBox");
+        if (moveListBox != null) BMachine.UI.Controls.AutoCompleteBoxHelper.Hook(moveListBox);
+
+        var checklistBox = this.FindControl<AutoCompleteBox>("Part_ChecklistSourceBox");
+        if (checklistBox != null) BMachine.UI.Controls.AutoCompleteBoxHelper.Hook(checklistBox);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

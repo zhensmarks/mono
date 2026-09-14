@@ -341,8 +341,8 @@
         grpCheckboxes.spacing = 15;
         grpCheckboxes.margins = 15;
 
-        var cbBatch = grpCheckboxes.add("checkbox", undefined, "BATCH");
         var cbColorRange = grpCheckboxes.add("checkbox", undefined, "COLORRANGE");
+		var cbBatch = grpCheckboxes.add("checkbox", undefined, "BATCH");
         var cbManasik = grpCheckboxes.add("checkbox", undefined, "MANASIK");
 
         var btnCancel = w.add("button", undefined, "Cancel");

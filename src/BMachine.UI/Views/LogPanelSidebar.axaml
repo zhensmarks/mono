@@ -32,26 +32,26 @@
         <Grid RowDefinitions="Auto, *, Auto">
             
             <!-- HEADER: Navigation Bar (Row 0) -->
-            <Border Grid.Row="0" Padding="12,12,12,8">
-                <StackPanel Spacing="8">
-                    <!-- Navigation Tab Buttons - Trello style (icon-only, keep icon) -->
+            <Border Grid.Row="0" Padding="12,8,12,4">
+                <StackPanel Spacing="6">
+                    <!-- Navigation Tab Buttons - compact text labels -->
                     <Border Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="8" Padding="4"
+                            CornerRadius="8" Padding="3"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
-                        <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
-                            <RadioButton Classes="TrelloBoardTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsConsoleVisible}" Click="OnConsoleTabClick" ToolTip.Tip="Console">
-                                <PathIcon Data="{StaticResource IconTerminal}" Width="14" Height="14"/>
-                            </RadioButton>
-                            <RadioButton Classes="TrelloBoardTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsMasterVisible}" Click="OnMasterTabClick" ToolTip.Tip="Master">
-                                <PathIcon Data="{StaticResource IconGrid}" Width="14" Height="14"/>
-                            </RadioButton>
-                            <RadioButton Classes="TrelloBoardTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
-                                <PathIcon Data="{StaticResource IconImageSimple}" Width="14" Height="14"/>
-                            </RadioButton>
-                            <RadioButton Classes="TrelloBoardTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsDocVisible}" IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
-                                <PathIcon Data="{StaticResource IconFileText}" Width="14" Height="14"/>
-                            </RadioButton>
-                        </StackPanel>
+                         <UniformGrid Rows="1">
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsConsoleVisible}" Click="OnConsoleTabClick" ToolTip.Tip="Console">
+                                  <TextBlock Text="CONSOLE" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </RadioButton>
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsMasterVisible}" Click="OnMasterTabClick" ToolTip.Tip="Master">
+                                  <TextBlock Text="MASTER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </RadioButton>
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
+                                  <TextBlock Text="PHOTOSHOP" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </RadioButton>
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsDocVisible}" IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
+                                  <TextBlock Text="DOC" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </RadioButton>
+                         </UniformGrid>
                     </Border>
                     
                     <!-- Integrated Compact Search -->

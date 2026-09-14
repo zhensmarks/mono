@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using BMachine.Core.Database;
 using BMachine.UI.Messages;
 using System.Threading.Tasks;
+using System.Linq;
 using BMachine.SDK;
 using Avalonia;
 using Avalonia.Controls;
@@ -71,6 +72,12 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [ObservableProperty] private double _contentZoom = 100; // Percent, 75..200
     [ObservableProperty] private bool _useSystemIcons;      // Use Windows shell icons (7tsp themes)
     [ObservableProperty] private string _customIconPath = ""; // Custom 7tsp icon pack path
+    [ObservableProperty] private string _explorerFontFamily = "";
+
+    public System.Collections.ObjectModel.ObservableCollection<string> AvailableFontFamilies { get; } =
+        new(Avalonia.Media.FontManager.Current.SystemFonts
+            .Select(x => x.Name)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
 
     [RelayCommand]
     private async Task BrowseCustomIconFolder()
@@ -98,22 +105,26 @@ public partial class ExplorerSettingsViewModel : ObservableObject
         var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
         if (storageProvider == null) return;
 
-        var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-        {
-            Title = "Select Icon Library or File (.dll, .res, .ico, .png, .exe)",
-            AllowMultiple = false,
-            FileTypeFilter = new[]
-            {
-                new FilePickerFileType("Icons and Libraries")
-                {
-                    Patterns = new[] { "*.dll", "*.res", "*.ico", "*.png", "*.exe", "*.icl" }
-                },
-                new FilePickerFileType("All Files")
-                {
-                    Patterns = new[] { "*.*" }
-                }
-            }
-        });
+         var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+         {
+             Title = "Select 7tsp Theme Package or Icon File",
+             AllowMultiple = false,
+             FileTypeFilter = new[]
+             {
+                 new FilePickerFileType("7tsp Theme Packages")
+                 {
+                     Patterns = new[] { "*.7z" }
+                 },
+                 new FilePickerFileType("Icons and Libraries")
+                 {
+                     Patterns = new[] { "*.dll", "*.res", "*.ico", "*.png", "*.exe", "*.icl" }
+                 },
+                 new FilePickerFileType("All Files")
+                 {
+                     Patterns = new[] { "*.*" }
+                 }
+             }
+         });
 
         if (result == null || result.Count == 0) return;
         var buffer = result[0].Path.LocalPath;
@@ -182,6 +193,7 @@ public partial class ExplorerSettingsViewModel : ObservableObject
         ContentZoom = double.TryParse(await _database.GetAsync<string>("Configs.Explorer.ContentZoom"), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var cz) && cz >= 50 ? cz : 100;
         UseSystemIcons = bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.UseSystemIcons"), out var usi) && usi;
         CustomIconPath = await _database.GetAsync<string>("Configs.Explorer.CustomIconPath") ?? "";
+        ExplorerFontFamily = await _database.GetAsync<string>("Configs.Explorer.FontFamily") ?? "";
     }
 
     [RelayCommand]
@@ -312,6 +324,23 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     partial void OnContentZoomChanged(double value) => _ = SaveSettingAsync("Configs.Explorer.ContentZoom", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
     partial void OnUseSystemIconsChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.UseSystemIcons", value.ToString());
     partial void OnCustomIconPathChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.CustomIconPath", value ?? "");
+
+    partial void OnExplorerFontFamilyChanged(string value)
+    {
+        var normalized = value?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(normalized) && !AvailableFontFamilies.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (normalized != value)
+        {
+            ExplorerFontFamily = normalized;
+            return;
+        }
+
+        _ = SaveSettingAsync("Configs.Explorer.FontFamily", normalized);
+    }
 
     private async Task SaveSettingAsync(string key, string value)
     {

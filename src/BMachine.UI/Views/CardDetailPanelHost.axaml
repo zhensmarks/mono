@@ -88,29 +88,20 @@
                             <!-- Comment Button -->
                             <Button Command="{Binding $parent[UserControl].DataContext.ShowCommentsCommand}" CommandParameter="{Binding SelectedCard}"
                                     Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Comments">
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconMessage}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="Comment" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <TextBlock Text="Comment" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             </Button>
                             
                             <!-- Checklist Button -->
                             <Button Command="{Binding $parent[UserControl].DataContext.ShowChecklistsCommand}" CommandParameter="{Binding SelectedCard}"
                                     Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Checklists">
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconCheckSquare}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="Checklist" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <TextBlock Text="Checklist" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             </Button>
                             
                             <!-- Move Button -->
                             <Button Command="{Binding $parent[UserControl].DataContext.StartMoveCardCommand}" CommandParameter="{Binding SelectedCard}"
                                     IsEnabled="{Binding IsOnline}" IsVisible="{Binding !SelectedCard.IsManual}"
                                     Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Move Card">
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconArrowRight}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="Move" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <TextBlock Text="Move" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             </Button>
                             
                             <!-- Unlink Button -->
@@ -508,20 +499,16 @@
                             </StackPanel>
                             <Grid ColumnDefinitions="*, *" Margin="0,5,0,0">
                                 <Button Grid.Column="0" Content="Cancel" Command="{Binding $parent[UserControl].DataContext.ToggleDuplicateModeCommand}"
-                                        Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Left"/>
+                                        Classes="secondary" HorizontalAlignment="Stretch" Height="36" Padding="16,0"/>
                                 <Button Grid.Column="1" Content="Create Copy" Command="{Binding $parent[UserControl].DataContext.DuplicateChecklistCommand}"
-                                        Classes="Primary" HorizontalAlignment="Right"/>
+                                        Classes="primary" HorizontalAlignment="Stretch" Height="36" Padding="16,0"/>
                             </Grid>
                         </StackPanel>
                     </Border>
                     <Button Command="{Binding $parent[UserControl].DataContext.ToggleDuplicateModeCommand}"
                             IsVisible="{Binding !IsDuplicateMode}"
-                            Classes="Primary" HorizontalAlignment="Center" FontSize="12" Cursor="Hand">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
-                            <TextBlock Text="Duplicate Checklist"/>
-                        </StackPanel>
-                    </Button>
+                            Classes="primary" HorizontalAlignment="Center" Height="36" Padding="16,0" Cursor="Hand"
+                            Content="Duplicate Checklist"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -582,19 +569,12 @@
                     </StackPanel>
 
                     <Button Command="{Binding $parent[UserControl].DataContext.MoveCardCommand}"
+                            Classes="primary"
+                            Height="38" Padding="16,0"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="12" Padding="15,12" Margin="0,10,0,0" Cursor="Hand"
-                            IsEnabled="{Binding SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Opacity" Value="0.8"/>
-                            </Style>
-                        </Button.Styles>
-                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                            <TextBlock Text="Confirm Move" FontWeight="SemiBold" FontSize="13" Foreground="White"/>
-                            <PathIcon Data="{StaticResource IconArrowRight}" Foreground="White" Width="12" Height="12"/>
-                        </StackPanel>
-                    </Button>
+                            Margin="0,10,0,0"
+                            IsEnabled="{Binding SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Content="Confirm Move"/>
                 </StackPanel>
             </Grid>
         </Border>
