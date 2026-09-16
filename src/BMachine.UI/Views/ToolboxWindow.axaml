@@ -11,7 +11,7 @@
         Width="1024" Height="730"
         MinWidth="680" MinHeight="580"
         WindowStartupLocation="CenterScreen"
-        Background="#09090B"
+        Background="{DynamicResource AppBackgroundBrush}"
         Foreground="#E8E8E6"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
@@ -253,7 +253,7 @@
             <Grid>
 
                 <!-- ═══════════════════════
-                     PSD BUCIN
+                     MANTRA BUCIN
                 ═══════════════════════ -->
                 <Grid IsVisible="{Binding IsPsdBucinVisible}" RowDefinitions="*,16,Auto" MinHeight="480">
 
@@ -631,6 +631,7 @@
                                      Watermark="Ketik nama template lalu tekan Enter..."
                                      Text="{Binding PsdBucinVM.SearchQuery, Mode=TwoWay}"
                                      ItemsSource="{Binding PsdBucinVM.ManualPsdButtons}"
+                                     SelectedItem="{Binding PsdBucinVM.SelectedPsdButton, Mode=TwoWay}"
                                      ValueMemberBinding="{ReflectionBinding Name}"
                                      FilterMode="ContainsOrdinal"
                                      MinimumPrefixLength="1"
@@ -650,16 +651,16 @@
                 IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
             <StackPanel Orientation="Horizontal" Spacing="2">
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsPsdBucinVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}">
-                    <TextBlock Text="PSD Bucin" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Text="MANTRA BUCIN" FontSize="12" FontWeight="SemiBold"/>
                 </RadioButton>
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraNamaVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraNama}">
-                    <TextBlock Text="Mantra Nama" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Text="MANTRA NAMA" FontSize="12" FontWeight="SemiBold"/>
                 </RadioButton>
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraGandaVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}">
-                    <TextBlock Text="Mantra Ganda" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Text="MANTRA GANDA" FontSize="12" FontWeight="SemiBold"/>
                 </RadioButton>
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraDataVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraData}">
-                    <TextBlock Text="Mantra Data" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Text="MANTRA DATA" FontSize="12" FontWeight="SemiBold"/>
                 </RadioButton>
             </StackPanel>
         </Border>

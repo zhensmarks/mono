@@ -24,6 +24,19 @@ public partial class SpreadsheetView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+
+        var refreshBtn = this.FindControl<Button>("RefreshBtn");
+        if (refreshBtn != null)
+        {
+            refreshBtn.AddHandler(Button.ClickEvent, (s, e) =>
+            {
+                SyncActualColumnWidthsToViewModel();
+                if (DataContext is SpreadsheetViewModel vm && !vm.IsLoading)
+                {
+                    _ = vm.SaveColumnWidthsAsync();
+                }
+            }, RoutingStrategies.Tunnel);
+        }
     }
 
     private void InitializeComponent()
@@ -119,7 +132,6 @@ public partial class SpreadsheetView : UserControl
             _dataGrid.AddHandler(PointerPressedEvent, OnDataGridPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             _dataGrid.AddHandler(PointerReleasedEvent, OnDataGridPointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel | Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
             _dataGrid.AddHandler(PointerCaptureLostEvent, OnDataGridPointerCaptureLost, Avalonia.Interactivity.RoutingStrategies.Tunnel | Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
-            _dataGrid.LayoutUpdated += OnDataGridLayoutUpdated;
             _dataGrid.BeginningEdit += OnDataGridBeginningEdit;
             _dataGrid.CellEditEnded += OnDataGridCellEditEnded;
             _dataGrid.CurrentCellChanged += OnDataGridCurrentCellChanged;
@@ -677,16 +689,19 @@ public partial class SpreadsheetView : UserControl
     private void OnDataGridPointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)
     {
         SyncActualColumnWidthsToViewModel();
+        if (DataContext is SpreadsheetViewModel vm && !vm.IsLoading)
+        {
+            _ = vm.SaveColumnWidthsAsync();
+        }
     }
 
     private void OnDataGridPointerCaptureLost(object? sender, Avalonia.Input.PointerCaptureLostEventArgs e)
     {
         SyncActualColumnWidthsToViewModel();
-    }
-
-    private void OnDataGridLayoutUpdated(object? sender, EventArgs e)
-    {
-        SyncActualColumnWidthsToViewModel();
+        if (DataContext is SpreadsheetViewModel vm && !vm.IsLoading)
+        {
+            _ = vm.SaveColumnWidthsAsync();
+        }
     }
 
     private void SyncActualColumnWidthsToViewModel()
@@ -699,10 +714,13 @@ public partial class SpreadsheetView : UserControl
             if (dgc.Tag is int idx && idx >= 0 && idx < vm.Columns.Count)
             {
                 var colVM = vm.Columns[idx];
-                double w = dgc.ActualWidth;
-                if (w < 30 && dgc.Width.IsAbsolute) w = dgc.Width.Value;
+                // Prioritize explicit user-dragged width if set and absolute
+                double w = (dgc.Width.IsAbsolute && dgc.Width.Value >= 30)
+                    ? dgc.Width.Value
+                    : (dgc.ActualWidth >= 30 ? dgc.ActualWidth : 0);
 
-                if (w >= 30 && Math.Abs(colVM.Width.Value - w) > 1.0)
+                bool isDifferent = !colVM.Width.IsAbsolute || Math.Abs(colVM.Width.Value - w) > 0.5;
+                if (w >= 30 && isDifferent)
                 {
                     colVM.Width = new DataGridLength(Math.Round(w, 1), DataGridLengthUnitType.Pixel);
                     changed = true;
@@ -712,7 +730,7 @@ public partial class SpreadsheetView : UserControl
 
         if (changed)
         {
-            vm.DebounceSaveColumnWidths();
+            _ = vm.SaveColumnWidthsAsync();
         }
     }
 

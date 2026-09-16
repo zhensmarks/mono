@@ -69,6 +69,9 @@ public partial class PsdBucinViewModel : ObservableObject
     [ObservableProperty]
     private string _searchQuery = "";
 
+    [ObservableProperty]
+    private ManualPsdButton? _selectedPsdButton;
+
     partial void OnIsTypingModeChanged(bool value)
     {
         if (value) OnTypingModeExecuted?.Invoke();
@@ -342,16 +345,49 @@ public partial class PsdBucinViewModel : ObservableObject
     [RelayCommand]
     public async Task ExecuteTypingMode()
     {
-        if (!IsManualModeActive || IsProcessing || string.IsNullOrWhiteSpace(SearchQuery)) return;
-        
-        var q = SearchQuery.Trim();
-        var match = ManualPsdButtons.FirstOrDefault(x => 
-            x.Name.Contains(q, StringComparison.OrdinalIgnoreCase) || 
-            x.ShortcutKey.Equals(q, StringComparison.OrdinalIgnoreCase));
+        if (!IsManualModeActive || IsProcessing) return;
+
+        ManualPsdButton? match = null;
+
+        // 1. Jika user memilih / mengarahkan ke item di dropdown (misal pakai panah bawah lalu Enter)
+        if (SelectedPsdButton != null)
+        {
+            match = SelectedPsdButton;
+        }
+        else if (!string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            var q = SearchQuery.Trim();
+
+            // 2. Cocok persis shortcut key
+            match = ManualPsdButtons.FirstOrDefault(x => 
+                x.ShortcutKey.Equals(q, StringComparison.OrdinalIgnoreCase));
+
+            // 3. Cocok persis nama template (misal ketik "dokter" -> pilih "dokter", bukan "dokter bedah")
+            if (match == null)
+            {
+                match = ManualPsdButtons.FirstOrDefault(x => 
+                    x.Name.Equals(q, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // 4. Awalan nama template (StartsWith)
+            if (match == null)
+            {
+                match = ManualPsdButtons.FirstOrDefault(x => 
+                    x.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // 5. Fallback substring (Contains)
+            if (match == null)
+            {
+                match = ManualPsdButtons.FirstOrDefault(x => 
+                    x.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
+            }
+        }
             
         if (match != null)
         {
             SearchQuery = "";
+            SelectedPsdButton = null;
             await ProcessSingleManualAsync(match.Path);
             if (IsTypingMode) OnTypingModeExecuted?.Invoke();
         }

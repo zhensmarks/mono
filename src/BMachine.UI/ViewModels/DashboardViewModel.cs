@@ -1159,10 +1159,13 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         if (SpreadsheetVM != null && !string.IsNullOrEmpty(message.Value))
         {
             SpreadsheetVM.SearchText = message.Value;
-            // Auto-refresh data so user doesn't need to click refresh manually
-            if (SpreadsheetVM.LoadDataCommand.CanExecute(null))
+            // If rows are not loaded yet or ID not found in current cache, load fresh data
+            if (SpreadsheetVM.Rows.Count == 0 || !SpreadsheetVM.FilteredRows.Any())
             {
-                await SpreadsheetVM.LoadDataCommand.ExecuteAsync(null);
+                if (SpreadsheetVM.LoadDataCommand.CanExecute(null))
+                {
+                    await SpreadsheetVM.LoadDataCommand.ExecuteAsync(null);
+                }
             }
         }
     }

@@ -2,20 +2,32 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Styling;
 using BMachine.SDK;
+using CommunityToolkit.Mvvm.Messaging;
+using BMachine.UI.Messages;
 
 namespace BMachine.UI.Services;
 
-public class ThemeService : IThemeService
+public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessage>
 {
     private readonly IDatabase _database;
+    private string _lightBgColor = "#F5F5F5";
+    private string _darkBgColor = "#1C1C1C";
 
     public ThemeService(IDatabase database)
     {
         _database = database;
+        WeakReferenceMessenger.Default.RegisterAll(this);
     }
 
     public async Task InitializeAsync()
     {
+        // Load Appearance Background Colors
+        var darkBg = await _database.GetAsync<string>("Appearance.Background.Dark");
+        if (!string.IsNullOrEmpty(darkBg)) _darkBgColor = darkBg;
+
+        var lightBg = await _database.GetAsync<string>("Appearance.Background.Light");
+        if (!string.IsNullOrEmpty(lightBg)) _lightBgColor = lightBg;
+
         // Load settings from DB
         var themeStr = await _database.GetAsync<string>("Settings.Theme") ?? "Dark";
         var accentStr = await _database.GetAsync<string>("Settings.Accent") ?? "#3b82f6"; // Default Blue
@@ -45,10 +57,14 @@ public class ThemeService : IThemeService
         var isInitialLight = themeStr == "Light";
         UpdateLogColors(isInitialLight);
 
-        // Apply Theme (This also applies the initial border)
+        // Apply Theme (This also applies the initial border and background)
         if (Enum.TryParse<ThemeVariantType>(themeStr, out var theme))
         {
             SetTheme(theme);
+        }
+        else
+        {
+            UpdateBackgroundBrush(isInitialLight);
         }
         
         SetAccentColor(accentStr);
@@ -118,12 +134,36 @@ public class ThemeService : IThemeService
         // Update the Dynamic Resource
         Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(borderColor);
 
+        // Update Background Brush
+        UpdateBackgroundBrush(isLight);
         
         // Update Log Colors
         UpdateLogColors(isLight);
 
         // Fire and forget save
         _database.SetAsync("Settings.Theme", theme.ToString());
+    }
+
+    public void Receive(ThemeSettingsChangedMessage message)
+    {
+        if (!string.IsNullOrEmpty(message.DarkBackgroundColor)) _darkBgColor = message.DarkBackgroundColor;
+        if (!string.IsNullOrEmpty(message.LightBackgroundColor)) _lightBgColor = message.LightBackgroundColor;
+        bool isLight = Application.Current?.ActualThemeVariant == ThemeVariant.Light;
+        UpdateBackgroundBrush(isLight);
+    }
+
+    private void UpdateBackgroundBrush(bool isLight)
+    {
+        if (Application.Current == null) return;
+        var hex = isLight ? _lightBgColor : _darkBgColor;
+        if (Color.TryParse(hex, out var color))
+        {
+            var brush = new SolidColorBrush(color);
+            Application.Current.Resources["AppBackgroundBrush"] = brush;
+            Application.Current.Resources["CardBackgroundBrush"] = brush;
+            Application.Current.Resources["TerminalBackgroundBrush"] = brush;
+            Application.Current.Resources["BackgroundDarkBrush"] = brush;
+        }
     }
 
     private void UpdateLogColors(bool isLight)

@@ -58,6 +58,16 @@
     </Styles.Resources>
 
     <!-- ================================================================ -->
+    <!-- WINDOW BASE STYLE                                                -->
+    <!-- Semua window BMachine otomatis mengikuti warna Background        -->
+    <!-- dan Teks dari Pengaturan Appearance (AppBackgroundBrush).        -->
+    <!-- ================================================================ -->
+    <Style Selector="Window">
+        <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- ================================================================ -->
     <!-- TYPOGRAPHY                                                       -->
     <!-- ================================================================ -->
     <Style Selector="TextBlock">

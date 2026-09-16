@@ -27,6 +27,7 @@ public partial class SpreadsheetViewModel : ObservableObject
     private int? _sheetGid; // Numeric sheet ID for dimension updates
     private System.Threading.Timer? _widthSaveTimer;
     private bool _isLoadingWidths; // prevent save during load
+    private bool _isLoadingSettings; // prevent hidden column save during load
 
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private string _statusText = "Ready";
@@ -138,9 +139,25 @@ public partial class SpreadsheetViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadData()
     {
+        // Flush any unsaved column widths and visibility settings before reloading
+        _widthSaveTimer?.Dispose();
+        _widthSaveTimer = null;
+        if (Columns.Count > 0 && !_isLoadingWidths)
+        {
+            try
+            {
+                await SaveColumnWidthsAsync();
+                SaveColumnSettings();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Flush settings error before LoadData: {ex.Message}");
+            }
+        }
+
         IsLoading = true;
         _isLoadingWidths = true;
-        _widthSaveTimer?.Dispose();
+        _isLoadingSettings = true;
         StatusText = "Loading data...";
         Rows.Clear();
         Columns.Clear();
@@ -207,12 +224,19 @@ public partial class SpreadsheetViewModel : ObservableObject
                 for (int i = 0; i < headers.Count; i++)
                 {
                     var headerName = headers[i]?.ToString() ?? $"Column {i + 1}";
-                    var colVM = new SpreadsheetColumnViewModel { Header = headerName, Index = i, IsVisible = true };
+                    var letter = GetColumnName(i + _rangeStartCol);
+                    var colVM = new SpreadsheetColumnViewModel 
+                    { 
+                        Header = headerName, 
+                        Index = i, 
+                        ColumnLetter = letter,
+                        IsVisible = true 
+                    };
                     
                     colVM.PropertyChanged += (s, e) =>
                     {
-                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.IsVisible)) SaveColumnSettings();
-                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.Width) && !_isLoadingWidths) DebounceSaveColumnWidths();
+                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.IsVisible) && !_isLoadingSettings && !_isLoading) SaveColumnSettings();
+                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.Width) && !_isLoadingWidths && !_isLoading) DebounceSaveColumnWidths();
                     };
                     
                     columnViewModels.Add(colVM);
@@ -361,11 +385,34 @@ public partial class SpreadsheetViewModel : ObservableObject
 
                 if (widths != null)
                 {
+                    var indexLookup = new Dictionary<int, double>();
+                    var headerLookup = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var kvp in widths)
+                    {
+                        var colonIdx = kvp.Key.IndexOf(':');
+                        var idxStr = colonIdx >= 0 ? kvp.Key.Substring(0, colonIdx) : kvp.Key;
+                        if (int.TryParse(idxStr, out int idx))
+                        {
+                            indexLookup[idx] = kvp.Value;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(kvp.Key))
+                        {
+                            headerLookup[kvp.Key.Trim()] = kvp.Value;
+                        }
+                    }
+
                     foreach (var col in columnViewModels)
                     {
-                        if (widths.TryGetValue(col.Header, out var width) && width >= 30)
+                        // Priority 1: Match by column index (Excel-style: each column position is independent)
+                        if (indexLookup.TryGetValue(col.Index, out var widthByIndex) && widthByIndex >= 30)
                         {
-                            col.Width = new Avalonia.Controls.DataGridLength(width, Avalonia.Controls.DataGridLengthUnitType.Pixel);
+                            col.Width = new Avalonia.Controls.DataGridLength(widthByIndex, Avalonia.Controls.DataGridLengthUnitType.Pixel);
+                        }
+                        // Priority 2: Fallback for older database configs
+                        else if (headerLookup.TryGetValue(col.Header?.Trim() ?? "", out var widthByHeader) && widthByHeader >= 30)
+                        {
+                            col.Width = new Avalonia.Controls.DataGridLength(widthByHeader, Avalonia.Controls.DataGridLengthUnitType.Pixel);
                         }
                     }
                 }
@@ -374,10 +421,28 @@ public partial class SpreadsheetViewModel : ObservableObject
                 var hiddenStr = await _database.GetAsync<string>("Spreadsheet.HiddenColumns");
                 if (!string.IsNullOrEmpty(hiddenStr))
                 {
-                    var hidden = new HashSet<string>(hiddenStr.Split(','));
+                    var tokens = hiddenStr.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+                    var hiddenIndices = new HashSet<int>();
+                    var hiddenHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var token in tokens)
+                    {
+                        var colonIdx = token.IndexOf(':');
+                        var idxStr = colonIdx >= 0 ? token.Substring(0, colonIdx) : token;
+                        if (int.TryParse(idxStr, out int idx))
+                        {
+                            hiddenIndices.Add(idx);
+                        }
+                        else
+                        {
+                            hiddenHeaders.Add(token);
+                        }
+                    }
+
                     foreach (var col in columnViewModels)
                     {
-                        if (hidden.Contains(col.Header))
+                        // If saved by index, hide exact column. If legacy saved by header, hide matching header.
+                        if (hiddenIndices.Contains(col.Index) || hiddenHeaders.Contains(col.Header?.Trim() ?? ""))
                         {
                             col.IsVisible = false;
                         }
@@ -430,6 +495,7 @@ public partial class SpreadsheetViewModel : ObservableObject
         }
         finally
         {
+            _isLoadingSettings = false;
             _isLoadingWidths = false;
             IsLoading = false;
         }
@@ -606,7 +672,7 @@ public partial class SpreadsheetViewModel : ObservableObject
 
     public void DebounceSaveColumnWidths()
     {
-        if (_isLoadingWidths) return;
+        if (_isLoadingWidths || _isLoading) return;
         _widthSaveTimer?.Dispose();
         _widthSaveTimer = new System.Threading.Timer(async _ =>
         {
@@ -619,19 +685,20 @@ public partial class SpreadsheetViewModel : ObservableObject
             {
                 System.Diagnostics.Debug.WriteLine($"Column width save error: {ex.Message}");
             }
-        }, null, 500, System.Threading.Timeout.Infinite);
+        }, null, 250, System.Threading.Timeout.Infinite);
     }
 
     public async Task SaveColumnWidthsAsync()
     {
-        if (_database == null || _isLoadingWidths) return;
+        if (_database == null || _isLoadingWidths || _isLoading || Columns.Count == 0) return;
         var widths = new Dictionary<string, double>();
         var cols = Columns.ToList();
         foreach (var col in cols)
         {
             if (col.Width.IsAbsolute && col.Width.Value >= 30)
             {
-                widths[col.Header] = Math.Round(col.Width.Value, 1);
+                // Key by Column Index so multiple columns with identical headers (e.g. multiple "TGL DONE") are tracked independently like Excel
+                widths[col.Index.ToString()] = Math.Round(col.Width.Value, 1);
             }
         }
         if (widths.Count > 0)
@@ -716,8 +783,10 @@ public partial class SpreadsheetViewModel : ObservableObject
 
     private void SaveColumnSettings()
     {
-        var hiddenHeaders = Columns.Where(c => !c.IsVisible).Select(c => c.Header);
-        var str = string.Join(",", hiddenHeaders);
+        if (_isLoadingSettings || _isLoading || Columns.Count == 0) return;
+        // Save hidden column indices so duplicate headers are independent like Excel
+        var hiddenIndices = Columns.Where(c => !c.IsVisible).Select(c => c.Index.ToString());
+        var str = string.Join(",", hiddenIndices);
         _ = _database.SetAsync("Spreadsheet.HiddenColumns", str);
     }
 
@@ -767,6 +836,8 @@ public partial class SpreadsheetColumnViewModel : ObservableObject
 {
     public string Header { get; set; } = "";
     public int Index { get; set; }
+    public string ColumnLetter { get; set; } = "";
+    public string DisplayTitle => string.IsNullOrEmpty(ColumnLetter) ? Header : $"[{ColumnLetter}] {Header}";
     [ObservableProperty] private bool _isVisible = true;
     
     // Metadata

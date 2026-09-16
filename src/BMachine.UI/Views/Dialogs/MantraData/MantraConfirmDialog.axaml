@@ -11,7 +11,7 @@
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
-        Background="#09090B"
+        Background="{DynamicResource AppBackgroundBrush}"
         Foreground="#E8E8E6">
 
     <Window.Styles><Style Selector="Button.ChromeClose">
@@ -84,7 +84,7 @@
         </Style>
     </Window.Styles>
 
-    <Border Background="#09090B" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
 
             <!-- ═══ WINDOW TITLE BAR ═══ -->

@@ -335,7 +335,7 @@
                                         <ItemsControl ItemsSource="{Binding Columns}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <CheckBox Content="{Binding Header}" IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                                                    <CheckBox Content="{Binding DisplayTitle}" IsChecked="{Binding IsVisible, Mode=TwoWay}"
                                                               Margin="4,3" FontSize="12"/>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -349,7 +349,7 @@
                     </Button>
 
                     <!-- Refresh -->
-                    <Button Command="{Binding LoadDataCommand}" Classes="Clear"
+                    <Button x:Name="RefreshBtn" Command="{Binding LoadDataCommand}" Classes="Clear"
                             IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Refresh Data"
                             Background="{DynamicResource AppBackgroundBrush}" CornerRadius="5"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="6,2" Height="26">

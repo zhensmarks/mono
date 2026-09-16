@@ -31,6 +31,7 @@ public partial class ToolboxWindow : Window
                 var txt = this.FindControl<AutoCompleteBox>("TypingModeTextBox");
                 if (txt != null)
                 {
+                    txt.IsDropDownOpen = false;
                     var innerTextBox = txt.GetVisualDescendants().OfType<TextBox>().FirstOrDefault();
                     (innerTextBox ?? (Control)txt).Focus();
                 }

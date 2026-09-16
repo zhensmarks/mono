@@ -18,8 +18,8 @@ See `../AGENTS.md` for the workspace-level rules.
 
 ## Design language (MantraDataView.axaml)
 
-Hybrid Minimalist Dark (Bento). Token set from `ToolboxWindow.axaml`:
-- Background `#09090B`, card `#111113`, border `#232326`, text `#E8E8E6`, muted `#71717A`
+Hybrid Minimalist Dark (Bento). Token set:
+- Window Background: `{DynamicResource AppBackgroundBrush}` (WAJIB mengikuti pengaturan Appearance di Settings, JANGAN hardcode `#09090B` pada Window baru), card `#111113`, border `#232326`, text `#E8E8E6`, muted `#71717A`
 - `ToolBtn`: `Background="#18181B"`, `Foreground="#E4E4E7"`, `BorderBrush="#27272A"`,
   `BorderThickness="1"`, `CornerRadius="6"`, `Height="32"`
 - `ActionBtn`: `Background="#EDEDED"`, `Foreground="#111111"`, `CornerRadius="6"`,

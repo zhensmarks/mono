@@ -2,6 +2,7 @@
 
 // === Settings Persistence ===
 var DEFAULT_BASE_INPUT = "\\\\delapanmataair\\Editor 5\\2. REGULER\\#PROJECT SEKOLAH\\2026-2027";
+var DEFAULT_BASE_MASTER = "";
 
 function loadSettings() {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
@@ -12,19 +13,22 @@ function loadSettings() {
             settingsFile.close();
             var data = eval("(" + content + ")");
             if (!data.baseInputServer) data.baseInputServer = DEFAULT_BASE_INPUT;
+            if (!data.baseMasterServer) data.baseMasterServer = DEFAULT_BASE_MASTER;
             return data;
         } catch (e) { }
     }
-    return { x: -1, y: -1, baseInputServer: DEFAULT_BASE_INPUT };
+    return { x: -1, y: -1, baseInputServer: DEFAULT_BASE_INPUT, baseMasterServer: DEFAULT_BASE_MASTER };
 }
 
-function saveSettings(x, y, baseInputServer) {
+function saveSettings(x, y, baseInputServer, baseMasterServer) {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
     try {
         var base = baseInputServer || DEFAULT_BASE_INPUT;
         var escapedBase = base.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        var masterBase = baseMasterServer || "";
+        var escapedMaster = masterBase.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
         settingsFile.open("w");
-        settingsFile.write('{"x":' + x + ',"y":' + y + ',"baseInputServer":"' + escapedBase + '"}');
+        settingsFile.write('{"x":' + x + ',"y":' + y + ',"baseInputServer":"' + escapedBase + '","baseMasterServer":"' + escapedMaster + '"}');
         settingsFile.close();
     } catch (e) { }
 }
@@ -60,7 +64,7 @@ function toWindowsPath(p) {
     return s;
 }
 
-function parseMasterPath(rawPath) {
+function parseMasterPath(rawPath, baseMasterServer) {
     if (!rawPath) return null;
     var norm = normalizePath(rawPath);
     if (!norm) return null;
@@ -94,6 +98,19 @@ function parseMasterPath(rawPath) {
         monthToSchool = parts.slice(monthIndex, parts.length - 1).join("/");
     }
 
+    // Jika path master tidak punya bulan (misal "D:/#GAWENA/10. PAUD MUTIARA/1. FOTO 10RP...")
+    // tapi user mengonfigurasi Base Master, kita cek apakah ada info bulan di Base Master
+    if (monthIndex === -1 && baseMasterServer) {
+        var baseMasterNorm = normalizePath(baseMasterServer);
+        var bParts = baseMasterNorm.split("/");
+        for (var b = 0; b < bParts.length; b++) {
+            if (monthRegex.test(bParts[b])) {
+                monthName = bParts[b];
+                break;
+            }
+        }
+    }
+
     return {
         norm: norm,
         targetItem: targetItem,
@@ -105,8 +122,54 @@ function parseMasterPath(rawPath) {
     };
 }
 
-function autoDetectInputFolder(masterPath, baseServer) {
-    var parsed = parseMasterPath(masterPath);
+// Pencarian cepat folder sekolah di dalam subfolder marketing (1 level saja, direct folder check)
+function findSchoolInMarketingFolders(monthFolder, schoolName, targetItem) {
+    if (!monthFolder || !monthFolder.exists) return null;
+    try {
+        // Ambil folder-folder marketing (misal: "CIANJUR (SURYA)", "BANDUNG (RUDI)", dll.)
+        var marketingFolders = monthFolder.getFiles(function (item) { return item instanceof Folder; });
+        var schoolLower = schoolName.toLowerCase();
+        var schoolClean = schoolLower.replace(/^\d+[\s._-]+/, "").replace(/^\s+|\s+$/g, "");
+
+        for (var m = 0; m < marketingFolders.length; m++) {
+            var mFolder = marketingFolders[m];
+            var mPath = decodeURI(mFolder.fullName);
+
+            // 1. Cek langsung subfolder dengan nama sekolah persis
+            var candExact = new Folder(mPath + "/" + schoolName);
+            if (candExact.exists) {
+                // Cek PILIHAN/targetItem
+                var p1 = new Folder(mPath + "/" + schoolName + "/PILIHAN/" + targetItem);
+                if (p1.exists) return toWindowsPath(decodeURI(p1.fullName));
+                var p2 = new Folder(mPath + "/" + schoolName + "/" + targetItem);
+                if (p2.exists) return toWindowsPath(decodeURI(p2.fullName));
+                return toWindowsPath(decodeURI(candExact.fullName));
+            }
+
+            // 2. Cek apakah ada nama sekolah mirip di dalam marketing ini (1 level check)
+            var schoolSubDirs = mFolder.getFiles(function (item) { return item instanceof Folder; });
+            for (var s = 0; s < schoolSubDirs.length; s++) {
+                var sDir = schoolSubDirs[s];
+                var sName = decodeURI(sDir.name);
+                var sLower = sName.toLowerCase();
+                var sClean = sLower.replace(/^\d+[\s._-]+/, "").replace(/^\s+|\s+$/g, "");
+
+                if (sLower === schoolLower || (schoolClean.length > 3 && sClean === schoolClean)) {
+                    var sPath = decodeURI(sDir.fullName);
+                    var p1 = new Folder(sPath + "/PILIHAN/" + targetItem);
+                    if (p1.exists) return toWindowsPath(decodeURI(p1.fullName));
+                    var p2 = new Folder(sPath + "/" + targetItem);
+                    if (p2.exists) return toWindowsPath(decodeURI(p2.fullName));
+                    return toWindowsPath(sPath);
+                }
+            }
+        }
+    } catch (e) { }
+    return null;
+}
+
+function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
+    var parsed = parseMasterPath(masterPath, baseMaster);
     if (!parsed) {
         return { found: false, path: "", schoolName: "-", targetItem: "-", message: "Format path belum lengkap" };
     }
@@ -115,7 +178,7 @@ function autoDetectInputFolder(masterPath, baseServer) {
     var baseFolder = new Folder(baseNorm);
     var serverReachable = baseFolder.exists;
 
-    // Jika folder bulan ditemukan dalam path
+    // A. JIKA PATH MASTER LENGKAP MEMILIKI BULAN (Format Anda)
     if (serverReachable && parsed.monthIndex !== -1 && parsed.monthToSchool !== "") {
         // 1. Jalur Utama: baseServer / Month / ... / School / PILIHAN / TargetItem
         var candPilihan = baseNorm + "/" + parsed.monthToSchool + "/PILIHAN/" + parsed.targetItem;
@@ -165,6 +228,56 @@ function autoDetectInputFolder(masterPath, baseServer) {
                 targetItem: parsed.targetItem,
                 message: "[OK] Terhubung otomatis di folder Sekolah"
             };
+        }
+    }
+
+    // B. JIKA MASTER PENDEK / TIDAK ADA BULAN (Kasus User Lain / Base Server Berhenti di Bulan)
+    // baseServer mungkin adalah ".../03 SEPTEMBER 2026" ATAU ".../2026-2027" + parsed.monthName
+    if (serverReachable && parsed.schoolName && parsed.schoolName !== "-") {
+        var monthRegex = /^\d{2}\s+[A-Za-z]+\s+\d{4}$/;
+        var targetMonthFolder = null;
+
+        // Cek apakah baseServer itu sendiri adalah folder bulan
+        var baseFolderName = baseNorm.substring(baseNorm.lastIndexOf("/") + 1);
+        if (monthRegex.test(baseFolderName)) {
+            targetMonthFolder = baseFolder;
+        } else if (parsed.monthName) {
+            var candMonth = new Folder(baseNorm + "/" + parsed.monthName);
+            if (candMonth.exists) targetMonthFolder = candMonth;
+        }
+
+        // Jika folder bulan ditemukan (baik baseServer sendiri maupun baseServer/Bulan)
+        if (targetMonthFolder && targetMonthFolder.exists) {
+            var quickFound = findSchoolInMarketingFolders(targetMonthFolder, parsed.schoolName, parsed.targetItem);
+            if (quickFound) {
+                return {
+                    found: true,
+                    path: quickFound,
+                    schoolName: parsed.schoolName,
+                    targetItem: parsed.targetItem,
+                    message: "[OK] Terhubung otomatis (Pencarian Cepat Marketing)"
+                };
+            }
+        } else {
+            // Jika baseServer adalah root tahun (2026-2027) dan master tidak punya nama bulan sama sekali,
+            // cari di semua folder bulan yang ada di baseServer (hanya mengecek folder marketing, sangat cepat)
+            try {
+                var monthDirs = baseFolder.getFiles(function (item) { return item instanceof Folder && monthRegex.test(decodeURI(item.name)); });
+                // Urutkan descending (bulan terbaru dicek duluan)
+                monthDirs.sort(function (a, b) { return decodeURI(b.name) < decodeURI(a.name) ? -1 : 1; });
+                for (var md = 0; md < monthDirs.length; md++) {
+                    var qf = findSchoolInMarketingFolders(monthDirs[md], parsed.schoolName, parsed.targetItem);
+                    if (qf) {
+                        return {
+                            found: true,
+                            path: qf,
+                            schoolName: parsed.schoolName,
+                            targetItem: parsed.targetItem,
+                            message: "[OK] Terhubung otomatis di " + decodeURI(monthDirs[md].name)
+                        };
+                    }
+                }
+            } catch (e) { }
         }
     }
 
@@ -279,6 +392,7 @@ function main() {
     // === UI CONFIG ===
     var settings = loadSettings();
     var currentBaseServer = settings.baseInputServer || DEFAULT_BASE_INPUT;
+    var currentBaseMaster = settings.baseMasterServer || DEFAULT_BASE_MASTER;
 
     var w = new Window("dialog", "Smart Object Replacer (Queue Mode)");
     w.orientation = "column";
@@ -399,7 +513,7 @@ function main() {
     var lblDetectStatus = grpStatus.add("statictext", undefined, "Menunggu input Master (.psd)...");
     lblDetectStatus.preferredSize.width = 400;
 
-    // Bottom Actions on Input: Server Config & Add to Queue
+    // Bottom Actions on Input: Server Config, Master Config, & Add to Queue
     var grpInputActions = pnlInput.add("group");
     grpInputActions.orientation = "row";
     grpInputActions.alignChildren = ["fill", "center"];
@@ -408,6 +522,11 @@ function main() {
     btnServerConfig.preferredSize.width = 105;
     btnServerConfig.preferredSize.height = 26;
     btnServerConfig.helpTip = "Lihat atau ubah folder Base Server untuk auto-detect Input";
+
+    var btnMasterConfig = grpInputActions.add("button", undefined, "Base Master...");
+    btnMasterConfig.preferredSize.width = 105;
+    btnMasterConfig.preferredSize.height = 26;
+    btnMasterConfig.helpTip = "Set Base Folder Master lokal jika format path berbeda dengan server";
 
     var grpSpacer = grpInputActions.add("group");
     grpSpacer.alignment = ["fill", "fill"];
@@ -429,7 +548,7 @@ function main() {
             return;
         }
 
-        var parsed = parseMasterPath(raw);
+        var parsed = parseMasterPath(raw, currentBaseMaster);
         if (parsed) {
             lblSekolahVal.text = parsed.schoolName || "-";
             lblTargetVal.text = parsed.targetItem || "-";
@@ -482,7 +601,7 @@ function main() {
 
         updateMasterInfoOnly(raw);
 
-        var res = autoDetectInputFolder(raw, currentBaseServer);
+        var res = autoDetectInputFolder(raw, currentBaseServer, currentBaseMaster);
         lblDetectStatus.text = res.message;
 
         if (res.found && res.path) {
@@ -524,6 +643,70 @@ function main() {
         txtMaster.active = true;
     };
 
+    function showPathConfigDialog(title, description, currentValue, defaultVal, isFolderPicker) {
+        var d = new Window("dialog", title);
+        d.orientation = "column";
+        d.alignChildren = ["fill", "top"];
+        d.spacing = 10;
+        d.margins = 16;
+        d.preferredSize.width = 480;
+
+        var lblDesc = d.add("statictext", undefined, description, { multiline: true });
+        lblDesc.preferredSize.width = 440;
+
+        var grpField = d.add("group");
+        grpField.orientation = "row";
+        grpField.alignChildren = ["fill", "center"];
+
+        var txtField = grpField.add("edittext", undefined, currentValue || "");
+        txtField.preferredSize.width = 350;
+
+        var btnBrowse = grpField.add("button", undefined, "Browse...");
+        btnBrowse.preferredSize.width = 80;
+        btnBrowse.onClick = function () {
+            var f = Folder.selectDialog("Pilih Folder");
+            if (f) {
+                txtField.text = decodeURI(f.fsName || f.fullName);
+            }
+        };
+
+        var grpBottom = d.add("group");
+        grpBottom.alignment = "right";
+        grpBottom.spacing = 8;
+
+        var btnClear = grpBottom.add("button", undefined, "Reset Default");
+        btnClear.onClick = function () {
+            txtField.text = defaultVal || "";
+        };
+
+        var btnOk = grpBottom.add("button", undefined, "Simpan", { name: "ok" });
+        btnOk.preferredSize.width = 80;
+        var btnCancel = grpBottom.add("button", undefined, "Batal", { name: "cancel" });
+        btnCancel.preferredSize.width = 80;
+
+        btnOk.onClick = function () { d.close(1); };
+        btnCancel.onClick = function () { d.close(0); };
+
+        d.center();
+        var res = d.show();
+        if (res === 1) {
+            return txtField.text.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "");
+        }
+        return null;
+    }
+
+    btnMasterConfig.onClick = function () {
+        var desc = "Base Folder Master lokal saat ini:\n" + 
+                   (currentBaseMaster || "(Belum diset - default)") + 
+                   "\n\nContoh: D:\\#GAWENA\\03 SEPTEMBER 2026";
+        var newMaster = showPathConfigDialog("Konfigurasi Base Master", desc, currentBaseMaster, DEFAULT_BASE_MASTER, true);
+        if (newMaster !== null) {
+            currentBaseMaster = newMaster;
+            saveSettings(w.location.x, w.location.y, currentBaseServer, currentBaseMaster);
+            triggerAutoDetect();
+        }
+    };
+
     btnBrowseInput.onClick = function () {
         var f = Folder.selectDialog("Pilih Folder Seleksi");
         if (f) {
@@ -539,12 +722,13 @@ function main() {
     };
 
     btnServerConfig.onClick = function () {
-        var promptMsg = "Base Path Server Input saat ini:\n\n" + currentBaseServer + "\n\nMasukkan path baru jika ingin mengubah:";
-        var newBase = prompt(promptMsg, currentBaseServer);
+        var desc = "Base Server Input saat ini:\n" + 
+                   currentBaseServer + 
+                   "\n\nContoh: \\\\delapanmataair\\Editor 5\\2. REGULER\\#PROJECT SEKOLAH\\2026-2027";
+        var newBase = showPathConfigDialog("Konfigurasi Base Server Input", desc, currentBaseServer, DEFAULT_BASE_INPUT, true);
         if (newBase !== null && newBase !== "") {
-            newBase = newBase.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "");
             currentBaseServer = newBase;
-            saveSettings(w.location.x, w.location.y, currentBaseServer);
+            saveSettings(w.location.x, w.location.y, currentBaseServer, currentBaseMaster);
             triggerAutoDetect();
         }
     };
@@ -556,6 +740,24 @@ function main() {
 
     // ==========================================
     // PANEL 3: DAFTAR ANTRIAN (QUEUE)
+    // ==========================================
+    // ==========================================
+    // TOMBOL AKSI UTAMA (Di Atas List Antrian)
+    // ==========================================
+    var grpBtn = w.add("group");
+    grpBtn.alignment = "center";
+    grpBtn.spacing = 12;
+
+    var btnRun = grpBtn.add("button", undefined, "REPLACE", { name: "ok" });
+    btnRun.preferredSize = [130, 32];
+    var btnRevisi = grpBtn.add("button", undefined, "REPLACE REVISI");
+    btnRevisi.preferredSize = [140, 32];
+    var btnCancel = grpBtn.add("button", undefined, "Batal", { name: "cancel" });
+    btnCancel.preferredSize = [80, 32];
+
+    // ==========================================
+    // PANEL 3: DAFTAR ANTRIAN (QUEUE)
+    // Hanya muncul jika ada list antrian
     // ==========================================
     var grpQueue = w.add("panel", undefined, " 3. DAFTAR ANTRIAN KERJA ");
     grpQueue.orientation = "column";
@@ -601,7 +803,7 @@ function main() {
         var label = "M: " + new File(txtMaster.text).displayName + " | I: " + new File(txtInput.text).displayName;
         listQueue.add("item", label);
 
-        // Update UI state
+        // Update UI state: Tampilkan panel antrian hanya ketika ada antrian
         grpQueue.text = " 3. DAFTAR ANTRIAN KERJA (" + queueData.length + ") ";
         grpQueue.visible = true;
         w.layout.layout(true); // Refresh layout
@@ -636,20 +838,6 @@ function main() {
         }
     };
 
-    // ==========================================
-    // TOMBOL AKSI UTAMA
-    // ==========================================
-    var grpBtn = w.add("group");
-    grpBtn.alignment = "center";
-    grpBtn.spacing = 12;
-
-    var btnRun = grpBtn.add("button", undefined, "REPLACE", { name: "ok" });
-    btnRun.preferredSize = [130, 32];
-    var btnRevisi = grpBtn.add("button", undefined, "REPLACE REVISI");
-    btnRevisi.preferredSize = [140, 32];
-    var btnCancel = grpBtn.add("button", undefined, "Batal", { name: "cancel" });
-    btnCancel.preferredSize = [80, 32];
-
     // === EXECUTION LOGIC ===
     btnRun.onClick = function () {
         w.close(1); // Standard Run
@@ -675,7 +863,7 @@ function main() {
     var result = w.show();
     if (result != 1 && result != 2) return; // Cancel
 
-    saveSettings(w.location.x, w.location.y, currentBaseServer);
+    saveSettings(w.location.x, w.location.y, currentBaseServer, currentBaseMaster);
 
     // --- COLLECT JOBS ---
     var jobsToRun = [];
@@ -804,46 +992,86 @@ function runReplacementLogic(templateFolder, inputFolder) {
                 
                 // Coba cocokan kalau format master hanya angka misal "1" dan input " (1)"
                 var inputJustNumber = "";
-                var numberMatch = inputBaseNameStripped.match(/(\d+)/) || inputBaseName.match(/\((\d+)\)/) || inputBaseName.match(/(\d+)/);
+                var numberMatch = inputBaseNameStripped.match(/^(\d+)$/) || inputBaseName.match(/^\s*\((\d+)\)\s*$/) || inputBaseName.match(/^(\d+)\s*\(\d+\)$/);
                 if (numberMatch) inputJustNumber = numberMatch[1];
 
                 if (inputBaseName === templateBaseName || inputBaseNameStripped === templateBaseName || (inputJustNumber !== "" && inputJustNumber === templateBaseName)) {
                     var inputRelDir = decodeURI(input.parent.fullName).replace(decodeURI(inputFolder.fullName), "");
                     if (inputRelDir.indexOf("/") == 0) inputRelDir = inputRelDir.substring(1);
 
-                    if (inputRelDir == templateRelDir) matchedByNameInSubfolder.push(input);
-                    else matchedByNameAnywhere.push(input);
+                    // Template relDir bisa berupa "PAUD" sementara inputRelDir "PAUD/BRIMOB"
+                    // Cocok jika sama persis ATAU inputRelDir adalah turunan dari templateRelDir
+                    var isSameOrChildFolder = false;
+                    if (templateRelDir === "") {
+                        // Jika master ada di root, hanya cocok jika input juga di root
+                        isSameOrChildFolder = (inputRelDir === "");
+                    } else {
+                        isSameOrChildFolder = (inputRelDir === templateRelDir || inputRelDir.indexOf(templateRelDir + "/") === 0);
+                    }
+
+                    if (isSameOrChildFolder) {
+                        matchedByNameInSubfolder.push(input);
+                    } else {
+                        matchedByNameAnywhere.push(input);
+                    }
                 }
             }
-            if (matchedByNameInSubfolder.length > 0) matchedInputs = matchedByNameInSubfolder;
-            else if (matchedByNameAnywhere.length > 0) matchedInputs = matchedByNameAnywhere;
+            if (matchedByNameInSubfolder.length > 0) {
+                matchedInputs = matchedByNameInSubfolder;
+            } else if (templateRelDir === "" && matchedByNameAnywhere.length > 0) {
+                // Hanya izinkan fallback ke 'anywhere' jika template sendiri berada di root folder
+                matchedInputs = matchedByNameAnywhere;
+            }
         }
 
         // 2. By Number (if Name failed)
         if (matchedInputs.length === 0) {
-            var templateNumberMatch = template.name.match(/(\d+)/);
+            // Ambil nomor utama di awal nama file template (sebelum kurung jika ada)
+            var templateNumberMatch = template.name.match(/^(\d+)/) || template.name.match(/(\d+)/);
             if (templateNumberMatch) {
                 var templateNumber = templateNumberMatch[1];
                 var matchedByNumInSubfolder = [];
                 var matchedByNumAnywhere = [];
                 for (var j = 0; j < inputFiles.length; j++) {
                     var input = inputFiles[j];
-                    var inputNumberMatch = input.name.match(/(\d+)/);
-                    if (inputNumberMatch && inputNumberMatch[1] == templateNumber) {
+                    // Ambil nomor utama input (misal "1 (1)" -> nomor utamanya adalah 1, BUKAN angka di dalam kurung)
+                    var inputBaseNumberMatch = input.name.match(/^(\d+)/);
+                    var inputNumber = inputBaseNumberMatch ? inputBaseNumberMatch[1] : null;
+
+                    if (inputNumber !== null && inputNumber === templateNumber) {
                         var inputRelDir = decodeURI(input.parent.fullName).replace(decodeURI(inputFolder.fullName), "");
                         if (inputRelDir.indexOf("/") == 0) inputRelDir = inputRelDir.substring(1);
 
-                        if (inputRelDir == templateRelDir) matchedByNumInSubfolder.push(input);
-                        else matchedByNumAnywhere.push(input);
+                        var isSameOrChildFolder = false;
+                        if (templateRelDir === "") {
+                            isSameOrChildFolder = (inputRelDir === "");
+                        } else {
+                            isSameOrChildFolder = (inputRelDir === templateRelDir || inputRelDir.indexOf(templateRelDir + "/") === 0);
+                        }
+
+                        if (isSameOrChildFolder) {
+                            matchedByNumInSubfolder.push(input);
+                        } else {
+                            matchedByNumAnywhere.push(input);
+                        }
                     }
                 }
-                if (matchedByNumInSubfolder.length > 0) matchedInputs = matchedByNumInSubfolder;
-                else if (matchedByNumAnywhere.length > 0) matchedInputs = matchedByNumAnywhere;
+                if (matchedByNumInSubfolder.length > 0) {
+                    matchedInputs = matchedByNumInSubfolder;
+                } else if (templateRelDir === "" && matchedByNumAnywhere.length > 0) {
+                    matchedInputs = matchedByNumAnywhere;
+                }
             }
         }
 
-        // Sort matches
+        // Sort matches: Utamakan pengelompokan folder yang sama, lalu urutan nama file
         matchedInputs.sort(function (a, b) {
+            var aDir = decodeURI(a.parent.fullName);
+            var bDir = decodeURI(b.parent.fullName);
+            if (aDir !== bDir) {
+                return aDir < bDir ? -1 : 1;
+            }
+
             var aIsPng = /\.png$/i.test(a.name);
             var bIsPng = /\.png$/i.test(b.name);
             var aIsPsd = /\.psd$/i.test(a.name);
@@ -852,8 +1080,85 @@ function runReplacementLogic(templateFolder, inputFolder) {
             if (!aIsPng && bIsPng) return 1;
             if (aIsPsd && !bIsPsd) return -1;
             if (!aIsPsd && bIsPsd) return 1;
+
             return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
         });
+
+        // Kelompokkan file input per parent folder (agar tidak pernah mencampur file dari 2 folder berbeda)
+        var inputsByFolder = {};
+        for (var mi = 0; mi < matchedInputs.length; mi++) {
+            var parentKey = decodeURI(matchedInputs[mi].parent.fullName);
+            if (!inputsByFolder[parentKey]) inputsByFolder[parentKey] = [];
+            inputsByFolder[parentKey].push(matchedInputs[mi]);
+        }
+
+        // Ambil kelompok folder pertama yang cocok
+        var targetGroup = [];
+        for (var pKey in inputsByFolder) {
+            if (inputsByFolder.hasOwnProperty(pKey)) {
+                targetGroup = inputsByFolder[pKey];
+                break;
+            }
+        }
+
+        // Cari file spesifik untuk XL dan S di dalam grup folder tersebut
+        var fileForXL = null;
+        var fileForS = null;
+
+        if (targetGroup.length === 1) {
+            // Jika HANYA ada 1 input file (misal "1(2).png" saja tanpa pasangan 1(1)/1(3)),
+            // maka file tersebut hanya menggantikan XL saja, dan S TIDAK diganti.
+            fileForXL = targetGroup[0];
+            fileForS = null;
+        } else if (targetGroup.length >= 2) {
+            // Urutkan grup: nomor kurung lebih kecil duluan (misal 1(1) sebelum 1(2), 1(2) sebelum 1(3))
+            targetGroup.sort(function (a, b) {
+                var aNum = 0, bNum = 0;
+                var aM = a.displayName.match(/\((\d+)\)/);
+                var bM = b.displayName.match(/\((\d+)\)/);
+                if (aM) aNum = parseInt(aM[1], 10);
+                if (bM) bNum = parseInt(bM[1], 10);
+                if (aNum !== bNum) return aNum - bNum;
+                return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
+            });
+
+            // Cek apakah ada file yang eksplisit (1) dan (2)
+            var explicit1 = null;
+            var explicit2 = null;
+            for (var gi = 0; gi < targetGroup.length; gi++) {
+                var gItem = targetGroup[gi];
+                var gName = gItem.displayName;
+                if (/\(\s*1\s*\)/.test(gName) && !explicit1) {
+                    explicit1 = gItem;
+                } else if (/\(\s*2\s*\)/.test(gName) && !explicit2) {
+                    explicit2 = gItem;
+                }
+            }
+
+            if (explicit1 && explicit2) {
+                fileForXL = explicit1;
+                fileForS = explicit2;
+            } else if (explicit1) {
+                fileForXL = explicit1;
+                // Ambil file lain untuk S
+                for (var gi2 = 0; gi2 < targetGroup.length; gi2++) {
+                    if (targetGroup[gi2] !== fileForXL) {
+                        fileForS = targetGroup[gi2];
+                        break;
+                    }
+                }
+            } else {
+                // Tidak ada (1), misal pasangan 1(2) & 1(3), atau foto tanpa tanda kurung
+                // Ambil file urutan pertama untuk XL, file berikutnya untuk S
+                fileForXL = targetGroup[0];
+                fileForS = targetGroup[1];
+            }
+
+            // Proteksi: file XL dan S tidak boleh sama
+            if (fileForS === fileForXL) {
+                fileForS = null;
+            }
+        }
 
         try {
             var doc = app.open(template);
@@ -866,20 +1171,19 @@ function runReplacementLogic(templateFolder, inputFolder) {
                 continue;
             }
 
-            if (smartS && matchedInputs.length >= 2) {
+            if (fileForXL) {
+                // Ganti XL
                 doc.activeLayer = smartXL;
-                replaceSmartContent(matchedInputs[0]);
-                smartXL.name = matchedInputs[0].displayName.replace(/\.[^\.]+$/, "");
+                replaceSmartContent(fileForXL);
+                smartXL.name = fileForXL.displayName.replace(/\.[^\.]+$/, "");
 
-                doc.activeLayer = smartS;
-                replaceSmartContent(matchedInputs[1]);
-                smartS.name = matchedInputs[1].displayName.replace(/\.[^\.]+$/, "");
+                // Ganti S jika smartS ada dan file (2) / file kedua ada di folder yang sama
+                if (smartS && fileForS) {
+                    doc.activeLayer = smartS;
+                    replaceSmartContent(fileForS);
+                    smartS.name = fileForS.displayName.replace(/\.[^\.]+$/, "");
+                }
 
-                successList.push(relPath(templateFolder, template));
-            } else if (matchedInputs.length >= 1) {
-                doc.activeLayer = smartXL;
-                replaceSmartContent(matchedInputs[0]);
-                smartXL.name = matchedInputs[0].displayName.replace(/\.[^\.]+$/, "");
                 successList.push(relPath(templateFolder, template));
             } else {
                 failList.push(relPath(templateFolder, template) + " (No input match)");
@@ -1023,7 +1327,7 @@ function runRevisiLogic(masterFolder, inputFolder) {
         }
         
         // Tambahkan versi "hanya angka" jika nama formatnya "   (2)"
-        var numberMatch = baseNameStripped.match(/(\d+)/) || baseName.match(/\((\d+)\)/) || baseName.match(/(\d+)/);
+        var numberMatch = baseNameStripped.match(/^(\d+)$/) || baseName.match(/^\s*\((\d+)\)\s*$/) || baseName.match(/^(\d+)\s*\(\d+\)$/);
         if (numberMatch) {
             var justNumber = numberMatch[1];
             if (baseName !== justNumber && baseNameStripped !== justNumber) {
@@ -1080,11 +1384,19 @@ function runRevisiLogic(masterFolder, inputFolder) {
                     candidates.sort(function (a, b) {
                         var aRel = getRelDir(a, inputFolder);
                         var bRel = getRelDir(b, inputFolder);
-                        var aMatch = (aRel === masterRelDir);
-                        var bMatch = (bRel === masterRelDir);
+                        
+                        var aMatch = (aRel === masterRelDir || aRel.indexOf(masterRelDir + "/") === 0);
+                        var bMatch = (bRel === masterRelDir || bRel.indexOf(masterRelDir + "/") === 0);
 
                         if (aMatch && !bMatch) return -1;
                         if (!aMatch && bMatch) return 1;
+
+                        // Jika sama-sama match di turunan folder, utamakan yang satu subfolder terdalam
+                        var aDir = decodeURI(a.parent.fullName);
+                        var bDir = decodeURI(b.parent.fullName);
+                        if (aDir !== bDir) {
+                            return aDir < bDir ? -1 : 1;
+                        }
 
                         // Tie-break with extension priority
                         var aExt = a.name.match(/\.([^\.]+)$/i)[1].toLowerCase();
