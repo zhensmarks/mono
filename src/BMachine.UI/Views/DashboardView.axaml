@@ -52,9 +52,38 @@
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
-            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+
+        <!-- Profile Flyout Menu Row -->
+        <Style Selector="Button.profileMenuItem">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="ToggleButton.profileMenuItem">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.profileMenuItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.profileMenuItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.profileMenuItem:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1400A6FF"/>
         </Style>
 
         <!-- Master Browser TreeView Styles (PlainTree) -->
@@ -71,41 +100,100 @@
     </UserControl.Styles>
 
     
-    <Grid ColumnDefinitions="Auto, *, Auto, Auto">
-        <!-- PREMIUM SIDEBAR (LEFT) -->
-        <Border Grid.Column="0" 
-                Background="{DynamicResource CardBackgroundBrush}"
-                BorderThickness="0,0,1,0"
-                BorderBrush="{DynamicResource SeparatorBrush}"
-                Width="64"
-                ZIndex="50">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="20" OffsetX="5" OffsetY="0" Color="#15000000" Opacity="1"/>
-            </Border.Effect>
-            
-            <Grid RowDefinitions="Auto, *, Auto" Margin="0, 24, 0, 24">
-                
-                <!-- TOP: Profile -->
-                <StackPanel Grid.Row="0" HorizontalAlignment="Center">
-                    <Button Padding="0" Background="Transparent" BorderThickness="0" 
-                            CornerRadius="32" Cursor="Hand" 
-                            Command="{Binding ToggleProfileViewerCommand}"
-                            ToolTip.Tip="View Profile Picture">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Opacity" Value="0.9"/>
-                            </Style>
-                        </Button.Styles>
+        <Grid ColumnDefinitions="*, Auto, Auto">
+        <!-- MAIN DASHBOARD AREA (Content) -->
+        <Grid Grid.Column="0" RowDefinitions="Auto, *">
+            <!-- NAVIGATION BAR - CARD BORDERED, NO ICON (sesuai editing list yang benar) -->
+            <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="4"
+                    HorizontalAlignment="Center" Margin="12,12,12,12">
+                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                    <!-- PROFILE (Left End) -->
+                    <Button x:Name="Part_ProfileNavButton"
+                            Padding="0" Background="Transparent" BorderThickness="0"
+                            CornerRadius="18" Cursor="Hand" Width="38" Height="36"
+                            ToolTip.Tip="Account">
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient">
+                                <Border Width="250" Padding="12" CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}">
+                                    <StackPanel>
+                                        <!-- Compact profile header -->
+                                        <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding UserName}" FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Greeting}" FontSize="10" Margin="0,3,0,0"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                    Padding="6,3" CornerRadius="8" Background="#1510B981"
+                                                    IsVisible="{Binding IsOnline}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Border Width="6" Height="6" CornerRadius="3" Background="#10b981" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="ONLINE" FontSize="8" FontWeight="SemiBold" Foreground="#10b981"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
 
+                                        <!-- Compact real-time stats -->
+                                        <Border Padding="8,7" CornerRadius="6" Background="{DynamicResource BackgroundBrush}">
+                                            <Grid ColumnDefinitions="*,*,*,*">
+                                                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                                    <TextBlock Text="{Binding StatEditing}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentEditingBrush}" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Language[Stats.Editing]}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                                    <TextBlock Text="{Binding StatRevision}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentRevisionBrush}" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Language[Stats.Revision]}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                                    <TextBlock Text="{Binding StatLate}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentLateBrush}" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Language[Stats.Late]}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                                                    <TextBlock Text="{Binding StatPoints}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentPointsBrush}" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Language[Stats.Points]}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <Separator Margin="0,10,0,4"/>
+                                        <ToggleButton Classes="profileMenuItem" Click="OnTerminalToggleClick" IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}">
+                                            <Grid ColumnDefinitions="20,*,Auto" Margin="2,0">
+                                                <PathIcon Grid.Column="0" Data="{StaticResource IconTerminal}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="Terminal" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                <TextBlock Grid.Column="2" Text="OPEN" FontSize="8" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" IsVisible="{Binding IsLogPanelOpen}"/>
+                                                <TextBlock Grid.Column="2" Text="CLOSED" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsVisible="{Binding !IsLogPanelOpen}"/>
+                                            </Grid>
+                                        </ToggleButton>
+                                        <Button Classes="profileMenuItem" Click="OnSettingsClick">
+                                            <Grid ColumnDefinitions="20,*,Auto" Margin="2,0">
+                                                <PathIcon Grid.Column="0" Data="{StaticResource IconSettings}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="Settings" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                            </Grid>
+                                        </Button>
+                                        <Button Classes="profileMenuItem" Click="OnLogoutClick">
+                                            <Grid ColumnDefinitions="20,*,Auto" Margin="2,0">
+                                                <PathIcon Grid.Column="0" Data="{StaticResource IconLogOut}" Width="15" Height="15" Foreground="#ef4444" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="Log Out" FontSize="11" Foreground="#ef4444" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                            </Grid>
+                                        </Button>
+                                        <TextBlock Text="{Binding AppVersion, StringFormat='BMACHINE {0}'}" FontSize="8"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,7,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </Flyout>
+                        </Button.Flyout>
                         <!-- Avatar with Online Indicator -->
-                        <Panel Width="44" Height="44" Margin="0,4,0,0">
-                            <Border Width="40" Height="40" CornerRadius="20" 
+                        <Panel Width="36" Height="36">
+                            <Border Width="30" Height="30" CornerRadius="15" 
                                     Background="{DynamicResource BackgroundBrush}" 
                                     ClipToBounds="True" 
-                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                    BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="2"
                                     HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Panel>
-                                    <shapes:Path Data="{StaticResource IconUser}" Width="18" Height="18" 
+                                    <shapes:Path Data="{StaticResource IconUser}" Width="14" Height="14" 
                                                Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" 
                                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                                IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNull}}"/>
@@ -113,110 +201,14 @@
                                            IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                 </Panel>
                             </Border>
-                            
-                            <!-- Green Online Dot -->
-                            <Border Width="14" Height="14" CornerRadius="7" 
+                            <Border Width="10" Height="10" CornerRadius="5" 
                                     Background="#10b981" 
                                     BorderBrush="{DynamicResource CardBackgroundBrush}" BorderThickness="2"
-                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" 
-                                    Margin="0,0,0,0">
-                            </Border>
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
                         </Panel>
                     </Button>
-                </StackPanel>
-                
-                <!-- MIDDLE: Empty Spacer -->
-                <Border Grid.Row="1"/>
-                
-                <!-- BOTTOM: Terminal, Settings, Log Out -->
-                <StackPanel Grid.Row="2" HorizontalAlignment="Center" Spacing="16">
-                    
-                    <!-- Terminal Toggle -->
-                    <ToggleButton Click="OnTerminalToggleClick" 
-                                  IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}"
-                                  Width="40" Height="40" Padding="0"
-                                  Background="Transparent" BorderThickness="0"
-                                  CornerRadius="8" Cursor="Hand"
-                                  ToolTip.Tip="Terminal">
-                        <ToggleButton.Styles>
-                            <Style Selector="ToggleButton">
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
-                            </Style>
-                            <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                            </Style>
-                            <Style Selector="ToggleButton:checked shapes|Path">
-                                <Setter Property="Fill" Value="#FFFFFF"/>
-                            </Style>
-                        </ToggleButton.Styles>
-                        <shapes:Path Data="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V9H7V7M7,11H17V13H7V11M7,15H17V17H7V15Z" 
-                                     Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </ToggleButton>
-                    
-                    <!-- Settings -->
-                    <Button Click="OnSettingsClick" 
-                            Width="40" Height="40" Padding="0" 
-                            Background="Transparent" BorderThickness="0" 
-                            CornerRadius="8" Cursor="Hand" 
-                            ToolTip.Tip="Settings">
-                        <Button.Styles>
-                            <Style Selector="Button">
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
-                            </Style>
-                            <Style Selector="Button:pointerover shapes|Path">
-                                <Setter Property="Fill" Value="{DynamicResource TextPrimaryBrush}"/>
-                            </Style>
-                        </Button.Styles>
-                        <shapes:Path Data="{StaticResource IconSettings}" Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource TextSecondaryBrush}"/>
-                    </Button>
-
-                    <!-- Log Out -->
-                    <Button Command="{Binding OpenLogoutDialogCommand}" 
-                            Width="40" Height="40" Padding="0" 
-                            Background="Transparent" BorderThickness="0" 
-                            CornerRadius="8" Cursor="Hand" 
-                            ToolTip.Tip="Log Out">
-                        <Button.Styles>
-                            <Style Selector="Button">
-                                <Setter Property="Transitions">
-                                    <Transitions>
-                                        <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                    </Transitions>
-                                </Setter>
-                            </Style>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="#1Aef4444"/>
-                            </Style>
-                        </Button.Styles>
-                        <shapes:Path Data="M16.56,5.44L15.11,6.89C16.84,7.94 18,9.83 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,9.83 7.16,7.94 8.88,6.88L7.44,5.44C5.36,6.88 4,9.28 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.28 18.64,6.88 16.56,5.44M13,3H11V13H13" 
-                                     Width="18" Height="18" Stretch="Uniform" Fill="#ef4444"/>
-                    </Button>
-                </StackPanel>
-            </Grid>
-        </Border>
-        
-        <!-- MAIN DASHBOARD AREA (Content) -->
-        <Grid Grid.Column="1" RowDefinitions="Auto, *">
-            <!-- NAVIGATION BAR - CARD BORDERED, NO ICON (sesuai editing list yang benar) -->
-            <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
-                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                    CornerRadius="8" Padding="4"
-                    HorizontalAlignment="Center" Margin="12,12,12,12">
-                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                    <!-- Separator between Profile and Nav -->
+                    <Border Width="1" Height="20" Background="{DynamicResource SeparatorBrush}" Margin="2,0"/>
                      <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}" IsVisible="{Binding IsOutputExplorerVisible}">
                          <TextBlock Text="EXPLORER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                      </RadioButton>
@@ -981,7 +973,7 @@
     </Grid>
 
     <!-- RESIZE HANDLE (Manual drag) -->
-    <Border Grid.Column="2" Width="6" Background="Transparent" 
+    <Border Grid.Column="1" Width="6" Background="Transparent" 
             Cursor="SizeWestEast"
             IsVisible="{Binding IsLogPanelOpen}"
             x:Name="LogPanelResizeHandle"
@@ -997,12 +989,12 @@
     </Border>
 
     <!-- LOG PANEL -->
-    <views:LogPanelSidebar Grid.Column="3" x:Name="LogPanel" Width="{Binding LogPanelWidth}" MinWidth="180"
+    <views:LogPanelSidebar Grid.Column="2" x:Name="LogPanel" Width="{Binding LogPanelWidth}" MinWidth="180"
                            IsVisible="{Binding IsLogPanelOpen}" 
                            VerticalAlignment="Stretch"/>
 
     <!-- PROFILE PICTURE VIEWER OVERLAY -->
-    <Grid Grid.ColumnSpan="4"
+    <Grid Grid.ColumnSpan="3"
           IsVisible="{Binding IsProfileViewerOpen}"
           ZIndex="1000"
           Background="#A0000000"> <!-- Semi-transparent background -->

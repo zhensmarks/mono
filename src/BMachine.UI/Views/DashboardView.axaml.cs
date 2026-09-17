@@ -111,6 +111,21 @@ public partial class DashboardView : UserControl
                 vm.IsLogPanelOpen = !wasOpen;
             }
         }
+        Part_ProfileNavButton.Flyout?.Hide();
+    }
+
+    private void OnViewProfileClick(object? sender, RoutedEventArgs e)
+    {
+        Part_ProfileNavButton.Flyout?.Hide();
+    }
+    private void OnLogoutClick(object? sender, RoutedEventArgs e)
+    {
+        Part_ProfileNavButton.Flyout?.Hide();
+        if (DataContext is DashboardViewModel vm && vm.OpenLogoutDialogCommand.CanExecute(null))
+        {
+            vm.OpenLogoutDialogCommand.Execute(null);
+        }
+        e.Handled = true;
     }
 
     private void OnBatchDragOver(object? sender, DragEventArgs e)
@@ -186,6 +201,7 @@ public partial class DashboardView : UserControl
              if (vm.OpenSettingsCommand.CanExecute(null))
              {
                  vm.OpenSettingsCommand.Execute(null);
+                 Part_ProfileNavButton.Flyout?.Hide();
              }
         }
         else

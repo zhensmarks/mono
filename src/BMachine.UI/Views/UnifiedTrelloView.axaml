@@ -237,27 +237,10 @@
 
                             <Button Command="{Binding ActiveViewModel.ShowBatchMovePanelCommand}"
                                     ToolTip.Tip="Pindah Massal"
-                                    Classes="Action" Height="24" Padding="10,0" CornerRadius="6" 
-                                    Cursor="Hand" FontSize="11">
-                                <Button.Styles>
-                                    <Style Selector="Button">
-                                        <Setter Property="Transitions">
-                                            <Transitions>
-                                                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
-                                            </Transitions>
-                                        </Setter>
-                                    </Style>
-                                    <Style Selector="Button:pointerover">
-                                        <Setter Property="RenderTransform" Value="scale(1.02)"/>
-                                    </Style>
-                                    <Style Selector="Button:pressed">
-                                        <Setter Property="RenderTransform" Value="scale(0.98)"/>
-                                    </Style>
-                                </Button.Styles>
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <PathIcon Data="{StaticResource IconArrowRight}" Width="10" Height="10" Foreground="#111111"/>
-                                    <TextBlock Text="Move" FontWeight="SemiBold" Foreground="#111111"/>
-                                </StackPanel>
+                                    IsEnabled="{Binding ActiveViewModel.IsOnline}"
+                                    Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" 
+                                    Cursor="Hand" FontSize="12">
+                                <TextBlock Text="Move" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             </Button>
                        </StackPanel>
                   </StackPanel>
@@ -423,147 +406,68 @@
         </Grid>
         </Border>
 
-        <!-- Global Overlay for Batch Move Panel -->
-        <Border x:Name="Part_MovePanel" HorizontalAlignment="Center" VerticalAlignment="Center" Width="420" MaxHeight="600" CornerRadius="20"
-                Background="#F318181B"
-                BorderBrush="#40FFFFFF" BorderThickness="1"
-                IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"
-                BoxShadow="0 20 60 0 #40000000, 0 0 0 1 #20FFFFFF inset" ZIndex="20">
-            <Border.Transitions>
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25"/>
-                </Transitions>
-            </Border.Transitions>
-            <Grid RowDefinitions="Auto, *">
-                <Border Grid.Row="0" Padding="24,18" Background="Transparent" 
-                        BorderThickness="0,0,0,1" BorderBrush="#20FFFFFF" CornerRadius="20,20,0,0">
-                    <Grid ColumnDefinitions="*, Auto">
-                        <StackPanel Spacing="6">
-                             <TextBlock Text="Move Cards" FontSize="18" FontWeight="SemiBold" 
-                                       Foreground="{DynamicResource TextPrimaryBrush}" 
-                                       IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"/>
-                             <TextBlock Text="Move Card" FontSize="18" FontWeight="SemiBold" 
-                                       Foreground="{DynamicResource TextPrimaryBrush}" 
-                                       IsVisible="{Binding !ActiveViewModel.IsBatchMoveMode}"/>
-                             
-                             <TextBlock Text="{Binding ActiveViewModel.SelectedCard.Name}" FontSize="12" 
-                                       Foreground="{DynamicResource TextSecondaryBrush}" 
-                                       TextTrimming="CharacterEllipsis" MaxWidth="320" Opacity="0.7"
-                                       IsVisible="{Binding !ActiveViewModel.IsBatchMoveMode}"/>
-                             <TextBlock Text="{Binding ActiveViewModel.CardsSelectedCount, StringFormat='{}{0} Cards Selected'}" 
-                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.7"
-                                       IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}"/>
-                        </StackPanel>
-                        <Button Grid.Column="1" Command="{Binding ActiveViewModel.CloseMovePanelCommand}" Content="✕" 
-                                Background="Transparent" BorderThickness="0" FontSize="18" 
-                                Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" 
-                                Padding="6" VerticalAlignment="Center">
-                            <Button.Styles>
-                                <Style Selector="Button">
-                                    <Setter Property="Transitions">
-                                        <Transitions>
-                                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
-                                        </Transitions>
-                                    </Setter>
-                                </Style>
-                                <Style Selector="Button:pointerover">
-                                    <Setter Property="Foreground" Value="#ef4444"/>
-                                    <Setter Property="RenderTransform" Value="scale(1.1)"/>
-                                </Style>
-                            </Button.Styles>
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <ScrollViewer Grid.Row="1">
-                    <StackPanel Spacing="22" Margin="24,20">
-                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding ActiveViewModel.IsLoadingMoveData}" 
-                                     Height="3" Margin="0,0,0,12" Foreground="{DynamicResource AccentColorBrush}" 
-                                     CornerRadius="2"/>
-                        <TextBlock Text="{Binding ActiveViewModel.BatchStatusMessage}" FontSize="12" 
-                                   Foreground="{DynamicResource AccentColorBrush}" TextWrapping="Wrap" Opacity="0.9"/>
-                        
-                        <StackPanel Spacing="9">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="Destination Board" FontSize="12" FontWeight="SemiBold" 
-                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Text="Select or search a board" FontSize="10" 
-                                          Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.6"/>
-                            </StackPanel>
-                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" 
-                                   BorderBrush="#30FFFFFF" CornerRadius="12" Padding="0"
-                                   BoxShadow="0 2 8 0 #10000000 inset">
-                                <Border.Transitions>
-                                    <Transitions>
-                                        <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
-                                    </Transitions>
-                                </Border.Transitions>
-                                <AutoCompleteBox x:Name="Part_BatchMoveBoardBox" ItemsSource="{Binding ActiveViewModel.AvailableBoards}" 
-                                                 SelectedItem="{Binding ActiveViewModel.SelectedMoveBoard}" 
-                                                 Text="{Binding ActiveViewModel.MoveBoardSearchText, Mode=TwoWay}"
-                                                 ValueMemberBinding="{Binding Name}"
-                                                 Watermark="Search board..." 
-                                                 HorizontalAlignment="Stretch"
-                                                 FilterMode="Contains" MinimumPrefixLength="0" MaxDropDownHeight="160"
-                                                 Background="Transparent" BorderThickness="0" Padding="14,11" FontSize="13"/>
-                            </Border>
-                        </StackPanel>
-                        
-                        <StackPanel Spacing="9">
-                            <StackPanel Spacing="2">
-                                <TextBlock Text="Destination List" FontSize="12" FontWeight="SemiBold" 
-                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Text="Select or search a list" FontSize="10" 
-                                          Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.6"/>
-                            </StackPanel>
-                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" 
-                                   BorderBrush="#30FFFFFF" CornerRadius="12" Padding="0"
-                                   BoxShadow="0 2 8 0 #10000000 inset">
-                                <Border.Transitions>
-                                    <Transitions>
-                                        <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
-                                    </Transitions>
-                                </Border.Transitions>
-                                <AutoCompleteBox x:Name="Part_BatchMoveListBox" ItemsSource="{Binding ActiveViewModel.AvailableLists}" 
-                                                 SelectedItem="{Binding ActiveViewModel.SelectedMoveList}" 
-                                                 Text="{Binding ActiveViewModel.MoveListSearchText, Mode=TwoWay}"
-                                                 ValueMemberBinding="{Binding Name}"
-                                                 Watermark="Search list..." 
-                                                 HorizontalAlignment="Stretch"
-                                                 FilterMode="Contains" MinimumPrefixLength="0" MaxDropDownHeight="160"
-                                                 Background="Transparent" BorderThickness="0" Padding="14,11" FontSize="13"
-                                                 IsEnabled="{Binding ActiveViewModel.SelectedMoveBoard, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                            </Border>
-                        </StackPanel>
-                        
-                        <Button Command="{Binding ActiveViewModel.MoveCardCommand}" 
-                                Classes="Action"
-                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                Height="42" CornerRadius="10" Margin="0,6,0,0" Cursor="Hand"
-                                IsEnabled="{Binding ActiveViewModel.SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <Button.Styles>
-                                <Style Selector="Button">
-                                    <Setter Property="Transitions">
-                                        <Transitions>
-                                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
-                                        </Transitions>
-                                    </Setter>
-                                </Style>
-                                <Style Selector="Button:pointerover">
-                                    <Setter Property="RenderTransform" Value="scale(1.02)"/>
-                                </Style>
-                                <Style Selector="Button:pressed">
-                                    <Setter Property="RenderTransform" Value="scale(0.98)"/>
-                                </Style>
-                            </Button.Styles>
-                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                                 <PathIcon Data="{StaticResource IconArrowRight}" Foreground="#111111" Width="14" Height="14"/>
-                                 <TextBlock Text="Confirm Move" FontWeight="SemiBold" FontSize="14" Foreground="#111111"/>
-                            </StackPanel>
-                        </Button>
+        <!-- Batch Move Panel (same appearance as Move Card side panel) -->
+        <Border x:Name="Part_MovePanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource AppBackgroundBrush}"
+                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
+                IsVisible="{Binding ActiveViewModel.IsBatchMoveMode}">
+            <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+                <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,20">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Batch Move" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding ActiveViewModel.CardsSelectedCount, StringFormat='{}{0} Cards Selected'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                     </StackPanel>
-                </ScrollViewer>
+                    <Button Grid.Column="1" Command="{Binding ActiveViewModel.CloseMovePanelCommand}" Content="X"
+                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover">
+                                <Setter Property="Foreground" Value="#ef4444"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                </Grid>
+
+                <StackPanel Grid.Row="1" Spacing="20">
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding ActiveViewModel.IsLoadingMoveData}" Height="4" Margin="0,0,0,10" Foreground="{DynamicResource AccentColorBrush}" CornerRadius="2"/>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Destination Board" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12">
+                            <AutoCompleteBox x:Name="Part_BatchMoveBoardBox" ItemsSource="{Binding ActiveViewModel.AvailableBoards}"
+                                             SelectedItem="{Binding ActiveViewModel.SelectedMoveBoard}"
+                                             ValueMemberBinding="{Binding Name}"
+                                             Watermark="Search board..."
+                                             HorizontalAlignment="Stretch"
+                                             FilterMode="Contains"
+                                             MinimumPrefixLength="0"
+                                             MaxDropDownHeight="160"
+                                             Background="Transparent" BorderThickness="0" Padding="12,10" FontSize="13"/>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Destination List" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12">
+                            <AutoCompleteBox x:Name="Part_BatchMoveListBox" ItemsSource="{Binding ActiveViewModel.AvailableLists}"
+                                             SelectedItem="{Binding ActiveViewModel.SelectedMoveList}"
+                                             ValueMemberBinding="{Binding Name}"
+                                             Watermark="Search list..."
+                                             HorizontalAlignment="Stretch"
+                                             FilterMode="Contains"
+                                             MinimumPrefixLength="0"
+                                             IsEnabled="{Binding ActiveViewModel.SelectedMoveBoard, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                             MaxDropDownHeight="160"
+                                             Background="Transparent" BorderThickness="0" Padding="12,10" FontSize="13"/>
+                        </Border>
+                    </StackPanel>
+
+                    <Button Command="{Binding ActiveViewModel.MoveCardCommand}"
+                            Classes="primary"
+                            Height="38" Padding="16,0"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Margin="0,10,0,0"
+                            IsEnabled="{Binding ActiveViewModel.SelectedMoveList, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Content="Confirm Move"/>
+                </StackPanel>
             </Grid>
         </Border>
 

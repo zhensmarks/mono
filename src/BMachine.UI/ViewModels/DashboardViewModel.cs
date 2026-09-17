@@ -270,6 +270,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private string _userName = "USER";
 
     [ObservableProperty]
+    private string _appVersion = "8.3";
+
+    [ObservableProperty]
     private string _greeting = "";
 
     [ObservableProperty]
@@ -601,6 +604,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] DashboardViewModel CTOR Started\n");
 
             StatPoints = "0";
+            AppVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(2) ?? "8.3";
             
             _database = database;
             _activityService = activityService; 
