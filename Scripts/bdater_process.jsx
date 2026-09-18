@@ -340,7 +340,7 @@
             byName[key].push(entry);
         }
 
-        return { headers: headers, byName: byName, repeatedNames: repeatedNames, totalRows: rows.length };
+        return { headers: headers, rows: rows, byName: byName, repeatedNames: repeatedNames, totalRows: rows.length };
     }
 
     function readDataFile(file) {
@@ -870,14 +870,62 @@
             var key = normalizeName(psdFile.name);
             var occurrence = occurrenceByName[key] || 0;
             occurrenceByName[key] = occurrence + 1;
-            var dataBucket = dataResult.byName[key] || [];
+            var entry = null;
+            var psdBase = baseName(psdFile);
+            var psdClean = key;
+            var psdNumMatch = /^\s*\(?\s*(\d+)\s*\)?/.exec(psdFile.name) || /\b(\d+)\b/.exec(psdFile.name);
+            var psdNum = psdNumMatch ? psdNumMatch[1] : "";
             var dataKey = key;
-            var entry = dataBucket[occurrence];
 
-            // Fallback: nama file PSD tak selalu persis sama dengan nama di data
-            // (cukup nama depan, spasi beda, dsb.). Cari bucket data lain yang
-            // kunci tanpa-spasinya saling beririsan.
-            if (!entry && dataBucket.length === 0) {
+            // Prioritas 1: Pencocokan eksplisit dari BMachine (_MATCHED_PSD_FILE)
+            if (dataResult.rows && dataResult.rows.length) {
+                for (var rIdx = 0; rIdx < dataResult.rows.length; rIdx++) {
+                    var rRow = dataResult.rows[rIdx];
+                    var assignedPsd = getEntryField(rRow, "_MATCHED_PSD_FILE");
+                    if (assignedPsd) {
+                        var assignedBase = assignedPsd.replace(/\.[^.]+$/, "");
+                        if (assignedBase.toLowerCase() === psdBase.toLowerCase() || assignedPsd.toLowerCase() === psdFile.name.toLowerCase()) {
+                            entry = rRow;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Prioritas 2: Pencocokan lewat Foto yang terpasang di baris data (_MATCHED_PHOTO_PATH)
+            if (!entry && dataResult.rows && dataResult.rows.length) {
+                for (var rIdx = 0; rIdx < dataResult.rows.length; rIdx++) {
+                    var rRow = dataResult.rows[rIdx];
+                    var rPhotoPath = getEntryField(rRow, "_MATCHED_PHOTO_PATH");
+                    if (rPhotoPath) {
+                        var fName = decodeName(new File(rPhotoPath).name);
+                        var fBase = fName.replace(/\.[^.]+$/, "");
+                        var fClean = normalizeName(fName);
+
+                        if (fBase.toLowerCase() === psdBase.toLowerCase() || (fClean && fClean === psdClean)) {
+                            entry = rRow;
+                            break;
+                        }
+
+                        if (psdNum) {
+                            var fNumMatch = /^\s*\(?\s*(\d+)\s*\)?/.exec(fName) || /\b(\d+)\b/.exec(fName);
+                            if (fNumMatch && fNumMatch[1] === psdNum) {
+                                entry = rRow;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Prioritas 3: Pencocokan via dataResult.byName (nama siswa)
+            if (!entry) {
+                var dataBucket = dataResult.byName[key] || [];
+                entry = dataBucket[occurrence];
+            }
+
+            // Prioritas 4: Fallback kemiripan nama siswa tanpa spasi
+            if (!entry) {
                 var noSpaceKey = key.replace(/\s+/g, "");
                 if (noSpaceKey.length > 2) {
                     for (var dk in dataResult.byName) {

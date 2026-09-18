@@ -212,6 +212,53 @@ public class PhotoMatcherService
 
         return 0;
     }
+    public int ScorePsdToRow(string psdFileName, string studentName, string? photoPath, int rowNumber)
+    {
+        if (string.IsNullOrWhiteSpace(psdFileName)) return 0;
+        var psdBase = Path.GetFileNameWithoutExtension(psdFileName).Trim();
+        var psdClean = CleanFileNameForMatch(psdBase);
+        var psdNumMatch = NumberRegex.Match(psdBase);
+        var psdNumber = psdNumMatch.Success ? int.Parse(psdNumMatch.Groups[1].Value).ToString() : string.Empty;
+
+        int score = 0;
+
+        // 1. Cocokkan dengan foto yang sudah dipilih di baris tersebut
+        if (!string.IsNullOrWhiteSpace(photoPath))
+        {
+            var fBase = Path.GetFileNameWithoutExtension(photoPath).Trim();
+            var fClean = CleanFileNameForMatch(fBase);
+
+            if (string.Equals(fBase, psdBase, StringComparison.OrdinalIgnoreCase))
+                score += 5000;
+            else if (string.Equals(fClean, psdClean, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(fClean))
+                score += 4000;
+            else if (!string.IsNullOrEmpty(psdClean) && !string.IsNullOrEmpty(fClean) &&
+                     (fClean.Contains(psdClean, StringComparison.OrdinalIgnoreCase) || psdClean.Contains(fClean, StringComparison.OrdinalIgnoreCase)))
+                score += 3000;
+
+            if (!string.IsNullOrEmpty(psdNumber))
+            {
+                var fNumMatch = NumberRegex.Match(fBase);
+                if (fNumMatch.Success && int.Parse(fNumMatch.Groups[1].Value).ToString() == psdNumber)
+                    score += 2500;
+            }
+        }
+
+        // 2. Cocokkan dengan nama siswa
+        if (!string.IsNullOrWhiteSpace(studentName))
+        {
+            int nameScore = MatchDataRowToPsd(studentName, psdFileName);
+            if (nameScore > 0) score += nameScore;
+        }
+
+        // 3. Cocokkan nomor urut baris jika PSD hanya berupa nomor
+        if (!string.IsNullOrEmpty(psdNumber) && rowNumber.ToString() == psdNumber)
+        {
+            score += 1500;
+        }
+
+        return score;
+    }
 
     public PhotoMatchResult FindBestMatch(string studentName, List<string> photoFiles, int threshold = 62, bool forcePick = false)
     {

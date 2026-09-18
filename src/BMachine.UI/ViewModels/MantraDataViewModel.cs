@@ -1264,51 +1264,53 @@ public partial class MantraDataViewModel : ObservableObject
                     var note = isPassed ? "Kandidat ditemukan" : "Tidak ada kandidat aman";
                     results.Add((i, matchedFileName, matchScore, isPassed, matchedPhotoPath ?? string.Empty, status, note, matchedFileName));
                 }
-                // Hitung kesiapan dengan ukuran yang SAMA dengan hasil Photoshop: proses
-                // berjalan per-template-PSD. Sebuah PSD terpasang hanya bila ada baris data
-                // DAN fotonya. Pesan konfirmasi harus memakai ukuran ini agar tidak
-                // menyesatkan ("semua cocok" padahal ada PSD tanpa pasangan).
-                var rowKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var rowKeysWithPhoto = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var r in rowsSnapshot)
+                // 1. Tentukan pasangan PSD untuk setiap baris data
+                var psdAssignments = new Dictionary<int, string>(); // rowIdx -> psdFileName
+                var usedPsds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                var pairScores = new List<(int rowIdx, string psdFile, int score)>();
+                for (int rIdx = 0; rIdx < rowsSnapshot.Count; rIdx++)
                 {
-                    var rk = PhotoMatcherService.NormalizePersonName(ExtractRowName(r));
-                    if (string.IsNullOrEmpty(rk)) continue;
-                    rowKeys.Add(rk);
-                    var pp = r["_MATCHED_PHOTO_PATH"];
-                    if (!string.IsNullOrWhiteSpace(pp) && File.Exists(pp)) rowKeysWithPhoto.Add(rk);
-                }
+                    var r = rowsSnapshot[rIdx];
+                    var rName = ExtractRowName(r);
+                    var rPhoto = results[rIdx].matchedPhotoPath;
+                    var rNum = r.RowNumber;
 
-                var photoKeys = new HashSet<string>(photos.Select(p => PhotoMatcherService.NormalizePersonName(Path.GetFileNameWithoutExtension(p))), StringComparer.OrdinalIgnoreCase);
-                var rowKeysNoSpace = rowKeys.Select(k => k.Replace(" ", "")).ToList();
-
-                int psdReady = 0;
-                foreach (var psd in psdFiles)
-                {
-                    var pk = PhotoMatcherService.NormalizePersonName(Path.GetFileNameWithoutExtension(psd));
-                    if (string.IsNullOrEmpty(pk)) continue;
-
-                    bool dataFound = rowKeys.Contains(pk);
-                    if (!dataFound)
+                    foreach (var psd in psdFiles)
                     {
-                        var pkNoSpace = pk.Replace(" ", "");
-                        if (pkNoSpace.Length > 2)
+                        var psdName = Path.GetFileName(psd);
+                        int sc = _photoService.ScorePsdToRow(psdName, rName, rPhoto, rNum);
+                        if (sc > 0)
                         {
-                            foreach (var rn in rowKeysNoSpace)
-                            {
-                                if (rn.Length > 2 && (rn.Contains(pkNoSpace, StringComparison.OrdinalIgnoreCase) || pkNoSpace.Contains(rn, StringComparison.OrdinalIgnoreCase)))
-                                {
-                                    dataFound = true;
-                                    break;
-                                }
-                            }
+                            pairScores.Add((rIdx, psdName, sc));
                         }
                     }
-                    bool photoFound = photoKeys.Contains(pk) || rowKeysWithPhoto.Contains(pk);
-                    if (dataFound && photoFound) psdReady++;
                 }
 
-                return (results, matchCount, psdReady, psdTotal: psdFiles.Count);
+                // Pasangkan secara greedy berdasarkan skor tertinggi
+                foreach (var pair in pairScores.OrderByDescending(x => x.score))
+                {
+                    if (!psdAssignments.ContainsKey(pair.rowIdx) && !usedPsds.Contains(pair.psdFile))
+                    {
+                        psdAssignments[pair.rowIdx] = pair.psdFile;
+                        usedPsds.Add(pair.psdFile);
+                    }
+                }
+
+                // Untuk setiap baris, simpan _MATCHED_PSD_FILE ke results (disisipkan melalui side-channel baris asli karena tuple results sudah fix, kita tulis di bawah setelah Task.Run atau bisa update dictionary row)
+                // Agar aman, kita tulis ke r["_MATCHED_PSD_FILE"] langsung karena r adalah reference,
+                // ATAU lebih aman kita pass keluar via dictionary psdAssignments.
+
+                int psdReady = psdFiles.Count(psd =>
+                {
+                    var pName = Path.GetFileName(psd);
+                    var matchedPair = psdAssignments.FirstOrDefault(x => string.Equals(x.Value, pName, StringComparison.OrdinalIgnoreCase));
+                    if (matchedPair.Value == null) return false;
+                    var rPhoto = results[matchedPair.Key].matchedPhotoPath;
+                    return !string.IsNullOrWhiteSpace(rPhoto) && File.Exists(rPhoto);
+                });
+
+                return (results, matchCount, psdReady, psdTotal: psdFiles.Count, psdAssignments);
             });
 
             foreach (var (idx, matchedPhoto, matchScore, isPassed, matchedPhotoPath, status, note, candidate) in matchResults.results)
@@ -1321,6 +1323,14 @@ public partial class MantraDataViewModel : ObservableObject
                 row.MatchNote = note;
                 row.MatchCandidate = candidate;
                 row["_MATCHED_PHOTO_PATH"] = matchedPhotoPath;
+                if (matchResults.psdAssignments.TryGetValue(idx, out var assignedPsd))
+                {
+                    row["_MATCHED_PSD_FILE"] = assignedPsd;
+                }
+                else
+                {
+                    row["_MATCHED_PSD_FILE"] = string.Empty;
+                }
             }
             psdReady = matchResults.psdReady;
             psdTotal = matchResults.psdTotal;
@@ -1388,6 +1398,7 @@ public partial class MantraDataViewModel : ObservableObject
             {
                 var dict = Columns.ToDictionary(c => c, c => r[c]);
                 dict["_MATCHED_PHOTO_PATH"] = isRevision ? "" : r["_MATCHED_PHOTO_PATH"];
+                dict["_MATCHED_PSD_FILE"] = r["_MATCHED_PSD_FILE"];
                 return dict;
             }).ToList()
         };
