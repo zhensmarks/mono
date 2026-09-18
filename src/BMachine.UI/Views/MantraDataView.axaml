@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
              xmlns:models="using:BMachine.UI.Models.MantraData"
-             mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="700"
+             xmlns:local="using:BMachine.UI.Views"
              x:Class="BMachine.UI.Views.MantraDataView"
              x:DataType="vm:MantraDataViewModel"
              Background="Transparent"
@@ -14,6 +14,10 @@
         <KeyBinding Gesture="Ctrl+Tab" Command="{Binding NextSheetCommand}"/>
         <KeyBinding Gesture="Ctrl+Shift+Tab" Command="{Binding PreviousSheetCommand}"/>
     </UserControl.KeyBindings>
+
+    <UserControl.Resources>
+        <local:PhotoFilterEqualsConverter x:Key="FilterEq"/>
+    </UserControl.Resources>
 
     <UserControl.Styles>
         <!-- Application Default Typography --><!-- DataGrid Excel-Like Minimalist Dark: Solid border, absolutely no jump/scale animation on click.
@@ -150,11 +154,30 @@
             <Setter Property="Background" Value="#2563EB"/>
             <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
         </Style>
+        <Style Selector="Button.SegTab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.SegTab:pointerover">
+            <Setter Property="Background" Value="#242429"/>
+            <Setter Property="Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.SegTab.Active">
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto, *, Auto">
 
-        <Grid Grid.Row="0" Margin="0,2,0,8" RowDefinitions="Auto, Auto">
+        <Grid Grid.Row="0" Margin="0,2,0,8" RowDefinitions="Auto, Auto, Auto, Auto">
             <DockPanel Grid.Row="0" LastChildFill="False" Background="#101014">
                 <Menu DockPanel.Dock="Left" Background="#101014" Foreground="#D4D4D8" FontSize="12">
                     <MenuItem Header="File">
@@ -162,64 +185,130 @@
                         <MenuItem Header="Buka File Excel/Word..." Click="OnOpenFileClicked" InputGesture="Ctrl+O"/>
                         <MenuItem Header="Simpan ke DATER" Command="{Binding ExportDaterCommand}" InputGesture="Ctrl+S"/>
                         <MenuItem Header="Tutup Data (Clear)" Command="{Binding ClearDataCommand}" InputGesture="Ctrl+W"/>
-                        <Separator Background="#27272A"/>
-                        <MenuItem Header="Export ke DATER (TXT + JSON + XLSX)" Click="OnExportDaterMenuClick"/>
-                        <MenuItem Header="Export ke Excel (.xlsx)" Tag="xlsx" Click="OnExportFormatMenuClick"/>
-                        <MenuItem Header="Export ke CSV (.csv)" Tag="csv" Click="OnExportFormatMenuClick"/>
-                        <MenuItem Header="Export ke TXT" Tag="txt" Click="OnExportFormatMenuClick"/>
                     </MenuItem>
                     <MenuItem Header="Edit">
                         <MenuItem Header="Undo" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" InputGesture="Ctrl+Z"/>
                         <MenuItem Header="Redo" Command="{Binding RedoLastCommand}" IsEnabled="{Binding CanRedo}" InputGesture="Ctrl+Shift+Z"/>
-                        <Separator Background="#27272A"/>
-                        <MenuItem Header="Cari &amp; Ganti..." Click="OnMenuFindReplaceClicked" InputGesture="Ctrl+F"/>
                     </MenuItem>
                     <MenuItem Header="Data">
                         <MenuItem Header="Pembersihan Cepat (AI/Rule)..." Command="{Binding OpenCleanerDialogCommand}" InputGesture="F3"/>
-                        <MenuItem Header="Susun Kolom (Layout Pekerjaan)" Command="{Binding ApplyLayoutCommand}"/>
                         <MenuItem Header="Atur Kolom..." Command="{Binding OpenTransformDialogCommand}" InputGesture="F8"/>
                         <MenuItem Header="Rapikan Semua (Smart Clean)" Command="{Binding CleanupAllCommand}"/>
-                        <Separator Background="#27272A"/>
-                        <MenuItem Header="Rapikan Huruf (Title Case)" Click="OnMenuTitleCaseClicked"/>
-                        <MenuItem Header="Format Tanggal Indonesia" Click="OnMenuDateFormatFullClicked" InputGesture="F11"/>
-                        <MenuItem Header="Format No. HP (+62)" Click="OnMenuPhonePrefixClicked"/>
-                        <MenuItem Header="Normalisasi Gender (L/P)" Click="OnMenuNormalizeGenderClicked"/>
-                        <MenuItem Header="Trim Spasi Berlebih" Click="OnMenuTrimSpacesClicked"/>
                     </MenuItem>
                 </Menu>
-
-                <!-- Right: Photoshop Button Only -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="Atur Kolom" Classes="ToolBtn"
                             Height="26" Padding="8,4" Margin="0,0,6,0"
                             ToolTip.Tip="Buka susunan kolom hasil (Atur Kolom, F8)"
                             Command="{Binding OpenTransformDialogCommand}"/>
-                    <Button Content="Proses Photoshop" Classes="ToolBtn"
-                            Height="26" Padding="8,4"
-                            ToolTip.Tip="Jalankan Robot ID Card untuk mengisi text layer dan foto di Photoshop (Ctrl+Enter)"
+                    <Button Content="Proses Photoshop" Classes="ToolBtn" Height="26" Padding="8,4"
                             Command="{Binding ProcessPhotoshopCommand}"/>
                 </StackPanel>
             </DockPanel>
 
-            <!-- Multi-Sheet Tabs Bar -->
-            <Border Grid.Row="1" Background="#121215" BorderBrush="#232326" BorderThickness="1,0,1,1"
-                    CornerRadius="4,4,0,0" Padding="4,2" Margin="0,2,0,0">
+            <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,6,0,0">
+                <Border x:Name="MasterPsdCard" Grid.Column="0" Background="#151519" BorderBrush="#303038" BorderThickness="1" CornerRadius="7" Padding="12,8"
+                        DragDrop.AllowDrop="True"
+                        DragDrop.DragEnter="OnFolderDragEnter" DragDrop.DragOver="OnFolderDragOver" DragDrop.DragLeave="OnFolderDragLeave" DragDrop.Drop="OnMasterPsdDrop">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="MASTER PSD" FontSize="10" FontWeight="SemiBold" Foreground="#A1A1AA"/>
+                                <TextBlock Text="· Tarik folder ke sini" FontSize="10" Foreground="#52525B"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding MasterPsdStatus}" FontSize="12" Foreground="#E4E4E7" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Pilih folder" Classes="ToolBtn" Command="{Binding PickMasterPsdFolderCommand}"/>
+                    </Grid>
+                </Border>
+                <Border x:Name="PhotoCard" Grid.Column="1" Background="#151519" BorderBrush="#303038" BorderThickness="1" CornerRadius="7" Padding="12,8"
+                        DragDrop.AllowDrop="True"
+                        DragDrop.DragEnter="OnFolderDragEnter" DragDrop.DragOver="OnFolderDragOver" DragDrop.DragLeave="OnFolderDragLeave" DragDrop.Drop="OnPhotoDrop">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="FOLDER FOTO" FontSize="10" FontWeight="SemiBold" Foreground="#A1A1AA"/>
+                                <TextBlock Text="· Tarik folder ke sini" FontSize="10" Foreground="#52525B"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding PhotoFolderStatus}" FontSize="12" Foreground="#E4E4E7" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Pilih folder" Classes="ToolBtn" Command="{Binding PickPhotoFolderCommand}"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="2" Background="#121215" BorderBrush="#232326" BorderThickness="1" CornerRadius="4,4,0,0"
+                    Padding="4,2" Margin="0,2,0,0" IsVisible="{Binding HasData}">
                 <DockPanel>
                     <TextBlock Text="Sheet:" Foreground="#71717A" FontSize="11" VerticalAlignment="Center" Margin="6,0,8,0"/>
                     <ListBox Classes="SheetTabs" ItemsSource="{Binding SheetNames}" SelectedIndex="{Binding CurrentSheetIndex, Mode=TwoWay}"
                              Background="Transparent" BorderThickness="0">
                         <ListBox.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                     </ListBox>
                 </DockPanel>
             </Border>
+
+            <Border Grid.Row="3" Background="#101014" BorderBrush="#232326" BorderThickness="1" CornerRadius="4,4,0,0"
+                    Padding="8,4" Margin="0,2,0,0" IsVisible="{Binding HasData}">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="STATUS FOTO" Foreground="#52525B" FontSize="9.5" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Margin="2,0,0,0"/>
+                    <Border Background="#16161A" BorderBrush="#27272A" BorderThickness="1" CornerRadius="8" Padding="2">
+                        <StackPanel x:Name="SegTabPanel" Orientation="Horizontal">
+                            <Button Classes="SegTab" Tag="SEMUA" Click="OnPhotoFilterTabClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Semua"/>
+                                    <Border CornerRadius="7" Padding="5,0" Background="#26262C">
+                                        <TextBlock Text="{Binding TotalRows}" FontSize="9.5" Foreground="#D4D4D8"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                            <Border Width="1" Background="#27272A" Margin="0,4"/>
+                            <Button Classes="SegTab" Tag="REVIEW" Click="OnPhotoFilterTabClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Perlu Review"/>
+                                    <Border CornerRadius="7" Padding="5,0" Background="#2A2410">
+                                        <TextBlock Text="{Binding ReviewCount}" FontSize="9.5" Foreground="#FBBF24"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                            <Border Width="1" Background="#27272A" Margin="0,4"/>
+                            <Button Classes="SegTab" Tag="GANDA" Click="OnPhotoFilterTabClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Ambigu / Ganda"/>
+                                    <Border CornerRadius="7" Padding="5,0" Background="#152038">
+                                        <TextBlock Text="{Binding GandaCount}" FontSize="9.5" Foreground="#60A5FA"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                            <Border Width="1" Background="#27272A" Margin="0,4"/>
+                            <Button Classes="SegTab" Tag="COCOK" Click="OnPhotoFilterTabClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Cocok"/>
+                                    <Border CornerRadius="7" Padding="5,0" Background="#0D2818">
+                                        <TextBlock Text="{Binding CocokCount}" FontSize="9.5" Foreground="#3FB950"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                            <Border Width="1" Background="#27272A" Margin="0,4"/>
+                            <Button Classes="SegTab" Tag="BELUM" Click="OnPhotoFilterTabClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Belum Ada"/>
+                                    <Border CornerRadius="7" Padding="5,0" Background="#26262C">
+                                        <TextBlock Text="{Binding BelumCount}" FontSize="9.5" Foreground="#8B949E"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
         </Grid>
 
-        <!-- ═══ 2. DATAGRID BENTO CARD SURFACE ═══ -->
-        <Border Grid.Row="1" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+        <!-- Data appears after source file loads. -->
+        <Border Grid.Row="1" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10" ClipToBounds="True" IsVisible="{Binding HasData}">
             <Grid x:Name="GridContainer">
                 <DataGrid x:Name="MainDataGrid"
                           ItemsSource="{Binding FilteredRows}"
@@ -287,21 +376,12 @@ SelectionChanged="OnDataGridSelectionChanged"
                     </DataGrid.ContextMenu>
                 </DataGrid>
 
-                <!-- Empty State Prompt (Pure Text, No Icons) -->
                 <Border x:Name="EmptyPrompt" Background="#111113" BorderBrush="#232326" BorderThickness="1"
-                        CornerRadius="10" Margin="30" IsVisible="False"
-                        VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440" Margin="32,28">
-                        <TextBlock Text="Tarik &amp; Lepas File Data ke Sini" FontSize="16" FontWeight="SemiBold"
-                                   Foreground="#F4F4F5" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                        <TextBlock Text="Mendukung spreadsheet Excel (.xlsx, .xls) dan biodata Word (.docx). Klik tombol di bawah atau seret dokumen dari folder."
-                                   Foreground="#71717A" TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Margin="0,0,0,22" LineHeight="18"/>
-                        <Button Classes="ActionBtn" Content="Pilih File dari Komputer"
-                                Padding="20,8" Height="36" HorizontalAlignment="Center"
-                                Click="OnOpenFileClicked" Margin="0,0,0,10"/>
-                        <Button Classes="ToolBtn" Content="Buat tabel buku tahunan / ID card"
-                                Padding="18,7" Height="34" HorizontalAlignment="Center"
-                                Command="{Binding NewTableCommand}"/>
+                        CornerRadius="10" Margin="30" IsVisible="{Binding !HasData}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520" Margin="28">
+                        <TextBlock Text="Mulai pencocokan data" FontSize="18" FontWeight="SemiBold" Foreground="#F4F4F5" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Pilih data utama. Folder foto dan master PSD bersifat opsional." Foreground="#A1A1AA" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,18"/>
+                        <Button Classes="ActionBtn" Content="Pilih File Excel / Word" HorizontalAlignment="Center" Click="OnOpenFileClicked"/>
                     </StackPanel>
                 </Border>
 

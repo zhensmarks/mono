@@ -1,4 +1,6 @@
 using System;
+using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
@@ -10,6 +12,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
+using Avalonia.Data.Converters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -19,6 +22,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using BMachine.UI.Models.MantraData;
 using BMachine.UI.Services.MantraData;
+using ImageMagick;
 using BMachine.UI.ViewModels;
 using BMachine.UI.Views.Dialogs.MantraData;
 
@@ -54,6 +58,10 @@ public partial class MantraDataView : UserControl
                 if (sv != null)
                     sv.ScrollChanged += (_, _) => RefreshCellVisuals();
             });
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_viewModel != null) UpdateSegTabHighlight(_viewModel.PhotoStatusFilter);
+            });
         };
     }
 
@@ -78,6 +86,7 @@ public partial class MantraDataView : UserControl
             {
                 RebuildColumns();
             }
+            UpdateSegTabHighlight(vm.PhotoStatusFilter);
         }
     }
 
@@ -85,8 +94,11 @@ public partial class MantraDataView : UserControl
     {
 vm.RequestProcessPsdDialogFunc = async () =>
         {
+            var dlg = new ProcessPsdWindow(
+                !string.IsNullOrWhiteSpace(vm.MasterPsdFolderPath) ? vm.MasterPsdFolderPath : vm.Settings.LastPsdFolder,
+                !string.IsNullOrWhiteSpace(vm.PhotoFolderPath) ? vm.PhotoFolderPath : vm.Settings.LastPhotoFolder,
+                vm.Columns.ToList());
             var topLevel = TopLevel.GetTopLevel(this) as Window;
-            var dlg = new ProcessPsdWindow(vm.Settings.LastPsdFolder, vm.Settings.LastPhotoFolder, vm.Columns.ToList());
             if (topLevel != null)
                 await dlg.ShowDialog(topLevel);
             else
@@ -202,6 +214,48 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
                 dlg.Show();
 
             return new CleanerDialogResult(dlg.Applied, dlg.SelectedCodes);
+        };
+
+        vm.RequestManualPhotoFunc = async (row) =>
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return null;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = $"Pilih foto untuk {row["Nama"]}",
+                AllowMultiple = false,
+                FileTypeFilter = new List<FilePickerFileType>
+                {
+                    new("Foto") { Patterns = new[] { "*.jpg", "*.jpeg", "*.png" } }
+                }
+            });
+
+            return files.Count > 0 ? files[0].Path.LocalPath : null;
+        };
+
+        vm.RequestMasterPsdFolderFunc = async () =>
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return null;
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Pilih folder master PSD",
+                AllowMultiple = false
+            });
+            return folders.Count > 0 ? folders[0].Path.LocalPath : null;
+        };
+
+        vm.RequestPhotoFolderFunc = async () =>
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return null;
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Pilih folder foto",
+                AllowMultiple = false
+            });
+            return folders.Count > 0 ? folders[0].Path.LocalPath : null;
         };
     }
 
@@ -369,6 +423,269 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
 
             MainDataGrid.Columns.Add(templateCol);
         }
+
+        var reviewCol = new DataGridTemplateColumn
+        {
+            Header = "Foto",
+            Width = new DataGridLength(320),
+            CanUserSort = false
+        };
+        reviewCol.CellTemplate = new FuncDataTemplate<TableDataRow>((row, ns) =>
+        {
+            // Kartu foto: thumbnail potret 3:4, nama file, pill status, dan tombol pilih.
+            var card = new Border
+            {
+                Background = SolidColorBrush.Parse("#141418"),
+                BorderBrush = SolidColorBrush.Parse("#27272C"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(9),
+                Padding = new Thickness(7),
+                Margin = new Thickness(2, 3),
+                ClipToBounds = true
+            };
+            var grid = new Grid
+            {
+                ColumnDefinitions = new Avalonia.Controls.ColumnDefinitions("Auto, *, Auto"),
+                Margin = new Thickness(0)
+            };
+
+            var thumbClip = new Border
+            {
+                Width = 36,
+                Height = 48,
+                CornerRadius = new CornerRadius(6),
+                Background = SolidColorBrush.Parse("#0C0C0F"),
+                BorderBrush = SolidColorBrush.Parse("#2A2A31"),
+                BorderThickness = new Thickness(1),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                ClipToBounds = true
+            };
+            var thumbGrid = new Grid();
+            var image = new Image
+            {
+                Stretch = Avalonia.Media.Stretch.UniformToFill,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
+                IsVisible = false
+            };
+            var placeholder = new TextBlock
+            {
+                Text = "BELUM\nADA FOTO",
+                FontSize = 9.5,
+                FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                Foreground = SolidColorBrush.Parse("#56565F"),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                TextAlignment = Avalonia.Media.TextAlignment.Center,
+            };
+            thumbGrid.Children.Add(image);
+            thumbGrid.Children.Add(placeholder);
+            thumbClip.Child = thumbGrid;
+            var infoPanel = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Vertical,
+                Spacing = 4,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Thickness(10, 0, 8, 0)
+            };
+
+            var fileName = new TextBlock
+            {
+                FontSize = 10.5,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Foreground = SolidColorBrush.Parse("#D4D4D8")
+            };
+
+            var pill = new Border
+            {
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(6, 1.5),
+                Background = SolidColorBrush.Parse("#21262D"),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+            };
+            var pillText = new TextBlock
+            {
+                FontSize = 9,
+                FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                Foreground = SolidColorBrush.Parse("#8B949E"),
+                Text = "BELUM DIPERIKSA"
+            };
+            pill.Child = pillText;
+
+            infoPanel.Children.Add(fileName);
+            infoPanel.Children.Add(pill);
+
+            var btnPilih = new Button
+            {
+                Content = "Pilih",
+                FontSize = 10,
+                Padding = new Thickness(7, 3),
+                MinHeight = 22,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Background = SolidColorBrush.Parse("#1E1E24"),
+                Foreground = SolidColorBrush.Parse("#E4E4E7"),
+                BorderBrush = SolidColorBrush.Parse("#2E2E36"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(5),
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
+            };
+            btnPilih.Command = _viewModel.SelectManualPhotoCommand;
+
+            static void LoadThumbnailAsync(Image img, string path)
+            {
+                Task.Run(() =>
+                {
+                    Avalonia.Media.Imaging.Bitmap? bmp = null;
+                    try
+                    {
+                        // Avalonia decode mengabaikan EXIF orientation: foto potret dari
+                        // handphone tampil miring. AutoOrient lewat Magick dulu.
+                        using var magick = new MagickImage(path);
+                        magick.AutoOrient();
+                        magick.Thumbnail(new MagickGeometry(256, 256));
+                        using var ms = new MemoryStream();
+                        magick.Format = MagickFormat.Png;
+                        magick.Write(ms);
+                        ms.Position = 0;
+                        bmp = new Avalonia.Media.Imaging.Bitmap(ms);
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            using var stream = File.OpenRead(path);
+                            bmp = new Avalonia.Media.Imaging.Bitmap(stream);
+                        }
+                        catch { bmp = null; }
+                    }
+
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (img.Tag is string tag && tag == path)
+                        {
+                            img.Source = bmp;
+                            img.IsVisible = bmp != null;
+                        }
+                    });
+                });
+            }
+
+            void SetStatus(string text, string textHex, string pillArgb, string cardHex)
+            {
+                pillText.Text = text;
+                pillText.Foreground = SolidColorBrush.Parse(textHex);
+                pill.Background = SolidColorBrush.Parse(pillArgb);
+                card.BorderBrush = SolidColorBrush.Parse(cardHex);
+            }
+
+            void UpdateDisplay(TableDataRow? r)
+            {
+                var path = r != null ? r["_MATCHED_PHOTO_PATH"] : string.Empty;
+
+                static void DropBitmap(Image img)
+                {
+                    if (img.Source is Avalonia.Media.Imaging.Bitmap old) old.Dispose();
+                    img.Source = null;
+                    img.Tag = null;
+                }
+
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    DropBitmap(image);
+                    image.IsVisible = false;
+                    placeholder.IsVisible = true;
+                    fileName.Text = "Belum ada foto";
+                    fileName.Foreground = SolidColorBrush.Parse("#8B949E");
+                    Avalonia.Controls.ToolTip.SetTip(fileName, "Tidak ada kandidat foto untuk baris ini");
+                    SetStatus("BELUM ADA", "#FBBF24", "#2A2410", "#27272C");
+                    return;
+                }
+
+                if (!File.Exists(path))
+                {
+                    DropBitmap(image);
+                    image.IsVisible = false;
+                    placeholder.IsVisible = true;
+                    fileName.Text = Path.GetFileName(path) + " (hilang)";
+                    fileName.Foreground = SolidColorBrush.Parse("#F87171");
+                    SetStatus("FILE HILANG", "#F87171", "#3A1B1D", "#5C1F22");
+                    return;
+                }
+
+                placeholder.IsVisible = false;
+                fileName.Text = Path.GetFileName(path);
+                fileName.Foreground = SolidColorBrush.Parse("#E4E4E7");
+                Avalonia.Controls.ToolTip.SetTip(fileName, r!.MatchNote);
+
+                if (r!.IsPhotoMatched)
+                    SetStatus($"COCOK {r.MatchScore}", "#3FB950", "#0D2818", "#1F4D2E");
+                else
+                    SetStatus($"REVIEW {r.MatchScore}", "#FBBF24", "#2A2410", "#3A3118");
+
+                // Foto yang sama tidak perlu di-decode ulang (UpdateDisplay dipanggil
+                // setiap ada perubahan cell di baris yang sama).
+                if (image.Tag is string currentPath && currentPath == path && image.Source != null)
+                    return;
+
+                DropBitmap(image);
+                image.Tag = path;
+                LoadThumbnailAsync(image, path);
+            }
+
+            TableDataRow? boundRow = null;
+            System.ComponentModel.PropertyChangedEventHandler? rowHandler = null;
+
+            void AttachRow(TableDataRow? newRow)
+            {
+                if (boundRow != null && rowHandler != null)
+                {
+                    boundRow.PropertyChanged -= rowHandler;
+                }
+
+                boundRow = newRow;
+
+                if (boundRow != null)
+                {
+                    btnPilih.CommandParameter = newRow;
+                    rowHandler = (s, pe) =>
+                    {
+                        if (pe.PropertyName == "Item[]" || pe.PropertyName == nameof(TableDataRow.Values))
+                        {
+                            UpdateDisplay(boundRow);
+                        }
+                    };
+                    boundRow.PropertyChanged += rowHandler;
+                }
+
+                UpdateDisplay(boundRow);
+            }
+
+            grid.DataContextChanged += (s, e) =>
+            {
+                AttachRow(grid.DataContext as TableDataRow);
+            };
+
+            grid.DetachedFromVisualTree += (s, e) =>
+            {
+                AttachRow(null);
+            };
+
+            if (row != null)
+            {
+                AttachRow(row);
+            }
+
+            Grid.SetColumn(thumbClip, 0);
+            Grid.SetColumn(infoPanel, 1);
+            Grid.SetColumn(btnPilih, 2);
+            grid.Children.Add(thumbClip);
+            grid.Children.Add(infoPanel);
+            grid.Children.Add(btnPilih);
+            card.Child = grid;
+            return card;
+            return card;
+        });
+        MainDataGrid.Columns.Add(reviewCol);
     }
 
     private void OnJobKindTextBlockLoaded(object? sender, RoutedEventArgs e)
@@ -607,7 +924,7 @@ private void OnDataGridBeginningEdit(object? sender, DataGridBeginningEditEventA
             }
             else if (e.Key == Key.N)
             {
-                _ = _viewModel?.NewTableAsync();
+                HandleNewTableAsync();
                 e.Handled = true;
             }
             else if (e.Key == Key.O)
@@ -617,7 +934,7 @@ private void OnDataGridBeginningEdit(object? sender, DataGridBeginningEditEventA
             }
             else if (e.Key == Key.Enter)
             {
-                _ = _viewModel?.ProcessPhotoshopAsync();
+                HandleProcessPhotoshopAsync();
                 e.Handled = true;
             }
 else if (e.Key == Key.F)
@@ -1286,6 +1603,123 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
             }
         }
     }
+
+    private async void HandleProcessPhotoshopAsync()
+    {
+        try
+        {
+            if (_viewModel != null)
+                await _viewModel.ProcessPhotoshopAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ProcessPhotoshopAsync error: {ex}");
+        }
+    }
+
+    private async void HandleNewTableAsync()
+    {
+        try
+        {
+            if (_viewModel != null)
+                await _viewModel.NewTableAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"NewTableAsync error: {ex}");
+        }
+    }
+
+    private void OnPhotoFilterTabClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel != null && sender is Button btn && btn.Tag is string key && !string.IsNullOrEmpty(key))
+        {
+            _viewModel.PhotoStatusFilter = key;
+            UpdateSegTabHighlight(key);
+        }
+    }
+
+    private void UpdateSegTabHighlight(string activeKey)
+    {
+        var panel = this.FindControl<StackPanel>("SegTabPanel");
+        if (panel == null) return;
+        foreach (var child in panel.Children)
+        {
+            if (child is Button b)
+            {
+                bool isActive = string.Equals(b.Tag as string, activeKey, StringComparison.OrdinalIgnoreCase);
+                if (isActive)
+                {
+                    if (!b.Classes.Contains("Active")) b.Classes.Add("Active");
+                }
+                else
+                {
+                    b.Classes.Remove("Active");
+                }
+            }
+        }
+    }
+
+    private static string? ExtractFolderFromDrag(DragEventArgs e)
+    {
+        if (!e.Data.Contains(DataFormats.Files)) return null;
+        var files = e.Data.GetFiles()?.ToList();
+        if (files == null || files.Count == 0) return null;
+        var first = files[0].Path.LocalPath;
+        if (string.IsNullOrEmpty(first)) return null;
+        if (Directory.Exists(first)) return first;
+        return File.Exists(first) ? Path.GetDirectoryName(first) : null;
+    }
+
+    private void OnFolderDragEnter(object? sender, DragEventArgs e)
+    {
+        if (sender is Border b)
+        {
+            var ok = ExtractFolderFromDrag(e) != null;
+            b.BorderBrush = ok ? SolidColorBrush.Parse("#388BFD") : SolidColorBrush.Parse("#F87171");
+            e.DragEffects = ok ? DragDropEffects.Copy : DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void OnFolderDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = ExtractFolderFromDrag(e) != null ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnFolderDragLeave(object? sender, DragEventArgs e)
+    {
+        if (sender is Border b) b.BorderBrush = SolidColorBrush.Parse("#303038");
+        e.Handled = true;
+    }
+
+    private void OnMasterPsdDrop(object? sender, DragEventArgs e)
+    {
+        var folder = ExtractFolderFromDrag(e);
+        if (!string.IsNullOrEmpty(folder) && _viewModel != null)
+            _viewModel.SetMasterPsdFolder(folder);
+        if (sender is Border b) b.BorderBrush = SolidColorBrush.Parse("#303038");
+        e.Handled = true;
+    }
+
+    private void OnPhotoDrop(object? sender, DragEventArgs e)
+    {
+        var folder = ExtractFolderFromDrag(e);
+        if (!string.IsNullOrEmpty(folder) && _viewModel != null)
+            _viewModel.SetPhotoFolder(folder);
+        if (sender is Border b) b.BorderBrush = SolidColorBrush.Parse("#303038");
+        e.Handled = true;
+    }
 }
 
+public class PhotoFilterEqualsConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is string s && parameter is string p
+            ? string.Equals(s, p, StringComparison.OrdinalIgnoreCase)
+            : false;
 
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

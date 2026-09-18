@@ -16,6 +16,23 @@ public class PhotoMatcherService
     private static readonly Regex TrailingDupRegex = new(@"\(\s*\d+\s*\)\s*$", RegexOptions.Compiled);
     private static readonly Regex NonAlnumRegex = new(@"[^a-z0-9]+", RegexOptions.Compiled);
 
+    /// <summary>
+    /// Ekstrak nama bersih dari nilai cell — ambil baris pertama saja (abaikan NISN/kota/dll
+    /// yang mungkin ada di baris berikutnya dalam satu cell multiline).
+    /// </summary>
+    public static string ExtractNameFromCell(string cellValue)
+    {
+        if (string.IsNullOrWhiteSpace(cellValue)) return string.Empty;
+        // Ambil baris pertama yang tidak kosong
+        foreach (var line in cellValue.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = line.Trim();
+            if (!string.IsNullOrEmpty(trimmed))
+                return trimmed;
+        }
+        return cellValue.Trim();
+    }
+
     public static string NormalizePersonName(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
@@ -30,8 +47,8 @@ public class PhotoMatcherService
         }
         var result = sb.ToString().Normalize(NormalizationForm.FormC);
         result = result.ToLower(CultureInfo.GetCultureInfo("id-ID"));
-
         result = FileExtRegex.Replace(result, "");
+        result = Regex.Replace(result, @"^\s*\(\s*\d+\s*\)\s*", "");
         result = LeadingNumRegex.Replace(result, "");
         result = TrailingDupRegex.Replace(result, "");
         result = NonAlnumRegex.Replace(result, " ");
@@ -99,7 +116,7 @@ public class PhotoMatcherService
     public static List<string> CollectPhotos(string rootFolder)
     {
         if (!Directory.Exists(rootFolder)) return new List<string>();
-        var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
+        var exts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg" };
         try
         {
             return Directory.EnumerateFiles(rootFolder, "*.*", SearchOption.AllDirectories)
@@ -163,17 +180,35 @@ public class PhotoMatcherService
     {
         if (string.IsNullOrWhiteSpace(studentName) || string.IsNullOrWhiteSpace(psdFileName)) return 0;
 
+        // Ekstrak nama bersih dari cell multiline (ambil baris pertama saja)
+        var cleanedName = ExtractNameFromCell(studentName);
+
         var psdBase = Path.GetFileNameWithoutExtension(psdFileName);
-        var sClean = CleanFileNameForMatch(studentName);
+        var sClean = CleanFileNameForMatch(cleanedName);
         var pClean = CleanFileNameForMatch(psdBase);
 
+        if (string.IsNullOrEmpty(sClean) || string.IsNullOrEmpty(pClean)) return 0;
+
+        // Exact match (setelah normalisasi)
         if (string.Equals(sClean, pClean, StringComparison.OrdinalIgnoreCase)) return 1000;
+
+        // Contains match
         if (pClean.Contains(sClean, StringComparison.OrdinalIgnoreCase) || sClean.Contains(pClean, StringComparison.OrdinalIgnoreCase)) return 600;
 
+        // Space-stripped match: "(4)AZKIATUNISA" → "azkiatunisa" vs "azkia tunisa" → "azkiatunisa"
+        // Kasus nama di PSD digabung tanpa spasi
+        var sNoSpace = sClean.Replace(" ", "");
+        var pNoSpace = pClean.Replace(" ", "");
+        if (string.Equals(sNoSpace, pNoSpace, StringComparison.OrdinalIgnoreCase)) return 950;
+        if (pNoSpace.Contains(sNoSpace, StringComparison.OrdinalIgnoreCase) || sNoSpace.Contains(pNoSpace, StringComparison.OrdinalIgnoreCase)) return 580;
+
+        // Token overlap
         var sTokens = new HashSet<string>(sClean.Split(' ', StringSplitOptions.RemoveEmptyEntries));
         var pTokens = new HashSet<string>(pClean.Split(' ', StringSplitOptions.RemoveEmptyEntries));
         int overlap = sTokens.Intersect(pTokens).Count();
         if (overlap >= 2) return 400 + overlap * 50;
+        // Single token yang cukup panjang juga dianggap match (misal nama 1 kata)
+        if (overlap == 1 && sTokens.Union(pTokens).Count() <= 3) return 350;
 
         return 0;
     }
@@ -281,3 +316,5 @@ public class PhotoMatcherService
         return results;
     }
 }
+
+

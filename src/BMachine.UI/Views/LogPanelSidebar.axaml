@@ -39,17 +39,17 @@
                             CornerRadius="8" Padding="3"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                          <UniformGrid Rows="1">
-                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsConsoleVisible}" Click="OnConsoleTabClick" ToolTip.Tip="Console">
-                                  <TextBlock Text="CONSOLE" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsConsoleVisible}" Click="OnConsoleTabClick" ToolTip.Tip="Log">
+                                  <TextBlock Text="LOG" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsMasterVisible}" Click="OnMasterTabClick" ToolTip.Tip="Master">
-                                  <TextBlock Text="MASTER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                  <TextBlock Text="MASTER" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
-                                  <TextBlock Text="PHOTOSHOP" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                  <TextBlock Text="PS" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsDocVisible}" IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
-                                  <TextBlock Text="DOC" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                  <TextBlock Text="DOC" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                          </UniformGrid>
                     </Border>
@@ -108,7 +108,7 @@
                                                    Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
                                                    Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
                                                    Classes.accent="{Binding Level, Converter={x:Static vm:LogConverters.IsAccent}}"
-                                                   FontSize="11" FontFamily="Cascadia Code, JetBrains Mono, Consolas" 
+                                                   FontSize="13" LineHeight="18" FontFamily="Cascadia Code, JetBrains Mono, Consolas" 
                                                    TextWrapping="Wrap"/>
                                     </Border>
                                 </DataTemplate>
@@ -317,14 +317,22 @@
         <Style Selector="SelectableTextBlock.accent"> <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/> </Style>
 
         <!-- Compact Log Card styles -->
-        <Style Selector="Border.logCard">
-            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
-            <Setter Property="BorderThickness" Value="3,0,0,0"/>
-            <Setter Property="CornerRadius" Value="3"/>
-            <Setter Property="Margin" Value="0,2"/>
-            <Setter Property="Padding" Value="8,5"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-        </Style>
+         <Style Selector="Border.logCard">
+             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+             <Setter Property="BorderThickness" Value="3,0,0,0"/>
+             <Setter Property="CornerRadius" Value="3"/>
+             <Setter Property="Margin" Value="0,2"/>
+             <Setter Property="Padding" Value="8,5"/>
+             <Setter Property="BorderBrush" Value="Transparent"/>
+             <Setter Property="Transitions">
+                 <Transitions>
+                     <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                 </Transitions>
+             </Setter>
+         </Style>
+         <Style Selector="Border.logCard:pointerover">
+             <Setter Property="Background" Value="#1AFFFFFF"/>
+         </Style>
         
         <Style Selector="Border.logCard.success">
             <Setter Property="BorderBrush" Value="{DynamicResource TerminalSuccessBrush}"/>

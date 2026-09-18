@@ -16,6 +16,12 @@ namespace BMachine.UI.ViewModels;
 
 public partial class MantraDataViewModel : ObservableObject
 {
+    private static int ExtractLeadingFileNumber(string fileName)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(fileName ?? string.Empty, @"^\s*\(\s*(\d+)\s*\)");
+        return match.Success && int.TryParse(match.Groups[1].Value, out var number) ? number : int.MaxValue;
+    }
+
     private readonly MantraDataSettings _settings;
     private readonly ExcelParserService _excelService;
     private readonly WordParserService _wordService;
@@ -28,6 +34,128 @@ public partial class MantraDataViewModel : ObservableObject
     public MantraDataSettings Settings => _settings;
     public TransformService TransformService => _transformService;
     public LocalAIService AiService => _aiService;
+
+    [ObservableProperty]
+    private string _masterPsdFolderPath = string.Empty;
+
+    [ObservableProperty]
+    private string _photoFolderPath = string.Empty;
+
+    [ObservableProperty]
+    private int _masterPsdFileCount;
+
+    [ObservableProperty]
+    private int _photoFileCount;
+
+    public string MasterPsdStatus => string.IsNullOrWhiteSpace(MasterPsdFolderPath)
+        ? "Belum dipilih"
+        : $"{MasterPsdFileCount} PSD siap";
+
+    public string PhotoFolderStatus => string.IsNullOrWhiteSpace(PhotoFolderPath)
+        ? "Belum dipilih"
+        : $"{PhotoFileCount} foto siap";
+
+    public void SetMasterPsdFolder(string path)
+    {
+        MasterPsdFolderPath = path ?? string.Empty;
+        MasterPsdFileCount = Directory.Exists(MasterPsdFolderPath)
+            ? Directory.EnumerateFiles(MasterPsdFolderPath, "*.*", SearchOption.AllDirectories)
+                .Count(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase))
+            : 0;
+        _settings.LastPsdFolder = MasterPsdFolderPath;
+        _settings.Save();
+        OnPropertyChanged(nameof(MasterPsdStatus));
+    }
+
+    public void SetPhotoFolder(string path)
+    {
+        PhotoFolderPath = path ?? string.Empty;
+        PhotoFileCount = Directory.Exists(PhotoFolderPath)
+            ? Directory.EnumerateFiles(PhotoFolderPath, "*.*", SearchOption.AllDirectories)
+                .Count(f => new[] { ".jpg", ".jpeg", ".png" }.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+            : 0;
+        _settings.LastPhotoFolder = PhotoFolderPath;
+        _settings.Save();
+        OnPropertyChanged(nameof(PhotoFolderStatus));
+
+        if (PhotoFileCount > 0 && Rows.Count > 0)
+        {
+            _ = AutoMatchPhotosAsync();
+        }
+    }
+
+    /// <summary>
+    /// Matching ulang seluruh baris terhadap folder foto aktif. Tidak memerlukan
+    /// master PSD — hanya pasangkan nama baris ke file foto terbaik yang tersedia.
+    /// </summary>
+    public async Task AutoMatchPhotosAsync()
+    {
+        if (string.IsNullOrWhiteSpace(PhotoFolderPath) || Rows.Count == 0) return;
+        if (!Directory.Exists(PhotoFolderPath)) return;
+
+        IsLoading = true;
+        StatusMessage = "Mencocokkan foto dengan data...";
+
+        var rowsSnapshot = Rows.ToList();
+        var photoDir = PhotoFolderPath;
+
+        var results = await Task.Run(() =>
+        {
+            var photos = _photoService.CollectPhotosRecursive(photoDir);
+            var nameHeaders = new[] { "NAMA", "NAMA LENGKAP", "NAMA SISWA", "NAMA GURU", "NAMA PESERTA DIDIK", "STUDENT NAME" };
+            var outResults = new List<(int idx, string path, string fileName, int score, bool matched)>();
+
+            for (int i = 0; i < rowsSnapshot.Count; i++)
+            {
+                var row = rowsSnapshot[i];
+                var name = string.Empty;
+                foreach (var column in Columns)
+                {
+                    if (!nameHeaders.Contains(column.Trim(), StringComparer.OrdinalIgnoreCase)) continue;
+                    var value = row[column];
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        name = PhotoMatcherService.ExtractNameFromCell(value);
+                        break;
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    outResults.Add((i, string.Empty, "-", 0, false));
+                    continue;
+                }
+
+                var match = _photoService.FindBestMatch(name, photos, _settings.PhotoMatchThreshold);
+                outResults.Add((i, match.MatchedFilePath ?? string.Empty,
+                    match.MatchedFilePath != null ? Path.GetFileName(match.MatchedFilePath) : "-",
+                    match.Score, match.IsPassed));
+            }
+
+            return outResults;
+        });
+
+        foreach (var (idx, photoPath, fileName, score, matched) in results)
+        {
+            var row = rowsSnapshot[idx];
+            row["_MATCHED_PHOTO_PATH"] = photoPath;
+            row.MatchedPhoto = fileName;
+            row.MatchScore = score;
+            row.IsPhotoMatched = matched;
+            row.MatchStatus = matched ? "SIAP PROSES" : "PERLU REVIEW";
+            row.MatchNote = matched ? "Foto cocok otomatis" : "Tidak ada kandidat aman";
+            row.MatchCandidate = fileName;
+            row.NotifyPhotoPreviewChanged();
+        }
+
+        MatchedPhotosCount = Rows.Count(r => !string.IsNullOrWhiteSpace(r["_MATCHED_PHOTO_PATH"]));
+        RefreshPhotoStatusCounts();
+        IsLoading = false;
+        StatusMessage = MatchedPhotosCount > 0
+            ? $"{MatchedPhotosCount} dari {Rows.Count} foto cocok."
+            : "Tidak ada foto yang cocok. Periksa folder atau pilih foto manual.";
+    }
+
 
     [ObservableProperty]
     private string _currentFilePath = string.Empty;
@@ -43,6 +171,58 @@ public partial class MantraDataViewModel : ObservableObject
 
     [ObservableProperty]
     private int _totalRows = 0;
+
+    // Filter cepat berdasarkan status pasangan foto (chip bar di atas tabel).
+    [ObservableProperty]
+    private string _photoStatusFilter = "SEMUA";
+
+    [ObservableProperty]
+    private int _reviewCount;
+    [ObservableProperty]
+    private int _gandaCount;
+    [ObservableProperty]
+    private int _cocokCount;
+    [ObservableProperty]
+    private int _belumCount;
+
+    /// <summary>
+    /// Klasifikasi status pasangan foto sebuah baris: COCOK / REVIEW / GANDA / BELUM.
+    /// REVIEW mencakup foto yang skor di bawah ambang atau file-nya hilang.
+    /// </summary>
+    private static string ClassifyPhotoStatus(TableDataRow row)
+    {
+        var path = row["_MATCHED_PHOTO_PATH"];
+        if (string.IsNullOrWhiteSpace(path)) return "BELUM";
+        if (!File.Exists(path)) return "HILANG";
+        if (!row.IsPhotoMatched) return "REVIEW";
+        if (string.Equals(row.MatchStatus, "AMBIGU", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(row.MatchStatus, "FOTO GANDA", StringComparison.OrdinalIgnoreCase)) return "GANDA";
+        return "COCOK";
+    }
+
+    public void RefreshPhotoStatusCounts()
+    {
+        int review = 0, ganda = 0, cocok = 0, belum = 0;
+        foreach (var row in Rows)
+        {
+            switch (ClassifyPhotoStatus(row))
+            {
+                case "REVIEW":
+                case "HILANG":
+                    review++; break;
+                case "GANDA":
+                    ganda++; break;
+                case "COCOK":
+                    cocok++; break;
+                default:
+                    belum++; break;
+            }
+        }
+        ReviewCount = review;
+        GandaCount = ganda;
+        CocokCount = cocok;
+        BelumCount = belum;
+    }
 
     [ObservableProperty]
     private int _matchedPhotosCount = 0;
@@ -85,6 +265,25 @@ public partial class MantraDataViewModel : ObservableObject
     public Func<IEnumerable<string>, IEnumerable<string>?, TableDataRow?, Task<(bool Confirmed, List<string> SelectedColumns, string MergeFormat, string Separator, string NewColumnName, bool DeleteSource)>>? RequestCustomMergeFunc { get; set; }
     public Func<List<string>, List<TableDataRow>, Task<TransformDialogResult>>? RequestTransformFunc { get; set; }
     public Func<List<DataCleaningSuggestion>, Task<CleanerDialogResult>>? RequestCleanerFunc { get; set; }
+    public Func<TableDataRow, Task<string?>>? RequestManualPhotoFunc { get; set; }
+    public Func<Task<string?>>? RequestMasterPsdFolderFunc { get; set; }
+    public Func<Task<string?>>? RequestPhotoFolderFunc { get; set; }
+
+    [RelayCommand]
+    private async Task PickMasterPsdFolderAsync()
+    {
+        if (RequestMasterPsdFolderFunc == null) return;
+        var path = await RequestMasterPsdFolderFunc();
+        if (!string.IsNullOrWhiteSpace(path)) SetMasterPsdFolder(path);
+    }
+
+    [RelayCommand]
+    private async Task PickPhotoFolderAsync()
+    {
+        if (RequestPhotoFolderFunc == null) return;
+        var path = await RequestPhotoFolderFunc();
+        if (!string.IsNullOrWhiteSpace(path)) SetPhotoFolder(path);
+    }
 
     public ObservableCollection<string> Columns { get; } = new();
     public ObservableCollection<TableDataRow> Rows { get; } = new();
@@ -111,39 +310,93 @@ public partial class MantraDataViewModel : ObservableObject
         _transformService = new TransformService();
         _aiService = new LocalAIService { IsEnabled = _settings.AiEnabled };
 
-        Rows.CollectionChanged += (s, e) => RefreshFilteredRows();
+        Rows.CollectionChanged += (s, e) => {
+            if (!_isBulkLoadingRows) RefreshFilteredRows();
+        };
+    }
+
+    private bool _isBulkLoadingRows = false;
+
+    public void SetManualPhotoMatch(TableDataRow row, string photoPath)
+    {
+        if (row == null || string.IsNullOrWhiteSpace(photoPath)) return;
+
+        row.MatchedPhoto = Path.GetFileName(photoPath);
+        row.MatchScore = 1000;
+        row.IsPhotoMatched = true;
+        row.MatchStatus = "DIPILIH MANUAL";
+        row.MatchNote = "Foto dipilih oleh pengguna";
+        row.MatchCandidate = Path.GetFileName(photoPath);
+        row.MatchReason = "Konfirmasi manual";
+        row.Confidence = 100;
+        row.Decision = MatchDecisionStatus.Confirmed;
+        row.NeedsConfirmation = false;
+        row["_MATCHED_PHOTO_PATH"] = photoPath;
+        row.NotifyPhotoPreviewChanged();
+        MatchedPhotosCount = Rows.Count(r => !string.IsNullOrWhiteSpace(r["_MATCHED_PHOTO_PATH"]));
+        RefreshPhotoStatusCounts();
+    }
+
+    public void SetManualPhotoMatch(string rowName, string photoPath)
+    {
+        var row = Rows.FirstOrDefault(r => string.Equals(r["Nama"], rowName, StringComparison.OrdinalIgnoreCase));
+        if (row != null) SetManualPhotoMatch(row, photoPath);
+    }
+
+    [RelayCommand]
+    private async Task SelectManualPhotoAsync(TableDataRow? row)
+    {
+        if (row == null || RequestManualPhotoFunc == null) return;
+        var path = await RequestManualPhotoFunc(row);
+        if (!string.IsNullOrWhiteSpace(path)) SetManualPhotoMatch(row, path);
     }
 
     public void RefreshFilteredRows()
     {
-        FilteredRows.Clear();
-        if (string.IsNullOrWhiteSpace(SearchFilter))
-        {
-            foreach (var r in Rows) FilteredRows.Add(r);
-        }
-        else
-        {
-            var term = SearchFilter.Trim().ToLowerInvariant();
-            foreach (var row in Rows)
-            {
-                if (row.RowNumber.ToString().Contains(term))
-                {
-                    FilteredRows.Add(row);
-                    continue;
-                }
+        var term = (SearchFilter ?? string.Empty).Trim().ToLowerInvariant();
+        var filter = PhotoStatusFilter ?? "SEMUA";
 
-                bool match = false;
-                foreach (var val in row.Values.Values)
+        FilteredRows.Clear();
+        foreach (var row in Rows)
+        {
+            if (filter != "SEMUA" && !RowMatchesPhotoFilter(row, filter)) continue;
+
+            if (!string.IsNullOrEmpty(term))
+            {
+                if (!row.RowNumber.ToString().Contains(term))
                 {
-                    if (!string.IsNullOrEmpty(val) && val.ToLowerInvariant().Contains(term))
+                    bool match = false;
+                    foreach (var val in row.Values.Values)
                     {
-                        match = true;
-                        break;
+                        if (!string.IsNullOrEmpty(val) && val.ToLowerInvariant().Contains(term))
+                        {
+                            match = true;
+                            break;
+                        }
                     }
+                    if (!match) continue;
                 }
-                if (match) FilteredRows.Add(row);
             }
+            FilteredRows.Add(row);
         }
+    }
+
+    private static bool RowMatchesPhotoFilter(TableDataRow row, string filter)
+    {
+        var st = ClassifyPhotoStatus(row);
+        switch (filter)
+        {
+            case "REVIEW": return st == "REVIEW" || st == "HILANG";
+            case "GANDA": return st == "GANDA";
+            case "COCOK": return st == "COCOK";
+            case "BELUM": return st == "BELUM";
+            default: return true;
+        }
+    }
+
+    partial void OnPhotoStatusFilterChanged(string value)
+    {
+        RefreshFilteredRows();
     }
 
     partial void OnSearchFilterChanged(string value)
@@ -172,6 +425,11 @@ public partial class MantraDataViewModel : ObservableObject
         TotalRows = Rows.Count; HasData = Rows.Count > 0;
         StatusMessage = "Menampilkan sheet: " + target.Name + " (" + TotalRows + " baris)";
         RefreshFilteredRows();
+
+        if (!string.IsNullOrWhiteSpace(PhotoFolderPath) && Directory.Exists(PhotoFolderPath))
+        {
+            _ = AutoMatchPhotosAsync();
+        }
     }
 
     [RelayCommand]
@@ -224,8 +482,10 @@ public partial class MantraDataViewModel : ObservableObject
                     Columns.Clear();
                     foreach (var c in cols) Columns.Add(c);
 
+                    _isBulkLoadingRows = true;
                     Rows.Clear();
                     foreach (var r in dataRows) Rows.Add(r);
+                    _isBulkLoadingRows = false;
 
                     CurrentFilePath = path;
                     TotalRows = Rows.Count; HasData = Rows.Count > 0;
@@ -246,6 +506,12 @@ public partial class MantraDataViewModel : ObservableObject
                     }
                     StatusMessage = $"Berhasil memuat {TotalRows} baris dari {Path.GetFileName(path)}";
                     RefreshFilteredRows();
+                    RefreshPhotoStatusCounts();
+
+                    if (!string.IsNullOrWhiteSpace(PhotoFolderPath) && Directory.Exists(PhotoFolderPath))
+                    {
+                        _ = AutoMatchPhotosAsync();
+                    }
                 });
             });
         }
@@ -889,43 +1155,84 @@ public partial class MantraDataViewModel : ObservableObject
             ? "Menganalisis template PSD untuk revisi..."
             : "Menganalisis template PSD dan mencocokkan foto...";
 
+
+        // Ukuran kesiapan PSD-driven (dihitung di bawah, dipakai oleh pesan konfirmasi
+        // dan pesan hasil agar konsisten — proses Photoshop berjalan per template PSD).
+        int psdReady = 0;
+        int psdTotal = 0;
         if (!isRevision)
         {
-            await Task.Run(() =>
+            // Snapshot Rows ke list lokal agar aman diakses dari background thread
+            var rowsSnapshot = Rows.ToList();
+
+            // Semua kalkulasi matching di background thread — JANGAN set ObservableProperty dari sini
+                var matchResults = await Task.Run(() =>
             {
                 var photos = _photoService.CollectPhotosRecursive(photoDir);
                 var psdFiles = Directory.Exists(psdDir)
-                    ? Directory.EnumerateFiles(psdDir, "*.psd", SearchOption.AllDirectories).ToList()
+                    ? Directory.EnumerateFiles(psdDir, "*.*", SearchOption.AllDirectories)
+                        .Where(p => p.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) ||
+                                    p.EndsWith(".psb", StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(p => ExtractLeadingFileNumber(Path.GetFileName(p)))
+                        .ThenBy(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase)
+                        .ToList()
                     : new List<string>();
 
                 int matchCount = 0;
+                    var results = new List<(int idx, string matchedPhoto, int matchScore, bool isPassed, string matchedPhotoPath, string status, string note, string candidate)>(rowsSnapshot.Count);
+                var nameHeaders = new[] { "NAMA", "NAMA LENGKAP", "NAMA SISWA", "NAMA GURU", "NAMA PESERTA DIDIK", "STUDENT NAME" };
 
-                foreach (var row in Rows)
+                string ExtractRowName(TableDataRow r)
                 {
-                    var name = row["NAMA"];
-                    if (string.IsNullOrEmpty(name)) name = row["Nama"];
+                    foreach (var column in Columns)
+                    {
+                        if (!nameHeaders.Contains(column.Trim(), StringComparer.OrdinalIgnoreCase)) continue;
+                        var value = r[column];
+                        if (!string.IsNullOrWhiteSpace(value))
+                            return PhotoMatcherService.ExtractNameFromCell(value);
+                    }
+                    return string.Empty;
+                }
 
+                for (int i = 0; i < rowsSnapshot.Count; i++)
+                {
+                    var row = rowsSnapshot[i];
+                    var name = string.Empty;
+                    foreach (var column in Columns)
+                    {
+                        if (!nameHeaders.Contains(column.Trim(), StringComparer.OrdinalIgnoreCase)) continue;
+                        var value = row[column];
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            name = PhotoMatcherService.ExtractNameFromCell(value);
+                            break;
+                        }
+                    }
+
+                    // Sumber utama pasangan foto adalah hasil di tampilan (AutoMatchPhotos /
+                    // pilihan manual). Jangan ditimpa heuristik PSD — apa yang tampil di
+                    // tabel itulah yang dikirim ke Photoshop.
                     string? matchedPhotoPath = null;
                     string matchedFileName = "-";
                     int matchScore = 0;
 
-                    var matchedPsd = psdFiles.FirstOrDefault(p => _photoService.MatchDataRowToPsd(name, Path.GetFileName(p)) >= 300);
-                    if (!string.IsNullOrEmpty(matchedPsd))
+                    var existingPhoto = row["_MATCHED_PHOTO_PATH"];
+                    if (!string.IsNullOrWhiteSpace(existingPhoto) && File.Exists(existingPhoto))
                     {
-                        matchedPhotoPath = _photoService.MatchPhotoToPsd(Path.GetFileName(matchedPsd), photos);
-                        if (!string.IsNullOrEmpty(matchedPhotoPath))
-                        {
-                            matchedFileName = Path.GetFileName(matchedPhotoPath);
-                            matchScore = 100;
-                        }
-                        else
-                        {
-                            matchedFileName = $"[PSD] {Path.GetFileName(matchedPsd)}";
-                            matchScore = 100;
-                        }
+                        matchedPhotoPath = existingPhoto;
+                        matchedFileName = Path.GetFileName(existingPhoto);
+                        matchScore = row.MatchScore > 0 ? row.MatchScore : 100;
                     }
 
-                    if (string.IsNullOrEmpty(matchedPhotoPath) && !string.IsNullOrEmpty(name))
+                    var matchedPsd = psdFiles
+                        .Select(p => new { Path = p, Score = _photoService.MatchDataRowToPsd(name, Path.GetFileName(p)) })
+                        .Where(x => x.Score >= 300)
+                        .OrderByDescending(x => x.Score)
+                        .ThenBy(x => x.Path, StringComparer.OrdinalIgnoreCase)
+                        .Select(x => x.Path)
+                        .FirstOrDefault();
+
+                    if (matchedPhotoPath == null && !string.IsNullOrEmpty(name))
                     {
                         var match = _photoService.FindBestMatch(name, photos, _settings.PhotoMatchThreshold);
                         if (match.IsPassed)
@@ -936,27 +1243,89 @@ public partial class MantraDataViewModel : ObservableObject
                         }
                     }
 
-                    bool isPassed = !string.IsNullOrEmpty(matchedPhotoPath) || !string.IsNullOrEmpty(matchedPsd);
-                    row.MatchedPhoto = matchedFileName;
-                    row.MatchScore = matchScore;
-                    row.IsPhotoMatched = isPassed;
+                    if (matchedPhotoPath == null && !string.IsNullOrEmpty(matchedPsd))
+                    {
+                        var viaPsd = _photoService.MatchPhotoToPsd(Path.GetFileName(matchedPsd), photos);
+                        if (!string.IsNullOrEmpty(viaPsd))
+                        {
+                            matchedPhotoPath = viaPsd;
+                            matchedFileName = Path.GetFileName(viaPsd);
+                            matchScore = 100;
+                        }
+                        else
+                        {
+                            matchedFileName = $"[PSD] {Path.GetFileName(matchedPsd)}";
+                        }
+                    }
 
-                    if (isPassed)
-                    {
-                        row["_MATCHED_PHOTO_PATH"] = matchedPhotoPath ?? string.Empty;
-                        matchCount++;
-                    }
-                    else
-                    {
-                        row["_MATCHED_PHOTO_PATH"] = string.Empty;
-                    }
+                    bool isPassed = !string.IsNullOrEmpty(matchedPhotoPath) || !string.IsNullOrEmpty(matchedPsd);
+                    if (isPassed) matchCount++;
+                    var status = string.IsNullOrEmpty(name) ? "NAMA KOSONG" : (isPassed ? "SIAP PROSES" : "PERLU REVIEW");
+                    var note = isPassed ? "Kandidat ditemukan" : "Tidak ada kandidat aman";
+                    results.Add((i, matchedFileName, matchScore, isPassed, matchedPhotoPath ?? string.Empty, status, note, matchedFileName));
+                }
+                // Hitung kesiapan dengan ukuran yang SAMA dengan hasil Photoshop: proses
+                // berjalan per-template-PSD. Sebuah PSD terpasang hanya bila ada baris data
+                // DAN fotonya. Pesan konfirmasi harus memakai ukuran ini agar tidak
+                // menyesatkan ("semua cocok" padahal ada PSD tanpa pasangan).
+                var rowKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var rowKeysWithPhoto = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var r in rowsSnapshot)
+                {
+                    var rk = PhotoMatcherService.NormalizePersonName(ExtractRowName(r));
+                    if (string.IsNullOrEmpty(rk)) continue;
+                    rowKeys.Add(rk);
+                    var pp = r["_MATCHED_PHOTO_PATH"];
+                    if (!string.IsNullOrWhiteSpace(pp) && File.Exists(pp)) rowKeysWithPhoto.Add(rk);
                 }
 
-                Dispatcher.UIThread.Post(() =>
+                var photoKeys = new HashSet<string>(photos.Select(p => PhotoMatcherService.NormalizePersonName(Path.GetFileNameWithoutExtension(p))), StringComparer.OrdinalIgnoreCase);
+                var rowKeysNoSpace = rowKeys.Select(k => k.Replace(" ", "")).ToList();
+
+                int psdReady = 0;
+                foreach (var psd in psdFiles)
                 {
-                    MatchedPhotosCount = matchCount;
-                });
+                    var pk = PhotoMatcherService.NormalizePersonName(Path.GetFileNameWithoutExtension(psd));
+                    if (string.IsNullOrEmpty(pk)) continue;
+
+                    bool dataFound = rowKeys.Contains(pk);
+                    if (!dataFound)
+                    {
+                        var pkNoSpace = pk.Replace(" ", "");
+                        if (pkNoSpace.Length > 2)
+                        {
+                            foreach (var rn in rowKeysNoSpace)
+                            {
+                                if (rn.Length > 2 && (rn.Contains(pkNoSpace, StringComparison.OrdinalIgnoreCase) || pkNoSpace.Contains(rn, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    dataFound = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    bool photoFound = photoKeys.Contains(pk) || rowKeysWithPhoto.Contains(pk);
+                    if (dataFound && photoFound) psdReady++;
+                }
+
+                return (results, matchCount, psdReady, psdTotal: psdFiles.Count);
             });
+
+            foreach (var (idx, matchedPhoto, matchScore, isPassed, matchedPhotoPath, status, note, candidate) in matchResults.results)
+            {
+                var row = rowsSnapshot[idx];
+                row.MatchedPhoto = matchedPhoto;
+                row.MatchScore = matchScore;
+                row.IsPhotoMatched = isPassed;
+                row.MatchStatus = status;
+                row.MatchNote = note;
+                row.MatchCandidate = candidate;
+                row["_MATCHED_PHOTO_PATH"] = matchedPhotoPath;
+            }
+            psdReady = matchResults.psdReady;
+            psdTotal = matchResults.psdTotal;
+            MatchedPhotosCount = matchResults.matchCount;
+            RefreshPhotoStatusCounts();
         }
 
         string confirmMsg;
@@ -971,10 +1340,15 @@ public partial class MantraDataViewModel : ObservableObject
         else
         {
             confirmMsg = $"Siap memproses data ke Photoshop:\n\n" +
-                         $"• Jumlah Siswa: {Rows.Count}\n" +
-                         $"• Foto Cocok: {MatchedPhotosCount} dari {Rows.Count}\n" +
+                         $"• Data: {Rows.Count} baris\n" +
+                         $"• Template PSD: {psdTotal} file\n" +
+                         $"• Siap terpasang (data + foto): {psdReady} dari {psdTotal}\n" +
+                         $"• Foto cocok di tabel: {MatchedPhotosCount} dari {Rows.Count}\n" +
                          $"• Folder PSD: {Path.GetFileName(psdDir)}\n\n" +
-                         $"Lanjutkan proses rendering otomatis ke Photoshop?";
+                         (psdTotal > 0 && psdReady < psdTotal
+                             ? $"Perhatian: {psdTotal - psdReady} template PSD belum punya pasangan data/foto dan akan dilewati.\n\n"
+                             : "") +
+                         "Lanjutkan proses rendering otomatis ke Photoshop?";
         }
 
         if (RequestConfirmFunc != null)
@@ -988,6 +1362,19 @@ public partial class MantraDataViewModel : ObservableObject
                     : "Proses Photoshop dibatalkan oleh pengguna.";
                 return;
             }
+        }
+
+        // Segarkan state folder VM (tanpa memicu matching ulang) supaya prefill dialog
+        // dan status toolbar di run berikutnya memakai folder yang baru dipilih.
+        SetMasterPsdFolder(psdDir);
+        if (!isRevision)
+        {
+            PhotoFolderPath = photoDir;
+            PhotoFileCount = Directory.Exists(photoDir)
+                ? Directory.EnumerateFiles(photoDir, "*.*", SearchOption.AllDirectories)
+                    .Count(f => new[] { ".jpg", ".jpeg", ".png" }.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+                : 0;
+            OnPropertyChanged(nameof(PhotoFolderStatus));
         }
 
         var daterDir = Path.Combine(Path.GetDirectoryName(CurrentFilePath) ?? Environment.CurrentDirectory, "DATER");
@@ -1013,11 +1400,16 @@ public partial class MantraDataViewModel : ObservableObject
                 operation: isRevision ? "revision" : "full",
                 fields: isRevision ? revisionFields : null);
 
+            var unresolvedPsd = Math.Max(0, psdTotal - report.RowsProcessed);
             StatusMessage = isRevision
-                ? $"Proses revisi selesai! {report.RowsProcessed} data diperbarui."
-                : $"Proses Photoshop selesai! {report.RowsProcessed} data diproses.";
+                ? $"Proses revisi selesai. {report.RowsProcessed} data diperbarui, {unresolvedPsd} belum diproses."
+                : $"Proses Photoshop selesai. {report.RowsProcessed} dari {psdTotal} template PSD terpasang, {unresolvedPsd} dilewati (tidak punya pasangan data/foto).";
             if (RequestAlertFunc != null)
-                await RequestAlertFunc("BDater Selesai", $"Proses {(isRevision ? "revisi" : "Photoshop")} selesai dengan sukses!\nTotal Halaman: {report.Pages.Count}\nData Terisi: {report.RowsProcessed}");
+                await RequestAlertFunc("Hasil Proses Photoshop",
+                    (isRevision
+                        ? $"Total data: {Rows.Count}\nData diperbarui: {report.RowsProcessed}\nBelum diproses: {unresolvedPsd}"
+                        : $"Total data: {Rows.Count}\nTemplate PSD: {psdTotal}\nTerpasang lengkap: {report.RowsProcessed}\nDilewati (tidak punya pasangan data/foto): {unresolvedPsd}") +
+                    "\n\nPeriksa PSD yang dilewati: cocokkan namanya dengan data, atau pakai tombol Pilih Foto di baris yang bersangkutan.");
         }
         catch (Exception ex)
         {
@@ -1736,4 +2128,6 @@ public partial class MantraDataViewModel : ObservableObject
         }
     }
 }
+
+
 

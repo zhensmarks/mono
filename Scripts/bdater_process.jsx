@@ -56,6 +56,21 @@
         return trimText(s);
     }
 
+    // Aturan kualitas penggantian foto: PNG > PSD > JPG dengan nama file sama.
+    // Pencocokan di BMachine memakai JPG saja, tapi ke PSD boleh pakai versi
+    // kualitas terbaik yang tersedia.
+    function pickBestPhoto(photoFile) {
+        try {
+            var stem = baseName(photoFile);
+            var dirFs = photoFile.parent.fsName;
+            var png = new File(dirFs + "/" + stem + ".png");
+            if (png.exists) return png;
+            var psd = new File(dirFs + "/" + stem + ".psd");
+            if (psd.exists) return psd;
+        } catch (e) {}
+        return photoFile;
+    }
+
     function baseName(file) {
         return decodeName(file.name).replace(/\.[^.]+$/, "");
     }
@@ -254,7 +269,12 @@
     function extractNameFromEntry(entry, headers, nameIndex) {
         if (nameIndex >= 0) {
             var direct = trimText(entry[trimText(headers[nameIndex])]);
-            if (direct) return direct;
+            if (direct) {
+                var directLines = direct.split(/[\r\n]+/);
+                for (var directIndex = 0; directIndex < directLines.length; directIndex++) {
+                    if (trimText(directLines[directIndex])) return trimText(directLines[directIndex]);
+                }
+            }
         }
 
         // Fallback jika kolom NAMA bernama variasi seperti "Nama Siswa"
@@ -411,17 +431,20 @@
 
         scan(folder);
         files.sort(function (a, b) {
-            var ak = normalizeName(a.name);
-            var bk = normalizeName(b.name);
-            if (ak < bk) return -1;
-            if (ak > bk) return 1;
             function orderNumber(name) {
                 var m = /^\s*\(\s*(\d+)\s*\)/.exec(decodeName(name));
                 if (!m) m = /^\s*(\d+)/.exec(decodeName(name));
                 return m ? parseInt(m[1], 10) : 999999;
             }
+
             var an = orderNumber(a.name), bn = orderNumber(b.name);
             if (an !== bn) return an - bn;
+
+            var ak = normalizeName(a.name);
+            var bk = normalizeName(b.name);
+            if (ak < bk) return -1;
+            if (ak > bk) return 1;
+
             var af = decodeName(a.fsName).toLowerCase();
             var bf = decodeName(b.fsName).toLowerCase();
             return af < bf ? -1 : (af > bf ? 1 : 0);
@@ -744,7 +767,7 @@
         var dataFile = inputs.dataFile;
         var photoFolder = inputs.photoFolder;
         var psdFolder = inputs.psdFolder;
-        var psdFiles = listFiles(psdFolder, /\.psd$/i);
+        var psdFiles = listFiles(psdFolder, /\.(psd|psb)$/i);
 
         // Selalu kumpulkan semua format (PNG, PSD, JPG) agar prioritas bisa diterapkan per-nama.
         // Prioritas saat pencocokan: PNG > PSD > JPG (foto dengan kualitas terbaik utama).
@@ -755,7 +778,8 @@
         // Gabungan untuk keperluan log & statistik
         var photoFiles = pngFiles.concat(psdPhotoFiles).concat(jpgFiles);
 
-        // Tiga bucket terpisah berdasarkan ekstensi untuk pencocokan berprioritas
+        // Gabungan bucket dipakai untuk validasi jumlah pasangan semua format foto.
+        var photoByName = buildFileBuckets(photoFiles);
         var pngByName   = buildFileBuckets(pngFiles);
         var psdPhotoByName = buildFileBuckets(psdPhotoFiles);
         var jpgByName   = buildFileBuckets(jpgFiles);
@@ -847,16 +871,43 @@
             var occurrence = occurrenceByName[key] || 0;
             occurrenceByName[key] = occurrence + 1;
             var dataBucket = dataResult.byName[key] || [];
+            var dataKey = key;
             var entry = dataBucket[occurrence];
 
-            // Prioritas foto: PNG > PSD > JPG per kemunculan nama yang sama
+            // Fallback: nama file PSD tak selalu persis sama dengan nama di data
+            // (cukup nama depan, spasi beda, dsb.). Cari bucket data lain yang
+            // kunci tanpa-spasinya saling beririsan.
+            if (!entry && dataBucket.length === 0) {
+                var noSpaceKey = key.replace(/\s+/g, "");
+                if (noSpaceKey.length > 2) {
+                    for (var dk in dataResult.byName) {
+                        var dn = dk.replace(/\s+/g, "");
+                        if (dn.length > 2 && (dn === noSpaceKey || dn.indexOf(noSpaceKey) === 0 || noSpaceKey.indexOf(dn) === 0)) {
+                            var altBucket = dataResult.byName[dk];
+                            if (altBucket[occurrence]) { entry = altBucket[occurrence]; dataKey = dk; break; }
+                        }
+                    }
+                }
+            }
+
+            // Pasangan eksplisit dari BMachine (preview thumbnail / pilihan manual) diutamakan:
+            // apa yang tampil di tabel itulah yang diproses. Bucket nama hanya fallback.
             var photo = null;
-            var pngBucket = pngByName[key] || [];
-            var psdBucket = psdPhotoByName[key] || [];
-            var jpgBucket = jpgByName[key] || [];
-            if (pngBucket[occurrence])        photo = pngBucket[occurrence];
-            else if (psdBucket[occurrence])   photo = psdBucket[occurrence];
-            else if (jpgBucket[occurrence])   photo = jpgBucket[occurrence];
+            var explicitPhotoPath = entry ? getEntryField(entry, "_MATCHED_PHOTO_PATH") : "";
+            if (explicitPhotoPath) {
+                var explicitFile = new File(explicitPhotoPath);
+                if (explicitFile.exists) photo = pickBestPhoto(explicitFile);
+            }
+            if (!photo) {
+                // Prioritas foto: PNG > PSD > JPG per kemunculan nama yang sama.
+                // Foto biasanya bernama mengikuti data, jadi pakai dataKey.
+                var pngBucket = pngByName[dataKey] || [];
+                var psdBucket = psdPhotoByName[dataKey] || [];
+                var jpgBucket = jpgByName[dataKey] || [];
+                if (pngBucket[occurrence])        photo = pngBucket[occurrence];
+                else if (psdBucket[occurrence])   photo = psdBucket[occurrence];
+                else if (jpgBucket[occurrence])   photo = jpgBucket[occurrence];
+            }
 
             progress.status.text = "Proses " + (p + 1) + "/" + psdFiles.length + " (" + decodeName(psdFile.name) + ")";
             progress.win.update();

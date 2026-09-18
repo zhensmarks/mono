@@ -110,10 +110,11 @@
                     HorizontalAlignment="Center" Margin="12,12,12,12">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                     <!-- PROFILE (Left End) -->
-                    <Button x:Name="Part_ProfileNavButton"
-                            Padding="0" Background="Transparent" BorderThickness="0"
-                            CornerRadius="18" Cursor="Hand" Width="38" Height="36"
-                            ToolTip.Tip="Account">
+                     <Button x:Name="Part_ProfileNavButton"
+                             Padding="7,0" Background="Transparent"
+                             BorderBrush="Transparent" BorderThickness="0"
+                             CornerRadius="6" Cursor="Hand" MinWidth="56" Height="32"
+                             ToolTip.Tip="Account">
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient">
                                 <Border Width="250" Padding="12" CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}">
@@ -185,36 +186,34 @@
                                 </Border>
                             </Flyout>
                         </Button.Flyout>
-                        <!-- Avatar with Online Indicator -->
-                        <Panel Width="36" Height="36">
-                            <Border Width="30" Height="30" CornerRadius="15" 
-                                    Background="{DynamicResource BackgroundBrush}" 
-                                    ClipToBounds="True" 
-                                    BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="2"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Panel>
-                                    <shapes:Path Data="{StaticResource IconUser}" Width="14" Height="14" 
-                                               Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" 
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNull}}"/>
-                                    <Image Source="{Binding UserAvatar}" Stretch="UniformToFill"
-                                           IsVisible="{Binding UserAvatar, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                </Panel>
-                            </Border>
-                            <Border Width="10" Height="10" CornerRadius="5" 
-                                    Background="#10b981" 
-                                    BorderBrush="{DynamicResource CardBackgroundBrush}" BorderThickness="2"
-                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                        </Panel>
-                    </Button>
-                    <!-- Separator between Profile and Nav -->
-                    <Border Width="1" Height="20" Background="{DynamicResource SeparatorBrush}" Margin="2,0"/>
-                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}" IsVisible="{Binding IsOutputExplorerVisible}">
-                         <TextBlock Text="EXPLORER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                     </RadioButton>
-                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}">
-                         <TextBlock Text="DASHBOARD" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                     </RadioButton>
+                         <!-- User name with Online Indicator -->
+                         <Panel MinWidth="36" Height="32" HorizontalAlignment="Center">
+                             <Border MinWidth="30" MinHeight="26" CornerRadius="6"
+                                     Background="Transparent"
+                                     BorderBrush="Transparent" BorderThickness="0"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center" Padding="4,0">
+                                 <TextBlock Text="{Binding UserName}"
+                                            FontSize="10" FontWeight="SemiBold"
+                                            Foreground="{DynamicResource TextPrimaryBrush}"
+                                            TextTrimming="CharacterEllipsis"
+                                            MaxWidth="120"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Center"/>
+                             </Border>
+                             <Border Width="10" Height="10" CornerRadius="5"
+                                     Background="#10b981"
+                                     BorderBrush="{DynamicResource CardBackgroundBrush}" BorderThickness="2"
+                                     HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                         </Panel>
+                     </Button>
+                     <!-- Separator between Profile and Nav -->
+                     <Border Width="1" Height="20" Background="{DynamicResource SeparatorBrush}" Margin="2,0"/>
+                      <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}" IsVisible="{Binding IsOutputExplorerVisible}">
+                          <TextBlock Text="EXPLORER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                      </RadioButton>
+                      <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}">
+                          <TextBlock Text="HOME" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                      </RadioButton>
                      <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}" IsVisible="{Binding IsBatchVisible}">
                          <TextBlock Text="BATCH" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                      </RadioButton>

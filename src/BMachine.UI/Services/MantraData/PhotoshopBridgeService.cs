@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using BMachine.UI.Models.MantraData;
-
 namespace BMachine.UI.Services.MantraData;
 
 public class PhotoshopBridgeService
@@ -59,26 +60,37 @@ public class PhotoshopBridgeService
 
         progress?.Report("Menghubungi Adobe Photoshop...");
 
-        // 3. Dispatch via COM or launch CLI
+        // 3. Dispatch via COM on a dedicated STA thread (COM Photoshop.Application requires STA)
         bool comSuccess = false;
-        try
+        Exception? comException = null;
+        var staThread = new Thread(() =>
         {
-            var psType = Type.GetTypeFromProgID("Photoshop.Application");
-            if (psType != null)
+            try
             {
-                dynamic? psApp = Activator.CreateInstance(psType);
-                if (psApp != null)
+                var psType = Type.GetTypeFromProgID("Photoshop.Application");
+                if (psType != null)
                 {
-                    psApp.BringToFront();
-                    psApp.DoJavaScriptFile(jsxPath);
-                    comSuccess = true;
+                    dynamic? psApp = Activator.CreateInstance(psType);
+                    if (psApp != null)
+                    {
+                        psApp.BringToFront();
+                        psApp.DoJavaScriptFile(jsxPath);
+                        comSuccess = true;
+                    }
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            progress?.Report($"COM Dispatch warning: {ex.Message}. Mencoba via CLI...");
-        }
+            catch (Exception ex)
+            {
+                comException = ex;
+            }
+        });
+        staThread.SetApartmentState(ApartmentState.STA);
+        staThread.IsBackground = true;
+        staThread.Start();
+        staThread.Join();
+
+        if (!comSuccess && comException != null)
+            progress?.Report($"COM Dispatch warning: {comException.Message}. Mencoba via CLI...");
 
         if (!comSuccess)
         {
@@ -120,3 +132,5 @@ public class PhotoshopBridgeService
         throw new TimeoutException("Waktu tunggu proses Photoshop melebihi batas waktu.");
     }
 }
+
+

@@ -47,6 +47,9 @@ public class ProcessReport
     public int PsdFilesTotal { get; set; }
     public int RowsTotal { get; set; }
     public int RowsProcessed { get; set; }
+    public int RowsSkipped { get; set; }
+    public int RowsAmbiguous { get; set; }
+    public int RowsDuplicate { get; set; }
     public System.Collections.Generic.List<ProcessReportPage> Pages { get; set; } = new();
     public System.Collections.Generic.List<string> Errors { get; set; } = new();
 }
