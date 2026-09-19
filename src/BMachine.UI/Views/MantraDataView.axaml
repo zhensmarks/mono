@@ -206,7 +206,7 @@
                 </StackPanel>
             </DockPanel>
 
-            <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,6,0,0">
+            <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,6,0,0" IsVisible="{Binding HasData}">
                 <Border x:Name="MasterPsdCard" Grid.Column="0" Background="#151519" BorderBrush="#303038" BorderThickness="1" CornerRadius="7" Padding="12,8"
                         DragDrop.AllowDrop="True"
                         DragDrop.DragEnter="OnFolderDragEnter" DragDrop.DragOver="OnFolderDragOver" DragDrop.DragLeave="OnFolderDragLeave" DragDrop.Drop="OnMasterPsdDrop">
@@ -308,9 +308,11 @@
         </Grid>
 
         <!-- Data appears after source file loads. -->
-        <Border Grid.Row="1" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10" ClipToBounds="True" IsVisible="{Binding HasData}">
+        <!-- Main content area: Empty state shown when no data; DataGrid shown when data loaded -->
+        <Border Grid.Row="1" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
             <Grid x:Name="GridContainer">
                 <DataGrid x:Name="MainDataGrid"
+                          IsVisible="{Binding HasData}"
                           ItemsSource="{Binding FilteredRows}"
                           AutoGenerateColumns="False"
                           CanUserResizeColumns="True"
@@ -331,58 +333,146 @@ SelectionChanged="OnDataGridSelectionChanged"
                           CellEditEnded="OnDataGridCellEditEnded">
 
                     <!-- Context Menu -->
+                    <!-- Context Menu -->
                     <DataGrid.ContextMenu>
-                        <ContextMenu Background="#111113" BorderBrush="#232326" BorderThickness="1">
+                        <ContextMenu Background="#111113" BorderBrush="#232326" BorderThickness="1" Opened="OnContextMenuOpened">
                             <!-- 1. Clipboard & Edit -->
-                            <MenuItem Header="Salin" InputGesture="Ctrl+C" Click="OnMenuCopyClicked"/>
-                            <MenuItem Header="Tempel" InputGesture="Ctrl+V" Click="OnMenuPasteClicked"/>
-                            <MenuItem Header="Kosongkan Sel" InputGesture="Delete" Click="OnMenuClearCellsClicked"/>
+                            <MenuItem Tag="Copy" Header="Salin" InputGesture="Ctrl+C" Click="OnMenuCopyClicked"/>
+                            <MenuItem Tag="Paste" Header="Tempel" InputGesture="Ctrl+V" Click="OnMenuPasteClicked"/>
+                            <MenuItem Tag="ClearCells" Header="Kosongkan Sel" InputGesture="Delete" Click="OnMenuClearCellsClicked"/>
                             <Separator Background="#232326"/>
 
                             <!-- 2. Data Actions -->
-                            <MenuItem Header="Gabung Kolom..." Click="OnMenuCustomMergeClicked"/>
-                            <MenuItem Header="Rapikan Teks (Title Case)" Click="OnMenuTitleCaseClicked"/>
-                            <MenuItem Header="Format Tanggal (DD MMMM YYYY)" Click="OnMenuDateFormatFullClicked"/>
-                            <MenuItem Header="Format No. HP (+62 / 08)" Click="OnMenuPhonePrefixClicked"/>
-                            <MenuItem Header="Cari dan Ganti..." InputGesture="Ctrl+F" Click="OnMenuFindReplaceClicked"/>
-                            <MenuItem Header="Pisah Kolom (Split)..." Click="OnMenuSplitColumnClicked"/>
+                            <MenuItem Tag="CustomMerge" Header="Gabung Kolom..." Click="OnMenuCustomMergeClicked"/>
+                            <MenuItem Tag="TitleCase" Header="Rapikan Teks (Title Case)" Click="OnMenuTitleCaseClicked"/>
+                            <MenuItem Tag="DateFormatFull" Header="Format Tanggal (DD MMMM YYYY)" Click="OnMenuDateFormatFullClicked"/>
+                            <MenuItem Tag="PhonePrefix" Header="Format No. HP (+62 / 08)" Click="OnMenuPhonePrefixClicked"/>
+                            <MenuItem Tag="FindReplace" Header="Cari dan Ganti..." InputGesture="Ctrl+F" Click="OnMenuFindReplaceClicked"/>
+                            <MenuItem Tag="SplitColumn" Header="Pisah Kolom (Split)..." Click="OnMenuSplitColumnClicked"/>
                             <Separator Background="#232326"/>
 
                             <!-- 3. Manage Columns -->
-                            <MenuItem Header="Sisipkan Kolom di Kiri" Click="OnMenuInsertColumnLeftClicked"/>
-                            <MenuItem Header="Sisipkan Kolom di Kanan" Click="OnMenuInsertColumnRightClicked"/>
-                            <MenuItem Header="Pindahkan Kolom ke Kiri" Click="OnMenuMoveColumnLeftClicked"/>
-                            <MenuItem Header="Pindahkan Kolom ke Kanan" Click="OnMenuMoveColumnRightClicked"/>
-                            <MenuItem Header="Ganti Nama Kolom..." Click="OnMenuRenameColumnClicked"/>
-                            <MenuItem Header="Hapus Kolom Ini" Click="OnMenuDeleteColumnClicked"/>
-                            <MenuItem Header="Otomatis Ukuran Kolom" Click="OnMenuAutoFitClicked"/>
+                            <MenuItem Tag="InsertColumnLeft" Header="Sisipkan Kolom di Kiri" Click="OnMenuInsertColumnLeftClicked"/>
+                            <MenuItem Tag="InsertColumnRight" Header="Sisipkan Kolom di Kanan" Click="OnMenuInsertColumnRightClicked"/>
+                            <MenuItem Tag="MoveColumnLeft" Header="Pindahkan Kolom ke Kiri" Click="OnMenuMoveColumnLeftClicked"/>
+                            <MenuItem Tag="MoveColumnRight" Header="Pindahkan Kolom ke Kanan" Click="OnMenuMoveColumnRightClicked"/>
+                            <MenuItem Tag="RenameColumn" Header="Ganti Nama Kolom..." Click="OnMenuRenameColumnClicked"/>
+                            <MenuItem Tag="DeleteColumn" Header="Hapus Kolom Ini" Click="OnMenuDeleteColumnClicked"/>
+                            <MenuItem Tag="AutoFit" Header="Otomatis Ukuran Kolom" Click="OnMenuAutoFitClicked"/>
                             <Separator Background="#232326"/>
 
                             <!-- 4. Manage Rows -->
-                            <MenuItem Header="Tambah Baris Baru" Click="OnMenuInsertRowClicked"/>
-                            <MenuItem Header="Hapus Baris Terpilih" Click="OnMenuDeleteRowsClicked"/>
+                            <MenuItem Tag="InsertRow" Header="Tambah Baris Baru" Click="OnMenuInsertRowClicked"/>
+                            <MenuItem Tag="DeleteRows" Header="Hapus Baris Terpilih" Click="OnMenuDeleteRowsClicked"/>
                             <Separator Background="#232326"/>
 
                             <!-- 5. Row Color Tagging -->
-                            <MenuItem Header="Tandai Baris (Warna)">
-                                <MenuItem Header="Hijau (Valid)" Click="OnMenuColorGreenClicked"/>
-                                <MenuItem Header="Biru (Info)" Click="OnMenuColorBlueClicked"/>
-                                <MenuItem Header="Kuning (Periksa)" Click="OnMenuColorAmberClicked"/>
-                                <MenuItem Header="Merah (Error)" Click="OnMenuColorRedClicked"/>
+                            <MenuItem Tag="ColorTag" Header="Tandai Baris (Warna)">
+                                <MenuItem Tag="ColorGreen" Header="Hijau (Valid)" Click="OnMenuColorGreenClicked"/>
+                                <MenuItem Tag="ColorBlue" Header="Biru (Info)" Click="OnMenuColorBlueClicked"/>
+                                <MenuItem Tag="ColorAmber" Header="Kuning (Periksa)" Click="OnMenuColorAmberClicked"/>
+                                <MenuItem Tag="ColorRed" Header="Merah (Error)" Click="OnMenuColorRedClicked"/>
                                 <Separator Background="#232326"/>
-                                <MenuItem Header="Hapus Tanda Warna" Click="OnMenuColorClearClicked"/>
+                                <MenuItem Tag="ColorClear" Header="Hapus Tanda Warna" Click="OnMenuColorClearClicked"/>
                             </MenuItem>
+
+                            <!-- 6. Context Menu Settings -->
+                            <Separator Background="#232326"/>
+                            <MenuItem Header="Atur Menu Klik Kanan..." Click="OnMenuConfigureContextMenuClicked"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                 </DataGrid>
 
                 <Border x:Name="EmptyPrompt" Background="#111113" BorderBrush="#232326" BorderThickness="1"
-                        CornerRadius="10" Margin="30" IsVisible="{Binding !HasData}">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520" Margin="28">
-                        <TextBlock Text="Mulai pencocokan data" FontSize="18" FontWeight="SemiBold" Foreground="#F4F4F5" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Pilih data utama. Folder foto dan master PSD bersifat opsional." Foreground="#A1A1AA" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,18"/>
-                        <Button Classes="ActionBtn" Content="Pilih File Excel / Word" HorizontalAlignment="Center" Click="OnOpenFileClicked"/>
-                    </StackPanel>
+                        CornerRadius="10" Margin="24" IsVisible="{Binding !HasData}">
+                    <Grid VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="820" Margin="0,10">
+                        <StackPanel Orientation="Vertical" Spacing="22">
+
+                            <!-- Header -->
+                            <StackPanel Orientation="Vertical" Spacing="8" HorizontalAlignment="Center">
+                                <TextBlock Text="MANTRADATA" FontSize="10" FontWeight="Bold" Foreground="#3F3F46"
+                                           HorizontalAlignment="Center" LetterSpacing="3"/>
+                                <TextBlock Text="Mulai Pencocokan Data" FontSize="26" FontWeight="SemiBold"
+                                           Foreground="#F4F4F5" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Pilih data utama untuk mulai. Folder foto dan master PSD bersifat opsional dan bisa diatur kapan saja."
+                                           Foreground="#A1A1AA" FontSize="12.5" TextAlignment="Center" TextWrapping="Wrap"
+                                           MaxWidth="560" HorizontalAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Step Cards -->
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" MaxWidth="780" HorizontalAlignment="Center">
+
+                                <!-- Step 1 -->
+                                <Border Grid.Column="0" Background="#151519" BorderBrush="#27272A" BorderThickness="1"
+                                        CornerRadius="8" Padding="16,14">
+                                    <StackPanel Orientation="Vertical" Spacing="6">
+                                        <TextBlock Text="01" FontSize="11" FontWeight="Bold" Foreground="#3F3F46"/>
+                                        <TextBlock Text="Pilih Data Utama" FontSize="13.5" FontWeight="SemiBold" Foreground="#E4E4E7"/>
+                                        <TextBlock Text="File Excel atau Word berisi tabel nama yang akan dicocokkan dengan foto."
+                                                   FontSize="11.5" Foreground="#71717A" TextWrapping="Wrap" LineHeight="16"/>
+                                        <Button Classes="ActionBtn" Content="Buka File Excel / Word" Height="30"
+                                                HorizontalAlignment="Stretch" Click="OnOpenFileClicked" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Step 2 -->
+                                <Border Grid.Column="1" Background="#151519" BorderBrush="#27272A" BorderThickness="1"
+                                        CornerRadius="8" Padding="16,14">
+                                    <StackPanel Orientation="Vertical" Spacing="6">
+                                        <TextBlock Text="02" FontSize="11" FontWeight="Bold" Foreground="#3F3F46"/>
+                                        <TextBlock Text="Master PSD" FontSize="13.5" FontWeight="SemiBold" Foreground="#E4E4E7"/>
+                                        <TextBlock Text="Template Photoshop untuk pengisian otomatis. Opsional."
+                                                   FontSize="11.5" Foreground="#71717A" TextWrapping="Wrap" LineHeight="16"/>
+                                        <Border Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"
+                                                Padding="8,4" HorizontalAlignment="Left" Margin="0,6,0,0">
+                                            <TextBlock Text="{Binding MasterPsdStatus}" FontSize="10.5" Foreground="#8B949E"/>
+                                        </Border>
+                                        <Button Classes="ToolBtn" Content="Pilih folder PSD" Height="30"
+                                                HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                                                Command="{Binding PickMasterPsdFolderCommand}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Step 3 -->
+                                <Border Grid.Column="2" Background="#151519" BorderBrush="#27272A" BorderThickness="1"
+                                        CornerRadius="8" Padding="16,14">
+                                    <StackPanel Orientation="Vertical" Spacing="6">
+                                        <TextBlock Text="03" FontSize="11" FontWeight="Bold" Foreground="#3F3F46"/>
+                                        <TextBlock Text="Folder Foto" FontSize="13.5" FontWeight="SemiBold" Foreground="#E4E4E7"/>
+                                        <TextBlock Text="Kumpulan foto peserta. Pencocokan otomatis berjalan setelah data dimuat."
+                                                   FontSize="11.5" Foreground="#71717A" TextWrapping="Wrap" LineHeight="16"/>
+                                        <Border Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"
+                                                Padding="8,4" HorizontalAlignment="Left" Margin="0,6,0,0">
+                                            <TextBlock Text="{Binding PhotoFolderStatus}" FontSize="10.5" Foreground="#8B949E"/>
+                                        </Border>
+                                        <Button Classes="ToolBtn" Content="Pilih folder foto" Height="30"
+                                                HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                                                Command="{Binding PickPhotoFolderCommand}"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Hint + Shortcuts -->
+                            <StackPanel Orientation="Vertical" Spacing="10" HorizontalAlignment="Center">
+                                <TextBlock Text="Seret file langsung ke area ini, atau gunakan pintasan berikut"
+                                           Foreground="#52525B" FontSize="11" TextAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <TextBlock Text="Ctrl+N  Tabel Baru" FontSize="10.5" Foreground="#A1A1AA"/>
+                                    </Border>
+                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <TextBlock Text="F3  Pembersihan AI" FontSize="10.5" Foreground="#A1A1AA"/>
+                                    </Border>
+                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <TextBlock Text="F8  Atur Kolom" FontSize="10.5" Foreground="#A1A1AA"/>
+                                    </Border>
+                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <TextBlock Text="Ctrl+F  Cari &amp; Ganti" FontSize="10.5" Foreground="#A1A1AA"/>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
                 </Border>
 
                 <!-- Drag Glow Overlay (Pure Text, No Icons) -->

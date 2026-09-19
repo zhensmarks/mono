@@ -1,0 +1,201 @@
+<local:MantraDialogBase xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        x:Class="BMachine.UI.Views.Dialogs.MantraData.MantraContextMenuSettingsDialog"
+        x:DataType="vm:MantraContextMenuSettingsViewModel"
+        Title="Atur Menu Klik Kanan"
+        Width="540" Height="620"
+        MinWidth="480" MinHeight="520"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="#E8E8E6">
+
+    <Window.Styles>
+        <Style Selector="Button.ChromeClose">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ChromeClose:pointerover">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+
+        <Style Selector="Button.Action">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+
+        <Style Selector="Button.Muted">
+            <Setter Property="Background" Value="#1C1C1F"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Muted /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1C1C1F"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+        </Style>
+        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#52525B"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#222226"/>
+        </Style>
+
+        <Style Selector="Button.ToolBtn">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+        <Style Selector="Button.ToolBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+        <Grid RowDefinitions="Auto, *, Auto">
+
+            <!-- Title Bar -->
+            <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="Atur Menu Klik Kanan"
+                           VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
+                           FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
+
+                <Button Grid.Column="1" Classes="ChromeClose" Width="40" Height="40"
+                        Content="x" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="OnCloseButtonClick"/>
+            </Grid>
+
+            <!-- Main Content -->
+            <Grid Grid.Row="1" Margin="20,0,20,16" RowDefinitions="Auto, *">
+                <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,12">
+                    <TextBlock Text="MENU KONTEKS TABEL" FontSize="10" FontWeight="Bold" Foreground="#71717A" LetterSpacing="2"/>
+                    <TextBlock Text="Kustomisasi Menu dan Pintasan Keyboard" FontSize="16" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+                    <TextBlock Text="Centang untuk menampilkan menu. Klik kotak pintasan lalu tekan tombol keyboard (misal: Ctrl+C, Delete, F2) untuk merekam pintasan baru. Tekan Backspace untuk menghapus."
+                               FontSize="11.5" Foreground="#A1A1AA" TextWrapping="Wrap" LineHeight="16"/>
+                </StackPanel>
+
+                <Border Grid.Row="1" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                    <Grid RowDefinitions="Auto, *">
+                        <!-- Table Column Headers -->
+                        <Border Grid.Row="0" Background="#151518" BorderBrush="#232326" BorderThickness="0,0,0,1" Padding="12,8">
+                            <Grid ColumnDefinitions="Auto, *, Auto">
+                                <TextBlock Grid.Column="0" Text="TAMPIL" FontSize="10" FontWeight="SemiBold" Foreground="#71717A" Width="55"/>
+                                <TextBlock Grid.Column="1" Text="NAMA MENU" FontSize="10" FontWeight="SemiBold" Foreground="#71717A"/>
+                                <TextBlock Grid.Column="2" Text="PINTASAN KEYBOARD" FontSize="10" FontWeight="SemiBold" Foreground="#71717A" Width="184" TextAlignment="Right"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Items List -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Items}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="vm:MantraContextMenuItemConfig">
+                                        <Border BorderBrush="#1C1C20" BorderThickness="0,0,0,1" Padding="12,6">
+                                            <Grid ColumnDefinitions="Auto, *, Auto">
+                                                <CheckBox Grid.Column="0" IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                                                          Width="55" VerticalAlignment="Center"/>
+
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Medium" Foreground="#E4E4E7"/>
+                                                    <TextBlock Text="{Binding Category}" FontSize="10" Foreground="#52525B"/>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                    <TextBox Width="130" Height="28" FontSize="11"
+                                                             Background="#18181B" Foreground="#F4F4F5"
+                                                             BorderBrush="#27272A" BorderThickness="1" CornerRadius="4"
+                                                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                                             IsReadOnly="True" Cursor="Hand"
+                                                             Watermark="Klik &amp; tekan key..."
+                                                             Text="{Binding ShortcutKey, Mode=TwoWay}"
+                                                             GotFocus="OnShortcutGotFocus"
+                                                             LostFocus="OnShortcutLostFocus"
+                                                             KeyDown="OnShortcutKeyDown"/>
+                                                    <Button Classes="ToolBtn" Content="Hapus" Height="28" Padding="8,0"
+                                                            ToolTip.Tip="Hapus pintasan keyboard"
+                                                            Click="OnClearShortcutClick"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Bottom Actions -->
+            <Border Grid.Row="2" Background="#111113" BorderBrush="#232326" BorderThickness="0,1,0,0" Padding="20,12">
+                <DockPanel LastChildFill="False">
+                    <Button DockPanel.Dock="Left" Classes="Muted" Content="Reset Default"
+                            Command="{Binding ResetToDefaultsCommand}"/>
+
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+                        <Button Classes="Muted" Content="Batal" Click="OnCancelClick"/>
+                        <Button Classes="Action" Content="Simpan" Click="OnSaveClick"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+        </Grid>
+    </Border>
+</local:MantraDialogBase>

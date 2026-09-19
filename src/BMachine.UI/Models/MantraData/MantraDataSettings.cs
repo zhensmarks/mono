@@ -19,6 +19,31 @@ public class MantraDataSettings
     public bool FreezeColumnsEnabled { get; set; } = false;
     public int FrozenColumnCount { get; set; } = 2;
     public List<string> RecentFiles { get; set; } = new();
+    public Dictionary<string, bool> MenuVisibility { get; set; } = new();
+    public Dictionary<string, string> MenuShortcuts { get; set; } = new();
+
+    public bool GetMenuVisibility(string key)
+    {
+        if (MenuVisibility != null && MenuVisibility.TryGetValue(key, out var visible))
+            return visible;
+        return true;
+    }
+
+    public string GetMenuShortcut(string key)
+    {
+        if (MenuShortcuts != null && MenuShortcuts.TryGetValue(key, out var sc))
+            return sc;
+        return GetDefaultShortcut(key);
+    }
+
+    public static string GetDefaultShortcut(string key) => key switch
+    {
+        "Copy" => "Ctrl+C",
+        "Paste" => "Ctrl+V",
+        "ClearCells" => "Delete",
+        "FindReplace" => "Ctrl+F",
+        _ => string.Empty
+    };
 
     private static string SettingsPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

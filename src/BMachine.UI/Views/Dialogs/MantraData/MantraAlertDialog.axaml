@@ -3,8 +3,10 @@
         xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
         x:Class="BMachine.UI.Views.Dialogs.MantraData.MantraAlertDialog"
         Title="Pemberitahuan"
-        Width="440" Height="250"
-        MinWidth="440" MinHeight="250"
+        Width="500"
+        MinWidth="500" MinHeight="220"
+        MaxHeight="640"
+        SizeToContent="Height"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         SystemDecorations="None"
@@ -14,19 +16,7 @@
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="#E8E8E6">
 
-    <Window.Styles><Style Selector="Button.ChromeClose">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#71717A"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.ChromeClose:pointerover">
-            <Setter Property="Background" Value="#1A1A1D"/>
-        </Style>
-
+    <Window.Styles>
         <Style Selector="Button.Action">
             <Setter Property="Background" Value="#EDEDED"/>
             <Setter Property="Foreground" Value="#111111"/>
@@ -56,36 +46,16 @@
     </Window.Styles>
 
     <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
-        <Grid RowDefinitions="Auto,*">
-
-            <!-- ═══ WINDOW TITLE BAR ═══ -->
-            <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0" Text="{Binding $parent[Window].Title, FallbackValue=Pemberitahuan}"
-                           VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
-                           FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
-
-                <Button Grid.Column="1" Classes="ChromeClose" Content="X" Width="45" Height="40"
-                        VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                        Click="OnCloseButtonClick"/>
-
-                <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+        <Border Margin="14" Padding="22" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <Border Grid.Row="0" Background="Transparent" PointerPressed="OnTitleBarPointerPressed" Margin="-22,-22,-22,0" Padding="22,8,22,12">
+                    <TextBlock x:Name="TxtTitle" Text="Perhatian" FontSize="16" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+                </Border>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="TxtMessage" Text="Pesan" FontSize="13" Foreground="#A1A1AA" TextWrapping="Wrap" LineHeight="20"/>
+                </ScrollViewer>
+                <Button Grid.Row="2" Classes="Action" Content="OK" MinWidth="110" HorizontalAlignment="Right" Margin="0,18,0,0" Click="OnOkClick"/>
             </Grid>
-
-            <!-- ═══ CONTENT ═══ -->
-            <Border Grid.Row="1" Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
-                <Grid RowDefinitions="Auto, *, Auto">
-                    <TextBlock x:Name="TxtTitle" Grid.Row="0" Text="Perhatian" FontSize="15" FontWeight="SemiBold" Foreground="#F4F4F5" Margin="0,0,0,8"/>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <TextBlock x:Name="TxtMessage" Text="Pesan" FontSize="12.5" Foreground="#A1A1AA" TextWrapping="Wrap" LineHeight="18"/>
-                    </ScrollViewer>
-                    <Button Grid.Row="2" Classes="Action" Content="OK" MinWidth="100" HorizontalAlignment="Right" Margin="0,16,0,0" Click="OnOkClick"/>
-                </Grid>
-            </Border>
-        </Grid>
+        </Border>
     </Border>
 </local:MantraDialogBase>

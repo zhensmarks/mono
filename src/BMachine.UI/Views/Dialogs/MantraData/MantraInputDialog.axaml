@@ -3,8 +3,10 @@
         xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
         x:Class="BMachine.UI.Views.Dialogs.MantraData.MantraInputDialog"
         Title="Input"
-        Width="460" Height="270"
-        MinWidth="460" MinHeight="270"
+        Width="520"
+        MinWidth="520" MinHeight="240"
+        MaxHeight="640"
+        SizeToContent="Height"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         SystemDecorations="None"
@@ -14,19 +16,7 @@
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="#E8E8E6">
 
-    <Window.Styles><Style Selector="Button.ChromeClose">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#71717A"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.ChromeClose:pointerover">
-            <Setter Property="Background" Value="#1A1A1D"/>
-        </Style>
-
+    <Window.Styles>
         <Style Selector="Button.Action">
             <Setter Property="Background" Value="#EDEDED"/>
             <Setter Property="Foreground" Value="#111111"/>
@@ -85,40 +75,20 @@
     </Window.Styles>
 
     <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
-        <Grid RowDefinitions="Auto,*">
-
-            <!-- ═══ WINDOW TITLE BAR ═══ -->
-            <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0" Text="{Binding $parent[Window].Title, FallbackValue=Input}"
-                           VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
-                           FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
-
-                <Button Grid.Column="1" Classes="ChromeClose" Content="X" Width="45" Height="40"
-                        VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                        Click="OnCloseButtonClick"/>
-
-                <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+        <Border Margin="14" Padding="22" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+            <Grid RowDefinitions="Auto, Auto, Auto, Auto">
+                <Border Grid.Row="0" Background="Transparent" PointerPressed="OnTitleBarPointerPressed" Margin="-22,-22,-22,0" Padding="22,8,22,12">
+                    <TextBlock x:Name="TxtTitle" Text="Input Data" FontSize="16" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+                </Border>
+                <TextBlock x:Name="TxtPrompt" Grid.Row="1" Text="Masukkan nilai:" FontSize="13" Foreground="#A1A1AA" TextWrapping="Wrap" LineHeight="19" Margin="0,0,0,14"/>
+                <TextBox x:Name="InputBox" Grid.Row="2" Height="36" FontSize="13" VerticalContentAlignment="Center"
+                         Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1"
+                         CornerRadius="6" Padding="10,0" KeyDown="OnInputBoxKeyDown"/>
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,18,0,0">
+                    <Button Classes="Muted" Content="Batal" MinWidth="90" Click="OnCancelClick"/>
+                    <Button Classes="Action" Content="Simpan" MinWidth="110" Click="OnOkClick"/>
+                </StackPanel>
             </Grid>
-
-            <!-- ═══ CONTENT ═══ -->
-            <Border Grid.Row="1" Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
-                <Grid RowDefinitions="Auto, Auto, *, Auto">
-                    <TextBlock x:Name="TxtTitle" Grid.Row="0" Text="Input Data" FontSize="15" FontWeight="SemiBold" Foreground="#F4F4F5" Margin="0,0,0,4"/>
-                    <TextBlock x:Name="TxtPrompt" Grid.Row="1" Text="Masukkan nilai:" FontSize="12" Foreground="#A1A1AA" Margin="0,0,0,12"/>
-                    <TextBox x:Name="InputBox" Grid.Row="2" Height="34" FontSize="12.5" VerticalContentAlignment="Center"
-                             Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1"
-                             CornerRadius="6" Padding="10,0" KeyDown="OnInputBoxKeyDown"/>
-                    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
-                        <Button Classes="Muted" Content="Batal" MinWidth="90" Click="OnCancelClick"/>
-                        <Button Classes="Action" Content="Simpan" MinWidth="110" Click="OnOkClick"/>
-                    </StackPanel>
-                </Grid>
-            </Border>
-        </Grid>
+        </Border>
     </Border>
 </local:MantraDialogBase>

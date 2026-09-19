@@ -38,10 +38,15 @@ public partial class MantraDataView : UserControl
     private int _anchorRowIdx = -1;
     private int _anchorColIdx = -1;
 
+    private readonly Dictionary<string, Action> _menuActions = new();
+    private readonly List<(KeyGesture Gesture, Action Action)> _activeShortcuts = new();
+
     public MantraDataView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        InitializeMenuActions();
+        RebuildShortcuts();
 
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
@@ -61,6 +66,8 @@ public partial class MantraDataView : UserControl
             Dispatcher.UIThread.Post(() =>
             {
                 if (_viewModel != null) UpdateSegTabHighlight(_viewModel.PhotoStatusFilter);
+                if (_viewModel != null) UpdateSegTabHighlight(_viewModel.PhotoStatusFilter);
+                ApplyContextMenuSettings();
             });
         };
     }
@@ -87,6 +94,9 @@ public partial class MantraDataView : UserControl
                 RebuildColumns();
             }
             UpdateSegTabHighlight(vm.PhotoStatusFilter);
+            UpdateSegTabHighlight(vm.PhotoStatusFilter);
+            ApplyContextMenuSettings();
+            RebuildShortcuts();
         }
     }
 
@@ -895,19 +905,21 @@ private void OnDataGridBeginningEdit(object? sender, DataGridBeginningEditEventA
             return;
         }
 
+        // 1. Check custom context menu shortcuts
+        foreach (var (gesture, action) in _activeShortcuts)
+        {
+            if (gesture.Matches(e))
+            {
+                action();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // 2. Built-in global shortcuts (Undo, Redo, ClearData, NewTable, OpenFile, ProcessPhotoshop, SelectAll, DeleteSelectedRows)
         if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
-            if (e.Key == Key.C)
-            {
-                CopySelectedToClipboard();
-                e.Handled = true;
-            }
-            else if (e.Key == Key.V)
-            {
-                PasteFromClipboard();
-                e.Handled = true;
-            }
-            else if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key == Key.Z)
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key == Key.Z)
             {
                 _viewModel?.Redo();
                 e.Handled = true;
@@ -937,23 +949,15 @@ private void OnDataGridBeginningEdit(object? sender, DataGridBeginningEditEventA
                 HandleProcessPhotoshopAsync();
                 e.Handled = true;
             }
-else if (e.Key == Key.F)
-            {
-                OnMenuFindReplaceClicked(null, e);
-                e.Handled = true;
-            }
             else if (e.Key == Key.A)
             {
                 SelectAllCells();
                 e.Handled = true;
             }
         }
-        else if (e.Key == Key.Delete)
+        else if (e.Key == Key.Delete && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-                DeleteSelectedRows();
-            else
-                ClearSelectedCells();
+            DeleteSelectedRows();
             e.Handled = true;
         }
     }
@@ -1306,6 +1310,151 @@ private void DeleteSelectedRows()
 
 private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _viewModel?.TrimAllCells();
     private void OnMenuNormalizeGenderClicked(object? sender, RoutedEventArgs e) => _viewModel?.NormalizeGenderColumn(GetCurrentOrSelectedColumn());
+    private void InitializeMenuActions()
+    {
+        _menuActions["Copy"] = () => CopySelectedToClipboard();
+        _menuActions["Paste"] = () => PasteFromClipboard();
+        _menuActions["ClearCells"] = () => ClearSelectedCells();
+        _menuActions["CustomMerge"] = () => OnMenuCustomMergeClicked(null, new RoutedEventArgs());
+        _menuActions["TitleCase"] = () => OnMenuTitleCaseClicked(null, new RoutedEventArgs());
+        _menuActions["DateFormatFull"] = () => OnMenuDateFormatFullClicked(null, new RoutedEventArgs());
+        _menuActions["PhonePrefix"] = () => OnMenuPhonePrefixClicked(null, new RoutedEventArgs());
+        _menuActions["FindReplace"] = () => OnMenuFindReplaceClicked(null, new RoutedEventArgs());
+        _menuActions["SplitColumn"] = () => OnMenuSplitColumnClicked(null, new RoutedEventArgs());
+        _menuActions["InsertColumnLeft"] = () => OnMenuInsertColumnLeftClicked(null, new RoutedEventArgs());
+        _menuActions["InsertColumnRight"] = () => OnMenuInsertColumnRightClicked(null, new RoutedEventArgs());
+        _menuActions["MoveColumnLeft"] = () => OnMenuMoveColumnLeftClicked(null, new RoutedEventArgs());
+        _menuActions["MoveColumnRight"] = () => OnMenuMoveColumnRightClicked(null, new RoutedEventArgs());
+        _menuActions["RenameColumn"] = () => OnMenuRenameColumnClicked(null, new RoutedEventArgs());
+        _menuActions["DeleteColumn"] = () => OnMenuDeleteColumnClicked(null, new RoutedEventArgs());
+        _menuActions["AutoFit"] = () => OnMenuAutoFitClicked(null, new RoutedEventArgs());
+        _menuActions["InsertRow"] = () => OnMenuInsertRowClicked(null, new RoutedEventArgs());
+        _menuActions["DeleteRows"] = () => OnMenuDeleteRowsClicked(null, new RoutedEventArgs());
+        _menuActions["ColorGreen"] = () => OnMenuColorGreenClicked(null, new RoutedEventArgs());
+        _menuActions["ColorBlue"] = () => OnMenuColorBlueClicked(null, new RoutedEventArgs());
+        _menuActions["ColorAmber"] = () => OnMenuColorAmberClicked(null, new RoutedEventArgs());
+        _menuActions["ColorRed"] = () => OnMenuColorRedClicked(null, new RoutedEventArgs());
+        _menuActions["ColorClear"] = () => OnMenuColorClearClicked(null, new RoutedEventArgs());
+    }
+
+    private void RebuildShortcuts()
+    {
+        _activeShortcuts.Clear();
+        var settings = _viewModel?.Settings ?? MantraDataSettings.Load();
+
+        foreach (var (key, _, _, _) in MantraContextMenuSettingsViewModel.DefaultMenuItems)
+        {
+            var shortcutStr = settings.GetMenuShortcut(key);
+            if (!string.IsNullOrWhiteSpace(shortcutStr) && _menuActions.TryGetValue(key, out var action))
+            {
+                try
+                {
+                    var gesture = KeyGesture.Parse(shortcutStr);
+                    _activeShortcuts.Add((gesture, action));
+                }
+                catch { }
+            }
+        }
+    }
+
+    private void OnContextMenuOpened(object? sender, RoutedEventArgs e)
+    {
+        ApplyContextMenuSettings();
+    }
+
+    private void ApplyContextMenuSettings()
+    {
+        var cm = MainDataGrid?.ContextMenu;
+        if (cm == null) return;
+        var settings = _viewModel?.Settings ?? MantraDataSettings.Load();
+
+        foreach (var obj in cm.Items)
+        {
+            if (obj is MenuItem mi)
+            {
+                if (mi.Tag is string key && !string.IsNullOrEmpty(key))
+                {
+                    mi.IsVisible = settings.GetMenuVisibility(key);
+                    var sc = settings.GetMenuShortcut(key);
+                    try
+                    {
+                        mi.InputGesture = string.IsNullOrWhiteSpace(sc) ? null : KeyGesture.Parse(sc);
+                    }
+                    catch
+                    {
+                        mi.InputGesture = null;
+                    }
+                }
+
+                if (mi.Items.Count > 0)
+                {
+                    foreach (var sub in mi.Items)
+                    {
+                        if (sub is MenuItem subMi && subMi.Tag is string subKey && !string.IsNullOrEmpty(subKey))
+                        {
+                            subMi.IsVisible = settings.GetMenuVisibility(subKey);
+                            var subSc = settings.GetMenuShortcut(subKey);
+                            try
+                            {
+                                subMi.InputGesture = string.IsNullOrWhiteSpace(subSc) ? null : KeyGesture.Parse(subSc);
+                            }
+                            catch
+                            {
+                                subMi.InputGesture = null;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        UpdateSeparatorVisibility(cm);
+    }
+
+    private static void UpdateSeparatorVisibility(ContextMenu cm)
+    {
+        bool hasVisibleItemInGroup = false;
+        Separator? lastSeparator = null;
+
+        for (int i = 0; i < cm.Items.Count; i++)
+        {
+            var item = cm.Items[i];
+            if (item is Separator sep)
+            {
+                sep.IsVisible = hasVisibleItemInGroup;
+                hasVisibleItemInGroup = false;
+                lastSeparator = sep;
+            }
+            else if (item is MenuItem mi && mi.IsVisible)
+            {
+                hasVisibleItemInGroup = true;
+            }
+        }
+
+        if (!hasVisibleItemInGroup && lastSeparator != null)
+        {
+            lastSeparator.IsVisible = false;
+        }
+    }
+
+    private async void OnMenuConfigureContextMenuClicked(object? sender, RoutedEventArgs e)
+    {
+        var settings = _viewModel?.Settings ?? MantraDataSettings.Load();
+        var vm = new MantraContextMenuSettingsViewModel(settings);
+        var dlg = new MantraContextMenuSettingsDialog(vm);
+
+        var topLevel = TopLevel.GetTopLevel(this) as Window;
+        if (topLevel != null)
+            await dlg.ShowDialog(topLevel);
+        else
+            dlg.Show();
+
+        if (dlg.Confirmed)
+        {
+            ApplyContextMenuSettings();
+            RebuildShortcuts();
+        }
+    }
 
     // --- EXCEL-LIKE CELL SELECTION (Custom Layer) ---
     private void OnDataGridPointerTunnel(object? sender, PointerPressedEventArgs e)
