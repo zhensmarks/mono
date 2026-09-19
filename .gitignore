@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+publish/
+
+# Binary artifacts
+rembg_installer.exe
+
+# Runtime settings (user-local)
+settings.json
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
