@@ -503,9 +503,9 @@ public class ExcelParserService
     {
         var daterDir = Path.Combine(Path.GetDirectoryName(path) ?? Environment.CurrentDirectory, "DATER");
         if (!Directory.Exists(daterDir)) Directory.CreateDirectory(daterDir);
-        var txtPath = Path.Combine(daterDir, Path.GetFileNameWithoutExtension(path) + ".txt");
-        SaveTxt(txtPath, columns, rows);
-        return txtPath;
+        var xlsxPath = Path.Combine(daterDir, Path.GetFileNameWithoutExtension(path) + ".xlsx");
+        SaveExcel(xlsxPath, columns, rows);
+        return xlsxPath;
     }
     public void ExportToTxt(string path, List<string> columns, List<TableDataRow> rows)
     {

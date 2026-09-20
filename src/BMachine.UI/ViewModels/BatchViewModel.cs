@@ -442,6 +442,9 @@ namespace BMachine.UI.ViewModels;
     [ObservableProperty] private string _masterBrowserTargetPath = "";
     [ObservableProperty] private string _masterSearchText = "";
     [ObservableProperty] private ObservableCollection<MasterNode> _masterNodes = new(); 
+    // Flat list of every leaf PSD/PSB file across all master roots, used by the
+    // 2-column thumbnail grid in the Log Panel MASTER tab.
+    [ObservableProperty] private ObservableCollection<MasterNode> _masterThumbnailNodes = new();
     [ObservableProperty] private ObservableCollection<MasterNode> _photoshopNodes = new();
 
     // Side Panel Modes
@@ -524,6 +527,17 @@ namespace BMachine.UI.ViewModels;
         if (value == 2) _ = LoadPhotoshopNodes();
     }
 
+    /// <summary>
+    /// Display label for the MASTER status bar target. Falls back to "TARGET"
+    /// when no batch folder has been selected yet.
+    /// </summary>
+    public string MasterBrowserTargetDisplay =>
+        string.IsNullOrWhiteSpace(MasterBrowserTargetName) ? "TARGET" : MasterBrowserTargetName;
+
+    partial void OnMasterBrowserTargetNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(MasterBrowserTargetDisplay));
+    }
     // --- DOC TAB PROPERTIES ---
     [ObservableProperty] private string _schoolName = "";
     [ObservableProperty] private string _schoolAddress = "";
@@ -1057,6 +1071,7 @@ if ($img -ne $null) {{
 
     private async Task LoadMasterNodes(string filter = "")
     {
+        System.Diagnostics.Debug.WriteLine($"[MasterGrid] LoadMasterNodes called filter='{filter}' IsMasterVisible={IsMasterVisible}");
         if (IsBusy) return;
         IsBusy = true;
         BusyMessage = "Loading Master Browser...";
@@ -1129,7 +1144,15 @@ if ($img -ne $null) {{
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
             {
-                foreach (var node in nodes) MasterNodes.Add(node);
+                MasterNodes.Clear();
+                MasterThumbnailNodes.Clear();
+                foreach (var node in nodes)
+                {
+                    MasterNodes.Add(node);
+                    foreach (var leaf in node.EnumerateLeaves())
+                        MasterThumbnailNodes.Add(leaf);
+                }
+                System.Diagnostics.Debug.WriteLine($"[MasterGrid] roots={nodes.Count} thumbnails={MasterThumbnailNodes.Count}");
             });
         }
         finally
@@ -1344,7 +1367,11 @@ if ($img -ne $null) {{
                 
                 if (matches)
                 {
-                    results.Add(new MasterNode(f, false));
+                    var node = new MasterNode(f, false)
+                    {
+                        ThumbnailSourcePath = Services.ThumbnailCacheService.ResolvePairJpg(f)
+                    };
+                    results.Add(node);
                 }
             }
         }

@@ -52,8 +52,8 @@ public partial class MantraDataViewModel : ObservableObject
         : $"{MasterPsdFileCount} PSD siap";
 
     public string PhotoFolderStatus => string.IsNullOrWhiteSpace(PhotoFolderPath)
-        ? "Belum dipilih"
-        : $"{PhotoFileCount} foto siap";
+        ? "Belum ada folder"
+        : $"{PhotoFileCount} JPG";
 
     public void SetMasterPsdFolder(string path)
     {
@@ -72,7 +72,7 @@ public partial class MantraDataViewModel : ObservableObject
         PhotoFolderPath = path ?? string.Empty;
         PhotoFileCount = Directory.Exists(PhotoFolderPath)
             ? Directory.EnumerateFiles(PhotoFolderPath, "*.*", SearchOption.AllDirectories)
-                .Count(f => new[] { ".jpg", ".jpeg", ".png" }.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+                .Count(f => new[] { ".jpg", ".jpeg" }.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
             : 0;
         _settings.LastPhotoFolder = PhotoFolderPath;
         _settings.Save();
@@ -143,8 +143,13 @@ public partial class MantraDataViewModel : ObservableObject
             row.MatchScore = score;
             row.IsPhotoMatched = matched;
             row.MatchStatus = matched ? "SIAP PROSES" : "PERLU REVIEW";
-            row.MatchNote = matched ? "Foto cocok otomatis" : "Tidak ada kandidat aman";
+            row.MatchNote = matched ? "Foto cocok otomatis" : "Kandidat terbaik, perlu konfirmasi";
             row.MatchCandidate = fileName;
+            // Baris dengan kandidat foto perlu disetujui pengguna lewat tombol "Terima".
+            row.NeedsConfirmation = !string.IsNullOrWhiteSpace(photoPath);
+            row.Decision = string.IsNullOrWhiteSpace(photoPath)
+                ? MatchDecisionStatus.NotFound
+                : (matched ? MatchDecisionStatus.Likely : MatchDecisionStatus.Ambiguous);
             row.NotifyPhotoPreviewChanged();
         }
 
@@ -343,6 +348,28 @@ public partial class MantraDataViewModel : ObservableObject
         if (row != null) SetManualPhotoMatch(row, photoPath);
     }
 
+    /// <summary>Menyetujui foto kandidat yang sudah dipasangkan otomatis untuk baris ini,
+    /// tanpa mengganti file. Menandai baris sebagai terkonfirmasi (COCOK).</summary>
+    public void AcceptPhotoMatch(TableDataRow? row)
+    {
+        if (row == null) return;
+        var path = row["_MATCHED_PHOTO_PATH"];
+        if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path)) return;
+
+        row.IsPhotoMatched = true;
+        row.MatchScore = row.MatchScore > 0 ? row.MatchScore : 1000;
+        row.MatchStatus = "DITERIMA";
+        row.MatchNote = "Foto kandidat disetujui oleh pengguna";
+        row.Confidence = 100;
+        row.Decision = MatchDecisionStatus.Confirmed;
+        row.NeedsConfirmation = false;
+        row.NotifyPhotoPreviewChanged();
+        RefreshPhotoStatusCounts();
+    }
+
+    [RelayCommand]
+    private void AcceptPhoto(TableDataRow? row) => AcceptPhotoMatch(row);
+
     [RelayCommand]
     private async Task SelectManualPhotoAsync(TableDataRow? row)
     {
@@ -539,10 +566,10 @@ public partial class MantraDataViewModel : ObservableObject
 
         try
         {
-            var txtPath = _excelService.ExportToDater(CurrentFilePath, Columns.ToList(), Rows.ToList());
-            StatusMessage = $"Data berhasil diekspor ke folder DATER: {Path.GetFileName(txtPath)}";
+            var outPath = _excelService.ExportToDater(CurrentFilePath, Columns.ToList(), Rows.ToList());
+            StatusMessage = $"Data berhasil diekspor ke folder DATER: {Path.GetFileName(outPath)}";
             if (RequestAlertFunc != null)
-                await RequestAlertFunc("Export DATER Sukses", $"Export berhasil disimpan ke:\n{txtPath}");
+                await RequestAlertFunc("Export DATER Sukses", $"Export berhasil disimpan ke:\n{outPath}");
         }
         catch (Exception ex)
         {

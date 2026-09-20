@@ -34,13 +34,10 @@
             <Setter Property="IsHitTestVisible" Value="True"/>
         </Style>
 
-        <!-- Auto-Collapse Address -->
+        <!-- Address box: fixed height, must NOT grow on focus -->
         <Style Selector="TextBox.autoExpand">
-            <Setter Property="MaxHeight" Value="34"/>
-        </Style>
-        <Style Selector="TextBox.autoExpand:focus">
-            <Setter Property="MaxHeight" Value="300"/>
-            <Setter Property="MinHeight" Value="60"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="MaxHeight" Value="36"/>
         </Style>
     </UserControl.Styles>
 
@@ -79,8 +76,8 @@
             </Grid>
 
             <Grid Classes="hoverGroup">
-                <TextBox Classes="autoExpand" Text="{Binding BatchVM.SchoolAddress, Mode=TwoWay}" Watermark="Alamat Lengkap" FontSize="12" CornerRadius="6" AcceptsReturn="True" TextWrapping="Wrap" Padding="6,6,40,6" Margin="0" VerticalAlignment="Top"/>
-                <StackPanel Classes="hoverActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0" Spacing="4">
+                <TextBox Classes="autoExpand" Text="{Binding BatchVM.SchoolAddress, Mode=TwoWay}" Watermark="Alamat Lengkap" FontSize="12" CornerRadius="6" AcceptsReturn="True" TextWrapping="Wrap" Padding="6,6,40,6" Margin="0" VerticalAlignment="Stretch"/>
+                <StackPanel Classes="hoverActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" Spacing="4">
                     <Button Classes="iconBtn" Command="{Binding BatchVM.PasteTextFromPSCommand}" CommandParameter="address" ToolTip.Tip="Ambil Teks dari Layer Photoshop">
                         <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>

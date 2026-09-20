@@ -311,20 +311,30 @@ public partial class DashboardView : UserControl
                 }
             }
         }
-        // Detect Single Left Click (Copy Path)
+        // Detect Single Left Click (Copy Path + set MASTER target)
         else if (e.ClickCount == 1 && point.Properties.IsLeftButtonPressed)
         {
             if (sender is Control control)
             {
                 string? pathToCopy = null;
+                object? batchItem = null;
 
                 if (control.DataContext is BatchNodeItem item)
                 {
                     pathToCopy = item.FullPath;
+                    batchItem = item;
                 }
                 else if (control.DataContext is BatchFolderRoot root)
                 {
                     pathToCopy = root.SourcePath;
+                    batchItem = root;
+                }
+
+                // Update the batch selection so the Log Panel MASTER status bar
+                // TARGET follows the clicked source/output folder.
+                if (batchItem != null && DataContext is DashboardViewModel dashVm && dashVm.BatchVM != null)
+                {
+                    dashVm.BatchVM.SelectedBatchItem = batchItem;
                 }
 
                 if (!string.IsNullOrEmpty(pathToCopy))

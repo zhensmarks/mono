@@ -6,19 +6,131 @@
              xmlns:models="using:BMachine.UI.Models"
              xmlns:converters="using:BMachine.UI.Converters"
              xmlns:views="using:BMachine.UI.Views"
+             xmlns:controls="using:BMachine.UI.Controls"
              mc:Ignorable="d" d:DesignWidth="290" d:DesignHeight="600"
              x:Class="BMachine.UI.Views.LogPanelSidebar"
              x:DataType="vm:DashboardViewModel">
     <UserControl.Resources>
         <converters:StringToUpperConverter x:Key="StringToUpperConverter"/>
+
+        <!-- Chevron self-contained: hindari StaticResource ke resource tema Fluent
+             (gagal di-resolve saat compile -> InvalidCastException saat runtime). -->
+        <ControlTheme x:Key="FlatChevron" TargetType="ToggleButton">
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="Transparent"
+                            Width="{TemplateBinding Width}" Height="{TemplateBinding Height}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Path x:Name="ChevronPath"
+                              Data="M 1,0 10,10 l -9,10 -1,-1 L 8,10 -0,1 Z"
+                              Fill="{DynamicResource TreeViewItemForeground}"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:checked /template/ Path#ChevronPath">
+                <Setter Property="Data" Value="M0,1 L10,10 20,1 19,0 10,8 1,0 Z"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Template TreeViewItem rata-kiri: Margin PART_Header = 0 (hapus indent Level x 16).
+             BasedOn Fluent default -> hover/selected/pressed tetap utuh. -->
+        <ControlTheme x:Key="FlatTreeViewItem" TargetType="TreeViewItem"
+                      BasedOn="{StaticResource {x:Type TreeViewItem}}">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <StackPanel>
+                        <Border Name="PART_LayoutRoot"
+                                Classes="TreeViewItemLayoutRoot"
+                                Focusable="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                MinHeight="{TemplateBinding MinHeight}"
+                                TemplatedControl.IsTemplateFocusTarget="True">
+                            <Grid Name="PART_Header" ColumnDefinitions="Auto, *" Margin="0">
+                                <Panel Name="PART_ExpandCollapseChevronContainer" Margin="0,0,6,0">
+                                    <ToggleButton Name="PART_ExpandCollapseChevron"
+                                                  Theme="{StaticResource FlatChevron}"
+                                                  Focusable="False"
+                                                  IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}" />
+                                </Panel>
+                                <ContentPresenter Name="PART_HeaderPresenter"
+                                                  Grid.Column="1"
+                                                  Focusable="False"
+                                                  Background="Transparent"
+                                                  Content="{TemplateBinding Header}"
+                                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalAlignment}"
+                                                  Margin="{TemplateBinding Padding}" />
+                            </Grid>
+                        </Border>
+                        <ItemsPresenter Name="PART_ItemsPresenter"
+                                        IsVisible="{TemplateBinding IsExpanded}"
+                                        ItemsPanel="{TemplateBinding ItemsPanel}" />
+                    </StackPanel>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
     </UserControl.Resources>
 
     <UserControl.DataTemplates>
         <TreeDataTemplate DataType="{x:Type models:MasterNode}" ItemsSource="{Binding Children}">
-            <StackPanel Orientation="Horizontal" Spacing="4" Background="Transparent" Margin="0,2">
-                <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="False"/>
-                <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-            </StackPanel>
+            <Panel Background="Transparent" Margin="0,2">
+                <!-- Decode JPG preview lazily when the row is realised -->
+                <Interaction.Behaviors>
+                    <EventTriggerBehavior EventName="AttachedToVisualTree">
+                        <InvokeCommandAction Command="{Binding LoadThumbnailCommand}"/>
+                    </EventTriggerBehavior>
+                </Interaction.Behaviors>
+
+                <!-- FOLDER: nama saja, chevron disediakan TreeViewItem -->
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                            IsVisible="{Binding IsDirectory}">
+                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+
+                <!-- FILE .psd/.psb punya JPG: kartu thumbnail (2 kolom) -->
+                <Border IsVisible="{Binding HasPreview}"
+                        Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                        CornerRadius="6" Height="88" Margin="0,2,6,2" ClipToBounds="True"
+                        Cursor="Hand" ToolTip.Tip="{Binding Name}">
+                    <Panel>
+                        <!-- Placeholder selagi thumbnail didekode -->
+                        <PathIcon Data="{StaticResource IconFile}" Width="22" Height="22"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"
+                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                        <Border VerticalAlignment="Bottom" Background="#CC000000" Padding="6,3">
+                            <TextBlock Text="{Binding Name}" FontSize="10" Foreground="White"
+                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                        </Border>
+                    </Panel>
+                </Border>
+
+                <!-- FILE tanpa JPG: baris nama + ikon (lebar penuh) -->
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <StackPanel.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="!IsDirectory"/>
+                            <Binding Path="!HasPreview"/>
+                        </MultiBinding>
+                    </StackPanel.IsVisible>
+                    <PathIcon Data="{StaticResource IconFile}" Width="14" Height="14"
+                              Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Panel>
         </TreeDataTemplate>
     </UserControl.DataTemplates>
 
@@ -45,7 +157,7 @@
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsMasterVisible}" Click="OnMasterTabClick" ToolTip.Tip="Master">
                                   <TextBlock Text="MASTER" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
-                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsVisible="False" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
                                   <TextBlock Text="PS" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsDocVisible}" IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
@@ -117,22 +229,28 @@
                     </ScrollViewer>
                 </Grid>
 
-                <!-- 2. MASTER BROWSER VIEW -->
-                <TreeView ItemsSource="{Binding BatchVM.MasterNodes}" 
+                <!-- 2. MASTER BROWSER VIEW: TreeView folder + thumbnail 2 kolom -->
+                <TreeView ItemsSource="{Binding BatchVM.MasterNodes}"
                           IsVisible="{Binding BatchVM.IsMasterVisible}"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                           Background="Transparent" BorderThickness="0"
                           DoubleTapped="OnMasterNodeDoubleTapped">
                     <TreeView.Styles>
-                         <Style Selector="TreeViewItem">
-                             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                         </Style>
+                        <Style Selector="TreeViewItem">
+                            <Setter Property="Theme" Value="{StaticResource FlatTreeViewItem}"/>
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                            <Setter Property="ItemsPanel">
+                                <ItemsPanelTemplate>
+                                    <controls:ThumbnailWrapPanel ColumnSpacing="8" RowSpacing="2"/>
+                                </ItemsPanelTemplate>
+                            </Setter>
+                        </Style>
                     </TreeView.Styles>
                 </TreeView>
 
                 <!-- 3. PHOTOSHOP BROWSER VIEW -->
                 <TreeView ItemsSource="{Binding BatchVM.PhotoshopNodes}"
-                          IsVisible="{Binding BatchVM.IsPhotoshopVisible}"
+                          IsVisible="False"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                           Background="Transparent" BorderThickness="0"
                           DoubleTapped="OnPhotoshopNodeDoubleTapped">
@@ -182,8 +300,8 @@
                                          <Binding Path="!BatchVM.IsBusy"/>
                                      </MultiBinding>
                                  </StackPanel.IsVisible>
-                                 <TextBlock Text="TARGET:" Foreground="#666666" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
-                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="100" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                <TextBlock Text="TARGET:" Foreground="#666666" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0" ToolTip.Tip="{Binding BatchVM.MasterBrowserTargetPath}"/>
                              </StackPanel>
  
                              <!-- BUSY INDICATOR -->

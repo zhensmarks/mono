@@ -151,11 +151,17 @@
                                         <Border BorderBrush="#1C1C20" BorderThickness="0,0,0,1" Padding="12,6">
                                             <Grid ColumnDefinitions="Auto, *, Auto">
                                                 <CheckBox Grid.Column="0" IsChecked="{Binding IsVisible, Mode=TwoWay}"
-                                                          Width="55" VerticalAlignment="Center"/>
+                                                          Width="55" VerticalAlignment="Center"
+                                                          Click="OnVisibilityCheckChanged"/>
 
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Medium" Foreground="#E4E4E7"/>
-                                                    <TextBlock Text="{Binding Category}" FontSize="10" Foreground="#52525B"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                    <!-- Penanda kecil untuk sub-item dari grup -->
+                                                    <TextBlock Text="└" FontSize="11" Foreground="#52525B" VerticalAlignment="Center"
+                                                               IsVisible="{Binding IsSubItem}"/>
+                                                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                                                        <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Medium" Foreground="#E4E4E7"/>
+                                                        <TextBlock Text="{Binding Category}" FontSize="10" Foreground="#52525B"/>
+                                                    </StackPanel>
                                                 </StackPanel>
 
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">

@@ -20,6 +20,19 @@ public partial class MantraContextMenuSettingsDialog : MantraDialogBase
         DataContext = vm;
     }
 
+
+    /// <summary>Menjaga konsistensi grup: bila induk dinonaktifkan, seluruh sub-item
+    /// (mis. pilihan warna) ikut disembunyikan tanpa perlu dicentang satu per satu.</summary>
+    private void OnVisibilityCheckChanged(object? sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox cb && cb.DataContext is MantraContextMenuItemConfig item)
+        {
+            if (DataContext is MantraContextMenuSettingsViewModel vm && !item.IsSubItem)
+            {
+                vm.ApplyGroupState(item.Key);
+            }
+        }
+    }
     private void OnShortcutGotFocus(object? sender, GotFocusEventArgs e)
     {
         if (sender is TextBox tb)
