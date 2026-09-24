@@ -90,34 +90,35 @@
         </Style>
 
         <!-- Custom Style for Pill Menu Flyout -->
+        <!-- Pill Menu Flyout: presenter hanya jadi shell transparan,
+             kartu sebenarnya digambar oleh Border di dalam (single frame). -->
         <Style Selector="FlyoutPresenter">
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
-            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="MinWidth" Value="0"/>
-            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="Margin" Value="0"/>
         </Style>
 
-        <!-- Profile Flyout Menu Row -->
-        <Style Selector="Button.profileMenuItem">
+        <!-- Profile flyout menu row -->
+        <Style Selector="Button.profileMenuItem, ToggleButton.profileMenuItem">
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Height" Value="38"/>
+            <Setter Property="Height" Value="34"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="ToggleButton.profileMenuItem">
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Height" Value="38"/>
-            <Setter Property="Padding" Value="0"/>
+        <Style Selector="Button.profileMenuItem /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="ToggleButton.profileMenuItem /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="8"/>
         </Style>
         <Style Selector="Button.profileMenuItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
@@ -126,7 +127,7 @@
             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
         </Style>
         <Style Selector="ToggleButton.profileMenuItem:checked /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#1400A6FF"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
         </Style>
 
         <!-- Master Browser TreeView Styles (PlainTree) -->
@@ -159,72 +160,67 @@
                              CornerRadius="6" Cursor="Hand" MinWidth="56" Height="32"
                              ToolTip.Tip="Account">
                         <Button.Flyout>
-                            <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient">
-                                <Border Width="250" Padding="12" CornerRadius="8" Background="{DynamicResource CardBackgroundBrush}">
+                            <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient"
+                                    HorizontalOffset="-5" VerticalOffset="9">
+                                <Border Width="256" CornerRadius="12"
+                                        Background="{DynamicResource CardBackgroundBrush}"
+                                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                        BoxShadow="0 12 30 -12 #40000000"
+                                        ClipToBounds="True">
                                     <StackPanel>
-                                        <!-- Compact profile header -->
-                                        <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,10">
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding UserName}" FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{Binding Greeting}" FontSize="10" Margin="0,3,0,0"
+                                        <!-- Header (no avatar) -->
+                                        <StackPanel Margin="16,15,16,13" Spacing="3">
+                                            <TextBlock Text="{Binding UserName}" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Border Width="6" Height="6" CornerRadius="3" Background="#22C55E"
+                                                        VerticalAlignment="Center" IsVisible="{Binding IsOnline}"/>
+                                                <TextBlock Text="{Binding Greeting}" FontSize="11"
                                                            Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
-                                            <Border Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                    Padding="6,3" CornerRadius="8" Background="#1510B981"
-                                                    IsVisible="{Binding IsOnline}">
-                                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <Border Width="6" Height="6" CornerRadius="3" Background="#10b981" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="ONLINE" FontSize="8" FontWeight="SemiBold" Foreground="#10b981"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </Grid>
+                                        </StackPanel>
 
-                                        <!-- Compact real-time stats -->
-                                        <Border Padding="8,7" CornerRadius="6" Background="{DynamicResource BackgroundBrush}">
-                                            <Grid ColumnDefinitions="*,*,*,*">
-                                                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                                                    <TextBlock Text="{Binding StatEditing}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentEditingBrush}" HorizontalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Language[Stats.Editing]}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                                                    <TextBlock Text="{Binding StatRevision}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentRevisionBrush}" HorizontalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Language[Stats.Revision]}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                                                    <TextBlock Text="{Binding StatLate}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentLateBrush}" HorizontalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Language[Stats.Late]}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
-                                                    <TextBlock Text="{Binding StatPoints}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentPointsBrush}" HorizontalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Language[Stats.Points]}" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
+                                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
 
-                                        <Separator Margin="0,10,0,4"/>
-                                        <ToggleButton Classes="profileMenuItem" Click="OnTerminalToggleClick" IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}">
-                                            <Grid ColumnDefinitions="20,*,Auto" Margin="2,0">
-                                                <PathIcon Grid.Column="0" Data="{StaticResource IconTerminal}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="Terminal" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                                                <TextBlock Grid.Column="2" Text="OPEN" FontSize="8" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" IsVisible="{Binding IsLogPanelOpen}"/>
-                                                <TextBlock Grid.Column="2" Text="CLOSED" FontSize="8" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsVisible="{Binding !IsLogPanelOpen}"/>
-                                            </Grid>
-                                        </ToggleButton>
-                                        <Button Classes="profileMenuItem" Click="OnSettingsClick">
-                                            <Grid ColumnDefinitions="20,*,Auto" Margin="2,0">
-                                                <PathIcon Grid.Column="0" Data="{StaticResource IconSettings}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="Settings" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                                            </Grid>
-                                        </Button>
-                                        <Button Classes="profileMenuItem" Click="OnLogoutClick">
-                                            <Grid ColumnDefinitions="20,*,Auto" Margin="2,0">
-                                                <PathIcon Grid.Column="0" Data="{StaticResource IconLogOut}" Width="15" Height="15" Foreground="#ef4444" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="Log Out" FontSize="11" Foreground="#ef4444" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                                            </Grid>
-                                        </Button>
-                                        <TextBlock Text="{Binding AppVersion, StringFormat='BMACHINE {0}'}" FontSize="8"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,7,0,0"/>
+                                        <!-- Menu (no icons) -->
+                                        <StackPanel Margin="6,6" Spacing="1">
+                                            <ToggleButton Classes="profileMenuItem" Click="OnTerminalToggleClick" IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}">
+                                                <Grid ColumnDefinitions="*,Auto" Margin="10,0">
+                                                    <TextBlock Grid.Column="0" Text="Terminal" FontSize="12.5"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                    <Border Grid.Column="1" Width="34" Height="18" CornerRadius="9"
+                                                            Background="{DynamicResource SeparatorBrush}" VerticalAlignment="Center">
+                                                        <Panel>
+                                                            <Border CornerRadius="9" Background="{DynamicResource AccentBlueBrush}" IsVisible="{Binding IsLogPanelOpen}"/>
+                                                            <Border Width="12" Height="12" CornerRadius="6" Background="#FFFFFF"
+                                                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                                                    BoxShadow="0 1 2 0 #30000000"
+                                                                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"
+                                                                    IsVisible="{Binding !IsLogPanelOpen}"/>
+                                                            <Border Width="12" Height="12" CornerRadius="6" Background="#FFFFFF"
+                                                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                                                    BoxShadow="0 1 2 0 #30000000"
+                                                                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,3,0"
+                                                                    IsVisible="{Binding IsLogPanelOpen}"/>
+                                                        </Panel>
+                                                    </Border>
+                                                </Grid>
+                                            </ToggleButton>
+                                            <Button Classes="profileMenuItem" Click="OnSettingsClick">
+                                                <TextBlock Text="Settings" FontSize="12.5" Margin="10,0"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            </Button>
+                                            <Button Classes="profileMenuItem" Click="OnLogoutClick">
+                                                <TextBlock Text="Log Out" FontSize="12.5" Margin="10,0"
+                                                           Foreground="{DynamicResource AccentRedBrush}" VerticalAlignment="Center"/>
+                                            </Button>
+                                        </StackPanel>
+
+                                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+
+                                        <!-- Footer -->
+                                        <TextBlock Text="{Binding AppVersion, StringFormat='BMACHINE · {0}'}" FontSize="9" LetterSpacing="0.6"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,9"/>
                                     </StackPanel>
                                 </Border>
                             </Flyout>

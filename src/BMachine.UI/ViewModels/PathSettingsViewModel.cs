@@ -101,8 +101,9 @@ public partial class PathSettingsViewModel : ObservableObject
         var jsonPaths = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
         if (!string.IsNullOrEmpty(jsonPaths))
         {
-            var entries = EditablePathItem.ParseStoredPaths(jsonPaths);
-            AdditionalMasterPaths = new ObservableCollection<EditablePathItem>(entries.Select(e => new EditablePathItem(e.Path, e.Name)));
+            var entries = EditablePathItem.ParseStoredEntries(jsonPaths);
+            AdditionalMasterPaths = new ObservableCollection<EditablePathItem>(
+                entries.Select(e => new EditablePathItem(e.Path, e.Name) { Color = e.Color, Icon = e.Icon }));
             foreach (var item in AdditionalMasterPaths)
             {
                 item.PropertyChanged += async (s, e) =>
@@ -228,7 +229,9 @@ public partial class PathSettingsViewModel : ObservableObject
         var entries = AdditionalMasterPaths.Select(x => new StoredPathEntry
         {
             Path = x.Path,
-            Name = !string.IsNullOrWhiteSpace(x.Name) ? x.Name : x.AutoDetectedName
+            Name = !string.IsNullOrWhiteSpace(x.Name) ? x.Name : x.AutoDetectedName,
+            Color = x.Color,
+            Icon = x.Icon
         }).ToArray();
         var json = JsonSerializer.Serialize(entries);
         await _database.SetAsync("Configs.Master.AdditionalPaths", json);

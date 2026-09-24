@@ -17,6 +17,8 @@
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimary}"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondary}"/>
     <SolidColorBrush x:Key="TextOnPrimaryBrush" Color="White"/>
+    <!-- Subtle elevated surface (popup stat strip, avatar viewer) -->
+    <SolidColorBrush x:Key="BackgroundBrush" Color="#202226"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#26282C"/>
 
     <!-- Log Brushes (Lighter for Dark Theme) -->

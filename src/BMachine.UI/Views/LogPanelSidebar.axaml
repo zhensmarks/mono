@@ -12,6 +12,9 @@
              x:DataType="vm:DashboardViewModel">
     <UserControl.Resources>
         <converters:StringToUpperConverter x:Key="StringToUpperConverter"/>
+        <converters:IconConverter x:Key="IconConverter"/>
+        <converters:HexToBrushConverter x:Key="HexToBrushConverter"/>
+        <converters:RootFontWeightConverter x:Key="RootFontWeightConverter"/>
 
         <!-- Chevron self-contained: hindari StaticResource ke resource tema Fluent
              (gagal di-resolve saat compile -> InvalidCastException saat runtime). -->
@@ -90,10 +93,25 @@
                     </EventTriggerBehavior>
                 </Interaction.Behaviors>
 
-                <!-- FOLDER: nama saja, chevron disediakan TreeViewItem -->
+                <!-- FOLDER: nama saja, chevron disediakan TreeViewItem.
+                     ROOT folder (path master beda) tampil BOLD + ikon berwarna
+                     sesuai pengaturan path; subfolder tetap normal. -->
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                             IsVisible="{Binding IsDirectory}">
+                    <!-- Ikon root folder (hanya muncul untuk root) -->
+                    <Panel Width="14" Height="14" VerticalAlignment="Center"
+                           IsVisible="{Binding IsRoot}">
+                        <PathIcon Data="{Binding NodeIconKey, Converter={StaticResource IconConverter}}"
+                                  Width="14" Height="14"
+                                  Foreground="{Binding NodeColorHex, Converter={StaticResource HexToBrushConverter}}"/>
+                        <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14"
+                                  Foreground="{Binding NodeColorHex, Converter={StaticResource HexToBrushConverter}}"
+                                  IsVisible="{Binding NodeIconKey, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                    </Panel>
+
                     <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                               FontFamily="Segoe UI"
+                               FontWeight="{Binding IsRoot, Converter={StaticResource RootFontWeightConverter}}"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
 
@@ -128,6 +146,7 @@
                     <PathIcon Data="{StaticResource IconFile}" Width="14" Height="14"
                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                               FontFamily="Segoe UI"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </Panel>

@@ -16,7 +16,25 @@ public partial class MasterNode : ObservableObject
     public string Name { get; }
     public string FullPath { get; }
     public bool IsDirectory { get; }
-    
+
+    /// <summary>
+    /// True for a root folder (a top-level master/additional path). Root folders
+    /// are rendered bold and may carry a custom colour/icon, subfolders are not.
+    /// </summary>
+    public bool IsRoot { get; set; }
+
+    /// <summary>
+    /// Hex colour (e.g. "#FF5722") for this root folder. Empty for subfolders or
+    /// when the user has not chosen a colour.
+    /// </summary>
+    public string NodeColorHex { get; set; } = "";
+
+    /// <summary>
+    /// Icon resource key (e.g. "IconFolder", "IconStar") for this root folder.
+    /// Empty for subfolders or when the user has not chosen an icon.
+    /// </summary>
+    public string NodeIconKey { get; set; } = "";
+
     // Group name is essentially the parent folder name, useful for flat search if needed, 
     // but in tree view we rely on structure.
     

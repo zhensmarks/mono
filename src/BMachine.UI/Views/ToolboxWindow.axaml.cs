@@ -191,6 +191,21 @@ public partial class ToolboxWindow : Window
                 _ = vm.PsdBucinVM.ProcessManualFilesAsync(files);
             }
         }
+        else if (vm.IsMantraNamaVisible && vm.MantraNamaVM.IsAdvancedMode)
+        {
+            bool isReferenceZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name == "NamaAdvancedReferenceDropZone") == true || (e.Source as Control)?.Name == "NamaAdvancedReferenceDropZone";
+            bool isTargetZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name == "NamaAdvancedTargetDropZone") == true || (e.Source as Control)?.Name == "NamaAdvancedTargetDropZone";
+            if (isReferenceZone)
+            {
+                if (isDir) vm.MantraNamaVM.SetAdvancedReferenceDirectory(firstPath);
+                else vm.MantraNamaVM.SetAdvancedReferencePath(firstPath);
+            }
+            else if (isTargetZone)
+            {
+                if (isDir) vm.MantraNamaVM.SetAdvancedTargetDirectory(firstPath);
+                else vm.MantraNamaVM.SetAdvancedTargetPath(firstPath);
+            }
+        }
         else if (vm.IsMantraNamaVisible)
         {
             if (isDir)
@@ -277,6 +292,33 @@ public partial class ToolboxWindow : Window
         if (folders != null && folders.Count > 0 && DataContext is ToolboxViewModel vm)
         {
             vm.MantraNamaVM.AddFromDirectory(folders[0].Path.LocalPath);
+        }
+    }
+    private async void OnNamaAdvancedReferenceFolderClick(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Pilih Folder Referensi",
+            AllowMultiple = false
+        });
+
+        if (folders != null && folders.Count > 0 && DataContext is ToolboxViewModel vm)
+        {
+            vm.MantraNamaVM.SetAdvancedReferenceDirectory(folders[0].Path.LocalPath);
+        }
+    }
+
+    private async void OnNamaAdvancedTargetFolderClick(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Pilih Folder Target Advanced",
+            AllowMultiple = false
+        });
+
+        if (folders != null && folders.Count > 0 && DataContext is ToolboxViewModel vm)
+        {
+            vm.MantraNamaVM.SetAdvancedTargetDirectory(folders[0].Path.LocalPath);
         }
     }
 

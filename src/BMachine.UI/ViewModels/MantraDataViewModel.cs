@@ -103,8 +103,10 @@ public partial class MantraDataViewModel : ObservableObject
         {
             var photos = _photoService.CollectPhotosRecursive(photoDir);
             var nameHeaders = new[] { "NAMA", "NAMA LENGKAP", "NAMA SISWA", "NAMA GURU", "NAMA PESERTA DIDIK", "STUDENT NAME" };
-            var outResults = new List<(int idx, string path, string fileName, int score, bool matched)>();
+            int threshold = _settings.PhotoMatchThreshold;
 
+            // 1. Ambil nama tiap baris + daftar kandidat foto berperingkat.
+            var rowCandidates = new List<(string photo, int score)>[rowsSnapshot.Count];
             for (int i = 0; i < rowsSnapshot.Count; i++)
             {
                 var row = rowsSnapshot[i];
@@ -122,36 +124,96 @@ public partial class MantraDataViewModel : ObservableObject
 
                 if (string.IsNullOrWhiteSpace(name))
                 {
-                    outResults.Add((i, string.Empty, "-", 0, false));
+                    rowCandidates[i] = new List<(string, int)>();
                     continue;
                 }
 
-                var match = _photoService.FindBestMatch(name, photos, _settings.PhotoMatchThreshold);
-                outResults.Add((i, match.MatchedFilePath ?? string.Empty,
-                    match.MatchedFilePath != null ? Path.GetFileName(match.MatchedFilePath) : "-",
-                    match.Score, match.IsPassed));
+                rowCandidates[i] = photos
+                    .Select(f => (photo: f, score: PhotoMatcherService.Score(name, Path.GetFileNameWithoutExtension(f))))
+                    .Where(x => x.score > 0)
+                    .OrderByDescending(x => x.score)
+                    .ThenBy(x => x.photo, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            // 2. Pemasangan 1:1 — satu file foto hanya boleh dipakai SATU baris.
+            //    Semua pasangan diurutkan skor tertinggi dulu, sehingga baris yang
+            //    benar-benar cocok (skor tinggi) yang memenangkan fotonya; baris lain
+            //    tidak boleh menyerobot file yang sama.
+            var allPairs = new List<(int idx, string photo, int score)>();
+            for (int i = 0; i < rowCandidates.Length; i++)
+                foreach (var c in rowCandidates[i])
+                    allPairs.Add((i, c.photo, c.score));
+
+            var assigned = new Dictionary<int, (string photo, int score)>();
+            var usedPhotos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var photoWinner = new Dictionary<string, (int idx, int score)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var p in allPairs.OrderByDescending(x => x.score).ThenBy(x => x.idx))
+            {
+                if (assigned.ContainsKey(p.idx) || usedPhotos.Contains(p.photo)) continue;
+                assigned[p.idx] = (p.photo, p.score);
+                usedPhotos.Add(p.photo);
+                photoWinner[p.photo] = (p.idx, p.score);
+            }
+
+            // 3. Susun hasil akhir + klasifikasi status.
+            //    - Menang & skor >= ambang  -> COCOK
+            //    - Menang tapi skor < ambang -> PERLU REVIEW
+            //    - Kalah dari baris lain yang skornya SERI untuk file terbaiknya
+            //      (mis. dua data nama kembar) -> AMBIGU
+            //    - Tidak dapat foto sama sekali -> TIDAK ADA (Belum Ada)
+            var outResults = new List<(int idx, string path, string fileName, int score, bool matched, string status)>();
+            for (int i = 0; i < rowsSnapshot.Count; i++)
+            {
+                var top = rowCandidates[i].FirstOrDefault();
+
+                if (!assigned.TryGetValue(i, out var a))
+                {
+                    // Kandidat terbaiknya dipakai baris lain dengan skor sama → ambig.
+                    if (top.photo != null &&
+                        photoWinner.TryGetValue(top.photo, out var w) && w.idx != i && w.score == top.score)
+                        outResults.Add((i, string.Empty, "-", 0, false, "AMBIGU"));
+                    else
+                        outResults.Add((i, string.Empty, "-", 0, false, "TIDAK ADA"));
+                    continue;
+                }
+
+                bool matched = a.score >= threshold;
+                var status = matched ? "COCOK" : "PERLU REVIEW";
+                outResults.Add((i, a.photo, Path.GetFileName(a.photo), a.score, matched, status));
             }
 
             return outResults;
         });
 
-        foreach (var (idx, photoPath, fileName, score, matched) in results)
+        foreach (var (idx, photoPath, fileName, score, matched, serviceStatus) in results)
         {
             var row = rowsSnapshot[idx];
             row["_MATCHED_PHOTO_PATH"] = photoPath;
             row.MatchedPhoto = fileName;
             row.MatchScore = score;
             row.IsPhotoMatched = matched;
-            row.MatchStatus = matched ? "SIAP PROSES" : "PERLU REVIEW";
-            row.MatchNote = matched ? "Foto cocok otomatis" : "Kandidat terbaik, perlu konfirmasi";
+
+            row.MatchStatus = serviceStatus;
             row.MatchCandidate = fileName;
-            // Baris dengan kandidat foto perlu disetujui pengguna lewat tombol "Terima".
-            row.NeedsConfirmation = !string.IsNullOrWhiteSpace(photoPath);
+            row.NeedsConfirmation = !string.IsNullOrWhiteSpace(photoPath) && !matched;
             row.Decision = string.IsNullOrWhiteSpace(photoPath)
                 ? MatchDecisionStatus.NotFound
-                : (matched ? MatchDecisionStatus.Likely : MatchDecisionStatus.Ambiguous);
+                : string.Equals(serviceStatus, "AMBIGU", StringComparison.OrdinalIgnoreCase)
+                    ? MatchDecisionStatus.Ambiguous
+                    : matched
+                        ? MatchDecisionStatus.Likely
+                        : MatchDecisionStatus.Review;
+            row.MatchNote = row.Decision switch
+            {
+                MatchDecisionStatus.NotFound => string.Empty,
+                MatchDecisionStatus.Ambiguous => "Lebih dari satu data memiliki nama/foto serupa",
+                MatchDecisionStatus.Likely => "Foto cocok otomatis",
+                _ => "Kandidat terbaik, perlu konfirmasi"
+            };
             row.NotifyPhotoPreviewChanged();
         }
+
 
         MatchedPhotosCount = Rows.Count(r => !string.IsNullOrWhiteSpace(r["_MATCHED_PHOTO_PATH"]));
         RefreshPhotoStatusCounts();
@@ -191,18 +253,31 @@ public partial class MantraDataViewModel : ObservableObject
     private int _belumCount;
 
     /// <summary>
-    /// Klasifikasi status pasangan foto sebuah baris: COCOK / REVIEW / GANDA / BELUM.
-    /// REVIEW mencakup foto yang skor di bawah ambang atau file-nya hilang.
+    /// Klasifikasi status pasangan foto sebuah baris:
+    /// COCOK / REVIEW / GANDA (ambigu) / BELUM / HILANG.
+    /// Sumber utama adalah MatchDecisionStatus (Decision) yang diisi konsisten
+    /// oleh jalur auto-match maupun Proses Photoshop.
     /// </summary>
     private static string ClassifyPhotoStatus(TableDataRow row)
     {
         var path = row["_MATCHED_PHOTO_PATH"];
         if (string.IsNullOrWhiteSpace(path)) return "BELUM";
         if (!File.Exists(path)) return "HILANG";
-        if (!row.IsPhotoMatched) return "REVIEW";
-        if (string.Equals(row.MatchStatus, "AMBIGU", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(row.MatchStatus, "FOTO GANDA", StringComparison.OrdinalIgnoreCase)) return "GANDA";
-        return "COCOK";
+
+        switch (row.Decision)
+        {
+            case MatchDecisionStatus.Conflict:
+                return "GANDA";
+            case MatchDecisionStatus.Ambiguous:
+                return "GANDA";
+            case MatchDecisionStatus.Confirmed:
+            case MatchDecisionStatus.Likely:
+                return "COCOK";
+            case MatchDecisionStatus.Review:
+                return "REVIEW";
+            default:
+                return row.IsPhotoMatched ? "COCOK" : "REVIEW";
+        }
     }
 
     public void RefreshPhotoStatusCounts()
@@ -335,6 +410,7 @@ public partial class MantraDataViewModel : ObservableObject
         row.MatchReason = "Konfirmasi manual";
         row.Confidence = 100;
         row.Decision = MatchDecisionStatus.Confirmed;
+        row.IsForced = true;
         row.NeedsConfirmation = false;
         row["_MATCHED_PHOTO_PATH"] = photoPath;
         row.NotifyPhotoPreviewChanged();
@@ -362,6 +438,7 @@ public partial class MantraDataViewModel : ObservableObject
         row.MatchNote = "Foto kandidat disetujui oleh pengguna";
         row.Confidence = 100;
         row.Decision = MatchDecisionStatus.Confirmed;
+        row.IsForced = true;
         row.NeedsConfirmation = false;
         row.NotifyPhotoPreviewChanged();
         RefreshPhotoStatusCounts();
@@ -1206,7 +1283,7 @@ public partial class MantraDataViewModel : ObservableObject
                     : new List<string>();
 
                 int matchCount = 0;
-                    var results = new List<(int idx, string matchedPhoto, int matchScore, bool isPassed, string matchedPhotoPath, string status, string note, string candidate)>(rowsSnapshot.Count);
+                    var results = new List<(int idx, string matchedPhoto, int matchScore, bool isPassed, string matchedPhotoPath, string status, string note, string candidate, MatchDecisionStatus decision)>(rowsSnapshot.Count);
                 var nameHeaders = new[] { "NAMA", "NAMA LENGKAP", "NAMA SISWA", "NAMA GURU", "NAMA PESERTA DIDIK", "STUDENT NAME" };
 
                 string ExtractRowName(TableDataRow r)
@@ -1285,37 +1362,77 @@ public partial class MantraDataViewModel : ObservableObject
                         }
                     }
 
-                    bool isPassed = !string.IsNullOrEmpty(matchedPhotoPath) || !string.IsNullOrEmpty(matchedPsd);
+                    // isPassed hanya true bila ada FOTO nyata yang cocok (bukan sekadar
+                    // ada PSD). Kandidat foto di bawah ambang tetap berstatus REVIEW.
+                    bool photoOk = !string.IsNullOrEmpty(matchedPhotoPath) &&
+                                   (row.IsPhotoMatched || row.Decision == MatchDecisionStatus.Confirmed
+                                    || row.Decision == MatchDecisionStatus.Likely);
+                    bool isPassed = photoOk;
                     if (isPassed) matchCount++;
                     var status = string.IsNullOrEmpty(name) ? "NAMA KOSONG" : (isPassed ? "SIAP PROSES" : "PERLU REVIEW");
                     var note = isPassed ? "Kandidat ditemukan" : "Tidak ada kandidat aman";
-                    results.Add((i, matchedFileName, matchScore, isPassed, matchedPhotoPath ?? string.Empty, status, note, matchedFileName));
+                    var decision = !string.IsNullOrEmpty(matchedPhotoPath)
+                        ? (row.IsForced
+                            ? MatchDecisionStatus.Confirmed
+                            : (photoOk ? MatchDecisionStatus.Likely : MatchDecisionStatus.Review))
+                        : MatchDecisionStatus.NotFound;
+                    results.Add((i, matchedFileName, matchScore, isPassed, matchedPhotoPath ?? string.Empty, status, note, matchedFileName, decision));
                 }
-                // 1. Tentukan pasangan PSD untuk setiap baris data
+                // 1. Tentukan pasangan PSD untuk setiap baris data.
+                //    HANYA pasangan yang benar-benar sinkron (nama PSD identik dengan
+                //    nama foto/data baris) yang dipasangkan. Baris tanpa pasangan
+                //    persis dibiarkan kosong supaya tidak diproses secara acak.
                 var psdAssignments = new Dictionary<int, string>(); // rowIdx -> psdFileName
                 var usedPsds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                var pairScores = new List<(int rowIdx, string psdFile, int score)>();
+                var pairScores = new List<(int rowIdx, string psdFile, int score, int rowMatchScore)>();
                 for (int rIdx = 0; rIdx < rowsSnapshot.Count; rIdx++)
                 {
                     var r = rowsSnapshot[rIdx];
                     var rName = ExtractRowName(r);
-                    var rPhoto = results[rIdx].matchedPhotoPath;
-                    var rNum = r.RowNumber;
+
+                    // Anchor foto HANYA dipakai kalau pasangan foto baris ini benar-benar
+                    // terkonfirmasi (IsPhotoMatched / COCOK). Kandidat skor rendah yang
+                    // masih berstatus REVIEW tidak boleh menyerobot PSD milik baris lain.
+                    var rPhoto = r.IsPhotoMatched ? results[rIdx].matchedPhotoPath : string.Empty;
+
+                    var rPhotoClean = string.IsNullOrWhiteSpace(rPhoto)
+                        ? string.Empty
+                        : PhotoMatcherService.CleanFileNameForMatch(Path.GetFileName(rPhoto));
+                    var rNameClean = PhotoMatcherService.CleanFileNameForMatch(rName);
 
                     foreach (var psd in psdFiles)
                     {
                         var psdName = Path.GetFileName(psd);
-                        int sc = _photoService.ScorePsdToRow(psdName, rName, rPhoto, rNum);
+                        var psdClean = PhotoMatcherService.CleanFileNameForMatch(psdName);
+                        if (string.IsNullOrEmpty(psdClean)) continue;
+
+                        var photoStrict = !string.IsNullOrEmpty(rPhotoClean) &&
+                            string.Equals(rPhotoClean, psdClean, StringComparison.OrdinalIgnoreCase);
+                        var nameStrict = !string.IsNullOrEmpty(rNameClean) &&
+                            string.Equals(rNameClean, psdClean, StringComparison.OrdinalIgnoreCase);
+
+                        // Anchor WAJIB nama data == nama PSD. Foto tidak boleh menjadi
+                        // pengganti: foto yang salah pasang (mis. kandidat skor rendah)
+                        // tidak boleh menyerobot PSD milik baris lain.
+                        // 10000 = data + foto + PSD sinkron (paling diutamakan)
+                        // 9000  = data + PSD sinkron (foto menyusul via jalur eksplisit)
+                        int sc = 0;
+                        if (nameStrict && photoStrict) sc = 10000;
+                        else if (nameStrict) sc = 9000;
+
                         if (sc > 0)
                         {
-                            pairScores.Add((rIdx, psdName, sc));
+                            pairScores.Add((rIdx, psdName, sc, r.MatchScore));
                         }
                     }
                 }
 
-                // Pasangkan secara greedy berdasarkan skor tertinggi
-                foreach (var pair in pairScores.OrderByDescending(x => x.score))
+                // Pasangkan secara greedy: skor tertinggi menang; bila seri, baris dengan
+                // skor pasangan foto lebih tinggi yang menang. 1 PSD = 1 baris.
+                foreach (var pair in pairScores
+                    .OrderByDescending(x => x.score)
+                    .ThenByDescending(x => x.rowMatchScore))
                 {
                     if (!psdAssignments.ContainsKey(pair.rowIdx) && !usedPsds.Contains(pair.psdFile))
                     {
@@ -1340,7 +1457,7 @@ public partial class MantraDataViewModel : ObservableObject
                 return (results, matchCount, psdReady, psdTotal: psdFiles.Count, psdAssignments);
             });
 
-            foreach (var (idx, matchedPhoto, matchScore, isPassed, matchedPhotoPath, status, note, candidate) in matchResults.results)
+            foreach (var (idx, matchedPhoto, matchScore, isPassed, matchedPhotoPath, status, note, candidate, decision) in matchResults.results)
             {
                 var row = rowsSnapshot[idx];
                 row.MatchedPhoto = matchedPhoto;
@@ -1349,6 +1466,8 @@ public partial class MantraDataViewModel : ObservableObject
                 row.MatchStatus = status;
                 row.MatchNote = note;
                 row.MatchCandidate = candidate;
+                row.Decision = decision;
+                row.NeedsConfirmation = !isPassed && !string.IsNullOrWhiteSpace(matchedPhotoPath);
                 row["_MATCHED_PHOTO_PATH"] = matchedPhotoPath;
                 if (matchResults.psdAssignments.TryGetValue(idx, out var assignedPsd))
                 {
@@ -1357,6 +1476,33 @@ public partial class MantraDataViewModel : ObservableObject
                 else
                 {
                     row["_MATCHED_PSD_FILE"] = string.Empty;
+                }
+            }
+
+            // Jaga-jaga: bila satu file foto tetap dipakai >1 baris (mis. hasil
+            // pilih manual), pemenangnya adalah baris dengan skor tertinggi —
+            // hanya baris yang KALAH yang ditandai AMBIGU, bukan yang cocok.
+            var procBest = new Dictionary<string, (int idx, int score)>(StringComparer.OrdinalIgnoreCase);
+            for (int r = 0; r < rowsSnapshot.Count; r++)
+            {
+                var p = rowsSnapshot[r]["_MATCHED_PHOTO_PATH"];
+                if (string.IsNullOrWhiteSpace(p)) continue;
+                var sc = rowsSnapshot[r].MatchScore;
+                if (!procBest.TryGetValue(p, out var cur) || sc > cur.score)
+                    procBest[p] = (r, sc);
+            }
+            for (int r = 0; r < rowsSnapshot.Count; r++)
+            {
+                var row = rowsSnapshot[r];
+                var p = row["_MATCHED_PHOTO_PATH"];
+                if (string.IsNullOrWhiteSpace(p)) continue;
+                if (procBest.TryGetValue(p, out var best) && best.idx != r && row.Decision != MatchDecisionStatus.Confirmed)
+                {
+                    row.Decision = MatchDecisionStatus.Conflict;
+                    row.MatchStatus = "AMBIGU";
+                    row.MatchNote = "Foto yang sama dipakai lebih dari satu data";
+                    row.NeedsConfirmation = true;
+                    row.IsPhotoMatched = false;
                 }
             }
             psdReady = matchResults.psdReady;

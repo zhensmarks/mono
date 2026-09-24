@@ -14,7 +14,7 @@
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
         Background="{DynamicResource AppBackgroundBrush}"
-        Foreground="#E8E8E6">
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
     <Window.Styles>
         <Style Selector="Button.ChromeClose">

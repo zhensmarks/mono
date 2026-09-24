@@ -277,22 +277,28 @@ public class PhotoMatcherService
             return new PhotoMatchResult { StudentName = studentName, Status = "NAMA KOSONG", Score = 0 };
         }
 
-        if (ranked.Count == 0 || ranked[0].Score < threshold)
+        if (ranked.Count == 0)
         {
-            int lowScore = 0;
-            string? lowPath = null;
-            if (ranked.Count > 0)
-            {
-                lowScore = ranked[0].Score;
-                lowPath = ranked[0].Path;
-            }
             return new PhotoMatchResult
             {
                 StudentName = studentName,
-                MatchedFilePath = lowPath,
-                Score = lowScore,
+                MatchedFilePath = null,
+                Score = 0,
                 IsPassed = false,
                 Status = "TIDAK ADA",
+                Note = "Tidak ada file foto"
+            };
+        }
+
+        if (ranked[0].Score < threshold)
+        {
+            return new PhotoMatchResult
+            {
+                StudentName = studentName,
+                MatchedFilePath = ranked[0].Path,
+                Score = ranked[0].Score,
+                IsPassed = false,
+                Status = "PERLU REVIEW",
                 Note = "Skor di bawah batas"
             };
         }

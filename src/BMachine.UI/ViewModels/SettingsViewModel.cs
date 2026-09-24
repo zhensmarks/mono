@@ -700,12 +700,14 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _isBatchVisible = true;
     [ObservableProperty] private bool _isFolderLockVisible = true;
     [ObservableProperty] private bool _isPointVisible = true; // For Point/GSheet
+    [ObservableProperty] private bool _isOutputExplorerVisible = true; // For Output Explorer nav tab
 
 
 
     partial void OnIsBatchVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Batch", value);
     partial void OnIsFolderLockVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Lock", value);
     partial void OnIsPointVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Point", value);
+    partial void OnIsOutputExplorerVisibleChanged(bool value) => SaveAndNotifyDashboard("Settings.Dash.Explorer", value);
 
     private void SaveAndNotifyDashboard(string key, bool value)
     {
@@ -1244,6 +1246,7 @@ public partial class SettingsViewModel : ObservableObject
             IsBatchVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Batch") ?? "True");
             IsFolderLockVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Lock") ?? "True");
             IsPointVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Point") ?? "True");
+            IsOutputExplorerVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Explorer") ?? "True");
             
             // Load Batch Filter
             var filter = await _database.GetAsync<string>("Settings.Batch.Filter");

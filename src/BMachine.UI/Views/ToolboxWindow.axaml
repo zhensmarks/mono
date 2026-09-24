@@ -12,7 +12,7 @@
         MinWidth="680" MinHeight="580"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource AppBackgroundBrush}"
-        Foreground="#E8E8E6"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
@@ -315,13 +315,15 @@
                 <!-- ═══════════════════════
                      MANTRA NAMA
                 ═══════════════════════ -->
-                <Grid RowDefinitions="*,16,Auto" IsVisible="{Binding IsMantraNamaVisible}" MinHeight="480">
+                <Grid IsVisible="{Binding IsMantraNamaVisible}">
+                <Border Classes="Card" IsVisible="{Binding MantraNamaVM.IsAdvancedMode}" MinHeight="480"><Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="8"><TextBlock Classes="Section" Text="ADVANCED MODE - SAMAKAN NAMA FILE"/><Grid Grid.Row="1" ColumnDefinitions="*,Auto,*,Auto" ColumnSpacing="6"><TextBox x:Name="NamaAdvancedReferenceDropZone" Grid.Column="0" Classes="Input" Text="{Binding MantraNamaVM.AdvancedReferenceDirectory}" Watermark="Folder kiri: referensi (seret folder atau file)" DragDrop.AllowDrop="True"/><Button Grid.Column="1" Classes="Muted" Content="Pilih kiri" Click="OnNamaAdvancedReferenceFolderClick"/><TextBox x:Name="NamaAdvancedTargetDropZone" Grid.Column="2" Classes="Input" Text="{Binding MantraNamaVM.AdvancedTargetDirectory}" Watermark="Folder kanan: target (seret folder atau file)" DragDrop.AllowDrop="True"/><Button Grid.Column="3" Classes="Muted" Content="Pilih kanan" Click="OnNamaAdvancedTargetFolderClick"/></Grid><Grid Grid.Row="2" ColumnDefinitions="*,10,*"><Border Grid.Column="0" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="8"><Grid RowDefinitions="Auto,Auto,*"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="FieldLabel" Text="REFERENSI KIRI"/><ComboBox Grid.Column="1" Width="120" ItemsSource="{Binding MantraNamaVM.AdvancedFileFilters}" SelectedItem="{Binding MantraNamaVM.AdvancedReferenceFilter}"/></Grid><TextBox Grid.Row="1" Classes="Input" Text="{Binding MantraNamaVM.AdvancedReferenceSearch}" Watermark="Cari file..." Margin="0,6"/><ListBox Grid.Row="2" ItemsSource="{Binding MantraNamaVM.AdvancedReferenceFiles}" SelectedItem="{Binding MantraNamaVM.SelectedAdvancedReference}"><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis"/></DataTemplate></ListBox.ItemTemplate></ListBox></Grid></Border><Border Grid.Column="2" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="8"><Grid RowDefinitions="Auto,Auto,*"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="FieldLabel" Text="TARGET KANAN"/><ComboBox Grid.Column="1" Width="120" ItemsSource="{Binding MantraNamaVM.AdvancedFileFilters}" SelectedItem="{Binding MantraNamaVM.AdvancedTargetFilter}"/></Grid><TextBox Grid.Row="1" Classes="Input" Text="{Binding MantraNamaVM.AdvancedTargetSearch}" Watermark="Cari file..." Margin="0,6"/><ListBox Grid.Row="2" ItemsSource="{Binding MantraNamaVM.AdvancedTargetFiles}" SelectedItem="{Binding MantraNamaVM.SelectedAdvancedTarget}"><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis"/></DataTemplate></ListBox.ItemTemplate></ListBox></Grid></Border></Grid><Border Grid.Row="3" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="8"><Grid RowDefinitions="Auto,*"><TextBlock Grid.Row="0" Classes="FieldLabel" Text="DAFTAR PASANGAN"/><ListBox Grid.Row="1" ItemsSource="{Binding MantraNamaVM.AdvancedPairs}" MaxHeight="130"><ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,16,*,16,*,Auto" Margin="0,2"><TextBlock Grid.Column="0" Text="{Binding ReferenceName}" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Text="-&gt;" HorizontalAlignment="Center"/><TextBlock Grid.Column="2" Text="{Binding TargetName}" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="3" Text="-&gt;" HorizontalAlignment="Center"/><TextBlock Grid.Column="4" Text="{Binding ResultName}" TextTrimming="CharacterEllipsis" Foreground="#C4C4C0"/><Button Grid.Column="5" Content="Hapus" Classes="Muted" Padding="8,2" Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveAdvancedPairCommand}" CommandParameter="{Binding}"/></Grid></DataTemplate></ListBox.ItemTemplate></ListBox></Grid></Border><Grid Grid.Row="4" ColumnDefinitions="*,Auto,8,Auto"><CheckBox Grid.Column="0" Classes="Option" Content="Sertakan subfolder" IsChecked="{Binding MantraNamaVM.AdvancedIncludeSubfolders}"/><Button Grid.Column="1" Classes="Muted" Content="Pasangkan" Command="{Binding MantraNamaVM.AddAdvancedPairCommand}"/><Button Grid.Column="3" Classes="Action" Content="Jalankan Rename" Command="{Binding MantraNamaVM.ExecuteAdvancedRenameCommand}"/></Grid></Grid></Border>
+                <Grid RowDefinitions="*,16,Auto" IsVisible="{Binding !MantraNamaVM.IsAdvancedMode}" MinHeight="480">
 
                     <!-- Preview table (Atas - Fluid Height) -->
                     <Border Grid.Row="0" Classes="Card">
                         <Grid RowDefinitions="Auto,12,Auto,12,*">
                             <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
-                                <TextBlock Grid.Column="0" Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8"><TextBlock Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)" VerticalAlignment="Center"/><Button Classes="ToolBtn" Content="Advanced Mode" Command="{Binding MantraNamaVM.ToggleAdvancedModeCommand}"/></StackPanel>
                                 <TextBox Grid.Column="1" Classes="Input" Width="200" Padding="8,4" FontSize="11" 
                                          Watermark="Filter nama/ekstensi..." Text="{Binding MantraNamaVM.FilterText}"/>
                             </Grid>
@@ -431,6 +433,7 @@
                 <!-- ═══════════════════════
                      MANTRA GANDA
                 ═══════════════════════ -->
+                </Grid>
                 <Grid IsVisible="{Binding IsMantraGandaVisible}" RowDefinitions="*,16,Auto" MinHeight="480">
 
                     <!-- Content (Atas) -->

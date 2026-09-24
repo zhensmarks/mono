@@ -3,9 +3,16 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:converters="using:BMachine.UI.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:Class="BMachine.UI.Views.PathSettingsView"
              x:DataType="vm:PathSettingsViewModel">
+
+    <UserControl.Resources>
+        <converters:IconConverter x:Key="IconConverter"/>
+        <converters:HexToBrushConverter x:Key="HexToBrushConverter"/>
+        <converters:HexToColorConverter x:Key="HexToColorConverter"/>
+    </UserControl.Resources>
 
     <ScrollViewer>
         <StackPanel Spacing="20" Margin="20">
@@ -57,9 +64,9 @@
                         <!-- List of Paths -->
                         <ItemsControl ItemsSource="{Binding AdditionalMasterPaths}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="vm:EditablePathItem">
                                     <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,0,8" BoxShadow="0 2 4 0 #1A000000">
-                                        <Grid RowDefinitions="Auto, Auto">
+                                        <Grid RowDefinitions="Auto, Auto, Auto">
                                             <!-- Row 0: Name and Main Actions (No raw link displayed) -->
                                             <Grid Grid.Row="0" ColumnDefinitions="Auto, Auto, *, Auto, Auto, Auto" Margin="0">
                                                 <!-- Up/Down Buttons -->
@@ -76,8 +83,15 @@
                                                     </Button>
                                                 </StackPanel>
 
-                                                <!-- Folder Icon -->
-                                                <PathIcon Grid.Column="1" Data="{StaticResource IconFolder}" Width="15" Height="15" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <!-- Root Icon PREVIEW (ikut pilihan warna + ikon user) -->
+                                                <Panel Grid.Column="1" Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                    <PathIcon Data="{Binding EffectiveIcon, Converter={StaticResource IconConverter}}"
+                                                              Width="15" Height="15"
+                                                              Foreground="{Binding EffectiveColor, Converter={StaticResource HexToBrushConverter}}"/>
+                                                    <PathIcon Data="{StaticResource IconFolder}" Width="15" Height="15"
+                                                              Foreground="{Binding EffectiveColor, Converter={StaticResource HexToBrushConverter}}"
+                                                              IsVisible="{Binding EffectiveIcon, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                                </Panel>
 
                                                 <!-- Custom / Auto-Detected Name TextBox -->
                                                 <TextBox Grid.Column="2" Text="{Binding Name, Mode=TwoWay}" 
@@ -112,8 +126,60 @@
                                                 </Button>
                                             </Grid>
 
-                                            <!-- Row 1: Expandable Manual Path Editor -->
-                                            <Border Grid.Row="1" IsVisible="{Binding IsEditingPath}" 
+                                            <!-- Row 1: Icon + Colour picker for this root folder -->
+                                            <Border Grid.Row="1"
+                                                    Background="{DynamicResource AppBackgroundBrush}"
+                                                    BorderBrush="{DynamicResource SeparatorBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    Padding="10,6"
+                                                    Margin="26,6,0,0">
+                                                <Grid ColumnDefinitions="Auto, *, Auto">
+                                                    <!-- Icon palette (klik untuk pilih) -->
+                                                    <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,10,0">
+                                                        <TextBlock Text="Ikon Root" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <ItemsControl ItemsSource="{x:Static vm:EditablePathItem.AvailableIcons}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <WrapPanel Orientation="Horizontal"/>
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Button Classes="Clear" Padding="3" Margin="0,0,2,2"
+                                                                            ToolTip.Tip="{Binding}"
+                                                                            Command="{Binding $parent[ItemsControl].DataContext.PickIconCommand}"
+                                                                            CommandParameter="{Binding}">
+                                                                        <PathIcon Data="{Binding Converter={StaticResource IconConverter}}"
+                                                                                  Width="15" Height="15"
+                                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                    </Button>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+
+                                                    <!-- Colour picker -->
+                                                    <StackPanel Grid.Column="1" Spacing="4">
+                                                        <TextBlock Text="Warna Root" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <ColorPicker Color="{Binding Color, Mode=TwoWay, Converter={StaticResource HexToColorConverter}}"
+                                                                     HorizontalAlignment="Left"/>
+                                                    </StackPanel>
+
+                                                    <!-- Reset visual keys -->
+                                                    <Button Grid.Column="2" Classes="secondary" Padding="6,4" VerticalAlignment="Bottom"
+                                                            ToolTip.Tip="Reset warna &amp; ikon ke default"
+                                                            Command="{Binding ResetVisualCommand}">
+                                                        <TextBlock Text="Reset" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Row 2: Expandable Manual Path Editor -->
+                                            <Border Grid.Row="2" IsVisible="{Binding IsEditingPath}" 
                                                     Background="{DynamicResource AppBackgroundBrush}" 
                                                     BorderBrush="{DynamicResource SeparatorBrush}" 
                                                     BorderThickness="1" 

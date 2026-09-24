@@ -5,11 +5,12 @@ namespace BMachine.UI.Models.MantraData;
 
 public enum MatchDecisionStatus
 {
-    Confirmed,
-    Likely,
-    Ambiguous,
-    NotFound,
-    Conflict
+    Confirmed,   // pasangan dikonfirmasi pengguna / cocok persis
+    Likely,      // auto, skor di atas ambang
+    Ambiguous,   // dua kandidat berdekatan
+    Review,      // ada kandidat tapi skor di bawah ambang
+    NotFound,    // tidak ada kandidat
+    Conflict     // foto dipakai oleh baris lain
 }
 
 public sealed class MatchDecision

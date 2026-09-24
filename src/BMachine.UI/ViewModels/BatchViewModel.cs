@@ -552,6 +552,21 @@ namespace BMachine.UI.ViewModels;
     partial void OnSchoolAddressChanged(string value) => SaveDocDataAsync();
     partial void OnSchoolLogoPathChanged(string value) => SaveDocDataAsync();
     partial void OnSchoolLogoPath2Changed(string value) => SaveDocDataAsync();
+    // --- DOC REPLACE SOURCES ---------------------------------------------
+    // Placeholder texts that SEND-TEXT.jsx searches for in the active PSD.
+    // One source per line (multi-line). Exposed so the user can match whatever
+    // name/address text their template actually uses, instead of hardcoded
+    // strings baked into the Photoshop script.
+    public const string DefaultNameSources = "TK DELAPAN MATA AIR";
+    public const string DefaultAddressSources =
+        "JL. SARI ENDAH NO. 7AGEGERKALONG HILIR BANDUNG\n" +
+        "JL. SARI ENDAH NO. 7A GEGERKALONG HILIR BANDUNG";
+
+    [ObservableProperty] private string _nameSources = DefaultNameSources;
+    [ObservableProperty] private string _addressSources = DefaultAddressSources;
+
+    partial void OnNameSourcesChanged(string value) => SaveDocDataAsync();
+    partial void OnAddressSourcesChanged(string value) => SaveDocDataAsync();
 
     private bool _isSavingDoc;
     private bool _isLoadingDoc;
@@ -566,6 +581,8 @@ namespace BMachine.UI.ViewModels;
             await _database.SetAsync("Doc.SchoolAddress", SchoolAddress);
             await _database.SetAsync("Doc.SchoolLogoPath", SchoolLogoPath);
             await _database.SetAsync("Doc.SchoolLogoPath2", SchoolLogoPath2);
+            await _database.SetAsync("Doc.NameSources", NameSources);
+            await _database.SetAsync("Doc.AddressSources", AddressSources);
             await ExportDocJsonAsync();
         }
         catch (Exception ex)
@@ -591,14 +608,36 @@ namespace BMachine.UI.ViewModels;
             var address = SchoolAddress?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
             var logo = SchoolLogoPath?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
             var logo2 = SchoolLogoPath2?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
-            
-            var json = $"{{\n  \"name\": \"{name}\",\n  \"address\": \"{address}\",\n  \"logo\": \"{logo}\",\n  \"logo2\": \"{logo2}\"\n}}";
+
+            var nameSourcesJson = BuildJsonStringArray(NameSources);
+            var addressSourcesJson = BuildJsonStringArray(AddressSources);
+
+            var json = $"{{\n  \"name\": \"{name}\",\n  \"address\": \"{address}\",\n  \"nameSources\": {nameSourcesJson},\n  \"addressSources\": {addressSourcesJson},\n  \"logo\": \"{logo}\",\n  \"logo2\": \"{logo2}\"\n}}";
             await File.WriteAllTextAsync(jsonPath, json);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error ExportDocJsonAsync: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Splits a multi-line string into trimmed, non-empty lines and serializes
+    /// them as a JSON string array. Used for the DOC replace-source lists.
+    /// </summary>
+    private static string BuildJsonStringArray(string? multiLine)
+    {
+        var lines = (multiLine ?? "")
+            .Replace("\r\n", "\n")
+            .Replace("\r", "\n")
+            .Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0);
+
+        var escaped = lines.Select(l =>
+            "\"" + l.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"");
+
+        return "[" + string.Join(", ", escaped) + "]";
     }
 
 
@@ -610,6 +649,11 @@ namespace BMachine.UI.ViewModels;
         {
             SchoolName = await _database.GetAsync<string>("Doc.SchoolName") ?? "";
             SchoolAddress = await _database.GetAsync<string>("Doc.SchoolAddress") ?? "";
+            var nameSources = await _database.GetAsync<string>("Doc.NameSources");
+            if (!string.IsNullOrEmpty(nameSources)) NameSources = nameSources;
+
+            var addressSources = await _database.GetAsync<string>("Doc.AddressSources");
+            if (!string.IsNullOrEmpty(addressSources)) AddressSources = addressSources;
             
             var logoPath = await _database.GetAsync<string>("Doc.SchoolLogoPath") ?? "";
             if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
@@ -1080,7 +1124,7 @@ if ($img -ne $null) {{
         {
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => MasterNodes.Clear());
 
-            var pathEntries = new List<(string Path, string Name)>();
+            var pathEntries = new List<(string Path, string Name, string Color, string Icon)>();
             
             // 1. Get Additional Paths from Settings
             if (_database != null)
@@ -1088,14 +1132,15 @@ if ($img -ne $null) {{
                 var json = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
                 if (!string.IsNullOrEmpty(json))
                 {
-                    pathEntries.AddRange(EditablePathItem.ParseStoredPaths(json));
+                    foreach (var e in EditablePathItem.ParseStoredEntries(json))
+                        pathEntries.Add((e.Path, e.Name, e.Color, e.Icon));
                 }
             }
 
-            // 1.5. Include Main Master Path
+            // 1.5. Include Main Master Path (no custom colour/icon -> defaults)
             if (!string.IsNullOrEmpty(MasterTemplatePath) && Directory.Exists(MasterTemplatePath))
             {
-                pathEntries.Add((MasterTemplatePath, EditablePathItem.GetFolderName(MasterTemplatePath)));
+                pathEntries.Add((MasterTemplatePath, EditablePathItem.GetFolderName(MasterTemplatePath), "", ""));
             }
 
             // 2. Linear Scan (Top-Level Only)
@@ -1103,7 +1148,7 @@ if ($img -ne $null) {{
             {
                 var result = new List<MasterNode>();
                 
-                foreach (var (path, customName) in pathEntries)
+                foreach (var (path, customName, color, icon) in pathEntries)
                 {
                     if (Directory.Exists(path))
                     {
@@ -1123,7 +1168,12 @@ if ($img -ne $null) {{
                         if (string.IsNullOrEmpty(filter) || nameMatches || matchingChildren.Any())
                         {
                             string childFilter = nameMatches ? "" : filter;
-                            var rootNode = new MasterNode(path, true, (p) => ScanDirectory(p, childFilter), customDisplayName: rootName);
+                            var rootNode = new MasterNode(path, true, (p) => ScanDirectory(p, childFilter), customDisplayName: rootName)
+                            {
+                                IsRoot = true,
+                                NodeColorHex = color ?? "",
+                                NodeIconKey = icon ?? ""
+                            };
                             
                             if (matchingChildren.Any())
                             {

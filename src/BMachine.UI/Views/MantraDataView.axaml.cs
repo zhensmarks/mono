@@ -593,10 +593,22 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
                 fileMeta.Foreground = SolidColorBrush.Parse("#71717A");
                 fileMeta.IsVisible = !string.IsNullOrWhiteSpace(r.MatchNote);
 
-                if (r.IsPhotoMatched)
-                    SetStatus($"COCOK {r.MatchScore}", "#3FB950", "#0D2818", "#1F4D2E");
-                else
-                    SetStatus($"REVIEW {r.MatchScore}", "#FBBF24", "#2A2410", "#3A3118");
+                // Badge tegas 4 kategori, bersumber dari Decision yang konsisten:
+                // COCOK / AMBIGU / PERLU REVIEW / (BELUM & HILANG ditangani di atas).
+                switch (r.Decision)
+                {
+                    case MatchDecisionStatus.Confirmed:
+                    case MatchDecisionStatus.Likely:
+                        SetStatus($"COCOK {r.MatchScore}", "#3FB950", "#0D2818", "#1F4D2E");
+                        break;
+                    case MatchDecisionStatus.Ambiguous:
+                    case MatchDecisionStatus.Conflict:
+                        SetStatus($"AMBIGU {r.MatchScore}", "#60A5FA", "#152238", "#1E3A5F");
+                        break;
+                    default:
+                        SetStatus($"PERLU REVIEW {r.MatchScore}", "#FBBF24", "#2A2410", "#3A3118");
+                        break;
+                }
 
                 // Tombol "Terima" hanya relevan bila ada kandidat foto yang belum
                 // disetujui pengguna (baris masih perlu konfirmasi).

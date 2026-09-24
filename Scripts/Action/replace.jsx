@@ -12,8 +12,15 @@ function loadSettings() {
             var content = settingsFile.read();
             settingsFile.close();
             var data = eval("(" + content + ")");
-            if (!data.baseInputServer) data.baseInputServer = DEFAULT_BASE_INPUT;
-            if (!data.baseMasterServer) data.baseMasterServer = DEFAULT_BASE_MASTER;
+            // Penting: bedakan "belum pernah diset" vs "sengaja dikosongkan".
+            // Jika key baseInputServer ada (walau string kosong), hormati nilai apa adanya.
+            // Hanya pakai default bawaan bila key benar-benar tidak ada (pemakaian pertama).
+            if (!("baseInputServer" in data)) data.baseInputServer = DEFAULT_BASE_INPUT;
+            if (data.baseInputServer === null || data.baseInputServer === undefined) data.baseInputServer = DEFAULT_BASE_INPUT;
+            if (!("baseMasterServer" in data)) data.baseMasterServer = DEFAULT_BASE_MASTER;
+            if (data.baseMasterServer === null || data.baseMasterServer === undefined) data.baseMasterServer = DEFAULT_BASE_MASTER;
+            if (data.x === undefined) data.x = -1;
+            if (data.y === undefined) data.y = -1;
             return data;
         } catch (e) { }
     }
@@ -23,9 +30,10 @@ function loadSettings() {
 function saveSettings(x, y, baseInputServer, baseMasterServer) {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
     try {
-        var base = baseInputServer || DEFAULT_BASE_INPUT;
+        // Simpan apa adanya (boleh kosong). Kosong = mode manual tanpa auto-detect.
+        var base = (baseInputServer === null || baseInputServer === undefined) ? "" : baseInputServer;
         var escapedBase = base.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-        var masterBase = baseMasterServer || "";
+        var masterBase = (baseMasterServer === null || baseMasterServer === undefined) ? "" : baseMasterServer;
         var escapedMaster = masterBase.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
         settingsFile.open("w");
         settingsFile.write('{"x":' + x + ',"y":' + y + ',"baseInputServer":"' + escapedBase + '","baseMasterServer":"' + escapedMaster + '"}');
@@ -175,6 +183,19 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
     }
 
     var baseNorm = normalizePath(baseServer);
+
+    // Jika Base Server dikosongkan => MODE MANUAL (seperti replace.jsx.bak):
+    // tidak ada auto-detect, Input harus dipilih manual lewat Browse.
+    if (!baseNorm) {
+        return {
+            found: false,
+            path: "",
+            schoolName: parsed.schoolName,
+            targetItem: parsed.targetItem,
+            message: "Mode Manual (Base Server kosong) - silakan Browse folder Input"
+        };
+    }
+
     var baseFolder = new Folder(baseNorm);
     var serverReachable = baseFolder.exists;
 
@@ -391,8 +412,9 @@ function main() {
 
     // === UI CONFIG ===
     var settings = loadSettings();
-    var currentBaseServer = settings.baseInputServer || DEFAULT_BASE_INPUT;
-    var currentBaseMaster = settings.baseMasterServer || DEFAULT_BASE_MASTER;
+    // Hormati nilai kosong (mode manual). loadSettings sudah menangani default pertama kali.
+    var currentBaseServer = (settings.baseInputServer === null || settings.baseInputServer === undefined) ? "" : settings.baseInputServer;
+    var currentBaseMaster = (settings.baseMasterServer === null || settings.baseMasterServer === undefined) ? "" : settings.baseMasterServer;
 
     var w = new Window("dialog", "Smart Object Replacer (Queue Mode)");
     w.orientation = "column";
@@ -670,12 +692,26 @@ function main() {
             }
         };
 
+        // Hint: kosongkan untuk kembali ke mode manual (tanpa auto-detect)
+        var lblHint = d.add("statictext", undefined, "Tip: Kosongkan field lalu Simpan untuk mematikan auto-detect (mode manual, Input dipilih via Browse).", { multiline: true });
+        lblHint.preferredSize.width = 440;
+        try {
+            lblHint.graphics.foregroundColor = d.graphics.newPen(d.graphics.PenType.SOLID_COLOR, [0.4, 0.4, 0.4, 1], 1);
+        } catch (e) { }
+
         var grpBottom = d.add("group");
         grpBottom.alignment = "right";
         grpBottom.spacing = 8;
 
-        var btnClear = grpBottom.add("button", undefined, "Reset Default");
-        btnClear.onClick = function () {
+        var btnKosong = grpBottom.add("button", undefined, "Kosongkan");
+        btnKosong.helpTip = "Kosongkan field (matikan auto-detect)";
+        btnKosong.onClick = function () {
+            txtField.text = "";
+            txtField.active = true;
+        };
+
+        var btnReset = grpBottom.add("button", undefined, "Reset Default");
+        btnReset.onClick = function () {
             txtField.text = defaultVal || "";
         };
 
@@ -690,15 +726,18 @@ function main() {
         d.center();
         var res = d.show();
         if (res === 1) {
-            return txtField.text.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "");
+            var val = txtField.text.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "");
+            return val.replace(/^\s+|\s+$/g, ""); // boleh kosong
         }
         return null;
     }
 
     btnMasterConfig.onClick = function () {
         var desc = "Base Folder Master lokal saat ini:\n" + 
-                   (currentBaseMaster || "(Belum diset - default)") + 
-                   "\n\nContoh: D:\\#GAWENA\\03 SEPTEMBER 2026";
+                   (currentBaseMaster || "(Kosong - tidak dipakai)") + 
+                   "\n\nContoh: D:\\#GAWENA\\03 SEPTEMBER 2026\n" +
+                   "Biarkan kosong jika format path Master berbeda dengan server.\n" +
+                   "Jika kosong, Base Server juga sebaiknya kosong (mode manual).";
         var newMaster = showPathConfigDialog("Konfigurasi Base Master", desc, currentBaseMaster, DEFAULT_BASE_MASTER, true);
         if (newMaster !== null) {
             currentBaseMaster = newMaster;
@@ -723,10 +762,12 @@ function main() {
 
     btnServerConfig.onClick = function () {
         var desc = "Base Server Input saat ini:\n" + 
-                   currentBaseServer + 
-                   "\n\nContoh: \\\\delapanmataair\\Editor 5\\2. REGULER\\#PROJECT SEKOLAH\\2026-2027";
+                   (currentBaseServer || "(Kosong - Mode Manual)") + 
+                   "\n\nContoh: \\\\delapanmataair\\Editor 5\\2. REGULER\\#PROJECT SEKOLAH\\2026-2027\n" +
+                   "Kosongkan untuk mematikan auto-detect (Input dipilih manual via Browse).";
         var newBase = showPathConfigDialog("Konfigurasi Base Server Input", desc, currentBaseServer, DEFAULT_BASE_INPUT, true);
-        if (newBase !== null && newBase !== "") {
+        if (newBase !== null) {
+            // Boleh kosong => mode manual (tanpa auto-detect), sama seperti replace.jsx.bak
             currentBaseServer = newBase;
             saveSettings(w.location.x, w.location.y, currentBaseServer, currentBaseMaster);
             triggerAutoDetect();
@@ -782,6 +823,7 @@ function main() {
 
     // Logic Add Queue
     var queueData = []; // Store real objects {master, input}
+    var selectedRevisiMode = "exact"; // "exact" (Persis) | "flex" (Fleksibel)
 
     btnAddQueue.onClick = function () {
         if (txtMaster.text != "" && txtInput.text == "") {
@@ -844,6 +886,10 @@ function main() {
     };
 
     btnRevisi.onClick = function () {
+        // Tanya mode dulu (Persis / Fleksibel) sebelum lanjut
+        var mode = askRevisiMode();
+        if (mode === null) return; // Batal -> tetap di dialog utama
+        selectedRevisiMode = mode;
         w.close(2); // Revisi Run
     };
 
@@ -895,25 +941,43 @@ function main() {
     var totalFail = 0;
     var totalReplaced = 0; // For revisi
 
+    // Jika lebih dari 1 antrian (Queue Mode) -> tahan semua alert,
+    // tampilkan SATU alert gabungan setelah semua job benar-benar selesai.
+    var isQueueMode = (jobsToRun.length > 1);
+    var collectedResults = [];
+
     for (var j = 0; j < jobsToRun.length; j++) {
         var job = jobsToRun[j];
         var mFolder = new Folder(job.master);
         var iFolder = new Folder(job.input);
 
         if (!mFolder.exists || !iFolder.exists) {
-            // Log error but continue
+            collectedResults.push({
+                type: "missing",
+                masterName: decodeURI(mFolder.name || job.master),
+                success: [],
+                fail: ["Folder tidak ditemukan (Master: " + (mFolder.exists ? "OK" : "MISSING") + ", Input: " + (iFolder.exists ? "OK" : "MISSING") + ")"],
+                skipped: true,
+                skipMsg: "Folder Master atau Input tidak ditemukan."
+            });
             continue;
         }
 
+        var res;
         if (result == 1) {
             // STANDARD REPLACE
-            runReplacementLogic(mFolder, iFolder); // This function has its own alerts/summary. 
-            // We should modify it to NOT alert per job if queue > 1?
-            // Or just let it run. User will see progress per job.
+            res = runReplacementLogic(mFolder, iFolder, isQueueMode);
         } else {
             // REVISI REPLACE
-            runRevisiLogic(mFolder, iFolder);
+            res = runRevisiLogic(mFolder, iFolder, selectedRevisiMode, isQueueMode);
         }
+        if (res) collectedResults.push(res);
+    }
+
+    // Tampilkan SATU laporan gabungan (mode antrian) dengan 2 pemberitahuan:
+    // (1) Ringkasan total, (2) Rincian per-antrian.
+    if (isQueueMode && collectedResults.length > 0) {
+        showCombinedReport(collectedResults, (result == 1) ? "standard" : "revisi");
     }
 }
 
@@ -923,7 +987,9 @@ main();
 // ==========================================
 // Core Logic (Helper Functions)
 // ==========================================
-function runReplacementLogic(templateFolder, inputFolder) {
+// suppressAlert = true -> tidak menampilkan alert per-job (dipakai mode antrian),
+// melainkan mengembalikan objek hasil untuk digabung di satu alert akhir.
+function runReplacementLogic(templateFolder, inputFolder, suppressAlert) {
 
     // --- Scan Files ---
     var templateFiles = scanFolderForFiles(templateFolder, /\.(psd|psb)$/i);
@@ -955,8 +1021,9 @@ function runReplacementLogic(templateFolder, inputFolder) {
     var inputCount = inputFiles.length;
 
     if (templateCount == 0 || inputCount == 0) {
-        alert("Job Skipped (No files).\nMaster: " + templateCount + "\nInput: " + inputCount);
-        return;
+        var skipMsg = "Job Skipped (No files).\nMaster: " + templateCount + "\nInput: " + inputCount;
+        if (!suppressAlert) alert(skipMsg);
+        return { type: "standard", masterName: decodeURI(templateFolder.name), success: [], fail: [], skipped: true, skipMsg: skipMsg };
     }
 
     // --- Processing Loop ---
@@ -1207,23 +1274,33 @@ function runReplacementLogic(templateFolder, inputFolder) {
         report = report.concat(failList);
     }
 
-    // Send Result to BMachine
-    var f = new File(Folder.temp + "/bmachine_result.json");
-    f.open("w");
-    f.encoding = "UTF-8";
-    var escaped = [];
-    for (var i = 0; i < report.length; i++) {
-        escaped.push('"' + report[i].replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"');
+    // Send Result to BMachine (skip saat Queue Mode; laporan gabungan ditulis di akhir)
+    if (!suppressAlert) {
+        var f = new File(Folder.temp + "/bmachine_result.json");
+        f.open("w");
+        f.encoding = "UTF-8";
+        var escaped = [];
+        for (var i = 0; i < report.length; i++) {
+            escaped.push('"' + report[i].replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"');
+        }
+        f.write('{"type":"result","title":"Replacer Summary","lines":[' + escaped.join(',') + ']}');
+        f.close();
     }
-    f.write('{"type":"result","title":"Replacer Summary","lines":[' + escaped.join(',') + ']}');
-    f.close();
 
     var msg = "Master: " + decodeURI(templateFolder.name) + "\n\n";
     msg += "Berhasil: " + successList.length + "\n";
     if (successList.length > 0) msg += successList.join("\n") + "\n\n";
     msg += "Gagal: " + failList.length + "\n";
     if (failList.length > 0) msg += failList.join("\n");
-    showScrollableAlert("Laporan Replace (Standard)", msg);
+    if (!suppressAlert) showScrollableAlert("Laporan Replace (Standard)", msg);
+
+    return {
+        type: "standard",
+        masterName: decodeURI(templateFolder.name),
+        success: successList,
+        fail: failList,
+        skipped: false
+    };
 }
 
 // === Helpers ===
@@ -1286,7 +1363,9 @@ function relPath(rootFolder, file) {
 // REPLACE REVISI Logic
 // Match Smart Object name with input files, prioritizing same relative folder
 // ==========================================
-function runRevisiLogic(masterFolder, inputFolder) {
+function runRevisiLogic(masterFolder, inputFolder, mode, suppressAlert) {
+    mode = (mode === "flex") ? "flex" : "exact"; // default: exact (Persis)
+
     // Scan for PSD/PSB files in master folder
     var masterFiles = scanFolderForFiles(masterFolder, /\.(psd|psb)$/i);
     masterFiles.sort(sortByNumberInFilename);
@@ -1294,53 +1373,19 @@ function runRevisiLogic(masterFolder, inputFolder) {
     // Scan for replacement files in input folder
     var inputFiles = scanFolderForFiles(inputFolder, /\.(png|psd|jpe?g)$/i);
 
+    var modeLabel = (mode === "exact") ? "Persis (Exact)" : "Fleksibel (By Number)";
+
     if (masterFiles.length == 0) {
-        alert("Job Skipped (No PSD/PSB in Master)!");
-        return;
+        var skipMsgM = "Job Skipped (No PSD/PSB in Master)!";
+        if (!suppressAlert) alert(skipMsgM);
+        return { type: "revisi", modeLabel: modeLabel, masterName: decodeURI(masterFolder.name), success: [], fail: [], replacedCount: 0, totalSmartObjects: 0, skipped: true, skipMsg: skipMsgM };
     }
 
     if (inputFiles.length == 0) {
-        alert("Job Skipped (No Image in Input)!");
-        return;
+        var skipMsgI = "Job Skipped (No Image in Input)!";
+        if (!suppressAlert) alert(skipMsgI);
+        return { type: "revisi", modeLabel: modeLabel, masterName: decodeURI(masterFolder.name), success: [], fail: [], replacedCount: 0, totalSmartObjects: 0, skipped: true, skipMsg: skipMsgI };
     }
-
-    // Build a lookup map: filename (without extension) -> ARRAY of file objects
-    var inputMap = {};
-
-
-    for (var i = 0; i < inputFiles.length; i++) {
-        var file = inputFiles[i];
-        var baseName = file.displayName.replace(/\.[^\.]+$/, "").toLowerCase();
-
-        if (!inputMap[baseName]) {
-            inputMap[baseName] = [];
-        }
-        inputMap[baseName].push(file);
-
-        // Tambahkan juga versi stripped (hilangkan spasi awal/akhir dan " (1)")
-        var baseNameStripped = baseName.replace(/^\s+|\s+$/g, "").replace(/\s*\(\d+\)$/, "");
-        if (baseName !== baseNameStripped) {
-            if (!inputMap[baseNameStripped]) {
-                inputMap[baseNameStripped] = [];
-            }
-            inputMap[baseNameStripped].push(file);
-        }
-        
-        // Tambahkan versi "hanya angka" jika nama formatnya "   (2)"
-        var numberMatch = baseNameStripped.match(/^(\d+)$/) || baseName.match(/^\s*\((\d+)\)\s*$/) || baseName.match(/^(\d+)\s*\(\d+\)$/);
-        if (numberMatch) {
-            var justNumber = numberMatch[1];
-            if (baseName !== justNumber && baseNameStripped !== justNumber) {
-                if (!inputMap[justNumber]) inputMap[justNumber] = [];
-                inputMap[justNumber].push(file);
-            }
-        }
-    }
-
-    var successList = [];
-    var failList = [];
-    var totalSmartObjects = 0;
-    var replacedCount = 0;
 
     // Helper to get relative directory path
     function getRelDir(file, root) {
@@ -1348,6 +1393,38 @@ function runRevisiLogic(masterFolder, inputFolder) {
         if (rel.indexOf("/") == 0) rel = rel.substring(1);
         return rel;
     }
+
+    // Build lookup maps untuk input:
+    //  - inputByExactKey : "nomor:sisa-nama" -> [files]      (Mode Persis)
+    //  - inputByNumber   : "nomor"           -> [files]      (Mode Fleksibel & fallback)
+    var inputByExactKey = {};
+    var inputByNumber = {};
+
+    function pushToMap(map, key, file) {
+        if (key === null || key === undefined || key === "") return;
+        if (!map[key]) map[key] = [];
+        // hindari duplikat file yang sama
+        for (var q = 0; q < map[key].length; q++) {
+            if (map[key][q] === file) return;
+        }
+        map[key].push(file);
+    }
+
+    for (var i = 0; i < inputFiles.length; i++) {
+        var file = inputFiles[i];
+        var num = extractLeadingNumber(file.displayName);
+        var exactKey = buildExactKey(file.displayName);
+
+        pushToMap(inputByNumber, num, file);
+        if (mode === "exact") {
+            pushToMap(inputByExactKey, exactKey, file);
+        }
+    }
+
+    var successList = [];
+    var failList = [];
+    var totalSmartObjects = 0;
+    var replacedCount = 0;
 
     // Process each master file
     for (var m = 0; m < masterFiles.length; m++) {
@@ -1372,10 +1449,27 @@ function runRevisiLogic(masterFolder, inputFolder) {
             // Try to replace each smart object
             for (var s = 0; s < smartObjects.length; s++) {
                 var smartObj = smartObjects[s];
-                var smartName = smartObj.name.toLowerCase();
+                var smartNameRaw = smartObj.name;
 
-                // Look for matching files in inputMap
-                var candidates = inputMap[smartName];
+                var smartNum = extractLeadingNumber(smartNameRaw);
+                var smartExactKey = buildExactKey(smartNameRaw);
+
+                var candidates = null;
+
+                if (mode === "exact") {
+                    // Mode PERSIS: dahulukan nama persis (nomor + sisa nama)
+                    if (inputByExactKey[smartExactKey] && inputByExactKey[smartExactKey].length > 0) {
+                        candidates = inputByExactKey[smartExactKey].slice(0);
+                    } else if (smartNum !== "" && inputByNumber[smartNum] && inputByNumber[smartNum].length > 0) {
+                        // Fallback: cocok berdasarkan nomor saja
+                        candidates = inputByNumber[smartNum].slice(0);
+                    }
+                } else {
+                    // Mode FLEKSIBEL: hanya nomor
+                    if (smartNum !== "" && inputByNumber[smartNum] && inputByNumber[smartNum].length > 0) {
+                        candidates = inputByNumber[smartNum].slice(0);
+                    }
+                }
 
                 if (candidates && candidates.length > 0) {
                     // Sort candidates to find best match
@@ -1384,7 +1478,7 @@ function runRevisiLogic(masterFolder, inputFolder) {
                     candidates.sort(function (a, b) {
                         var aRel = getRelDir(a, inputFolder);
                         var bRel = getRelDir(b, inputFolder);
-                        
+
                         var aMatch = (aRel === masterRelDir || aRel.indexOf(masterRelDir + "/") === 0);
                         var bMatch = (bRel === masterRelDir || bRel.indexOf(masterRelDir + "/") === 0);
 
@@ -1434,6 +1528,7 @@ function runRevisiLogic(masterFolder, inputFolder) {
     // Summary
     var report = [];
     report.push("=== REPLACE REVISI ===");
+    report.push("Mode: " + modeLabel);
     report.push("Master Files: " + masterFiles.length);
     report.push("Input Files: " + inputFiles.length);
     report.push("Smart Objects Found: " + totalSmartObjects);
@@ -1447,12 +1542,24 @@ function runRevisiLogic(masterFolder, inputFolder) {
     }
 
     var msg = "Master: " + decodeURI(masterFolder.name) + "\n";
+    msg += "Mode: " + modeLabel + "\n";
     msg += "Smart Object Replaced: " + replacedCount + "\n\n";
     msg += "File Berhasil: " + successList.length + "\n";
     if (successList.length > 0) msg += successList.join("\n") + "\n\n";
     msg += "File Gagal: " + failList.length + "\n";
     if (failList.length > 0) msg += failList.join("\n");
-    showScrollableAlert("Laporan Replace (Revisi)", msg);
+    if (!suppressAlert) showScrollableAlert("Laporan Replace (Revisi)", msg);
+
+    return {
+        type: "revisi",
+        modeLabel: modeLabel,
+        masterName: decodeURI(masterFolder.name),
+        success: successList,
+        fail: failList,
+        replacedCount: replacedCount,
+        totalSmartObjects: totalSmartObjects,
+        skipped: false
+    };
 }
 
 // Find all Smart Objects in document (including nested in groups)
@@ -1492,18 +1599,222 @@ function findSmartObjectsInGroup(group) {
     return result;
 }
 
-function showScrollableAlert(title, message) {
+// ==========================================
+// Name / Number Normalization Helpers (untuk Replace Revisi)
+// ==========================================
+// Cari nomor utama dari sebuah nama (tanpa ekstensi). Logika:
+//  - "(21). MUHAMMAD NIZAM RAMDHAN"  -> "21"  (kurung di AWAL => ambil isi kurung)
+//  - "21(1). MUHAMMAD NIZAM RAMDHAN" -> "21"  (angka luar, isi kurung diabaikan)
+//  - "21. MUHAMMAD NIZAM RAMDHAN"    -> "21"
+//  - "21"                            -> "21"
+function extractLeadingNumber(rawName) {
+    if (!rawName) return "";
+    var name = decodeURI(String(rawName));
+    name = name.replace(/\.[^\.]+$/, ""); // buang ekstensi
+    name = name.replace(/^\s+|\s+$/g, ""); // trim
+
+    // 1) Kurung di AWAL, misal "(21). NAMA" atau "(21) NAMA" atau "(21)"
+    var mParen = name.match(/^\(\s*(\d+)\s*\)/);
+    if (mParen) return mParen[1];
+
+    // 2) Angka di awal, misal "21. NAMA" / "21(1). NAMA" / "21 NAMA" / "21"
+    var mNum = name.match(/^(\d+)/);
+    if (mNum) return mNum[1];
+
+    // 3) Fallback: angka pertama yang ditemukan
+    var mAny = name.match(/(\d+)/);
+    return mAny ? mAny[1] : "";
+}
+
+// Buang prefiks nomor + pemisah, dan isi kurung di awal, untuk perbandingan nama.
+// Contoh:
+//  "(21). MUHAMMAD NIZAM RAMDHAN"  -> "muhammad nizam ramdhan"
+//  "21(1). MUHAMMAD NIZAM RAMDHAN" -> "muhammad nizam ramdhan"
+//  "21. MUHAMMAD NIZAM RAMDHAN"    -> "muhammad nizam ramdhan"
+//  "21"                            -> ""
+function stripLeadingNumber(rawName) {
+    if (!rawName) return "";
+    var name = decodeURI(String(rawName));
+    name = name.replace(/\.[^\.]+$/, ""); // buang ekstensi
+    name = name.replace(/^\s+|\s+$/g, ""); // trim
+
+    // Kurung di awal
+    name = name.replace(/^\(\s*\d+\s*\)\s*[\.\-_]?\s*/, "");
+    // Angka + kurung opsional di awal
+    name = name.replace(/^\d+\s*(?:\(\s*\d+\s*\))?\s*[\.\-_]?\s*/, "");
+    // Buang spasi akhir / pemisah sisa
+    name = name.replace(/^[\s\.\-_]+/, "").replace(/[\s\.\-_]+$/, "");
+    return name.toLowerCase();
+}
+
+// Kunci normalisasi lengkap untuk "Mode Persis":
+// nomor utama + sisa nama (tanpa separator). Contoh "21. NIZAM" -> "21:nizam"
+function buildExactKey(rawName) {
+    var num = extractLeadingNumber(rawName);
+    var rest = stripLeadingNumber(rawName).replace(/\s+/g, "");
+    return num + ":" + rest;
+}
+
+// Pop-up pemilihan mode untuk Replace Revisi.
+// return "exact" (Persis) / "flex" (Fleksibel) / null (Batal)
+function askRevisiMode() {
+    var d = new Window("dialog", "Mode Replace Revisi");
+    d.orientation = "column";
+    d.alignChildren = ["fill", "top"];
+    d.spacing = 10;
+    d.margins = 16;
+    d.preferredSize.width = 460;
+
+    var lblInfo = d.add("statictext", undefined,
+        "Pilih cara pencocokan Smart Object dengan file Input:\n\n" +
+        "\u2022 PERSIS   : Nama Smart Object harus sama dengan nama file input\n" +
+        "              (nomor + teks nama). Contoh '21. NIZAM' \u2194 '21. NIZAM.jpg'.\n\n" +
+        "\u2022 FLEKSIBEL : Hanya mencocokkan NOMOR utama saja.\n" +
+        "              Contoh '21. NIZAM' dicocokkan dengan '21.jpg' atau '21(1).jpg'.\n\n" +
+        "Catatan nomor: '(21). NAMA' \u2192 21  |  '21(1). NAMA' \u2192 21  |  '21. NAMA' \u2192 21",
+        { multiline: true });
+    lblInfo.preferredSize.width = 430;
+
+    var grpBtn = d.add("group");
+    grpBtn.alignment = "center";
+    grpBtn.spacing = 12;
+
+    var btnExact = grpBtn.add("button", undefined, "PERSIS");
+    btnExact.preferredSize = [130, 34];
+    var btnFlex = grpBtn.add("button", undefined, "FLEKSIBEL");
+    btnFlex.preferredSize = [130, 34];
+    var btnCancel = grpBtn.add("button", undefined, "Batal", { name: "cancel" });
+    btnCancel.preferredSize = [80, 34];
+
+    var chosen = null;
+
+    btnExact.onClick = function () { chosen = "exact"; d.close(1); };
+    btnFlex.onClick = function () { chosen = "flex"; d.close(1); };
+    btnCancel.onClick = function () { chosen = null; d.close(0); };
+
+    d.center();
+    d.show();
+    return chosen;
+}
+
+function showScrollableAlert(title, message, optWidth, optHeight) {
+    var wW = optWidth || 400;
+    var wH = optHeight || 300;
+
     var dialog = new Window("dialog", title);
     dialog.orientation = "column";
     dialog.alignChildren = ["fill", "fill"];
-    dialog.preferredSize = [400, 300];
+    dialog.preferredSize = [wW, wH];
 
     var edittext = dialog.add("edittext", undefined, message, { multiline: true, scrolling: true, readonly: true });
-    edittext.preferredSize = [380, 250];
+    edittext.preferredSize = [wW - 20, wH - 60];
 
     var btnOk = dialog.add("button", undefined, "OK");
     btnOk.alignment = "center";
     btnOk.onClick = function () { dialog.close(); };
 
+    dialog.center();
     dialog.show();
+}
+
+// ==========================================
+// Laporan Gabungan (Queue Mode)
+// Menampilkan SATU dialog untuk semua antrian, berisi 2 pemberitahuan:
+//   1) RINGKASAN TOTAL  -> total antrian, sukses, gagal, dll.
+//   2) RINCIAN PER-ANTRIAN -> detail tiap job (tanpa klik OK berkali-kali).
+// ==========================================
+function showCombinedReport(results, mode) {
+    var isRevisi = (mode === "revisi");
+
+    // --- Hitung total ---
+    var totalJobs = results.length;
+    var totalSuccessFiles = 0;
+    var totalFailFiles = 0;
+    var totalSmartReplaced = 0;
+    var totalSmartObjects = 0;
+    var skippedJobs = 0;
+
+    for (var i = 0; i < results.length; i++) {
+        var r = results[i];
+        totalSuccessFiles += (r.success ? r.success.length : 0);
+        totalFailFiles += (r.fail ? r.fail.length : 0);
+        if (r.replacedCount) totalSmartReplaced += r.replacedCount;
+        if (r.totalSmartObjects) totalSmartObjects += r.totalSmartObjects;
+        if (r.skipped) skippedJobs++;
+    }
+
+    var jobSukses = totalJobs - skippedJobs; // job yang benar-benar diproses
+
+    // --- PEMBERITAHUAN 1: RINGKASAN ---
+    var lines = [];
+    lines.push("==================================================");
+    lines.push(" PEMBERITAHUAN 1 : RINGKASAN TOTAL");
+    lines.push("==================================================");
+    lines.push("Mode          : " + (isRevisi ? ("REPLACE REVISI (" + ((results[0] && results[0].modeLabel) || "-") + ")") : "REPLACE STANDARD"));
+    lines.push("Total Antrian : " + totalJobs);
+    lines.push("Dijalankan    : " + jobSukses + (skippedJobs > 0 ? ("  (" + skippedJobs + " di-skip)") : ""));
+    lines.push("File Berhasil : " + totalSuccessFiles);
+    lines.push("File Gagal    : " + totalFailFiles);
+    if (isRevisi) {
+        lines.push("Smart Obj Ganti : " + totalSmartReplaced + " / " + totalSmartObjects + " ditemukan");
+    }
+    lines.push("");
+    lines.push("==================================================");
+    lines.push(" PEMBERITAHUAN 2 : RINCIAN PER-ANTRIAN");
+    lines.push("==================================================");
+
+    // --- PEMBERITAHUAN 2: RINCIAN PER JOB ---
+    for (var j = 0; j < results.length; j++) {
+        var res = results[j];
+        lines.push("");
+        lines.push("--------------------------------------------------");
+        lines.push("#" + (j + 1) + "  " + res.masterName);
+        lines.push("--------------------------------------------------");
+
+        if (res.skipped) {
+            lines.push("  [SKIP] " + (res.skipMsg || "Job dilewati.").replace(/\n/g, "\n         "));
+            continue;
+        }
+
+        lines.push("  Berhasil : " + res.success.length + (res.success.length > 0 ? " file" : ""));
+        for (var s = 0; s < res.success.length; s++) {
+            lines.push("      + " + res.success[s]);
+        }
+
+        lines.push("  Gagal    : " + res.fail.length + (res.fail.length > 0 ? " file" : ""));
+        for (var f = 0; f < res.fail.length; f++) {
+            lines.push("      - " + res.fail[f]);
+        }
+
+        if (isRevisi) {
+            lines.push("  Smart Obj: " + (res.replacedCount || 0) + " diganti");
+        }
+    }
+
+    lines.push("");
+    lines.push("==================================================");
+    lines.push(" SEMUA ANTRIAN SELESAI.");
+    lines.push("==================================================");
+
+    // Kirim laporan gabungan ke BMachine (format sama seperti per-job)
+    try {
+        var bmReport = [];
+        bmReport.push("=== LAPORAN ANTRIAN ===");
+        bmReport.push("Total Antrian: " + totalJobs);
+        bmReport.push("File Berhasil: " + totalSuccessFiles);
+        bmReport.push("File Gagal: " + totalFailFiles);
+        if (isRevisi) bmReport.push("Smart Obj Ganti: " + totalSmartReplaced);
+        bmReport = bmReport.concat(lines);
+        var bf = new File(Folder.temp + "/bmachine_result.json");
+        bf.open("w");
+        bf.encoding = "UTF-8";
+        var escapedBm = [];
+        for (var b = 0; b < bmReport.length; b++) {
+            escapedBm.push('"' + bmReport[b].replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"');
+        }
+        bf.write('{"type":"result","title":"Replacer Summary (Antrian)","lines":[' + escapedBm.join(',') + ']}');
+        bf.close();
+    } catch (e) { }
+
+    showScrollableAlert("Laporan Replace (Antrian)", lines.join("\n"), 560, 460);
 }

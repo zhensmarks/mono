@@ -604,7 +604,7 @@
                                                  <Button Command="{Binding $parent[UserControl].DataContext.UsePresetCommand}" CommandParameter="{Binding}"
                                                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                                          Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand">
-                                                     <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" Foreground="White" FontSize="12" FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="Bold"/>
                                                  </Button>
                                                  <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
                                                          Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand">
@@ -648,7 +648,7 @@
                                                                    Foreground="White" FontWeight="Black" FontSize="10" LetterSpacing="1"/>
                                                     </Border>
                                                     <TextBlock Text="{Binding DisplayText}" VerticalAlignment="Center" FontSize="12" FontWeight="Bold"
-                                                               Foreground="White"/>
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 </StackPanel>
                                             </Button>
                                         </DataTemplate>
@@ -731,8 +731,8 @@
                                         <Border Background="{DynamicResource CardBackgroundBrush}" Padding="12">
                                             <Grid ColumnDefinitions="Auto, *, Auto">
                                             <PathIcon Data="{StaticResource IconCheckSquare}" 
-                                                  Foreground="White" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Black" FontSize="13" Foreground="White" LetterSpacing="1" VerticalAlignment="Center"/>
+                                                  Foreground="{DynamicResource TextPrimaryBrush}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Black" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
                                             
                                             <Button Grid.Column="2" 
                                                     Command="{Binding $parent[UserControl].DataContext.DeleteChecklistCommand}" 
@@ -789,7 +789,7 @@
                                                     MinimumPrefixLength="0"
                                                     GotFocus="AutoCompleteBox_GotFocus"
                                                     MaxDropDownHeight="160"
-                                                    Background="{DynamicResource CardBackgroundBrush}" BorderThickness="0" CornerRadius="6" Foreground="White" Padding="8"/>
+                                                    Background="{DynamicResource CardBackgroundBrush}" BorderThickness="0" CornerRadius="6" Foreground="{DynamicResource TextPrimaryBrush}" Padding="8"/>
                              </StackPanel>
                              <Grid ColumnDefinitions="*, *" Margin="0,8,0,0">
                                  <Button Grid.Column="0" Content="CANCEL" Command="{Binding ToggleDuplicateModeCommand}" 

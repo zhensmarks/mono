@@ -79,4 +79,25 @@ public partial class DocPanelView : UserControl
         e.DragEffects = Avalonia.Input.DragDropEffects.Copy;
         e.Handled = true;
     }
+    private void OnOpenDocSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var batchVm = ResolveBatchVm();
+        if (batchVm == null) return;
+
+        var dialog = new Dialogs.DocSettingsWindow(batchVm);
+
+        if (TopLevel.GetTopLevel(this) is Avalonia.Controls.Window owner)
+            _ = dialog.ShowDialog(owner);
+        else
+            dialog.Show();
+    }
+
+    private BatchViewModel? ResolveBatchVm()
+    {
+        if (DataContext is DashboardViewModel dashboard)
+            return dashboard.BatchVM;
+        if (DataContext is BatchViewModel vm)
+            return vm;
+        return null;
+    }
 }

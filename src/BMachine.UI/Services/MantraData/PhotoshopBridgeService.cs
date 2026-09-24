@@ -36,7 +36,11 @@ public class PhotoshopBridgeService
             foto_dir = fotoDir,
             report_json = reportPath,
             operation,
-            fields = fields ?? Array.Empty<string>()
+            fields = fields ?? Array.Empty<string>(),
+            // Mode ketat: JSX hanya memproses pasangan eksplisit yang sudah
+            // disinkronkan (data + foto + PSD). Tanpa fallback nama/occurrence
+            // yang bisa mengambil baris acak.
+            strict_match = true
         };
         File.WriteAllText(cfgPath, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
         File.WriteAllText(pointerPath, cfgPath);

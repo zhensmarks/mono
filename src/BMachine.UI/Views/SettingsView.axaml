@@ -813,7 +813,7 @@
                                                                 Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Top">
                                                              <Panel>
                                                                  <Viewbox Width="16" Height="16" IsVisible="{Binding !IsEditing}">
-                                                                      <Path Data="{Binding IconGeometry}" Fill="White" Stretch="Uniform" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                                     <Path Data="{Binding IconGeometry}" Fill="{DynamicResource TextPrimaryBrush}" Stretch="Uniform" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                                                  </Viewbox>
                                                                  <PathIcon Data="{StaticResource IconScript}" Width="14" Height="14" Foreground="#444" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
                                                                  <Button IsVisible="{Binding IsEditing}" Command="{Binding PickIconCommand}"
@@ -1081,7 +1081,7 @@
                 BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                 IsVisible="{Binding IsStatusVisible}"
                 ZIndex="99">
-            <TextBlock Text="{Binding StatusMessage}" Foreground="White" FontWeight="Medium" FontSize="12"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Medium" FontSize="12"/>
         </Border>
     </Grid>
 </UserControl>

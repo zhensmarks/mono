@@ -362,8 +362,8 @@
                             IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Save All Changes"
                             CornerRadius="5" Padding="12,4" Height="26" Margin="4,0,0,0">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <PathIcon Data="{StaticResource IconSave}" Width="14" Height="14" Foreground="White"/>
-                            <TextBlock Text="Save" FontWeight="Bold" FontSize="12" Foreground="White"/>
+                            <PathIcon Data="{StaticResource IconSave}" Width="14" Height="14" Foreground="#111111"/>
+                            <TextBlock Text="Save" FontWeight="Bold" FontSize="12" Foreground="#111111"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>

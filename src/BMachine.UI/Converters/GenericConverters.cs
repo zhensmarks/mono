@@ -70,6 +70,67 @@ public class IconConverter : IValueConverter
     }
 }
 
+public class HexToBrushConverter : IValueConverter
+{
+    public static readonly HexToBrushConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string hex && !string.IsNullOrWhiteSpace(hex))
+        {
+            try { return new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(hex)); }
+            catch { /* fall through to default */ }
+        }
+        return Avalonia.Media.Brushes.Gray;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>Hex string <-> Avalonia Color (TwoWay) untuk ColorPicker.</summary>
+public class HexToColorConverter : IValueConverter
+{
+    public static readonly HexToColorConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string hex && !string.IsNullOrWhiteSpace(hex))
+        {
+            try { return Avalonia.Media.Color.Parse(hex); }
+            catch { /* fall through */ }
+        }
+        return Avalonia.Media.Color.Parse("#4A9EFF");
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is Avalonia.Media.Color c)
+        {
+            return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+        }
+        return AvaloniaProperty.UnsetValue;
+    }
+}
+
+/// <summary>True -> Bold (root folder), otherwise Normal (subfolder).</summary>
+public class RootFontWeightConverter : IValueConverter
+{
+    public static readonly RootFontWeightConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return value is true ? Avalonia.Media.FontWeight.Bold : Avalonia.Media.FontWeight.Normal;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
 public class StringEqualsConverter : IValueConverter
 {
     public static readonly StringEqualsConverter Instance = new();
