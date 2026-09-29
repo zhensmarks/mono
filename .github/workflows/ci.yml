@@ -15,9 +15,11 @@
 # (lihat WORKSPACES.md bagian 5). CI ini memastikan setiap push tidak
 # merusak build.
 
+# Catatan: "on:" dikutip supaya YAML parser GitHub tidak salah baca
+# (key `on:` bisa ditafsirkan menjadi boolean True oleh beberapa parser YAML).
 name: CI
 
-on:
+"on":
   push:
     branches: [main, develop]
   pull_request:
