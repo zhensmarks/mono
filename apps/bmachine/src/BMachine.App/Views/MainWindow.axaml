@@ -1,0 +1,150 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="using:BMachine.UI.Views"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="BMachine.App.Views.MainWindow"
+        x:DataType="local:MainWindowViewModel"
+        xmlns:local="using:BMachine.App.ViewModels"
+        Title="BMachine"
+        Icon="avares://BMachine.App/appicon.ico"
+        Width="1280" Height="800"
+        MinWidth="520"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="40"
+        SystemDecorations="Full"
+        UseLayoutRounding="True"
+        Background="{Binding WindowBackground}">
+
+    <Grid Name="MainRoot" RenderTransformOrigin="0.5,0.5">
+
+            <!-- Exit Confirmation Overlay -->
+            <Grid ZIndex="999" IsVisible="{Binding IsExitConfirmOpen}">
+                
+                <!-- Window dimmer -->
+                <Border Background="#B3000000" CornerRadius="0" IsHitTestVisible="True"/>
+                
+                <!-- Logout dialog -->
+                <Border Classes="card" MaxWidth="360" Margin="20" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Padding="0,0,0,20">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#000000" BlurRadius="24" Opacity="0.28" OffsetY="8"/>
+                    </Border.Effect>
+                
+                <Grid RowDefinitions="Auto, *">
+                    <!-- Subtle Header Decoration -->
+                    <Grid Grid.Row="0" Margin="20,12">
+                        <TextBlock Text="SYSTEM CONFIRMATION" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" 
+                                   FontWeight="Medium" LetterSpacing="1.5"
+                                   HorizontalAlignment="Center"/>
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="0" Margin="0,10,0,16">
+                        <!-- Power Icon (Smooth Rounded) -->
+                        <Border Width="48" Height="48" HorizontalAlignment="Center" Margin="0,0,0,12"
+                                Background="{DynamicResource MenuHoverBrush}" CornerRadius="24">
+                            <PathIcon Data="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" 
+                                      Foreground="{DynamicResource AccentColorBrush}" Width="20" Height="20" 
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- Title -->
+                        <TextBlock Text="Sign Out of Session" FontWeight="Bold" FontSize="18" 
+                                   HorizontalAlignment="Center" 
+                                   Foreground="{DynamicResource TextPrimaryBrush}" 
+                                   Margin="0,0,0,6"/>
+                        
+                        <!-- Body Text -->
+                        <TextBlock Text="Are you sure you want to end your current session? Unsaved progress in active processes may be lost." 
+                                   TextAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                   FontSize="12" Margin="24,0,24,20" TextWrapping="Wrap"/>
+                        
+                         <!-- Actions -->
+                         <StackPanel Spacing="8" Margin="24,0">
+                             <Button Command="{Binding ConfirmExitCommand}"
+                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                     Background="#B83A4B" Foreground="#FFFFFF"
+                                     BorderBrush="#D86573" BorderThickness="1"
+                                     CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
+                                 <TextBlock Text="Sign Out" FontWeight="SemiBold" FontSize="12"/>
+                                 <Button.Styles>
+                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                         <Setter Property="Background" Value="#C84A5B"/>
+                                         <Setter Property="BorderBrush" Value="#E27A86"/>
+                                         <Setter Property="Foreground" Value="#FFFFFF"/>
+                                     </Style>
+                                 </Button.Styles>
+                             </Button>
+
+                             <Button Command="{Binding CancelExitCommand}"
+                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                     Background="{DynamicResource CardBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                     CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
+                                 <TextBlock Text="Cancel" FontWeight="SemiBold" FontSize="12"/>
+                                 <Button.Styles>
+                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                         <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+                                     </Style>
+                                 </Button.Styles>
+                             </Button>
+
+                             <Button Command="{Binding RestartApplicationCommand}"
+                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                     Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}"
+                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                     CornerRadius="6" Height="36" Cursor="Hand" Classes="Clear">
+                                 <TextBlock Text="Restart" FontWeight="SemiBold" FontSize="12"/>
+                                 <Button.Styles>
+                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                         <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+                                         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                     </Style>
+                                 </Button.Styles>
+                             </Button>
+                         </StackPanel>
+                    </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Loading overlay (shown while Dashboard is created after splash) -->
+        <Grid IsVisible="{Binding IsLoadingDashboard}" Background="{Binding WindowBackground}" ZIndex="1">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                <ProgressBar IsIndeterminate="True" Width="200" Height="4"/>
+                <TextBlock Text="Memuat Dashboard..." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Content (Fills Window) -->
+        <ContentControl Content="{Binding CurrentView}" Margin="0">
+            <ContentControl.DataTemplates>
+                <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+                    <views:DashboardView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+                    <views:SettingsView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:EditingCardListViewModel}">
+                    <views:EditingCardListView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:RevisionCardListViewModel}">
+                    <views:RevisionCardListView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:LateCardListViewModel}">
+                    <views:LateCardListView/>
+                </DataTemplate>
+            </ContentControl.DataTemplates>
+        </ContentControl>
+    </Grid>
+
+</Window>

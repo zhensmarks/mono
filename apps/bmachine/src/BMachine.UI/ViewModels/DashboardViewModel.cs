@@ -1,0 +1,1802 @@
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
+using BMachine.SDK;
+// using BMachine.SDK.Interfaces; // Removed
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using Avalonia;
+
+using Avalonia.Media;
+using Avalonia.Controls;
+using BMachine.UI.Models;
+using BMachine.UI.Messages;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Services;
+using Google.Apis.Sheets.v4;
+using BMachine.UI.Messages; // Ensure this is available or add if missing
+using BMachine.Core.Platform;
+
+namespace BMachine.UI.ViewModels;
+
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>, IRecipient<NavigateToPageMessage>, IRecipient<OpenSpreadsheetWithSearchMessage>, IRecipient<RequestOpenExplorerWindowMessage>
+{
+    private readonly IActivityService _activityService;
+    private readonly IDatabase _database;
+    private readonly ILanguageService? _languageService;
+    private readonly Services.IProcessLogService? _logService;
+    private readonly IPlatformService _platformService;
+    private Services.FileOperationManager _fileManager; // Added
+
+    public IDatabase Database => _database;
+    public ILanguageService? Language => _languageService;
+
+    [ObservableProperty] private bool _isLogPanelOpen;
+    
+    /// <summary>Terminal / log sidebar width (persisted).</summary>
+    [ObservableProperty] private double _logPanelWidth = 280;
+    
+    private bool _loadingLogPanelWidth;
+
+    [ObservableProperty] private bool _isOnline = true; // General Online status
+    [ObservableProperty] private bool _isSpreadsheetOnline = true; // Specific for Spreadsheet
+    
+    public Task InitializationTask { get; private set; }
+
+    partial void OnIsLogPanelOpenChanged(bool value)
+    {
+         // Don't save during initial window restore
+         if (!_isInitialLogPanelLoad)
+             _database?.SetAsync("Dashboard.IsLogPanelOpen", value.ToString());
+    }
+
+    partial void OnLogPanelWidthChanged(double value)
+    {
+        if (_loadingLogPanelWidth) return;
+        var clamped = Math.Clamp(value, 180, 600);
+        if (System.Math.Abs(clamped - value) > 0.5)
+        {
+            LogPanelWidth = clamped;
+            return;
+        }
+        _database?.SetAsync("Dashboard.LogPanelWidth", clamped.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [RelayCommand]
+    private void ToggleLogPanel()
+    {
+        IsLogPanelOpen = !IsLogPanelOpen;
+    }
+
+    // --- Dashboard Visibility Properties ---
+    [ObservableProperty] private bool _isBatchVisible = true;
+    [ObservableProperty] private bool _isLockerVisible = true; // Use Locker to match Tab name 'LockerTab'
+    [ObservableProperty] private bool _isPointVisible = true;
+    [ObservableProperty] private bool _isOutputExplorerVisible = true;
+
+
+    // Activity Panel
+    [ObservableProperty] private bool _isActivityPanelOpen;
+    
+    [RelayCommand]
+    private void ToggleActivityPanel()
+    {
+        IsActivityPanelOpen = !IsActivityPanelOpen;
+    }
+    
+    [RelayCommand]
+    private void CloseActivityPanel()
+    {
+        IsActivityPanelOpen = false;
+    }
+
+    [ObservableProperty] private bool _isProfileViewerOpen;
+
+    [RelayCommand]
+    private void ToggleProfileViewer()
+    {
+        IsProfileViewerOpen = !IsProfileViewerOpen;
+    }
+
+    // UI Customization
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(NavButtonEffectiveWidth))]
+    private double _navButtonWidth = 40; // Reduced to 40 (icon width only)
+
+    [ObservableProperty] private double _navButtonHeight = 40;
+    
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(NavCornerRadiusStruct))]
+    private double _navCornerRadius = 20;
+
+    public CornerRadius NavCornerRadiusStruct => new CornerRadius(NavCornerRadius);
+    
+    // Auto width for Text mode, Fixed for Icon mode
+    public double NavButtonEffectiveWidth => IsNavIconMode ? NavButtonWidth : double.NaN;
+
+    [ObservableProperty] private double _navFontSize = 14;
+
+    [ObservableProperty] private double _logNavButtonHeight = 40;
+    [ObservableProperty] private double _logNavFontSize = 14;
+
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(IsNavIconMode))]
+    [NotifyPropertyChangedFor(nameof(NavButtonEffectiveWidth))]
+    private int _navStyleIndex = 0; // 0=Icon, 1=Text
+    
+    public bool IsNavIconMode => NavStyleIndex == 0;
+
+    [ObservableProperty] private string _navCustomText = "Dashboard";
+    [ObservableProperty] private string _navBatchText = "Batch";
+    [ObservableProperty] private string _navLockerText = "Locker";
+
+    partial void OnNavButtonWidthChanged(double value) => _database?.SetAsync("Dashboard.Nav.Width", value.ToString());
+    partial void OnNavButtonHeightChanged(double value) => _database?.SetAsync("Dashboard.Nav.Height", value.ToString());
+    partial void OnNavCornerRadiusChanged(double value) => _database?.SetAsync("Dashboard.Nav.Radius", value.ToString());
+    
+    partial void OnNavCustomTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Dash", value);
+    partial void OnNavBatchTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Batch", value);
+    partial void OnNavLockerTextChanged(string value) => _database?.SetAsync("Dashboard.Nav.Text.Locker", value);
+
+    public void Receive(NavigateToPageMessage message)
+    {
+        switch (message.PageName)
+        {
+             case "Dashboard": SelectedTabIndex = 0; break;
+             case "Batch": SelectedTabIndex = 1; break;
+             case "Locker": SelectedTabIndex = 2; break;
+             case "Points": SelectedTabIndex = 5; break;
+             case "Explorer": SelectedTabIndex = 6; break;
+        }
+    }
+
+    public void Receive(RequestOpenExplorerWindowMessage message)
+    {
+        if (_outputExplorerVM != null && _outputExplorerVM.NewExplorerWindowCommand.CanExecute(null))
+        {
+            _outputExplorerVM.NewExplorerWindowCommand.Execute(null);
+        }
+    }
+
+    partial void OnIsOutputExplorerVisibleChanged(bool value)
+    {
+         _database?.SetAsync("Settings.Dash.Explorer", value.ToString());
+    }
+
+    partial void OnIsSpreadsheetOnlineChanged(bool value)
+    {
+        if (SpreadsheetVM != null) SpreadsheetVM.IsOnline = value;
+    }
+    partial void OnNavFontSizeChanged(double value) => _database?.SetAsync("Dashboard.Nav.FontSize", value.ToString());
+
+    public async Task LoadNavSettings()
+    {
+        if (_database == null) return;
+        var w = await _database.GetAsync<string>("Dashboard.Nav.Width");
+        
+        if (double.TryParse(w, out double dW)) 
+        {
+            // Migration: Force old defaults to new compact size (40)
+            NavButtonWidth = dW > 45 ? 40 : dW;
+        }
+
+        var h = await _database.GetAsync<string>("Dashboard.Nav.Height");
+        if (double.TryParse(h, out double dH)) NavButtonHeight = dH;
+
+        var r = await _database.GetAsync<string>("Dashboard.Nav.Radius");
+        if (double.TryParse(r, out double dR)) NavCornerRadius = dR;
+        
+        var f = await _database.GetAsync<string>("Dashboard.Nav.FontSize");
+        if (double.TryParse(f, out double dF)) NavFontSize = dF;
+
+        var logH = await _database.GetAsync<string>("LogPanel.Nav.Height");
+        if (double.TryParse(logH, out double dLogH)) LogNavButtonHeight = dLogH;
+
+        var logF = await _database.GetAsync<string>("LogPanel.Nav.FontSize");
+        if (double.TryParse(logF, out double dLogF)) LogNavFontSize = dLogF;
+        
+        var s = await _database.GetAsync<string>("Dashboard.Nav.Style");
+        if (int.TryParse(s, out int dS)) NavStyleIndex = dS;
+        
+        var navDash = await _database.GetAsync<string>("Dashboard.Nav.Text.Dash");
+        if (!string.IsNullOrEmpty(navDash)) NavCustomText = navDash;
+        
+        var navBatch = await _database.GetAsync<string>("Dashboard.Nav.Text.Batch");
+        if (!string.IsNullOrEmpty(navBatch)) NavBatchText = navBatch;
+        
+        var navLocker = await _database.GetAsync<string>("Dashboard.Nav.Text.Locker");
+        if (!string.IsNullOrEmpty(navLocker)) NavLockerText = navLocker;
+
+        _loadingLogPanelWidth = true;
+        try
+        {
+            var lw = await _database.GetAsync<string>("Dashboard.LogPanelWidth");
+            if (double.TryParse(lw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double dLw))
+                LogPanelWidth = Math.Clamp(dLw, 180, 600);
+        }
+        finally
+        {
+            _loadingLogPanelWidth = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ClearLog()
+    {
+        IsShowingCustomLog = false;
+        _logService?.Clear();
+        LogItems.Clear(); // Ensure UI is cleared too
+        ProcessStatusText = "Console cleared";
+        StatusColor = Brushes.Gray;
+        
+        await Task.Delay(2000);
+        
+        if (!IsProcessing)
+        {
+            ProcessStatusText = "Console";
+            StatusColor = Avalonia.Media.Brushes.Green;
+        }
+    }
+    
+    [RelayCommand]
+    private async Task CopyAllLogs()
+    {
+        if (string.IsNullOrEmpty(LogText)) return;
+        
+        var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(
+            Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+            ? desktop.MainWindow : null);
+            
+        if (topLevel?.Clipboard != null)
+        {
+            await topLevel.Clipboard.SetTextAsync(LogText);
+        }
+    }
+
+    public class ActivityItem
+    {
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string TimeDisplay { get; set; } = "";
+        public bool IsLast { get; set; } = false;
+    }
+
+    [ObservableProperty]
+    private ObservableCollection<ActivityItem> _activities = new();
+
+    [ObservableProperty]
+    private string _userName = "USER";
+
+    [ObservableProperty]
+    private string _appVersion = "8.3";
+
+    [ObservableProperty]
+    private string _greeting = "";
+
+    [ObservableProperty]
+    private Avalonia.Media.Imaging.Bitmap? _userAvatar;
+
+
+
+    // Primary Constructor
+    public event Action? OpenSettingsRequested;
+    public event Action? OpenEditingListRequested;
+    public event Action? OpenRevisionListRequested;
+    public event Action? OpenLateListRequested;
+    
+    [ObservableProperty]
+    private FolderLockerViewModel _folderLockerVM; // Add this logic
+    
+    // Batch Master ViewModel
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDashboardTabSelected))]
+    [NotifyPropertyChangedFor(nameof(IsBatchTabSelected))]
+    [NotifyPropertyChangedFor(nameof(IsLockerTabSelected))]
+    [NotifyPropertyChangedFor(nameof(IsPointsTabSelected))] // Added for Points Tab
+    [NotifyPropertyChangedFor(nameof(IsExplorerTabSelected))] // Added for Explorer Tab
+    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive, 5=Points, 6=Explorer
+
+    public bool IsDashboardTabSelected 
+    { 
+        get => SelectedTabIndex == 0; 
+        set { if (value) SelectedTabIndex = 0; } 
+    }
+
+    public bool IsBatchTabSelected 
+    { 
+        get => SelectedTabIndex == 1; 
+        set { if (value) SelectedTabIndex = 1; } 
+    }
+
+    public bool IsLockerTabSelected 
+    { 
+        get => SelectedTabIndex == 2; 
+        set { if (value) SelectedTabIndex = 2; } 
+    }
+
+    public bool IsPointsTabSelected
+    {
+        get => SelectedTabIndex == 5;
+        set { if (value) SelectedTabIndex = 5; }
+    }
+    
+    public bool IsExplorerTabSelected
+    {
+        get => SelectedTabIndex == 6; // New Tab Index
+        set { if (value) SelectedTabIndex = 6; }
+    }
+
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        // When Tab changes, close the Embedded View Overlay if open
+        if (IsEmbeddedViewOpen)
+        {
+            NavigateBack(); // Tries to pop stack. If specific logic needed:
+            // Force clear:
+            IsEmbeddedViewOpen = false;
+            CurrentEmbeddedView = null;
+            _viewStack.Clear();
+        }
+    }
+    
+    // Batch Master ViewModel
+    [ObservableProperty]
+    private BatchViewModel _batchVM;
+
+
+
+    // Leaderboard ViewModel
+    [ObservableProperty]
+    private PointLeaderboardViewModel _pointLeaderboardVM;
+
+    [ObservableProperty]
+    private SpreadsheetViewModel _spreadsheetVM;
+
+    [ObservableProperty]
+    private OutputExplorerViewModel _outputExplorerVM; // Added
+
+
+
+    // --- Embedded View Navigation System ---
+    [ObservableProperty] private object? _currentEmbeddedView;
+    [ObservableProperty] private bool _isEmbeddedViewOpen;
+    
+    private readonly System.Collections.Generic.Stack<object> _viewStack = new();
+
+    public void NavigateToView(object view)
+    {
+        if (CurrentEmbeddedView != null)
+        {
+            _viewStack.Push(CurrentEmbeddedView);
+        }
+        CurrentEmbeddedView = view;
+        IsEmbeddedViewOpen = true;
+    }
+
+    public void NavigateBack()
+    {
+        if (_viewStack.Count > 0)
+        {
+            CurrentEmbeddedView = _viewStack.Pop();
+        }
+        else
+        {
+            IsEmbeddedViewOpen = false;
+            CurrentEmbeddedView = null;
+        }
+    }
+
+    [ObservableProperty]
+    private UnifiedTrelloViewModel _trelloVM;
+
+    [ObservableProperty]
+    private object _currentTrelloViewModel;
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        OpenSettingsRequested?.Invoke();
+    }
+    
+    [RelayCommand]
+    private void OpenEditingList()
+    {
+        if (TrelloVM == null) return;
+        TrelloVM.SelectedTab = 0;
+        TrelloVM.IsEmbedded = true;
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = TrelloVM };
+        NavigateToView(view);
+    }
+
+    [RelayCommand]
+    private void OpenRevisionList()
+    {
+        if (TrelloVM == null) return;
+        TrelloVM.SelectedTab = 1;
+        TrelloVM.IsEmbedded = true;
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = TrelloVM };
+        NavigateToView(view);
+    }
+
+    [RelayCommand]
+    private void OpenLateList()
+    {
+        if (TrelloVM == null) return;
+        TrelloVM.SelectedTab = 2;
+        TrelloVM.IsEmbedded = true;
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+        var view = new BMachine.UI.Views.UnifiedTrelloView { DataContext = TrelloVM };
+        NavigateToView(view);
+    }
+
+    // Keep Window commands for fallback or if user specifically wants window? 
+    // For now user requested replacement. We can keep them or separate.
+    // The previous implementation had separte "Open...Window" commands bound to specific buttons?
+    // Let's check logic:
+    // User click Widget -> Command="{Binding OpenEditingListCommand}"
+    // So modifying OpenEditingListCommand is correct.
+
+    [RelayCommand]
+    private void OpenEditingWindow() => OpenUnifiedWindow(0, "Editing List");
+
+    [RelayCommand]
+    private void OpenRevisionWindow() => OpenUnifiedWindow(1, "Revision List");
+
+    [RelayCommand]
+    private void OpenLateWindow() => OpenUnifiedWindow(2, "Late List");
+
+    private void OpenUnifiedWindow(int tabIndex, string title)
+    {
+        if (TrelloVM == null) return;
+        TrelloVM.SelectedTab = tabIndex;
+        TrelloVM.IsEmbedded = false;
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+        OpenListWindow(TrelloVM, title);
+    }
+
+
+
+    [RelayCommand]
+    private void OpenLeaderboardWindow()
+    {
+         // Refresh Data
+         _pointLeaderboardVM.LoadDataCommand.Execute(null);
+         
+         // Embedded version
+         var view = new BMachine.UI.Views.LeaderboardView { DataContext = _pointLeaderboardVM };
+         NavigateToView(view);
+    }
+
+    private BMachine.UI.Views.SpreadsheetWindow? _spreadsheetWindow;
+
+    [RelayCommand]
+    private async Task OpenSpreadsheetWindow()
+    {
+        // Refresh Data - DISABLED by user request (load manually)
+        // SpreadsheetVM.LoadDataCommand.Execute(null);
+
+        if (_spreadsheetWindow != null && _spreadsheetWindow.IsVisible)
+        {
+            _spreadsheetWindow.Activate();
+            return;
+        }
+
+        _spreadsheetWindow = new BMachine.UI.Views.SpreadsheetWindow
+        {
+            DataContext = SpreadsheetVM
+        };
+
+        // Restore Position & Size
+        var strX = await _database.GetAsync<string>("SpreadsheetWindow.X");
+        var strY = await _database.GetAsync<string>("SpreadsheetWindow.Y");
+        var strW = await _database.GetAsync<string>("SpreadsheetWindow.Width");
+        var strH = await _database.GetAsync<string>("SpreadsheetWindow.Height");
+
+        if (int.TryParse(strX, out int x) && int.TryParse(strY, out int y))
+        {
+            _spreadsheetWindow.Position = new Avalonia.PixelPoint(x, y);
+            _spreadsheetWindow.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.Manual;
+        }
+
+        if (double.TryParse(strW, out double w) && double.TryParse(strH, out double h))
+        {
+            _spreadsheetWindow.Width = w;
+            _spreadsheetWindow.Height = h;
+        }
+
+        // Save Position & Size on Close
+        _spreadsheetWindow.Closing += (s, e) =>
+        {
+            if (s is Avalonia.Controls.Window w)
+            {
+                _database.SetAsync("SpreadsheetWindow.X", w.Position.X.ToString());
+                _database.SetAsync("SpreadsheetWindow.Y", w.Position.Y.ToString());
+                _database.SetAsync("SpreadsheetWindow.Width", w.Width.ToString());
+                _database.SetAsync("SpreadsheetWindow.Height", w.Height.ToString());
+            }
+        };
+
+        _spreadsheetWindow.Show();
+    }
+
+    private void OpenListWindow(object vm, string title)
+    {
+        if (vm is BaseTrelloListViewModel trelloVM)
+            trelloVM.Title = title;
+        StartAutoRefresh(vm);
+        
+        var win = new BMachine.UI.Views.CardListWindow();
+        win.DataContext = vm;
+        if (vm is UnifiedTrelloViewModel)
+            win.Title = title;
+        win.Show();
+    }
+
+    private void StartAutoRefresh(object vm)
+    {
+        // if (vm is BaseTrelloListViewModel tvm) tvm.StartAutoRefresh(); // Base doesn't have this, it's in derived classes
+        if (vm is EditingCardListViewModel evm) evm.StartAutoRefresh();
+        if (vm is RevisionCardListViewModel rvm) rvm.StartAutoRefresh();
+        if (vm is LateCardListViewModel lvm) lvm.StartAutoRefresh();
+        
+        if (vm is UnifiedTrelloViewModel utvm)
+        {
+             utvm.EditingVM?.StartAutoRefresh();
+             utvm.RevisionVM?.StartAutoRefresh();
+             utvm.LateVM?.StartAutoRefresh();
+        }
+    }
+
+    [ObservableProperty]
+    private bool _isFloatingWidgetVisible;
+
+    partial void OnIsFloatingWidgetVisibleChanged(bool value)
+    {
+        // 1. Save to DB (Fire and Forget or Task.Run)
+        // We can't await here directly, so we run off-thread safely?
+        // Actually, _database operations are async.
+        Task.Run(async () => 
+        {
+             try { await _database.SetAsync("Dashboard.IsFloatingWidgetVisible", value.ToString()); }
+             catch (Exception ex) { Console.WriteLine($"DB Save Error: {ex.Message}"); }
+        });
+
+        // 2. Broadcast
+        WeakReferenceMessenger.Default.Send(new FloatingWidgetMessage(value));
+    }
+
+    [RelayCommand]
+    private void ToggleFloatingWidget()
+    {
+        IsFloatingWidgetVisible = !IsFloatingWidgetVisible;
+    }
+
+    [ObservableProperty] private bool _isToolsExpanded;
+    [ObservableProperty] private bool _isFolderLockerVisible = true; // Added for Toggle Sync
+
+    [RelayCommand]
+    private void ToggleToolsExpanded()
+    {
+        IsToolsExpanded = !IsToolsExpanded;
+    }
+
+    [RelayCommand]
+    private void OpenLogoutDialog()
+    {
+        WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.OpenExitConfirmMessage());
+    }
+
+    public DashboardViewModel(
+        IDatabase database,
+        IActivityService activityService, 
+        ILanguageService? languageService = null, 
+        Services.IProcessLogService? logService = null,
+        IPlatformService? platformService = null)
+    {
+        try
+        {
+            _platformService = platformService ?? PlatformServiceFactory.Get();
+            var logPath = System.IO.Path.Combine(_platformService.GetAppDataDirectory(), "startup_log.txt");
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] DashboardViewModel CTOR Started\n");
+
+            StatPoints = "0";
+            AppVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString(2) ?? "8.3";
+            
+            _database = database;
+            _activityService = activityService; 
+            _languageService = languageService; 
+            _logService = logService;
+            
+            // NOTE: LoadLogPanelState() removed - MainWindow.OnOpened handles restore
+            _ = LoadNavSettings();
+            _ = LoadVisibilitySettings(); 
+            
+            if (_languageService != null)
+            {
+                _languageService.PropertyChanged += (s, e) => UpdateGreeting();
+            }
+            
+            if (_logService != null)
+            {
+                _logService.Logs.CollectionChanged += (s, e) => UpdateLogText();
+                UpdateLogText();
+            }
+            
+            RegisterMessages(); 
+            
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init Child VMs...\n");
+            // Initialize Sub-ViewModels
+            InitializeChildViewModels(database, logService);
+            
+            // Initial Check
+            _ = CheckConnectivity();
+             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] DashboardViewModel CTOR Finished\n");
+        }
+        catch (Exception ex)
+        {
+            var logPath = System.IO.Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "startup_log.txt");
+            System.IO.File.AppendAllText(logPath, $"[CRITICAL ERROR] DashboardViewModel CTOR Failed: {ex}\n");
+             throw;
+        }
+    }
+        
+    private void InitializeChildViewModels(IDatabase database, Services.IProcessLogService? logService)
+    {
+        var logPath = System.IO.Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "startup_log.txt");
+        try
+        {
+            // Initialize Child ViewModels
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init FolderLocker...\n");
+            _folderLockerVM = new FolderLockerViewModel();
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init BatchVM...\n");
+            _batchVM = new BatchViewModel(database, logService, _platformService);
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init PointLeaderboardVM...\n");
+            _pointLeaderboardVM = new PointLeaderboardViewModel(database);
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init SpreadsheetVM...\n");
+            SpreadsheetVM = new SpreadsheetViewModel(database);
+            
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init FileOperationManager...\n");
+            _fileManager = new BMachine.UI.Services.FileOperationManager(); // Init Manager
+
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init OutputExplorerVM...\n");
+            _outputExplorerVM = new OutputExplorerViewModel(database, new BMachine.UI.Services.NotificationService(), _fileManager, _platformService); // Init Explorer
+            
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init ConnectivityTimer...\n");
+            // Connectivity Check Timer
+            var connectivityTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+            connectivityTimer.Tick += async (s, e) => await CheckConnectivity();
+            connectivityTimer.Start();
+            
+            // Initial Check
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () => await CheckConnectivity());
+            
+            // SYNC: Listen to changes in lists to update Stats
+            System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Setup Stat Sync...\n");
+        }
+        catch(Exception ex)
+        {
+             System.IO.File.AppendAllText(logPath, $"[CRITICAL ERROR] InitChildViewModels Failed: {ex}\n");
+             throw;
+        }
+
+        // Leaderboard will load in LoadData() async method
+        
+        // Initialize Persistent List VMs
+        var editingListVM = new EditingCardListViewModel(database);
+        var revisionListVM = new RevisionCardListViewModel(database);
+        var lateListVM = new LateCardListViewModel(database);
+        
+        TrelloVM = new UnifiedTrelloViewModel(database, editingListVM, revisionListVM, lateListVM);
+
+        CurrentTrelloViewModel = TrelloVM;
+        // SYNC: Listen to changes in lists to update Stats immediately (Thread-Safe)
+        TrelloVM.EditingVM.Cards.CollectionChanged += (s, e) => 
+        {
+             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+             {
+                 StatEditing = TrelloVM.EditingVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatEditingPercentage = Math.Min(TrelloVM.EditingVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
+             });
+        };
+        TrelloVM.RevisionVM.Cards.CollectionChanged += (s, e) => 
+        {
+             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+             {
+                 StatRevision = TrelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatRevisionPercentage = Math.Min(TrelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
+             });
+        };
+        TrelloVM.LateVM.Cards.CollectionChanged += (s, e) => 
+        {
+             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+             {
+                 StatLate = TrelloVM.LateVM.Cards.Count(c => !c.IsSeparator).ToString();
+                 StatLatePercentage = Math.Min(TrelloVM.LateVM.Cards.Count(c => !c.IsSeparator) / 10.0, 1.0);
+             });
+        };
+
+        // Call LoadData directly
+        InitializationTask = LoadData();
+
+        // Start only active tab auto-refresh to avoid burst load on startup.
+        TrelloVM.EnsureActiveTabAutoRefreshStarted();
+
+        // SAFETY: Fallback Timer to force sync UI if events fail
+        var safetyTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        safetyTimer.Tick += (s, e) => 
+        {
+             if (TrelloVM?.EditingVM != null)
+             {
+                 int c = TrelloVM.EditingVM.Cards.Count(c => !c.IsSeparator);
+                 if (StatEditing != c.ToString()) 
+                 {
+                     StatEditing = c.ToString();
+                     StatEditingPercentage = Math.Min(c / 10.0, 1.0);
+                 }
+             }
+             if (TrelloVM?.RevisionVM != null)
+             {
+                 int c = TrelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator);
+                 if (StatRevision != c.ToString()) 
+                 {
+                     StatRevision = c.ToString();
+                     StatRevisionPercentage = Math.Min(c / 10.0, 1.0);
+                 }
+             }
+             if (TrelloVM?.LateVM != null)
+             {
+                 int c = TrelloVM.LateVM.Cards.Count(c => !c.IsSeparator);
+                 if (StatLate != c.ToString()) 
+                 {
+                     StatLate = c.ToString();
+                     StatLatePercentage = Math.Min(c / 10.0, 1.0);
+                 }
+             }
+        };
+        safetyTimer.Start();
+    }
+
+    private bool _isInitialLogPanelLoad = true;
+
+    /// <summary>
+    /// Call after MainWindow.OnOpened has restored IsLogPanelOpen from saved window state.
+    /// This enables subsequent changes to persist to the database.
+    /// </summary>
+    public void MarkInitialLoadComplete()
+    {
+        _isInitialLogPanelLoad = false;
+    }
+    
+    // Fallback constructor for Design-Time
+    public DashboardViewModel()
+    {
+         _database = null!;
+         _languageService = null!;
+         _userName = "Preview User";
+         
+         // Fix non-nullable warnings for design time
+         _activityService = null!; 
+         _fileManager = null!;
+         _folderLockerVM = null!;
+         _batchVM = null!;
+         _pointLeaderboardVM = null!;
+         SpreadsheetVM = null!;
+         _outputExplorerVM = null!;
+         TrelloVM = new UnifiedTrelloViewModel(null!, new EditingCardListViewModel(null!), new RevisionCardListViewModel(null!), new LateCardListViewModel(null!));
+         CurrentTrelloViewModel = TrelloVM;
+    }
+
+    private Avalonia.Threading.DispatcherTimer? _timer;
+    private int _lastEditingCount = -1;
+    private int _lastRevisionCount = -1;
+    private int _lastLateCount = -1;
+    
+    // --- Widget Colors ---
+    [ObservableProperty] private IBrush _statEditingColor = SolidColorBrush.Parse("#3b82f6");
+    [ObservableProperty] private IBrush _statRevisionColor = SolidColorBrush.Parse("#f97316");
+    [ObservableProperty] private IBrush _statLateColor = SolidColorBrush.Parse("#f97316");
+    [ObservableProperty] private IBrush _statPointsColor = SolidColorBrush.Parse("#f97316");
+    
+    // --- Widget Animation ---
+    [ObservableProperty] private TimeSpan _statAnimationDuration = TimeSpan.FromSeconds(1.5);
+
+
+
+
+
+    [ObservableProperty] private bool _isProcessing;
+    [ObservableProperty] private string _processStatusText = "Console"; // Default Title
+    [ObservableProperty] private Avalonia.Media.IBrush _statusColor = Avalonia.Media.Brushes.Green; // Default logic
+
+    // Progress Reporting
+    [ObservableProperty] private double _progressValue;
+    [ObservableProperty] private double _progressMax = 100;
+    [ObservableProperty] private bool _isDeterminateProgress;
+
+    public ObservableCollection<string> Logs => _logService?.Logs ?? new();
+    
+    [ObservableProperty] private string _logText = "";
+    
+    [ObservableProperty] 
+    private ObservableCollection<LogItem> _logItems = new();
+
+    [ObservableProperty] private string _logFilterText = "";
+    
+    [ObservableProperty] 
+    private ObservableCollection<string> _filterPresets = new()
+    {
+        "Error", "Warning", "Sukses", "Script", "Path"
+    };
+
+    partial void OnLogFilterTextChanged(string value)
+    {
+        UpdateLogText();
+    }
+
+    [RelayCommand]
+    private void StopProcess()
+    {
+        if (IsProcessing)
+        {
+            WeakReferenceMessenger.Default.Send(new StopProcessMessage(true));
+        }
+    }
+
+
+    
+    // Handle Dropped Files on Log Panel
+    public async Task HandleDroppedLogFile(string path)
+    {
+        if (System.IO.File.Exists(path))
+        {
+            try
+            {
+                var ext = System.IO.Path.GetExtension(path);
+                
+                IsShowingCustomLog = true; // Prevent automatic log updates from clearing screen
+                
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    LogItems.Clear();
+                    AddLog($"Reading log file: {System.IO.Path.GetFileName(path)}", BMachine.UI.Models.LogLevel.System);
+                });
+
+                string[] lines = Array.Empty<string>();
+
+                if (ext.Equals(".docx", StringComparison.OrdinalIgnoreCase))
+                {
+                    // DOCX Parsing (Simple Text Extraction)
+                    await Task.Run(() => 
+                    {
+                        try 
+                        {
+                            using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite))
+                            using (var archive = new System.IO.Compression.ZipArchive(fs, System.IO.Compression.ZipArchiveMode.Read))
+                            {
+                                var docEntry = archive.GetEntry("word/document.xml");
+                                if (docEntry != null)
+                                {
+                                    using (var stream = docEntry.Open())
+                                    using (var reader = new System.IO.StreamReader(stream))
+                                    {
+                                        var xml = reader.ReadToEnd();
+                                        // Simple Regex to strip XML tags and handle basic paragraphs
+                                        // <w:p> usually denotes a paragraph.
+                                        // We can replace <w:p> with newline? Or just strip all tags?
+                                        // Stripping all tags joins everything.
+                                        // Better: Replace </w:p> with Environment.NewLine, then strip tags.
+                                        
+                                        var pProcessed = System.Text.RegularExpressions.Regex.Replace(xml, @"</w:p>", Environment.NewLine);
+                                        var textOnly = System.Text.RegularExpressions.Regex.Replace(pProcessed, "<.*?>", "");
+                                        // Decode XML entities
+                                        textOnly = System.Net.WebUtility.HtmlDecode(textOnly);
+                                        
+                                        lines = textOnly.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                                    }
+                                }
+                                else 
+                                {
+                                    throw new Exception("Invalid DOCX: missing document.xml");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new Exception("Failed to parse DOCX: " + ex.Message);
+                        }
+                    });
+                }
+                else
+                {
+                    // Default .txt
+                    lines = await System.IO.File.ReadAllLinesAsync(path);
+                }
+
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    // Add full text as SINGLE LogItem so user can select across multiple lines
+                    // (SelectableTextBlock supports multi-line selection within one block)
+                    var fullText = string.Join(Environment.NewLine, lines);
+                    LogItems.Add(new LogItem(fullText, LogLevel.Standard));
+                    AddLog("--- End of File ---", LogLevel.System);
+                    LogText = fullText;
+                });
+            }
+            catch (Exception ex)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    AddLog($"Error reading file: {ex.Message}", BMachine.UI.Models.LogLevel.Error);
+                    LogText = $"Error reading file: {ex.Message}";
+                });
+            }
+        }
+    }
+    
+    private void AddLog(string message, BMachine.UI.Models.LogLevel level)
+    {
+         LogItems.Add(new BMachine.UI.Models.LogItem(message, level));
+    }
+    
+    private void ParseLogAndAdd(string line)
+    {
+        var item = ParseLog(line);
+        if (item != null) LogItems.Add(item);
+    }
+
+    public bool IsShowingCustomLog { get; set; } = false;
+
+
+    private void UpdateLogText()
+    {
+        if (_logService == null) return;
+        
+        // Update Text Block (Clipboard)
+        var cleanedLogs = _logService.Logs.Select(line => 
+        {
+             return line.Replace("[DEBUG] ", "").Replace("[INFO] ", "").Replace("[SUCCESS] ", "").Replace("[ERROR] ", "");
+        });
+        LogText = string.Join(Environment.NewLine, cleanedLogs);
+        
+        if (IsShowingCustomLog) return;
+        
+        LogItems.Clear();
+        
+        if (_logService.Logs.Count == 0)
+        {
+            return;
+        }
+        
+        foreach (var line in _logService.Logs)
+        {
+            var item = ParseLog(line);
+            if (item != null)
+            {
+                // Filter Logic
+                if (!string.IsNullOrWhiteSpace(LogFilterText))
+                {
+                    if (item.Message.Contains(LogFilterText, StringComparison.OrdinalIgnoreCase))
+                    {
+                        LogItems.Add(item);
+                    }
+                }
+                else
+                {
+                    LogItems.Add(item);
+                }
+            }
+        }
+    }
+
+    private LogItem? ParseLog(string line)
+    {
+        // --- 1. FILTERING (Hide specific logs) ---
+        if (line.Contains("Working Directory:") ||
+            line.Contains("'config.json' tidak ditemukan") ||
+            line.Contains("Process exited with code"))
+        {
+            return null;
+        }
+
+        // --- 2. REPLACEMENTS (Translate/Alias) ---
+        string msg = line;
+
+        // Dynamic Script Name Extraction
+        // Pattern: "Asking for INPUT folder for [ScriptName]..."
+        var scriptMatch = System.Text.RegularExpressions.Regex.Match(msg, @"Asking for INPUT folder for\s+(.+)\.\.\.", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (scriptMatch.Success) 
+        {
+            string scriptName = scriptMatch.Groups[1].Value.Trim();
+            msg = $"Menjalankan Script {scriptName}...";
+        }
+        else if (msg.Contains("Input selected:")) msg = msg.Replace("Input selected:", "Path PILIHAN :");
+        else if (msg.Contains("Using Default Output:")) msg = msg.Replace("Using Default Output:", "Output Lokal :");
+        else if (msg.Contains("RunPythonProcess called. User:")) msg = msg.Replace("RunPythonProcess called. User:", "Nama User :");
+        
+        var level = LogLevel.Standard; // Default is Standard (White)
+        
+        // --- 3. DETECT LEVEL ---
+        if (line.IndexOf("[DEBUG]", StringComparison.OrdinalIgnoreCase) >= 0) 
+        {
+            level = LogLevel.Debug;
+        }
+        else if (line.IndexOf("[INFO]", StringComparison.OrdinalIgnoreCase) >= 0) 
+        {
+            level = LogLevel.Info;
+        }
+        else if (line.IndexOf("[SUCCESS]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 line.IndexOf("[OK]", StringComparison.OrdinalIgnoreCase) >= 0) 
+        {
+            level = LogLevel.Success;
+        }
+        else if (line.IndexOf("[WARNING]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 line.IndexOf("[WARN]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 line.IndexOf("[SKIP]", StringComparison.OrdinalIgnoreCase) >= 0) 
+        {
+            level = LogLevel.Warning;
+        }
+        else if (line.IndexOf("[ERROR]", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                 line.IndexOf("[FATAL]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 line.IndexOf("Error:", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 line.IndexOf("Fail:", StringComparison.OrdinalIgnoreCase) >= 0) 
+        {
+            level = LogLevel.Error;
+        }
+        else if (line.Contains("---"))
+        {
+            level = LogLevel.System;
+        }
+        
+        // --- 4. CLEANUP (Remove Tags & Timestamps) ---
+        try 
+        {
+             // Support leading whitespaces before timestamp/tag
+             var pattern = @"^\s*(\d{1,2}:\d{2}:\d{2}\s+)?(\[[a-zA-Z]+\]\s*)?";
+             var match = System.Text.RegularExpressions.Regex.Match(msg, pattern);
+             
+             if (match.Success && match.Length > 0)
+             {
+                 msg = msg.Substring(match.Length).Trim();
+             }
+        }
+        catch { /* Fallback */ }
+
+        // Sanity check: if message became empty after cleaning, don't show it unless it was intentionally empty?
+        if (string.IsNullOrWhiteSpace(msg)) return null;
+
+        // --- 5. COMPACT PREFIX SYMBOLS ---
+        if (level == LogLevel.Success)
+        {
+            msg = "✓ " + msg;
+        }
+        else if (level == LogLevel.Warning)
+        {
+            msg = "⚠ " + msg;
+        }
+        else if (level == LogLevel.Error)
+        {
+            msg = "✗ " + msg;
+        }
+
+        var color = level switch 
+        {
+            LogLevel.Error => Avalonia.Media.Brushes.OrangeRed,
+            LogLevel.Warning => Avalonia.Media.Brushes.Yellow,
+            LogLevel.Success => Avalonia.Media.Brushes.LimeGreen,
+            LogLevel.Info => Avalonia.Media.Brushes.Cyan,
+            LogLevel.Debug => Avalonia.Media.Brushes.Gray,
+            LogLevel.System => Avalonia.Media.Brushes.Teal,
+            _ => null // Null will fallback to TextSecondaryBrush (set in XAML)
+        };
+
+        return new LogItem(msg, level) { Color = color };
+    }
+
+    private void RegisterMessages()
+    {
+        WeakReferenceMessenger.Default.Register<DashboardViewModel, NavSettingsChangedMessage>(this, (r, m) => _ = r.LoadNavSettings());
+
+        WeakReferenceMessenger.Default.Register<BMachine.UI.Messages.RefreshDashboardMessage>(this, async (r, m) => 
+        {
+            await LoadVisualSettings();
+        });
+
+        WeakReferenceMessenger.Default.Register<BMachine.UI.Messages.DashboardVisibilityChangedMessage>(this, async (r, m) => 
+        {
+            await LoadVisualSettings();
+        });
+        
+        WeakReferenceMessenger.Default.Register<ProfileUpdatedMessage>(this, (r, m) =>
+        {
+            UserName = m.Value.UserName;
+            LoadAvatarImage(m.Value.AvatarSource);
+        });
+        
+        WeakReferenceMessenger.Default.Register<ProcessStatusMessage>(this, (r, m) =>
+        {
+            IsProcessing = m.Value;
+            ProcessStatusText = m.Value ? "Running..." : "Console";
+            // Update Status Color (Blue for Running, Green for Ready)
+            StatusColor = m.Value ? Avalonia.Media.Brushes.DodgerBlue : Avalonia.Media.Brushes.LimeGreen;
+
+            if (m.Value && !string.IsNullOrEmpty(m.ProcessName)) ProcessStatusText = $"Running {m.ProcessName}...";
+            
+            // Auto open log panel on start? User preference. Maybe yes.
+            if (m.Value) 
+            {
+                IsLogPanelOpen = true;
+                IsShowingCustomLog = false; // Reset to allow standard logs
+            }
+        });
+
+        // Register all messages (OpenTextFileMessage, AppFocusChangedMessage)
+        WeakReferenceMessenger.Default.RegisterAll(this);
+    }
+
+    public void Receive(AppFocusChangedMessage message)
+    {
+         if (_timer != null)
+         {
+             if (message.Value) // Focused
+             {
+                 _timer.Interval = TimeSpan.FromSeconds(5);
+             }
+             else // Background
+             {
+                 _timer.Interval = TimeSpan.FromSeconds(60);
+             }
+         }
+    }
+
+    public void Receive(NavigateBackMessage message)
+    {
+        NavigateBack();
+    }
+
+    public async void Receive(BMachine.UI.Messages.OpenSpreadsheetWithSearchMessage message)
+    {
+        await OpenSpreadsheetWindow();
+        if (SpreadsheetVM != null && !string.IsNullOrEmpty(message.Value))
+        {
+            SpreadsheetVM.SearchText = message.Value;
+            // If rows are not loaded yet or ID not found in current cache, load fresh data
+            if (SpreadsheetVM.Rows.Count == 0 || !SpreadsheetVM.FilteredRows.Any())
+            {
+                if (SpreadsheetVM.LoadDataCommand.CanExecute(null))
+                {
+                    await SpreadsheetVM.LoadDataCommand.ExecuteAsync(null);
+                }
+            }
+        }
+    }
+
+    private async Task LoadVisualSettings()
+    {
+        if (_database == null) return;
+        
+        // Colors
+        StatEditingColor = await GetBrushFromSetting("Settings.Color.Editing", "#3b82f6");
+        StatRevisionColor = await GetBrushFromSetting("Settings.Color.Revision", "#f97316");
+        StatLateColor = await GetBrushFromSetting("Settings.Color.Late", "#f97316");
+        StatPointsColor = await GetBrushFromSetting("Settings.Color.Points", "#f97316");
+        
+        // Animation Speed
+        var speedStr = await _database.GetAsync<string>("Settings.StatSpeed");
+        int speedIdx = 1; // Default Normal
+        if (!string.IsNullOrEmpty(speedStr)) int.TryParse(speedStr, out speedIdx);
+        
+        StatAnimationDuration = speedIdx switch
+        {
+            0 => TimeSpan.FromSeconds(3.0), // Slow
+            2 => TimeSpan.FromSeconds(0.5), // Fast
+            _ => TimeSpan.FromSeconds(1.5)  // Normal
+        };
+        
+        // Load Visibility
+        IsBatchVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Batch") ?? "True");
+        IsLockerVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Lock") ?? "True");
+        IsPointVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Point") ?? "True");
+        IsOutputExplorerVisible = bool.Parse(await _database.GetAsync<string>("Settings.Dash.Explorer") ?? "True");
+
+        // Load refresh intervals (Seconds)
+        EditingRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Editing") ?? "60");
+        RevisionRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Revision") ?? "60");
+        LateRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Late") ?? "60");
+        PointsRefreshSeconds = int.Parse(await _database.GetAsync<string>("Settings.Interval.Points") ?? "60");
+    }
+
+    [ObservableProperty] private int _editingRefreshSeconds = 30;
+    [ObservableProperty] private int _revisionRefreshSeconds = 30;
+    [ObservableProperty] private int _lateRefreshSeconds = 30;
+    [ObservableProperty] private int _pointsRefreshSeconds = 30; // Reduced from 60s for faster GSheet updates
+    
+    // Flag to bypass interval check on first stats load
+    private bool _isFirstStatsLoad = true;
+
+    private DateTime _lastEditingSync = DateTime.MinValue;
+    private DateTime _lastRevisionSync = DateTime.MinValue;
+    private DateTime _lastLateSync = DateTime.MinValue;
+    private DateTime _lastPointsSync = DateTime.MinValue;
+    
+    private async Task<IBrush> GetBrushFromSetting(string key, string defaultHex)
+    {
+        var hex = await _database.GetAsync<string>(key);
+        if (string.IsNullOrEmpty(hex)) hex = defaultHex;
+        if (hex == "RANDOM") return SolidColorBrush.Parse("#FFFFFF"); // Fallback for Random
+        try { return SolidColorBrush.Parse(hex); }
+        catch { return SolidColorBrush.Parse(defaultHex); }
+    }
+    
+    private void LoadAvatarImage(string source)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(source) || source == "default")
+            {
+                UserAvatar = null;
+                return;
+            }
+
+            if (source.StartsWith("preset:"))
+            {
+                var filename = source.Substring(7); // "preset:".Length
+                var uri = new Uri($"avares://BMachine.UI/Assets/Avatars/{filename}");
+                if (Avalonia.Platform.AssetLoader.Exists(uri))
+                {
+                    UserAvatar = new Avalonia.Media.Imaging.Bitmap(Avalonia.Platform.AssetLoader.Open(uri));
+                }
+            }
+            else if (source.StartsWith("custom:"))
+            {
+                var path = source.Substring(7);
+                if (System.IO.File.Exists(path))
+                {
+                     // Ensure we don't lock the file? Bitmap constructor locks file until disposed?
+                     // Loading into memory stream is safer
+                     using var stream = File.OpenRead(path);
+                     UserAvatar = new Avalonia.Media.Imaging.Bitmap(stream);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Avatar Load Error: {ex.Message}");
+            UserAvatar = null;
+        }
+    }
+    // ---------------------
+    
+    // Initialize Timer in Constructor or LoadData
+    // Let's do it in LoadData to ensure everything is ready
+    
+    [RelayCommand]
+    private async Task LoadData()
+    {
+        if (_activityService == null || _database == null) return;
+
+        // Load User Name
+        var storedName = await _database.GetAsync<string>("User.Name");
+        if (!string.IsNullOrEmpty(storedName))
+        {
+            UserName = storedName;
+        }
+        else
+        {
+            // Save default to database
+            UserName = "USER";
+            await _database.SetAsync("User.Name", UserName);
+        }
+        
+        // Load Avatar
+        var storedAvatar = await _database.GetAsync<string>("User.Avatar");
+        LoadAvatarImage(storedAvatar ?? "default");
+
+        UpdateGreeting();
+
+        UpdateGreeting();
+
+        // Load Floating Widget State (Stored as string because IDatabase requires class)
+        var isWidgetStr = await _database.GetAsync<string>("Settings.FloatingWidget");
+        bool isWidgetVisible = true; // Default True (Visible)
+        if (!string.IsNullOrEmpty(isWidgetStr))
+        {
+             bool.TryParse(isWidgetStr, out isWidgetVisible);
+        }
+        // Load Smart Orb State (Persistence)
+        var savedOrbState = await _database.GetAsync<string>("Dashboard.IsFloatingWidgetVisible");
+        
+        // Default to false if not set (first run), or true if saved as true
+        bool isOrbVisible = false;
+        if (!string.IsNullOrEmpty(savedOrbState))
+        {
+            bool.TryParse(savedOrbState, out isOrbVisible);
+        }
+        
+        IsFloatingWidgetVisible = isOrbVisible;
+        
+        // Broadcast initial state
+        WeakReferenceMessenger.Default.Send(new FloatingWidgetMessage(IsFloatingWidgetVisible)); 
+
+        await LoadVisualSettings(); // Load Colors & Speed
+        
+
+
+
+
+        // Load Activities
+        var logs = await _activityService.GetRecentAsync(10);
+        Activities.Clear();
+        foreach (var log in logs)
+        {
+            Activities.Add(new ActivityItem 
+            { 
+                Title = log.Title + ": " + log.Description, 
+                TimeDisplay = GetSmartDateString(log.CreatedAt.ToLocalTime())
+            });
+        }
+        
+        if (Activities.Count == 0)
+        {
+             await _activityService.LogAsync("System", "Welcome", "Dashboard initialized");
+             Activities.Add(new ActivityItem { Title = "Welcome: Dashboard initialized", TimeDisplay = "Now" });
+        }
+        
+        // Initial Sync (Checks intervals)
+        await SyncTrelloStats();
+        
+        // Start Realtime Timer (Every 1 seconds)
+        if (_timer == null)
+        {
+            _timer = new Avalonia.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1) // Run fast to check intervals
+            };
+            _timer.Tick += async (s, e) => 
+            {
+                 // Console.WriteLine("[Timer] Tick");
+                 // Use 1-second tick to check against intervals
+                 await SyncTrelloStats();
+            };
+            _timer.Start();
+        }
+    }
+    
+    [ObservableProperty] private string _statEditing = "0";
+    [ObservableProperty] private double _statEditingPercentage = 0;
+    
+    [ObservableProperty] private string _statRevision = "0";
+    [ObservableProperty] private double _statRevisionPercentage = 0;
+    
+    [ObservableProperty] private string _statLate = "0";
+    [ObservableProperty] private double _statLatePercentage = 0;
+    
+    [ObservableProperty] private string _statPoints = "0";
+    [ObservableProperty] private double _statPointsPercentage = 0;
+
+    private async Task SyncTrelloStats()
+    {
+        const double MAX_CARDS = 10.0;
+        
+        // Force initial load (bypass interval check first time)
+        bool shouldSync = _isFirstStatsLoad; 
+
+        // 1. Editing List
+        try 
+        {
+             if (shouldSync || (DateTime.Now - _lastEditingSync).TotalSeconds >= EditingRefreshSeconds)
+             {
+                 _lastEditingSync = DateTime.Now;
+                 await TrelloVM.EditingVM.RefreshCommand.ExecuteAsync(null);
+                 
+                 int count = TrelloVM.EditingVM.Cards.Count(c => !c.IsSeparator);
+                 StatEditing = count.ToString();
+                 StatEditingPercentage = Math.Min(count / MAX_CARDS, 1.0);
+                 
+                 // Check for new cards
+                 if (_lastEditingCount != -1 && count > _lastEditingCount)
+                 {
+                     int diff = count - _lastEditingCount;
+                     string msg = $"New Card Board EDITING {diff}";
+                     TriggerWindowsNotification("BMachine Update", msg);
+                     await _activityService.LogAsync("Trello", "New Card", msg);
+                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                     {
+                         Activities.Insert(0, new ActivityItem { Title = $"New Card: {msg}", TimeDisplay = GetSmartDateString(DateTime.Now) });
+                         if (Activities.Count > 10) Activities.RemoveAt(Activities.Count - 1);
+                     });
+                 }
+                 _lastEditingCount = count;
+             }
+        }
+        catch (Exception ex) { /* Log? */ }
+
+        // 2. Revision List
+        try 
+        {
+             if (shouldSync || (DateTime.Now - _lastRevisionSync).TotalSeconds >= RevisionRefreshSeconds)
+             {
+                 _lastRevisionSync = DateTime.Now;
+                 await TrelloVM.RevisionVM.RefreshCommand.ExecuteAsync(null);
+                 
+                 int count = TrelloVM.RevisionVM.Cards.Count(c => !c.IsSeparator);
+                 StatRevision = count.ToString();
+                 StatRevisionPercentage = Math.Min(count / MAX_CARDS, 1.0);
+                 
+                 if (_lastRevisionCount != -1 && count > _lastRevisionCount)
+                 {
+                     int diff = count - _lastRevisionCount;
+                     string msg = $"New Card Board REVISI {diff}";
+                     TriggerWindowsNotification("BMachine Update", msg);
+                     await _activityService.LogAsync("Trello", "New Card", msg);
+                 }
+                 _lastRevisionCount = count;
+             }
+        }
+        catch { }
+
+        // 3. Late List
+        try 
+        {
+             if (shouldSync || (DateTime.Now - _lastLateSync).TotalSeconds >= LateRefreshSeconds)
+             {
+                 _lastLateSync = DateTime.Now;
+                 await TrelloVM.LateVM.RefreshCommand.ExecuteAsync(null);
+                 
+                 int count = TrelloVM.LateVM.Cards.Count(c => !c.IsSeparator);
+                 StatLate = count.ToString();
+                 StatLatePercentage = Math.Min(count / MAX_CARDS, 1.0);
+                 
+                 if (_lastLateCount != -1 && count > _lastLateCount)
+                 {
+                     int diff = count - _lastLateCount;
+                     string msg = $"New Card Board SUSULAN {diff}";
+                     TriggerWindowsNotification("BMachine Update", msg);
+                     await _activityService.LogAsync("Trello", "New Card", msg);
+                 }
+                 _lastLateCount = count;
+             }
+        }
+        catch { }
+    
+        // StatPoints reset removed to persist value
+        
+        // 4. Google Sheets Integration for Points
+        if (shouldSync || (DateTime.Now - _lastPointsSync).TotalSeconds >= PointsRefreshSeconds)
+        {
+            // Syncing...
+            const double MAX_POINTS = 1500.0;
+            _lastPointsSync = DateTime.Now;
+            
+            // Console.WriteLine("[Points] Starting sync..."); // Cleaned up
+            
+            try 
+            {
+                var credsPath = await _database.GetAsync<string>("Google.CredsPath");
+                var sheetId = await _database.GetAsync<string>("Google.SheetId");
+                var sheetName = await _database.GetAsync<string>("Google.SheetName");
+                var sheetCol = await _database.GetAsync<string>("Google.SheetColumn");
+                var sheetRow = await _database.GetAsync<string>("Google.SheetRow");
+                
+                // _logService?.AddLog($"[Points Debug] Config - Col: '{sheetCol}', Row: '{sheetRow}', Sheet: '{sheetName}'", LogLevel.Debug);
+                
+                if (!string.IsNullOrEmpty(credsPath) && 
+                    !string.IsNullOrEmpty(sheetId) && 
+                    !string.IsNullOrEmpty(sheetName) &&
+                    !string.IsNullOrEmpty(sheetCol) &&
+                    !string.IsNullOrEmpty(sheetRow))
+                {
+                    if (!System.IO.File.Exists(credsPath))
+                    {
+                        _logService?.AddLog($"[GSheet Error] File kredensial tidak ditemukan di: {credsPath}");
+                        StatPoints = "ErrFile";
+                    }
+                    else
+                    {
+                        // Fire-and-forget: never block the splash/startup on the network.
+                        _ = Task.Run(async () => 
+                        {
+                            int retries = 2;
+                            int delay = 500;
+                            int attempts = 0;
+                            
+                            while (retries > 0)
+                            {
+                                attempts++;
+                                try
+                                {
+                                    // Initialize Google Sheets Service
+                                    GoogleCredential credential;
+                                    using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+                                    {
+                                        credential = GoogleCredential.FromStream(stream)
+                                            .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
+                                    }
+                                    
+                                    using (var service = new SheetsService(new BaseClientService.Initializer()
+                                    {
+                                        HttpClientInitializer = credential,
+                                        ApplicationName = "BMachine"
+                                    }))
+                                    {
+                                        service.HttpClient.Timeout = TimeSpan.FromSeconds(20);
+                                        var range = $"{sheetName}!{sheetCol}{sheetRow}";
+                                        
+                                        var request = service.Spreadsheets.Values.Get(sheetId, range);
+                                        var response = await request.ExecuteAsync();
+                                        
+                                        if (response.Values != null && response.Values.Count > 0 && response.Values[0].Count > 0)
+                                        {
+                                            var valStr = response.Values[0][0]?.ToString() ?? "0";
+                                            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                                            {
+                                                StatPoints = valStr;
+                                                // Calculate Percentage (Assuming Max 1500?)
+                                                if (double.TryParse(valStr, out double dVal))
+                                                {
+                                                     StatPointsPercentage = Math.Max(0, Math.Min(dVal / MAX_POINTS, 1.0));
+                                                }
+                                            });
+                                            await _database.SetAsync("Cache.GSheet.Points", valStr);
+                                            // Success
+                                            break; 
+                                        }
+                                    }
+                                    break; // If we get here (no values or success), stop retrying
+                                }
+                                catch (Exception ex)
+                                {
+                                    retries--;
+                                    if (retries == 0)
+                                    {
+                                        _logService?.AddLog($"[GSheet Fail] After {attempts} attempts: {ex.Message}");
+                                        // Keep previous value or show Err?
+                                        // StatPoints = "Err"; // Maybe keep last known
+                                    }
+                                    else
+                                    {
+                                        await Task.Delay(delay);
+                                        delay *= 2; // Exponential backoff
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logService?.AddLog($"[Points Error] {ex.Message}");
+            }
+        }
+
+        
+        // Reset first load flag to allow interval-based refreshes
+        if (_isFirstStatsLoad) _isFirstStatsLoad = false;
+    }
+
+    private void TriggerWindowsNotification(string title, string message)
+    {
+         // Check if "Notifikasi" extension is enabled (file exists in Plugins)
+         var pluginsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Plugins");
+         var notifPluginPath = Path.Combine(pluginsDir, "Notifikasi.dll");
+         
+         if (!File.Exists(notifPluginPath)) return; // Extension disabled or missing
+
+         Task.Run(() => 
+         {
+             try 
+             {
+                 var ps = $"& {{Add-Type -AssemblyName System.Windows.Forms; $n = New-Object System.Windows.Forms.NotifyIcon; $n.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $pid).Path); $n.Visible = $True; $n.ShowBalloonTip(3000, '{title}', '{message}', [System.Windows.Forms.ToolTipIcon]::Info); Start-Sleep 3; $n.Dispose()}}";
+                 var info = new System.Diagnostics.ProcessStartInfo
+                 {
+                     FileName = "powershell",
+                     Arguments = $"-WindowStyle Hidden -Command \"{ps.Replace("\"", "\\\"")}\"",
+                     UseShellExecute = false,
+                     CreateNoWindow = true
+                 };
+                 System.Diagnostics.Process.Start(info);
+             }
+             catch (Exception ex) 
+             { 
+                 Console.WriteLine($"Notif Failed: {ex.Message}"); 
+             }
+         });
+    }
+
+    private async Task<string?> GetTrelloListCount(string? listId, string? apiKey, string? token)
+    {
+        if (string.IsNullOrEmpty(listId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return null;
+        
+        var cacheKey = $"Cache.ListCount.{listId}";
+        
+        try 
+        {
+            using var client = new System.Net.Http.HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(15);
+            var url = $"https://api.trello.com/1/lists/{listId}?key={apiKey}&token={token}&cards=open&fields=none";
+            var json = await client.GetStringAsync(url);
+            
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("cards", out var cardsElement) && 
+                cardsElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                var count = cardsElement.GetArrayLength().ToString();
+                await _database.SetAsync(cacheKey, count);
+                IsOnline = true;
+                return count;
+            }
+            return "0";
+        }
+        catch 
+        {
+            IsOnline = false;
+            var cached = await _database.GetAsync<string>(cacheKey);
+            return cached ?? null;
+        }
+    }
+
+    private void UpdateGreeting()
+    {
+        if (_languageService == null) 
+        {
+             // Fallback
+             Greeting = "Hello"; 
+             return;
+        }
+
+        var hour = DateTime.Now.Hour;
+        string key;
+        
+        if (hour < 12) key = "Dashboard.GoodMorning";
+        else if (hour < 15) key = "Dashboard.GoodAfternoon";
+        else if (hour < 18) key = "Dashboard.GoodEvening";
+        else key = "Dashboard.GoodEvening"; 
+        
+        Greeting = _languageService.GetString(key);
+    }
+
+
+
+    public async void Receive(OpenTextFileMessage message)
+    {
+        try 
+        {
+            if (System.IO.File.Exists(message.Value))
+            {
+                var text = await System.IO.File.ReadAllTextAsync(message.Value);
+                
+                // Clear and show file content
+                LogItems.Clear();
+                ProcessStatusText = $"Viewing: {System.IO.Path.GetFileName(message.Value)}";
+                StatusColor = Brushes.Cyan;
+                
+                // One block to preserve formatting
+                var item = new BMachine.UI.Models.LogItem(text, BMachine.UI.Models.LogLevel.Standard);
+                // Optionally set color if needed, but Standard (White) is fine for text file
+                // item.CustomColor = Brushes.LightGray; 
+                
+                LogItems.Add(item);
+                
+                IsLogPanelOpen = true;
+            }
+        }
+        catch (Exception ex)
+        {
+             LogItems.Add(new BMachine.UI.Models.LogItem($"Error reading file: {ex.Message}", BMachine.UI.Models.LogLevel.Error));
+             IsLogPanelOpen = true;
+        }
+    }
+
+    private string GetSmartDateString(DateTime date)
+    {
+        var now = DateTime.Now;
+        var today = now.Date;
+        var yesterday = today.AddDays(-1);
+        var inputDate = date.Date;
+
+        if (inputDate == today)
+        {
+            return $"Today, {date:HH.mm}";
+        }
+        else if (inputDate == yesterday)
+        {
+            return $"Yesterday, {date:HH.mm}";
+        }
+        else
+        {
+            return $"{date:dd MMM yy}, {date:HH.mm}";
+        }
+    }
+    [RelayCommand]
+    private void OpenLeaderboard()
+    {
+        // 1. Switch to Points Tab (Inside App)
+        IsPointsTabSelected = true;
+        // 2. Trigger data refresh (optional)
+        PointLeaderboardVM.LoadDataCommand.Execute(null);
+    }
+    
+
+    public void Receive(SettingsChangedMessage message)
+    {
+        if (message.Key == "Settings.Dash.Lock" && bool.TryParse(message.Value, out bool val))
+        {
+             IsFolderLockerVisible = val;
+        }
+    }
+
+    private async Task LoadVisibilitySettings()
+    {
+         if (_database == null) return;
+         var str = await _database.GetAsync<string>("Settings.Dash.Lock");
+         if (string.IsNullOrEmpty(str)) str = "True"; // Default True
+         
+         if (bool.TryParse(str, out bool val)) IsFolderLockerVisible = val;
+    }
+
+    // --- Trello View Cycling ---
+    public void Receive(NavigateToNextTrelloViewMessage message)
+    {
+        if (TrelloVM != null)
+        {
+            // Rotate tabs 0 -> 1 -> 2 -> 0
+            TrelloVM.SelectedTab = (TrelloVM.SelectedTab + 1) % 3;
+            CurrentTrelloViewModel = TrelloVM;
+        }
+    }
+
+    private void CycleTrelloView(object? sourceWindow, BaseTrelloListViewModel nextVm, Action openEmbedded)
+    {
+         if (sourceWindow is Avalonia.Controls.Window w)
+         {
+             ActivateViewModel(nextVm);
+             w.DataContext = nextVm;
+         }
+         else
+         {
+             ReplaceCurrentView(openEmbedded);
+         }
+    }
+
+    private void ActivateViewModel(BaseTrelloListViewModel vm)
+    {
+        if (vm is EditingCardListViewModel evm) evm.StartAutoRefresh();
+        else if (vm is RevisionCardListViewModel rvm) rvm.StartAutoRefresh();
+        else if (vm is LateCardListViewModel lvm) lvm.StartAutoRefresh();
+    }
+
+    private void ReplaceCurrentView(Action openNext)
+    {
+        // Replace current view instead of pushing to stack
+        CurrentEmbeddedView = null;
+        _viewStack.Clear();
+        openNext();
+    }
+
+    private async Task CheckConnectivity()
+    {
+        try
+        {
+            using (var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(2) })
+            {
+                // Use a reliable endpoint that returns 204 or 200 light response
+                using (var response = await client.GetAsync("https://www.google.com/generate_204"))
+                {
+                     bool connected = response.IsSuccessStatusCode;
+                     // Only update property if changed to avoid UI flickering if bound
+                     if (IsSpreadsheetOnline != connected) IsSpreadsheetOnline = connected;
+                     if (IsOnline != connected) IsOnline = connected;
+                }
+            }
+        }
+        catch
+        {
+            if (IsSpreadsheetOnline) IsSpreadsheetOnline = false;
+            if (IsOnline) IsOnline = false;
+        }
+    }
+}

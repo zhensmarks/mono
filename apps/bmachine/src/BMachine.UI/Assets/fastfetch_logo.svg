@@ -1,0 +1,24 @@
+<svg width="250" height="200" viewBox="0 0 250 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Vector Icon -->
+  <g transform="translate(95, 30) scale(2.5)" filter="url(#glow)">
+    <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#3B82F6" opacity="0.9"/>
+    <path d="M2 12l10 5 10-5" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M2 17l10 5 10-5" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6" fill="none"/>
+  </g>
+
+  <!-- Typography -->
+  <g transform="translate(55, 140)">
+    <text x="0" y="0" font-family="Inter, Segoe UI, sans-serif" font-weight="900" font-size="28" fill="#3B82F6" letter-spacing="1">B</text>
+    <text x="22" y="0" font-family="Inter, Segoe UI, sans-serif" font-weight="300" font-size="28" fill="#FAFAFA" letter-spacing="4">MACHINE</text>
+  </g>
+</svg>

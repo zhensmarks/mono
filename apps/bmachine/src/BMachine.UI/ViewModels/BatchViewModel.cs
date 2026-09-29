@@ -1,0 +1,2495 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using System.Diagnostics;
+using CommunityToolkit.Mvvm.Input;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using BMachine.SDK;
+using CommunityToolkit.Mvvm.Messaging;
+using BMachine.UI.Messages;
+using BMachine.UI.Models;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+
+namespace BMachine.UI.ViewModels;
+
+/// <summary>
+/// ViewModel for the Batch Master feature - manages source folders and output paths for batch processing.
+/// </summary>
+    public partial class BatchViewModel : ObservableObject, IRecipient<FolderDeletedMessage>, IRecipient<OpenMasterBrowserMessage>, IRecipient<MasterPathsChangedMessage>, IRecipient<BatchAddFoldersMessage>, IRecipient<MasterBrowserSyncFromExplorerMessage>
+    {
+        private readonly IDatabase? _database;
+        private readonly Services.IProcessLogService? _logService;
+        private readonly BMachine.Core.Platform.IPlatformService _platformService;
+
+        /// <summary>
+        /// Collection of source folder items dropped by the user.
+        /// </summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasFolders))]
+        [NotifyPropertyChangedFor(nameof(ShowDropZone))]
+        private ObservableCollection<BatchFolderRoot> _sourceFolders = new();
+        
+        // Store current process to kill it later
+        private Process? _currentProcess;
+    
+        public BatchViewModel(IDatabase? database, Services.IProcessLogService? logService, BMachine.Core.Platform.IPlatformService? platformService = null)
+        {
+            _database = database;
+            _logService = logService;
+            _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
+            
+            // Register for Stop Message
+            WeakReferenceMessenger.Default.Register<StopProcessMessage>(this, (r, m) =>
+            {
+                if (m.Value) KillProcess();
+            });
+    
+            // Register for Script Order Updates
+            WeakReferenceMessenger.Default.Register<ScriptOrderChangedMessage>(this, (r, m) =>
+            {
+                _ = LoadScriptsAsync();
+            });
+
+            // Register for Folder Deleted Message
+            WeakReferenceMessenger.Default.Register<FolderDeletedMessage>(this);
+    
+            _ = LoadOutputBasePathAsync();
+            _ = LoadDocDataAsync();
+            _ = LoadFolderTemplatesAsync();
+            
+            // Ensure HasFolders updates when items are added/removed
+            SourceFolders.CollectionChanged += (s, e) =>
+            {
+                OnPropertyChanged(nameof(HasFolders));
+                OnPropertyChanged(nameof(ShowDropZone));
+            };
+    
+
+
+            // Register Master Browser Messages
+            WeakReferenceMessenger.Default.Register<OpenMasterBrowserMessage>(this);
+            WeakReferenceMessenger.Default.Register<MasterPathsChangedMessage>(this);
+            WeakReferenceMessenger.Default.Register<BatchAddFoldersMessage>(this);
+            WeakReferenceMessenger.Default.Register<MasterBrowserSyncFromExplorerMessage>(this);
+        }
+
+        public void Receive(MasterBrowserSyncFromExplorerMessage message)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                AddFolderAndSelect(message.FolderPath);
+            });
+        }
+
+        public void Receive(OpenMasterBrowserMessage message)
+        {
+            // Activating this will trigger OnSelectedBatchItemChanged
+            SelectedBatchItem = message.TargetNode;
+        }
+
+        public void Receive(MasterPathsChangedMessage message)
+        {
+            // Reload master files if browser is open, or if we are in Master/Photoshop mode
+            if (IsMasterBrowserOpenLeft || IsMasterBrowserOpenRight || IsMasterVisible || IsPhotoshopVisible)
+            {
+                _ = LoadMasterNodes();
+                _ = LoadPhotoshopNodes();
+            }
+        }
+
+        public void Receive(FolderDeletedMessage message)
+        {
+            // Simple approach: Refresh all roots to reflect changes
+            // Since we deleted a folder, the tree needs to be rebuilt or the item removed.
+            // If the deleted item was a Root, we remove it.
+            // If it was a child, Refreshing the root should clear it.
+            
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                // Check if the deleted item is one of the roots
+                var rootMatch = SourceFolders.FirstOrDefault(x => x.SourcePath == message.Value.FullPath);
+                if (rootMatch != null)
+                {
+                    SourceFolders.Remove(rootMatch);
+                }
+                else
+                {
+                    // It's a subfolder, so we refresh all roots
+                    Refresh();
+                }
+            });
+        }
+
+        public void Receive(BatchAddFoldersMessage message)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
+            {
+                AddFolders(message.Value);
+                
+                if (!string.IsNullOrEmpty(message.ScriptToSelect))
+                {
+                    // Try to find and select the script
+                    var script = MasterScriptOptions.FirstOrDefault(x => x.OriginalName != null && x.OriginalName.Equals(message.ScriptToSelect, StringComparison.OrdinalIgnoreCase));
+                    if (script != null)
+                    {
+                        SelectedMasterScript = script.Path;
+                        SelectedMasterOption = script;
+                        SelectedActivityMode = 0; // Switch to Console view to show log output
+                        await ExecuteMaster(); // Auto-execute
+                    }
+                }
+            });
+        }
+
+    private void KillProcess()
+    {
+        try 
+        {
+            if (_currentProcess != null && !_currentProcess.HasExited)
+            {
+                _currentProcess.Kill(true); // Kill process tree (wrapper + python)
+                _logService?.AddLog("[WARNING] Proses dihentikan oleh User.");
+                _currentProcess = null;
+            }
+            IsProcessing = false;
+        }
+        catch (Exception ex)
+        {
+             System.Diagnostics.Debug.WriteLine($"Error killing process: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Output base path from Settings (Configs.Master.LocalOutput).
+    /// </summary>
+    [ObservableProperty]
+    private string _outputBasePath = "";
+
+    /// <summary>
+    /// Whether there are folders in the list.
+    /// </summary>
+    public bool HasFolders => SourceFolders.Count > 0;
+
+    /// <summary>
+    /// Whether to show the drop zone (inverse of HasFolders).
+    /// </summary>
+    public bool ShowDropZone => !HasFolders;
+
+    /// <summary>
+    /// Add folders from drag-drop operation.
+    /// </summary>
+    public void AddFolders(string[] paths)
+    {
+        // 1. Dispose existing items to clean up watchers
+        if (SourceFolders != null)
+        {
+            foreach (var item in SourceFolders)
+            {
+                try { item.Dispose(); } catch {}
+            }
+        }
+
+        // 2. Create new list safely
+        var newCollection = new ObservableCollection<BatchFolderRoot>();
+
+        foreach (var path in paths)
+        {
+            try 
+            {
+                var effectivePath = path;
+                if (effectivePath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+                {
+                    var target = ResolveShortcutTarget(effectivePath);
+                    if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
+                    {
+                        effectivePath = target;
+                    }
+                    else
+                    {
+                        continue; // Invalid shortcut or not a directory
+                    }
+                }
+
+                if (Directory.Exists(effectivePath))
+                {
+                    // Ensure path doesn't have trailing slash for consistent name extraction
+                    effectivePath = effectivePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var folderName = Path.GetFileName(effectivePath);
+                    
+                    // Smart Path Prediction
+                    var relativePath = GetRelativePathFromMonth(effectivePath);
+                    
+                    // If folder is "PILIHAN", we point Output to its parent (Project Folder)
+                    if (folderName.Equals("PILIHAN", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        relativePath = relativePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        relativePath = Path.GetDirectoryName(relativePath) ?? relativePath;
+                    }
+
+                    var outputPath = string.IsNullOrEmpty(OutputBasePath) 
+                        ? "" 
+                        : Path.Combine(OutputBasePath, relativePath);
+
+                    var parentName = new DirectoryInfo(effectivePath).Parent?.Name ?? "";
+                    string displayName; 
+                    string outputHeader; 
+                    
+                    if (folderName.Equals("PILIHAN", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        displayName = $"...\\{parentName}";
+                        outputHeader = parentName;
+                    }
+                    else
+                    {
+                        displayName = string.IsNullOrEmpty(parentName) ? folderName : $"{folderName}\\{parentName}";
+                        outputHeader = folderName;
+                    }
+
+                    var item = new BatchFolderRoot
+                    {
+                        SourcePath = effectivePath,
+                        FolderName = folderName,
+                        DisplayName = displayName, 
+                        OutputHeader = outputHeader,
+                        OutputPath = outputPath,
+                    };
+                    
+                    // Populate Source Root
+                    item.RefreshSource();
+
+                    // Populate Output Root
+                    item.SetupOutputWatcher();
+
+                    newCollection.Add(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error processing path {path}: {ex.Message}");
+            }
+        }
+
+        // 3. Atomic Assignment on UI Thread
+        SourceFolders = newCollection;
+        
+        OnPropertyChanged(nameof(SourceFolders));
+        OnPropertyChanged(nameof(HasFolders));
+        OnPropertyChanged(nameof(ShowDropZone));
+    }
+
+    private void AddFolderAndSelect(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        
+        var effectivePath = path;
+        if (effectivePath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+        {
+            var target = ResolveShortcutTarget(effectivePath);
+            if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
+            {
+                effectivePath = target;
+            }
+            else
+            {
+                return; // Invalid shortcut or not a directory
+            }
+        }
+
+        if (!Directory.Exists(effectivePath)) return;
+        
+        effectivePath = effectivePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var folderName = Path.GetFileName(effectivePath);
+        var relativePath = GetRelativePathFromMonth(effectivePath);
+        if (folderName.Equals("PILIHAN", StringComparison.OrdinalIgnoreCase))
+        {
+            relativePath = relativePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            relativePath = Path.GetDirectoryName(relativePath) ?? relativePath;
+        }
+        var outputPath = string.IsNullOrEmpty(OutputBasePath) ? "" : Path.Combine(OutputBasePath, relativePath);
+        var parentName = new DirectoryInfo(effectivePath).Parent?.Name ?? "";
+        string displayName, outputHeader;
+        if (folderName.Equals("PILIHAN", StringComparison.OrdinalIgnoreCase))
+        {
+            displayName = $"...\\{parentName}";
+            outputHeader = parentName;
+        }
+        else
+        {
+            displayName = string.IsNullOrEmpty(parentName) ? folderName : $"{folderName}\\{parentName}";
+            outputHeader = folderName;
+        }
+        var item = new BatchFolderRoot
+        {
+            SourcePath = effectivePath,
+            FolderName = folderName,
+            DisplayName = displayName,
+            OutputHeader = outputHeader,
+            OutputPath = outputPath,
+        };
+        item.RefreshSource();
+        item.SetupOutputWatcher();
+        SourceFolders.Add(item);
+        SelectedBatchItem = item;
+        SelectedActivityMode = 1;
+        _ = LoadMasterNodes();
+    }
+
+    /// <summary>
+    /// Refresh output folders - check if they exist after script execution.
+    /// </summary>
+    /// <summary>
+    /// Refresh source and output folders.
+    /// </summary>
+    [RelayCommand]
+    private void Refresh()
+    {
+        foreach (var item in SourceFolders)
+        {
+            item.RefreshSource();
+            item.RefreshOutput();
+        }
+    }
+    
+    /// <summary>
+    /// Mimics the 'get_relative_path_from_month' logic from Python scripts.
+    /// Scans up the directory tree for a pattern like "02 AGUSTUS 2025".
+    /// </summary>
+    private string GetRelativePathFromMonth(string path)
+    {
+        try
+        {
+            var dir = new DirectoryInfo(path);
+            var parts = new System.Collections.Generic.List<string>();
+            var current = dir;
+            bool monthFound = false;
+
+            // Regex for "DD MONTH YYYY" (e.g., 02 AGUSTUS 2025)
+            // Python: ^\d{2}\s+\w+\s+\d{4}$
+            var regex = new System.Text.RegularExpressions.Regex(@"^\d{2}\s+\w+\s+\d{4}$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            // Walk up to find the month folder
+            // We walk up at most 5 levels to avoid infinite loops or going too far
+            var temp = dir;
+            for (int i = 0; i < 5; i++)
+            {
+                if (temp == null) break;
+                if (regex.IsMatch(temp.Name))
+                {
+                    monthFound = true;
+                    // Found the root.
+                    // Now we need the relative path from this Month folder (inclusive) down to 'path'
+                     // Actually, the script includes the month folder itself in the structure.
+                     // The logic is: OutputBase + Month/Sub/Target
+                     break;
+                }
+                temp = temp.Parent;
+            }
+
+            if (monthFound && temp != null)
+            {
+                // Calculate relative path from temp (Month Folder) to dir (Source)
+                // We want: MonthFolder\Sub\Source
+                return Path.GetRelativePath(temp.Parent!.FullName, path);
+            }
+        }
+        catch { }
+
+        // Fallback: Just use the folder name (or mimic script parent fallback if strict)
+        // Script fallback: os.path.basename(os.path.dirname(pilihan_path)) -> strict parent name?
+        // Let's stick to FolderName for safety to avoid dumping into root.
+        return Path.GetFileName(path);
+    }
+
+    /// <summary>
+    /// Clear all folders and return to drop zone state.
+    /// </summary>
+    [RelayCommand]
+    private void Clear()
+    {
+        SourceFolders.Clear();
+        OnPropertyChanged(nameof(HasFolders));
+        OnPropertyChanged(nameof(ShowDropZone));
+    }
+
+    /// <summary>
+    /// Remove a specific folder item.
+    /// </summary>
+    [RelayCommand]
+    private void RemoveFolder(BatchFolderRoot item)
+    {
+        if (SourceFolders.Contains(item))
+        {
+            SourceFolders.Remove(item);
+            OnPropertyChanged(nameof(HasFolders));
+            OnPropertyChanged(nameof(ShowDropZone));
+        }
+    }
+
+    /// <summary>
+    /// Get the first output path for script execution.
+    /// </summary>
+    public string? GetFirstOutputPath() => SourceFolders.FirstOrDefault()?.OutputPath;
+
+    // --- MASTER FILE BROWSER LOGIC ---
+
+    [ObservableProperty] private bool _isMasterBrowserOpenLeft;
+    [ObservableProperty] private bool _isMasterBrowserOpenRight;
+    [ObservableProperty] private string _masterBrowserTargetName = "";
+    [ObservableProperty] private string _masterBrowserTargetPath = "";
+    [ObservableProperty] private string _masterSearchText = "";
+    [ObservableProperty] private ObservableCollection<MasterNode> _masterNodes = new(); 
+    // Flat list of every leaf PSD/PSB file across all master roots, used by the
+    // 2-column thumbnail grid in the Log Panel MASTER tab.
+    [ObservableProperty] private ObservableCollection<MasterNode> _masterThumbnailNodes = new();
+    [ObservableProperty] private ObservableCollection<MasterNode> _photoshopNodes = new();
+
+    // Side Panel Modes
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(IsConsoleVisible))]
+    [NotifyPropertyChangedFor(nameof(IsMasterVisible))]
+    [NotifyPropertyChangedFor(nameof(IsPhotoshopVisible))]
+    [NotifyPropertyChangedFor(nameof(IsDocVisible))]
+    [NotifyPropertyChangedFor(nameof(IsDocVisibleInline))]
+    [NotifyPropertyChangedFor(nameof(IsSearchVisible))]
+    [NotifyPropertyChangedFor(nameof(IsStatusVisible))]
+    private int _selectedActivityMode = 0; // 0=Console, 1=Master, 2=Photoshop, 3=Doc
+
+    public bool IsConsoleVisible => SelectedActivityMode == 0;
+    public bool IsMasterVisible => SelectedActivityMode == 1;
+    public bool IsPhotoshopVisible => SelectedActivityMode == 2;
+    public bool IsDocVisible => SelectedActivityMode == 3;
+    public bool IsDocVisibleInline => SelectedActivityMode == 3 && !IsDocFloating;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDocVisibleInline))]
+    private bool _isDocFloating;
+
+    [RelayCommand]
+    private void ToggleDocFloating()
+    {
+        IsDocFloating = !IsDocFloating;
+        
+        // When popping out, we need to open the floating window
+        if (IsDocFloating)
+        {
+            // Send a message or handle it at the View level
+            WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(true));
+        }
+        else
+        {
+            WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(false));
+        }
+    }
+
+    public async Task SaveFloatingDocBounds(int x, int y, double width, double height)
+    {
+        if (_database == null) return;
+        try
+        {
+            await _database.SetAsync("Settings.DocFloating.X", x.ToString());
+            await _database.SetAsync("Settings.DocFloating.Y", y.ToString());
+            await _database.SetAsync("Settings.DocFloating.Width", width.ToString());
+            await _database.SetAsync("Settings.DocFloating.Height", height.ToString());
+        }
+        catch { }
+    }
+
+    public async Task<(int X, int Y, double Width, double Height)?> GetFloatingDocBounds()
+    {
+        if (_database == null) return null;
+        try
+        {
+            var xStr = await _database.GetAsync<string>("Settings.DocFloating.X");
+            var yStr = await _database.GetAsync<string>("Settings.DocFloating.Y");
+            var wStr = await _database.GetAsync<string>("Settings.DocFloating.Width");
+            var hStr = await _database.GetAsync<string>("Settings.DocFloating.Height");
+
+            if (int.TryParse(xStr, out int x) && int.TryParse(yStr, out int y) &&
+                double.TryParse(wStr, out double w) && double.TryParse(hStr, out double h))
+            {
+                return (x, y, w, h);
+            }
+        }
+        catch { }
+        return null;
+    }
+    
+    public bool IsSearchVisible => SelectedActivityMode == 1 || SelectedActivityMode == 2;
+    public bool IsStatusVisible => SelectedActivityMode == 0 || SelectedActivityMode == 1;
+
+    partial void OnSelectedActivityModeChanged(int value)
+    {
+        if (value == 1) _ = LoadMasterNodes();
+        if (value == 2) _ = LoadPhotoshopNodes();
+    }
+
+    /// <summary>
+    /// Display label for the MASTER status bar target. Falls back to "TARGET"
+    /// when no batch folder has been selected yet.
+    /// </summary>
+    public string MasterBrowserTargetDisplay =>
+        string.IsNullOrWhiteSpace(MasterBrowserTargetName) ? "TARGET" : MasterBrowserTargetName;
+
+    partial void OnMasterBrowserTargetNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(MasterBrowserTargetDisplay));
+    }
+    // --- DOC TAB PROPERTIES ---
+    [ObservableProperty] private string _schoolName = "";
+    [ObservableProperty] private string _schoolAddress = "";
+    [ObservableProperty] private string _schoolLogoPath = "";
+    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _schoolLogoImage;
+
+    [ObservableProperty] private string _schoolLogoPath2 = "";
+    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _schoolLogoImage2;
+    [ObservableProperty] private bool _isSecondLogoVisible = false;
+
+    partial void OnSchoolNameChanged(string value) => SaveDocDataAsync();
+    partial void OnSchoolAddressChanged(string value) => SaveDocDataAsync();
+    partial void OnSchoolLogoPathChanged(string value) => SaveDocDataAsync();
+    partial void OnSchoolLogoPath2Changed(string value) => SaveDocDataAsync();
+    // --- DOC REPLACE SOURCES ---------------------------------------------
+    // Placeholder texts that SEND-TEXT.jsx searches for in the active PSD.
+    // One source per line (multi-line). Exposed so the user can match whatever
+    // name/address text their template actually uses, instead of hardcoded
+    // strings baked into the Photoshop script.
+    public const string DefaultNameSources = "TK DELAPAN MATA AIR";
+    public const string DefaultAddressSources =
+        "JL. SARI ENDAH NO. 7AGEGERKALONG HILIR BANDUNG\n" +
+        "JL. SARI ENDAH NO. 7A GEGERKALONG HILIR BANDUNG";
+
+    [ObservableProperty] private string _nameSources = DefaultNameSources;
+    [ObservableProperty] private string _addressSources = DefaultAddressSources;
+
+    partial void OnNameSourcesChanged(string value) => SaveDocDataAsync();
+    partial void OnAddressSourcesChanged(string value) => SaveDocDataAsync();
+
+    private bool _isSavingDoc;
+    private bool _isLoadingDoc;
+    private async void SaveDocDataAsync()
+    {
+        if (_database == null || _isSavingDoc || _isLoadingDoc) return;
+        _isSavingDoc = true;
+        try 
+        {
+            await Task.Delay(300);
+            await _database.SetAsync("Doc.SchoolName", SchoolName);
+            await _database.SetAsync("Doc.SchoolAddress", SchoolAddress);
+            await _database.SetAsync("Doc.SchoolLogoPath", SchoolLogoPath);
+            await _database.SetAsync("Doc.SchoolLogoPath2", SchoolLogoPath2);
+            await _database.SetAsync("Doc.NameSources", NameSources);
+            await _database.SetAsync("Doc.AddressSources", AddressSources);
+            await ExportDocJsonAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error SaveDocDataAsync: {ex.Message}");
+        }
+        finally 
+        {
+            _isSavingDoc = false;
+        }
+    }
+
+    private async Task ExportDocJsonAsync()
+    {
+        try 
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var folder = Path.Combine(appData, "BMachine.v2");
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+            
+            var jsonPath = Path.Combine(folder, "doc_info.json");
+            var name = SchoolName?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
+            var address = SchoolAddress?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
+            var logo = SchoolLogoPath?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
+            var logo2 = SchoolLogoPath2?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
+
+            var nameSourcesJson = BuildJsonStringArray(NameSources);
+            var addressSourcesJson = BuildJsonStringArray(AddressSources);
+
+            var json = $"{{\n  \"name\": \"{name}\",\n  \"address\": \"{address}\",\n  \"nameSources\": {nameSourcesJson},\n  \"addressSources\": {addressSourcesJson},\n  \"logo\": \"{logo}\",\n  \"logo2\": \"{logo2}\"\n}}";
+            await File.WriteAllTextAsync(jsonPath, json);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error ExportDocJsonAsync: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Splits a multi-line string into trimmed, non-empty lines and serializes
+    /// them as a JSON string array. Used for the DOC replace-source lists.
+    /// </summary>
+    private static string BuildJsonStringArray(string? multiLine)
+    {
+        var lines = (multiLine ?? "")
+            .Replace("\r\n", "\n")
+            .Replace("\r", "\n")
+            .Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0);
+
+        var escaped = lines.Select(l =>
+            "\"" + l.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"");
+
+        return "[" + string.Join(", ", escaped) + "]";
+    }
+
+
+    public async Task LoadDocDataAsync()
+    {
+        if (_database == null) return;
+        _isLoadingDoc = true;
+        try
+        {
+            SchoolName = await _database.GetAsync<string>("Doc.SchoolName") ?? "";
+            SchoolAddress = await _database.GetAsync<string>("Doc.SchoolAddress") ?? "";
+            var nameSources = await _database.GetAsync<string>("Doc.NameSources");
+            if (!string.IsNullOrEmpty(nameSources)) NameSources = nameSources;
+
+            var addressSources = await _database.GetAsync<string>("Doc.AddressSources");
+            if (!string.IsNullOrEmpty(addressSources)) AddressSources = addressSources;
+            
+            var logoPath = await _database.GetAsync<string>("Doc.SchoolLogoPath") ?? "";
+            if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
+            {
+                try 
+                {
+                    SchoolLogoPath = logoPath;
+                    using var fs = File.OpenRead(logoPath);
+                    SchoolLogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
+                } 
+                catch 
+                {
+                    SchoolLogoPath = "";
+                    SchoolLogoImage = null;
+                }
+            }
+
+            var logoPath2 = await _database.GetAsync<string>("Doc.SchoolLogoPath2") ?? "";
+            if (!string.IsNullOrEmpty(logoPath2) && File.Exists(logoPath2))
+            {
+                try 
+                {
+                    SchoolLogoPath2 = logoPath2;
+                    using var fs2 = File.OpenRead(logoPath2);
+                    SchoolLogoImage2 = new Avalonia.Media.Imaging.Bitmap(fs2);
+                } 
+                catch 
+                {
+                    SchoolLogoPath2 = "";
+                    SchoolLogoImage2 = null;
+                }
+            }
+        }
+        finally
+        {
+            _isLoadingDoc = false;
+        }
+
+        // Export data so Photoshop script can immediately use it
+        await ExportDocJsonAsync();
+    }
+
+    [RelayCommand]
+    private void ResetDoc(string? slot)
+    {
+        // Reset all fields
+        SchoolName = "";
+        SchoolAddress = "";
+        
+        // Reset Logo 1
+        SchoolLogoPath = "";
+        SchoolLogoImage?.Dispose();
+        SchoolLogoImage = null;
+        
+        // Reset Logo 2
+        SchoolLogoPath2 = "";
+        SchoolLogoImage2?.Dispose();
+        SchoolLogoImage2 = null;
+        
+        // Collapse back to 1 column
+        IsSecondLogoVisible = false;
+        
+        SaveDocDataAsync();
+    }
+
+    [RelayCommand]
+    private void ToggleSecondLogo()
+    {
+        IsSecondLogoVisible = !IsSecondLogoVisible;
+    }
+
+    [RelayCommand]
+    private async Task CopySchoolName() => await CopyTextToClipboard(SchoolName);
+
+    [RelayCommand]
+    private async Task CopySchoolAddress() => await CopyTextToClipboard(SchoolAddress);
+
+    [RelayCommand]
+    private async Task PasteTextFromPS(string field)
+    {
+        // 1. Cek apakah Photoshop sedang berjalan
+        if (!System.Diagnostics.Process.GetProcessesByName("Photoshop").Any())
+        {
+            _logService?.AddLog("[WARNING] Photoshop tidak berjalan. Tidak bisa mengambil teks.");
+            return;
+        }
+
+        var tempTxt = Path.Combine(Path.GetTempPath(), $"ps_text_{Guid.NewGuid()}.txt");
+        var jsxScript = $@"
+try {{
+    if (app.documents.length > 0 && app.activeDocument.activeLayer.kind === LayerKind.TEXT) {{
+        var txt = app.activeDocument.activeLayer.textItem.contents;
+        var f = new File('{tempTxt.Replace("\\", "/")}');
+        f.open('w');
+        f.encoding = 'UTF-8';
+        f.write(txt);
+        f.close();
+    }}
+}} catch(e) {{}}";
+        
+        var tempJsx = Path.Combine(Path.GetTempPath(), $"ps_get_text_{Guid.NewGuid()}.jsx");
+        await File.WriteAllTextAsync(tempJsx, jsxScript);
+        
+        var photoshopExePath = "photoshop";
+        if (_database != null)
+        {
+            var dbPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+            if (!string.IsNullOrEmpty(dbPath)) photoshopExePath = dbPath;
+        }
+        
+        if (_platformService != null)
+        {
+            _platformService.RunJsxInPhotoshop(tempJsx, photoshopExePath);
+            
+            for (int i = 0; i < 15; i++)
+            {
+                await Task.Delay(200);
+                if (File.Exists(tempTxt))
+                {
+                    await Task.Delay(50);
+                    var txt = await File.ReadAllTextAsync(tempTxt);
+                    if (field == "name") SchoolName = txt.Trim();
+                    else if (field == "address") SchoolAddress = txt.Trim();
+                    
+                    _logService?.AddLog($"[INFO] Teks berhasil di-paste dari Photoshop ({(field == "name" ? "Nama" : "Alamat")})");
+                    try { File.Delete(tempTxt); } catch {}
+                    try { File.Delete(tempJsx); } catch {}
+                    return;
+                }
+            }
+        }
+        
+        _logService?.AddLog("[WARNING] Gagal mengambil teks. Pastikan layer teks di Photoshop sedang aktif/terpilih.");
+        try { File.Delete(tempJsx); } catch {}
+    }
+
+    [RelayCommand]
+    private async Task CopySchoolLogo(string? slot)
+    {
+        var targetSlot = slot ?? "1";
+        var path = targetSlot == "2" ? SchoolLogoPath2 : SchoolLogoPath;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        
+        try
+        {
+            // Use PowerShell to copy image to Windows clipboard natively
+            var escapedPath = path.Replace("'", "''");
+            var psScript = $"Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; " +
+                           $"$img = [System.Drawing.Image]::FromFile('{escapedPath}'); " +
+                           $"[System.Windows.Forms.Clipboard]::SetImage($img); " +
+                           $"$img.Dispose()";
+            
+            var process = new System.Diagnostics.Process();
+            process.StartInfo.FileName = "powershell";
+            process.StartInfo.Arguments = $"-NoProfile -NonInteractive -Command \"{psScript}\"";
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.Start();
+            await process.WaitForExitAsync();
+            process.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error CopySchoolLogo: {ex.Message}");
+        }
+    }
+
+    private async Task CopyTextToClipboard(string text)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            if (desktop.MainWindow?.Clipboard != null && !string.IsNullOrEmpty(text))
+            {
+                await desktop.MainWindow.Clipboard.SetTextAsync(text);
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task PasteLogo(string? slot)
+    {
+        var targetSlot = slot ?? "1";
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var window = desktop.MainWindow;
+            if (window?.Clipboard == null) 
+            {
+                _logService?.AddLog("[WARNING] Clipboard tidak tersedia.");
+                return;
+            }
+
+            try
+            {
+                var formats = await window.Clipboard.GetFormatsAsync();
+                System.Diagnostics.Debug.WriteLine($"[PasteLogo] Clipboard formats: {string.Join(", ", formats)}");
+                
+                // 1. Coba format Files (copy file dari Explorer)
+                if (formats.Contains(Avalonia.Input.DataFormats.Files))
+                {
+                    var data = await window.Clipboard.GetDataAsync(Avalonia.Input.DataFormats.Files);
+                    if (data is IEnumerable<Avalonia.Platform.Storage.IStorageItem> storageItems)
+                    {
+                        var firstFile = storageItems.FirstOrDefault();
+                        if (firstFile != null && firstFile.Path.LocalPath != null)
+                        {
+                            var ext = Path.GetExtension(firstFile.Path.LocalPath).ToLower();
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp" || ext == ".gif")
+                            {
+                                await ProcessLogoFile(firstFile.Path.LocalPath, targetSlot);
+                                _logService?.AddLog($"[INFO] Logo di-paste dari file: {Path.GetFileName(firstFile.Path.LocalPath)}");
+                                return;
+                            }
+                        }
+                    }
+                }
+                
+                // 2. Coba format gambar langsung (copy gambar dari browser/Paint/dll)
+                string[] imageFormats = { "PNG", "image/png", "JPEG", "image/jpeg", "public.png", "public.jpeg", 
+                                          "Bitmap", "DeviceIndependentBitmap", "System.Drawing.Bitmap",
+                                          "Avalonia.Media.Imaging.Bitmap", "CF_DIB" };
+                foreach (var format in imageFormats)
+                {
+                    if (formats.Contains(format))
+                    {
+                        var data = await window.Clipboard.GetDataAsync(format);
+                        if (data is byte[] bytes && bytes.Length > 0)
+                        {
+                            var tempFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
+                            await File.WriteAllBytesAsync(tempFile, bytes);
+                            await ProcessLogoFile(tempFile, targetSlot);
+                            _logService?.AddLog($"[INFO] Logo di-paste dari clipboard (format: {format})");
+                            return;
+                        }
+                        if (data is Avalonia.Media.Imaging.Bitmap bitmap)
+                        {
+                            var tempFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
+                            bitmap.Save(tempFile);
+                            await ProcessLogoFile(tempFile, targetSlot);
+                            _logService?.AddLog("[INFO] Logo di-paste dari clipboard (Bitmap)");
+                            return;
+                        }
+                    }
+                }
+
+                // 3. Coba format Text (path file di clipboard)
+                if (formats.Contains(Avalonia.Input.DataFormats.Text))
+                {
+                    var text = await window.Clipboard.GetTextAsync();
+                    if (!string.IsNullOrEmpty(text) && File.Exists(text))
+                    {
+                        var ext = Path.GetExtension(text).ToLower();
+                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp" || ext == ".gif")
+                        {
+                            await ProcessLogoFile(text, targetSlot);
+                            _logService?.AddLog($"[INFO] Logo di-paste dari path: {Path.GetFileName(text)}");
+                            return;
+                        }
+                    }
+                }
+
+                // 3.5 Fallback Khusus Photoshop (JSX) - Sangat efektif jika gambar di-copy dari layer Photoshop
+                if (System.Diagnostics.Process.GetProcessesByName("Photoshop").Any())
+                {
+                    System.Diagnostics.Debug.WriteLine("[PasteLogo] Mencoba mendapatkan gambar via Photoshop JSX...");
+                    var tempPsExport = Path.Combine(Path.GetTempPath(), $"ps_export_{Guid.NewGuid()}.png");
+                    var jsxScript = $@"
+try {{
+    var tempFile = new File('{tempPsExport.Replace("\\", "/")}');
+    var doc = app.documents.add(UnitValue(3000,""px""), UnitValue(3000,""px""), 72, ""temp_paste"", NewDocumentMode.RGB, DocumentFill.TRANSPARENT);
+    doc.paste();
+    try {{ doc.revealAll(); }} catch(e) {{}}
+    doc.trim(TrimType.TRANSPARENT);
+    var opts = new PNGSaveOptions();
+    doc.saveAs(tempFile, opts, true);
+    doc.close(SaveOptions.DONOTSAVECHANGES);
+}} catch(e) {{}}";
+                    var tempJsx = Path.Combine(Path.GetTempPath(), $"ps_paste_{Guid.NewGuid()}.jsx");
+                    await File.WriteAllTextAsync(tempJsx, jsxScript);
+                    
+                    var photoshopExePath = "photoshop";
+                    if (_database != null)
+                    {
+                        var dbPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+                        if (!string.IsNullOrEmpty(dbPath)) photoshopExePath = dbPath;
+                    }
+                    
+                    if (_platformService != null)
+                    {
+                        _platformService.RunJsxInPhotoshop(tempJsx, photoshopExePath);
+                        
+                        // Wait up to 2.5 seconds for Photoshop to save the file
+                        for(int i = 0; i < 10; i++)
+                        {
+                            await Task.Delay(250);
+                            if (File.Exists(tempPsExport))
+                            {
+                                await Task.Delay(100); // Give it a tiny bit of time to finish writing
+                                await ProcessLogoFile(tempPsExport, targetSlot);
+                                _logService?.AddLog("[INFO] Logo di-paste langsung dari Photoshop (JSX)");
+                                try { File.Delete(tempJsx); } catch {}
+                                return;
+                            }
+                        }
+                    }
+                    try { File.Delete(tempJsx); } catch {}
+                }
+
+                // 4. Fallback: gunakan PowerShell untuk mengambil gambar dari native Windows clipboard (WPF untuk transparansi)
+                System.Diagnostics.Debug.WriteLine("[PasteLogo] Avalonia clipboard tidak menemukan gambar, mencoba PowerShell fallback...");
+                var tempPsFile = Path.Combine(Path.GetTempPath(), $"paste_{Guid.NewGuid()}.png");
+                var psScript = $@"
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
+$img = [System.Windows.Clipboard]::GetImage()
+if ($img -ne $null) {{
+    $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+    $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($img))
+    $fs = New-Object System.IO.FileStream('{tempPsFile.Replace("'", "''")}', [System.IO.FileMode]::Create)
+    $encoder.Save($fs)
+    $fs.Close()
+    Write-Output 'OK'
+}} else {{
+    $files = [System.Windows.Clipboard]::GetFileDropList()
+    if ($files.Count -gt 0) {{
+        $f = $files[0]
+        $ext = [System.IO.Path]::GetExtension($f).ToLower()
+        if ($ext -eq '.png' -or $ext -eq '.jpg' -or $ext -eq '.jpeg' -or $ext -eq '.bmp') {{
+            Copy-Item $f '{tempPsFile.Replace("'", "''")}'
+            Write-Output 'OK'
+        }}
+    }}
+}}";
+                var process = new System.Diagnostics.Process();
+                process.StartInfo.FileName = "powershell";
+                process.StartInfo.Arguments = $"-STA -NoProfile -NonInteractive -Command \"{psScript.Replace("\"", "\\\"")}\"";
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.CreateNoWindow = true;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.Start();
+                var psOutput = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync();
+                process.Dispose();
+
+                if (psOutput.Trim() == "OK" && File.Exists(tempPsFile))
+                {
+                    await ProcessLogoFile(tempPsFile, targetSlot);
+                    _logService?.AddLog("[INFO] Logo di-paste via PowerShell fallback");
+                    return;
+                }
+
+                _logService?.AddLog("[WARNING] Tidak ada gambar ditemukan di clipboard. Coba copy gambar terlebih dahulu.");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PasteLogo] Error: {ex.Message}");
+                _logService?.AddLog($"[ERROR] Paste logo gagal: {ex.Message}");
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task SendLogoToPhotoshop(string? slot)
+    {
+        var targetSlot = slot ?? "1";
+        var path = targetSlot == "2" ? SchoolLogoPath2 : SchoolLogoPath;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        {
+            _logService?.AddLog($"[WARNING] No valid logo selected in slot {targetSlot} to send to Photoshop.");
+            return;
+        }
+
+        try
+        {
+            var tempPath = Path.Combine(Path.GetTempPath(), "bmachine_place_target.txt");
+            await File.WriteAllTextAsync(tempPath, path);
+
+            var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", "_place_on_layer.jsx");
+            if (!File.Exists(scriptPath)) 
+            {
+                scriptPath = Path.Combine(Directory.GetCurrentDirectory(), "Scripts", "Action", "_place_on_layer.jsx"); 
+            }
+
+            if (File.Exists(scriptPath))
+            {
+                var photoshopPath = "photoshop";
+                if (_database != null)
+                {
+                    var dbPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+                    if (!string.IsNullOrEmpty(dbPath)) photoshopPath = dbPath;
+                }
+
+                _platformService.RunJsxInPhotoshop(scriptPath, photoshopPath);
+                _logService?.AddLog("[INFO] Logo sent to Photoshop.");
+            }
+            else
+            {
+                 _logService?.AddLog("[ERROR] Script _place_on_layer.jsx not found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Failed to send logo to Photoshop: {ex.Message}");
+        }
+    }
+
+    public async Task ProcessLogoFile(string sourcePath, string slot = "1")
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var folder = Path.Combine(appData, "BMachine.v2", "DocAssets");
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+
+            var ext = Path.GetExtension(sourcePath);
+            var destName = slot == "2" ? $"school_logo2{ext}" : $"school_logo{ext}";
+            var destPath = Path.Combine(folder, destName);
+            
+            File.Copy(sourcePath, destPath, true);
+
+            using var fs = File.OpenRead(destPath);
+            if (slot == "2")
+            {
+                SchoolLogoPath2 = destPath;
+                SchoolLogoImage2 = new Avalonia.Media.Imaging.Bitmap(fs);
+            }
+            else
+            {
+                SchoolLogoPath = destPath;
+                SchoolLogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
+            }
+            
+            SaveDocDataAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error copying logo: {ex.Message}");
+        }
+    }
+    
+    // Copy Feedback
+    [ObservableProperty] private string _copyStatusText = "";
+    [ObservableProperty] private bool _isCopying;
+
+    private BatchNodeItem? _currentTargetNode;
+
+    partial void OnMasterSearchTextChanged(string value)
+    {
+        ApplyMasterFilter(value);
+    }
+
+    private void ApplyMasterFilter(string filter)
+    {
+        // Simple reload logic for now to handle search filtering
+        // Ideally we filter the existing tree visually, but reloading is safer for correctness
+        _ = LoadMasterNodes(filter);
+    }
+
+    private async Task LoadMasterNodes(string filter = "")
+    {
+        System.Diagnostics.Debug.WriteLine($"[MasterGrid] LoadMasterNodes called filter='{filter}' IsMasterVisible={IsMasterVisible}");
+        if (IsBusy) return;
+        IsBusy = true;
+        BusyMessage = "Loading Master Browser...";
+
+        try
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => MasterNodes.Clear());
+
+            var pathEntries = new List<(string Path, string Name, string Color, string Icon)>();
+            
+            // 1. Get Additional Paths from Settings
+            if (_database != null)
+            {
+                var json = await _database.GetAsync<string>("Configs.Master.AdditionalPaths");
+                if (!string.IsNullOrEmpty(json))
+                {
+                    foreach (var e in EditablePathItem.ParseStoredEntries(json))
+                        pathEntries.Add((e.Path, e.Name, e.Color, e.Icon));
+                }
+            }
+
+            // 1.5. Include Main Master Path (no custom colour/icon -> defaults)
+            if (!string.IsNullOrEmpty(MasterTemplatePath) && Directory.Exists(MasterTemplatePath))
+            {
+                pathEntries.Add((MasterTemplatePath, EditablePathItem.GetFolderName(MasterTemplatePath), "", ""));
+            }
+
+            // 2. Linear Scan (Top-Level Only)
+            var nodes = await Task.Run(() => 
+            {
+                var result = new List<MasterNode>();
+                
+                foreach (var (path, customName, color, icon) in pathEntries)
+                {
+                    if (Directory.Exists(path))
+                    {
+                        var rootName = !string.IsNullOrWhiteSpace(customName) ? customName : Path.GetFileName(path);
+                        if (string.IsNullOrEmpty(rootName)) rootName = path;
+
+                        bool nameMatches = string.IsNullOrEmpty(filter) || rootName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+                        // If not matching by name, check contents
+                        List<MasterNode> matchingChildren = new();
+                        if (!string.IsNullOrEmpty(filter) && !nameMatches)
+                        {
+                            matchingChildren = ScanDirectory(path, filter).ToList();
+                        }
+
+                        // Add if name matches OR has content
+                        if (string.IsNullOrEmpty(filter) || nameMatches || matchingChildren.Any())
+                        {
+                            string childFilter = nameMatches ? "" : filter;
+                            var rootNode = new MasterNode(path, true, (p) => ScanDirectory(p, childFilter), customDisplayName: rootName)
+                            {
+                                IsRoot = true,
+                                NodeColorHex = color ?? "",
+                                NodeIconKey = icon ?? ""
+                            };
+                            
+                            if (matchingChildren.Any())
+                            {
+                                rootNode.SetChildren(matchingChildren);
+                                rootNode.IsExpanded = true;
+                            }
+                            else if (!string.IsNullOrEmpty(filter) && nameMatches)
+                            {
+                                rootNode.IsExpanded = true;
+                            }
+                            
+                            result.Add(rootNode);
+                        }
+                    }
+                }
+                return result;
+            });
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                MasterNodes.Clear();
+                MasterThumbnailNodes.Clear();
+                foreach (var node in nodes)
+                {
+                    MasterNodes.Add(node);
+                    foreach (var leaf in node.EnumerateLeaves())
+                        MasterThumbnailNodes.Add(leaf);
+                }
+                System.Diagnostics.Debug.WriteLine($"[MasterGrid] roots={nodes.Count} thumbnails={MasterThumbnailNodes.Count}");
+            });
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyMessage = "";
+        }
+    }
+
+    private async Task LoadPhotoshopNodes(string filter = "")
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        BusyMessage = "Loading Photoshop Browser...";
+
+        try
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => PhotoshopNodes.Clear());
+            var pathEntries = new List<(string Path, string Name)>();
+            
+            // USE NEW SETTING KEY: Configs.Master.PhotoshopPaths
+            if (_database != null)
+            {
+                var json = await _database.GetAsync<string>("Configs.Master.PhotoshopPaths");
+                if (!string.IsNullOrEmpty(json))
+                {
+                    pathEntries.AddRange(EditablePathItem.ParseStoredPaths(json));
+                }
+            }
+            
+            // Also include global Photoshop Path if not empty and not already added
+            var globalPsPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+            if (!string.IsNullOrEmpty(globalPsPath) && Directory.Exists(globalPsPath) && !pathEntries.Any(e => e.Path == globalPsPath))
+            {
+                pathEntries.Add((globalPsPath, EditablePathItem.GetFolderName(globalPsPath)));
+            }
+
+            var nodes = await Task.Run(() => 
+            {
+                var result = new List<MasterNode>();
+                foreach (var (path, customName) in pathEntries)
+                {
+                    if (Directory.Exists(path))
+                    {
+                        var rootName = !string.IsNullOrWhiteSpace(customName) ? customName : Path.GetFileName(path);
+                        if (string.IsNullOrEmpty(rootName)) rootName = path;
+
+                        bool nameMatches = string.IsNullOrEmpty(filter) || rootName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                        
+                        List<MasterNode> matchingChildren = new();
+                        if (!string.IsNullOrEmpty(filter) && !nameMatches)
+                        {
+                            matchingChildren = ScanDirectoryImages(path, filter).ToList();
+                        }
+
+                        if (string.IsNullOrEmpty(filter) || nameMatches || matchingChildren.Any())
+                        {
+                            string childFilter = nameMatches ? "" : filter;
+                            var rootNode = new MasterNode(path, true, (p) => ScanDirectoryImages(p, childFilter), customDisplayName: rootName);
+                            
+                            if (matchingChildren.Any())
+                            {
+                                rootNode.SetChildren(matchingChildren);
+                                rootNode.IsExpanded = true;
+                            }
+                            else if (!string.IsNullOrEmpty(filter) && nameMatches)
+                            {
+                                rootNode.IsExpanded = true;
+                            }
+
+                            result.Add(rootNode);
+                        }
+                    }
+                }
+                return result;
+            });
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                foreach (var node in nodes) PhotoshopNodes.Add(node);
+            });
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyMessage = "";
+        }
+    }
+
+    private IEnumerable<MasterNode> ScanDirectoryImages(string path, string filter)
+    {
+        var results = new List<MasterNode>();
+        
+        try
+        {
+            var opts = new EnumerationOptions { IgnoreInaccessible = true };
+            
+            // 1. Directories
+            foreach (var d in Directory.EnumerateDirectories(path, "*", opts))
+            {
+                if (string.IsNullOrEmpty(filter))
+                {
+                    // No Filter: Standard Lazy Load
+                    var subNode = new MasterNode(d, true, (p) => ScanDirectoryImages(p, filter));
+                    results.Add(subNode);
+                }
+                else
+                {
+                    // Filter: Recursive Logic
+                    var dName = Path.GetFileName(d);
+                    bool nameMatches = !string.IsNullOrEmpty(dName) && dName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                    
+                    List<MasterNode> children = new();
+                    if (!nameMatches)
+                    {
+                        children = ScanDirectoryImages(d, filter).ToList();
+                    }
+
+                    if (nameMatches || children.Any())
+                    {
+                        string childFilter = nameMatches ? "" : filter;
+                        var subNode = new MasterNode(d, true, (p) => ScanDirectoryImages(p, childFilter));
+                        
+                        if (children.Any())
+                        {
+                            subNode.SetChildren(children);
+                            subNode.IsExpanded = true;
+                        }
+                        
+                        results.Add(subNode);
+                    }
+                }
+            }
+            
+            // 2. Files
+            var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif" };
+            var files = Directory.EnumerateFiles(path, "*.*", opts)
+                .Where(f => extensions.Contains(Path.GetExtension(f)));
+                
+            foreach (var f in files)
+            {
+                var fName = Path.GetFileName(f);
+                bool matches = string.IsNullOrEmpty(filter) || fName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                
+                if (matches)
+                {
+                    results.Add(new MasterNode(f, false));
+                }
+            }
+        }
+        catch {}
+
+        return results;
+    }
+
+
+    // Recursive Scanner
+    // Recursive Scanner (Now supports Lazy Loading return IEnumerable)
+    private IEnumerable<MasterNode> ScanDirectory(string path, string filter)
+    {
+        var results = new List<MasterNode>();
+        
+        try
+        {
+            var opts = new EnumerationOptions { IgnoreInaccessible = true };
+            
+            // Subdirectories
+            foreach (var d in Directory.EnumerateDirectories(path, "*", opts))
+            {
+                if (string.IsNullOrEmpty(filter))
+                {
+                    // Standard
+                    var subNode = new MasterNode(d, true, (p) => ScanDirectory(p, filter));
+                    results.Add(subNode);
+                }
+                else
+                {
+                    // Filter Mode
+                    var dName = Path.GetFileName(d);
+                    bool nameMatches = !string.IsNullOrEmpty(dName) && dName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                    
+                    List<MasterNode> children = new();
+                    if (!nameMatches)
+                    {
+                        children = ScanDirectory(d, filter).ToList();
+                    }
+                    
+                    if (nameMatches || children.Any())
+                    {
+                        string childFilter = nameMatches ? "" : filter;
+                        var subNode = new MasterNode(d, true, (p) => ScanDirectory(p, childFilter));
+                        
+                        if (children.Any())
+                        {
+                            subNode.SetChildren(children);
+                            subNode.IsExpanded = true;
+                        }
+                        results.Add(subNode);
+                    }
+                }
+            }
+            
+            // Files (.psd, .psb)
+            var files = Directory.EnumerateFiles(path, "*.*", opts)
+                .Where(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase));
+                
+            foreach (var f in files)
+            {
+                var fName = Path.GetFileName(f);
+                
+                bool matches = string.IsNullOrEmpty(filter) || fName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+                
+                if (matches)
+                {
+                    var node = new MasterNode(f, false)
+                    {
+                        ThumbnailSourcePath = Services.ThumbnailCacheService.ResolvePairJpg(f)
+                    };
+                    results.Add(node);
+                }
+            }
+        }
+        catch {}
+
+        return results;
+    }
+
+
+
+
+        [ObservableProperty]
+        private object? _selectedBatchItem;
+
+        partial void OnSelectedBatchItemChanged(object? value)
+        {
+            if (value is BatchNodeItem node)
+            {
+                // Update Target
+                _currentTargetNode = node;
+                
+                if (node.IsDirectory)
+                {
+                    MasterBrowserTargetPath = node.FullPath;
+                    MasterBrowserTargetName = node.Name;
+                }
+                else
+                {
+                    MasterBrowserTargetPath = Path.GetDirectoryName(node.FullPath) ?? "";
+                    MasterBrowserTargetName = Path.GetFileName(MasterBrowserTargetPath);
+                }
+
+                // Auto Switch to Master Browser (index 1)
+                SelectedActivityMode = 1;
+            }
+            else if (value is BatchFolderRoot root)
+            {
+                // Try to use SourceRoot if available, otherwise just set path
+                if (root.SourceRoot != null) _currentTargetNode = root.SourceRoot;
+                
+                MasterBrowserTargetPath = root.SourcePath;
+                MasterBrowserTargetName = root.DisplayName;
+                SelectedActivityMode = 1;
+            }
+            
+            _ = LoadMasterNodes();
+        }
+
+    private void OpenMasterBrowser(BatchNodeItem target, string side)
+    {
+        _currentTargetNode = target;
+        MasterBrowserTargetName = target.Name;
+        MasterBrowserTargetPath = target.FullPath; 
+        
+        // If node is a file, use parent dir
+        if (!target.IsDirectory)
+        {
+             MasterBrowserTargetPath = Path.GetDirectoryName(target.FullPath) ?? "";
+        }
+
+        _ = LoadMasterNodes(); // Load data
+
+        if (side == "Left")
+        {
+            IsMasterBrowserOpenLeft = true;
+            IsMasterBrowserOpenRight = false; // Close other
+        }
+        else
+        {
+            IsMasterBrowserOpenRight = true;
+            IsMasterBrowserOpenLeft = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseMasterBrowser()
+    {
+        IsMasterBrowserOpenLeft = false;
+        IsMasterBrowserOpenRight = false;
+        _currentTargetNode = null;
+        MasterSearchText = "";
+    }
+
+    [RelayCommand]
+    private async Task CopyMasterFile(MasterNode item)
+    {
+        if (item.IsDirectory) return; // Can't copy folder directly yet
+
+        if (string.IsNullOrEmpty(MasterBrowserTargetPath) || !Directory.Exists(MasterBrowserTargetPath))
+        {
+            _logService?.AddLog("[ERROR] Target folder not found.");
+            return;
+        }
+
+        IsCopying = true;
+        
+        // Log Start
+        if (_logService != null)
+        {
+             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+             {
+                 _logService.AddLog($"[INFO] Copying {item.Name}...");
+             });
+        }
+
+        var source = item.FullPath;
+        var dest = Path.Combine(MasterBrowserTargetPath, item.Name);
+
+        // Auto Rename Logic if Exists
+        if (File.Exists(dest))
+        {
+            string nameNoExt = Path.GetFileNameWithoutExtension(dest);
+            string ext = Path.GetExtension(dest);
+            int count = 1;
+            while (File.Exists(dest))
+            {
+                dest = Path.Combine(MasterBrowserTargetPath, $"{nameNoExt} ({count}){ext}");
+                count++;
+            }
+        }
+
+        try
+        {
+             // Copy in background
+             BusyMessage = $"Copying {item.Name}...";
+             IsBusy = true;
+             
+             await Task.Run(() => File.Copy(source, dest));
+             
+             // Refresh Target Node Children
+             if (_currentTargetNode != null)
+             {
+                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                 {
+                     _currentTargetNode.LoadChildren(); 
+                 });
+             }
+             
+             // Notify explorer instances to refresh their file list
+             WeakReferenceMessenger.Default.Send(new ExplorerRefreshRequestMessage());
+             
+             if (_logService != null)
+             {
+                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                 {
+                     _logService.AddLog($"[INFO] Copied: {Path.GetFileName(dest)}");
+                 });
+            }
+        }
+        catch (Exception ex)
+        {
+            if (_logService != null)
+            {
+                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                 {
+                     _logService.AddLog($"[ERROR] Copy failed: {ex.Message}");
+                 });
+            }
+        }
+        finally
+        {
+            IsCopying = false;
+            IsBusy = false;
+            BusyMessage = "";
+        }
+    }
+
+    [RelayCommand]
+    private async Task SendToPhotoshop(MasterNode item)
+    {
+        if (item.IsDirectory) return;
+        
+        IsBusy = true;
+        BusyMessage = $"Placement {item.Name}..."; // "Placement" sounds cool? Or "Placing..."
+        
+        try
+        {
+             // Use Place Embedded Logic
+             // 1. Write target to temp
+             var tempFile = Path.Combine(Path.GetTempPath(), "bmachine_place_target.txt");
+             await File.WriteAllTextAsync(tempFile, item.FullPath);
+             
+             // 2. Resolve script path
+             var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", "_place_on_layer.jsx");
+             
+             if (File.Exists(scriptPath))
+             {
+                 // 3. Run Jsx
+                 // We need a Photoshop Path.
+                 var psPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath");
+                 if (!string.IsNullOrEmpty(psPath) && _platformService.IsExecutableValid(psPath))
+                 {
+                      _platformService.RunJsxInPhotoshop(scriptPath, psPath);
+                      _logService?.AddLog($"[INFO] Sent to Photoshop: {item.Name}");
+                 }
+                 else
+                 {
+                      // Fallback: Just open file if PS not found/configured
+                      _logService?.AddLog("[WARN] Photoshop path not configured. Opening file normally.");
+                      await SendFileToPhotoshop(item.FullPath, item.Name);
+                 }
+             }
+             else
+             {
+                 _logService?.AddLog("[ERROR] Script '_place_on_layer.jsx' not found.");
+                 // Fallback
+                 await SendFileToPhotoshop(item.FullPath, item.Name);
+             }
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Photoshop integration failed: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyMessage = "";
+        }
+    }
+
+    public async Task SendFileToPhotoshop(string fullPath, string name)
+    {
+        try 
+        {
+             // Log
+            _logService?.AddLog($"[INFO] Opening in Photoshop: {name}");
+            
+            await Task.Run(async () => 
+            {
+                // Fallback Reveal? Maybe not needed for direct open
+                // _platformService.RevealFileInExplorer(fullPath); 
+                
+                // Try to Find Photoshop executable or just Shell Execute
+                // 1. Try User Configured Path
+                string psPath = "";
+                if (_database != null)
+                {
+                     psPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath") ?? "";
+                }
+
+                // 2. Fallback to Helper
+                if (string.IsNullOrEmpty(psPath) || !_platformService.IsExecutableValid(psPath))
+                {
+                    var psPaths = _platformService.GetPhotoshopSearchPaths();
+                    psPath = psPaths.FirstOrDefault(p => _platformService.IsExecutableValid(p));
+                }
+                
+                if (!string.IsNullOrEmpty(psPath) && _platformService.IsExecutableValid(psPath))
+                {
+                     // Use specific Photoshop executable
+                     Process.Start(new ProcessStartInfo(psPath) { Arguments = $"\"{fullPath}\"", UseShellExecute = false });
+                }
+                else
+                {
+                    // Default Shell Execute (System Default)
+                    Process.Start(new ProcessStartInfo(fullPath) { UseShellExecute = true });
+                    if (string.IsNullOrEmpty(psPath)) 
+                    {
+                         _logService?.AddLog("[WARN] Photoshop path not found, using system default.");
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Failed to open: {ex.Message}");
+        }
+    }
+
+
+    // --- SCRIPT EXECUTION CONTROLS ---
+    
+    // Event to request file/folder picker from View
+    public event Func<Task<string?>>? RequestMasterPathBrowse;
+
+    /// <summary>
+    /// The selected Master Template Folder path (e.g. D:\MASTER).
+    /// </summary>
+    [ObservableProperty]
+    private string _masterTemplatePath = "";
+
+    [RelayCommand]
+    private async Task BrowseMaster()
+    {
+        if (RequestMasterPathBrowse != null)
+        {
+            var path = await RequestMasterPathBrowse.Invoke();
+            if (!string.IsNullOrEmpty(path))
+            {
+                MasterTemplatePath = path;
+                // Save to DB (Last Used Template Path)
+                if (_database != null)
+                {
+                    await _database.SetAsync("Configs.Master.LastTemplatePath", path);
+                }
+            }
+        }
+    }
+    
+    [ObservableProperty]
+    private ObservableCollection<BatchScriptOption> _masterScriptOptions = new();
+
+    // Redundant but useful for ItemsControl binding specifically (if separate sorting needed later)
+    public ObservableCollection<BatchScriptOption> MasterScriptOrderList => MasterScriptOptions;
+
+    [ObservableProperty]
+    private ObservableCollection<BatchScriptOption> _actionScriptOptions = new();
+
+    // Store selected PATH
+    [ObservableProperty]
+    private string _selectedMasterScript = "";
+
+    [ObservableProperty]
+    private string _selectedActionScript = "";
+    
+    // Helper objects for AutoCompleteBox binding
+    [ObservableProperty]
+    private BatchScriptOption? _selectedMasterOption;
+
+    [ObservableProperty]
+    private BatchScriptOption? _selectedActionOption;
+
+    partial void OnSelectedMasterOptionChanged(BatchScriptOption? value)
+    {
+        if (value != null) SelectedMasterScript = value.Path;
+    }
+
+    partial void OnSelectedActionOptionChanged(BatchScriptOption? value)
+    {
+        if (value != null) SelectedActionScript = value.Path;
+    }
+
+    private Dictionary<string, ScriptConfig> _scriptAliases = new();
+    private string _metadataPath => Path.Combine(BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "scripts.json");
+
+    private void LoadMetadata()
+    {
+        try
+        {
+            var folder = Path.GetDirectoryName(_metadataPath);
+            if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+            
+            if (!File.Exists(_metadataPath))
+            {
+                var defaultPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+                if (File.Exists(defaultPath))
+                {
+                    File.Copy(defaultPath, _metadataPath);
+                }
+            }
+
+            if (File.Exists(_metadataPath))
+            {
+                var json = File.ReadAllText(_metadataPath);
+                
+                try 
+                {
+                    _scriptAliases = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ScriptConfig>>(json) ?? new();
+                }
+                catch
+                {
+                    _scriptAliases = new(); 
+                }
+            }
+        }
+        catch 
+        { 
+            _scriptAliases = new(); 
+        }
+    }
+
+    /// <summary>
+    /// Load script lists off the UI thread to avoid freezing. Icon resolution runs on UI thread.
+    /// </summary>
+    private async Task LoadScriptsAsync()
+    {
+        var prevMaster = SelectedMasterScript;
+        var prevAction = SelectedActionScript;
+        List<BatchScriptOption>? sortedMasterList = null;
+        List<BatchScriptOption>? sortedActionList = null;
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                LoadMetadata();
+                var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
+                if (!string.IsNullOrEmpty(CustomScriptsPath) && Directory.Exists(CustomScriptsPath))
+                    baseDir = CustomScriptsPath;
+
+                // 1. Master Scripts (IconGeometry set on UI thread)
+                var masterList = new List<(BatchScriptOption Option, int Order)>();
+                var masterDir = Path.Combine(baseDir, "Master");
+                if (Directory.Exists(masterDir))
+                {
+                    foreach (var f in Directory.GetFiles(masterDir, "*.*").Where(f => f.EndsWith(".py")))
+                    {
+                        var fname = Path.GetFileName(f);
+                        string display = Path.GetFileNameWithoutExtension(fname);
+                        int order = 9999;
+                        if (_scriptAliases.TryGetValue(fname, out var config))
+                        {
+                            display = config.Name;
+                            order = config.Order;
+                        }
+                        masterList.Add((new BatchScriptOption
+                        {
+                            Name = display,
+                            OriginalName = fname,
+                            Path = f,
+                            IconGeometry = null
+                        }, order));
+                    }
+                }
+                sortedMasterList = masterList.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
+
+                // 2. Action Scripts (JSX + PYW)
+                var actionList = new List<(BatchScriptOption Option, int Order)>();
+                var actionDir = Path.Combine(baseDir, "Action");
+                if (Directory.Exists(actionDir))
+                {
+                    foreach (var f in Directory.GetFiles(actionDir, "*.jsx"))
+                    {
+                        var fname = Path.GetFileName(f);
+                        string display = Path.GetFileNameWithoutExtension(fname);
+                        int order = 9999;
+                        if (_scriptAliases.TryGetValue(fname, out var ac))
+                        {
+                            display = ac.Name;
+                            order = ac.Order;
+                        }
+                        actionList.Add((new BatchScriptOption { Name = display, Path = f }, order));
+                    }
+                }
+                foreach (var f in Directory.GetFiles(baseDir, "*.pyw"))
+                {
+                    var fname = Path.GetFileName(f);
+                    string display = Path.GetFileNameWithoutExtension(fname);
+                    int order = 9999;
+                    if (_scriptAliases.TryGetValue(fname, out var ac))
+                    {
+                        display = ac.Name;
+                        order = ac.Order;
+                    }
+                    actionList.Add((new BatchScriptOption { Name = display, Path = f }, order));
+                }
+                sortedActionList = actionList.OrderBy(x => x.Order).ThenBy(x => x.Option.Name).Select(x => x.Option).ToList();
+            });
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (sortedMasterList == null || sortedActionList == null) return;
+                // Resolve icons on UI thread (TryGetResource requires it)
+                foreach (var opt in sortedMasterList)
+                {
+                    if (!string.IsNullOrEmpty(opt.OriginalName) && _scriptAliases.TryGetValue(opt.OriginalName, out var config) && !string.IsNullOrEmpty(config.IconKey))
+                    {
+                        if (Avalonia.Application.Current?.TryGetResource(config.IconKey, null, out var res) == true && res is Avalonia.Media.StreamGeometry g)
+                            opt.IconGeometry = g;
+                    }
+                }
+                MasterScriptOptions = new ObservableCollection<BatchScriptOption>(sortedMasterList);
+                OnPropertyChanged(nameof(MasterScriptOrderList));
+                if (MasterScriptOptions.Count > 0)
+                {
+                    var toSelect = MasterScriptOptions.FirstOrDefault(x => x.Path == prevMaster) ?? MasterScriptOptions[0];
+                    SelectedMasterOption = toSelect;
+                }
+                ActionScriptOptions = new ObservableCollection<BatchScriptOption>(sortedActionList);
+                if (ActionScriptOptions.Count > 0)
+                {
+                    var toSelect = ActionScriptOptions.FirstOrDefault(x => x.Path == prevAction) ?? ActionScriptOptions[0];
+                    SelectedActionOption = toSelect;
+                }
+            });
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Execute a specific Master script directly from the UI button.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExecuteSpecificMaster(BatchScriptOption option)
+    {
+        if (option == null) return;
+        SelectedMasterScript = option.Path; // Set selection
+        await ExecuteMaster(); // Execute standard logic
+    }
+
+    [RelayCommand]
+    private async Task ExecuteMaster()
+    {
+        if (string.IsNullOrEmpty(SelectedMasterScript) || !HasFolders) return;
+        
+        IsProcessing = true;
+        
+        var scriptName = Path.GetFileName(SelectedMasterScript);
+        _logService?.AddLog($"[INFO] Memulai Batch Master: {scriptName}");
+
+        // Broadcast Start
+        WeakReferenceMessenger.Default.Send(new ProcessStatusMessage(true, scriptName));
+
+        try
+        {
+            // --- Determine Master Paths based on Script Type ---
+            string masterPrimary = "";
+            string masterSecondary = "";
+            string masterTertiary = "";
+            string okeBasePath = await _database.GetAsync<string>("Configs.Master.OkeBase") ?? ""; // Fetch OKE BASE
+            string userName = await _database.GetAsync<string>("User.Name") ?? "USER"; // Fetch User Name
+
+            string lowerScript = scriptName.ToLower();
+
+            if (_database != null)
+            {
+                if (lowerScript.Contains("wisuda"))
+                {
+                    // Wisuda: 10RP (Primary), 8R (Secondary)
+                    masterPrimary = await _database.GetAsync<string>("Configs.Master.Wisuda10RP") ?? "";
+                    masterSecondary = await _database.GetAsync<string>("Configs.Master.Wisuda8R") ?? "";
+                }
+                else if (lowerScript.Contains("manasik"))
+                {
+                    // Manasik: 10RP (Primary), 8R (Secondary)
+                    masterPrimary = await _database.GetAsync<string>("Configs.Master.Manasik10RP") ?? "";
+                    masterSecondary = await _database.GetAsync<string>("Configs.Master.Manasik8R") ?? "";
+                }
+                else if (lowerScript.Contains("profesi"))
+                {
+                     // Profesi: Profesi (Primary), Sporty (Secondary), Profesi8R (Tertiary)
+                     masterPrimary = await _database.GetAsync<string>("Configs.Master.Profesi") ?? "";
+                     masterSecondary = await _database.GetAsync<string>("Configs.Master.Sporty") ?? "";
+                     masterTertiary = await _database.GetAsync<string>("Configs.Master.Profesi8R") ?? "";
+                }
+                else if (lowerScript.Contains("pasfoto") || lowerScript.Contains("pas_foto"))
+                {
+                     // Pas Foto
+                     masterPrimary = await _database.GetAsync<string>("Configs.Master.PasFoto") ?? "";
+                }
+                else
+                {
+                    // Default / Generic: Use manually Browsed Path if available
+                    masterPrimary = MasterTemplatePath;
+                }
+            }
+            
+            // Fallback if DB lookup empty but Browse button used (Manual override or generic script)
+            if (string.IsNullOrEmpty(masterPrimary) && !string.IsNullOrEmpty(MasterTemplatePath))
+            {
+                masterPrimary = MasterTemplatePath;
+            }
+
+            // Validation
+            bool isBuatMaster = lowerScript.Contains("buat_master");
+            if (string.IsNullOrEmpty(masterPrimary) && !isBuatMaster)
+            {
+                _logService?.AddLog($"[ERROR] Master Template belum diset untuk '{scriptName}' di Settings > Paths, dan belum dipilih manual.");
+                IsProcessing = false;
+                return;
+            }
+            
+            if (isBuatMaster)
+            {
+                masterPrimary = "Auto-detected by Buat Master Orchestrator";
+            }
+            
+            _logService?.AddLog($"[INFO] Master 1: {masterPrimary}");
+            if (!string.IsNullOrEmpty(masterSecondary)) _logService?.AddLog($"[INFO] Master 2: {masterSecondary}");
+            if (!string.IsNullOrEmpty(masterTertiary)) _logService?.AddLog($"[INFO] Master 3: {masterTertiary}");
+
+
+            // ALL Root Folders in the list are processed (Implicit selection)
+            var rootsToProcess = SourceFolders.ToList(); // All source folders
+            
+            if (rootsToProcess.Count == 0)
+            {
+                _logService?.AddLog("[WARNING] Tidak ada folder untuk diproses.");
+                IsProcessing = false;
+                WeakReferenceMessenger.Default.Send(new ProcessStatusMessage(false));
+                return;
+            }
+            
+            _logService?.AddLog($"[INFO] Memproses {rootsToProcess.Count} folder...");
+
+            foreach (var item in rootsToProcess)
+            {
+                if (string.IsNullOrEmpty(item.SourcePath)) continue;
+
+                _logService?.AddLog($"[INFO] Memproses: {item.DisplayName}...");
+                
+                // Construct Arguments
+                // python batch_wrapper.py --target <script> --pilihan <source> --master <template> --master2 <template2> --output <output>
+                
+                // Helper to Trim Trailing Slash which causes issue with closing quote logic if passed raw
+                // Although ArgumentList handles it, it's safer to be clean.
+                string CleanPath(string p) => string.IsNullOrEmpty(p) ? "" : p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                var args = new List<string>
+                {
+                    "Scripts/batch_wrapper.py",
+                    "--target", scriptName,
+                    "--pilihan", CleanPath(item.SourcePath), 
+                    "--master", CleanPath(masterPrimary),
+                    "--master2", CleanPath(masterSecondary),
+                    "--output", CleanPath(OutputBasePath), // Pass Base Path only
+                    "--okebase", CleanPath(okeBasePath)  // Pass OKE Base
+                };
+
+                if (!string.IsNullOrEmpty(masterTertiary))
+                {
+                    args.Add("--master3");
+                    args.Add(CleanPath(masterTertiary));
+                }
+
+                // Pass User Name via Environment Variable
+                var envVars = new Dictionary<string, string>
+                {
+                    { "BMACHINE_USER_NAME", userName }
+                };
+
+                await Task.Run(async () => await RunPythonProcess(args, envVars));
+                
+                // Refresh Output
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => item.RefreshOutput());
+            }
+            
+            _logService?.AddLog("[SUCCESS] Batch Selesai.");
+        }
+        catch (Exception ex)
+        {
+             _logService?.AddLog($"[ERROR] Batch Gagal: {ex.Message}");
+        }
+        finally
+        {
+            IsProcessing = false;
+            WeakReferenceMessenger.Default.Send(new ProcessStatusMessage(false));
+        }
+    }
+    
+    private async Task RunPythonProcess(List<string> args, Dictionary<string, string>? envVars = null)
+    {
+        try 
+        {
+            var scriptPath = "python"; // Default fallback if needed, but the service handles it.
+            // Wait, the interface expects scriptPath separated from args?
+            // The existing `args` list contains "Scripts/batch_wrapper.py" as the first element!
+            // See line 912: "Scripts/batch_wrapper.py"
+            
+            string actualScript = "";
+            var actualArgs = new List<string>();
+            
+            if (args.Count > 0)
+            {
+                actualScript = args[0];
+                if (args.Count > 1) actualArgs = args.Skip(1).ToList();
+            }
+            
+            // Resolve script path to absolute if it's relative?
+            // "Scripts/batch_wrapper.py" implies relative to BaseDirectory.
+            if (!Path.IsPathRooted(actualScript))
+            {
+                actualScript = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, actualScript);
+            }
+
+            await _platformService.RunPythonScriptAsync(
+                actualScript, 
+                actualArgs, 
+                envVars,
+                onOutput: (data) => _logService?.AddLog(data),
+                onError: (data) => _logService?.AddLog($"[ERROR] {data}")
+            );
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Failed to start python: {ex.Message}");
+        }
+    }
+    
+    [ObservableProperty] private bool _isProcessing;
+    [ObservableProperty] private bool _isUseInputFolder = false;
+    [ObservableProperty] private bool _isUseOutputFolder = false;
+
+    [RelayCommand]
+    private async Task ExecuteAction()
+    {
+        if (string.IsNullOrEmpty(SelectedActionScript)) return;
+
+        IsProcessing = true;
+        _logService?.AddLog($"[INFO] Menjalankan Action Script: {Path.GetFileName(SelectedActionScript)}");
+
+        try
+        {
+            // 1. Write Context to Temp File (for script to read if supported)
+            var context = new { 
+                SourceFolders = SourceFolders.Select(x => new { x.SourcePath, x.OutputPath }).ToList(),
+                OutputBasePath = OutputBasePath,
+                UseInput = IsUseInputFolder,
+                UseOutput = IsUseOutputFolder,
+                MasterTemplatePath = MasterTemplatePath
+            };
+            
+            var json = System.Text.Json.JsonSerializer.Serialize(context, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            _logService?.AddLog($"[DEBUG] Context Payload:\n{json}"); // DEBUG LOG
+            
+            var tempPath = await Services.BmachineContextService.WriteContextAsync(
+                json, msg => _logService?.AddLog($"[INFO] Context written to: {msg}"));
+            
+            _logService?.AddLog($"[INFO] Context written to: {tempPath}");
+
+            // 2. Run Photoshop
+            // Assume Photoshop is in PATH or just use 'start' via Process
+            // Command: photoshop.exe -r "path/to/script.jsx"
+            
+            if (SelectedActionScript.EndsWith(".pyw", StringComparison.OrdinalIgnoreCase))
+            {
+                 // Run Python GUI Script direclty
+                 _logService?.AddLog($"[INFO] Launching Python Script: {Path.GetFileName(SelectedActionScript)}");
+                 _platformService.RunPythonScript(SelectedActionScript, true);
+            }
+            else
+            {
+                // Default: Photoshop Action (.jsx)
+                 _logService?.AddLog($"[INFO] Launching Photoshop...");
+                 // Need Photoshop path? 
+                 // The old code assumed "photoshop" in PATH.
+                 // We can lookup or just try "photoshop" if we implement fuzzy search in Service?
+                 // Or we can use RunJsxInPhotoshop which requires a path.
+                 // Let's get the path from DB first as Best Practice.
+                 var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath") ?? "photoshop";
+                 
+                 _platformService.RunJsxInPhotoshop(SelectedActionScript, photoshopPath);
+            }
+            
+            _logService?.AddLog("[SUCCESS] Script sent to Photoshop.");
+        }
+        catch (Exception ex)
+        {
+             _logService?.AddLog($"[ERROR] Action Launch Failed: {ex.Message}");
+             _logService?.AddLog("[HINT] Pastikan Photoshop terinstall dan ada di SYSTEM PATH.");
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+    
+    /// <summary>
+    /// Open dialog to browse for Master Template folder.
+    /// </summary>
+    [RelayCommand]
+    private async Task BrowseMasterTemplate()
+    {
+        var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(
+            Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+            ? desktop.MainWindow : null);
+            
+        if (topLevel == null) return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
+        {
+            Title = "Select Master Template Folder",
+            AllowMultiple = false
+        });
+
+        if (folders.Count == 1)
+        {
+            MasterTemplatePath = folders[0].Path.LocalPath;
+             // Save to DB
+            if (_database != null)
+                await _database.SetAsync("Configs.Master.LastTemplatePath", MasterTemplatePath);
+                
+            _logService?.AddLog($"[INFO] Master Template set: {MasterTemplatePath}");
+        }
+    }
+
+    // --- QUICK ACTIONS ---
+    [ObservableProperty]
+    private string _newFolderName = "";
+
+    [ObservableProperty]
+    private bool _isFolderOverlayVisible = false;
+
+    [ObservableProperty]
+    private string _folderOverlayTitle = "New Folder";
+
+    [ObservableProperty]
+    private string _folderOverlayType = "Source";
+    
+    [ObservableProperty]
+    private bool _isFolderTemplatesVisible = false;
+
+    public System.Collections.ObjectModel.ObservableCollection<string> FolderTemplates { get; } = new();
+
+    [RelayCommand]
+    private void OpenFolderOverlay(string type)
+    {
+        FolderOverlayType = type;
+        FolderOverlayTitle = type.Equals("Source", StringComparison.OrdinalIgnoreCase) ? "New Source Folder" : "New Output Folder";
+        NewFolderName = "";
+        IsFolderTemplatesVisible = false;
+        IsFolderOverlayVisible = true;
+    }
+
+    [RelayCommand]
+    private void CloseFolderOverlay()
+    {
+        IsFolderOverlayVisible = false;
+        IsFolderTemplatesVisible = false;
+        NewFolderName = "";
+    }
+
+    [RelayCommand]
+    private void ToggleFolderTemplates()
+    {
+        IsFolderTemplatesVisible = !IsFolderTemplatesVisible;
+    }
+
+    [RelayCommand]
+    private async Task ApplyFolderTemplate(string template)
+    {
+        NewFolderName = template;
+        await CreateFolder(FolderOverlayType);
+    }
+    
+    [RelayCommand]
+    private async Task AddFolderTemplate()
+    {
+        if (string.IsNullOrWhiteSpace(NewFolderName)) return;
+        var t = NewFolderName.Trim().ToUpper();
+        if (!FolderTemplates.Contains(t))
+        {
+            FolderTemplates.Add(t);
+            await SaveFolderTemplatesAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveFolderTemplate(string template)
+    {
+        if (FolderTemplates.Contains(template))
+        {
+            FolderTemplates.Remove(template);
+            await SaveFolderTemplatesAsync();
+        }
+    }
+
+    private async Task LoadFolderTemplatesAsync()
+    {
+        if (_database == null) return;
+        var json = await _database.GetAsync<string>("Batch.FolderTemplates");
+        if (!string.IsNullOrEmpty(json))
+        {
+            try
+            {
+                var list = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
+                if (list != null && list.Count > 0)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        FolderTemplates.Clear();
+                        foreach (var i in list) FolderTemplates.Add(i);
+                    });
+                    return;
+                }
+            }
+            catch { }
+        }
+        
+        // Defaults
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            FolderTemplates.Clear();
+            FolderTemplates.Add("REVISI");
+            FolderTemplates.Add("FINAL");
+            FolderTemplates.Add("DESIGN");
+            FolderTemplates.Add("ASSETS");
+            FolderTemplates.Add("OUTPUT");
+            FolderTemplates.Add("EXPORT");
+        });
+    }
+
+    private async Task SaveFolderTemplatesAsync()
+    {
+        if (_database == null) return;
+        var json = System.Text.Json.JsonSerializer.Serialize(FolderTemplates.ToList());
+        await _database.SetAsync("Batch.FolderTemplates", json);
+    }
+
+    [RelayCommand]
+    private async Task CreateFolder(string targetType)
+    {
+        if (string.IsNullOrWhiteSpace(NewFolderName)) return;
+        
+        string? targetPath = null;
+        BatchFolderRoot? itemToRefresh = null;
+
+        // Determine Target Path
+        if (targetType.Equals("Source", StringComparison.OrdinalIgnoreCase))
+        {
+            var root = SourceFolders.FirstOrDefault();
+            if (root != null) 
+            {
+                targetPath = root.SourcePath;
+                itemToRefresh = root;
+            }
+        }
+        else if (targetType.Equals("Output", StringComparison.OrdinalIgnoreCase))
+        {
+             // For Output, we create in the Output Base Path + Relative Path of first item?
+             // Or just in the Output Base Path directly if no folder structure?
+             // Let's assume user wants to create folder in the Output directory of the first item
+             // OR in the main OutputBasePath if it's set.
+             
+             // Strategy: Try to use the first item's OutputPath
+             var root = SourceFolders.FirstOrDefault();
+             if (root != null && !string.IsNullOrEmpty(root.OutputPath))
+             {
+                 targetPath = root.OutputPath;
+                 itemToRefresh = root;
+             }
+             else if (!string.IsNullOrEmpty(OutputBasePath))
+             {
+                 targetPath = OutputBasePath;
+             }
+        }
+
+        if (string.IsNullOrEmpty(targetPath)) 
+        {
+            _logService?.AddLog("[WARNING] Cannot create folder: Target path not found.");
+            return;
+        }
+        
+        try
+        {
+            var newPath = Path.Combine(targetPath, NewFolderName);
+            if (!Directory.Exists(newPath))
+            {
+                Directory.CreateDirectory(newPath);
+                
+                // Show success (log)
+                _logService?.AddLog($"[INFO] Folder Created: {newPath}");
+                
+                // Refresh
+                if (itemToRefresh != null)
+                {
+                    itemToRefresh.RefreshSource();
+                    itemToRefresh.RefreshOutput();
+                }
+                else
+                {
+                    Refresh();
+                }
+                
+                // Clear input and close overlay
+                NewFolderName = "";
+                IsFolderOverlayVisible = false;
+                IsFolderTemplatesVisible = false;
+            }
+            else
+            {
+                 _logService?.AddLog($"[WARNING] Folder already exists: {NewFolderName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Failed to create folder: {ex.Message}");
+        }
+    }
+
+
+    /// <summary>
+    /// Load settings from database.
+    /// </summary>
+    private async Task LoadOutputBasePathAsync()
+    {
+        if (_database != null)
+        {
+            OutputBasePath = await _database.GetAsync<string>("Configs.Master.LocalOutput") ?? "";
+            MasterTemplatePath = await _database.GetAsync<string>("Configs.Master.LastTemplatePath") ?? "";
+            
+            // Load custom scripts path
+            var customScripts = await _database.GetAsync<string>("Configs.System.ScriptsPath");
+            if (!string.IsNullOrEmpty(customScripts) && Directory.Exists(customScripts))
+            {
+                CustomScriptsPath = customScripts;
+            }
+        }
+        await LoadScriptsAsync();
+    }
+    
+    [ObservableProperty]
+    private string _customScriptsPath = "";
+    
+    [RelayCommand]
+    private async Task BrowseScriptsFolder()
+    {
+        var topLevel = Avalonia.Controls.TopLevel.GetTopLevel(
+            Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+            ? desktop.MainWindow : null);
+            
+        if (topLevel == null) return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
+        {
+            Title = "Select Scripts Root Folder",
+            AllowMultiple = false
+        });
+
+        if (folders.Count == 1)
+        {
+            CustomScriptsPath = folders[0].Path.LocalPath;
+            if (_database != null)
+                await _database.SetAsync("Configs.System.ScriptsPath", CustomScriptsPath);
+            
+            _logService?.AddLog($"[INFO] Scripts Path updated: {CustomScriptsPath}");
+            await LoadScriptsAsync();
+        }
+    }
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    [ObservableProperty]
+    private string _busyMessage = "";
+
+    private string ResolveShortcutTarget(string shortcutPath)
+    {
+        try
+        {
+            if (!File.Exists(shortcutPath)) return "";
+
+            string tempVbs = Path.Combine(Path.GetTempPath(), $"resolve_lnk_{System.Guid.NewGuid()}.vbs");
+            string script = $@"
+                Set wshShell = CreateObject(""WScript.Shell"")
+                Set sc = wshShell.CreateShortcut(""{shortcutPath}"")
+                WScript.Echo sc.TargetPath
+            ";
+            
+            File.WriteAllText(tempVbs, script);
+
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "cscript",
+                Arguments = $"//Nologo \"{tempVbs}\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc != null)
+            {
+                string target = proc.StandardOutput.ReadToEnd().Trim();
+                proc.WaitForExit();
+                try { File.Delete(tempVbs); } catch {}
+                return target;
+            }
+            
+            try { File.Delete(tempVbs); } catch {}
+        }
+        catch { }
+        return "";
+    }
+}
+
+
+

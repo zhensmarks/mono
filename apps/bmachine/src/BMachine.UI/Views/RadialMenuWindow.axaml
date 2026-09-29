@@ -1,0 +1,217 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        xmlns:models="using:BMachine.UI.Models"
+        xmlns:controls="using:BMachine.UI.Controls"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="400"
+        x:Class="BMachine.UI.Views.RadialMenuWindow"
+        x:DataType="vm:RadialMenuViewModel"
+        x:Name="RadialRoot"
+        Width="200" Height="200"
+        WindowStartupLocation="Manual"
+        SystemDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        CanResize="False"
+        Title="RadialMenu">
+
+    <Window.Styles>
+        <!-- Item Button Style -->
+        <Style Selector="Button.MenuButton">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="ClipToBounds" Value="False"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <Border Name="PART_Bg"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                        <ContentPresenter Name="PART_Content"
+                                          Content="{TemplateBinding Content}"
+                                          HorizontalContentAlignment="Center"
+                                          VerticalContentAlignment="Center"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        
+        <Style Selector="Button.MenuButton:pointerover">
+             <Setter Property="Cursor" Value="Hand"/>
+             <Setter Property="RenderTransform" Value="scale(1.15)"/>
+        </Style>
+
+        <!-- Restore accent highlight effect: handled by the PieWedge slice instead -->
+        <Style Selector="Button.MenuButton.highlighted /template/ Border#PART_Bg">
+             <!-- Empty, let the PieWedge handle the glow beneath it -->
+        </Style>
+
+        <!-- Navigation Button (More/Back) — theme-aware, minimal, compact -->
+        <Style Selector="Button.NavButton">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="CornerRadius" Value="15"/>
+            <Setter Property="ClipToBounds" Value="False"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        
+        <Style Selector="Button.NavButton:pointerover">
+             <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+             <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <Style Selector="Button.NavButton">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
+    <Border Background="Transparent">
+        <Grid>
+             <!-- 1. Main background plate: circular clip (ring + wedges), not a square card -->
+             <Border Width="200" Height="200" CornerRadius="100"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Background="{DynamicResource AppBackgroundBrush}"
+                     ClipToBounds="True">
+             </Border>
+
+             <!-- 2. Segmented Divider Lines (Absolute 22.5 Degree Math Offsets to perfectly frame the 45-degree slices) -->
+             <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.4">
+                 <!-- 22.5° -->
+                 <Line StartPoint="116.84,59.35" EndPoint="138.27,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 67.5° -->
+                 <Line StartPoint="140.65,83.16" EndPoint="192.39,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 112.5° -->
+                 <Line StartPoint="140.65,116.84" EndPoint="192.39,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 157.5° -->
+                 <Line StartPoint="116.84,140.65" EndPoint="138.27,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 202.5° -->
+                 <Line StartPoint="83.16,140.65" EndPoint="61.73,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 247.5° -->
+                 <Line StartPoint="59.35,116.84" EndPoint="7.61,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 292.5° -->
+                 <Line StartPoint="59.35,83.16" EndPoint="7.61,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <!-- 337.5° -->
+                 <Line StartPoint="83.16,59.35" EndPoint="61.73,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+             </Canvas>
+
+             <!-- Hover Pie Wedge (Accent Glow Highlight with Custom Overlay Indicators) -->
+             <controls:PieWedge Width="200" Height="200"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                StartAngle="{Binding WedgeStart}" SweepAngle="{Binding WedgeSweep}"
+                                InnerRadius="44" OuterRadius="100"
+                                Fill="{DynamicResource AccentBlueBrush}" Opacity="0.5"
+                                ShowHoverIndicators="True" HoverStroke="{DynamicResource TextPrimaryBrush}"
+                                IsVisible="{Binding IsWedgeVisible}"
+                                IsHitTestVisible="False"/>
+
+             <!-- 5. Solid central hub (circular to match inner ring) -->
+             <Border Width="88" Height="88" CornerRadius="44"
+                     Background="{DynamicResource CardBackgroundBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,0">
+                     <TextBlock Text="{Binding CenterTextTitle}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="2" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxLines="2" Width="70"/>
+                     <TextBlock Text="{Binding CenterTextSubtitle}" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                 </StackPanel>
+             </Border>
+
+             <!-- 6. Foreground Structural Rings (Concentric borders drawn over the hub and wedges) -->
+             <Ellipse Width="200" Height="200" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+             <Ellipse Width="88" Height="88" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+
+             <!-- Radial Menu Items overlay... -->
+             <ItemsControl ItemsSource="{Binding VisibleItems}" ClipToBounds="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Canvas Width="200" Height="200" ClipToBounds="False"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.Styles>
+                    <Style Selector="ItemsControl > ContentPresenter">
+                        <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                        <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                    </Style>
+                </ItemsControl.Styles>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:RadialMenuItem">
+                        <Grid Width="36" Height="36" ClipToBounds="False">
+                            <!-- Regular script button -->
+                            <Button Classes="MenuButton" 
+                                    Classes.highlighted="{Binding IsHighlighted}"
+                                    IsVisible="{Binding !IsNavigation}"
+                                    Command="{Binding DataContext.ExecuteScript, ElementName=RadialRoot}" 
+                                    CommandParameter="{Binding ScriptPath}">
+                                <Grid>
+                                    <!-- Icon with Drop Shadow for legibility -->
+                                    <Viewbox Width="18" Height="18" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                         <Path Data="{Binding Icon}" Fill="{DynamicResource TextPrimaryBrush}" Stretch="Uniform">
+                                         </Path>
+                                    </Viewbox>
+                                    
+                                    <!-- Fallback Text -->
+                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
+                                    </TextBlock>
+                                </Grid>
+                            </Button>
+
+                            <!-- Navigation button (More / Back) -->
+                            <Button Classes="NavButton"
+                                    IsVisible="{Binding IsNavigation}"
+                                    IsHitTestVisible="False">
+                                <TextBlock Text="{Binding ShortName}" 
+                                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           FontSize="12" FontWeight="Bold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+             </ItemsControl>
+        </Grid>
+    </Border>
+</Window>

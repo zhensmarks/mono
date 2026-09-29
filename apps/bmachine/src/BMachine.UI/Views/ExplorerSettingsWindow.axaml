@@ -1,0 +1,217 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:BMachine.UI.ViewModels"
+        xmlns:views="using:BMachine.UI.Views"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
+        x:Class="BMachine.UI.Views.ExplorerSettingsWindow"
+        x:DataType="vm:OutputExplorerViewModel"
+        Title="Explorer Settings"
+        Width="400" Height="450"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        FontFamily="{DynamicResource FontPrimary}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+
+    <Window.Styles>
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Opacity" Value="0.88"/>
+        </Style>
+        <Style Selector="ToggleSwitch.ExplorerToggle">
+            <Setter Property="Width" Value="64"/>
+            <Setter Property="MinWidth" Value="64"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="Button.Tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="MinWidth" Value="84"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Tab:pointerover:not(.on)">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.Tab.on">
+            <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+
+        <Style Selector="RadioButton.Segmented">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.Segmented:checked">
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
+        </Style>
+        <Style Selector="RadioButton.Segmented:pointerover:not(:checked)">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.Tab:pointerover:not(.on)">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.Tab.on">
+            <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+
+        <Style Selector="RadioButton.Segmented">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.Segmented:checked">
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}"/>
+        </Style>
+        <Style Selector="RadioButton.Segmented:pointerover:not(:checked)">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+
+    </Window.Styles>
+
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+        <Grid>
+        <!-- ═══ CONTENT ═══ -->
+        <ScrollViewer ZIndex="0" Padding="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+                <!-- GENERAL TAB -->
+                <Grid IsVisible="{Binding ExplorerSettingsVM.IsGeneralTabVisible}">
+                    <StackPanel Spacing="16" Margin="24,64,24,32">
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                            <StackPanel Spacing="12">
+                                <Grid RowDefinitions="Auto,Auto">
+                                    <TextBlock Grid.Row="0" Text="DEFAULT EXPLORER PATH" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                                    <TextBlock Grid.Row="1" Text="The root folder to open when the Explorer starts." FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding ExplorerSettingsVM.DefaultExplorerPath}" Margin="0,0,8,0" Watermark="C:\Output..." VerticalContentAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="Browse" Classes="Primary" Command="{Binding ExplorerSettingsVM.BrowsePathCommand}" CommandParameter="DefaultExplorerPath" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                            <StackPanel Spacing="12">
+                                <Grid RowDefinitions="Auto,Auto">
+                                    <TextBlock Grid.Row="0" Text="VIEW MODE" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
+                                    <TextBlock Grid.Row="1" Text="Choose how files and folders are displayed by default." FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </Grid>
+                                <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="6" Padding="3" HorizontalAlignment="Left" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                                    <Grid ColumnDefinitions="*,*,*" Width="300">
+                                        <RadioButton Grid.Column="0" IsChecked="{Binding IsVerticalLayout}" Classes="Segmented" FontSize="11">
+                                            <TextBlock Text="List" Foreground="{Binding $parent[RadioButton].Foreground}" FontSize="11"/>
+                                        </RadioButton>
+                                        <RadioButton Grid.Column="1" IsChecked="{Binding IsHorizontalLayout}" Classes="Segmented" FontSize="11">
+                                            <TextBlock Text="Grid" Foreground="{Binding $parent[RadioButton].Foreground}" FontSize="11"/>
+                                        </RadioButton>
+                                        <RadioButton Grid.Column="2" IsChecked="{Binding IsThumbnailLayout}" Classes="Segmented" FontSize="11">
+                                            <TextBlock Text="Thumbnails" Foreground="{Binding $parent[RadioButton].Foreground}" FontSize="11"/>
+                                        </RadioButton>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="LAYOUT &amp; NAVIGATION" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Grid RowDefinitions="Auto,Auto" Margin="0,0,8,0">
+                                        <TextBlock Text="Show Path Bar" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Grid.Row="1" Text="Display breadcrumb path bar at the top." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                    </Grid>
+                                    <ToggleSwitch Grid.Column="1" Classes="ExplorerToggle" IsChecked="{Binding IsShowPathBar}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <Grid IsVisible="{Binding ExplorerSettingsVM.IsShortcutsTabVisible}">
+                    <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" Padding="24,64,24,32" />
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+
+        <Grid ZIndex="10" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0">
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="3" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ExplorerSettingsTabs" IsChecked="{Binding ExplorerSettingsVM.IsGeneralTabVisible}">
+                        <TextBlock Text="GENERAL" Foreground="{Binding $parent[RadioButton].Foreground}" FontSize="12" FontWeight="SemiBold"/>
+                    </RadioButton>
+                    <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ExplorerSettingsTabs" IsChecked="{Binding ExplorerSettingsVM.IsShortcutsTabVisible}">
+                        <TextBlock Text="SETTINGS" Foreground="{Binding $parent[RadioButton].Foreground}" FontSize="12" FontWeight="SemiBold"/>
+                    </RadioButton>
+                </StackPanel>
+            </Border>
+        </Grid>
+        
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,350 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using BMachine.Core.Database;
+using BMachine.UI.Messages;
+using System.Threading.Tasks;
+using System.Linq;
+using BMachine.SDK;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
+
+namespace BMachine.UI.ViewModels;
+
+public partial class ExplorerSettingsViewModel : ObservableObject
+{
+    private readonly IDatabase _database;
+
+    [ObservableProperty]
+    private string _pathLocalOutput = "";
+
+    [ObservableProperty]
+    private string _defaultExplorerPath = "";
+
+    // --- Tab Navigation ---
+    [ObservableProperty] private bool _isGeneralTabVisible = true;
+    [ObservableProperty] private bool _isShortcutsTabVisible;
+
+    [RelayCommand]
+    private void SwitchTab(string tabName)
+    {
+        IsGeneralTabVisible = tabName == "General";
+        IsShortcutsTabVisible = tabName == "Shortcuts";
+    }
+
+    // --- Shortcuts (all editable via Record) ---
+    [ObservableProperty] private string _shortcutNewFolder = "Ctrl+Shift+N";
+    [ObservableProperty] private string _shortcutNewFile = "Ctrl+Shift+T";
+    [ObservableProperty] private string _shortcutFocusSearch = "Ctrl+L";
+    [ObservableProperty] private string _shortcutDelete = "Ctrl+D";
+    [ObservableProperty] private string _shortcutNewWindow = "Ctrl+N";
+    [ObservableProperty] private string _shortcutNewTab = "Ctrl+T";
+    [ObservableProperty] private string _shortcutCloseTab = "Ctrl+W";
+    [ObservableProperty] private string _shortcutNavigateUp = "Alt+Up";
+    [ObservableProperty] private string _shortcutBack = "Alt+Left";
+    [ObservableProperty] private string _shortcutForward = "Alt+Right";
+    [ObservableProperty] private string _shortcutRename = "F2";
+    [ObservableProperty] private string _shortcutPermanentDelete = "Shift+Delete";
+    [ObservableProperty] private string _shortcutFocusSearchBox = "Ctrl+F";
+    [ObservableProperty] private string _shortcutAddressBar = "Alt+D";
+    [ObservableProperty] private string _shortcutAddressBar2 = "Ctrl+L";
+    [ObservableProperty] private string _shortcutSwitchTab = "Ctrl+Tab";
+    [ObservableProperty] private string _shortcutCopy = "Ctrl+C";
+    [ObservableProperty] private string _shortcutCut = "Ctrl+X";
+    [ObservableProperty] private string _shortcutPaste = "Ctrl+V";
+    [ObservableProperty] private string _shortcutCopyPath = "Ctrl+Shift+C";
+    [ObservableProperty] private string _shortcutPastePath = "Ctrl+Shift+V";
+
+    [ObservableProperty] private bool _isRecordingShortcut;
+    [ObservableProperty] private string _recordingForKey = ""; // e.g. "ShortcutNewFolder"
+
+    // --- Visual Settings ---
+    [ObservableProperty] private bool _showHiddenFiles;
+    [ObservableProperty] private bool _showFileExtensions = true;
+    [ObservableProperty] private string _defaultViewMode = "Vertical";
+    [ObservableProperty] private string _defaultSortBy = "Name";
+    [ObservableProperty] private bool _defaultSortDescending;
+    [ObservableProperty] private string _defaultGroupBy = "None";
+
+    // --- Appearance Settings ---
+    [ObservableProperty] private double _contentZoom = 100; // Percent, 75..200
+    [ObservableProperty] private bool _useSystemIcons;      // Use Windows shell icons (7tsp themes)
+    [ObservableProperty] private string _customIconPath = ""; // Custom 7tsp icon pack path
+    [ObservableProperty] private string _explorerFontFamily = "";
+
+    public System.Collections.ObjectModel.ObservableCollection<string> AvailableFontFamilies { get; } =
+        new(Avalonia.Media.FontManager.Current.SystemFonts
+            .Select(x => x.Name)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
+
+    [RelayCommand]
+    private async Task BrowseCustomIconFolder()
+    {
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
+
+        var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select 7tsp / Icon Folder",
+            AllowMultiple = false
+        });
+
+        if (result == null || result.Count == 0) return;
+        var buffer = result[0].Path.LocalPath;
+        if (!string.IsNullOrEmpty(buffer))
+        {
+            CustomIconPath = buffer;
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseCustomIconFile()
+    {
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
+
+         var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+         {
+             Title = "Select 7tsp Theme Package or Icon File",
+             AllowMultiple = false,
+             FileTypeFilter = new[]
+             {
+                 new FilePickerFileType("7tsp Theme Packages")
+                 {
+                     Patterns = new[] { "*.7z" }
+                 },
+                 new FilePickerFileType("Icons and Libraries")
+                 {
+                     Patterns = new[] { "*.dll", "*.res", "*.ico", "*.png", "*.exe", "*.icl" }
+                 },
+                 new FilePickerFileType("All Files")
+                 {
+                     Patterns = new[] { "*.*" }
+                 }
+             }
+         });
+
+        if (result == null || result.Count == 0) return;
+        var buffer = result[0].Path.LocalPath;
+        if (!string.IsNullOrEmpty(buffer))
+        {
+            CustomIconPath = buffer;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearCustomIconPath()
+    {
+        CustomIconPath = "";
+    }
+
+    [RelayCommand]
+    private void AdjustZoom(object? deltaParam)
+    {
+        double delta = 0;
+        if (deltaParam is double d) delta = d;
+        else if (deltaParam is int i) delta = i;
+        else if (deltaParam is string s && double.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed)) delta = parsed;
+        if (delta != 0)
+            ContentZoom = Math.Clamp(ContentZoom + delta, 75, 200);
+    }
+
+    public ExplorerSettingsViewModel(IDatabase database)
+    {
+        _database = database;
+        _ = LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        PathLocalOutput = await _database.GetAsync<string>("Configs.Path.LocalOutput") ?? "";
+        DefaultExplorerPath = await _database.GetAsync<string>("Configs.Explorer.DefaultPath") ?? "";
+        ShortcutNewFolder = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewFolder") ?? "Ctrl+Shift+N";
+        ShortcutNewFile = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewFile") ?? "Ctrl+Shift+T";
+        ShortcutFocusSearch = await _database.GetAsync<string>("Configs.Explorer.ShortcutFocusSearch") ?? "Ctrl+L";
+        ShortcutDelete = await _database.GetAsync<string>("Configs.Explorer.ShortcutDelete") ?? "Ctrl+D";
+        ShortcutNewWindow = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewWindow") ?? "Ctrl+N";
+        ShortcutNewTab = await _database.GetAsync<string>("Configs.Explorer.ShortcutNewTab") ?? "Ctrl+T";
+        ShortcutCloseTab = await _database.GetAsync<string>("Configs.Explorer.ShortcutCloseTab") ?? "Ctrl+W";
+        ShortcutNavigateUp = await _database.GetAsync<string>("Configs.Explorer.ShortcutNavigateUp") ?? "Alt+Up";
+        ShortcutBack = await _database.GetAsync<string>("Configs.Explorer.ShortcutBack") ?? "Alt+Left";
+        ShortcutForward = await _database.GetAsync<string>("Configs.Explorer.ShortcutForward") ?? "Alt+Right";
+        ShortcutRename = await _database.GetAsync<string>("Configs.Explorer.ShortcutRename") ?? "F2";
+        ShortcutPermanentDelete = await _database.GetAsync<string>("Configs.Explorer.ShortcutPermanentDelete") ?? "Shift+Delete";
+        ShortcutFocusSearchBox = await _database.GetAsync<string>("Configs.Explorer.ShortcutFocusSearchBox") ?? "Ctrl+F";
+        ShortcutAddressBar = await _database.GetAsync<string>("Configs.Explorer.ShortcutAddressBar") ?? "Alt+D";
+        ShortcutAddressBar2 = await _database.GetAsync<string>("Configs.Explorer.ShortcutAddressBar2") ?? "Ctrl+L";
+        ShortcutSwitchTab = await _database.GetAsync<string>("Configs.Explorer.ShortcutSwitchTab") ?? "Ctrl+Tab";
+        ShortcutCopy = await _database.GetAsync<string>("Configs.Explorer.ShortcutCopy") ?? "Ctrl+C";
+        ShortcutCut = await _database.GetAsync<string>("Configs.Explorer.ShortcutCut") ?? "Ctrl+X";
+        ShortcutPaste = await _database.GetAsync<string>("Configs.Explorer.ShortcutPaste") ?? "Ctrl+V";
+        ShortcutCopyPath = await _database.GetAsync<string>("Configs.Explorer.ShortcutCopyPath") ?? "Ctrl+Shift+C";
+        ShortcutPastePath = await _database.GetAsync<string>("Configs.Explorer.ShortcutPastePath") ?? "Ctrl+Shift+V";
+
+        ShowHiddenFiles = bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.ShowHiddenFiles"), out var shf) && shf;
+        ShowFileExtensions = !bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.ShowFileExtensions"), out var sfe) || sfe;
+        DefaultViewMode = await _database.GetAsync<string>("Configs.Explorer.DefaultViewMode") ?? "Vertical";
+        DefaultSortBy = await _database.GetAsync<string>("Configs.Explorer.DefaultSortBy") ?? "Name";
+        DefaultSortDescending = bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.DefaultSortDescending"), out var dsd) && dsd;
+        DefaultGroupBy = await _database.GetAsync<string>("Configs.Explorer.DefaultGroupBy") ?? "None";
+
+        ContentZoom = double.TryParse(await _database.GetAsync<string>("Configs.Explorer.ContentZoom"), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var cz) && cz >= 50 ? cz : 100;
+        UseSystemIcons = bool.TryParse(await _database.GetAsync<string>("Configs.Explorer.UseSystemIcons"), out var usi) && usi;
+        CustomIconPath = await _database.GetAsync<string>("Configs.Explorer.CustomIconPath") ?? "";
+        ExplorerFontFamily = await _database.GetAsync<string>("Configs.Explorer.FontFamily") ?? "";
+    }
+
+    [RelayCommand]
+    private void StartRecording(string? shortcutKey)
+    {
+        if (string.IsNullOrEmpty(shortcutKey)) return;
+        RecordingForKey = shortcutKey;
+        IsRecordingShortcut = true;
+        WeakReferenceMessenger.Default.Send(new ExplorerSettingsFocusMessage());
+    }
+
+    [RelayCommand]
+    private void CancelRecording()
+    {
+        IsRecordingShortcut = false;
+        RecordingForKey = "";
+    }
+
+    /// <summary>Called from view when a key is captured during recording. gestureString e.g. "Ctrl+Shift+N".</summary>
+    public void ApplyRecordedShortcut(string gestureString)
+    {
+        if (string.IsNullOrEmpty(RecordingForKey)) return;
+        switch (RecordingForKey)
+        {
+            case "ShortcutNewFolder": ShortcutNewFolder = gestureString; break;
+            case "ShortcutNewFile": ShortcutNewFile = gestureString; break;
+            case "ShortcutFocusSearch": ShortcutFocusSearch = gestureString; break;
+            case "ShortcutDelete": ShortcutDelete = gestureString; break;
+            case "ShortcutNewWindow": ShortcutNewWindow = gestureString; break;
+            case "ShortcutNewTab": ShortcutNewTab = gestureString; break;
+            case "ShortcutCloseTab": ShortcutCloseTab = gestureString; break;
+            case "ShortcutNavigateUp": ShortcutNavigateUp = gestureString; break;
+            case "ShortcutBack": ShortcutBack = gestureString; break;
+            case "ShortcutForward": ShortcutForward = gestureString; break;
+            case "ShortcutRename": ShortcutRename = gestureString; break;
+            case "ShortcutPermanentDelete": ShortcutPermanentDelete = gestureString; break;
+            case "ShortcutFocusSearchBox": ShortcutFocusSearchBox = gestureString; break;
+            case "ShortcutAddressBar": ShortcutAddressBar = gestureString; break;
+            case "ShortcutAddressBar2": ShortcutAddressBar2 = gestureString; break;
+            case "ShortcutSwitchTab": ShortcutSwitchTab = gestureString; break;
+            case "ShortcutCopy": ShortcutCopy = gestureString; break;
+            case "ShortcutCut": ShortcutCut = gestureString; break;
+            case "ShortcutPaste": ShortcutPaste = gestureString; break;
+            case "ShortcutCopyPath": ShortcutCopyPath = gestureString; break;
+            case "ShortcutPastePath": ShortcutPastePath = gestureString; break;
+        }
+        _ = SaveShortcutAsync($"Configs.Explorer.{RecordingForKey}", gestureString);
+        IsRecordingShortcut = false;
+        RecordingForKey = "";
+    }
+
+    partial void OnShortcutNewFolderChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutNewFolder", value);
+    partial void OnShortcutNewFileChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutNewFile", value);
+    partial void OnShortcutFocusSearchChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutFocusSearch", value);
+    partial void OnShortcutDeleteChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutDelete", value);
+    partial void OnShortcutNewWindowChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutNewWindow", value);
+    partial void OnShortcutNewTabChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutNewTab", value);
+    partial void OnShortcutCloseTabChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCloseTab", value);
+    partial void OnShortcutNavigateUpChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutNavigateUp", value);
+    partial void OnShortcutBackChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutBack", value);
+    partial void OnShortcutForwardChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutForward", value);
+    partial void OnShortcutRenameChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutRename", value);
+    partial void OnShortcutPermanentDeleteChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutPermanentDelete", value);
+    partial void OnShortcutFocusSearchBoxChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutFocusSearchBox", value);
+    partial void OnShortcutAddressBarChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutAddressBar", value);
+    partial void OnShortcutAddressBar2Changed(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutAddressBar2", value);
+    partial void OnShortcutSwitchTabChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutSwitchTab", value);
+    partial void OnShortcutCopyChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCopy", value);
+    partial void OnShortcutCutChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCut", value);
+    partial void OnShortcutPasteChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutPaste", value);
+    partial void OnShortcutCopyPathChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutCopyPath", value);
+    partial void OnShortcutPastePathChanged(string value) => _ = SaveShortcutAsync("Configs.Explorer.ShortcutPastePath", value);
+
+    private async Task SaveShortcutAsync(string key, string value)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        await _database.SetAsync(key, value ?? "");
+        WeakReferenceMessenger.Default.Send(new ExplorerShortcutsChangedMessage());
+    }
+
+    [RelayCommand]
+    private async Task BrowsePath(string key)
+    {
+        var storageProvider = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow?.StorageProvider;
+        if (storageProvider == null) return;
+
+        var result = await storageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select Folder",
+            AllowMultiple = false
+        });
+
+        if (result == null || result.Count == 0) return;
+        var buffer = result[0].Path.LocalPath;
+        if (string.IsNullOrEmpty(buffer)) return;
+
+        if (key == "LocalOutput")
+        {
+            PathLocalOutput = buffer;
+            await _database.SetAsync("Configs.Path.LocalOutput", buffer);
+        }
+        else if (key == "DefaultExplorerPath")
+        {
+            DefaultExplorerPath = buffer;
+            await _database.SetAsync("Configs.Explorer.DefaultPath", buffer);
+            WeakReferenceMessenger.Default.Send(new ExplorerSettingsChangedMessage()); // Force reload
+        }
+    }
+
+    partial void OnPathLocalOutputChanged(string value)
+    {
+        _ = _database.SetAsync("Configs.Path.LocalOutput", value ?? "");
+    }
+
+    partial void OnDefaultExplorerPathChanged(string value)
+    {
+        _ = _database.SetAsync("Configs.Explorer.DefaultPath", value ?? "");
+        WeakReferenceMessenger.Default.Send(new ExplorerSettingsChangedMessage());
+    }
+
+    partial void OnShowHiddenFilesChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.ShowHiddenFiles", value.ToString());
+    partial void OnShowFileExtensionsChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.ShowFileExtensions", value.ToString());
+    partial void OnDefaultViewModeChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.DefaultViewMode", value);
+    partial void OnDefaultSortByChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.DefaultSortBy", value);
+    partial void OnDefaultSortDescendingChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.DefaultSortDescending", value.ToString());
+    partial void OnDefaultGroupByChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.DefaultGroupBy", value);
+
+    partial void OnContentZoomChanged(double value) => _ = SaveSettingAsync("Configs.Explorer.ContentZoom", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    partial void OnUseSystemIconsChanged(bool value) => _ = SaveSettingAsync("Configs.Explorer.UseSystemIcons", value.ToString());
+    partial void OnCustomIconPathChanged(string value) => _ = SaveSettingAsync("Configs.Explorer.CustomIconPath", value ?? "");
+
+    partial void OnExplorerFontFamilyChanged(string value)
+    {
+        var normalized = value?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(normalized) && !AvailableFontFamilies.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (normalized != value)
+        {
+            ExplorerFontFamily = normalized;
+            return;
+        }
+
+        _ = SaveSettingAsync("Configs.Explorer.FontFamily", normalized);
+    }
+
+    private async Task SaveSettingAsync(string key, string value)
+    {
+        await _database.SetAsync(key, value);
+        WeakReferenceMessenger.Default.Send(new ExplorerSettingsChangedMessage());
+    }
+}

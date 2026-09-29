@@ -1,0 +1,509 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:models="using:BMachine.UI.Models"
+             xmlns:converters="using:BMachine.UI.Converters"
+             xmlns:views="using:BMachine.UI.Views"
+             xmlns:controls="using:BMachine.UI.Controls"
+             mc:Ignorable="d" d:DesignWidth="290" d:DesignHeight="600"
+             x:Class="BMachine.UI.Views.LogPanelSidebar"
+             x:DataType="vm:DashboardViewModel">
+    <UserControl.Resources>
+        <converters:StringToUpperConverter x:Key="StringToUpperConverter"/>
+        <converters:IconConverter x:Key="IconConverter"/>
+        <converters:HexToBrushConverter x:Key="HexToBrushConverter"/>
+        <converters:RootFontWeightConverter x:Key="RootFontWeightConverter"/>
+
+        <!-- Chevron self-contained: hindari StaticResource ke resource tema Fluent
+             (gagal di-resolve saat compile -> InvalidCastException saat runtime). -->
+        <ControlTheme x:Key="FlatChevron" TargetType="ToggleButton">
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="Transparent"
+                            Width="{TemplateBinding Width}" Height="{TemplateBinding Height}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Path x:Name="ChevronPath"
+                              Data="M 1,0 10,10 l -9,10 -1,-1 L 8,10 -0,1 Z"
+                              Fill="{DynamicResource TreeViewItemForeground}"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:checked /template/ Path#ChevronPath">
+                <Setter Property="Data" Value="M0,1 L10,10 20,1 19,0 10,8 1,0 Z"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Template TreeViewItem rata-kiri: Margin PART_Header = 0 (hapus indent Level x 16).
+             BasedOn Fluent default -> hover/selected/pressed tetap utuh. -->
+        <ControlTheme x:Key="FlatTreeViewItem" TargetType="TreeViewItem"
+                      BasedOn="{StaticResource {x:Type TreeViewItem}}">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <StackPanel>
+                        <Border Name="PART_LayoutRoot"
+                                Classes="TreeViewItemLayoutRoot"
+                                Focusable="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                MinHeight="{TemplateBinding MinHeight}"
+                                TemplatedControl.IsTemplateFocusTarget="True">
+                            <Grid Name="PART_Header" ColumnDefinitions="Auto, *" Margin="0">
+                                <Panel Name="PART_ExpandCollapseChevronContainer" Margin="0,0,6,0">
+                                    <ToggleButton Name="PART_ExpandCollapseChevron"
+                                                  Theme="{StaticResource FlatChevron}"
+                                                  Focusable="False"
+                                                  IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}" />
+                                </Panel>
+                                <ContentPresenter Name="PART_HeaderPresenter"
+                                                  Grid.Column="1"
+                                                  Focusable="False"
+                                                  Background="Transparent"
+                                                  Content="{TemplateBinding Header}"
+                                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalAlignment}"
+                                                  Margin="{TemplateBinding Padding}" />
+                            </Grid>
+                        </Border>
+                        <ItemsPresenter Name="PART_ItemsPresenter"
+                                        IsVisible="{TemplateBinding IsExpanded}"
+                                        ItemsPanel="{TemplateBinding ItemsPanel}" />
+                    </StackPanel>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <UserControl.DataTemplates>
+        <TreeDataTemplate DataType="{x:Type models:MasterNode}" ItemsSource="{Binding Children}">
+            <Panel Background="Transparent" Margin="0,2">
+                <!-- Decode JPG preview lazily when the row is realised -->
+                <Interaction.Behaviors>
+                    <EventTriggerBehavior EventName="AttachedToVisualTree">
+                        <InvokeCommandAction Command="{Binding LoadThumbnailCommand}"/>
+                    </EventTriggerBehavior>
+                </Interaction.Behaviors>
+
+                <!-- FOLDER: nama saja, chevron disediakan TreeViewItem.
+                     ROOT folder (path master beda) tampil BOLD + ikon berwarna
+                     sesuai pengaturan path; subfolder tetap normal. -->
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                            IsVisible="{Binding IsDirectory}">
+                    <!-- Ikon root folder (hanya muncul untuk root) -->
+                    <Panel Width="14" Height="14" VerticalAlignment="Center"
+                           IsVisible="{Binding IsRoot}">
+                        <PathIcon Data="{Binding NodeIconKey, Converter={StaticResource IconConverter}}"
+                                  Width="14" Height="14"
+                                  Foreground="{Binding NodeColorHex, Converter={StaticResource HexToBrushConverter}}"/>
+                        <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14"
+                                  Foreground="{Binding NodeColorHex, Converter={StaticResource HexToBrushConverter}}"
+                                  IsVisible="{Binding NodeIconKey, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                    </Panel>
+
+                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                               FontFamily="Segoe UI"
+                               FontWeight="{Binding IsRoot, Converter={StaticResource RootFontWeightConverter}}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+
+                <!-- FILE .psd/.psb punya JPG: kartu thumbnail (2 kolom) -->
+                <Border IsVisible="{Binding HasPreview}"
+                        Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                        CornerRadius="6" Height="88" Margin="0,2,6,2" ClipToBounds="True"
+                        Cursor="Hand" ToolTip.Tip="{Binding Name}">
+                    <Panel>
+                        <!-- Placeholder selagi thumbnail didekode -->
+                        <PathIcon Data="{StaticResource IconFile}" Width="22" Height="22"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"
+                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                        <Border VerticalAlignment="Bottom" Background="#CC000000" Padding="6,3">
+                            <TextBlock Text="{Binding Name}" FontSize="10" Foreground="White"
+                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                        </Border>
+                    </Panel>
+                </Border>
+
+                <!-- FILE tanpa JPG: baris nama + ikon (lebar penuh) -->
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <StackPanel.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="!IsDirectory"/>
+                            <Binding Path="!HasPreview"/>
+                        </MultiBinding>
+                    </StackPanel.IsVisible>
+                    <PathIcon Data="{StaticResource IconFile}" Width="14" Height="14"
+                              Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                               FontFamily="Segoe UI"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Panel>
+        </TreeDataTemplate>
+    </UserControl.DataTemplates>
+
+        <Border x:Name="LogPanelDropZone" Background="{DynamicResource TerminalBackgroundBrush}" 
+            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,0,0,0"
+            DragDrop.AllowDrop="True"
+            DragDrop.DragOver="OnDragOver"
+            DragDrop.Drop="OnDrop"
+            PointerPressed="OnRootPointerPressed">
+        
+        <Grid RowDefinitions="Auto, *, Auto">
+            
+            <!-- HEADER: Navigation Bar (Row 0) -->
+            <Border Grid.Row="0" Padding="12,8,12,4">
+                <StackPanel Spacing="6">
+                    <!-- Navigation Tab Buttons - compact text labels -->
+                    <Border Background="{DynamicResource CardBackgroundBrush}" 
+                            CornerRadius="8" Padding="3"
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                         <UniformGrid Rows="1">
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsConsoleVisible}" Click="OnConsoleTabClick" ToolTip.Tip="Log">
+                                  <TextBlock Text="LOG" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </RadioButton>
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsMasterVisible}" Click="OnMasterTabClick" ToolTip.Tip="Master">
+                                  <TextBlock Text="MASTER" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </RadioButton>
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsVisible="False" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
+                                  <TextBlock Text="PS" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </RadioButton>
+                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsDocVisible}" IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
+                                  <TextBlock Text="DOC" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             </RadioButton>
+                         </UniformGrid>
+                    </Border>
+                    
+                    <!-- Integrated Compact Search -->
+                    <Border IsVisible="{Binding BatchVM.IsSearchVisible}"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                            CornerRadius="6" Height="26">
+                        <TextBox FontSize="11"
+                                 Watermark="Search..." Background="Transparent" BorderThickness="0"
+                                 VerticalContentAlignment="Center" Padding="10,0,26,0"
+                                 Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}">
+                            <TextBox.InnerRightContent>
+                                <PathIcon Data="{DynamicResource IconSearch}" Width="12" Height="12" 
+                                          Margin="0,0,10,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </TextBox.InnerRightContent>
+                        </TextBox>
+                    </Border>
+                </StackPanel>
+            </Border>
+            
+            <!-- CONTENT (Row 1) -->
+            <Grid Grid.Row="1">
+                
+                <!-- 1. CONSOLE VIEW -->
+                <Grid IsVisible="{Binding BatchVM.IsConsoleVisible}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Progress Bar -->
+                    <ProgressBar Grid.Row="0" Height="2" IsVisible="{Binding IsProcessing}"
+                                 Value="{Binding ProgressValue}" Maximum="{Binding ProgressMax}"
+                                 IsIndeterminate="{Binding !IsDeterminateProgress}"
+                                 Background="Transparent" Foreground="{DynamicResource PrimaryBrush}"/>
+
+                    <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding LogItems}" Margin="10,0,10,10">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
+                                            Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
+                                            Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
+                                            Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
+                                            Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
+                                            Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                            Classes.accent="{Binding Level, Converter={x:Static vm:LogConverters.IsAccent}}"
+                                            Classes="logCard">
+                                        <SelectableTextBlock Text="{Binding Message}" 
+                                                   Classes.info="{Binding Level, Converter={x:Static vm:LogConverters.IsInfo}}"
+                                                   Classes.system="{Binding Level, Converter={x:Static vm:LogConverters.IsSystem}}"
+                                                   Classes.success="{Binding Level, Converter={x:Static vm:LogConverters.IsSuccess}}"
+                                                   Classes.warning="{Binding Level, Converter={x:Static vm:LogConverters.IsWarning}}"
+                                                   Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
+                                                   Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
+                                                   Classes.accent="{Binding Level, Converter={x:Static vm:LogConverters.IsAccent}}"
+                                                   FontSize="13" LineHeight="18" FontFamily="Cascadia Code, JetBrains Mono, Consolas" 
+                                                   TextWrapping="Wrap"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- 2. MASTER BROWSER VIEW: TreeView folder + thumbnail 2 kolom -->
+                <TreeView ItemsSource="{Binding BatchVM.MasterNodes}"
+                          IsVisible="{Binding BatchVM.IsMasterVisible}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          Background="Transparent" BorderThickness="0"
+                          DoubleTapped="OnMasterNodeDoubleTapped">
+                    <TreeView.Styles>
+                        <Style Selector="TreeViewItem">
+                            <Setter Property="Theme" Value="{StaticResource FlatTreeViewItem}"/>
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                            <Setter Property="ItemsPanel">
+                                <ItemsPanelTemplate>
+                                    <controls:ThumbnailWrapPanel ColumnSpacing="8" RowSpacing="2"/>
+                                </ItemsPanelTemplate>
+                            </Setter>
+                        </Style>
+                    </TreeView.Styles>
+                </TreeView>
+
+                <!-- 3. PHOTOSHOP BROWSER VIEW -->
+                <TreeView ItemsSource="{Binding BatchVM.PhotoshopNodes}"
+                          IsVisible="False"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          Background="Transparent" BorderThickness="0"
+                          DoubleTapped="OnPhotoshopNodeDoubleTapped">
+                    <TreeView.Styles>
+                         <Style Selector="TreeViewItem">
+                             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                         </Style>
+                    </TreeView.Styles>
+                </TreeView>
+                
+                <!-- 4. DOC VIEW -->
+                <Grid IsVisible="{Binding BatchVM.IsDocVisibleInline}" Margin="0,0,0,10">
+                    <views:DocPanelView />
+                </Grid>
+                
+            </Grid>
+            
+            <!-- FOOTER (Row 2) : Floating Minimalist Status Bar -->
+            <Border Grid.Row="2" Background="#0CFFFFFF" Margin="10,2,10,10" Padding="10,4" 
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" 
+                    IsVisible="{Binding BatchVM.IsStatusVisible}">
+                <Grid ColumnDefinitions="*, Auto">
+                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                         
+                         <!-- Glowing Status Dot -->
+                         <Ellipse Width="6" Height="6" Fill="{Binding StatusColor}" VerticalAlignment="Center" ToolTip.Tip="{Binding ProcessStatusText}">
+                             <Ellipse.Transitions>
+                                 <Transitions>
+                                     <BrushTransition Property="Fill" Duration="0:0:0.3"/>
+                                 </Transitions>
+                             </Ellipse.Transitions>
+                         </Ellipse>
+
+                         <Grid>
+                             <!-- Normal Status -->
+                             <TextBlock Text="{Binding ProcessStatusText, Converter={StaticResource StringToUpperConverter}}" 
+                                        IsVisible="{Binding !BatchVM.IsMasterVisible}"
+                                        Foreground="{DynamicResource TextSecondaryBrush}" 
+                                        FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1.5"
+                                        TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                             
+                             <!-- Master Browser Target -->
+                             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding BatchVM.IsMasterVisible}">
+                                 <StackPanel.IsVisible>
+                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                         <Binding Path="BatchVM.IsMasterVisible"/>
+                                         <Binding Path="!BatchVM.IsBusy"/>
+                                     </MultiBinding>
+                                 </StackPanel.IsVisible>
+                                <TextBlock Text="TARGET:" Foreground="#666666" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0" ToolTip.Tip="{Binding BatchVM.MasterBrowserTargetPath}"/>
+                             </StackPanel>
+ 
+                             <!-- BUSY INDICATOR -->
+                             <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding BatchVM.IsBusy}">
+                                 <ProgressBar IsIndeterminate="True" Width="20" Height="2" CornerRadius="1" VerticalAlignment="Center" Foreground="{DynamicResource AccentBlueBrush}" Background="{DynamicResource CardBackgroundBrush}"/>
+                                 <TextBlock Text="{Binding BatchVM.BusyMessage, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1.5" TextTrimming="CharacterEllipsis" MaxWidth="110" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                             </StackPanel>
+                         </Grid>
+                     </StackPanel>
+                     
+                     <!-- Actions -->
+                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                         <Button Classes="statusBtn" Command="{Binding StopProcessCommand}" IsVisible="{Binding IsProcessing}" ToolTip.Tip="Stop">
+                             <PathIcon Data="{StaticResource IconSquare}" Width="12" Height="12" Foreground="#ef4444"/>
+                         </Button>
+                         <Button Classes="statusBtn" Command="{Binding CopyAllLogsCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Copy Log">
+                             <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                         </Button>
+                         <Button Classes="statusBtn" Command="{Binding ClearLogCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Clear Log">
+                             <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                         </Button>
+                         <Button Classes="statusBtn" Command="{Binding BatchVM.RefreshMasterCommand}" IsVisible="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Refresh">
+                             <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                         </Button>
+                     </StackPanel>
+                </Grid>
+            </Border>
+
+        </Grid>
+    </Border>
+
+    <UserControl.Styles>
+        
+        <!-- Panel Tab Button (Segmented Style) -->
+        <Style Selector="Button.panelTab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="Button.panelTab /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.panelTab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+        <!-- Active state via Tag=True -->
+        <Style Selector="Button.panelTab[Tag=True]">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.panelTab[Tag=True] /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuSelectedBrush}"/>
+            <Setter Property="BoxShadow" Value="0 2 6 0 #15000000"/>
+        </Style>
+        <Style Selector="Button.panelTab[Tag=True] PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        
+        <!-- Icon Button -->
+        <Style Selector="Button.iconBtn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+        <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
+             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+
+        <!-- Status Action Buttons (Futuristic Pill) -->
+        <Style Selector="Button.statusBtn">
+            <Setter Property="Background" Value="#0AFFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.statusBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#22FFFFFF"/>
+        </Style>
+        <Style Selector="Button.statusBtn:pointerover">
+            <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+            <Setter Property="RenderTransform" Value="scale(1.05)"/>
+        </Style>
+        <Style Selector="Button.statusBtn:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.95)"/>
+        </Style>
+        
+        <!-- Console TextBox -->
+        <Style Selector="TextBox.console">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="TextBox.console:focus /template/ Border">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TextBox.console:pointerover /template/ Border">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TextBox.console:focus-within /template/ Border">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <!-- Log Color Styles -->
+        <Style Selector="SelectableTextBlock.info"> <Setter Property="Foreground" Value="{DynamicResource TerminalInfoBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.system"> <Setter Property="Foreground" Value="{DynamicResource TerminalSystemBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.success"> <Setter Property="Foreground" Value="{DynamicResource TerminalSuccessBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.warning"> <Setter Property="Foreground" Value="{DynamicResource TerminalWarningBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.error"> <Setter Property="Foreground" Value="{DynamicResource TerminalErrorBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.debug"> <Setter Property="Foreground" Value="{DynamicResource TerminalDebugBrush}"/> </Style>
+        <Style Selector="SelectableTextBlock.accent"> <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/> </Style>
+
+        <!-- Compact Log Card styles -->
+         <Style Selector="Border.logCard">
+             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+             <Setter Property="BorderThickness" Value="3,0,0,0"/>
+             <Setter Property="CornerRadius" Value="3"/>
+             <Setter Property="Margin" Value="0,2"/>
+             <Setter Property="Padding" Value="8,5"/>
+             <Setter Property="BorderBrush" Value="Transparent"/>
+             <Setter Property="Transitions">
+                 <Transitions>
+                     <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                 </Transitions>
+             </Setter>
+         </Style>
+         <Style Selector="Border.logCard:pointerover">
+             <Setter Property="Background" Value="#1AFFFFFF"/>
+         </Style>
+        
+        <Style Selector="Border.logCard.success">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalSuccessBrush}"/>
+            <Setter Property="Background" Value="#104ade80"/> <!-- subtle success background -->
+        </Style>
+        
+        <Style Selector="Border.logCard.error">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalErrorBrush}"/>
+            <Setter Property="Background" Value="#10ef4444"/> <!-- subtle error background -->
+        </Style>
+
+        <Style Selector="Border.logCard.warning">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalWarningBrush}"/>
+            <Setter Property="Background" Value="#10f59e0b"/> <!-- subtle warning background -->
+        </Style>
+
+        <Style Selector="Border.logCard.system">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalSystemBrush}"/>
+            <Setter Property="Background" Value="#102dd4bf"/> <!-- subtle system background -->
+        </Style>
+
+        <Style Selector="Border.logCard.info">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalInfoBrush}"/>
+            <Setter Property="Background" Value="#103b82f6"/> <!-- subtle info background -->
+        </Style>
+
+        <Style Selector="Border.logCard.accent">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+        </Style>
+
+        <Style Selector="Border.logCard.debug">
+            <Setter Property="BorderBrush" Value="{DynamicResource TerminalDebugBrush}"/>
+        </Style>
+
+    </UserControl.Styles>
+</UserControl>

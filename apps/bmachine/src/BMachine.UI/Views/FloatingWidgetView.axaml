@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BMachine.UI.Views.FloatingWidgetView"
+        SystemDecorations="None"
+        Background="Transparent">
+    <!-- UI is built in Code-Behind (FloatingWidgetView.axaml.cs) -->
+    
+    <Window.Styles>
+        <Style Selector="ListBox">
+             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        </Style>
+        
+        <!-- Fix Item Container Style (Hover/Selected) -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        
+        <!-- PointerOver (Hover) -->
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        
+        <!-- Selected -->
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        
+        <!-- Selected AND Hover (The "Blank" Issue Fix) -->
+        <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+        
+        <!-- Sidebar Icon Button Style -->
+        <Style Selector="Button.SidebarIcon">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                 <ControlTemplate>
+                    <Grid Background="{TemplateBinding Background}">
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          Content="{TemplateBinding Content}"
+                                          HorizontalContentAlignment="Center"
+                                          VerticalContentAlignment="Center"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SidebarIcon:pointerover /template/ ContentPresenter">
+             <!-- Ensure Foreground (Icon Fill) follows Theme Primary Text on Hover -->
+             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.SidebarIcon:pointerover">
+             <!-- Slight dim for hover effect -->
+             <Setter Property="Opacity" Value="0.7"/> 
+        </Style>
+    </Window.Styles>
+</Window>

@@ -1,0 +1,100 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:shapes="using:Avalonia.Controls.Shapes"
+             mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="120"
+             x:Class="BMachine.UI.Controls.StatWidget"
+             x:Name="Root">
+    
+    <UserControl.Styles>
+        <Style Selector="Button.StatBtn">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Border"
+                            Background="{TemplateBinding Background}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Background" Duration="0:0:0.3" Easing="CubicEaseOut"/>
+                                <BrushTransition Property="BorderBrush" Duration="0:0:0.3" Easing="CubicEaseOut"/>
+                                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.3" Easing="CubicEaseOut"/>
+                            </Transitions>
+                        </Border.Transitions>
+                        <ContentPresenter Content="{TemplateBinding Content}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.4" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        
+        <Style Selector="Button.StatBtn /template/ Border#PART_Border">
+            <Setter Property="BoxShadow" Value="0 4 10 0 #00000000"/>
+        </Style>
+
+        <Style Selector="Button.StatBtn:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource MenuSelectedBrush}"/>
+            <Setter Property="BorderBrush" Value="{Binding #Root.Color}"/>
+            <Setter Property="BoxShadow" Value="0 10 25 0 #30000000"/>
+        </Style>
+        
+        <Style Selector="Button.StatBtn:pointerover">
+            <!-- No translation or scale per user request -->
+        </Style>
+
+        <Style Selector="Button.StatBtn:pressed">
+            <!-- No translation or scale per user request -->
+        </Style>
+    </UserControl.Styles>
+
+    <Button Classes="StatBtn" 
+            Command="{Binding #Root.Command}"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch">
+
+        <Border Padding="0" Background="Transparent" BorderThickness="0">
+            <Grid RowDefinitions="Auto, *">
+                <!-- Header -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
+                    <Ellipse Width="6" Height="6" Fill="{Binding #Root.Color}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Grid.Column="1" Text="{Binding #Root.Label}" FontSize="10" FontWeight="Black" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="1.5" VerticalAlignment="Center"/>
+                    <Button Grid.Column="2" Command="{Binding #Root.WindowCommand}" IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}" Width="20" Height="20" Background="Transparent" BorderThickness="0" Padding="0" ToolTip.Tip="Open in New Window" VerticalAlignment="Center" Cursor="Hand">
+                        <shapes:Path Data="M14 3l-1.4 1.4L17.2 9H3v2h14.2l-4.6 4.6L14 17l7-7z" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" Width="10" Height="10" VerticalAlignment="Center"/>
+                    </Button>
+                </Grid>
+
+                <StackPanel Grid.Row="1" VerticalAlignment="Bottom" IsVisible="{Binding #Root.IsBarMode}" Margin="0,16,0,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Spacing="6">
+                        <TextBlock x:Name="PART_BarValue" Text="{Binding #Root.Value}" FontSize="28" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Bottom" Margin="0,0,0,-4"/>
+                        <TextBlock x:Name="PART_BarSuffix" Text="{Binding #Root.Suffix}" IsVisible="{Binding #Root.Suffix, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" FontSize="10" FontWeight="Bold" Foreground="{Binding #Root.Color}" LetterSpacing="1" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Grid Grid.Row="1" IsVisible="{Binding #Root.IsCircularMode}" Margin="0,16,0,0" VerticalAlignment="Bottom">
+                    <Grid ColumnDefinitions="Auto, *">
+                        <Panel Width="36" Height="36" VerticalAlignment="Bottom">
+                            <shapes:Arc Width="36" Height="36" StartAngle="0" SweepAngle="360" Stroke="{DynamicResource SeparatorBrush}" StrokeThickness="3"/>
+                            <shapes:Arc x:Name="PART_ProgressArc" Width="36" Height="36" StartAngle="-90" SweepAngle="{Binding #Root.SweepAngle}" Stroke="{Binding #Root.Color}" StrokeThickness="3" StrokeLineCap="Round"/>
+                        </Panel>
+                        <TextBlock Grid.Column="1" Text="{Binding #Root.Value}" FontSize="24" FontWeight="Black" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Button>
+</UserControl>

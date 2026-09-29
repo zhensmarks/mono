@@ -1,0 +1,332 @@
+<local:MantraDialogBase xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
+        xmlns:models="using:BMachine.UI.Models.MantraData"
+        x:Class="BMachine.UI.Views.Dialogs.MantraData.TransformWindow"
+        Title="Atur Kolom"
+        Width="920" Height="660"
+        MinWidth="800" MinHeight="600"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+
+    <Window.Styles><Style Selector="Button.ChromeClose">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ChromeClose:pointerover">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+
+        <Style Selector="Button.Action">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Action /template/ ContentPresenter">
+            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="TextElement.Foreground" Value="#111111"/>
+        </Style>
+        <Style Selector="Button.Action:disabled">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#52525B"/>
+        </Style>
+        <Style Selector="Button.Action:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#52525B"/>
+        </Style>
+
+        <Style Selector="Button.Muted">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="18,8"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Muted /template/ ContentPresenter">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+        </Style>
+        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#222226"/>
+        </Style>
+
+        <Style Selector="Button.AiBtn">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.AiBtn /template/ ContentPresenter">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+        </Style>
+        <Style Selector="Button.AiBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#27272B"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+        </Style>
+        <Style Selector="Button.AiBtn:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#222226"/>
+        </Style>
+        <Style Selector="Button.AiBtn:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+
+        <Style Selector="TextBlock:pointerover">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#0C0C0E"/>
+            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#0C0C0E"/>
+            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11.5"/>
+        </Style>
+        <Style Selector="DataGridCell">
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="Background" Value="#0C0C0E"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="DataGridRow">
+            <Setter Property="MinHeight" Value="28"/>
+        </Style>
+        <Style Selector="DataGridRow:pointerover">
+            <Setter Property="Background" Value="#11FFFFFF"/>
+        </Style>
+        <Style Selector="DataGridRow:selected">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+        <Style Selector="DataGridCell:selected">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+
+        <!-- ═══ WINDOW TITLE BAR ═══ -->
+        <Grid Grid.Row="0" Height="40" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="{Binding $parent[Window].Title, FallbackValue=Atur Kolom}"
+                       VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
+                       FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
+
+            <Button Grid.Column="1" Classes="ChromeClose" Content="X" Width="45" Height="40"
+                    VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                    Click="OnCloseButtonClick"/>
+
+            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+        </Grid>
+
+        <Border Grid.Row="1" Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+            <Grid RowDefinitions="Auto, Auto, *, Auto">
+
+                <!-- 1. Header -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                    <TextBlock Text="Atur Kolom" FontSize="18" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+                    <TextBlock Text="Buat satu atau beberapa kolom hasil. Pilih hasil di kiri, lalu centang sumber, prefix, dan pemisahnya di kanan. Perubahan langsung terlihat pada grid utama."
+                               Foreground="#71717A" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- 2. Mode row -->
+                <Grid Grid.Row="1" ColumnDefinitions="Auto, Auto, Auto, *" Margin="0,0,0,12">
+                    <TextBlock Text="Mode:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Button Grid.Column="1" Classes="AiBtn" Content="Atur Sendiri" MinWidth="110" Margin="0,0,8,0" Click="OnArrangeManualClicked"/>
+                    <Button Grid.Column="2" x:Name="BtnAutoArrange" Classes="AiBtn" Content="Atur Otomatis dengan AI" MinWidth="170"
+                            Click="OnAutoArrangeClicked"/>
+                </Grid>
+
+                <!-- 3. Splitter: left layer list / right editor -->
+                <Grid Grid.Row="2" ColumnDefinitions="230, 6, *" MinHeight="160">
+                    <Border Grid.Column="0" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="10">
+                        <Grid RowDefinitions="Auto, *, Auto">
+                            <TextBlock Grid.Row="0" Text="Kolom hasil:" Classes="FieldLabel" Margin="0,0,0,6"/>
+                            <ListBox x:Name="LstLayers" Grid.Row="1" Background="Transparent" BorderThickness="0"
+                                     ItemsSource="{Binding}" SelectedIndex="0"
+                                     SelectionChanged="OnLayerSelectionChanged"
+                                     FontSize="12.5">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:LayerItemView">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                                <Button Classes="AiBtn" Content="Tambah Hasil" Click="OnAddLayerClicked"/>
+                                <Button Classes="AiBtn" Content="Hapus Hasil" Click="OnRemoveLayerClicked"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <GridSplitter Grid.Column="1" Background="Transparent" Width="6" ResizeDirection="Columns" HorizontalAlignment="Stretch"/>
+
+                    <Border Grid.Column="2" x:Name="RightPanel" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="12,10">
+                        <Grid RowDefinitions="Auto, *, Auto">
+                            <!-- Layer editor form -->
+                            <Grid Grid.Row="0" ColumnDefinitions="150, *" RowDefinitions="Auto, Auto" Margin="0,0,0,10">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Nama header hasil:" Classes="FieldLabel" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" x:Name="TxtLayerName" Height="32" VerticalContentAlignment="Center" Padding="10,0"
+                                         Text="{Binding Name, Mode=TwoWay}"
+                                         Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Pemisah default:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" x:Name="CmbDefaultSeparator" Height="32" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                                          VerticalContentAlignment="Center" Padding="10,0,8,0">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:SeparatorOption">
+                                            <TextBlock Text="{Binding Label}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </Grid>
+
+                            <!-- Columns table for the active layer -->
+                            <Grid Grid.Row="1" RowDefinitions="Auto, *" Margin="0,0,0,8">
+                                <TextBlock Grid.Row="0" Text="Isi kolom hasil aktif:" Classes="FieldLabel" Margin="0,0,0,6"/>
+                                <DataGrid x:Name="DgEntries" Grid.Row="1" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1"
+                                          CanUserReorderColumns="False" CanUserSortColumns="False"
+                                          GridLinesVisibility="Horizontal" HeadersVisibility="All"
+                                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                          AutoGenerateColumns="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="Pakai" Width="50">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsUsed, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Kolom sumber" Width="0.9*" IsReadOnly="True" Binding="{Binding Header}"/>
+                                        <DataGridTemplateColumn Header="Prefix" Width="0.8*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox IsEditable="True" Text="{Binding Prefix, Mode=TwoWay}"
+                                                              ItemsSource="{Binding PrefixOptions}"
+                                                              MinHeight="26" VerticalContentAlignment="Center"
+                                                              Background="Transparent" BorderThickness="0"
+                                                              HorizontalAlignment="Stretch"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="Pemisah setelah" Width="1*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox IsEditable="True" Text="{Binding Separator, Mode=TwoWay}"
+                                                              ItemsSource="{Binding SeparatorOptions}"
+                                                              MinHeight="26" VerticalContentAlignment="Center"
+                                                              Background="Transparent" BorderThickness="0"
+                                                              HorizontalAlignment="Stretch"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+
+                            <!-- Column actions + status -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+                                <Button x:Name="BtnSuggest" Classes="AiBtn" Content="Atur dengan AI"
+                                        Click="OnSuggestClicked"/>
+                                <Button x:Name="BtnAiSettings" Classes="AiBtn" Content="Pengaturan AI" Click="OnAiSettingsClicked"/>
+                                <TextBlock x:Name="AiStatusText" Text="" Foreground="#93C5FD" FontSize="11.5" VerticalAlignment="Center"
+                                           TextWrapping="Wrap" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- 4. Footer: live hint + actions -->
+                <Grid Grid.Row="3" ColumnDefinitions="*, Auto" Margin="0,10,0,0">
+                    <TextBlock Text="Hasil ditampilkan langsung pada grid utama. Tidak ada tabel preview kedua."
+                               Foreground="#71717A" FontSize="11.5" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                        <Button Classes="Muted" Content="Batal" MinWidth="100" Click="OnCancelClick"/>
+                        <Button x:Name="BtnApply" Classes="Action" Content="Terapkan Hasil" MinWidth="150" Click="OnApplyClicked"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+        </Grid>
+    </Border>
+</local:MantraDialogBase>

@@ -1,0 +1,2097 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using BMachine.SDK;
+using BMachine.UI.Models;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+
+namespace BMachine.UI.ViewModels;
+
+public abstract partial class BaseTrelloListViewModel : ObservableObject
+{
+    protected readonly IDatabase _database;
+    protected readonly INotificationService? _notificationService;
+    protected readonly IActivityService? _activityService;
+    protected readonly BMachine.Core.Platform.IPlatformService _platformService;
+
+    public BaseTrelloListViewModel(IDatabase database, INotificationService? notificationService = null, BMachine.Core.Platform.IPlatformService? platformService = null)
+    {
+        _database = database ?? throw new ArgumentNullException(nameof(database));
+        _notificationService = notificationService;
+        _activityService = database as IActivityService; // Attempt to cast, or we could inject explicitly if refactored
+        _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
+        Cards = new ObservableCollection<TrelloCard>();
+    }
+
+    // Design-time constructor support
+    public BaseTrelloListViewModel()
+    {
+        _database = null!;
+        _activityService = null;
+        _platformService = BMachine.Core.Platform.PlatformServiceFactory.Get();
+        Cards = new ObservableCollection<TrelloCard>();
+    }
+    
+    // Customize Accent Color
+    [ObservableProperty] private Avalonia.Media.IBrush? _accentColor = Avalonia.Media.Brushes.Orange; // Default
+    protected virtual string ColorSettingKey => "";
+    
+    public async Task LoadAccentColor()
+    {
+        if (_database == null || string.IsNullOrEmpty(ColorSettingKey)) return;
+        try
+        {
+            var hex = await _database.GetAsync<string>(ColorSettingKey);
+            if (!string.IsNullOrEmpty(hex))
+            {
+                if (Avalonia.Media.Color.TryParse(hex, out var color))
+                {
+                     AccentColor = new Avalonia.Media.SolidColorBrush(color);
+                }
+            }
+        }
+        catch { }
+    }
+
+    protected async Task LogActivity(string type, string title, string desc)
+    {
+        if (_activityService != null)
+        {
+            await _activityService.LogAsync(type, title, desc);
+        }
+    }
+
+    [ObservableProperty]
+    private string _title = "List";
+
+    [ObservableProperty]
+    private ObservableCollection<TrelloCard> _cards;
+
+    [ObservableProperty]
+    private bool _isRefreshing;
+
+    [ObservableProperty]
+    private string _statusMessage = "";
+    
+    [ObservableProperty]
+    private TrelloCard? _selectedCard;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ConnectionStatusText))]
+    private bool _isOnline = true;
+
+    public string ConnectionStatusText => IsOnline ? "Online" : "Offline";
+
+    partial void OnIsOnlineChanged(bool value)
+    {
+        // Maybe log status change?
+    }
+
+    public event Action? CloseRequested;
+    
+    [RelayCommand]
+    protected virtual void Close()
+    {
+        CloseRequested?.Invoke();
+    }
+
+    // --- Comment Logic ---
+
+    [ObservableProperty] private bool _isCommentPanelOpen;
+    partial void OnIsCommentPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
+    [ObservableProperty] private ObservableCollection<TrelloComment> _comments = new();
+    [ObservableProperty] private string _newCommentText = "";
+    [ObservableProperty] private bool _isLoadingComments;
+    
+    // --- Pending Attachments (images to upload with comment) ---
+    [ObservableProperty] private ObservableCollection<PendingAttachmentItem> _pendingAttachments = new();
+    public bool HasPendingAttachments => PendingAttachments.Count > 0;
+    
+    /// <summary>Set by the View code-behind to provide file picker access.</summary>
+    public Func<Task<IReadOnlyList<string>>>? PickAttachmentFilesFunc { get; set; }
+
+    [RelayCommand]
+    private async Task AddAttachment()
+    {
+        if (PickAttachmentFilesFunc == null) return;
+        var paths = await PickAttachmentFilesFunc();
+        if (paths == null) return;
+        foreach (var p in paths)
+        {
+            if (PendingAttachments.Any(a => a.FilePath == p)) continue; // skip duplicates
+            var item = new PendingAttachmentItem(p);
+            PendingAttachments.Add(item);
+        }
+        OnPropertyChanged(nameof(HasPendingAttachments));
+    }
+
+    public void AddAttachmentFromPath(string path)
+    {
+        if (string.IsNullOrEmpty(path) || PendingAttachments.Any(a => a.FilePath == path)) return;
+        PendingAttachments.Add(new PendingAttachmentItem(path));
+        OnPropertyChanged(nameof(HasPendingAttachments));
+    }
+
+    [RelayCommand]
+    private void RemoveAttachment(PendingAttachmentItem item)
+    {
+        if (item == null) return;
+        item.Dispose();
+        PendingAttachments.Remove(item);
+        OnPropertyChanged(nameof(HasPendingAttachments));
+    }
+
+    private void ClearPendingAttachments()
+    {
+        foreach (var a in PendingAttachments) a.Dispose();
+        PendingAttachments.Clear();
+        OnPropertyChanged(nameof(HasPendingAttachments));
+    }
+
+    // --- @Mention Logic ---
+    [ObservableProperty] private ObservableCollection<TrelloMember> _boardMembers = new();
+    [ObservableProperty] private ObservableCollection<TrelloMember> _filteredMembers = new();
+    [ObservableProperty] private bool _isMentionPopupOpen;
+    [ObservableProperty] private string _mentionQuery = "";
+    private int _mentionStartIndex = -1;
+
+    public async Task LoadBoardMembers()
+    {
+        if (BoardMembers.Count > 0) return; // Already loaded
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            // Try to get board id from the current card context or settings
+            var boardId = await _database.GetAsync<string>("Trello.EditingBoardId") ?? "";
+            if (string.IsNullOrEmpty(boardId))
+                boardId = await _database.GetAsync<string>("Trello.RevisionBoardId") ?? "";
+            if (string.IsNullOrEmpty(boardId))
+                boardId = await _database.GetAsync<string>("Trello.LateBoardId") ?? "";
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token) || string.IsNullOrEmpty(boardId)) return;
+
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/boards/{boardId}/members?key={apiKey}&token={token}&fields=fullName,username,initials";
+            var json = await client.GetStringAsync(url);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+            BoardMembers.Clear();
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                BoardMembers.Add(new TrelloMember
+                {
+                    Id = el.GetProperty("id").GetString() ?? "",
+                    FullName = el.GetProperty("fullName").GetString() ?? "",
+                    Username = el.GetProperty("username").GetString() ?? "",
+                    Initials = el.TryGetProperty("initials", out var init) ? init.GetString() ?? "" : ""
+                });
+            }
+        }
+        catch { /* Ignore errors loading members */ }
+    }
+
+    public void FilterMembers(string query)
+    {
+        MentionQuery = query;
+        FilteredMembers.Clear();
+        if (string.IsNullOrEmpty(query))
+        {
+            foreach (var m in BoardMembers) FilteredMembers.Add(m);
+        }
+        else
+        {
+            var q = query.ToLowerInvariant();
+            foreach (var m in BoardMembers.Where(m => 
+                m.FullName.ToLowerInvariant().Contains(q) || 
+                m.Username.ToLowerInvariant().Contains(q)))
+            {
+                FilteredMembers.Add(m);
+            }
+        }
+        IsMentionPopupOpen = FilteredMembers.Count > 0;
+    }
+
+    [RelayCommand]
+    private void SelectMention(TrelloMember member)
+    {
+        if (member == null || _mentionStartIndex < 0) return;
+        // Replace @query with @username
+        var before = NewCommentText.Substring(0, _mentionStartIndex);
+        var afterEnd = _mentionStartIndex + MentionQuery.Length + 1; // +1 for '@'
+        var after = afterEnd < NewCommentText.Length ? NewCommentText.Substring(afterEnd) : "";
+        NewCommentText = $"{before}@{member.Username} {after}";
+        IsMentionPopupOpen = false;
+        _mentionStartIndex = -1;
+        MentionQuery = "";
+    }
+
+    public void HandleCommentTextChanged(string text, int caretIndex)
+    {
+        // Detect @ mention
+        if (string.IsNullOrEmpty(text) || caretIndex <= 0)
+        {
+            IsMentionPopupOpen = false;
+            return;
+        }
+
+        // Find the last '@' before the caret
+        int atIndex = -1;
+        for (int i = caretIndex - 1; i >= 0; i--)
+        {
+            if (text[i] == '@')
+            {
+                atIndex = i;
+                break;
+            }
+            if (text[i] == ' ' || text[i] == '\n') break; // stop at whitespace
+        }
+
+        if (atIndex >= 0)
+        {
+            _mentionStartIndex = atIndex;
+            var query = text.Substring(atIndex + 1, caretIndex - atIndex - 1);
+            FilterMembers(query);
+        }
+        else
+        {
+            IsMentionPopupOpen = false;
+            _mentionStartIndex = -1;
+        }
+    }
+
+    // Preset Comments
+    [ObservableProperty] private ObservableCollection<string> _commentPresets = new();
+    [ObservableProperty] private bool _isPresetPanelOpen;
+    [ObservableProperty] private string _newPresetText = "";
+
+    private string? _currentMemberId;
+
+    [RelayCommand]
+    private async Task LoadCommentPresets()
+    {
+        var presets = await _database.GetAsync<List<string>>("CommentPresets") ?? new List<string>();
+        CommentPresets.Clear();
+        foreach (var p in presets) CommentPresets.Add(p);
+    }
+
+    [RelayCommand]
+    private async Task AddCommentPreset()
+    {
+         if (string.IsNullOrWhiteSpace(NewPresetText)) return;
+         if (CommentPresets.Count >= 5) return;
+         
+         CommentPresets.Add(NewPresetText);
+         await SaveCommentPresets();
+         NewPresetText = ""; // Clear input
+    }
+
+    [RelayCommand]
+    private async Task DeleteCommentPreset(string text)
+    {
+        if (CommentPresets.Contains(text))
+        {
+            CommentPresets.Remove(text);
+            await SaveCommentPresets();
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveCommentPresets()
+    {
+        await _database.SetAsync("CommentPresets", CommentPresets.ToList());
+    }
+
+    [RelayCommand]
+    private async Task UsePreset(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        NewCommentText = text;
+        await SendComment();
+        IsPresetPanelOpen = false;
+    }
+    
+    [RelayCommand]
+    private void TogglePresetPanel()
+    {
+        IsPresetPanelOpen = !IsPresetPanelOpen;
+        if (IsPresetPanelOpen && CommentPresets.Count == 0)
+        {
+             _ = LoadCommentPresets();
+        }
+    }
+
+    [RelayCommand]
+    protected async Task ShowComments(TrelloCard card)
+    {
+        if (card == null) return;
+        
+        CloseAllSidePanels(); // Close others first
+        
+        SelectedCard = card;
+        IsCommentPanelOpen = true;
+
+        if (_lastLoadedCommentsCardId != card.Id || Comments.Count == 0)
+        {
+            await LoadComments(card.Id);
+            _lastLoadedCommentsCardId = card.Id;
+        }
+    }
+
+    // --- Detail Panel Logic (Shared) ---
+    /// <summary>When true, the side panel is rendered by the parent (UnifiedTrelloView) at full height; this view should hide its built-in panel.</summary>
+    [ObservableProperty] private bool _isPanelHostedExternally;
+    
+    public bool IsAnyPanelOpen => IsDetailPanelOpen || IsCommentPanelOpen || IsChecklistPanelOpen || IsMovePanelOpen || IsAttachmentPanelOpen;
+    public bool IsShowingInlineSidePanel => IsAnyPanelOpen && !IsBatchMoveMode;
+
+    [ObservableProperty] private bool _isDetailPanelOpen;
+    
+    partial void OnIsDetailPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
+    
+
+    [RelayCommand]
+    protected virtual void SelectCard(TrelloCard card)
+    {
+        if (card == null) return;
+        
+        // Toggle Logic: If clicking same card, close it
+        if (SelectedCard == card && IsDetailPanelOpen)
+        {
+            CloseDetailPanel();
+            return;
+        }
+        
+        // Deactivate previous
+        if (SelectedCard != null) SelectedCard.IsActive = false;
+        
+        CloseAllSidePanels(); // Close others
+        SelectedCard = card;
+        
+        // Activate new
+        if (SelectedCard != null) SelectedCard.IsActive = true;
+        
+        IsDetailPanelOpen = true; // Open Detail Panel
+        
+        // Load Cover Image if needed
+        if (SelectedCard.HasCover && SelectedCard.CoverImage == null)
+        {
+             _ = LoadCardCover(SelectedCard);
+        }
+    }
+
+    [RelayCommand]
+    protected virtual void CloseDetailPanel()
+    {
+        IsDetailPanelOpen = false;
+        if (SelectedCard != null)
+        {
+            SelectedCard.IsActive = false;
+            SelectedCard = null;
+        }
+    }
+
+    [RelayCommand]
+    protected async Task CopyId(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        
+        var clipboard = GetClipboard();
+        if (clipboard != null)
+        {
+            try
+            {
+                await clipboard.SetTextAsync(id);
+                StatusMessage = "ID Copied!";
+                await LogActivity("System", "Copied", id);
+                return;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CopyId] Avalonia clipboard failed: {ex.Message}");
+            }
+        }
+
+        // Fallback: use native Win clipboard via PowerShell (helps when Avalonia clipboard is unavailable).
+        try
+        {
+            await LogActivity("System", "ClipboardFallback", id);
+            var escaped = id.Replace("'", "''");
+            var psScript = $"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::SetText('{escaped}');";
+            var ps = new Process();
+            ps.StartInfo.FileName = "powershell";
+            ps.StartInfo.Arguments = $"-NoProfile -NonInteractive -Command \"{psScript}\"";
+            ps.StartInfo.UseShellExecute = false;
+            ps.StartInfo.CreateNoWindow = true;
+            ps.Start();
+            await ps.WaitForExitAsync();
+            ps.Dispose();
+            StatusMessage = "ID Copied!";
+        }
+        catch (Exception fallbackEx)
+        {
+            StatusMessage = $"Copy failed: {fallbackEx.Message}";
+        }
+    }
+
+    [RelayCommand]
+    protected virtual void OpenSpreadsheetAndSearch(string searchId)
+    {
+        if (!string.IsNullOrEmpty(searchId))
+        {
+            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.OpenSpreadsheetWithSearchMessage(searchId));
+        }
+    }
+    
+    private Avalonia.Input.Platform.IClipboard? GetClipboard()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var win = desktop.MainWindow ?? desktop.Windows.FirstOrDefault();
+            return win?.Clipboard;
+        }
+        // Fallback for SingleView (Mobile/Web) if needed, though likely not for this desktop app
+        else if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.ISingleViewApplicationLifetime single)
+        {
+            var top = Avalonia.Controls.TopLevel.GetTopLevel(single.MainView);
+            return top?.Clipboard;
+        }
+        return null;
+    }
+
+    [RelayCommand]
+    protected virtual void CloseAllSidePanels()
+    {
+        IsDetailPanelOpen = false;
+        IsCommentPanelOpen = false;
+        IsChecklistPanelOpen = false;
+        IsMovePanelOpen = false;
+        IsAttachmentPanelOpen = false;
+    }
+
+    [RelayCommand]
+    private void CloseCommentsPanel()
+    {
+        IsCommentPanelOpen = false;
+        // Return to Detail Panel if a card is selected
+        if (SelectedCard != null) IsDetailPanelOpen = true;
+    }
+
+    [RelayCommand]
+    private async Task SendComment()
+    {
+        if (SelectedCard == null || (string.IsNullOrWhiteSpace(NewCommentText) && !HasPendingAttachments)) return;
+
+        var text = NewCommentText;
+        NewCommentText = ""; 
+        
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+
+            // 1. Upload pending attachments first
+            if (HasPendingAttachments)
+            {
+                foreach (var att in PendingAttachments.ToList())
+                {
+                    try
+                    {
+                        var attUrl = $"https://api.trello.com/1/cards/{SelectedCard.Id}/attachments?key={apiKey}&token={token}";
+                        using var form = new MultipartFormDataContent();
+                        var fileBytes = await System.IO.File.ReadAllBytesAsync(att.FilePath);
+                        var fileContent = new ByteArrayContent(fileBytes);
+                        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                            GetMimeType(att.FilePath));
+                        form.Add(fileContent, "file", System.IO.Path.GetFileName(att.FilePath));
+                        await client.PostAsync(attUrl, form);
+                    }
+                    catch { /* Skip failed attachments */ }
+                }
+                ClearPendingAttachments();
+            }
+
+            // 2. Post comment text (if any)
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/actions/comments?key={apiKey}&token={token}&text={Uri.EscapeDataString(text)}";
+                var response = await client.PostAsync(url, null);
+                if (response.IsSuccessStatusCode)
+                {
+                    await LogActivity("Comment", $"Comment on {SelectedCard.Name}", text);
+                }
+                else
+                {
+                    StatusMessage = "Failed to send comment.";
+                }
+            }
+
+            await LoadComments(SelectedCard.Id);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error sending comment: {ex.Message}";
+        }
+    }
+
+    private static string GetMimeType(string filePath)
+    {
+        var ext = System.IO.Path.GetExtension(filePath).ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".pdf" => "application/pdf",
+            _ => "application/octet-stream"
+        };
+    }
+
+    protected async Task LoadComments(string cardId)
+    {
+        if (Comments.Count == 0) IsLoadingComments = true;
+        
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            string? json = null;
+            Exception? lastEx = null;
+            for (int attempt = 1; attempt <= 3; attempt++)
+            {
+                try
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                    var url = $"https://api.trello.com/1/cards/{cardId}/actions?filter=commentCard&key={apiKey}&token={token}&memberCreator=true&memberCreator_fields=fullName,initials,avatarHash";
+                    json = await client.GetStringAsync(url);
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    lastEx = ex;
+                    if (attempt >= 3) throw;
+                    await Task.Delay(300 * attempt);
+                }
+            }
+            if (string.IsNullOrEmpty(json)) throw lastEx ?? new InvalidOperationException("Failed to load comments");
+
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            var fetchedComments = new List<TrelloComment>();
+
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                var comment = new TrelloComment
+                {
+                    Id = element.GetProperty("id").GetString() ?? "",
+                    Date = element.GetProperty("date").GetDateTime().ToLocalTime()
+                };
+
+                if (element.TryGetProperty("data", out var data))
+                {
+                    if (data.TryGetProperty("text", out var txt))
+                    {
+                        var textStr = txt.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(textStr) && textStr.Contains("trello.com"))
+                        {
+                            textStr = System.Text.RegularExpressions.Regex.Replace(textStr, @"(https://trello\.com/[^\s\)]+)", match => 
+                            {
+                                var m = match.Value;
+                                var sep = m.Contains("?") ? "&" : "?";
+                                return $"{m}{sep}key={apiKey}&token={token}";
+                            });
+                        }
+                        comment.Text = textStr;
+                    }
+
+                    if (data.TryGetProperty("attachment", out var att))
+                    {
+                        var urlStr = "";
+                        if (att.TryGetProperty("previewUrl", out var pUrlProp) && pUrlProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            urlStr = pUrlProp.GetString() ?? "";
+                        }
+                        else if (att.TryGetProperty("url", out var urlProp) && urlProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            urlStr = urlProp.GetString() ?? "";
+                        }
+                        
+                        if (!string.IsNullOrEmpty(urlStr) && !comment.Text.Contains(urlStr))
+                        {
+                             var sep = urlStr.Contains("?") ? "&" : "?";
+                             var secureUrl = $"{urlStr}{sep}key={apiKey}&token={token}";
+                             comment.Text += $"\n\n![attachment]({secureUrl})";
+                        }
+                    }
+                }
+
+                if (element.TryGetProperty("memberCreator", out var creator))
+                {
+                    comment.MemberCreatorId = creator.GetProperty("id").GetString() ?? "";
+                    comment.MemberCreatorName = creator.GetProperty("fullName").GetString() ?? "";
+                    comment.MemberCreatorInitials = creator.GetProperty("initials").GetString() ?? "";
+                    
+                    if (creator.TryGetProperty("avatarHash", out var hash) && hash.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        var h = hash.GetString();
+                        if (!string.IsNullOrEmpty(h))
+                        {
+                            comment.MemberCreatorAvatarUrl = $"https://trello-members.s3.amazonaws.com/{comment.MemberCreatorId}/{h}/50.png";
+                        }
+                    }
+                }
+
+                if (_currentMemberId == null)
+                {
+                    try
+                    {
+                        using var meClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+                        var meUrl = $"https://api.trello.com/1/members/me?key={apiKey}&token={token}&fields=id";
+                        var meJson = await meClient.GetStringAsync(meUrl);
+                        using var meDoc = System.Text.Json.JsonDocument.Parse(meJson);
+                        _currentMemberId = meDoc.RootElement.GetProperty("id").GetString();
+                    }
+                    catch { /* Ignore if it fails */ }
+                }
+
+                if (!string.IsNullOrEmpty(_currentMemberId) && comment.MemberCreatorId == _currentMemberId)
+                {
+                    comment.IsMine = true;
+                }
+
+                fetchedComments.Add(comment);
+            }
+
+            // Sync/Merge Logic
+            // 1. Remove comments that are no longer present
+            var fetchedIds = new HashSet<string>(fetchedComments.Select(c => c.Id));
+            for (int i = Comments.Count - 1; i >= 0; i--)
+            {
+                if (!fetchedIds.Contains(Comments[i].Id))
+                {
+                    Comments.RemoveAt(i);
+                }
+            }
+
+            // 2. Add or Update comments
+            // Trello comments usually don't change text, but let's assume they might.
+            // Ideally order matters. Trello API returns newest first.
+            
+            int index = 0;
+            foreach (var fetched in fetchedComments)
+            {
+                // Find existing
+                var existing = Comments.FirstOrDefault(c => c.Id == fetched.Id);
+                if (existing != null)
+                {
+                    // Update content if changed
+                    if (existing.Text != fetched.Text && !existing.IsEditing)
+                    {
+                        existing.Text = fetched.Text;
+                    }
+                    if (existing.IsMine != fetched.IsMine)
+                    {
+                        existing.IsMine = fetched.IsMine;
+                    }
+                    // Move if order changed (simple: ensure it's at 'index')
+                    var oldIndex = Comments.IndexOf(existing);
+                    if (oldIndex != index)
+                    {
+                        Comments.Move(oldIndex, index);
+                    }
+                }
+                else
+                {
+                    // Insert new
+                    Comments.Insert(index, fetched);
+                }
+                index++;
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error loading comments: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingComments = false;
+        }
+    }
+
+    // --- Comment Edit & Delete Commands ---
+    [RelayCommand]
+    public void BeginEditComment(TrelloComment comment)
+    {
+        if (comment == null || !comment.IsMine) return;
+        comment.EditText = comment.Text;
+        comment.IsEditing = true;
+    }
+
+    [RelayCommand]
+    public void CancelEditComment(TrelloComment comment)
+    {
+        if (comment == null) return;
+        comment.IsEditing = false;
+        comment.EditText = "";
+    }
+
+    [RelayCommand]
+    public async Task SaveEditComment(TrelloComment comment)
+    {
+        if (comment == null || !comment.IsMine || string.IsNullOrWhiteSpace(comment.EditText)) return;
+
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            // Trello API uses PUT /1/actions/{idAction}
+            var url = $"https://api.trello.com/1/actions/{comment.Id}?key={apiKey}&token={token}&text={Uri.EscapeDataString(comment.EditText)}";
+            
+            var response = await client.PutAsync(url, null);
+            if (response.IsSuccessStatusCode)
+            {
+                comment.Text = comment.EditText;
+                comment.IsEditing = false;
+                await LogActivity("Edit Comment", $"Edited comment on {SelectedCard?.Name}", comment.Text);
+            }
+            else
+            {
+                StatusMessage = "Failed to edit comment.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error editing comment: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    public async Task DeleteComment(TrelloComment comment)
+    {
+        if (comment == null || !comment.IsMine) return;
+
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            // Trello API uses DELETE /1/actions/{idAction}
+            var url = $"https://api.trello.com/1/actions/{comment.Id}?key={apiKey}&token={token}";
+            
+            var response = await client.DeleteAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                Comments.Remove(comment);
+                await LogActivity("Delete Comment", $"Deleted comment on {SelectedCard?.Name}", comment.Text);
+            }
+            else
+            {
+                StatusMessage = "Failed to delete comment.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error deleting comment: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    protected virtual Task BatchAcc()
+    {
+         return Task.CompletedTask; // Implemented in EditingCardListViewModel
+    }
+
+    // --- Checklist Logic ---
+
+    [ObservableProperty] private bool _isChecklistPanelOpen;
+    partial void OnIsChecklistPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
+    [ObservableProperty] private ObservableCollection<TrelloChecklist> _checklists = new();
+    [ObservableProperty] private bool _isLoadingChecklists;
+
+    [ObservableProperty] private bool _isDuplicateMode;
+    [ObservableProperty] private TrelloChecklist? _selectedSourceChecklist;
+    [ObservableProperty] private string _duplicateChecklistName = "";
+
+    [RelayCommand]
+    protected async Task ShowChecklists(TrelloCard card)
+    {
+        if (card == null) return;
+        
+        CloseAllSidePanels(); // Ensure exclusivity
+        
+        SelectedCard = card;
+        IsChecklistPanelOpen = true;
+
+        if (_lastLoadedChecklistsCardId != card.Id || Checklists.Count == 0)
+        {
+            await LoadChecklists(card.Id);
+            _lastLoadedChecklistsCardId = card.Id;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseChecklistPanel()
+    {
+        IsChecklistPanelOpen = false;
+        SelectedSourceChecklist = null; // Explicit reset
+        DuplicateChecklistName = ""; // Explicit reset
+        if (SelectedCard != null) IsDetailPanelOpen = true;
+    }
+
+    [RelayCommand]
+    private void ClearSourceChecklist()
+    {
+        SelectedSourceChecklist = null;
+    }
+
+    [RelayCommand]
+    private async Task ToggleDuplicateMode()
+    {
+        IsDuplicateMode = !IsDuplicateMode;
+        if (IsDuplicateMode)
+        {
+             var userName = await _database.GetAsync<string>("User.Name");
+             if (string.IsNullOrWhiteSpace(userName)) userName = "USER";
+             DuplicateChecklistName = $"#EDITING {userName.ToUpper()}"; 
+        }
+    }
+
+    [RelayCommand]
+    private async Task DuplicateChecklist()
+    {
+        if (SelectedCard == null || SelectedSourceChecklist == null || string.IsNullOrWhiteSpace(DuplicateChecklistName)) return;
+        
+        IsLoadingChecklists = true;
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+            
+            using var client = new HttpClient();
+            
+            var createUrl = $"https://api.trello.com/1/checklists?idCard={SelectedCard.Id}&idChecklistSource={SelectedSourceChecklist.Id}&name={Uri.EscapeDataString(DuplicateChecklistName)}&key={apiKey}&token={token}";
+            var createRes = await client.PostAsync(createUrl, null);
+            if (!createRes.IsSuccessStatusCode)
+            {
+                 StatusMessage = "Failed to create duplicate checklist.";
+                 return;
+            }
+            
+            var json = await createRes.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            var newItemsMap = new Dictionary<string, string>(); 
+            if (doc.RootElement.TryGetProperty("checkItems", out var checkItemsReq))
+            {
+                foreach(var item in checkItemsReq.EnumerateArray())
+                {
+                    var nm = item.GetProperty("name").GetString();
+                    var id = item.GetProperty("id").GetString();
+                    if (!string.IsNullOrEmpty(nm) && !string.IsNullOrEmpty(id)) newItemsMap[nm] = id;
+                }
+            }
+            
+            var updateTasks = new List<Task>();
+            foreach (var srcItem in SelectedSourceChecklist.Items)
+            {
+                if (srcItem.State == "complete" && newItemsMap.TryGetValue(srcItem.Name, out var newItemId))
+                {
+                    var updateUrl = $"https://api.trello.com/1/cards/{SelectedCard.Id}/checkItem/{newItemId}?state=complete&key={apiKey}&token={token}";
+                    updateTasks.Add(client.PutAsync(updateUrl, null));
+                }
+            }
+            if (updateTasks.Any()) await Task.WhenAll(updateTasks);
+            
+            await LogActivity("Checklist", "Duplicated Checklist", $"{DuplicateChecklistName} from {SelectedSourceChecklist.Name}");
+            
+            // Local Update for Real-time Feedback
+            SelectedCard.ChecklistNames.Add(DuplicateChecklistName);
+            SelectedCard.HasChecklist = true;
+            SelectedCard.RefreshChecklistStatus();
+
+            IsDuplicateMode = false;
+            DuplicateChecklistName = "";
+            SelectedSourceChecklist = null;
+            
+            // Background reload to sync IDs/Items
+            _ = LoadChecklists(SelectedCard.Id);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error duplicating: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingChecklists = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteChecklist(TrelloChecklist checklist)
+    {
+        if (checklist == null || SelectedCard == null) return;
+        
+        IsLoadingChecklists = true;
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+            
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/checklists/{checklist.Id}?key={apiKey}&token={token}";
+            var response = await client.DeleteAsync(url);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Checklists.Remove(checklist);
+                SelectedCard.ChecklistNames.Remove(checklist.Name);
+                SelectedCard.ChecklistTotal -= checklist.Items.Count;
+                SelectedCard.ChecklistCompleted -= checklist.Items.Count(item => item.IsChecked);
+                SelectedCard.HasChecklist = Checklists.Count > 0;
+                SelectedCard.RefreshChecklistStatus();
+                await LogActivity("Checklist", "Deleted Checklist", $"{checklist.Name} on {SelectedCard.Name}");
+                _ = LoadChecklists(SelectedCard.Id);
+            }
+            else
+            {
+                StatusMessage = "Failed to delete checklist.";
+            }
+        }
+        catch (Exception ex)
+        {
+             StatusMessage = "Error deleting checklist.";
+        }
+        finally
+        {
+             IsLoadingChecklists = false;
+        }
+    }
+
+    protected async Task LoadChecklists(string cardId)
+    {
+        IsLoadingChecklists = true;
+        Checklists.Clear();
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/cards/{cardId}/checklists?key={apiKey}&token={token}";
+            
+            var json = await client.GetStringAsync(url);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                var checklist = new TrelloChecklist
+                {
+                    Id = element.GetProperty("id").GetString() ?? "",
+                    Name = element.GetProperty("name").GetString() ?? "",
+                    IdCard = element.GetProperty("idCard").GetString() ?? ""
+                };
+
+                if (element.TryGetProperty("checkItems", out var items))
+                {
+                    foreach(var item in items.EnumerateArray())
+                    {
+                        var ci = new TrelloChecklistItem
+                        {
+                            Id = item.GetProperty("id").GetString() ?? "",
+                            Name = item.GetProperty("name").GetString() ?? "",
+                            State = item.GetProperty("state").GetString() ?? "incomplete"
+                        };
+                        checklist.Items.Add(ci);
+                    }
+                }
+                Checklists.Add(checklist);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error loading checklists: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingChecklists = false;
+        }
+    }
+    
+    [RelayCommand]
+    private async Task ToggleCheckItem(TrelloChecklistItem item)
+    {
+        if (item == null || SelectedCard == null) return;
+        var newState = item.IsChecked ? "complete" : "incomplete";
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+             using var client = new HttpClient();
+             var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/checkItem/{item.Id}?state={newState}&key={apiKey}&token={token}";
+             var response = await client.PutAsync(url, null);
+             if (!response.IsSuccessStatusCode)
+             {
+                 item.IsChecked = !item.IsChecked; 
+                 StatusMessage = "Failed to update item state.";
+             }
+              else
+              {
+                  var delta = item.IsChecked ? 1 : -1;
+                  SelectedCard.ChecklistCompleted = Math.Clamp(
+                      SelectedCard.ChecklistCompleted + delta,
+                      0,
+                      SelectedCard.ChecklistTotal);
+                  SelectedCard.RefreshChecklistStatus();
+                  await LogActivity("Checklist", "Update Item", $"{item.Name} -> {newState} on {SelectedCard.Name}");
+              }
+        }
+        catch
+        {
+            item.IsChecked = !item.IsChecked;
+        }
+    }
+
+    // --- Attachment Logic ---
+
+    [ObservableProperty] private bool _isAttachmentPanelOpen;
+    partial void OnIsAttachmentPanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
+    [ObservableProperty] private ObservableCollection<TrelloAttachment> _attachments = new();
+    [ObservableProperty] private bool _isLoadingAttachments;
+
+    [RelayCommand]
+    protected async Task ShowAttachments(TrelloCard card)
+    {
+        if (card == null) return;
+        
+        CloseAllSidePanels();
+        
+        SelectedCard = card;
+        IsAttachmentPanelOpen = true;
+
+        if (_lastLoadedAttachmentsCardId != card.Id || Attachments.Count == 0)
+        {
+            await LoadAttachments(card.Id);
+            _lastLoadedAttachmentsCardId = card.Id;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseAttachmentPanel()
+    {
+        IsAttachmentPanelOpen = false;
+        if (SelectedCard != null) IsDetailPanelOpen = true;
+    }
+
+    public virtual void RequestRefresh() { }
+
+    protected async Task LoadAttachments(string cardId)
+    {
+        IsLoadingAttachments = true;
+        Attachments.Clear();
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/cards/{cardId}/attachments?key={apiKey}&token={token}";
+            
+            var json = await client.GetStringAsync(url);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                var att = new TrelloAttachment
+                {
+                    Id = element.GetProperty("id").GetString() ?? "",
+                    Name = element.GetProperty("name").GetString() ?? "",
+                    Url = element.GetProperty("url").GetString() ?? "",
+                    MimeType = element.TryGetProperty("mimeType", out var mt) ? mt.GetString() ?? "" : "",
+                    Bytes = element.TryGetProperty("bytes", out var b) ? (long)b.GetInt64() : 0 // Safe cast
+                };
+                
+                // Previews
+                if (element.TryGetProperty("previews", out var previews) && previews.GetArrayLength() > 0)
+                {
+                    // Get a mid-sized preview (e.g., 300px) or the largest if small
+                    // Trello returns previews sorted by size? Usually small to large.
+                    // Let's pick one around index 2 or 3 if available, or last.
+                    var pIndex = Math.Min(3, previews.GetArrayLength() - 1);
+                    var preview = previews[pIndex];
+                    if (preview.TryGetProperty("url", out var pUrl)) att.PreviewUrl = pUrl.GetString() ?? "";
+                    att.IsImage = true;
+                }
+                else if (att.MimeType.StartsWith("image/"))
+                {
+                    att.IsImage = true;
+                }
+
+                Attachments.Add(att);
+                
+                // Load Thumbnail Helper
+                if (att.IsImage && !string.IsNullOrEmpty(att.PreviewUrl))
+                {
+                     _ = LoadThumbnail(att);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error loading attachments: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingAttachments = false;
+        }
+    }
+
+
+
+    private async Task LoadCardCover(TrelloCard card)
+    {
+        if (string.IsNullOrEmpty(card.CoverUrl)) 
+        {
+             return;
+        }
+        
+        try
+        {
+             var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
+             var token = await _database.GetAsync<string>("Trello.Token") ?? "";
+             
+             using var client = new HttpClient();
+             if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token))
+             {
+                 client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
+             }
+
+             System.Diagnostics.Debug.WriteLine($"[LoadCardCover] URL: {card.CoverUrl}");
+
+             var response = await client.GetAsync(card.CoverUrl);
+             
+             // Fallback: coba dengan query params jika OAuth gagal
+             if (!response.IsSuccessStatusCode)
+             {
+                 System.Diagnostics.Debug.WriteLine($"[LoadCardCover] OAuth failed ({(int)response.StatusCode}), trying query params...");
+                 using var client2 = new HttpClient();
+                 var separator = card.CoverUrl.Contains("?") ? "&" : "?";
+                 var fallbackUrl = $"{card.CoverUrl}{separator}key={apiKey}&token={token}";
+                 response = await client2.GetAsync(fallbackUrl);
+             }
+             
+             if (!response.IsSuccessStatusCode)
+             {
+                 StatusMessage = $"Cover {(int)response.StatusCode}: {response.ReasonPhrase}";
+                 return;
+             }
+             
+             var bytes = await response.Content.ReadAsByteArrayAsync();
+             using var stream = new System.IO.MemoryStream(bytes);
+             card.CoverImage = new Avalonia.Media.Imaging.Bitmap(stream); 
+             StatusMessage = "";
+        }
+        catch (Exception ex)
+        {
+             StatusMessage = $"Cover err: {ex.Message}";
+             System.Diagnostics.Debug.WriteLine($"[LoadCardCover] Error: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadThumbnail(TrelloAttachment att)
+    {
+        try
+        {
+             // Get API credentials for authenticated access
+             var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
+             var token = await _database.GetAsync<string>("Trello.Token") ?? "";
+             
+             using var client = new HttpClient();
+             if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token))
+             {
+                 client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
+             }
+
+             var bytes = await client.GetByteArrayAsync(att.PreviewUrl);
+             using var stream = new System.IO.MemoryStream(bytes);
+             att.Thumbnail = new Avalonia.Media.Imaging.Bitmap(stream); 
+        }
+        catch 
+        {
+            // Ignore thumbnail errors
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenAttachment(TrelloAttachment att)
+    {
+        if (att == null) return;
+        try 
+        {
+            if (att.IsImage)
+            {
+                var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
+                var token = await _database.GetAsync<string>("Trello.Token") ?? "";
+
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    try
+                    {
+                        var lightbox = new BMachine.UI.Views.ImageLightboxWindow(att.Url, apiKey, token);
+                        var app = Avalonia.Application.Current;
+                        var desktop = app?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                        
+                        // Find the currently active window, or the most recently created visible window
+                        var owner = desktop?.Windows.FirstOrDefault(w => w.IsActive) 
+                                 ?? desktop?.Windows.LastOrDefault(w => w.IsVisible) 
+                                 ?? desktop?.MainWindow;
+                        
+                        if (owner != null)
+                        {
+                            lightbox.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                            lightbox.Show(owner);
+                        }
+                        else
+                        {
+                            lightbox.Show();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Lightbox] Failed to open: {ex.Message}");
+                        StatusMessage = $"Could not open image: {ex.Message}";
+                    }
+                });
+            }
+            else
+            {
+                _platformService.OpenUrl(att.Url);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Cannot open link: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadAttachment(TrelloAttachment attachment)
+    {
+        if (attachment == null || SelectedCard == null) return;
+        
+        attachment.IsDownloading = true;
+        try
+        {
+            var offlinePath = await _database.GetAsync<string>("Configs.Storage.OfflinePath");
+            if (string.IsNullOrEmpty(offlinePath))
+            {
+                 offlinePath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), "Downloads", "BMachine_Attachments");
+            }
+
+            var folder = System.IO.Path.Combine(offlinePath, "Attachments", SelectedCard.Id);
+            if (!System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(folder);
+
+            var filePath = System.IO.Path.Combine(folder, attachment.Name);
+
+            using var client = new HttpClient();
+            
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            
+            if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token))
+            {
+                client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
+            }
+
+            var downloadUrl = attachment.Url;
+            var data = await client.GetByteArrayAsync(downloadUrl);
+            await System.IO.File.WriteAllBytesAsync(filePath, data);
+            
+            StatusMessage = $"Downloaded: {attachment.Name}";
+            await LogActivity("Attachment", "Downloaded", $"{attachment.Name} from {SelectedCard.Name}");
+
+            // Open Folder?
+            _platformService.RevealFileInExplorer(filePath);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Download failed: {ex.Message}";
+        }
+        finally
+        {
+            attachment.IsDownloading = false;
+        }
+    }
+
+    // --- Move Card Logic ---
+
+    [ObservableProperty] private bool _isMovePanelOpen;
+    partial void OnIsMovePanelOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyPanelOpen));
+        OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    }
+    [ObservableProperty] private ObservableCollection<TrelloItem> _availableBoards = new();
+    [ObservableProperty] private ObservableCollection<TrelloItem> _availableLists = new();
+    [ObservableProperty] private TrelloItem? _selectedMoveBoard;
+    [ObservableProperty] private TrelloItem? _selectedMoveList;
+    [ObservableProperty] private string _moveBoardSearchText = "";
+    [ObservableProperty] private string _moveListSearchText = "";
+    [ObservableProperty] private bool _isLoadingMoveData;
+    
+    private string? _lastLoadedCommentsCardId;
+    private string? _lastLoadedChecklistsCardId;
+    private string? _lastLoadedAttachmentsCardId;
+    
+    // Batch Move Properties
+    [ObservableProperty] private bool _isBatchMoveMode;
+    partial void OnIsBatchMoveModeChanged(bool value) => OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+    [ObservableProperty] private bool _hasSelectedCards;
+    [ObservableProperty] private bool _hasSelectedManualCards;
+    [ObservableProperty] private bool _hasSelectedAccCards;
+    [ObservableProperty] private bool _hasSelectedRegularCards;
+    [ObservableProperty] private string _batchStatusMessage = "";
+    
+    [RelayCommand]
+    private void SelectionChanged()
+    {
+        HasSelectedCards = Cards.Any(c => c.IsSelected);
+        HasSelectedManualCards = Cards.Any(c => c.IsSelected && c.IsManual);
+        HasSelectedAccCards = Cards.Any(c => c.IsSelected && c.IsAcc);
+        HasSelectedRegularCards = Cards.Any(c => c.IsSelected && !c.IsManual && !c.IsAcc);
+        
+        // Update IsAllSelected state based on actual card selections
+        if (Cards.Count > 0)
+        {
+            _isAllSelected = Cards.All(c => c.IsSelected);
+            OnPropertyChanged(nameof(IsAllSelected));
+        }
+    }
+
+    // --- Select All Logic ---
+    [ObservableProperty] private bool _isAllSelected;
+
+    [RelayCommand]
+    private void ToggleSelectAllCards()
+    {
+        if (Cards == null || Cards.Count == 0) return;
+
+        // Toggle state based on current property value which is ALREADY updated by TwoWay binding of CheckBox/ToggleButton
+        bool targetState = IsAllSelected;
+        
+        foreach (var card in Cards)
+        {
+            card.IsSelected = targetState;
+        }
+
+        // Force check because simple property change inside list might not trigger generic CollectionChanged for bindings
+        SelectionChanged(); 
+    }
+    
+    [RelayCommand]
+    private async Task ShowBatchMovePanel()
+    {
+        var selectedCount = Cards.Count(c => c.IsSelected);
+        if (selectedCount == 0) return;
+        
+        IsBatchMoveMode = true;
+        SelectedCard = new TrelloCard { Name = $"{selectedCount} Cards Selected" }; // Dummy card for Header
+        
+        CloseAllSidePanels();
+        IsMovePanelOpen = true;
+        
+        await LoadMoveBoards();
+    }
+
+    private int _moveListsLoadVersion;
+
+    partial void OnSelectedMoveBoardChanged(TrelloItem? value)
+    {
+        var loadVersion = ++_moveListsLoadVersion;
+        SelectedMoveList = null;
+        AvailableLists.Clear();
+
+        if (value == null || string.IsNullOrWhiteSpace(value.Id)) return;
+        _ = LoadMoveLists(value.Id, loadVersion);
+    }
+
+    [RelayCommand]
+    protected async Task ShowMovePanel(TrelloCard card)
+    {
+        if (card == null) return;
+        SelectedCard = card;
+        IsBatchMoveMode = false;
+        
+        // AutoMove Logic Check
+        bool autoMoved = await AutoMoveCard(card);
+        if (autoMoved) return;
+
+        CloseAllSidePanels();
+        IsMovePanelOpen = true;
+        
+        await LoadMoveBoards();
+    }
+    
+    [RelayCommand]
+    protected void CloseMovePanel()
+    {
+        IsMovePanelOpen = false;
+        
+        // Cache the value before resetting it
+        bool wasBatchMove = IsBatchMoveMode;
+        IsBatchMoveMode = false;
+        
+        // Reset Dropdowns
+        SelectedMoveBoard = null;
+        SelectedMoveList = null;
+        MoveBoardSearchText = "";
+        MoveListSearchText = "";
+        AvailableBoards.Clear();
+        AvailableLists.Clear();
+        StatusMessage = "";
+        
+        // If it was a batch move (dummy card), clear selection. Otherwise return to detail.
+        if (wasBatchMove) 
+        {
+             SelectedCard = null;
+        }
+        else if (SelectedCard != null) 
+        {
+             IsDetailPanelOpen = true; // Returns to previous view
+        }
+    }
+
+    [RelayCommand]
+    private void ClearMoveBoard()
+    {
+        SelectedMoveBoard = null;
+        SelectedMoveList = null;
+        AvailableLists.Clear();
+    }
+
+    [RelayCommand]
+    private void ClearMoveList()
+    {
+        SelectedMoveList = null;
+    }
+
+
+
+    private async Task<bool> DataMoveCard(TrelloCard card, string boardId, string listId, string successMessage, bool isBatchMode = false)
+    {
+         try
+         {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            
+            // If board/list not provided, use defaults or logic for automove?
+            // Existing logic for DataMoveCard seemed to expect specific targets.
+            
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/cards/{card.Id}?idList={listId}&idBoard={boardId}&key={apiKey}&token={token}";
+            
+            // Handle Automove scenario if parameters are empty (though typically passed explicitly)
+            if (string.IsNullOrEmpty(boardId) || string.IsNullOrEmpty(listId))
+            {
+                // This seems like a legacy path for AutoMove, but let's stick to the core fix
+                // for the force close which happens during explicit Batch Move.
+            }
+
+            var response = await client.PutAsync(url, null);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                if (!string.IsNullOrEmpty(successMessage))
+                    StatusMessage = successMessage;
+
+                Cards.Remove(card); 
+                
+                // If the card was an ACC card, remove it from the ACC tracking
+                if (card.IsAcc)
+                {
+                    var accIds = await _database.GetAsync<List<string>>("ManualCards.Acc") ?? new List<string>();
+                    if (accIds.Contains(card.Id))
+                    {
+                        accIds.Remove(card.Id);
+                        await _database.SetAsync("ManualCards.Acc", accIds);
+                    }
+                }
+                
+                if (!isBatchMode)
+                    CloseMovePanel();
+
+                await LogActivity("Move", "Card Moved", $"{card.Name} -> {successMessage}");
+                return true;
+            }
+            return false;
+         }
+         catch(Exception ex) 
+         {
+             StatusMessage = $"Error moving card: {ex.Message}";
+             return false;
+         }
+    }
+
+    private async Task<bool> AutoMoveCard(TrelloCard card)
+    {
+        var parts = card.Name.Split('_');
+        if (parts.Length < 3) return false; 
+        
+        string targetName = parts[2].Trim();
+        IsLoadingMoveData = true;
+        try
+        {
+            var qcBoardId = await _database.GetAsync<string>("Trello.QcBoardId");
+            if (string.IsNullOrEmpty(qcBoardId)) return false; 
+
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/boards/{qcBoardId}/lists?key={apiKey}&token={token}&fields=name,id";
+            var json = await client.GetStringAsync(url);
+            
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var lists = new List<TrelloItem>();
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                lists.Add(new TrelloItem 
+                { 
+                    Id = element.GetProperty("id").GetString() ?? "", 
+                    Name = element.GetProperty("name").GetString() ?? "" 
+                });
+            }
+            
+            TrelloItem? matchedList = null;
+            foreach(var list in lists)
+            {
+                if (targetName.Contains(list.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    matchedList = list;
+                    break;
+                }
+            }
+            
+            if (matchedList != null) 
+            {
+                return await DataMoveCard(card, qcBoardId, matchedList.Id, $"Moved to QC: {matchedList.Name}");
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            IsLoadingMoveData = false;
+        }
+    }
+
+    [RelayCommand]
+    protected async Task StartMoveCard(TrelloCard? card)
+    {
+        if (card == null) return;
+        
+        CloseAllSidePanels();
+        SelectedCard = card;
+        IsBatchMoveMode = false;
+        IsMovePanelOpen = true;
+        
+        await LoadMoveBoards();
+    }
+
+    private async Task LoadMoveBoards()
+    {
+        IsLoadingMoveData = true;
+        AvailableBoards.Clear();
+        SelectedMoveBoard = null; // FORCE RESET to ensure we don't remember previous selection
+        SelectedMoveList = null;  // Also reset list
+        MoveBoardSearchText = "";
+        MoveListSearchText = "";
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            var qcBoardId = await _database.GetAsync<string>("Trello.QcBoardId");
+            
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            
+            // Always fetch ALL boards to allow user selection
+            var url = $"https://api.trello.com/1/members/me/boards?key={apiKey}&token={token}&fields=name,id";
+            var json = await client.GetStringAsync(url);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                AvailableBoards.Add(new TrelloItem 
+                { 
+                    Id = element.GetProperty("id").GetString() ?? "", 
+                    Name = element.GetProperty("name").GetString() ?? "" 
+                });
+            }
+
+            // Default Selection Logic
+            if (!string.IsNullOrEmpty(qcBoardId))
+            {
+                var match = AvailableBoards.FirstOrDefault(b => b.Id == qcBoardId);
+                if (match != null)
+                {
+                    SelectedMoveBoard = match;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error loading boards: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingMoveData = false;
+        }
+    }
+
+    private async Task LoadMoveLists(string boardId, int loadVersion)
+    {
+        if (string.IsNullOrWhiteSpace(boardId)) return;
+
+        IsLoadingMoveData = true;
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            var url = $"https://api.trello.com/1/boards/{boardId}/lists?key={apiKey}&token={token}&fields=name,id";
+            var json = await client.GetStringAsync(url);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (loadVersion != _moveListsLoadVersion || SelectedMoveBoard?.Id != boardId) return;
+
+            var lists = doc.RootElement.EnumerateArray()
+                .Select(element => new TrelloItem
+                {
+                    Id = element.GetProperty("id").GetString() ?? "",
+                    Name = element.GetProperty("name").GetString() ?? ""
+                })
+                .Where(item => !string.IsNullOrWhiteSpace(item.Id))
+                .ToList();
+
+            AvailableLists.Clear();
+            foreach (var item in lists) AvailableLists.Add(item);
+        }
+        catch (Exception ex)
+        {
+            if (loadVersion == _moveListsLoadVersion) StatusMessage = $"Error loading lists: {ex.Message}";
+        }
+        finally
+        {
+            if (loadVersion == _moveListsLoadVersion) IsLoadingMoveData = false;
+        }
+    }
+
+
+
+    [RelayCommand]
+    private async Task MoveCard()
+    {
+        if (SelectedCard == null && !IsBatchMoveMode) return;
+        if (SelectedMoveBoard == null || SelectedMoveList == null) return;
+        
+        IsLoadingMoveData = true;
+        try
+        {
+             if (IsBatchMoveMode)
+             {
+                 var selectedCards = Cards.Where(c => c.IsSelected).ToList();
+                 if (!selectedCards.Any()) return;
+                 
+                 int successCount = 0;
+                 int total = selectedCards.Count;
+                 
+                 foreach(var card in selectedCards)
+                 {
+                     StatusMessage = $"Moving {card.Name} ({successCount + 1}/{total})...";
+                     // pass isBatchMode = true to prevent panel from closing and data from clearing
+                     bool success = await DataMoveCard(card, SelectedMoveBoard.Id, SelectedMoveList.Id, "", true);
+                     if (success) successCount++;
+                 }
+                 
+                 // Cache name BEFORE closing panel (which clears SelectedMoveList)
+                 var targetListName = SelectedMoveList.Name;
+                 CloseMovePanel();
+                 StatusMessage = $"Moved {successCount} of {total} cards to {targetListName}";
+                 HasSelectedCards = false; // Reset selection visibility
+                 HasSelectedManualCards = false;
+                 RequestRefresh(); // Auto refresh
+             }
+             else if (SelectedCard != null)
+             {
+                 await DataMoveCard(SelectedCard, SelectedMoveBoard.Id, SelectedMoveList.Id, $"Moved to {SelectedMoveList.Name}", false);
+                 RequestRefresh(); // Auto refresh
+             }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Batch move failed: {ex.Message}";
+        }
+        finally
+        {
+             IsLoadingMoveData = false;
+        }
+    }
+
+    // Helper for syncing cards
+    [RelayCommand]
+    public async Task UpdateCardPosition(TrelloCard card)
+    {
+        if (card == null) return;
+        
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
+
+            using var client = new HttpClient();
+            // Trello API uses PUT /1/cards/{id}?pos={pos}
+            var url = $"https://api.trello.com/1/cards/{card.Id}?pos={card.Pos}&key={apiKey}&token={token}";
+            var response = await client.PutAsync(url, null);
+            if (!response.IsSuccessStatusCode)
+            {
+                StatusMessage = $"Failed to update pos: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Pos Update Error: {ex.Message}";
+        }
+    }
+
+    // Helper for syncing cards
+    protected void UpdateCardsCollection(List<TrelloCard> newCards)
+    {
+        var toRemove = Cards.Where(existing => !newCards.Any(newC => newC.Id == existing.Id)).ToList();
+        foreach (var item in toRemove) Cards.Remove(item);
+        
+        foreach (var newC in newCards)
+        {
+            var existing = Cards.FirstOrDefault(c => c.Id == newC.Id);
+            if (existing != null)
+            {
+                existing.Name = newC.Name;
+                existing.Description = newC.Description;
+                existing.DueDate = newC.DueDate;
+                existing.IsOverdue = newC.IsOverdue;
+                existing.HasChecklist = newC.HasChecklist;
+                existing.ChecklistNames = newC.ChecklistNames;
+                existing.ChecklistOwnerName = newC.ChecklistOwnerName;
+                existing.ChecklistTotal = newC.ChecklistTotal;
+                existing.ChecklistCompleted = newC.ChecklistCompleted;
+                existing.RefreshChecklistStatus();
+                existing.AttachmentCount = newC.AttachmentCount;
+                existing.CoverUrl = newC.CoverUrl;
+                existing.CoverColor = newC.CoverColor;
+                existing.CoverAttachmentName = newC.CoverAttachmentName;
+                existing.Pos = newC.Pos;
+                existing.IsAcc = newC.IsAcc;
+                existing.IsSeparator = newC.IsSeparator;
+            }
+            else
+            {
+                Cards.Add(newC);
+            }
+        }
+
+        // Reorder Cards to match newCards exactly
+        for (int i = 0; i < newCards.Count; i++)
+        {
+            var targetId = newCards[i].Id;
+            if (Cards.Count > i && Cards[i].Id != targetId)
+            {
+                var targetItem = Cards.FirstOrDefault(c => c.Id == targetId);
+                if (targetItem != null)
+                {
+                    int oldIndex = Cards.IndexOf(targetItem);
+                    if (oldIndex != -1 && oldIndex != i)
+                    {
+                        Cards.Move(oldIndex, i);
+                    }
+                }
+            }
+        }
+    }
+
+    protected async Task<List<TrelloCard>> FetchCards(string listId, string apiKey, string token)
+    {
+        var results = new List<TrelloCard>();
+        var cacheKey = $"Cache.List.{listId}";
+        
+        using var client = new HttpClient();
+        client.Timeout = TimeSpan.FromSeconds(15); 
+        // Added cover to fields, attachments=true to get cover image URL, and pos
+        var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges,cover,pos&checklists=all&attachments=true&attachment_fields=url,name";
+        
+        string json = "";
+        
+        try 
+        {
+            json = await client.GetStringAsync(url);
+            
+            // Cache Success
+            await _database.SetAsync(cacheKey, json);
+            IsOnline = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fetch Error (Offline?): {ex.Message}");
+            IsOnline = false;
+            
+            // Fallback to Cache
+            try 
+            {
+                json = await _database.GetAsync<string>(cacheKey) ?? "";
+            }
+            catch { /* Cache Read Error */ }
+        }
+
+        if (string.IsNullOrEmpty(json)) return results; 
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) return results;
+
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                var card = new TrelloCard
+                {
+                    Id = element.GetProperty("id").GetString() ?? "",
+                    Name = element.GetProperty("name").GetString() ?? "",
+                    Description = element.GetProperty("desc").GetString() ?? ""
+                };
+
+                if (element.TryGetProperty("pos", out var posProp) && posProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    card.Pos = posProp.GetDouble();
+                }
+                                
+                if (element.TryGetProperty("due", out var dueProp) && dueProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                {
+                    if (DateTime.TryParse(dueProp.GetString(), out var dt))
+                    {
+                        card.DueDate = dt;
+                        card.IsOverdue = dt < DateTime.Now; 
+                    }
+                }
+                
+                // Parse Cover - Trello API: cover.idAttachment -> URL dari array attachments
+                string coverAttachmentId = "";
+                if (element.TryGetProperty("cover", out var coverProp))
+                {
+                    if (coverProp.TryGetProperty("color", out var cColor) && cColor.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        string colorName = cColor.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(colorName))
+                        {
+                            card.CoverColor = GetCoverColorHex(colorName);
+                        }
+                    }
+                    
+                    // Ambil idAttachment dari cover
+                    if (coverProp.TryGetProperty("idAttachment", out var idAtt) && idAtt.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        coverAttachmentId = idAtt.GetString() ?? "";
+                    }
+                }
+                
+                // Cari URL cover dari array attachments berdasarkan idAttachment
+                if (!string.IsNullOrEmpty(coverAttachmentId) && element.TryGetProperty("attachments", out var attachments))
+                {
+                    foreach (var att in attachments.EnumerateArray())
+                    {
+                        if (att.TryGetProperty("id", out var attId) && attId.GetString() == coverAttachmentId)
+                        {
+                            if (att.TryGetProperty("url", out var attUrl) && attUrl.ValueKind == System.Text.Json.JsonValueKind.String)
+                            {
+                                card.CoverUrl = attUrl.GetString() ?? "";
+                            }
+                            if (att.TryGetProperty("name", out var attName) && attName.ValueKind == System.Text.Json.JsonValueKind.String)
+                            {
+                                card.CoverAttachmentName = attName.GetString() ?? "";
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if (element.TryGetProperty("labels", out var labelsProp))
+                {
+                    var lbls = new List<string>();
+                    card.Labels.Clear();
+
+                    foreach (var l in labelsProp.EnumerateArray())
+                    {
+                         string name = "";
+                         string color = "gray"; 
+                         string id = "";
+
+                         if(l.TryGetProperty("name", out var n)) name = n.GetString() ?? "";
+                         if(l.TryGetProperty("color", out var c)) color = c.GetString() ?? "gray";
+                         if(l.TryGetProperty("id", out var i)) id = i.GetString() ?? "";
+                         
+                         card.Labels.Add(new TrelloLabel { Id = id, Name = name, Color = color });
+                         
+                         if (!string.IsNullOrEmpty(name)) lbls.Add(name);
+                    }
+                    card.LabelsText = string.Join(", ", lbls.Where(x => !string.IsNullOrEmpty(x)));
+                }
+
+                if (element.TryGetProperty("badges", out var badges))
+                {
+                    if (badges.TryGetProperty("attachments", out var att)) card.AttachmentCount = att.GetInt32();
+                }
+
+                // Parse checklist names and item progress
+                if (element.TryGetProperty("checklists", out var checkArr) && checkArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var checkItem in checkArr.EnumerateArray())
+                    {
+                        if (checkItem.TryGetProperty("name", out var cName))
+                        {
+                            card.ChecklistNames.Add(cName.GetString() ?? "");
+                        }
+
+                        if (checkItem.TryGetProperty("checkItems", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            foreach (var item in items.EnumerateArray())
+                            {
+                                card.ChecklistTotal++;
+                                if (item.TryGetProperty("state", out var state) &&
+                                    string.Equals(state.GetString(), "complete", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    card.ChecklistCompleted++;
+                                }
+                            }
+                        }
+                    }
+                }
+                card.HasChecklist = card.ChecklistNames.Count > 0;
+                card.ChecklistOwnerName = await _database.GetAsync<string>("User.Name") ?? "USER";
+
+                results.Add(card);
+            }
+        }
+        catch (Exception ex)
+        {
+             StatusMessage = $"Parse Error: {ex.Message}";
+        }
+
+        return results;
+    }
+
+    private string GetCoverColorHex(string colorName)
+    {
+        return colorName switch
+        {
+            "green" => "#4bce97",
+            "yellow" => "#e2b203",
+            "orange" => "#faa53d",
+            "red" => "#f87168",
+            "purple" => "#9f8fef",
+            "blue" => "#579dff",
+            "sky" => "#6cc3e0",
+            "lime" => "#94c748",
+            "pink" => "#e774bb",
+            "black" => "#8590a2",
+            _ => "#626f86"
+        };
+    }
+
+    protected async Task<bool> CheckForUpdates(string listId)
+    {
+        try
+        {
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            
+            if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return false;
+
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(10);
+            
+            // Fetch only IDs to minimize data transfer and parsing
+            var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=id";
+            var json = await client.GetStringAsync(url);
+            
+            // If offline/error, client throws, goes to catch.
+            IsOnline = true; 
+
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) return false;
+
+            var currentIds = new HashSet<string>(Cards.Select(c => c.Id));
+            var newIds = new HashSet<string>();
+            
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                if (element.TryGetProperty("id", out var idProp))
+                {
+                    newIds.Add(idProp.GetString() ?? "");
+                }
+            }
+
+            // Simple comparison: Any mismatch in content or count means update needed
+            // This handles adds, removes, and reorders (if we cared about order, but HashSet doesn't. 
+            // For simple notification "something changed", count or set difference is enough.
+            // If only Order changed, we might skip refresh? 
+            // Trello cards move positions frequently. Let's use SetEquals.
+            
+            bool isSame = currentIds.SetEquals(newIds);
+            return !isSame;
+        }
+        catch 
+        {
+            return false;
+        }
+    }
+}

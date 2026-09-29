@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+        x:Class="BMachine.UI.Views.CardListWindow"
+        Title="BMachine List"
+        Width="450" Height="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppBackgroundBrush}"
+        TransparencyLevelHint="Mica"
+        SystemDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        CanResize="True">
+    
+    <Grid>
+        <!-- Content Area -->
+        <!-- ContentControl will resolve the VM to its associated View via ViewLocator -->
+        <Border Margin="0" Background="{DynamicResource CardBackgroundBrush}" 
+                CornerRadius="6" BorderThickness="0"
+                PointerPressed="OnHeaderPointerPressed">
+             <ContentControl Content="{Binding}" Margin="0,0,0,0"/>
+        </Border>
+    </Grid>
+    
+</Window>
