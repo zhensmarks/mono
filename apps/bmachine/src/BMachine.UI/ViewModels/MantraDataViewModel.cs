@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using BMachine.SDK;
+using BMachine.UI.Models;
 using BMachine.UI.Models.MantraData;
 using BMachine.UI.Services.MantraData;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -366,7 +367,7 @@ public partial class MantraDataViewModel : ObservableObject
     }
 
     public ObservableCollection<string> Columns { get; } = new();
-    public ObservableCollection<TableDataRow> Rows { get; } = new();
+    public RangeObservableCollection<TableDataRow> Rows { get; } = new();
     public ObservableCollection<TableDataRow> FilteredRows { get; } = new();
     public Dictionary<string, string> ColumnFormulas { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -523,8 +524,8 @@ public partial class MantraDataViewModel : ObservableObject
         Columns.Clear();
         foreach (var c in target.Columns) Columns.Add(c);
 
-        Rows.Clear();
-        foreach (var r in target.Rows) Rows.Add(r);
+        // RangeObservableCollection: Bulk replace (single notification)
+        Rows.ReplaceAll(target.Rows);
 
         TotalRows = Rows.Count; HasData = Rows.Count > 0;
         StatusMessage = "Menampilkan sheet: " + target.Name + " (" + TotalRows + " baris)";
@@ -587,8 +588,10 @@ public partial class MantraDataViewModel : ObservableObject
                     foreach (var c in cols) Columns.Add(c);
 
                     _isBulkLoadingRows = true;
-                    Rows.Clear();
-                    foreach (var r in dataRows) Rows.Add(r);
+                    
+                    // RangeObservableCollection: Bulk replace (single notification)
+                    Rows.ReplaceAll(dataRows);
+                    
                     _isBulkLoadingRows = false;
 
                     CurrentFilePath = path;
@@ -988,8 +991,8 @@ public partial class MantraDataViewModel : ObservableObject
         Columns.Clear();
         foreach (var h in newHeaders) Columns.Add(h);
 
-        Rows.Clear();
-        foreach (var r in newRows) Rows.Add(r);
+        // RangeObservableCollection: Bulk replace (single notification)
+        Rows.ReplaceAll(newRows);
 
         TotalRows = Rows.Count;
         HasData = Rows.Count > 0;

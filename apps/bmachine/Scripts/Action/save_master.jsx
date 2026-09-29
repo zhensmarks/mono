@@ -451,35 +451,23 @@ function main() {
             var nName = normalizeArtboardName(artboardCheckboxes[cb].name);
             repeatByName[nName] = artboardCheckboxes[cb].checkbox.value;
         }
-        var exportedOnce = {};
         var exportSchedules = [];
 
         function normalizeArtboardName(name) {
             return String(name || "").replace(/^\s+|\s+$/g, "").toUpperCase();
         }
 
-        // Build schedule
+        // Build schedule: SEMUA artboard di setiap dokumen ikut diexport
+        // (agar tiap folder kelas lengkap). Checkbox hanya menentukan
+        // apakah artboard disimpan di root folder kelas (repeat) atau subfolder.
         for (var i = 0; i < docs.length; i++) {
             var schedule = [];
             var doc = docs[i];
             try {
                 app.activeDocument = doc;
                 var artboardsInfo = getArtboardsData();
-                
                 for (var scheduleIdx = 0; scheduleIdx < artboardsInfo.length; scheduleIdx++) {
-                    var normalizedName = normalizeArtboardName(artboardsInfo[scheduleIdx].name);
-                    var isControlledLayer = repeatByName.hasOwnProperty(normalizedName);
-                    var shouldExport = true;
-
-                    if (isControlledLayer && !repeatByName[normalizedName]) {
-                        if (exportedOnce[normalizedName]) {
-                            shouldExport = false;
-                        } else {
-                            exportedOnce[normalizedName] = true;
-                        }
-                    }
-
-                    if (shouldExport) schedule.push(scheduleIdx);
+                    schedule.push(scheduleIdx);
                 }
             } catch (e) {}
             exportSchedules.push(schedule);
@@ -501,7 +489,7 @@ function main() {
                 // Simpan PSD original dulu
                 doc.save();
                 
-                var res = exportArtboards(doc, isPng, JPG_QUALITY, currentSchedule);
+                var res = exportArtboards(doc, isPng, JPG_QUALITY, currentSchedule, repeatByName);
                 totalSuccess += res.success;
                 totalFail += res.fail;
                 if (res.details.length > 0) {
@@ -527,7 +515,15 @@ function main() {
                 }
             }
         }
-        
+        // Bersihkan clipboard setelah semua proses artboard selesai
+        try {
+            var clrDoc = app.documents.add(UnitValue(1, "px"), UnitValue(1, "px"), 72, "clip_clear", NewDocumentMode.RGB);
+            clrDoc.selection.selectAll();
+            clrDoc.selection.copy();
+            clrDoc.close(SaveOptions.DONOTSAVECHANGES);
+        } catch (e) {}
+        try { app.activeDocument.selection.deselect(); } catch (e) {}
+
         var finalMsg = "Total Sukses: " + totalSuccess + ", Total Gagal: " + totalFail + "\n\n" + allDetails.join("\n");
         showScrollableAlert("Laporan Export Artboard (Batch)", finalMsg);
         return; // Stop di sini
@@ -830,7 +826,7 @@ function showScrollableAlert(title, message) {
     dialog.show();
 }
 
-function exportArtboards(sourceDoc, isPng, quality, schedule) {
+function exportArtboards(sourceDoc, isPng, quality, schedule, repeatByName) {
     var successCount = 0;
     var failCount = 0;
     var details = [];
@@ -895,15 +891,30 @@ function exportArtboards(sourceDoc, isPng, quality, schedule) {
             
             try { app.doAction("anti ramijud", "starter pack"); } catch (e) {}
             var safeName = abName.replace(new RegExp('[\\\\\\\\/:*?"<>|]', 'g'), "_");
-            
-            // Membuat folder khusus untuk masing-masing nama artboard
-            var artboardFolder = new Folder(basePath + "/" + safeName);
-            if (!artboardFolder.exists) {
-                artboardFolder.create();
+            // Tentukan lokasi output:
+            // - Artboard DICEKLIS (repeat): langsung di root folder kelas (bersanding dgn PSD)
+            // - Artboard TIDAK diceklis: dibuatkan subfolder per artboard
+            var isRepeat = false;
+            if (repeatByName) {
+                var normAb = String(abName || "").replace(/^\s+|\s+$/g, "").toUpperCase();
+                if (repeatByName.hasOwnProperty(normAb) && repeatByName[normAb]) {
+                    isRepeat = true;
+                }
             }
-            
+
+            var targetFolderPath;
+            if (isRepeat) {
+                targetFolderPath = basePath; // root folder kelas
+            } else {
+                targetFolderPath = basePath + "/" + safeName;
+                var artboardFolder = new Folder(targetFolderPath);
+                if (!artboardFolder.exists) {
+                    artboardFolder.create();
+                }
+            }
+
             var outName = baseName + "_" + safeName;
-            var targetPath = artboardFolder.fsName + "/" + outName;
+            var targetPath = targetFolderPath + "/" + outName;
             
             if (isPng) {
                 savePNG(newDoc, targetPath + ".png");

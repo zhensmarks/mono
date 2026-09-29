@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -212,12 +212,178 @@
             <Setter Property="Padding" Value="4,4"/>
             <Setter Property="Background" Value="Transparent"/>
         </Style>
+        <!-- LISTBOX (Advanced file/pair lists) -->
+        <Style Selector="ListBox.Adv">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.Adv ListBoxItem">
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="ListBox.Adv ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+        <Style Selector="ListBox.Adv ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1E3A8A"/>
+        </Style>
+
+        <!-- LISTBOX (Advanced thumbnail grid) -->
+        <Style Selector="ListBox.AdvThumb">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.AdvThumb ListBoxItem">
+            <Setter Property="Padding" Value="3"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="9"/>
+        </Style>
+        <Style Selector="ListBox.AdvThumb ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1A1A1D"/>
+        </Style>
+        <Style Selector="ListBox.AdvThumb ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1E3A8A"/>
+        </Style>
+
+        <!-- DROP CARD (folder input as wide drop zone) -->
+        <Style Selector="Border.DropCard">
+            <Setter Property="Background" Value="#0C0C0E"/>
+            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.DropCard:pointerover">
+            <Setter Property="BorderBrush" Value="#3A3A44"/>
+        </Style>
 
         <!-- DIVIDER -->
         <Style Selector="Rectangle.Divider">
             <Setter Property="Height" Value="1"/>
             <Setter Property="Fill" Value="#1A1A1D"/>
             <Setter Property="Margin" Value="0,12"/>
+        </Style>
+
+        <!-- SEGMENTED MODE SWITCH (List / Thumbnail) -->
+        <Style Selector="Border.SegWrap">
+            <Setter Property="Background" Value="#0A0A0C"/>
+            <Setter Property="BorderBrush" Value="#26262B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="11"/>
+            <Setter Property="Padding" Value="3"/>
+        </Style>
+        <Style Selector="Button.Seg">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#6B6B75"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Seg /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="TextElement.Foreground" Value="#6B6B75"/>
+        </Style>
+        <Style Selector="Button.Seg:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1C1C20"/>
+            <Setter Property="TextElement.Foreground" Value="#D4D4D8"/>
+        </Style>
+        <Style Selector="Button.Seg.on /template/ ContentPresenter">
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                    <GradientStop Color="#30303A" Offset="0"/>
+                    <GradientStop Color="#232329" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter>
+            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+        </Style>
+
+        <!-- BACK BUTTON -->
+        <Style Selector="Button.Back">
+            <Setter Property="Background" Value="#161619"/>
+            <Setter Property="Foreground" Value="#C4C4C0"/>
+            <Setter Property="BorderBrush" Value="#33333A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Padding" Value="13,8"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Back /template/ ContentPresenter">
+            <Setter Property="Background" Value="#161619"/>
+            <Setter Property="BorderBrush" Value="#33333A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="TextElement.Foreground" Value="#C4C4C0"/>
+        </Style>
+        <Style Selector="Button.Back:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#26262C"/>
+            <Setter Property="BorderBrush" Value="#45454E"/>
+            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+        </Style>
+
+        <!-- ADVANCED MODE ENTRY BUTTON (accent gradient pill) -->
+        <Style Selector="Button.AdvEntry">
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Padding" Value="16,9"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.AdvEntry /template/ ContentPresenter">
+            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#FFFFFF33"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#3B82F6" Offset="0"/>
+                    <GradientStop Color="#6366F1" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter>
+        </Style>
+        <Style Selector="Button.AdvEntry:pointerover /template/ ContentPresenter">
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#4F8FF7" Offset="0"/>
+                    <GradientStop Color="#7C7CF5" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter>
+        </Style>
+        <Style Selector="Button.AdvEntry:pressed /template/ ContentPresenter">
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#2F6FD6" Offset="0"/>
+                    <GradientStop Color="#5252D9" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter>
         </Style>
 
     </Window.Styles>
@@ -316,14 +482,266 @@
                      MANTRA NAMA
                 ═══════════════════════ -->
                 <Grid IsVisible="{Binding IsMantraNamaVisible}">
-                <Border Classes="Card" IsVisible="{Binding MantraNamaVM.IsAdvancedMode}" MinHeight="480"><Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="8"><TextBlock Classes="Section" Text="ADVANCED MODE - SAMAKAN NAMA FILE"/><Grid Grid.Row="1" ColumnDefinitions="*,Auto,*,Auto" ColumnSpacing="6"><TextBox x:Name="NamaAdvancedReferenceDropZone" Grid.Column="0" Classes="Input" Text="{Binding MantraNamaVM.AdvancedReferenceDirectory}" Watermark="Folder kiri: referensi (seret folder atau file)" DragDrop.AllowDrop="True"/><Button Grid.Column="1" Classes="Muted" Content="Pilih kiri" Click="OnNamaAdvancedReferenceFolderClick"/><TextBox x:Name="NamaAdvancedTargetDropZone" Grid.Column="2" Classes="Input" Text="{Binding MantraNamaVM.AdvancedTargetDirectory}" Watermark="Folder kanan: target (seret folder atau file)" DragDrop.AllowDrop="True"/><Button Grid.Column="3" Classes="Muted" Content="Pilih kanan" Click="OnNamaAdvancedTargetFolderClick"/></Grid><Grid Grid.Row="2" ColumnDefinitions="*,10,*"><Border Grid.Column="0" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="8"><Grid RowDefinitions="Auto,Auto,*"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="FieldLabel" Text="REFERENSI KIRI"/><ComboBox Grid.Column="1" Width="120" ItemsSource="{Binding MantraNamaVM.AdvancedFileFilters}" SelectedItem="{Binding MantraNamaVM.AdvancedReferenceFilter}"/></Grid><TextBox Grid.Row="1" Classes="Input" Text="{Binding MantraNamaVM.AdvancedReferenceSearch}" Watermark="Cari file..." Margin="0,6"/><ListBox Grid.Row="2" ItemsSource="{Binding MantraNamaVM.AdvancedReferenceFiles}" SelectedItem="{Binding MantraNamaVM.SelectedAdvancedReference}"><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis"/></DataTemplate></ListBox.ItemTemplate></ListBox></Grid></Border><Border Grid.Column="2" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="8"><Grid RowDefinitions="Auto,Auto,*"><Grid ColumnDefinitions="*,Auto"><TextBlock Classes="FieldLabel" Text="TARGET KANAN"/><ComboBox Grid.Column="1" Width="120" ItemsSource="{Binding MantraNamaVM.AdvancedFileFilters}" SelectedItem="{Binding MantraNamaVM.AdvancedTargetFilter}"/></Grid><TextBox Grid.Row="1" Classes="Input" Text="{Binding MantraNamaVM.AdvancedTargetSearch}" Watermark="Cari file..." Margin="0,6"/><ListBox Grid.Row="2" ItemsSource="{Binding MantraNamaVM.AdvancedTargetFiles}" SelectedItem="{Binding MantraNamaVM.SelectedAdvancedTarget}"><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis"/></DataTemplate></ListBox.ItemTemplate></ListBox></Grid></Border></Grid><Border Grid.Row="3" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="8"><Grid RowDefinitions="Auto,*"><TextBlock Grid.Row="0" Classes="FieldLabel" Text="DAFTAR PASANGAN"/><ListBox Grid.Row="1" ItemsSource="{Binding MantraNamaVM.AdvancedPairs}" MaxHeight="130"><ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,16,*,16,*,Auto" Margin="0,2"><TextBlock Grid.Column="0" Text="{Binding ReferenceName}" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="1" Text="-&gt;" HorizontalAlignment="Center"/><TextBlock Grid.Column="2" Text="{Binding TargetName}" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="3" Text="-&gt;" HorizontalAlignment="Center"/><TextBlock Grid.Column="4" Text="{Binding ResultName}" TextTrimming="CharacterEllipsis" Foreground="#C4C4C0"/><Button Grid.Column="5" Content="Hapus" Classes="Muted" Padding="8,2" Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveAdvancedPairCommand}" CommandParameter="{Binding}"/></Grid></DataTemplate></ListBox.ItemTemplate></ListBox></Grid></Border><Grid Grid.Row="4" ColumnDefinitions="*,Auto,8,Auto"><CheckBox Grid.Column="0" Classes="Option" Content="Sertakan subfolder" IsChecked="{Binding MantraNamaVM.AdvancedIncludeSubfolders}"/><Button Grid.Column="1" Classes="Muted" Content="Pasangkan" Command="{Binding MantraNamaVM.AddAdvancedPairCommand}"/><Button Grid.Column="3" Classes="Action" Content="Jalankan Rename" Command="{Binding MantraNamaVM.ExecuteAdvancedRenameCommand}"/></Grid></Grid></Border>
+                <Border Classes="Card" IsVisible="{Binding MantraNamaVM.IsAdvancedMode}" Padding="20,18" ClipToBounds="True">
+                    <Grid RowDefinitions="Auto,Auto,3*,2*,Auto,Auto" RowSpacing="12">
+                        <!-- Header: Back + Title + Segmented Mode Switch -->
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,16,*,Auto">
+                            <Button Grid.Column="0" Classes="Back"
+                                    Command="{Binding MantraNamaVM.ExitAdvancedModeCommand}"
+                                    VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="&#x2190;" FontSize="15" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Kembali" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <StackPanel Grid.Column="2" Spacing="3" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="&#x2728;" FontSize="14" VerticalAlignment="Center" Foreground="#7C9CF5"/>
+                                    <TextBlock Classes="Section" Text="ADVANCED MODE" FontSize="12"/>
+                                </StackPanel>
+                                <TextBlock FontSize="11" Foreground="#52525B" Text="Samakan nama file: kiri = referensi, kanan = target"/>
+                            </StackPanel>
+                            <Border Grid.Column="3" Classes="SegWrap" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <Button Classes="Seg" Classes.on="{Binding MantraNamaVM.IsListMode}"
+                                            Command="{Binding MantraNamaVM.SetListModeCommand}">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="&#x2630;" FontSize="12" VerticalAlignment="Center"/>
+                                            <TextBlock Text="List" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="Seg" Classes.on="{Binding MantraNamaVM.IsThumbnailMode}"
+                                            Command="{Binding MantraNamaVM.SetThumbnailModeCommand}">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="&#x25A6;" FontSize="12" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Thumbnail" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <!-- Folder Inputs (whole card = drop zone) -->
+                        <Grid Grid.Row="1" ColumnDefinitions="*,10,*">
+                            <Border Grid.Column="0" x:Name="NamaAdvancedReferenceDropZone" Classes="DropCard"
+                                    DragDrop.AllowDrop="True" ToolTip.Tip="Seret folder atau file ke sini">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Background="Transparent" DragDrop.AllowDrop="True">
+                                    <TextBlock Grid.Column="0" Text="&#x1F4C1;" FontSize="15" VerticalAlignment="Center" Foreground="#7C9CF5"/>
+                                    <TextBox Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="2,0" DragDrop.AllowDrop="True"
+                                             Text="{Binding MantraNamaVM.AdvancedReferenceDirectory}"
+                                             Watermark="Folder kiri: referensi (seret folder / file)"/>
+                                    <Button Grid.Column="2" Classes="Muted" Content="Pilih" Padding="12,0"
+                                            VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                            Click="OnNamaAdvancedReferenceFolderClick"/>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Column="2" x:Name="NamaAdvancedTargetDropZone" Classes="DropCard"
+                                    DragDrop.AllowDrop="True" ToolTip.Tip="Seret folder atau file ke sini">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Background="Transparent" DragDrop.AllowDrop="True">
+                                    <TextBlock Grid.Column="0" Text="&#x1F4C1;" FontSize="15" VerticalAlignment="Center" Foreground="#7C9CF5"/>
+                                    <TextBox Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="2,0" DragDrop.AllowDrop="True"
+                                             Text="{Binding MantraNamaVM.AdvancedTargetDirectory}"
+                                             Watermark="Folder kanan: target (seret folder / file)"/>
+                                    <Button Grid.Column="2" Classes="Muted" Content="Pilih" Padding="12,0"
+                                            VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                                            Click="OnNamaAdvancedTargetFolderClick"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <!-- File Panels (fluid, scroll internal) -->
+                        <Grid Grid.Row="2" ColumnDefinitions="*,10,*">
+                            <Border Grid.Column="0" x:Name="NamaAdvancedReferencePanel" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="10" DragDrop.AllowDrop="True">
+                                <Grid RowDefinitions="Auto,Auto,*">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <TextBlock Classes="FieldLabel" Text="REFERENSI KIRI" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding MantraNamaVM.AdvancedReferenceCount}" FontSize="10" Foreground="#52525B" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <ComboBox Grid.Column="1" Width="96" ItemsSource="{Binding MantraNamaVM.SortOptions}" SelectedItem="{Binding MantraNamaVM.AdvancedSortBy}" ToolTip.Tip="Urutkan berdasarkan nama/nomor atau tipe"/>
+                                        <ComboBox Grid.Column="2" Width="112" Margin="6,0,0,0" ItemsSource="{Binding MantraNamaVM.AdvancedFileFilters}" SelectedItem="{Binding MantraNamaVM.AdvancedReferenceFilter}"/>
+                                        <ComboBox Grid.Column="3" Width="64" Margin="6,0,0,0" IsVisible="{Binding MantraNamaVM.IsThumbnailMode}"
+                                                  ItemsSource="{Binding MantraNamaVM.ColumnOptions}" SelectedItem="{Binding MantraNamaVM.AdvancedReferenceColumns}"
+                                                  ToolTip.Tip="Jumlah kolom thumbnail"/>
+                                    </Grid>
+                                    <TextBox Grid.Row="1" Classes="Input" Padding="10,7" FontSize="12" Text="{Binding MantraNamaVM.AdvancedReferenceSearch}" Watermark="Cari file..." Margin="0,6"/>
+                                    <ListBox Grid.Row="2" Classes="Adv" IsVisible="{Binding !MantraNamaVM.IsThumbnailMode}"
+                                             ItemsSource="{Binding MantraNamaVM.AdvancedReferenceFiles}" SelectedItem="{Binding MantraNamaVM.SelectedAdvancedReference}"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate><DataTemplate>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,2">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="&#x1F4C1;" FontSize="12" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="#9DB2F0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding NewName}" FontSize="10" Foreground="#52525B" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <TextBlock Grid.Column="0" IsVisible="{Binding !IsHeader}" Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" IsVisible="{Binding IsPaired}" Text="TERPASANG" FontSize="9" Foreground="#7C9CF5" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                            </Grid>
+                                        </DataTemplate></ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <ListBox Grid.Row="2" Classes="AdvThumb" IsVisible="{Binding MantraNamaVM.IsThumbnailMode}"
+                                             ItemsSource="{Binding MantraNamaVM.AdvancedReferenceFiles}" SelectedItem="{Binding MantraNamaVM.SelectedAdvancedReference}"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemsPanel><ItemsPanelTemplate>
+                                            <UniformGrid Columns="{Binding $parent[Window].DataContext.MantraNamaVM.AdvancedReferenceColumns}"/>
+                                        </ItemsPanelTemplate></ListBox.ItemsPanel>
+                                        <ListBox.ItemTemplate><DataTemplate>
+                                            <Grid Margin="3">
+                                                <Border IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#9DB2F0" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="#52525B"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <StackPanel IsVisible="{Binding !IsHeader}" Spacing="4">
+                                                    <Viewbox Stretch="Uniform">
+                                                        <Border Width="150" Height="200" CornerRadius="6" Background="#161619" ClipToBounds="True">
+                                                            <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
+                                                        </Border>
+                                                    </Viewbox>
+                                                    <TextBlock Text="{Binding OriginalName}" FontSize="10" TextTrimming="CharacterEllipsis" TextAlignment="Center"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate></ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Column="2" x:Name="NamaAdvancedTargetPanel" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="10" DragDrop.AllowDrop="True">
+                                <Grid RowDefinitions="Auto,Auto,*">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <TextBlock Classes="FieldLabel" Text="TARGET KANAN" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding MantraNamaVM.AdvancedTargetCount}" FontSize="10" Foreground="#52525B" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <ComboBox Grid.Column="1" Width="96" ItemsSource="{Binding MantraNamaVM.SortOptions}" SelectedItem="{Binding MantraNamaVM.AdvancedSortBy}" ToolTip.Tip="Urutkan berdasarkan nama/nomor atau tipe"/>
+                                        <ComboBox Grid.Column="2" Width="112" Margin="6,0,0,0" ItemsSource="{Binding MantraNamaVM.AdvancedFileFilters}" SelectedItem="{Binding MantraNamaVM.AdvancedTargetFilter}"/>
+                                        <ComboBox Grid.Column="3" Width="64" Margin="6,0,0,0" IsVisible="{Binding MantraNamaVM.IsThumbnailMode}"
+                                                  ItemsSource="{Binding MantraNamaVM.ColumnOptions}" SelectedItem="{Binding MantraNamaVM.AdvancedTargetColumns}"
+                                                  ToolTip.Tip="Jumlah kolom thumbnail"/>
+                                    </Grid>
+                                    <TextBox Grid.Row="1" Classes="Input" Padding="10,7" FontSize="12" Text="{Binding MantraNamaVM.AdvancedTargetSearch}" Watermark="Cari file..." Margin="0,6"/>
+                                    <ListBox Grid.Row="2" Classes="Adv" IsVisible="{Binding !MantraNamaVM.IsThumbnailMode}"
+                                             ItemsSource="{Binding MantraNamaVM.AdvancedTargetFiles}" SelectedItem="{Binding MantraNamaVM.SelectedAdvancedTarget}"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate><DataTemplate>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,2">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="&#x1F4C1;" FontSize="12" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="#9DB2F0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding NewName}" FontSize="10" Foreground="#52525B" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <TextBlock Grid.Column="0" IsVisible="{Binding !IsHeader}" Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" IsVisible="{Binding IsPaired}" Text="TERPASANG" FontSize="9" Foreground="#7C9CF5" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                            </Grid>
+                                        </DataTemplate></ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <ListBox Grid.Row="2" Classes="AdvThumb" IsVisible="{Binding MantraNamaVM.IsThumbnailMode}"
+                                             ItemsSource="{Binding MantraNamaVM.AdvancedTargetFiles}" SelectedItem="{Binding MantraNamaVM.SelectedAdvancedTarget}"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemsPanel><ItemsPanelTemplate>
+                                            <UniformGrid Columns="{Binding $parent[Window].DataContext.MantraNamaVM.AdvancedTargetColumns}"/>
+                                        </ItemsPanelTemplate></ListBox.ItemsPanel>
+                                        <ListBox.ItemTemplate><DataTemplate>
+                                            <Grid Margin="3">
+                                                <Border IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#9DB2F0" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="#52525B"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <StackPanel IsVisible="{Binding !IsHeader}" Spacing="4">
+                                                    <Viewbox Stretch="Uniform">
+                                                        <Border Width="150" Height="200" CornerRadius="6" Background="#161619" ClipToBounds="True">
+                                                            <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
+                                                        </Border>
+                                                    </Viewbox>
+                                                    <TextBlock Text="{Binding OriginalName}" FontSize="10" TextTrimming="CharacterEllipsis" TextAlignment="Center"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate></ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <!-- Pair List (bounded, scroll internal) -->
+                        <Border Grid.Row="3" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="96">
+                            <Grid RowDefinitions="Auto,*">
+                                <TextBlock Grid.Row="0" Classes="FieldLabel" Text="DAFTAR PASANGAN"/>
+                                <ListBox Grid.Row="1" Classes="Adv" ItemsSource="{Binding MantraNamaVM.AdvancedPairs}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,16,*,16,*,Auto" Margin="0,2">
+                                                <TextBlock Grid.Column="0" Text="{Binding ReferenceName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="&#x2192;" HorizontalAlignment="Center" Foreground="#52525B" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding TargetName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="3" Text="&#x2192;" HorizontalAlignment="Center" Foreground="#52525B" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding ResultName}" TextTrimming="CharacterEllipsis" Foreground="#C4C4C0" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="5" Content="Hapus" Classes="Muted" Padding="10,3" FontSize="11" VerticalAlignment="Center"
+                                                        Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveAdvancedPairCommand}" CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Border>
+                        <!-- Status + Progress -->
+                        <Grid Grid.Row="4" RowDefinitions="Auto,Auto" RowSpacing="6">
+                            <TextBlock Grid.Row="0" Classes="Body" Text="{Binding MantraNamaVM.StatusText}"
+                                       TextWrapping="Wrap" Foreground="#A1A1AA"/>
+                            <ProgressBar Grid.Row="1" Height="3" IsIndeterminate="True"
+                                         IsVisible="{Binding MantraNamaVM.IsProcessing}"
+                                         Background="#1A1A1D" Foreground="#7C9CF5"/>
+                        </Grid>
+                        <!-- Actions -->
+                        <Grid Grid.Row="5" ColumnDefinitions="Auto,Auto,Auto,*,Auto,10,Auto">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center" Margin="0,0,14,0">
+                                <CheckBox Classes="Option" Content="Sertakan subfolder"
+                                          IsChecked="{Binding MantraNamaVM.AdvancedIncludeSubfolders}"/>
+                                <CheckBox Classes="Option" Content="Kelompokkan per folder"
+                                          IsVisible="{Binding MantraNamaVM.AdvancedIncludeSubfolders}"
+                                          IsChecked="{Binding MantraNamaVM.AdvancedGroupByFolder}"
+                                          ToolTip.Tip="Urutkan dan kelompokkan file sesuai foldernya"/>
+                                <CheckBox Classes="Option" Content="Rename file kembar (nama sama beda tipe)"
+                                          IsChecked="{Binding MantraNamaVM.AdvancedRenameSiblings}"
+                                          ToolTip.Tip="Jika aktif, file di target dengan nama depan sama (misal .png) otomatis ikut direname"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="Muted" Content="Hapus Semua"
+                                    Command="{Binding MantraNamaVM.ClearAdvancedPairsCommand}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="2" Classes="Muted" Content="{Binding MantraNamaVM.UndoLabel}"
+                                    IsVisible="{Binding MantraNamaVM.CanUndo}" Margin="8,0,0,0"
+                                    Command="{Binding MantraNamaVM.UndoAdvancedRenameCommand}"
+                                    IsEnabled="{Binding !MantraNamaVM.IsProcessing}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="4" Classes="Muted" Content="Pasangkan"
+                                    Command="{Binding MantraNamaVM.AddAdvancedPairCommand}"
+                                    IsVisible="{Binding MantraNamaVM.IsThumbnailMode}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="4" Classes="Muted" Content="Refresh Auto-Pair"
+                                    Command="{Binding MantraNamaVM.RefreshAutoPairCommand}"
+                                    IsVisible="{Binding MantraNamaVM.IsListMode}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="6" Classes="Action" Content="Jalankan Rename"
+                                    Command="{Binding MantraNamaVM.ExecuteAdvancedRenameCommand}"
+                                    IsEnabled="{Binding !MantraNamaVM.IsProcessing}" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Grid>
+                </Border>
                 <Grid RowDefinitions="*,16,Auto" IsVisible="{Binding !MantraNamaVM.IsAdvancedMode}" MinHeight="480">
 
                     <!-- Preview table (Atas - Fluid Height) -->
                     <Border Grid.Row="0" Classes="Card">
                         <Grid RowDefinitions="Auto,12,Auto,12,*">
                             <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8"><TextBlock Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)" VerticalAlignment="Center"/><Button Classes="ToolBtn" Content="Advanced Mode" Command="{Binding MantraNamaVM.ToggleAdvancedModeCommand}"/></StackPanel>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)" VerticalAlignment="Center"/>
+                                    <Button Classes="AdvEntry" Command="{Binding MantraNamaVM.ToggleAdvancedModeCommand}" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="&#x2728;" FontSize="12" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Advanced Mode" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
                                 <TextBox Grid.Column="1" Classes="Input" Width="200" Padding="8,4" FontSize="11" 
                                          Watermark="Filter nama/ekstensi..." Text="{Binding MantraNamaVM.FilterText}"/>
                             </Grid>

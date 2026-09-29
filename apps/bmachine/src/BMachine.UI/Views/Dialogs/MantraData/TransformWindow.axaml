@@ -281,11 +281,13 @@
                                         <DataGridTemplateColumn Header="Prefix" Width="0.8*">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <ComboBox IsEditable="True" Text="{Binding Prefix, Mode=TwoWay}"
-                                                              ItemsSource="{Binding PrefixOptions}"
-                                                              MinHeight="26" VerticalContentAlignment="Center"
-                                                              Background="Transparent" BorderThickness="0"
-                                                              HorizontalAlignment="Stretch"/>
+                                                    <TextBox Text="{Binding Prefix, Mode=TwoWay}"
+         Classes="Input"
+         Watermark="(misal: NIS : )"
+         MinHeight="26"
+         VerticalContentAlignment="Center"
+         Background="Transparent" BorderThickness="0"
+         HorizontalAlignment="Stretch"/>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>

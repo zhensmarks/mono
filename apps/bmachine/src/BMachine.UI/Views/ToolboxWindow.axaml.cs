@@ -39,7 +39,7 @@ public partial class ToolboxWindow : Window
         };
 
         // Drag & Drop
-        AddHandler(DragDrop.DropEvent, Drop);
+        AddHandler(DragDrop.DropEvent, Drop, handledEventsToo: true);
         DragDrop.SetAllowDrop(this, true);
 
         // Window state memory
@@ -193,8 +193,10 @@ public partial class ToolboxWindow : Window
         }
         else if (vm.IsMantraNamaVisible && vm.MantraNamaVM.IsAdvancedMode)
         {
-            bool isReferenceZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name == "NamaAdvancedReferenceDropZone") == true || (e.Source as Control)?.Name == "NamaAdvancedReferenceDropZone";
-            bool isTargetZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name == "NamaAdvancedTargetDropZone") == true || (e.Source as Control)?.Name == "NamaAdvancedTargetDropZone";
+            bool isReferenceZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name is "NamaAdvancedReferenceDropZone" or "NamaAdvancedReferencePanel") == true
+                                   || (e.Source as Control)?.Name is "NamaAdvancedReferenceDropZone" or "NamaAdvancedReferencePanel";
+            bool isTargetZone = (e.Source as Visual)?.GetVisualAncestors().Any(x => x.Name is "NamaAdvancedTargetDropZone" or "NamaAdvancedTargetPanel") == true
+                                || (e.Source as Control)?.Name is "NamaAdvancedTargetDropZone" or "NamaAdvancedTargetPanel";
             if (isReferenceZone)
             {
                 if (isDir) vm.MantraNamaVM.SetAdvancedReferenceDirectory(firstPath);

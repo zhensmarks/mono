@@ -156,8 +156,9 @@ public partial class BatchNodeItem : ObservableObject
 
                      var opts = new EnumerationOptions { IgnoreInaccessible = true };
                      
-                     // Directores
-                     foreach(var d in Directory.EnumerateDirectories(FullPath, "*", opts).OrderBy(x => x))
+                     // Directories — natural sort so "2" comes before "10"
+                     foreach(var d in Directory.EnumerateDirectories(FullPath, "*", opts)
+                         .OrderBy(Path.GetFileName, NaturalSortComparer.Instance))
                      {
                          list.Add(new BatchNodeItem(d, true));
                      }
@@ -172,7 +173,7 @@ public partial class BatchNodeItem : ObservableObject
                          fileEnum = fileEnum.Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLower()));
                      }
                          
-                     foreach(var f in fileEnum.OrderBy(x => x))
+                     foreach(var f in fileEnum.OrderBy(Path.GetFileName, NaturalSortComparer.Instance))
                      {
                          list.Add(new BatchNodeItem(f, false));
                      }

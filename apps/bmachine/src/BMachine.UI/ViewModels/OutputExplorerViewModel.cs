@@ -3022,6 +3022,9 @@ public class SidebarItemDto
 /// </summary>
 public class NaturalSortComparer : System.Collections.Generic.IComparer<string?>
 {
+    /// <summary>Shared singleton instance.</summary>
+    public static readonly NaturalSortComparer Instance = new();
+
     [System.Runtime.InteropServices.DllImport("shlwapi.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     private static extern int StrCmpLogicalW(string psz1, string psz2);
 

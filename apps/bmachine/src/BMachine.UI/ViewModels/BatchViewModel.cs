@@ -1300,8 +1300,9 @@ if ($img -ne $null) {{
         {
             var opts = new EnumerationOptions { IgnoreInaccessible = true };
             
-            // 1. Directories
-            foreach (var d in Directory.EnumerateDirectories(path, "*", opts))
+            // 1. Directories — natural sort so "2" comes before "10"
+            foreach (var d in Directory.EnumerateDirectories(path, "*", opts)
+                .OrderBy(Path.GetFileName, NaturalSortComparer.Instance))
             {
                 if (string.IsNullOrEmpty(filter))
                 {
@@ -1337,10 +1338,11 @@ if ($img -ne $null) {{
                 }
             }
             
-            // 2. Files
+            // 2. Files — natural sort
             var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif" };
             var files = Directory.EnumerateFiles(path, "*.*", opts)
-                .Where(f => extensions.Contains(Path.GetExtension(f)));
+                .Where(f => extensions.Contains(Path.GetExtension(f)))
+                .OrderBy(Path.GetFileName, NaturalSortComparer.Instance);
                 
             foreach (var f in files)
             {
@@ -1369,8 +1371,9 @@ if ($img -ne $null) {{
         {
             var opts = new EnumerationOptions { IgnoreInaccessible = true };
             
-            // Subdirectories
-            foreach (var d in Directory.EnumerateDirectories(path, "*", opts))
+            // Subdirectories — natural sort so "2" comes before "10"
+            foreach (var d in Directory.EnumerateDirectories(path, "*", opts)
+                .OrderBy(Path.GetFileName, NaturalSortComparer.Instance))
             {
                 if (string.IsNullOrEmpty(filter))
                 {
@@ -1405,9 +1408,10 @@ if ($img -ne $null) {{
                 }
             }
             
-            // Files (.psd, .psb)
+            // Files (.psd, .psb) — natural sort
             var files = Directory.EnumerateFiles(path, "*.*", opts)
-                .Where(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase));
+                .Where(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(Path.GetFileName, NaturalSortComparer.Instance);
                 
             foreach (var f in files)
             {
