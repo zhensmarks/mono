@@ -1,3 +1,8 @@
+param(
+    [string]$App = "all",
+    [string]$Config = "Release"
+)
+
 $ErrorActionPreference = "Stop"
 
 # build.ps1 — build salah satu atau semua aplikasi di monorepo.
@@ -6,11 +11,6 @@ $ErrorActionPreference = "Stop"
 #   powershell -File build.ps1 -App bmachine  # build BMachine saja
 #   powershell -File build.ps1 -App pixacompact
 #   powershell -File build.ps1 -Config Debug  # default: Release
-
-param(
-    [string]$App = "all",
-    [string]$Config = "Release"
-)
 
 $ROOT = $PSScriptRoot
 

@@ -1,3 +1,7 @@
+param(
+    [string]$App = "all"
+)
+
 $ErrorActionPreference = "Stop"
 
 # publish.ps1 — publish (single-file, self-contained, win-x64) salah satu atau semua app.
@@ -12,10 +16,6 @@ $ErrorActionPreference = "Stop"
 #
 # CATATAN: publish PixaCompact lama (menyalin driver Playwright). Script ini
 # memanggil build.ps1 milik app tersebut yang sudah menangani hal itu.
-
-param(
-    [string]$App = "all"
-)
 
 $ROOT = $PSScriptRoot
 
