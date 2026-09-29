@@ -1,123 +1,102 @@
 @echo off
-setlocal enabledelayedexpansion
-title Monorepo Publish Tool
+setlocal
+title Monorepo - Publish
+cd /d "%~dp0"
 
-set ROOT=%~dp0
-set BMACHINE_DIR=%ROOT%apps\bmachine
-set PIXA_DIR=%ROOT%apps\pixacompact
+set "BMACHINE_PS1=apps\bmachine\build.ps1"
+set "PIXA_PS1=apps\pixacompact\build.ps1"
 
-if not "%~1"=="" (
-    set TARGET=%~1
-    goto RUN_PARAM
-)
+rem --- Mode argumen (non-interaktif) ---
+set "ARG=%~1"
+if /i "%ARG%"=="bmachine"    goto :bm
+if /i "%ARG%"=="pixacompact" goto :px
+if /i "%ARG%"=="all"         goto :all
+if not "%ARG%"=="" goto :badarg
 
-:MENU
+rem --- Mode menu (interaktif) ---
+:menu
 cls
 echo ========================================================
-echo   MONOREPO - PUBLISH (Paket Rilis Mandiri / win-x64)
+echo   MONOREPO - PUBLISH (paket rilis mandiri / win-x64)
 echo ========================================================
-echo   [1] Publish BMachine     (win-x64, ~140 MB)
-echo   [2] Publish PixaCompact  (win-x64 + Playwright/ONNX, ~2 GB)
-echo   [3] Publish SEMUA Aplikasi
+echo   [1] Publish BMachine     (~140 MB)
+echo   [2] Publish PixaCompact  (~2 GB, Playwright + ONNX)
+echo   [3] Publish SEMUA
 echo   [0] Keluar
 echo ========================================================
-echo   Catatan: Publish menghasilkan .exe mandiri yang siap
-echo   dijalankan di komputer mana pun tanpa perlu install .NET.
+echo   Hasil .exe langsung di root: mono\BMachine, mono\PixaCompact
 echo ========================================================
-set /p CHOICE="Pilih opsi [1-3, 0]: "
+set "INTERACTIVE=1"
+set "ARG="
+set /p "ARG=Pilih [1-3, 0]: "
+if "%ARG%"=="1" goto :bm
+if "%ARG%"=="2" goto :px
+if "%ARG%"=="3" goto :all
+if "%ARG%"=="0" exit /b 0
+echo Pilihan tidak valid.
+timeout /t 2 >nul
+goto :menu
 
-if "%CHOICE%"=="1" goto PUB_BMACHINE
-if "%CHOICE%"=="2" goto PUB_PIXA
-if "%CHOICE%"=="3" goto PUB_ALL
-if "%CHOICE%"=="0" goto EXIT
-echo.
-echo Pilihan tidak valid. Silakan coba lagi.
+:bm
+call :do_bm
+if errorlevel 1 goto :fail
+if not defined INTERACTIVE exit /b 0
 pause
-goto MENU
+goto :menu
 
-:RUN_PARAM
-if /i "%TARGET%"=="bmachine" goto PUB_BMACHINE
-if /i "%TARGET%"=="pixacompact" goto PUB_PIXA
-if /i "%TARGET%"=="all" goto PUB_ALL
+:px
+call :do_px
+if errorlevel 1 goto :fail
+if not defined INTERACTIVE exit /b 0
+pause
+goto :menu
+
+:all
+call :do_bm
+if errorlevel 1 goto :fail
+call :do_px
+if errorlevel 1 goto :fail
 echo.
-echo Argumen tidak dikenal: %TARGET%
-echo Pilihan valid: bmachine, pixacompact, all
+echo ========================================================
+echo   SEMUA PUBLISH SUKSES
+echo   - %~dp0BMachine\BMachine.App.exe
+echo   - %~dp0PixaCompact\PixelcutCompact.exe
+echo ========================================================
+if not defined INTERACTIVE exit /b 0
+pause
+goto :menu
+
+:do_bm
+echo.
+echo [1] Publish BMachine (win-x64, self-contained)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%BMACHINE_PS1%"
+if errorlevel 1 (
+    echo [FAIL] Publish BMachine GAGAL
+    exit /b 1
+)
+echo [OK] BMachine -^> %~dp0BMachine\BMachine.App.exe
+exit /b 0
+
+:do_px
+echo.
+echo [2] Publish PixaCompact (win-x64, self-contained)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PIXA_PS1%"
+if errorlevel 1 (
+    echo [FAIL] Publish PixaCompact GAGAL
+    exit /b 1
+)
+echo [OK] PixaCompact -^> %~dp0PixaCompact\PixelcutCompact.exe
+exit /b 0
+
+:badarg
+echo Argumen tidak dikenal: %ARG%
+echo Pilihan valid: bmachine ^| pixacompact ^| all
 exit /b 1
 
-:PUB_BMACHINE
+:fail
 echo.
 echo ========================================================
-echo   [1/1] Mempublikasikan BMachine (Standalone win-x64)...
+echo   PUBLISH GAGAL - periksa pesan error di atas
 echo ========================================================
-cd /d "%BMACHINE_DIR%"
-powershell -ExecutionPolicy Bypass -File "%BMACHINE_DIR%\build.ps1"
-if %ERRORLEVEL% neq 0 (
-    echo.
-    echo [FAIL] Publish BMachine GAGAL!
-    cd /d "%ROOT%"
-    if "%~1"=="" pause
-    exit /b %ERRORLEVEL%
-)
-cd /d "%ROOT%"
-echo.
-echo [OK] BMachine siap digunakan di:
-echo      %ROOT%BMachine\BMachine.App.exe
-if "%TARGET%"=="" if not "%CHOICE%"=="3" pause
-if "%CHOICE%"=="1" goto MENU
-if not "%CHOICE%"=="3" exit /b 0
-
-if "%CHOICE%"=="3" goto PUB_PIXA_STEP
-
-:PUB_PIXA
-echo.
-echo ========================================================
-echo   [1/1] Mempublikasikan PixaCompact (Standalone win-x64)...
-echo ========================================================
-cd /d "%PIXA_DIR%"
-powershell -ExecutionPolicy Bypass -File "%PIXA_DIR%\build.ps1"
-if %ERRORLEVEL% neq 0 (
-    echo.
-    echo [FAIL] Publish PixaCompact GAGAL!
-    cd /d "%ROOT%"
-    if "%~1"=="" pause
-    exit /b %ERRORLEVEL%
-)
-cd /d "%ROOT%"
-echo.
-echo [OK] PixaCompact siap digunakan di:
-echo      %ROOT%PixaCompact\PixelcutCompact.exe
-if "%TARGET%"=="" pause
-if "%CHOICE%"=="2" goto MENU
-exit /b 0
-
-:PUB_PIXA_STEP
-echo.
-echo ========================================================
-echo   [2/2] Mempublikasikan PixaCompact (Standalone win-x64)...
-echo ========================================================
-cd /d "%PIXA_DIR%"
-powershell -ExecutionPolicy Bypass -File "%PIXA_DIR%\build.ps1"
-if %ERRORLEVEL% neq 0 (
-    echo.
-    echo [FAIL] Publish PixaCompact GAGAL!
-    cd /d "%ROOT%"
-    if "%~1"=="" pause
-    exit /b %ERRORLEVEL%
-)
-cd /d "%ROOT%"
-echo.
-echo ========================================================
-echo   Semua aplikasi berhasil dipublikasikan!
-echo   Output:
-echo   - %ROOT%BMachine
-echo   - %ROOT%PixaCompact
-echo ========================================================
-if "%TARGET%"=="" pause
-if "%CHOICE%"=="3" goto MENU
-exit /b 0
-
-:PUB_ALL
-goto PUB_BMACHINE
-
-:EXIT
-exit /b 0
+pause
+exit /b 1
