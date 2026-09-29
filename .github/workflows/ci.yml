@@ -1,22 +1,15 @@
 # CI monorepo: build hanya app yang berubah.
 #
 # Path filter adalah inti dari "update sebagian saja dengan cepat":
-#   - sentuh apps/bmachine/**   -> hanya BMachine yang di-build
+#   - sentuh apps/bmachine/**    -> hanya BMachine yang di-build
 #   - sentuh apps/pixacompact/** -> hanya PixaCompact yang di-build
 #   - sentuh shared/**           -> keduanya (shared dipakai dua app)
 #   - sentuh docs/WORKSPACES.md  -> tidak ada build (docs only)
 #
-# Setiap job build:
-#   1. restore paket (cache NuGet)
-#   2. build Release
-#   3. upload artifact (exe) supaya bisa diunduh dari tab Actions
-#
-# Belum ada auto-publish ke GitHub Release: rilis tetap lewat ProjectBot
-# (lihat WORKSPACES.md bagian 5). CI ini memastikan setiap push tidak
-# merusak build.
+# Setiap job build: restore (cache NuGet) -> build Release -> publish ->
+# upload artifact (tab Actions). Rilis tetap lewat ProjectBot (WORKSPACES.md
+# bagian 5); CI ini memastikan setiap push tidak merusak build.
 
-# Catatan: "on:" dikutip supaya YAML parser GitHub tidak salah baca
-# (key `on:` bisa ditafsirkan menjadi boolean True oleh beberapa parser YAML).
 name: CI
 
 "on":
@@ -29,7 +22,9 @@ permissions:
   contents: read
 
 jobs:
-# ---------- deteksi app mana yang perlu di-build ----------
+  # ---------- deteksi app mana yang perlu di-built ----------
+  # Pakai git diff bawaan: tidak ada dependency action pihak ketiga yang bisa
+  # mendadak break karena perubahan tag.
   changes:
     name: Deteksi perubahan
     runs-on: windows-latest
@@ -38,22 +33,34 @@ jobs:
       pixacompact: ${{ steps.f.outputs.pixacompact }}
     steps:
       - uses: actions/checkout@v4
-      - id: f
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2ef01c2114b  # v3.0.2
         with:
-          filters: |
-            bmachine:
-              - 'apps/bmachine/**'
-            pixacompact:
-              - 'apps/pixacompact/**'
-            shared:
-              - 'shared/**'
+          fetch-depth: 0
 
-# ---------- BMachine ----------
+      - name: Cek file yang berubah
+        id: f
+        shell: pwsh
+        run: |
+          $prev = '${{ github.event.before }}'
+          if (-not $prev -or $prev -eq '0000000000000000000000000000000000000000') {
+            # Force push / branch baru: anggap semua app perlu dibangun.
+            $diff = @('apps/bmachine/a', 'apps/pixacompact/a', 'shared/a')
+          } else {
+            $diff = git -c core.pager=cat diff --name-only $prev $env:GITHUB_SHA
+          }
+          Write-Host "Changed files:"
+          $diff | ForEach-Object { Write-Host "  $_" }
+          $bm = ($diff -join "`n" -match '^apps/bmachine/')
+          $px = ($diff -join "`n" -match '^apps/pixacompact/')
+          $sh = ($diff -join "`n" -match '^shared/')
+          if ($sh) { $bm = $true; $px = $true }
+          "bmachine=$($bm -or $false)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "pixacompact=$($px -or $false)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+  # ---------- BMachine ----------
   build-bmachine:
     name: Build BMachine
     needs: changes
-    if: ${{ needs.changes.outputs.bmachine == 'true' || needs.changes.outputs.shared == 'true' }}
+    if: needs.changes.outputs.bmachine == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,11 +91,11 @@ jobs:
           path: publish/bmachine
           retention-days: 14
 
-# ---------- PixaCompact ----------
+  # ---------- PixaCompact ----------
   build-pixacompact:
     name: Build PixaCompact
     needs: changes
-    if: ${{ needs.changes.outputs.pixacompact == 'true' || needs.changes.outputs.shared == 'true' }}
+    if: needs.changes.outputs.pixacompact == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
