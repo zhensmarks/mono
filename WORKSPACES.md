@@ -12,7 +12,7 @@ mono/
   apps/
     bmachine/        <- aplikasi BMachine (utuh: sln, src, Scripts, publish)
     pixacompact/     <- aplikasi PixaCompact (utuh: csproj, Views, Services, publish)
-  shared/            <- kode bersama (KOSONG dulu, isi belakangan saat dibutuhkan)
+  shared/            <- kode bersama (BMachine.Shared.BugReporter: client laporan bug)
   WORKSPACES.md      <- file ini
   build.ps1          <- build salah satu / semua app
   publish.ps1        <- publish (single-file) salah satu / semua app
