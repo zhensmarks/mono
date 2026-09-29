@@ -92,14 +92,17 @@ ketahuan di versi mana bug itu terjadi.
 
 Yang sudah ada:
 - Build script per app: `apps/bmachine/build.ps1` dan `apps/pixacompact/build.ps1`.
+- Script atasannya di root mono: `build.ps1` (build) & `publish.ps1` (publish).
 - Share NAS: `\\DELAPANMATAAIR\Editor\#PROJECT ROBOT\BMachine` (target "UPLOAD SERVER").
 - ProjectBot punya `lib/git.js` -> commit, push, tag, `gh release create` lewat Telegram.
+- CI GitHub Actions (`.github/workflows/ci.yml`): push ke main -> build & publish
+  otomatis **hanya app yang berubah** (path filter). Artifact bisa diunduh dari
+  tab Actions. Sentuh `shared/**` -> kedua app di-build ulang.
 
-Yang perlu dibangun (tahap selanjutnya, setelah monorepo ini jalan):
-- CI GitHub Actions per app: saat push ke `main`, build otomatis dan pasang hasilnya
-  ke Release GitHub. Dengan begitu "publish" hanya = push kode.
+Yang masih perlu dibangun (tahap selanjutnya):
 - Updater di app: cek versi terbaru di GitHub Release, download hanya yang berubah,
-  timpa, restart.
+  timpa, restart. Saat ini distribusi ke mesin pemakai masih manual (copy dari
+  publish/ atau NAS).
 
 ---
 
@@ -122,19 +125,18 @@ Yang BELUM ada (yang menyebabkan bug user belum sampai ke mana-mana):
   - PixaCompact -> `crash.log` di folder app
   File itu tidak terbaca siapa pun kecuali user buka sendiri.
 
-Jembatan yang akan dibangun:
+Jembatan yang sudah dibangun (SUDAH JALAN, teruji end-to-end):
 
 ```
 App (BMachine / PixaCompact)
-  |  crash otomatis ATAU user klik "Lapork Bug" di UI
+  |  crash otomatis ATAU user klik "Lapork Bug" di SettingsView
   v
-HTTP POST ke ProjectBot lokal -> http://127.0.0.1:<port>/bug
-  body: { project, appVersion, summary, text, severity, source: "crash"|"manual" }
+shared/BMachine.Shared.BugReporter (library bersama, std-lib only)
+  |  POST http://127.0.0.1:21478/bug  (JSON: project, summary, text, appVersion, severity, source)
   v
-ProjectBot:
-  1. simpan ke data/inbox.json (struktur yang sama, type: "BUG")
-  2. kirim notifikasi ke topik Telegram "Project & Bug"
-  3. balas ke app: { ok: true, id: <id inbox> }
+ProjectBot/lib/httpbug.js  (endpoint POST /bug, port 21478)
+  |  1. simpan ke data/inbox.json (type: BUG, urgency, tags:[source, vX.Y.Z], source:"app")
+  |  2. kirim notifikasi ke topik Telegram "Project & Bug" (threadId 5)
   v
 Kamu lihat notifikasi di Telegram
   -> baca, tenangkan, lalu: /kerjakan BMachine.v2 perbaiki <bug>
@@ -142,15 +144,38 @@ Kamu lihat notifikasi di Telegram
   -> kamu commit/push lewat Telegram
 ```
 
+Bagian yang sudah dibuat dan lokasinya:
+- `shared/BMachine.Shared.BugReporter/BugReporter.cs` - client HTTP tahan banting.
+  `SendAsync()` tidak pernah lempar (return false kalau gagal); `ReportCrash()`
+  simpan lokal + POST fire-and-forget. Serialize camelCase, deserialize
+  case-insensitive (tanpa ini server 400 / deserialize null).
+- `apps/bmachine/src/BMachine.App/Program.cs` - 3 handler crash yang sudah ada
+  tetap menulis `crash_report.txt`, sekarang juga kirim ke ProjectBot.
+- `apps/bmachine/src/BMachine.UI/Views/Dialogs/MantraData/ReportBugDialog.axaml`
+  - dialog "Lapork Bug" (Ringkasan + Detail), style MantraData, tanpa ikon.
+- `apps/bmachine/src/BMachine.UI/Views/SettingsView.axaml` - tombol "Lapork Bug"
+  di header sebelah version pill.
+- `apps/pixacompact/Program.cs` - tambah global `UnhandledException` + kirim.
+- `ProjectBot/lib/httpbug.js` + hook `startHttpBugServer()` di `index.js`.
+  Validasi body (project & summary wajib), batas 2 MB, port dari
+  `config.json -> bugBridge.port` (default 21478).
+
 Mengapa HTTP lokal (127.0.0.1) dan bukan Telegram langsung dari app:
 - App dan ProjectBot berjalan di mesin yang sama (setup sekarang). Paling sederhana.
 - Tidak perlu menanam token Telegram di dalam aplikasi (tidak aman).
 - Tidak perlu membuka port internet. ProjectBot yang jadi satu-satunya pintu.
 
+Cara test jembatan (bot harus jalan):
+```
+curl -X POST http://127.0.0.1:21478/bug -H "Content-Type: application/json" \
+  -d '{"project":"BMachine.v2","summary":"tes","text":"detail","appVersion":"8.3.0"}'
+```
+
 Keterbatasan yang diketahui:
 - Kalau app dipasang di mesin lain (tanpa ProjectBot), bug tidak terkirim.
-  Untuk skala itu butuh endpoint publik (mis. lewat 9router atau webhook server).
-  Itu tahap lanjutan, dicatat di sini supaya tidak lupa.
+  `ReportCrash` tetap menyimpan ke file lokal sebagai cadangan, jadi tidak ada
+  bug yang hilang sama sekali. Untuk skala mesin lain butuh endpoint publik
+  (mis. lewat 9router atau webhook server). Itu tahap lanjutan.
 
 ---
 

@@ -1,0 +1,122 @@
+# CI monorepo: build hanya app yang berubah.
+#
+# Path filter adalah inti dari "update sebagian saja dengan cepat":
+#   - sentuh apps/bmachine/**   -> hanya BMachine yang di-build
+#   - sentuh apps/pixacompact/** -> hanya PixaCompact yang di-build
+#   - sentuh shared/**           -> keduanya (shared dipakai dua app)
+#   - sentuh docs/WORKSPACES.md  -> tidak ada build (docs only)
+#
+# Setiap job build:
+#   1. restore paket (cache NuGet)
+#   2. build Release
+#   3. upload artifact (exe) supaya bisa diunduh dari tab Actions
+#
+# Belum ada auto-publish ke GitHub Release: rilis tetap lewat ProjectBot
+# (lihat WORKSPACES.md bagian 5). CI ini memastikan setiap push tidak
+# merusak build.
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+# ---------- deteksi app mana yang perlu di-build ----------
+  changes:
+    name: Deteksi perubahan
+    runs-on: windows-latest
+    outputs:
+      bmachine: ${{ steps.f.outputs.bmachine }}
+      pixacompact: ${{ steps.f.outputs.pixacompact }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: f
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            bmachine:
+              - 'apps/bmachine/**'
+            pixacompact:
+              - 'apps/pixacompact/**'
+            shared:
+              - 'shared/**'
+
+# ---------- BMachine ----------
+  build-bmachine:
+    name: Build BMachine
+    needs: changes
+    if: ${{ needs.changes.outputs.bmachine == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-bmachine-${{ hashFiles('apps/bmachine/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-bmachine-
+
+      - name: Build
+        run: dotnet build apps/bmachine/src/BMachine.App/BMachine.App.csproj -c Release --nologo
+
+      - name: Publish (single-file, win-x64)
+        run: dotnet publish apps/bmachine/src/BMachine.App/BMachine.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/bmachine
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BMachine-${{ github.sha }}
+          path: publish/bmachine
+          retention-days: 14
+
+# ---------- PixaCompact ----------
+  build-pixacompact:
+    name: Build PixaCompact
+    needs: changes
+    if: ${{ needs.changes.outputs.pixacompact == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-pixa-${{ hashFiles('apps/pixacompact/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-pixa-
+
+      - name: Build
+        run: dotnet build apps/pixacompact/PixelcutCompact.csproj -c Release --nologo
+
+      # Publish PixaCompact ~2.2 GB (Playwright + ONNX). Artifact hanya untuk
+      # branch utama; PR tidak perlu menyalin binary raksasa itu.
+      - name: Publish (single-file, win-x64)
+        if: github.ref == 'refs/heads/main'
+        run: dotnet publish apps/pixacompact/PixelcutCompact.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/pixacompact
+
+      - name: Upload artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixaCompact-${{ github.sha }}
+          path: publish/pixacompact
+          retention-days: 7
