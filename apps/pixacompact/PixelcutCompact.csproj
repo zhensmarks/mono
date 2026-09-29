@@ -7,6 +7,7 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>appicon.ico</ApplicationIcon>
     <PlaywrightPlatform>all</PlaywrightPlatform>
     <Version>1.0.0</Version>
@@ -31,6 +32,7 @@
     <PackageReference Include="Semi.Avalonia" Version="11.2.1" />
     <PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.2.1" />
     <PackageReference Include="Microsoft.Playwright" Version="1.49.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +43,7 @@
 
   <ItemGroup>
     <AvaloniaResource Include="appicon.ico" />
+    <Content Include="Resources\AiModels\*.onnx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

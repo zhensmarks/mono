@@ -97,3 +97,12 @@ crash.log
 # --- Machine-specific agent skill symlinks ---
 .agents/skills/antislop*
 .agents/skills/taste-skill
+
+# --- Model AI besar (ratusan MB, unduh/salin manual) ---
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+# --- Shortcut & progress lokal ---
+*.lnk

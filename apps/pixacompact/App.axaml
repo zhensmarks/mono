@@ -46,6 +46,10 @@
         <!-- Global Harmonized Styles -->
         <Style Selector="Button">
             <Setter Property="CornerRadius" Value="6"/>
+            <!-- Tooltip defaultnya PlacementMode.Pointer (ngikutin cursor) & nutupin button tetangga,
+                 menghalangi klik. Pindahkan ke bawah button dengan jarak agar tidak menempel cursor. -->
+            <Setter Property="ToolTip.Placement" Value="Bottom"/>
+            <Setter Property="ToolTip.VerticalOffset" Value="12"/>
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
             <Setter Property="Transitions">
                 <Transitions>
@@ -96,6 +100,14 @@
         
         <Style Selector="ToggleSwitch">
             <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <!-- Sembunyikan tampilan scrollbar di mana pun, tapi scroll tetap berfungsi (wheel/drag). -->
+        <Style Selector="ScrollBar">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Width" Value="0"/>
+            <Setter Property="Height" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
         </Style>
     </Application.Styles>
 </Application>

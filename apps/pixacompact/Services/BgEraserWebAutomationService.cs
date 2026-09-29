@@ -11,44 +11,58 @@ public sealed class BgEraserWebAutomationService : IDisposable
 {
     private readonly string? _proxyServer;
     private readonly bool _showBrowser;
+    private readonly string? _profileSuffix;
     private IPlaywright? _playwright;
     private IBrowserContext? _context;
-    private IPage? _page;
     private bool _isInitialized;
 
-    public BgEraserWebAutomationService(string? proxyServer = null, bool showBrowser = false)
+    // Guard init supaya aman saat beberapa file diproses paralel.
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+
+    public BgEraserWebAutomationService(string? proxyServer = null, bool showBrowser = false, string? profileSuffix = null)
     {
         _proxyServer = string.IsNullOrWhiteSpace(proxyServer) ? null : proxyServer.Trim();
         _showBrowser = showBrowser;
+        _profileSuffix = profileSuffix;
     }
 
     public async Task InitializeAsync()
     {
         if (_isInitialized) return;
 
-        _playwright = await Playwright.CreateAsync();
-
+        // Browser context cukup dibuat sekali walau beberapa file mulai bersamaan.
+        await _initLock.WaitAsync();
         try
         {
-            _context = await LaunchContextAsync(_playwright);
-        }
-        catch (Exception ex) when (ex.Message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase))
-        {
-            var exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
-            if (exitCode != 0) throw new Exception("Gagal install browser Playwright untuk BG Eraser.");
-            _context = await LaunchContextAsync(_playwright);
-        }
+            if (_isInitialized) return;
 
-        await PixelcutCompact.Helpers.PlaywrightStealthHelper.ApplyStealthSettingsAsync(_context);
-        _page = await _context.NewPageAsync();
-        _page.SetDefaultTimeout(120000);
-        _isInitialized = true;
+            _playwright = await Playwright.CreateAsync();
+
+            try
+            {
+                _context = await LaunchContextAsync(_playwright);
+            }
+            catch (Exception ex) when (ex.Message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase))
+            {
+                var exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
+                if (exitCode != 0) throw new Exception("Gagal install browser Playwright untuk BG Eraser.");
+                _context = await LaunchContextAsync(_playwright);
+            }
+
+            await PixelcutCompact.Helpers.PlaywrightStealthHelper.ApplyStealthSettingsAsync(_context);
+            _isInitialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
     }
 
     private async Task<IBrowserContext> LaunchContextAsync(IPlaywright playwright)
     {
         var channel = DetectDefaultBrowserChannel();
-        var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "BgEraserProfile");
+        var profileName = string.IsNullOrEmpty(_profileSuffix) ? "BgEraserProfile" : $"BgEraserProfile_{_profileSuffix}";
+        var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, profileName);
         if (!Directory.Exists(userDataDir)) Directory.CreateDirectory(userDataDir);
 
         var baseArgs = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" };
@@ -96,34 +110,49 @@ public sealed class BgEraserWebAutomationService : IDisposable
             throw new NotSupportedException("BG_ERASER hanya mendukung remove_bg.");
 
         await InitializeAsync();
-        if (_page == null) throw new Exception("Browser BG Eraser belum siap.");
+        if (_context == null) throw new Exception("Browser BG Eraser belum siap.");
 
+        // Satu page (tab browser) per file - aman dijalankan paralel.
+        var page = await _context.NewPageAsync();
+        page.SetDefaultTimeout(120000);
+        try
+        {
+            return await ProcessInPage(page, filePath, ct);
+        }
+        finally
+        {
+            try { await page.CloseAsync(); } catch { }
+        }
+    }
+
+    private async Task<byte[]> ProcessInPage(IPage page, string filePath, CancellationToken ct)
+    {
         // 1. Navigate ke bgeraser.com
-        await _page.GotoAsync("https://bgeraser.com/", new PageGotoOptions
+        await page.GotoAsync("https://bgeraser.com/", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded,
             Timeout = 120000
         });
-        await _page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 
         // 2. Dismiss banner/popup jika ada
-        await DismissPopupsAsync();
+        await DismissPopupsAsync(page);
 
         // 3. Upload file via input[type="file"]
-        var uploadInput = _page.Locator("input[type=\"file\"]").First;
+        var uploadInput = page.Locator("input[type=\"file\"]").First;
         await uploadInput.WaitForAsync(new LocatorWaitForOptions { Timeout = 30000, State = WaitForSelectorState.Attached });
         await uploadInput.SetInputFilesAsync(filePath);
         await Task.Delay(2000, ct);
 
         // 4. Klik tombol "Remove Background"
-        var removeBtn = _page.Locator("button:has-text(\"Remove Background\")").First;
+        var removeBtn = page.Locator("button:has-text(\"Remove Background\")").First;
         await removeBtn.WaitForAsync(new LocatorWaitForOptions { Timeout = 30000, State = WaitForSelectorState.Visible });
         await removeBtn.ClickAsync();
 
         // 5. Tunggu processing selesai — monitor "Processing..." hilang dan "Process image successfully" muncul
         try
         {
-            await _page.WaitForFunctionAsync(@"
+            await page.WaitForFunctionAsync(@"
                 () => {
                     const text = document.body.innerText;
                     return !text.includes('Processing...') && 
@@ -140,7 +169,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
         await Task.Delay(2000, ct);
 
         // 6. Dismiss popup iklan yang mungkin muncul setelah processing
-        await DismissPopupsAsync();
+        await DismissPopupsAsync(page);
 
         // 7. Download hasil — klik tombol download individual di overlay gambar
         var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.png");
@@ -148,15 +177,15 @@ public sealed class BgEraserWebAutomationService : IDisposable
         {
             // Coba klik tombol download individual (icon di overlay gambar)
             // Tombol download pertama di area hasil
-            var downloadBtn = _page.Locator("button:has(svg), a:has(svg)")
+            var downloadBtn = page.Locator("button:has(svg), a:has(svg)")
                 .Filter(new LocatorFilterOptions { HasText = "" });
 
             // Fallback: gunakan "Download All" button
-            var downloadAllBtn = _page.Locator("button:has-text(\"Download All\"), button:has-text(\"Download\")").First;
+            var downloadAllBtn = page.Locator("button:has-text(\"Download All\"), button:has-text(\"Download\")").First;
 
             // Prioritaskan download individual via overlay
             // Cari tombol download di area gambar hasil (biasanya di group/overlay)
-            var imgDownloadBtn = _page.Locator("[class*='group'] button").First;
+            var imgDownloadBtn = page.Locator("[class*='group'] button").First;
 
             ILocator? targetBtn = null;
 
@@ -176,7 +205,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
             // 1. Coba download normal (bypassing overlay via JS click)
             try
             {
-                var downloadTask = _page.WaitForDownloadAsync(new PageWaitForDownloadOptions { Timeout = 15000 });
+                var downloadTask = page.WaitForDownloadAsync(new PageWaitForDownloadOptions { Timeout = 15000 });
                 await targetBtn.EvaluateAsync("btn => btn.click()");
                 var download = await downloadTask;
 
@@ -187,7 +216,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
             catch (TimeoutException)
             {
                 // Fallback: Ekstrak gambar langsung dari DOM menggunakan JS jika klik gagal/timeout
-                var fallbackBytes = await ExtractImageViaJsAsync();
+                var fallbackBytes = await ExtractImageViaJsAsync(page);
                 if (fallbackBytes != null) return fallbackBytes;
                 
                 throw new Exception("Download BG Eraser gagal (Timeout) dan ekstraksi JS tidak menemukan gambar transparan.");
@@ -201,11 +230,9 @@ public sealed class BgEraserWebAutomationService : IDisposable
         }
     }
 
-    private async Task<byte[]?> ExtractImageViaJsAsync()
+    private static async Task<byte[]?> ExtractImageViaJsAsync(IPage page)
     {
-        if (_page == null) return null;
-
-        var candidateSrcs = await _page.EvaluateAsync<string[]>(@"
+        var candidateSrcs = await page.EvaluateAsync<string[]>(@"
             () => {
                 const imgs = [...document.images];
                 const candidates = [];
@@ -227,7 +254,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
 
         foreach (var resultSrc in candidateSrcs)
         {
-            var base64Data = await _page.EvaluateAsync<string>(@"
+            var base64Data = await page.EvaluateAsync<string>(@"
                 async (url) => {
                     try {
                         const response = await fetch(url);
@@ -256,7 +283,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
         // Kalau tidak ada yang transparan, kembalikan gambar terbesar (kandidat pertama) jika itu PNG
         if (candidateSrcs.Length > 0)
         {
-            var fallbackBase64 = await _page.EvaluateAsync<string>(@"
+            var fallbackBase64 = await page.EvaluateAsync<string>(@"
                 async (url) => {
                     try {
                         const response = await fetch(url);
@@ -324,16 +351,16 @@ public sealed class BgEraserWebAutomationService : IDisposable
     }
 
     /// <summary>Dismiss banner, popup iklan, atau dialog yang menghalangi.</summary>
-    private async Task DismissPopupsAsync()
+    private static async Task DismissPopupsAsync(IPage page)
     {
         // 1. Google Vignette URL check (common for full-page ads)
-        if (_page!.Url.Contains("#google_vignette"))
+        if (page.Url.Contains("#google_vignette"))
         {
             try
             {
                 // Go back or reload usually clears vignette without losing state,
                 // but clicking close is safer. Let's try to find the dismiss button in iframes.
-                foreach (var frame in _page.Frames)
+                foreach (var frame in page.Frames)
                 {
                     var dismissBtn = frame.Locator("#dismiss-button, .ns-close-button, [aria-label=\"Close ad\"]").First;
                     if (await dismissBtn.CountAsync() > 0)
@@ -349,7 +376,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
         // 2. Nuke common overlay iframes just in case
         try
         {
-            await _page.EvaluateAsync(@"() => {
+            await page.EvaluateAsync(@"() => {
                 const iframes = document.querySelectorAll('iframe');
                 iframes.forEach(f => {
                     if (f.src && (f.src.includes('google') || f.src.includes('ads'))) {
@@ -363,7 +390,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
         // 3. Normal banner close
         try
         {
-            var bannerClose = _page.Locator("button.inline-block.focus\\:outline-none").First;
+            var bannerClose = page.Locator("button.inline-block.focus\\:outline-none").First;
             if (await bannerClose.CountAsync() > 0 && await bannerClose.IsVisibleAsync())
                 await bannerClose.ClickAsync(new LocatorClickOptions { Timeout = 3000, Force = true });
         }
@@ -372,7 +399,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
         // 4. "Close" text buttons (agresif)
         try
         {
-            var closePopup = _page.Locator("text=\"Close\", [aria-label=\"Close\"]").First;
+            var closePopup = page.Locator("text=\"Close\", [aria-label=\"Close\"]").First;
             if (await closePopup.CountAsync() > 0 && await closePopup.IsVisibleAsync())
                 await closePopup.ClickAsync(new LocatorClickOptions { Timeout = 3000, Force = true });
         }
@@ -381,7 +408,7 @@ public sealed class BgEraserWebAutomationService : IDisposable
         // 5. Generic modal close (X button)
         try
         {
-            var modalClose = _page.Locator("div[role=\"dialog\"] button:first-child, .modal button:first-child").First;
+            var modalClose = page.Locator("div[role=\"dialog\"] button:first-child, .modal button:first-child").First;
             if (await modalClose.CountAsync() > 0 && await modalClose.IsVisibleAsync())
                 await modalClose.ClickAsync(new LocatorClickOptions { Timeout = 3000, Force = true });
         }
@@ -389,16 +416,16 @@ public sealed class BgEraserWebAutomationService : IDisposable
     }
 
     /// <summary>Reset halaman untuk proses gambar berikutnya.</summary>
-    private async Task ClearPreviousResultAsync()
+    private static async Task ClearPreviousResultAsync(IPage page)
     {
         try
         {
-            var clearBtn = _page!.Locator("button:has-text(\"Clear all\")").First;
+            var clearBtn = page.Locator("button:has-text(\"Clear all\")").First;
             if (await clearBtn.CountAsync() > 0 && await clearBtn.IsVisibleAsync())
             {
                 await clearBtn.ClickAsync(new LocatorClickOptions { Timeout = 5000 });
                 await Task.Delay(1000);
-                await DismissPopupsAsync();
+                await DismissPopupsAsync(page);
             }
         }
         catch { }

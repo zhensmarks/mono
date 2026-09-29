@@ -12,8 +12,9 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using Avalonia.Threading;
+using System.Threading.Tasks;
 using PixelcutCompact.Services;
-
+using PixelcutCompact.Services.Editing;
 namespace PixelcutCompact.Views;
 
 public partial class PreviewWindow : Window
@@ -133,6 +134,10 @@ if (pngPath && jpgPath) {
             _settings.Height = Height;
             var zc = this.FindControl<NumericUpDown>("ZoomControl");
             if (zc != null && zc.Value.HasValue) _settings.Zoom = (double)zc.Value.Value;
+
+            // Editor: simpan preferensi + lepas resource ONNX/bitmap.
+            try { PersistEditorSettings(); } catch { }
+            try { DisposeEditor(); } catch { }
         };
     }
 
@@ -148,51 +153,67 @@ if (pngPath && jpgPath) {
         var overlay = this.FindControl<Grid>("OverlayLoading");
         if (overlay != null) overlay.IsVisible = true;
         
-        // Flush UI agar overlay pasti render duluan
-        await System.Threading.Tasks.Task.Delay(80);
-        
-        // Store paths
         _originalPath = originalPath;
         _resultPath = resultPath;
-        
-        try
-        {
-            if (!string.IsNullOrEmpty(title))
+            _resultPath = resultPath;
+
+            try
             {
-                 var label = this.FindControl<TextBlock>("TxtTitle");
-                 if (label != null) label.Text = title;
-                 Title = title;
+                if (!await ConfirmEditorDiscardAsync()) return;
+
+                if (!string.IsNullOrEmpty(title))
+                {
+                    var label = this.FindControl<TextBlock>("TxtTitle");
+                    if (label != null) label.Text = title;
+                    Title = title;
+                }
+
+                var imgOriginal = this.FindControl<Image>("ImgOriginal");
+                var imgResult = this.FindControl<Image>("ImgResult");
+                if (imgOriginal != null) imgOriginal.Source = null;
+                if (imgResult != null) imgResult.Source = null;
+
+                PixelBuffer? resultBuffer = null;
+                Bitmap? resultBitmap = null;
+                await Task.Run(() =>
+                {
+                    if (!File.Exists(resultPath)) return;
+                    try
+                    {
+                        resultBitmap = LoadBitmapWithOrientation(resultPath);
+                        using var bmp = new Bitmap(resultPath);
+                        resultBuffer = PixelBuffer.FromBitmap(bmp);
+                    }
+                    catch { resultBitmap = null; resultBuffer = null; }
+                });
+
+                if (imgResult != null && resultBitmap != null) imgResult.Source = resultBitmap;
+
+                // Result session siap sekarang; tombol Edit tidak menunggu Original.
+                if (resultBuffer != null)
+                {
+                    await PrepareEditorAsync(originalPath, resultPath, resultBuffer);
+                    WireEditorControls();
+                }
+
+                // Original visual dimuat terpisah untuk preview dan restore/refine lazy.
+                _ = Task.Run(() =>
+                {
+                    try { return File.Exists(originalPath) ? LoadBitmapWithOrientation(originalPath) : null; }
+                    catch { return null; }
+                }).ContinueWith(t =>
+                {
+                    if (t.Status == TaskStatus.RanToCompletion && t.Result != null)
+                    {
+                        var originalImage = this.FindControl<Image>("ImgOriginal");
+                        if (originalImage != null) originalImage.Source = t.Result;
+                    }
+                }, TaskScheduler.FromCurrentSynchronizationContext());
             }
-
-            var imgOriginal = this.FindControl<Image>("ImgOriginal");
-            var imgResult = this.FindControl<Image>("ImgResult");
-
-            // Sembunyikan gambar lama dulu agar tidak "flicker"
-            if (imgOriginal != null) imgOriginal.Source = null;
-            if (imgResult != null) imgResult.Source = null;
-
-            Bitmap? origBitmap = null;
-            Bitmap? resultBitmap = null;
-
-            await System.Threading.Tasks.Task.Run(() => 
+            catch (Exception ex)
             {
-                if (File.Exists(originalPath)) 
-                    origBitmap = LoadBitmapWithOrientation(originalPath);
-                
-                if (File.Exists(resultPath)) 
-                    resultBitmap = LoadBitmapWithOrientation(resultPath);
-            });
-
-            if (imgOriginal != null && origBitmap != null) 
-                imgOriginal.Source = origBitmap;
-            
-            if (imgResult != null && resultBitmap != null) 
-                imgResult.Source = resultBitmap;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading preview: {ex.Message}");
-        }
+                Console.WriteLine($"Error loading preview: {ex.Message}");
+            }
         finally
         {
             if (overlay != null) overlay.IsVisible = false;
@@ -281,8 +302,14 @@ if (pngPath && jpgPath) {
         }
     }
 
-    private void OnCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void OnCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        if (_editMode && _session?.IsDirty == true)
+        {
+            var canClose = await ConfirmEditorDiscardAsync();
+            if (!canClose) return;
+        }
+
         Close();
     }
     
@@ -309,6 +336,12 @@ if (pngPath && jpgPath) {
 
         ApplyZoomToImage(img1, e, sourceImg);
         ApplyZoomToImage(img2, e, sourceImg);
+        // Sync compare/quickmask overlays agar ikut zoom
+        var imgCmp = this.FindControl<Avalonia.Controls.Image>("ImgOriginalCompare");
+        var imgQm  = this.FindControl<Avalonia.Controls.Image>("ImgQuickMask");
+        if (imgCmp != null) ApplyZoomToImage(imgCmp, e, sourceImg);
+        if (imgQm  != null) ApplyZoomToImage(imgQm,  e, sourceImg);
+        OnViewTransformChanged();
 
         e.Handled = true;
     }
@@ -379,6 +412,7 @@ if (pngPath && jpgPath) {
     {
         RotationResult += 90;
         if (RotationResult >= 360) RotationResult = 0;
+        OnViewTransformChanged();
     }
 
     // --- Hand Mode Logic ---
@@ -390,6 +424,17 @@ if (pngPath && jpgPath) {
     {
         if (sender is Image img)
         {
+            // Editor mode: check if editor handles this event first
+            if (_editMode && _activeTool != EditToolKind.Pan)
+            {
+                if (EditorPointerPressed(img, e))
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            // Default pan/zoom behavior
             var point = e.GetCurrentPoint(img);
             if (point.Properties.IsLeftButtonPressed)
             {
@@ -398,26 +443,33 @@ if (pngPath && jpgPath) {
                 _targetImage = img;
                 
                 e.Pointer.Capture(img);
-                
                 Cursor = new Cursor(Avalonia.Input.StandardCursorType.Hand);
                 e.Handled = true;
             }
         }
     }
-
     private void OnImagePointerMoved(object? sender, Avalonia.Input.PointerEventArgs e)
     {
+        if (sender is Image editorImage && _editMode && _activeTool != EditToolKind.Pan)
+        {
+            // Editor handles move events for tools
+            if (EditorPointerMoved(editorImage, e))
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (!_isDragging || _targetImage == null) return;
 
         var currentPoint = e.GetPosition(this);
         var delta = currentPoint - _lastPoint;
         _lastPoint = currentPoint;
-
-        var img1 = this.FindControl<Image>("ImgOriginal");
-        var img2 = this.FindControl<Image>("ImgResult");
-
-        ApplyPanToImage(img1, delta);
-        ApplyPanToImage(img2, delta);
+        ApplyPanToImage(this.FindControl<Image>("ImgOriginal"), delta);
+        ApplyPanToImage(this.FindControl<Image>("ImgResult"), delta);
+        ApplyPanToImage(this.FindControl<Image>("ImgOriginalCompare"), delta);
+        ApplyPanToImage(this.FindControl<Image>("ImgQuickMask"), delta);
+        OnViewTransformChanged();
 
         e.Handled = true;
     }
@@ -439,6 +491,15 @@ if (pngPath && jpgPath) {
 
     private void OnImagePointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)
     {
+        if (sender is Image rimg && _editMode && _activeTool != EditToolKind.Pan)
+        {
+            if (EditorPointerReleased(rimg, e))
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (_isDragging && _targetImage != null)
         {
             _isDragging = false;
@@ -448,6 +509,7 @@ if (pngPath && jpgPath) {
             e.Handled = true;
         }
     }
+
 
     // --- Photoshop Integration ---
     private async void OnPhotoshopClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -618,7 +680,8 @@ try {{
         if (txtPhotoshop != null) txtPhotoshop.Text = _settings.ShortcutPhotoshop;
         if (txtRotate != null) txtRotate.Text = _settings.ShortcutRotate;
         if (txtFitScreen != null) txtFitScreen.Text = _settings.ShortcutFitScreen;
-        
+        var betaToggle = this.FindControl<CheckBox>("ChkEditorBetaMode");
+        if (betaToggle != null) betaToggle.IsChecked = _settings.EditorBetaMode;
         var cboBgType = this.FindControl<ComboBox>("CboBgType");
         if (cboBgType != null) cboBgType.SelectedIndex = _settings.BackgroundType;
         
@@ -639,7 +702,8 @@ try {{
         if (txtPrev != null && !string.IsNullOrWhiteSpace(txtPrev.Text)) _settings.ShortcutPrevious = txtPrev.Text.Trim();
         if (txtPhotoshop != null && !string.IsNullOrWhiteSpace(txtPhotoshop.Text)) _settings.ShortcutPhotoshop = txtPhotoshop.Text.Trim();
         if (txtRotate != null && !string.IsNullOrWhiteSpace(txtRotate.Text)) _settings.ShortcutRotate = txtRotate.Text.Trim();
-        if (txtFitScreen != null && !string.IsNullOrWhiteSpace(txtFitScreen.Text)) _settings.ShortcutFitScreen = txtFitScreen.Text.Trim();
+        var betaToggle = this.FindControl<CheckBox>("ChkEditorBetaMode");
+        if (betaToggle != null) _settings.EditorBetaMode = betaToggle.IsChecked == true;
         
         _settings.Save();
         
@@ -650,11 +714,33 @@ try {{
             if (popup != null) popup.IsOpen = false;
         }
     }
+    
+    private void OnEditorBetaModeToggled(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is CheckBox chk)
+        {
+            _settings.EditorBetaMode = chk.IsChecked == true;
+            _settings.Save();
+        }
+    }
 
     private void OnPreviewKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
+        // Shortcut editor bersifat eksklusif selama mode edit; jangan biarkan
+        // tombol yang sama jatuh ke navigasi preview.
+        if (_editMode && e.Source is not TextBox)
+        {
+            e.Handled = HandleEditorKey(e);
+            return;
+        }
+
+        if (!_editMode && e.Source is not TextBox && HandlePreviewShortcutForEditor(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         string keyStr = e.Key.ToString();
-        
         if (keyStr.Equals(_settings.ShortcutPrevious, StringComparison.OrdinalIgnoreCase))
         {
             Previous?.Invoke(this, EventArgs.Empty);
@@ -682,6 +768,7 @@ try {{
             e.Handled = true;
         }
     }
+
 
 
     private void UpdateBgVisibility()
@@ -838,6 +925,7 @@ try {{
 
         ResetImageTransform(img1);
         ResetImageTransform(img2);
+        OnViewTransformChanged();
 
         var zoomControl = this.FindControl<NumericUpDown>("ZoomControl");
         if (zoomControl != null) zoomControl.Value = 1m;

@@ -11,44 +11,58 @@ public sealed class NobgSpaceWebAutomationService : IDisposable
 {
     private readonly string? _proxyServer;
     private readonly bool _showBrowser;
+    private readonly string? _profileSuffix;
     private IPlaywright? _playwright;
     private IBrowserContext? _context;
-    private IPage? _page;
     private bool _isInitialized;
 
-    public NobgSpaceWebAutomationService(string? proxyServer = null, bool showBrowser = false)
+    // Guard init supaya aman saat beberapa file diproses paralel.
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+
+    public NobgSpaceWebAutomationService(string? proxyServer = null, bool showBrowser = false, string? profileSuffix = null)
     {
         _proxyServer = string.IsNullOrWhiteSpace(proxyServer) ? null : proxyServer.Trim();
         _showBrowser = showBrowser;
+        _profileSuffix = profileSuffix;
     }
 
     public async Task InitializeAsync()
     {
         if (_isInitialized) return;
 
-        _playwright = await Playwright.CreateAsync();
-
+        // Browser context cukup dibuat sekali walau beberapa file mulai bersamaan.
+        await _initLock.WaitAsync();
         try
         {
-            _context = await LaunchContextAsync(_playwright);
-        }
-        catch (Exception ex) when (ex.Message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase))
-        {
-            var exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
-            if (exitCode != 0) throw new Exception("Gagal install browser Playwright untuk NOBG.");
-            _context = await LaunchContextAsync(_playwright);
-        }
+            if (_isInitialized) return;
 
-        await PixelcutCompact.Helpers.PlaywrightStealthHelper.ApplyStealthSettingsAsync(_context);
-        _page = await _context.NewPageAsync();
-        _page.SetDefaultTimeout(120000);
-        _isInitialized = true;
+            _playwright = await Playwright.CreateAsync();
+
+            try
+            {
+                _context = await LaunchContextAsync(_playwright);
+            }
+            catch (Exception ex) when (ex.Message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase))
+            {
+                var exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
+                if (exitCode != 0) throw new Exception("Gagal install browser Playwright untuk NOBG.");
+                _context = await LaunchContextAsync(_playwright);
+            }
+
+            await PixelcutCompact.Helpers.PlaywrightStealthHelper.ApplyStealthSettingsAsync(_context);
+            _isInitialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
     }
 
     private async Task<IBrowserContext> LaunchContextAsync(IPlaywright playwright)
     {
         var channel = DetectDefaultBrowserChannel();
-        var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NobgProfile");
+        var profileName = string.IsNullOrEmpty(_profileSuffix) ? "NobgProfile" : $"NobgProfile_{_profileSuffix}";
+        var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, profileName);
         if (!Directory.Exists(userDataDir)) Directory.CreateDirectory(userDataDir);
 
         var baseArgs = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" };
@@ -96,28 +110,43 @@ public sealed class NobgSpaceWebAutomationService : IDisposable
             throw new NotSupportedException("NOBG_SPACE hanya mendukung remove_bg.");
 
         await InitializeAsync();
-        if (_page == null) throw new Exception("Browser NOBG belum siap.");
+        if (_context == null) throw new Exception("Browser NOBG belum siap.");
 
-        await _page.GotoAsync("https://nobg.space", new PageGotoOptions
+        // Satu page (tab browser) per file - aman dijalankan paralel.
+        var page = await _context.NewPageAsync();
+        page.SetDefaultTimeout(120000);
+        try
+        {
+            return await ProcessInPage(page, filePath, ct);
+        }
+        finally
+        {
+            try { await page.CloseAsync(); } catch { }
+        }
+    }
+
+    private async Task<byte[]> ProcessInPage(IPage page, string filePath, CancellationToken ct)
+    {
+        await page.GotoAsync("https://nobg.space", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded,
             Timeout = 120000
         });
 
-        var uploadInput = _page.Locator("input[type=\"file\"]").First;
+        var uploadInput = page.Locator("input[type=\"file\"]").First;
         if (await uploadInput.CountAsync() == 0)
             throw new Exception("Input file tidak ditemukan di nobg.space.");
 
         await uploadInput.SetInputFilesAsync(filePath);
         await Task.Delay(4500, ct);
 
-        var downloadButton = _page.Locator("text=Download").First;
+        var downloadButton = page.Locator("text=Download").First;
         await downloadButton.WaitForAsync(new LocatorWaitForOptions { Timeout = 90000 });
 
         var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.png");
         try
         {
-            var downloadTask = _page.WaitForDownloadAsync(new PageWaitForDownloadOptions { Timeout = 120000 });
+            var downloadTask = page.WaitForDownloadAsync(new PageWaitForDownloadOptions { Timeout = 120000 });
             await downloadButton.ClickAsync();
             var download = await downloadTask;
 

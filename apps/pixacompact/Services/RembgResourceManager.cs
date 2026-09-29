@@ -108,8 +108,9 @@ public class RembgResourceManager
             // 6. Install rembg & onnxruntime-gpu
             progress?.Report(new InstallProgressInfo { Percentage = 50, Message = "Menginstal paket GPU & REMBG (Ini membutuhkan waktu)..." });
             
-            await RunProcessAsync(PythonExecutablePath, "-m pip install onnxruntime-gpu \"rembg[cli]\" --no-warn-script-location", ResourcesDirectory, 
+            var rembgResult = await RunProcessAsync(PythonExecutablePath, "-m pip install onnxruntime-gpu \"rembg[cli]\" --no-warn-script-location", ResourcesDirectory,
                 msg => progress?.Report(new InstallProgressInfo { Percentage = 75, Message = $"Install: {msg}" }), ct);
+            if (!rembgResult) throw new Exception("Instalasi paket REMBG gagal.");
 
             progress?.Report(new InstallProgressInfo { Percentage = 100, Message = "Terpasang" }); // Selesai
         }
@@ -124,7 +125,7 @@ public class RembgResourceManager
         }
     }
 
-    private async Task RunProcessAsync(string fileName, string args, string cwd, Action<string>? onOutput, CancellationToken ct)
+    private async Task<bool> RunProcessAsync(string fileName, string args, string cwd, Action<string>? onOutput, CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<bool>();
         using var process = new Process
@@ -160,7 +161,8 @@ public class RembgResourceManager
         });
 
         process.Start();
-        process.BeginOutputReadLine();
+        await tcs.Task;
+        return true;
         process.BeginErrorReadLine();
         
         await tcs.Task;

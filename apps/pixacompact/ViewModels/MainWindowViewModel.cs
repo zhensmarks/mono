@@ -45,11 +45,20 @@ public partial class MainWindowViewModel : ObservableObject
     private int _snapshotAlphaMattingErodeSize;
     private int _snapshotAlphaMattingForegroundThreshold;
     private int _snapshotAlphaMattingBackgroundThreshold;
-    
+    private int _snapshotBatchSize;
+    private int _snapshotBatchSubSize;
+    private bool _snapshotAutoCloseBrowser;
+
+    // ── Rotasi akun (round-robin) ──
+    [ObservableProperty] private ObservableCollection<PixaAccount> _accounts = new();
+    [ObservableProperty] private PixaAccount? _selectedAccount;
+    [ObservableProperty] private bool _useAccountRotation;
+    private PixaAccountRotator? _accountRotator;
+
     [ObservableProperty] private ObservableCollection<ProcessTabViewModel> _tabs = new();
     [ObservableProperty] private ProcessTabViewModel? _selectedTab;
     [ObservableProperty] private bool _isProcessing;
-    
+
     public bool HasFiles => SelectedTab?.HasFiles ?? false;
     public int FilesCount => SelectedTab?.FilesCount ?? 0;
     public int ProcessedCount => SelectedTab?.ProcessedCount ?? 0;
@@ -72,7 +81,7 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             if (tab == null) return;
-            
+
             if (SelectedTab == tab)
             {
                 // Select another tab BEFORE removing this one to prevent Avalonia UI selection bugs
@@ -82,14 +91,14 @@ public partial class MainWindowViewModel : ObservableObject
                     SelectedTab = anotherTab;
                 }
             }
-            
+
             Tabs.Remove(tab);
-            
+
             if (Tabs.Count == 0)
             {
                 AddTab();
             }
-            
+
             UpdateForwarders();
         }
         catch (Exception ex)
@@ -101,6 +110,9 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnSelectedTabChanged(ProcessTabViewModel? value)
     {
         UpdateForwarders();
+        // BUG FIX: isi gallery harus mengikuti tab yang aktif (sebelumnya gallery
+        // hanya terisi dari Files tab pertama, jadi gambar campur/urutan ngaco).
+        RebuildGalleryForTab(value);
     }
 
     private void UpdateForwarders()
@@ -121,7 +133,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand] private void ToggleLog() => IsLogOpen = !IsLogOpen;
     [ObservableProperty] private string _statusText = "Siap";
     [ObservableProperty] private int _skippedCount;
-    
+
     // Settings
     [ObservableProperty] private bool _isDarkTheme; // Mapped to Theme
     [ObservableProperty] private string _accentColorHex = "#3b82f6";
@@ -132,16 +144,64 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _mixProxyList = "";
     [ObservableProperty] private bool _showBrowser;
     [ObservableProperty] private bool _useGpuForRembg;
+
     [ObservableProperty] private bool _alphaMattingEnabled;
     [ObservableProperty] private int _alphaMattingErodeSize = 10;
     [ObservableProperty] private int _alphaMattingForegroundThreshold = 240;
+
     [ObservableProperty] private int _alphaMattingBackgroundThreshold = 10;
 
+    /// <summary>Ukuran batch: jumlah foto dikirim sekaligus ke editor batch-edit.
+    /// Default 100 (batas aman akun gratis pixelcut). Kalau list lebih besar, dipecah otomatis.</summary>
+    [ObservableProperty] private int _batchSize = 100;
+
+    partial void OnBatchSizeChanged(int value)
+    {
+        // Clamp ke rentang yang wajar. 100 = batas aman akun gratis pixelcut.
+        // Bisa dinaikkan manual sampai 10000 kalau sesi login Pro.
+        if (value < 1) BatchSize = 1;
+        else if (value > 10000) BatchSize = 10000;
+        else
+        {
+            SaveBatchMode();
+            MarkSettingsDirty();
+        }
+    }
+
+    private void SaveBatchMode()
+    {
+        _pixelcutService.BatchSize = BatchSize;
+    }
+    /// <summary>Ukuran sub-batch per tab. Batch besar dipecah jadi beberapa sub-batch
+    /// supaya tiap tab tidak menahan terlalu banyak gambar sekaligus (anti crash mid-way).</summary>
+    [ObservableProperty] private int _batchSubSize = 25;
+
+    partial void OnBatchSubSizeChanged(int value)
+    {
+        if (value < 1) BatchSubSize = 1;
+        else if (value > 100) BatchSubSize = 100;
+        else
+        {
+            _pixelcutService.BatchSubSize = BatchSubSize;
+            if (!IsSettingsOpen) SaveSettings();
+            MarkSettingsDirty();
+        }
+    }
+
+    /// <summary>Tutup browser otomatis setelah antrian selesai (kalau ShowBrowser aktif).</summary>
+    [ObservableProperty] private bool _autoCloseBrowser = true;
+
+    partial void OnAutoCloseBrowserChanged(bool value)
+    {
+        if (!IsSettingsOpen) SaveSettings();
+        MarkSettingsDirty();
+    }
+
     [ObservableProperty] private bool _useWebMode = true;
-    
+
     // We bind the UI to this property. When user edits this, we verify which mode we are in and save to the correct field.
-    [ObservableProperty] private string _currentBackgroundColorHex = ""; 
-    
+    [ObservableProperty] private string _currentBackgroundColorHex = "";
+
     // Alert Overlay
     [ObservableProperty] private bool _isAlertOpen;
     [ObservableProperty] private string _alertMessage = "";
@@ -301,9 +361,12 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _toastIcon = "✅";
     private System.Timers.Timer? _toastTimer;
 
-    
+
     private string? _customDarkBackground;
     private string? _customLightBackground;
+
+    // Tab yang sedang dicantolkan ke gallery (BUG FIX: gallery per-tab).
+    private ProcessTabViewModel? _galleryTab;
 
     private bool _stopRequested;
     [ObservableProperty] private bool _isPaused;
@@ -327,23 +390,23 @@ public partial class MainWindowViewModel : ObservableObject
         IsInstallingRembg = true;
         RembgInstallStatus = "Mengunduh...";
         RembgInstallProgress = 0;
-        
+
         try
         {
             var manager = new RembgResourceManager();
-            var progress = new Progress<InstallProgressInfo>(info => 
+            var progress = new Progress<InstallProgressInfo>(info =>
             {
                 RembgInstallProgress = info.Percentage;
-                if (!string.IsNullOrWhiteSpace(info.Message)) 
+                if (!string.IsNullOrWhiteSpace(info.Message))
                 {
                     // Limit text length if it's from PIP output to avoid UI jitter
                     var msg = info.Message.Length > 80 ? info.Message.Substring(0, 77) + "..." : info.Message;
                     RembgInstallStatus = msg;
                 }
             });
-            
+
             await manager.DownloadAndInstallAsync(progress, CancellationToken.None);
-            
+
             IsRembgInstalled = true;
             RembgInstallStatus = "Terpasang";
         }
@@ -370,7 +433,7 @@ public partial class MainWindowViewModel : ObservableObject
     public MainWindowViewModel()
     {
         AddTab();
-        
+
         // Load Settings
         var settings = _settingsService.Load();
         AccentColorHex = settings.AccentColor;
@@ -389,7 +452,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         // Initialize Service
         Task.Run(async () => await _pixelcutService.InitializeAsync());
-        
+
         _pixelcutService.UseWebMode = true;
         _pixelcutService.RemoveBgEngine = RemoveBgEngine;
         _pixelcutService.RembgModel = RembgModel;
@@ -400,6 +463,29 @@ public partial class MainWindowViewModel : ObservableObject
         ShowBrowser = settings.ShowBrowser;
         UseGpuForRembg = settings.UseGpuForRembg;
         _pixelcutService.UseGpuForRembg = UseGpuForRembg;
+        BatchSize = settings.BatchSize < 1 ? 100 : Math.Min(settings.BatchSize, 10000);
+
+        _pixelcutService.BatchSize = BatchSize;
+        BatchSubSize = settings.BatchSubSize == 0 ? 25 : Math.Clamp(settings.BatchSubSize, 1, 100);
+        _pixelcutService.BatchSubSize = BatchSubSize;
+        AutoCloseBrowser = settings.AutoCloseBrowser;
+
+        // ── Rotasi akun (round-robin) ──
+        if (settings.PixaAccounts != null)
+        {
+            foreach (var acc in settings.PixaAccounts)
+            {
+                if (acc == null) continue;
+                acc.EnsureProfileSuffix();
+                acc.ResetSession();
+                Accounts.Add(acc);
+            }
+        }
+        _accountRotator = new PixaAccountRotator(Accounts);
+        _pixelcutService.AccountRotator = _accountRotator;
+        UseAccountRotation = settings.UseAccountRotation;
+        _pixelcutService.UseAccountRotation = UseAccountRotation;
+        SelectedAccount = Accounts.FirstOrDefault(a => a.Id == settings.ActiveAccountId) ?? Accounts.FirstOrDefault();
 
         AlphaMattingEnabled = settings.AlphaMattingEnabled;
         AlphaMattingErodeSize = settings.AlphaMattingErodeSize;
@@ -422,8 +508,43 @@ public partial class MainWindowViewModel : ObservableObject
         IsRembgInstalled = resourceManager.IsInstalled();
         RembgInstallStatus = IsRembgInstalled ? "Terpasang" : "Belum Terpasang";
 
-        // Subscribe to Files collection for auto-refreshing Gallery
-        Files.CollectionChanged += OnFilesCollectionChanged;
+        // BUG FIX: gallery ikut tab aktif. Subscription tidak lagi dicantolkan ke tab
+        // pertama saja; lihat RebuildGalleryForTab yang dipanggil saat ganti tab.
+    }
+
+    /// <summary>BUG FIX: isi gallery mengikuti tab aktif. Lepas handler tab lama,
+    /// dispose item gallery lama, lalu isi ulang sesuai urutan Files tab baru.</summary>
+    private void RebuildGalleryForTab(ProcessTabViewModel? tab)
+    {
+        if (_galleryTab != null)
+        {
+            _galleryTab.Files.CollectionChanged -= OnFilesCollectionChanged;
+            foreach (var f in _galleryTab.Files)
+            {
+                f.PropertyChanged -= OnFileItemPropertyChanged;
+            }
+        }
+
+        foreach (var g in GalleryItems)
+        {
+            try { g.Dispose(); } catch { }
+        }
+        GalleryItems.Clear();
+
+        _galleryTab = tab;
+        if (tab == null) return;
+
+        foreach (var f in tab.Files)
+        {
+            f.PropertyChanged += OnFileItemPropertyChanged;
+            GalleryItems.Add(new GalleryItemViewModel(f, f.FilePath, true));
+            if (f.HasResult && File.Exists(f.ResultPath))
+            {
+                GalleryItems.Add(new GalleryItemViewModel(f, f.ResultPath, false));
+            }
+        }
+
+        tab.Files.CollectionChanged += OnFilesCollectionChanged;
     }
 
     private void OnFilesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -437,6 +558,10 @@ public partial class MainWindowViewModel : ObservableObject
                 // Ensure we run on UI thread to update ObservableCollection
                 Dispatcher.UIThread.Post(() =>
                 {
+                    // BUG FIX: kalau tab sudah berganti sebelum post ini dieksekusi, skip
+                    // biar item dari tab lama tidak nyasar ke gallery tab baru.
+                    if (_galleryTab?.Files != sender) return;
+
                     // Add Source
                     GalleryItems.Add(new GalleryItemViewModel(item, item.FilePath, true));
                     // Add Result if already processed
@@ -445,7 +570,7 @@ public partial class MainWindowViewModel : ObservableObject
                         GalleryItems.Add(new GalleryItemViewModel(item, item.ResultPath, false));
                     }
                 });
-                
+
                 // Hook to property changed to auto-add Result when done
                 item.PropertyChanged += OnFileItemPropertyChanged;
             }
@@ -455,17 +580,28 @@ public partial class MainWindowViewModel : ObservableObject
             foreach (PixelcutFileItem item in e.OldItems)
             {
                 item.PropertyChanged -= OnFileItemPropertyChanged;
-                
+
                 Dispatcher.UIThread.Post(() =>
                 {
                     var toRemove = GalleryItems.Where(g => g.ParentItem == item).ToList();
-                    foreach (var g in toRemove) GalleryItems.Remove(g);
+                    foreach (var g in toRemove)
+                    {
+                        try { g.Dispose(); } catch { }
+                        GalleryItems.Remove(g);
+                    }
                 });
             }
         }
         else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
         {
-            Dispatcher.UIThread.Post(() => GalleryItems.Clear());
+            Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var g in GalleryItems)
+                {
+                    try { g.Dispose(); } catch { }
+                }
+                GalleryItems.Clear();
+            });
         }
     }
 
@@ -481,7 +617,7 @@ public partial class MainWindowViewModel : ObservableObject
                     {
                         var newGalleryItem = new GalleryItemViewModel(item, item.ResultPath, false);
                         var originalItem = GalleryItems.FirstOrDefault(g => g.ParentItem == item && g.IsSource);
-                        
+
                         if (originalItem != null)
                         {
                             var idx = GalleryItems.IndexOf(originalItem);
@@ -496,7 +632,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
         }
     }
-    
+
     partial void OnUseWebModeChanged(bool value)
     {
         // Force web mode only.
@@ -748,7 +884,7 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(ProcessedCount));
         OnPropertyChanged(nameof(TabHeaderText));
     }
-    
+
     partial void OnIsPausedChanged(bool value)
     {
         if (IsProcessing)
@@ -766,7 +902,7 @@ public partial class MainWindowViewModel : ObservableObject
             _customDarkBackground = value;
         else
             _customLightBackground = value;
-            
+
         if (!string.IsNullOrEmpty(value))
         {
              ApplyBackgroundColor(value);
@@ -800,12 +936,12 @@ public partial class MainWindowViewModel : ObservableObject
         if (Application.Current != null)
         {
              Application.Current.RequestedThemeVariant = isDark ? ThemeVariant.Dark : ThemeVariant.Light;
-             
+
              var cardBg = isDark ? "#1A1C20" : "#FFFFFF";
              var cardBorder = isDark ? "#26282C" : "#E5E7EB";
              var textPrimary = isDark ? "#FFFFFF" : "#000000";
              var textSecondary = isDark ? "#99FFFFFF" : "#66000000";
-             
+
              // Check if we have a custom BG for this mode
              var customBg = isDark ? _customDarkBackground : _customLightBackground;
              CurrentBackgroundColorHex = customBg ?? ""; // Update the UI textbox
@@ -818,7 +954,7 @@ public partial class MainWindowViewModel : ObservableObject
              {
                  Application.Current.Resources["CardBackgroundBrush"] = SolidColorBrush.Parse(cardBg);
              }
-             
+
              Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(cardBorder);
              Application.Current.Resources["TextPrimaryBrush"] = SolidColorBrush.Parse(textPrimary);
              Application.Current.Resources["TextSecondaryBrush"] = SolidColorBrush.Parse(textSecondary);
@@ -838,7 +974,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void ApplyBackgroundColor(string hex)
     {
-        try 
+        try
         {
             if (Application.Current != null && Color.TryParse(hex, out var color))
             {
@@ -868,6 +1004,12 @@ public partial class MainWindowViewModel : ObservableObject
         settings.AlphaMattingErodeSize = AlphaMattingErodeSize;
         settings.AlphaMattingForegroundThreshold = AlphaMattingForegroundThreshold;
         settings.AlphaMattingBackgroundThreshold = AlphaMattingBackgroundThreshold;
+        settings.BatchSize = BatchSize;
+        settings.BatchSubSize = BatchSubSize;
+        settings.AutoCloseBrowser = AutoCloseBrowser;
+        settings.PixaAccounts = Accounts.ToList();
+        settings.UseAccountRotation = UseAccountRotation;
+        settings.ActiveAccountId = SelectedAccount?.Id;
 
         _settingsService.Save(settings);
     }
@@ -897,7 +1039,10 @@ public partial class MainWindowViewModel : ObservableObject
             AlphaMattingEnabled != _snapshotAlphaMattingEnabled ||
             AlphaMattingErodeSize != _snapshotAlphaMattingErodeSize ||
             AlphaMattingForegroundThreshold != _snapshotAlphaMattingForegroundThreshold ||
-            AlphaMattingBackgroundThreshold != _snapshotAlphaMattingBackgroundThreshold;
+            AlphaMattingBackgroundThreshold != _snapshotAlphaMattingBackgroundThreshold ||
+            BatchSize != _snapshotBatchSize ||
+            BatchSubSize != _snapshotBatchSubSize ||
+            AutoCloseBrowser != _snapshotAutoCloseBrowser;
     }
 
     private void TakeSettingsSnapshot()
@@ -917,6 +1062,9 @@ public partial class MainWindowViewModel : ObservableObject
         _snapshotAlphaMattingErodeSize = AlphaMattingErodeSize;
         _snapshotAlphaMattingForegroundThreshold = AlphaMattingForegroundThreshold;
         _snapshotAlphaMattingBackgroundThreshold = AlphaMattingBackgroundThreshold;
+        _snapshotBatchSize = BatchSize;
+        _snapshotBatchSubSize = BatchSubSize;
+        _snapshotAutoCloseBrowser = AutoCloseBrowser;
     }
 
     private void RevertSettingsToSnapshot()
@@ -938,6 +1086,9 @@ public partial class MainWindowViewModel : ObservableObject
             AlphaMattingErodeSize = _snapshotAlphaMattingErodeSize;
             AlphaMattingForegroundThreshold = _snapshotAlphaMattingForegroundThreshold;
             AlphaMattingBackgroundThreshold = _snapshotAlphaMattingBackgroundThreshold;
+            BatchSize = _snapshotBatchSize;
+            BatchSubSize = _snapshotBatchSubSize;
+            AutoCloseBrowser = _snapshotAutoCloseBrowser;
         }
         finally { _isRevertingSettings = false; }
 
@@ -1010,8 +1161,8 @@ public partial class MainWindowViewModel : ObservableObject
             if (pendingConfirm.Any())
             {
                 _pendingPaths = pendingConfirm.ToArray();
-                string displayName = pendingConfirm.Count == 1 
-                    ? Path.GetFileName(pendingConfirm[0]) 
+                string displayName = pendingConfirm.Count == 1
+                    ? Path.GetFileName(pendingConfirm[0])
                     : $"{pendingConfirm.Count} item";
                 ConfirmImportMessage = $"Folder atau file '{displayName}' tidak berada di dalam folder PILIHAN. Apakah Anda ingin mengizinkannya?";
                 IsConfirmImportOpen = true;
@@ -1034,7 +1185,7 @@ public partial class MainWindowViewModel : ObservableObject
                         SelectedTab.Title = System.Text.RegularExpressions.Regex.Replace(rawName, @"^\d+[\s_]*", "");
                     }
                 }
-                
+
                 await ScanAndAddPathsAsync(allowedToScan);
             }
         }
@@ -1092,18 +1243,42 @@ public partial class MainWindowViewModel : ObservableObject
                 Dispatcher.UIThread.Post(() =>
                 {
                     int skipped = 0;
-                    foreach (var p in validPaths)
+
+                    // BUG FIX: urutkan per prioritas ekstensi supaya pemilik nama output
+                    // "polos" (model.png) deterministik: jpg > jpeg > webp > psd.
+                    var ordered = validPaths
+                        .OrderBy(p => Array.IndexOf(_inputExtPriority, Path.GetExtension(p).ToLowerInvariant()))
+                        .ToList();
+
+                    // Kumpulkan nama output yang sudah dipakai item yang ada di tab ini.
+                    var takenOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var existing in Files)
                     {
-                        if (!Files.Any(f => f.FilePath == p))
-                        {
-                            Files.Add(new PixelcutFileItem(p));
-                        }
-                        else
-                        {
-                            skipped++;
-                        }
+                        takenOutputs.Add(string.IsNullOrEmpty(existing.ExpectedResultPath)
+                            ? GetOutputPath(existing.FilePath)
+                            : NormalizePath(existing.ExpectedResultPath));
                     }
 
+                    foreach (var p in ordered)
+                    {
+                        if (Files.Any(f => f.FilePath == p))
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        var output = GetOutputPath(p);
+                        if (!takenOutputs.Add(output))
+                        {
+                            // Tabrakan nama output (mis. model.jpg + model.psd di folder yang
+                            // sama). Kasih suffix ekstensi asal biar tidak saling timpa hasil.
+                            output = GetDisambiguatedOutputPath(p);
+                            if (!takenOutputs.Add(output)) { skipped++; continue; }
+                            AppendLog($"Nama output dibuat unik: {Path.GetFileName(output)} untuk {Path.GetFileName(p)} (ada nama file sama di folder itu).");
+                        }
+
+                        Files.Add(new PixelcutFileItem(p) { ExpectedResultPath = output });
+                    }
                     SortFilesByName();
 
                     if (skipped > 0)
@@ -1111,11 +1286,32 @@ public partial class MainWindowViewModel : ObservableObject
                         SkippedCount += skipped;
                         AppendLog($"Skipped {skipped} duplicates");
                     }
-                    
+
                     UpdateForwarders();
                 });
             }
         });
+    }
+
+    // Prioritas ekstensi input: file dengan ekstensi lebih awal "memiliki" nama output polos.
+    private static readonly string[] _inputExtPriority = { ".jpg", ".jpeg", ".webp", ".psd" };
+
+    /// <summary>Output target untuk job remove_bg: folder\nama.png (sama seperti GetResultPath).</summary>
+    private static string GetOutputPath(string inputPath)
+    {
+        var dir = Path.GetDirectoryName(inputPath) ?? "";
+        var name = Path.GetFileNameWithoutExtension(inputPath);
+        return Path.Combine(dir, name + ".png");
+    }
+
+    /// <summary>Output cadangan kalau nama polos dipakai file lain: folder\nama_ext.png.</summary>
+    private static string GetDisambiguatedOutputPath(string inputPath)
+    {
+        var dir = Path.GetDirectoryName(inputPath) ?? "";
+        var name = Path.GetFileNameWithoutExtension(inputPath);
+        var ext = Path.GetExtension(inputPath).TrimStart('.').ToLowerInvariant();
+        if (string.IsNullOrEmpty(ext)) ext = "img";
+        return Path.Combine(dir, $"{name}_{ext}.png");
     }
 
     private void SortFilesByName()
@@ -1197,7 +1393,7 @@ public partial class MainWindowViewModel : ObservableObject
     private void ToggleSelection(PixelcutFileItem item)
     {
         if (IsProcessing) return;
-        
+
         item.IsSelected = !item.IsSelected;
         _lastSelectedItem = item;
     }
@@ -1213,19 +1409,19 @@ public partial class MainWindowViewModel : ObservableObject
 
         var idx1 = Files.IndexOf(_lastSelectedItem);
         var idx2 = Files.IndexOf(item);
-        
+
         var start = Math.Min(idx1, idx2);
         var end = Math.Max(idx1, idx2);
-        
+
         // Define target state based on the clicked item's new state (inverse of current, or just force true?)
         // Standard range select usually keeps the state consistent?
         // Let's assume we want to SELECT all
-        
+
         for (int i = start; i <= end; i++)
         {
             Files[i].IsSelected = true;
         }
-        
+
         _lastSelectedItem = item;
     }
 
@@ -1233,7 +1429,7 @@ public partial class MainWindowViewModel : ObservableObject
     private void Clear()
     {
         if (IsProcessing) return;
-        
+
         var selected = Files.Where(x => x.IsSelected).ToList();
         if (selected.Count > 0)
         {
@@ -1246,17 +1442,17 @@ public partial class MainWindowViewModel : ObservableObject
         {
             Files.Clear();
         }
-        
+
         UpdateForwarders();
     }
-    
+
     [ObservableProperty] private bool _isRetryVisible;
 
     private void CheckRetryVisibility()
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (IsProcessing || Files == null) 
+            if (IsProcessing || Files == null)
             {
                 IsRetryVisible = false;
                 return;
@@ -1279,7 +1475,7 @@ public partial class MainWindowViewModel : ObservableObject
         _stopRequested = true;
         _cts?.Cancel();
     }
-    
+
     [RelayCommand]
     private void Pause()
     {
@@ -1291,9 +1487,9 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (IsProcessing) return;
         var toRetry = Files.Where(x => x.IsFailed || (x.IsDone && x.ResultSize > 0 && x.ResultSize < 100)).ToList();
-        
+
         if (toRetry.Count == 0) return;
-        
+
         foreach (var item in toRetry)
         {
             item.Status = ""; // Clear status text
@@ -1305,7 +1501,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         await ProcessQueue(_lastJobType);
     }
-    
+
     // Settings
     [ObservableProperty] private bool _isSettingsOpen;
     [RelayCommand]
@@ -1391,27 +1587,123 @@ public partial class MainWindowViewModel : ObservableObject
         {
             while (!_stopRequested)
             {
-                var currentTab = Tabs.FirstOrDefault(t => t.IsProcessing) 
+                var currentTab = Tabs.FirstOrDefault(t => t.IsProcessing)
                               ?? Tabs.FirstOrDefault(t => t.IsWaiting)
                               ?? Tabs.FirstOrDefault(t => !t.IsDone && t.Files.Any(f => !f.IsDone && !f.IsFailed));
-                              
+
                 if (currentTab == null) break;
 
                 currentTab.IsWaiting = false;
                 currentTab.IsProcessing = true;
                 currentTab.NotifyProgressChanged();
-                
-                while (!_stopRequested)
+
+                // Kumpulkan file yang belum diproses; skip yang hasilnya sudah ada.
+                var pending = currentTab.Files
+                    .Where(x => !x.IsDone && !x.IsFailed && !x.IsProcessing)
+                    .ToList();
+
+                var toProcess = new List<PixelcutFileItem>();
+                foreach (var bi in pending)
                 {
-                    if (IsPaused) { await Task.Delay(500); continue; }
-
-                    var item = currentTab.Files.FirstOrDefault(x => !x.IsDone && !x.IsFailed && !x.IsProcessing);
-                    if (item == null) break;
-
-                    await ProcessItem(item, job, _cts.Token);
-                    currentTab.NotifyProgressChanged();
+                    var expectedPath = !string.IsNullOrEmpty(bi.ExpectedResultPath)
+                        ? bi.ExpectedResultPath
+                        : GetResultPath(bi.FilePath, job);
+                    bool isSameFile = string.Equals(bi.FilePath, expectedPath, StringComparison.OrdinalIgnoreCase);
+                    if (!isSameFile && File.Exists(expectedPath))
+                    {
+                        var info = new FileInfo(expectedPath);
+                        if (info.Length >= 1024)
+                        {
+                            bi.ResultPath = expectedPath;
+                            bi.ResultSize = info.Length;
+                            bi.Status = "Selesai (Skipped)";
+                            bi.IsDone = true;
+                            bi.Progress = 100;
+                            bi.IsProcessing = false;
+                            continue;
+                        }
+                    }
+                    toProcess.Add(bi);
                 }
-                
+
+                if (toProcess.Count > 0)
+                {
+                    int chunkSize = Math.Max(1, Math.Min(BatchSize, 10000));
+                    int chunkCount = (toProcess.Count + chunkSize - 1) / chunkSize;
+                    AppendLog($"{toProcess.Count} file diproses dalam {chunkCount} kelompok (maks {chunkSize}/kelompok).");
+
+                    // Tandai semua sedang menunggu diproses (indikator awal).
+                    foreach (var bi in toProcess)
+                    {
+                        bi.IsProcessing = true;
+                        bi.Status = "Menunggu proses...";
+                        bi.Progress = 5;
+                        bi.IsFailed = false;
+                    }
+                    ScrollToItemRequested?.Invoke(toProcess[0]);
+
+                    try
+                    {
+                        var token = _cts!.Token;
+                        // Service memecah jadi kelompok berurutan (PIXA pakai editor batch,
+                        // engine lain diproses satu-per-satu di dalam).
+                        await Task.Run(async () =>
+                        {
+                            await _pixelcutService.ProcessBatchAsync(toProcess, job, token);
+                        }, token);
+
+                        // Tandai sukses/gagal per item berdasarkan file hasil.
+                        foreach (var bi in toProcess)
+                        {
+                            var rp = !string.IsNullOrEmpty(bi.ExpectedResultPath)
+                                ? bi.ExpectedResultPath
+                                : GetResultPath(bi.FilePath, job);
+                            if (File.Exists(rp))
+                            {
+                                bi.ResultPath = rp;
+                                bi.ResultSize = new FileInfo(rp).Length;
+                                bi.Progress = 100;
+                                bi.Status = "Selesai";
+                                bi.IsDone = true;
+                            }
+                            else
+                            {
+                                bi.Status = "Gagal";
+                                bi.IsFailed = true;
+                                bi.ErrorMessage = "Tidak ada hasil";
+                                bi.Progress = 0;
+                            }
+                            bi.IsProcessing = false;
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        foreach (var bi in toProcess)
+                        {
+                            if (!bi.IsDone) { bi.Status = "Berhenti"; bi.IsFailed = true; bi.ErrorMessage = "Dibatalkan"; bi.Progress = 0; bi.IsProcessing = false; }
+                        }
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendLog($"Error: {ex.Message}");
+                        foreach (var bi in toProcess)
+                        {
+                            if (!bi.IsDone)
+                            {
+                                bi.Status = "Gagal";
+                                bi.IsFailed = true;
+                                bi.ErrorMessage = ex.Message;
+                                bi.Progress = 0;
+                                bi.IsProcessing = false;
+                            }
+                        }
+                    }
+                    currentTab.NotifyProgressChanged();
+                    OnPropertyChanged(nameof(ProcessedCount));
+                    OnPropertyChanged(nameof(TabHeaderText));
+                }
+
                 if (!_stopRequested)
                 {
                     currentTab.IsProcessing = false;
@@ -1429,10 +1721,24 @@ public partial class MainWindowViewModel : ObservableObject
             IsProcessing = false;
             _cts?.Dispose();
             _cts = null;
+
+            // BUG FIX: saat di-Stop, flag tab (spinner "memproses") harus ikut direset,
+            // kalau tidak tab terlihat seperti masih memproses selamanya.
+            foreach (var t in Tabs)
+            {
+                t.IsProcessing = false;
+                t.IsWaiting = false;
+                t.NotifyProgressChanged();
+            }
+
             UpdateForwarders();
 
             if (!_stopRequested)
             {
+                if (AutoCloseBrowser)
+                {
+                    try { await _pixelcutService.CloseWebAutomationAsync(); } catch { }
+                }
                 var success = Tabs.SelectMany(t => t.Files).Count(x => x.IsDone && x.ResultSize >= 500);
                 var small = Tabs.SelectMany(t => t.Files).Count(x => x.IsDone && x.ResultSize < 500 && x.ResultSize > 0);
                 var failed = Tabs.SelectMany(t => t.Files).Count(x => x.IsFailed);
@@ -1461,8 +1767,11 @@ public partial class MainWindowViewModel : ObservableObject
         item.IsFailed = false;
 
         // --- SKIP LOGIC ---
-        var expectedPath = GetResultPath(item.FilePath, job);
-        
+        // BUG FIX: pakai nama output yang sudah di-resolve saat scan (anti tabrakan nama sama).
+        var expectedPath = !string.IsNullOrEmpty(item.ExpectedResultPath)
+            ? item.ExpectedResultPath
+            : GetResultPath(item.FilePath, job);
+
         // Ensure we are not skipping if input is same as output (e.g. PNG input)
         bool isSameFile = string.Equals(item.FilePath, expectedPath, StringComparison.OrdinalIgnoreCase);
 
@@ -1487,13 +1796,13 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             // Simulate progress for UI feedback
-            var progressTask = Task.Run(async () => 
+            var progressTask = Task.Run(async () =>
             {
                 while(item.IsProcessing && item.Progress < 90)
                 {
                     if (ct.IsCancellationRequested) break;
-                    
-                    if (IsPaused) 
+
+                    if (IsPaused)
                     {
                         await Task.Delay(500);
                         continue;
@@ -1503,7 +1812,7 @@ public partial class MainWindowViewModel : ObservableObject
                     Dispatcher.UIThread.Post(() =>
                     {
                         item.Progress += 2;
-                        item.Status = item.Progress < 30 ? "Mengunggah..." : 
+                        item.Status = item.Progress < 30 ? "Mengunggah..." :
                                       item.Progress < 60 ? "Memproses..." : "Mengunduh hasil...";
                     });
                 }
@@ -1516,7 +1825,7 @@ public partial class MainWindowViewModel : ObservableObject
             while (IsPaused)
             {
                 if (ct.IsCancellationRequested) break;
-                await Task.Delay(500, ct); 
+                await Task.Delay(500, ct);
             }
 
             item.Progress = 100;
@@ -1524,9 +1833,11 @@ public partial class MainWindowViewModel : ObservableObject
             item.IsDone = true;
             OnPropertyChanged(nameof(ProcessedCount));
             OnPropertyChanged(nameof(TabHeaderText));
-            
+
             // Re-read size
-            var resultPath = GetResultPath(item.FilePath, job);
+            var resultPath = !string.IsNullOrEmpty(item.ExpectedResultPath)
+                ? item.ExpectedResultPath
+                : GetResultPath(item.FilePath, job);
             if (File.Exists(resultPath))
             {
                 item.ResultPath = resultPath;
@@ -1536,7 +1847,7 @@ public partial class MainWindowViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             item.Status = "Berhenti";
-            item.IsFailed = true; 
+            item.IsFailed = true;
             item.ErrorMessage = "Dibatalkan";
             item.Progress = 0;
             throw; // Rethrow to stop loop in ProcessQueue
@@ -1556,13 +1867,13 @@ public partial class MainWindowViewModel : ObservableObject
             item.IsProcessing = false;
         }
     }
-    
+
     private string GetResultPath(string input, string job)
     {
         var dir = Path.GetDirectoryName(input) ?? "";
         var name = Path.GetFileNameWithoutExtension(input);
-        
-        if (job == "upscale") 
+
+        if (job == "upscale")
         {
              // Keep original extension for upscale
              var ext = Path.GetExtension(input);
@@ -1576,7 +1887,7 @@ public partial class MainWindowViewModel : ObservableObject
         LogOutput += $"{msg}\n";
         Console.WriteLine($"[PixelcutCompact] {msg}");
     }
-    
+
 
     [RelayCommand]
     private void ResetBrowser()
@@ -1584,6 +1895,170 @@ public partial class MainWindowViewModel : ObservableObject
         _pixelcutService.ResetWebAutomation();
         AppendLog("Browser direset — sesi baru akan dibuat saat proses berikutnya.");
         ShowToast("Browser direset ✓", "🔄");
+    }
+    private const string BrowserLoginUrl = "https://www.pixelcut.ai/";
+
+    [RelayCommand]
+    private async Task OpenBrowserForLogin()
+    {
+        if (IsProcessing)
+        {
+            ShowToast("Sedang memproses, tunggu selesai dulu", "⚠️");
+            return;
+        }
+        try
+        {
+            // Kalau rotasi aktif dan ada akun, login ke profil akun aktif (kompatibel mundur).
+            var account = UseAccountRotation && Accounts.Count > 0
+                ? (SelectedAccount ?? _accountRotator?.CurrentOrNext() ?? Accounts[0])
+                : null;
+
+            if (account != null)
+            {
+                ShowToast($"Membuka browser {account.Name}... login dulu ya", "🌐");
+                AppendLog($"Membuka browser untuk login manual akun '{account.Name}'...");
+                await _pixelcutService.LoginAccountAsync(account, BrowserLoginUrl, CancellationToken.None);
+                account.ResetSession();
+                AppendLog($"Browser login akun '{account.Name}' ditutup. Sesi login tersimpan.");
+                ShowToast("Sesi login tersimpan", "✅");
+                return;
+            }
+
+            ShowToast("Membuka browser... login dulu ya", "🌐");
+            AppendLog("Membuka browser untuk login manual...");
+            await _pixelcutService.OpenInteractiveAsync(BrowserLoginUrl, CancellationToken.None);
+            AppendLog("Browser login ditutup. Sesi login tersimpan.");
+            ShowToast("Sesi login tersimpan", "✅");
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Gagal buka browser: " + ex.Message);
+            ShowToast("Gagal buka browser", "❌");
+        }
+    }
+
+    // ── Manajemen akun (round-robin) ──
+
+    [RelayCommand]
+    private void AddAccount()
+    {
+        var acc = new PixaAccount
+        {
+            Name = $"Akun {Accounts.Count + 1}"
+        };
+        acc.EnsureProfileSuffix();
+        acc.ResetSession();
+        Accounts.Add(acc);
+        SelectedAccount = acc;
+        OnAccountsChanged();
+        AppendLog($"Akun '{acc.Name}' ditambahkan. Login dulu lewat tombol Login.");
+        ShowToast("Akun ditambahkan — jangan lupa Login", "➕");
+    }
+
+    [RelayCommand]
+    private void RemoveAccount()
+    {
+        var acc = SelectedAccount;
+        if (acc == null) return;
+        int idx = Accounts.IndexOf(acc);
+        if (idx < 0) return;
+        Accounts.RemoveAt(idx);
+        SelectedAccount = Accounts.Count == 0 ? null : Accounts[Math.Min(idx, Accounts.Count - 1)];
+        OnAccountsChanged();
+        AppendLog($"Akun '{acc.Name}' dihapus.");
+        ShowToast("Akun dihapus", "🗑️");
+    }
+
+    [RelayCommand]
+    private void MoveAccountUp()
+    {
+        var acc = SelectedAccount;
+        if (acc == null) return;
+        int idx = Accounts.IndexOf(acc);
+        if (idx <= 0) return;
+        Accounts.Move(idx, idx - 1);
+        OnAccountsChanged();
+    }
+
+    [RelayCommand]
+    private void MoveAccountDown()
+    {
+        var acc = SelectedAccount;
+        if (acc == null) return;
+        int idx = Accounts.IndexOf(acc);
+        if (idx < 0 || idx >= Accounts.Count - 1) return;
+        Accounts.Move(idx, idx + 1);
+        OnAccountsChanged();
+    }
+
+    [RelayCommand]
+    private async Task LoginSelectedAccount()
+    {
+        var acc = SelectedAccount;
+        if (acc == null)
+        {
+            ShowToast("Pilih akun dulu", "⚠️");
+            return;
+        }
+        if (IsProcessing)
+        {
+            ShowToast("Sedang memproses, tunggu selesai dulu", "⚠️");
+            return;
+        }
+        try
+        {
+            ShowToast($"Membuka browser {acc.Name}... login dulu ya", "🌐");
+            AppendLog($"Membuka browser untuk login manual akun '{acc.Name}'...");
+            await _pixelcutService.LoginAccountAsync(acc, BrowserLoginUrl, CancellationToken.None);
+            acc.ResetSession();
+            AppendLog($"Browser login akun '{acc.Name}' ditutup. Sesi login tersimpan.");
+            ShowToast("Sesi login tersimpan", "✅");
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Gagal buka browser: " + ex.Message);
+            ShowToast("Gagal buka browser", "❌");
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoginAccount(PixaAccount? account)
+    {
+        if (account == null) return;
+        SelectedAccount = account;
+        await LoginSelectedAccount();
+    }
+
+    [RelayCommand]
+    private void ResetAccountStatus()
+    {
+        if (Accounts.Count == 0)
+        {
+            ShowToast("Belum ada akun", "⚠️");
+            return;
+        }
+        foreach (var acc in Accounts) acc.ResetSession();
+        _accountRotator?.ResetSession();
+        _pixelcutService.ResetWebAutomation();
+        AppendLog("Status semua akun direset (counter & limit). Sesi baru dimulai.");
+        ShowToast("Status akun direset ✓", "🔄");
+    }
+
+    /// <summary>Pastikan rotator & service sinkron setiap daftar akun berubah.</summary>
+    private void OnAccountsChanged()
+    {
+        // Rotator menyimpan salinan daftar, jadi buat ulang supaya perubahan (tambah/hapus/urut)
+        // langsung terlihat oleh rotasi.
+        _accountRotator = new PixaAccountRotator(Accounts);
+        _pixelcutService.AccountRotator = _accountRotator;
+        _pixelcutService.UseAccountRotation = UseAccountRotation;
+        if (!IsSettingsOpen) SaveSettings();
+    }
+
+    partial void OnUseAccountRotationChanged(bool value)
+    {
+        _pixelcutService.UseAccountRotation = value;
+        if (!IsSettingsOpen) SaveSettings();
     }
 
 
@@ -1594,7 +2069,7 @@ public partial class MainWindowViewModel : ObservableObject
             ToastMessage = message;
             ToastIcon = icon;
             IsToastVisible = true;
-            
+
             _toastTimer?.Stop();
             _toastTimer?.Dispose();
             _toastTimer = new System.Timers.Timer(4000);
@@ -1609,12 +2084,12 @@ public partial class MainWindowViewModel : ObservableObject
 
     [RelayCommand]
     private void DismissToast() => IsToastVisible = false;
-    
+
     // === NEW FEATURES ===
-    
+
     [ObservableProperty] private bool _isGridView;
     [RelayCommand] private void ToggleViewMode() => IsGridView = !IsGridView;
-    
+
     [RelayCommand]
     private void OpenFolder(PixelcutFileItem item)
     {
@@ -1651,24 +2126,24 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch { }
     }
-    
+
     [RelayCommand]
     private async Task RetrySingleItem(PixelcutFileItem item)
     {
         if (IsProcessing || item == null) return;
-        
+
         item.Status = "";
         item.IsDone = false;
         item.IsFailed = false;
         item.Progress = 0;
         item.ErrorMessage = "";
-        
+
         // Single item process wrapper
         IsProcessing = true;
         _stopRequested = false;
         IsPaused = false;
         _cts = new CancellationTokenSource();
-        
+
         try
         {
             await ProcessItem(item, _lastJobType, _cts.Token);
@@ -1684,21 +2159,21 @@ public partial class MainWindowViewModel : ObservableObject
 
     private PreviewWindow? _previewWindow;
     private PixelcutFileItem? _currentPreviewItem;
-    
+
     [RelayCommand]
     private void PreviewItem(PixelcutFileItem item)
     {
         if (item == null) return;
         _currentPreviewItem = item;
-        
+
         var original = item.FilePath;
         var result = item.HasResult ? item.ResultPath : null;
-        
+
         // Construct title: ParentFolder\Filename.ext
         var parent = Path.GetFileName(Path.GetDirectoryName(original));
         var fname = Path.GetFileName(original);
         var title = string.IsNullOrEmpty(parent) ? fname : Path.Combine(parent, fname);
-        
+
         if (File.Exists(original) && File.Exists(result))
         {
              // Hide gallery window if it is open
@@ -1710,17 +2185,17 @@ public partial class MainWindowViewModel : ObservableObject
              if (_previewWindow == null)
              {
                  _previewWindow = new PreviewWindow();
-                 _previewWindow.Closed += (s, e) => 
-                 { 
-                     _previewWindow = null; 
+                 _previewWindow.Closed += (s, e) =>
+                 {
+                     _previewWindow = null;
                      var closedItem = _currentPreviewItem;
-                     _currentPreviewItem = null; 
-                     
+                     _currentPreviewItem = null;
+
                      if (closedItem != null)
                      {
                          RefreshItemThumbnails(closedItem);
                      }
-                     
+
                      // Show gallery window if it was hidden
                      if (_galleryWindow != null && !_galleryWindow.IsVisible)
                      {
@@ -1729,7 +2204,9 @@ public partial class MainWindowViewModel : ObservableObject
                  };
                  // Subscribe to events
                  _previewWindow.Next += OnNextPreview;
-                 _previewWindow.Previous += OnPreviousPreview;
+                _previewWindow.Previous += OnPreviousPreview;
+                // Editor native menyimpan hasil in-place → segarkan thumbnail galeri.
+                _previewWindow.Saved += (s, path) => RefreshItemThumbnails(_currentPreviewItem);
 
                  if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
                  {
@@ -1744,7 +2221,7 @@ public partial class MainWindowViewModel : ObservableObject
              {
                  _previewWindow.Activate();
              }
-             
+
              _previewWindow.ShowLoading();
              _previewWindow.LoadImages(original, result, title);
              UpdatePreviewButtons();
@@ -1779,7 +2256,7 @@ public partial class MainWindowViewModel : ObservableObject
             _galleryWindow = new GalleryWindow();
             _galleryWindow.DataContext = this;
             _galleryWindow.Closed += (s, e) => _galleryWindow = null;
-            
+
             if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
             {
                 _galleryWindow.Show(desktop.MainWindow);
@@ -1798,9 +2275,8 @@ public partial class MainWindowViewModel : ObservableObject
             _galleryWindow.Activate();
         }
 
-        // Window will automatically pick up GalleryItems via DataBinding.
-        // GalleryItems is now kept in sync automatically via OnFilesCollectionChanged 
-        // and OnFileItemPropertyChanged.
+        // Window ambil GalleryItems via DataBinding. Isi gallery mengikuti tab aktif
+        // (lihat RebuildGalleryForTab), urutannya sama persis dengan list di tab itu.
     }
 
     [RelayCommand]
@@ -1867,7 +2343,7 @@ public partial class MainWindowViewModel : ObservableObject
             var item = selectedItems[i];
             var escapedResult = item.ResultPath.Replace("\\", "\\\\").Replace("'", "\\'");
             var escapedOriginal = item.FilePath.Replace("\\", "\\\\").Replace("'", "\\'");
-            
+
             sb.AppendLine($"var err{i} = openPair('{escapedResult}', '{escapedOriginal}');");
             sb.AppendLine($"if (err{i}) {{ errors.push('Gambar {i + 1} ({item.FileName}): ' + err{i}); }}");
         }
@@ -1890,7 +2366,7 @@ public partial class MainWindowViewModel : ObservableObject
                 UseShellExecute = true
             };
             Process.Start(psi);
-            
+
             AppendLog($"Membuka {selectedItems.Count} item di Photoshop...");
         }
         catch (Exception ex)

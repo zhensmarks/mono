@@ -19,6 +19,10 @@ public partial class PixelcutFileItem : ObservableObject
     [ObservableProperty] private long _resultSize;
     [ObservableProperty] private string _resultPath = "";
     [ObservableProperty] private bool _hasResult;
+    // BUG FIX: nama output unik (diresolve saat scan) biar tidak saling menimpa.
+    // Mencegah tabrakan output antar file dengan nama sama di folder yang sama
+    // (mis. model.jpg vs model.psd -> keduanya mau tulis model.png).
+    [ObservableProperty] private string _expectedResultPath = "";
 
     partial void OnResultPathChanged(string value)
     {

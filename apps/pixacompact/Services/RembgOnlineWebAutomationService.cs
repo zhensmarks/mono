@@ -11,33 +11,47 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
 {
     private readonly string? _proxyServer;
     private readonly bool _showBrowser;
+    private readonly string? _profileSuffix;
     private IPlaywright? _playwright;
     private IBrowserContext? _context;
-    private IPage? _page;
     private bool _isInitialized;
 
-    public RembgOnlineWebAutomationService(string? proxyServer = null, bool showBrowser = false)
+    // Guard init supaya aman saat beberapa file diproses paralel.
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+
+    public RembgOnlineWebAutomationService(string? proxyServer = null, bool showBrowser = false, string? profileSuffix = null)
     {
         _proxyServer = string.IsNullOrWhiteSpace(proxyServer) ? null : proxyServer.Trim();
         _showBrowser = showBrowser;
+        _profileSuffix = profileSuffix;
     }
 
     public async Task InitializeAsync()
     {
         if (_isInitialized) return;
 
-        _playwright = await Playwright.CreateAsync();
-        _context = await LaunchContextWithFallbackAsync(_playwright);
-        await PixelcutCompact.Helpers.PlaywrightStealthHelper.ApplyStealthSettingsAsync(_context);
-        _page = await _context.NewPageAsync();
-        _page.SetDefaultTimeout(120000);
-        _isInitialized = true;
+        // Browser context cukup dibuat sekali walau beberapa file mulai bersamaan.
+        await _initLock.WaitAsync();
+        try
+        {
+            if (_isInitialized) return;
+
+            _playwright = await Playwright.CreateAsync();
+            _context = await LaunchContextWithFallbackAsync(_playwright);
+            await PixelcutCompact.Helpers.PlaywrightStealthHelper.ApplyStealthSettingsAsync(_context);
+            _isInitialized = true;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
     }
 
     private async Task<IBrowserContext> LaunchContextWithFallbackAsync(IPlaywright playwright)
     {
         var channel = DetectDefaultBrowserChannel();
-        var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RembgOnlineProfile");
+        var profileName = string.IsNullOrEmpty(_profileSuffix) ? "RembgOnlineProfile" : $"RembgOnlineProfile_{_profileSuffix}";
+        var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, profileName);
         if (!Directory.Exists(userDataDir)) Directory.CreateDirectory(userDataDir);
 
         var baseArgs = new[] { "--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage" };
@@ -75,6 +89,7 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
             if (progId.Contains("chrome")) return "chrome";
         }
         catch { }
+
         return null;
     }
 
@@ -84,16 +99,31 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
             throw new NotSupportedException("REMBG online hanya mendukung remove_bg.");
 
         await InitializeAsync();
-        if (_page == null) throw new Exception("Browser REMBG online belum siap.");
+        if (_context == null) throw new Exception("Browser REMBG online belum siap.");
 
-        await _page.GotoAsync("https://www.rembg.com/en/free-background-remover", new PageGotoOptions
+        // Satu page (tab browser) per file - aman dijalankan paralel.
+        var page = await _context.NewPageAsync();
+        page.SetDefaultTimeout(120000);
+        try
+        {
+            return await ProcessInPage(page, filePath, ct);
+        }
+        finally
+        {
+            try { await page.CloseAsync(); } catch { }
+        }
+    }
+
+    private async Task<byte[]> ProcessInPage(IPage page, string filePath, CancellationToken ct)
+    {
+        await page.GotoAsync("https://www.rembg.com/en/free-background-remover", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded,
             Timeout = 120000
         });
-        await _page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 
-        var frame = await FindFrameWithUploadAsync(_page);
+        var frame = await FindFrameWithUploadAsync(page);
         if (frame == null)
             throw new Exception("Input upload tidak ditemukan di rembg.com.");
 
@@ -104,7 +134,7 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
         }
         else
         {
-            var chooser = await _page.RunAndWaitForFileChooserAsync(async () =>
+            var chooser = await page.RunAndWaitForFileChooserAsync(async () =>
             {
                 var uploadTrigger = frame.Locator(
                     "text=Drag & drop an image or click to browse, " +
@@ -124,7 +154,7 @@ public sealed class RembgOnlineWebAutomationService : IDisposable
         var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.png");
         try
         {
-            var downloadTask = _page.WaitForDownloadAsync(new PageWaitForDownloadOptions { Timeout = 120000 });
+            var downloadTask = page.WaitForDownloadAsync(new PageWaitForDownloadOptions { Timeout = 120000 });
             await downloadButton.ClickAsync();
             var download = await downloadTask;
             await download.SaveAsAsync(tempPath);

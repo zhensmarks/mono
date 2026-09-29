@@ -29,6 +29,34 @@ public class PreviewWindowSettings
     public string SolidColorHex { get; set; } = "#00FF00";
     public string CheckerColor1 { get; set; } = "#333333";
     public string CheckerColor2 { get; set; } = "#4D4D4D";
+    // Editor native masih beta; default off agar user biasa tidak melihat mode Edit.
+    public bool EditorBetaMode { get; set; } = false;
+    // ===== Editor (mask/selection) settings =====
+    public int ActiveEditTool { get; set; } = -1; // -1 = belum pernah; index EditToolKind
+    public int EditorBrushSize { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultBrushSize;
+    public double EditorBrushHardness { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultBrushHardness;
+    public double EditorBrushOpacity { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultBrushOpacity;
+    public double EditorBrushFlow { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultBrushFlow;
+    public bool EditorBrushRestore { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultBrushRestoreMode;
+    public int EditorWandTolerance { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultWandTolerance;
+    public bool EditorWandContiguous { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultWandContiguous;
+    public bool EditorWandSampleAlpha { get; set; } = true;
+    public double EditorSelectionFeather { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultSelectionFeather;
+    public bool EditorAntiAlias { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultAntiAliasSelection;
+    public int EditorUndoSteps { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultUndoSteps;
+    public int EditorUndoMemoryMb { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultUndoMemoryLimitMb;
+    public string EditorRefineHairModel { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineHairModel;
+    public int EditorRefineHairBandRadius { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineHairBandRadius;
+    public int EditorRefineHairFeather { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineHairFeather;
+    public bool EditorSaveAsCopy { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultSaveEditorAsCopy;
+    public string EditorOutputSuffix { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultEditorOutputSuffix;
+    public int EditorSelectionMode { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultSelectionMode;
+    public bool EditorWand8Connected { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultWand8Connected;
+    public int EditorSelGrowPx { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultSelGrowPx;
+    public int EditorRefineEdgeSize { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineEdgeSize;
+    public int EditorRefineEdgeFeather { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineEdgeFeather;
+    public bool EditorShowRightPanel { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultShowRightPanel;
+    public int EditorAntsAnimationMs { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultAntsAnimationMs;
 
     private static string GetPath() => Path.Combine(AppContext.BaseDirectory, "preview_settings.json");
 
