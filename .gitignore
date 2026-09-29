@@ -1,0 +1,99 @@
+# ===========================
+# mono/.gitignore
+# Kombinasi aturan BMachine.v2 + PixelcutCompact yang sudah ada.
+# ===========================
+
+# --- Build outputs ---
+bin/
+obj/
+out/
+Build/
+build/
+
+# --- Publish output (exe besar, ratusan MB / GB) ---
+publish/
+
+# --- NuGet ---
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# --- IDE ---
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# --- Logs & temp ---
+*.log
+logs/
+.logs/
+*.tmp
+*.temp
+*.bak
+~$*
+
+# --- Application data (SENSITIVE - JANGAN COMMIT) ---
+Data/
+config.json
+*.db
+*.litedb
+
+# --- Credentials (JANGAN PERNAH COMMIT) ---
+credentials.json
+token.json
+client_secret*.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+dist/
+
+# --- Test results ---
+TestResults/
+*.trx
+
+# --- AI / agent tooling ---
+.gemini/
+
+# --- User settings & API keys ---
+settings.json
+trello_config.json
+*_settings.json
+
+# --- Script outputs ---
+Scripts/Output/
+Scripts/Temp/
+**/[Oo]utput/
+**/[Tt]emp/
+
+# --- Executables & installers ---
+*.exe
+rembg_installer.exe
+
+# --- Crash reports (diabaikan, dikirim via ProjectBot) ---
+crash_report.txt
+crash.log
+
+# --- Machine-specific agent skill symlinks ---
+.agents/skills/antislop*
+.agents/skills/taste-skill
