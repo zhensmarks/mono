@@ -43,4 +43,8 @@
     <AvaloniaResource Include="appicon.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\shared\BMachine.Shared.BugReporter\BMachine.Shared.BugReporter.csproj" />
+  </ItemGroup>
+
 </Project>

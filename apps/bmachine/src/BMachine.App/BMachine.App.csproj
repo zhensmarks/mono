@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\shared\BMachine.Shared.BugReporter\BMachine.Shared.BugReporter.csproj" />
     <ProjectReference Include="..\BMachine.Core\BMachine.Core.csproj" />
     <ProjectReference Include="..\BMachine.SDK\BMachine.SDK.csproj" />
     <ProjectReference Include="..\BMachine.UI\BMachine.UI.csproj" />

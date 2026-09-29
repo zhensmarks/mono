@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Tidak ada PackageReference: hanya pakai stdlib (HttpClient + System.Text.Json).
+         Tujuannya: library ini tidak pernah bisa merusak build app pemakainya. -->
+  </PropertyGroup>
+
+</Project>

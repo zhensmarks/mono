@@ -1,11 +1,16 @@
 using Avalonia;
 using System;
 using System.Threading.Tasks;
+using Abeng.BugReporter;
+using System.Reflection;
 
 namespace BMachine.App;
 
 class Program
 {
+    // Pemakai: jangan sentuh logic/tampilan; ini hanya melempar laporan ke ProjectBot.
+    private static readonly BugReporter _bug = new BugReporter("BMachine.v2");
+
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
@@ -30,6 +35,8 @@ class Program
                     System.IO.File.AppendAllText(logPath, crashMsg);
                 }
                 catch { }
+                // Kirim ke ProjectBot (crash -> inbox + notifikasi Telegram "Project & Bug").
+                _bug.ReportCrash(ex, appVersion: ThisVersion(), context: "unhandled");
             }
             catch { }
         };
@@ -47,6 +54,7 @@ class Program
                     System.IO.File.AppendAllText(logPath, crashMsg);
                 }
                 catch { }
+                _bug.ReportCrash(ex, appVersion: ThisVersion(), context: "unobserved-task");
             }
             catch { }
             e.SetObserved();
@@ -87,10 +95,26 @@ class Program
                 System.IO.File.AppendAllText(logPath, crashMsg);
             }
             catch { }
+            _bug.ReportCrash(ex, appVersion: ThisVersion(), context: "main-loop");
             
             throw; // Re-throw to ensure process exit code is error
         }
     }
+
+    // Baca <Version> dari csproj (AssemblyInformationalVersion) supaya laporan
+    // tahu di versi mana bug terjadi. Fallback aman kalau kosong.
+    private static string? ThisVersion()
+    {
+        try
+        {
+            var v = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion;
+            return string.IsNullOrWhiteSpace(v) ? null : v.Split('+')[0];
+        }
+        catch { return null; }
+    }
+
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
