@@ -59,6 +59,10 @@ config.json
 credentials.json
 token.json
 client_secret*.json
+gdrive_token/
+**/gdrive_token/
+Google.Apis.Auth.OAuth2.Responses.TokenResponse-user
+*.TokenResponse-user
 
 # --- Python ---
 __pycache__/
