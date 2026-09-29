@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: f
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2ef01c2114b  # v3.0.2
         with:
           filters: |
             bmachine:
