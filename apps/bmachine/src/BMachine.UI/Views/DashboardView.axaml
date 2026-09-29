@@ -206,6 +206,10 @@
                                                     </Border>
                                                 </Grid>
                                             </ToggleButton>
+                                            <Button Classes="profileMenuItem" Click="OnReportBugClick">
+                                                <TextBlock Text="Laporkan Bug" FontSize="12.5" Margin="10,0"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            </Button>
                                             <Button Classes="profileMenuItem" Click="OnSettingsClick">
                                                 <TextBlock Text="Settings" FontSize="12.5" Margin="10,0"
                                                            Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>

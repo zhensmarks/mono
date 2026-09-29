@@ -191,6 +191,23 @@ public partial class DashboardView : UserControl
         return folders.FirstOrDefault()?.Path.LocalPath;
     }
 
+    private void OnReportBugClick(object? sender, RoutedEventArgs e)
+    {
+        Part_ProfileNavButton.Flyout?.Hide();
+        var dialog = new Dialogs.MantraData.ReportBugDialog
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            dialog.ShowDialog(owner);
+        }
+        else
+        {
+            dialog.Show();
+        }
+    }
+
     private void OnSettingsClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is DashboardViewModel vm)

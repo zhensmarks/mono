@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:BMachine.UI.Views.Dialogs.MantraData"
         x:Class="BMachine.UI.Views.Dialogs.MantraData.ReportBugDialog"
-        Title="Lapork Bug"
+        Title="Laporkan Bug"
         Width="560"
         MinWidth="520" MinHeight="280"
         MaxHeight="680"
@@ -91,7 +91,7 @@
 
     <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
         <Border Margin="14" Padding="22" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
-            <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto">
+            <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
 
                 <!-- Title bar: drag + close. Tanpa ikon, teks saja. -->
                 <Grid Grid.Row="0" Margin="-22,-22,-22,0">
@@ -100,7 +100,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Grid.Column="0" Background="Transparent" PointerPressed="OnTitleBarPointerPressed" Padding="22,8,0,12">
-                        <TextBlock Text="Lapork Bug" FontSize="16" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+                        <TextBlock Text="Laporkan Bug" FontSize="16" FontWeight="SemiBold" Foreground="#F4F4F5"/>
                     </Border>
                     <Button Grid.Column="1" Classes="ChromeClose" Content="Tutup" Click="OnCloseButtonClick"
                             Margin="0,4,10,0" ToolTip.Tip="Tutup"/>

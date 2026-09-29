@@ -395,14 +395,17 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             
             <TextBlock Grid.Column="0" Text="BMachine Toolbox" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold" FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False" />
             
-            <Button Grid.Column="1" Classes="Tab" Content="X" Width="45" Height="40" Padding="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Click="OnCloseButtonClick" CornerRadius="6" FontSize="14" />
+            <Button Grid.Column="1" Classes="Muted" Content="Laporkan Bug" Height="26" FontSize="11" Padding="10,0" Margin="0,0,8,0" Click="OnReportBugClick" ToolTip.Tip="Kirim laporan bug"/>
+
+            <Button Grid.Column="2" Classes="Tab" Content="X" Width="45" Height="40" Padding="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Click="OnCloseButtonClick" CornerRadius="6" FontSize="14" />
             
             <!-- Separator -->
-            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom" />
+            <Rectangle Grid.ColumnSpan="3" Height="1" Fill="#232326" VerticalAlignment="Bottom" />
         </Grid>
 
         <Grid Grid.Row="1">

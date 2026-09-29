@@ -48,6 +48,9 @@ logs/
 *.temp
 *.bak
 ~$*
+build_*.txt
+*.env
+.env*
 
 # --- Application data (SENSITIVE - JANGAN COMMIT) ---
 Data/

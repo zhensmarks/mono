@@ -63,6 +63,15 @@ public partial class ToolboxWindow : Window
         this.Close();
     }
 
+    private void OnReportBugClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new Dialogs.MantraData.ReportBugDialog
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        dialog.ShowDialog(this);
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);

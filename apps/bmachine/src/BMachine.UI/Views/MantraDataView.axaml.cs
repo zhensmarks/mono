@@ -677,6 +677,22 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
         }
     }
 
+    private void OnReportBugClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new Dialogs.MantraData.ReportBugDialog
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            dialog.ShowDialog(owner);
+        }
+        else
+        {
+            dialog.Show();
+        }
+    }
+
     private async void OnOpenFileClicked(object? sender, RoutedEventArgs e)
     {
         var topLevel = TopLevel.GetTopLevel(this);

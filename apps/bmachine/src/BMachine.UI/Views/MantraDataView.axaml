@@ -216,6 +216,9 @@
                         <MenuItem Header="Atur Kolom..." Command="{Binding OpenTransformDialogCommand}" InputGesture="F8"/>
                         <MenuItem Header="Rapikan Semua (Smart Clean)" Command="{Binding CleanupAllCommand}"/>
                     </MenuItem>
+                    <MenuItem Header="Bantuan">
+                        <MenuItem Header="Laporkan Bug..." Click="OnReportBugClick" InputGesture="F1"/>
+                    </MenuItem>
                 </Menu>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="Atur Kolom" Classes="ToolBtn"

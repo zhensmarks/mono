@@ -1317,7 +1317,7 @@ public partial class SettingsViewModel : ObservableObject
 
             // Load Integrations
             var storedKey = await _database.GetAsync<string>("Trello.ApiKey");
-            TrelloApiKey = !string.IsNullOrEmpty(storedKey) ? storedKey : "47f95e83d2fdb00fb7b3da2f691f0e75";
+            TrelloApiKey = !string.IsNullOrEmpty(storedKey) ? storedKey : string.Empty;
             TrelloToken = await _database.GetAsync<string>("Trello.Token") ?? "";
             
             var trelloConnStr = await _database.GetAsync<string>("Trello.IsConnected");
