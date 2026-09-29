@@ -122,6 +122,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <!-- Back button (mobile) -->
             <Button Grid.Column="0" Command="{Binding NavigateBackCommand}"
@@ -145,6 +146,10 @@
                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                 <TextBlock Text="{Binding CurrentVersion, StringFormat='v{0}'}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Medium"/>
             </Border>
+            <!-- Lapork Bug: kirim ke ProjectBot (HTTP lokal). Teks saja, tanpa ikon. -->
+            <Button Grid.Column="4" Classes="Muted" Content="Lapork Bug" Click="OnReportBugClick"
+                    Height="28" FontSize="11" Padding="12,0" Margin="8,0,0,0" Cursor="Hand"
+                    ToolTip.Tip="Kirim laporan bug ke tim Project &amp; Bug"/>
         </Grid>
 
         <!-- SIDEBAR -->

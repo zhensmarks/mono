@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia;
 using BMachine.UI.ViewModels;
 using Avalonia.VisualTree;
+using Avalonia.Interactivity;
 
 namespace BMachine.UI.Views;
 
@@ -521,6 +522,27 @@ public partial class SettingsView : UserControl
         if (targetSlot != null)
         {
             vm.SwapRadialSlots(source, targetSlot);
+        }
+    }
+
+    // Buka dialog "Lapork Bug". Event-handler code-behind (bukan ViewModel)
+    // karena ini murni interaksi UI: menampilkan dialog modal. Logika kirim
+    // ada di ReportBugDialog + shared BugReporter.
+    private void OnReportBugClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new Dialogs.MantraData.ReportBugDialog
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        // Owner null-safe: integration test/designer bisa saja tanpa window induk.
+        if (this.GetVisualRoot() is Window owner)
+        {
+            dialog.ShowDialog(owner);
+        }
+        else
+        {
+            dialog.Show();
         }
     }
 }
