@@ -13,6 +13,10 @@ build/
 # --- Publish output (exe besar, ratusan MB / GB) ---
 publish/
 
+# --- Publish output di root monorepo (dibuat oleh publish.ps1 / publish.bat) ---
+/BMachine/
+/PixaCompact/
+
 # --- NuGet ---
 packages/
 *.nupkg

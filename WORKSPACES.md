@@ -10,12 +10,16 @@ File ini adalah sumber kebenaran untuk susunan folder, area kerja tim, dan alur 
 ```
 mono/
   apps/
-    bmachine/        <- aplikasi BMachine (utuh: sln, src, Scripts, publish)
-    pixacompact/     <- aplikasi PixaCompact (utuh: csproj, Views, Services, publish)
+    bmachine/        <- aplikasi BMachine (utuh: sln, src, Scripts)
+    pixacompact/     <- aplikasi PixaCompact (utuh: csproj, Views, Services)
   shared/            <- kode bersama (BMachine.Shared.BugReporter: client laporan bug)
+  BMachine/          <- hasil publish BMachine (BMachine.App.exe, di root agar cepat diakses)
+  PixaCompact/       <- hasil publish PixaCompact (PixelcutCompact.exe, di root)
   WORKSPACES.md      <- file ini
   build.ps1          <- build salah satu / semua app
   publish.ps1        <- publish (single-file) salah satu / semua app
+  build.bat          <- pembungkus klik-jalan untuk build.ps1 (menu / argumen)
+  publish.bat        <- pembungkus klik-jalan untuk publish.ps1 (menu / argumen)
 ```
 
 Aturan baku:
@@ -24,6 +28,8 @@ Aturan baku:
 - Path di dalam csproj/build script semua relatif terhadap folder app-nya masing-masing,
   sehingga pindah folder tidak merusak build. Contoh: `apps\bmachine\src\BMachine.App`
   tetap merujuk `..\..\Scripts\` ke `apps\bmachine\Scripts\` (sama seperti dulu).
+- Output publish SELALU ke root monorepo (`mono\BMachine`, `mono\PixaCompact`), bukan
+  ke dalam `apps\<app>\publish`. Tujuannya: satu tempat, path pendek, mudah diakses.
 
 ---
 

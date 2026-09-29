@@ -242,8 +242,7 @@ BMachine.v2/
 │   ├── BMachine.Core/      # Core business logic
 │   └── BMachine.SDK/       # SDK & interfaces
 ├── Scripts/                # Action scripts (JSX, Python)
-├── publish/                # Build output
-└── build.ps1               # Build script
+└── build.ps1               # Publish script (output ke mono\BMachine di root monorepo)
 ```
 
 ---

@@ -10,9 +10,9 @@ $ErrorActionPreference = "Stop"
 #   powershell -File publish.ps1 -App pixacompact
 #   powershell -File publish.ps1                # semua app
 #
-# Output:
-#   apps\bmachine\publish\win-x64\BMachine     (~143 MB)
-#   apps\pixacompact\publish\win-x64\PixaCompact (~2.2 GB: Playwright + ONNX)
+# Output (langsung di root monorepo agar mudah diakses):
+#   BMachine\BMachine.App.exe          (~140 MB)
+#   PixaCompact\PixelcutCompact.exe    (~2.2 GB: Playwright + ONNX)
 #
 # CATATAN: publish PixaCompact lama (menyalin driver Playwright). Script ini
 # memanggil build.ps1 milik app tersebut yang sudah menangani hal itu.
