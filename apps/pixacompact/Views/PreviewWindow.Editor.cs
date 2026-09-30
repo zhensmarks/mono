@@ -449,6 +449,7 @@ public partial class PreviewWindow
 
          HighlightActiveTool(kind);
          UpdateOptionsBarVisibility(kind);
+         UpdateBrushModeButton();
          UpdateToolHint(kind);
          UpdateCursorForTool(kind);
 
@@ -524,7 +525,7 @@ public partial class PreviewWindow
             EditToolKind.MagicWand => "Klik area mirip warna → jadi selection. Shift=Tambah, Alt=Kurangi, Ctrl+Shift=Irisan.",
             EditToolKind.Pen => "Klik = titik sudut, drag = kurva Bézier. Enter/klik titik awal = tutup.",
             EditToolKind.Brush => "Pulihkan mask dengan brush. [ ] atur ukuran; tombol Pulihkan/Hapus atau X mengganti mode.",
-            EditToolKind.Eraser => "Hapus mask dengan brush. [ ] atur ukuran; tombol Pulihkan/Hapus atau X mengganti mode.",
+            EditToolKind.Eraser => "Penghapus selalu menghapus mask. [ ] atur ukuran.",
             EditToolKind.Move => "Drag untuk menggeser selection. Shift+drag = geser isi mask juga.",
             EditToolKind.RefineEdge => "Sapukan pada tepi untuk merapikan (expand+feather lokal, non-AI).",
             EditToolKind.RectMarquee => "Drag untuk seleksi persegi. Shift=bujur sangkar, Alt=dari tengah.",
@@ -685,6 +686,7 @@ public partial class PreviewWindow
     {
         if (this.FindControl<Button>("BtnBrushRestore") is { } tb)
         {
+            tb.IsVisible = _activeTool != EditToolKind.Eraser;
             tb.Content = _settings.EditorBrushRestore ? "Pulihkan" : "Hapus";
             tb.Background = _settings.EditorBrushRestore
                 ? new SolidColorBrush(Color.Parse("#3348D17A"))
@@ -704,6 +706,7 @@ public partial class PreviewWindow
 
     private void OnBrushModeClick(object? sender, RoutedEventArgs e)
     {
+        if (_activeTool == EditToolKind.Eraser) return;
         if (!_settings.EditorBrushRestore && _session?.HasRestoreSource != true)
         {
             Toast("Piksel gambar asli belum siap; mode Pulihkan belum tersedia.");
@@ -1318,6 +1321,48 @@ public partial class PreviewWindow
         // Klik kanan tidak boleh mengubah mask/selection. Pan tetap ditangani viewer.
         if (!left) return false;
 
+        if (SelectionInteractionPolicy.HandlesPointerPress(_activeTool))
+        {
+            if (_activeSelectionTool == null) return false;
+            bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+
+            _pendingSelMode = EffectiveMode(e.KeyModifiers);
+            if (_activeSelectionTool is PenTool penTool)
+            {
+                long now = Environment.TickCount64;
+                bool dbl = (now - _lastPenClickMs) < 350;
+                if (dbl && penTool.CurrentPath.Count >= 3)
+                {
+                    penTool.ClosePath();
+                    if (penTool.CanCommit) CommitSelectionToState(penTool, e.KeyModifiers);
+                    else RenderOverlay();
+                    return true;
+                }
+                if (ctrl && !alt)
+                {
+                    int hit = penTool.HitTestAnchor(imagePos, 10);
+                    if (hit >= 0) { _penDragIndex = hit; e.Pointer.Capture(img); return true; }
+                }
+                e.Pointer.Capture(img);
+                penTool.PointerDown(imagePos, alt);
+                _lastPenClickMs = now;
+            }
+            else
+            {
+                e.Pointer.Capture(img);
+                _activeSelectionTool.PointerDown(imagePos);
+                if (_activeTool == EditToolKind.PolyLasso &&
+                    !_activeSelectionTool.IsActive && _activeSelectionTool.CanCommit)
+                {
+                    CommitSelectionToState(_activeSelectionTool, e.KeyModifiers);
+                    return true;
+                }
+            }
+            RenderOverlay();
+            return true;
+        }
+
         switch (_activeTool)
         {
             case EditToolKind.Brush:
@@ -1339,47 +1384,6 @@ public partial class PreviewWindow
                 ApplyWand(centered, e.KeyModifiers);
                 return true;
 
-             case EditToolKind.Lasso:
-             case EditToolKind.PolyLasso:
-             case EditToolKind.Pen:
-                if (_activeSelectionTool == null) return false;
-                bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-                bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
-
-                _pendingSelMode = EffectiveMode(e.KeyModifiers);
-                if (_activeSelectionTool is PenTool penTool)
-                {
-                    long now = Environment.TickCount64;
-                    bool dbl = (now - _lastPenClickMs) < 350;
-                    if (dbl && penTool.CurrentPath.Count >= 3)
-                    {
-                        penTool.ClosePath();
-                        if (penTool.CanCommit) CommitSelectionToState(penTool, e.KeyModifiers);
-                        else RenderOverlay();
-                        return true;
-                    }
-                    if (ctrl && !alt)
-                    {
-                        int hit = penTool.HitTestAnchor(imagePos, 10);
-                        if (hit >= 0) { _penDragIndex = hit; e.Pointer.Capture(img); return true; }
-                    }
-                    e.Pointer.Capture(img);
-                    penTool.PointerDown(imagePos, alt);
-                    _lastPenClickMs = now;
-                }
-                else
-                {
-                    e.Pointer.Capture(img);
-                    _activeSelectionTool.PointerDown(imagePos);
-                    if (_activeTool == EditToolKind.PolyLasso &&
-                        !_activeSelectionTool.IsActive && _activeSelectionTool.CanCommit)
-                    {
-                        CommitSelectionToState(_activeSelectionTool, e.KeyModifiers);
-                        return true;
-                    }
-                }
-                RenderOverlay();
-                return true;
         }
 
         return false;
@@ -1495,7 +1499,7 @@ public partial class PreviewWindow
             t.PointerUp(imagePos);
 
             // Pen tidak auto-commit saat mouse dilepas, sesuai perilaku Photoshop.
-            if (_activeTool == EditToolKind.Pen)
+            if (!SelectionInteractionPolicy.CommitsOnPointerRelease(_activeTool))
             {
                 e.Pointer.Capture(null);
                 RenderOverlay();
@@ -1519,7 +1523,8 @@ public partial class PreviewWindow
     private void BeginStroke(Vec2 img, PointerPressedEventArgs e)
     {
         if (_session == null) return;
-        if (!_quickMask && _settings.EditorBrushRestore && !_session.HasRestoreSource)
+        bool restore = BrushTool.ShouldRestore(_activeTool, _settings.EditorBrushRestore);
+        if (!_quickMask && restore && !_session.HasRestoreSource)
         {
             Toast("Piksel gambar asli belum siap; tunggu sebentar sebelum memakai Pulihkan.");
             e.Handled = true;
@@ -1536,7 +1541,7 @@ public partial class PreviewWindow
         // Quick Mask menulis ke lapisan seleksi (bukan mask), jadi tidak masuk
         // riwayat mask; sebaliknya brush normal di-snapshot sebagai satu undo.
         if (!_strokeToSelection)
-            _session.BeginEdit(_settings.EditorBrushRestore ? "Brush Restore" : "Brush Erase");
+            _session.BeginEdit(_activeTool == EditToolKind.Eraser ? "Eraser" : restore ? "Brush Restore" : "Brush Erase");
 
         var stamp = MakeStamp(img);
         _lastStamp = stamp;
@@ -1602,7 +1607,9 @@ public partial class PreviewWindow
         }
         else
         {
-            AfterMaskChanged(_settings.EditorBrushRestore ? "Pulihkan Brush" : "Hapus Brush", fullRefresh: false);
+            string label = _activeTool == EditToolKind.Eraser ? "Eraser"
+                : BrushTool.ShouldRestore(_activeTool, _settings.EditorBrushRestore) ? "Pulihkan Brush" : "Hapus Brush";
+            AfterMaskChanged(label, fullRefresh: false);
         }
         _strokeToSelection = false;
     }
@@ -1615,7 +1622,7 @@ public partial class PreviewWindow
         Hardness = _settings.EditorBrushHardness,
         Opacity = _settings.EditorBrushOpacity,
         Flow = _settings.EditorBrushFlow,
-        Restore = _settings.EditorBrushRestore
+        Restore = BrushTool.ShouldRestore(_activeTool, _settings.EditorBrushRestore)
     };
 
     private void DrawBrushCursor(Vec2 img)
@@ -1771,6 +1778,10 @@ public partial class PreviewWindow
             RenderOverlay();
             return;
         }
+
+        // PointerToImage and the editable path overlay use an image-centered origin;
+        // MaskRasterizer indexes from the image's top-left. Convert only at commit.
+        region.Translate(_session.Width / 2.0, _session.Height / 2.0);
 
         int feather = (int)Math.Round(_settings.EditorSelectionFeather);
         var mode = _pendingSelMode ?? EffectiveMode(mods);
@@ -2239,6 +2250,8 @@ public partial class PreviewWindow
         var label = _session.UndoAction();
         if (label != null)
         {
+            // History can change pixels outside the most recent stroke's dirty bounds.
+            MarkResultDirty(PixelBounds.Full(_session.Width, _session.Height));
             RefreshResultBitmap();
             RenderQuickMask();
             RenderOverlay();
@@ -2253,6 +2266,8 @@ public partial class PreviewWindow
         var label = _session.RedoAction();
         if (label != null)
         {
+            // Recompose the full mask so no cached pixels from a later edit survive.
+            MarkResultDirty(PixelBounds.Full(_session.Width, _session.Height));
             RefreshResultBitmap();
             RenderQuickMask();
             RenderOverlay();
@@ -2274,7 +2289,7 @@ public partial class PreviewWindow
         {
             // Masuk Quick Mask: ingat tool lama, pakai Brush agar bisa melukis seleksi.
             _toolBeforeQuickMask = _activeTool;
-            if (_activeTool != EditToolKind.Brush && _activeTool != EditToolKind.Eraser)
+            if (_activeTool != EditToolKind.Brush)
                 SetActiveTool(EditToolKind.Brush);
             Toast("Quick Mask: lukis hitam=kurangi, putih=tambah seleksi (Q keluar)");
         }
@@ -2502,6 +2517,12 @@ public partial class PreviewWindow
             SetVisible("PanelRefineBusy", true);
             SetText("TxtRefineBusy", "Memeriksa model…");
 
+            if (!OnnxModelManager.HasVerifiedSha256(spec))
+            {
+                Toast($"Refine Hair belum tersedia: checksum SHA-256 untuk {spec.DisplayName} belum diverifikasi; tidak ada model yang diunduh atau dijalankan.", warning: true);
+                return;
+            }
+
             if (!OnnxModelManager.IsInstalled(spec))
             {
                 var confirm = await ConfirmDownload(spec);
@@ -2589,7 +2610,7 @@ public partial class PreviewWindow
             {
                 new TextBlock { Text = $"Model \"{spec.DisplayName}\" belum terpasang.", FontSize = 14, FontWeight = FontWeight.SemiBold, Foreground = Brushes.White },
                 new TextBlock { Text = $"Ukuran unduhan ≈ {spec.SizeBytes / 1_048_576.0:0.#} MB · Lisensi {spec.License}", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#99FFFFFF")) },
-                new TextBlock { Text = "Unduh sekarang? Model disimpan lokal di Resources\\AiModels.", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#99FFFFFF")), TextWrapping = TextWrapping.Wrap },
+                new TextBlock { Text = $"Unduh sekarang? Model disimpan di cache pengguna: {OnnxModelManager.ModelsDirectory}", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#99FFFFFF")), TextWrapping = TextWrapping.Wrap },
                 new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { no, yes } }
             }
         };
@@ -2650,10 +2671,18 @@ public partial class PreviewWindow
             : new SolidColorBrush(Color.Parse("#15FFFFFF"));
     }
 
-    private void Toast(string message)
+    private void Toast(string message, bool warning = false)
     {
         var toast = this.FindControl<Border>("ToastNotification");
         if (toast == null) return;
+
+        toast.Background = new SolidColorBrush(Color.Parse(warning ? "#B45309" : "#18A05A"));
+        toast.BorderBrush = new SolidColorBrush(Color.Parse(warning ? "#FDBA74" : "#40FFFFFF"));
+        var icon = this.FindControl<PathIcon>("ToastIcon");
+        if (icon != null)
+            icon.Data = Avalonia.Media.Geometry.Parse(warning
+                ? "M10,2H14L13,15H11L10,2M11,18H13V22H11Z"
+                : "M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.58L21,7Z");
 
         if (toast.Child is StackPanel sp)
         {
@@ -2696,6 +2725,12 @@ public partial class PreviewWindow
         if (ctrl && (e.Key == Key.Y || (e.Key == Key.Z && shift))) { OnRedoClick(this, new RoutedEventArgs()); return true; }
         if (ctrl && e.Key == Key.S) { SaveInPlace(); return true; }
 
+        if (!ctrl && !shift && !alt && e.Key == Key.L)
+        {
+            SetActiveTool(EditToolKind.Lasso);
+            return true;
+        }
+
         // Seleksi (persisten) — Ctrl+Shift+I, Ctrl+J / Ctrl+Shift+J, Ctrl+Alt+S/O.
         if (ctrl && shift && e.Key == Key.I) { InvertSelection(); return true; }
         if (ctrl && !shift && !alt && e.Key == Key.J) { GrowSelection(); return true; }
@@ -2718,6 +2753,12 @@ public partial class PreviewWindow
                 CommitSelectionToState(pt, e.KeyModifiers);
                 return true;
             }
+            if (_activeSelectionTool is PolygonalLassoSelectionTool polygon && polygon.CanCommit)
+            {
+                polygon.ClosePath();
+                CommitSelectionToState(polygon, e.KeyModifiers);
+                return true;
+            }
             return false;
         }
         if (e.Key == Key.Back || e.Key == Key.Delete)
@@ -2734,8 +2775,12 @@ public partial class PreviewWindow
         // Ganti mode brush.
         if (e.Key == Key.X)
         {
-            _settings.EditorBrushRestore = !_settings.EditorBrushRestore;
-            UpdateOptionLabels();
+            if (_activeTool != EditToolKind.Eraser)
+            {
+                _settings.EditorBrushRestore = !_settings.EditorBrushRestore;
+                _settings.Save();
+                UpdateOptionLabels();
+            }
             return true;
         }
 

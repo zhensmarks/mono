@@ -21,40 +21,47 @@ public static class MaskRasterizer
     {
         if (region == null || region.IsEmpty || mask == null) return;
         if (width <= 0 || height <= 0) return;
-        if (mask.Length < width * height) return;
-
-        // Coverage 0..1 per piksel (float) — dihitung dari supersampling sample hits.
-        int ss = antiAlias ? DefaultSupersample : 1;
-        var coverage = new float[width * height];
+        long totalPixels = (long)width * height;
+        if (mask.LongLength < totalPixels) return;
 
         region.GetBounds(out double minX, out double minY, out double maxX, out double maxY);
-        if (minX > maxX || minY > maxY) return;
+        if (!double.IsFinite(minX) || !double.IsFinite(minY) ||
+            !double.IsFinite(maxX) || !double.IsFinite(maxY) ||
+            minX > maxX || minY > maxY) return;
 
-        // Clamp ke area gambar (dengan margin karena AA)
-        int x0 = (int)Math.Floor(minX) - 1;
-        int y0 = (int)Math.Floor(minY) - 1;
-        int x1 = (int)Math.Ceiling(maxX) + 1;
-        int y1 = (int)Math.Ceiling(maxY) + 1;
-        if (x0 < 0) x0 = 0;
-        if (y0 < 0) y0 = 0;
-        if (x1 >= width) x1 = width - 1;
-        if (y1 >= height) y1 = height - 1;
+        // Allocate coverage only for the padded selection bounds, not the full frame.
+        double featherRadius = double.IsFinite(feather)
+            ? Math.Clamp(feather, 0, Math.Max(width, height))
+            : 0;
+        int pad = Math.Max(1, (int)Math.Ceiling(featherRadius));
+        int x0 = (int)Math.Clamp(Math.Floor(minX) - pad, 0, width - 1);
+        int y0 = (int)Math.Clamp(Math.Floor(minY) - pad, 0, height - 1);
+        int x1 = (int)Math.Clamp(Math.Ceiling(maxX) + pad, 0, width - 1);
+        int y1 = (int)Math.Clamp(Math.Ceiling(maxY) + pad, 0, height - 1);
         if (x1 < x0 || y1 < y0) return;
+
+        int localWidth = x1 - x0 + 1;
+        int localHeight = y1 - y0 + 1;
+        long coverageLength = (long)localWidth * localHeight;
+        if (coverageLength > int.MaxValue) return;
+        int ss = antiAlias ? DefaultSupersample : 1;
+        if (localHeight > int.MaxValue / ss) return;
+        var coverage = new float[(int)coverageLength];
 
         var subpaths = region.GetSubpaths();
         int n = 0;
         foreach (var s in subpaths) if (s.Count >= 3) n += s.Count;
         if (n < 3) return;
         double sampleOffsetScale = 1.0 / ss;
+        var crossings = new List<(double x, int dir)>(16);
         // Scanline: untuk tiap baris (sub-scanline), cari perpotongan.
-        int rows = (y1 - y0 + 1) * ss;
+        int rows = localHeight * ss;
         for (int sy = 0; sy < rows; sy++)
         {
             double y = y0 + (sy + 0.5) * sampleOffsetScale;
 
-            // Kumpulkan crossing (x, arah) untuk sub-scanline y.
-            // Kumpulkan crossing (x, arah) untuk sub-scanline y, dari semua subpath.
-            var crossings = new List<(double x, int dir)>(16);
+            // Kumpulkan crossing (x, arah) dari semua subpath tanpa alokasi per baris.
+            crossings.Clear();
             foreach (var sub in subpaths)
             {
                 int m = sub.Count;
@@ -80,7 +87,7 @@ public static class MaskRasterizer
             if (crossings.Count < 2) continue;
             crossings.Sort((p, q) => p.x.CompareTo(q.x));
 
-            int rowIndex = y0 + sy / ss;
+            int rowIndex = sy / ss;
             double weight = sampleOffsetScale; // kontribusi satu sub-scanline per piksel
 
             int winding = 0;
@@ -99,31 +106,35 @@ public static class MaskRasterizer
                 int pxEnd = (int)Math.Ceiling(xb) - 1;
                 if (pxStart < x0) pxStart = x0;
                 if (pxEnd > x1) pxEnd = x1;
-                int rowOff = rowIndex * width;
+                int rowOff = rowIndex * localWidth;
                 for (int px = pxStart; px <= pxEnd; px++)
                 {
                     double cellL = px;
                     double cellR = px + 1;
                     double overlap = Math.Min(xb, cellR) - Math.Max(xa, cellL);
                     if (overlap <= 0) continue;
-                    coverage[rowOff + px] += (float)(overlap * weight);
+                    coverage[rowOff + px - x0] += (float)(overlap * weight);
                 }
             }
             _ = y;
         }
 
         // Feather (blur) pada coverage bila diminta.
-        if (feather > 0.5)
-            BlurCoverage(coverage, width, height, feather);
+        if (featherRadius > 0.5)
+            BlurCoverage(coverage, localWidth, localHeight, featherRadius);
 
         // Terapkan coverage ke mask sesuai op.
-        int total = width * height;
-        for (int i = 0; i < total; i++)
+        for (int localY = 0; localY < localHeight; localY++)
         {
-            float c = coverage[i];
-            if (c <= 0f) continue;
-            if (c > 1f) c = 1f;
-            ApplyCoverage(mask, i, c, value, op);
+            int maskRow = (y0 + localY) * width + x0;
+            int coverageRow = localY * localWidth;
+            for (int localX = 0; localX < localWidth; localX++)
+            {
+                float c = coverage[coverageRow + localX];
+                if (c <= 0f) continue;
+                if (c > 1f) c = 1f;
+                ApplyCoverage(mask, maskRow + localX, c, value, op);
+            }
         }
     }
 

@@ -114,4 +114,20 @@ public sealed class MaskRegion
             }
         }
     }
+
+    /// <summary>Translate all closed subpaths in place, preserving holes and winding.</summary>
+    public void Translate(double dx, double dy)
+    {
+        if (!double.IsFinite(dx) || !double.IsFinite(dy)) return;
+        foreach (var subpath in GetSubpaths())
+        {
+            for (int i = 0; i < subpath.Count; i++)
+            {
+                var point = subpath[i];
+                point.X += dx;
+                point.Y += dy;
+                subpath[i] = point;
+            }
+        }
+    }
 }

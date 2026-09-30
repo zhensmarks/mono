@@ -23,6 +23,10 @@ public struct BrushStamp
 /// </summary>
 public static class BrushTool
 {
+    /// <summary>Restore mode belongs to Brush; Eraser always targets zero coverage.</summary>
+    public static bool ShouldRestore(EditToolKind activeTool, bool restoreRequested)
+        => activeTool == EditToolKind.Brush && restoreRequested;
+
     /// <summary>Terapkan satu cap ke mask.</summary>
     public static void Stamp(byte[] mask, int width, int height, BrushStamp stamp)
     {
