@@ -44,7 +44,7 @@ public partial class PreviewWindow
     private SelectionTool? _activeSelectionTool;
     private bool _strokeActive;
     private Vec2 _lastStrokeImage;
-    private byte[]? _strokeAccum;   // akumulasi goresan (Flow) per-piksel 0..255
+    private BrushStrokeAccumulator? _strokeAccum;
     private bool _strokeToSelection; // true = goresan ditulis ke Selection.Coverage (Quick Mask)
     private BrushStamp _lastStamp;
     private int _penDragIndex = -1;
@@ -56,13 +56,15 @@ public partial class PreviewWindow
     private long _lastRenderMs;
 
     // ---- Cache buffer pratinjau (hindari alokasi + encode PNG tiap frame) ----
-    private WriteableBitmap? _resultWbA;
-    private WriteableBitmap? _resultWbB;
-    private bool _resultPing;
+    private WriteableBitmap? _resultWb;
     private PixelBuffer? _resultBuf;
     private WriteableBitmap? _qmWb;
     private PixelBuffer? _qmBuf;
     private int _previewW = -1, _previewH = -1;
+    private PixelBounds? _resultDirtyBounds;
+    private PixelBounds? _quickMaskDirtyBounds;
+    private bool _pendingResultRefresh;
+    private bool _pendingQuickMaskRefresh;
     private List<List<Vec2>>? _antsLoops;
     private int _antsVersion = -1;
     private Ellipse? _cursorOuter;
@@ -152,9 +154,12 @@ public partial class PreviewWindow
                 {
                     // Original dipakai hanya untuk Restore/Refine; jangan mengganti session
                     // bila user sudah pindah gambar atau session sudah disposed.
-                    if (t.Status == TaskStatus.RanToCompletion && t.Result != null && ReferenceEquals(_session?.Result, result))
+                    if (t.Status == TaskStatus.RanToCompletion && t.Result != null &&
+                        ReferenceEquals(_session?.Result, result) && _session?.SetOriginalIfMissing(t.Result) == true)
                     {
-                        _session?.SetOriginalIfMissing(t.Result);
+                        UpdateRestoreAvailability();
+                        MarkResultDirty(PixelBounds.Full(_session.Width, _session.Height));
+                        ScheduleComposite(true);
                     }
                 }, TaskScheduler.FromCurrentSynchronizationContext());
             }
@@ -163,6 +168,7 @@ public partial class PreviewWindow
 
             _session = new MaskEditSession(result, original,
                 _settings.EditorUndoSteps, _settings.EditorUndoMemoryMb);
+            UpdateRestoreAvailability();
 
             SetVisible("BtnEnterEdit", true);
             SetVisible("BtnEnterEditHeader", true);
@@ -517,8 +523,8 @@ public partial class PreviewWindow
             EditToolKind.PolyLasso => "Klik titik-titik; klik titik awal (atau Enter) untuk menutup. Shift=Tambah, Alt=Kurangi.",
             EditToolKind.MagicWand => "Klik area mirip warna → jadi selection. Shift=Tambah, Alt=Kurangi, Ctrl+Shift=Irisan.",
             EditToolKind.Pen => "Klik = titik sudut, drag = kurva Bézier. Enter/klik titik awal = tutup.",
-            EditToolKind.Brush => "Brush restore: cat untuk memulihkan area yang terhapus. [ ] atur ukuran, X ganti mode.",
-            EditToolKind.Eraser => "Brush erase: cat untuk menghapus (alpha → 0). [ ] atur ukuran.",
+            EditToolKind.Brush => "Pulihkan mask dengan brush. [ ] atur ukuran; tombol Pulihkan/Hapus atau X mengganti mode.",
+            EditToolKind.Eraser => "Hapus mask dengan brush. [ ] atur ukuran; tombol Pulihkan/Hapus atau X mengganti mode.",
             EditToolKind.Move => "Drag untuk menggeser selection. Shift+drag = geser isi mask juga.",
             EditToolKind.RefineEdge => "Sapukan pada tepi untuk merapikan (expand+feather lokal, non-AI).",
             EditToolKind.RectMarquee => "Drag untuk seleksi persegi. Shift=bujur sangkar, Alt=dari tengah.",
@@ -599,6 +605,8 @@ public partial class PreviewWindow
 
             Bind("BtnUndo", OnUndoClick);
             Bind("BtnRedo", OnRedoClick);
+            Bind("BtnBrushAdvanced", (_, _) => SetVisible("OptBrushAdvancedGroup",
+                !(this.FindControl<Control>("OptBrushAdvancedGroup")?.IsVisible ?? false)));
             Bind("BtnQuickMask", OnQuickMaskClick);
             Bind("BtnRefineHair", OnRefineHairClick);
             Bind("BtnRefineCancel", OnRefineCancelClick);
@@ -660,6 +668,9 @@ public partial class PreviewWindow
         // Sinkronkan slider baru (top bar + panel) dari settings tanpa memicu
         // event berantai; ini menjaga slider grow/refine edge konsisten.
         _suppressOptionEvents = true;
+        SetSlider("SldBrushSize", _settings.EditorBrushSize);
+        SetSlider("SldBrushHardness", (1.0 - _settings.EditorBrushHardness) * 100.0);
+        SetSlider("SldBrushOpacity", _settings.EditorBrushOpacity * 100.0);
         SetSlider("SldBrushFlow", _settings.EditorBrushFlow * 100);
         SetSlider("SldRefineEdgeSize", _settings.EditorRefineEdgeSize);
         SetSlider("SldRefineEdgeFeather", _settings.EditorRefineEdgeFeather);
@@ -674,15 +685,30 @@ public partial class PreviewWindow
     {
         if (this.FindControl<Button>("BtnBrushRestore") is { } tb)
         {
-            tb.Content = _settings.EditorBrushRestore ? "Restore" : "Erase";
+            tb.Content = _settings.EditorBrushRestore ? "Pulihkan" : "Hapus";
             tb.Background = _settings.EditorBrushRestore
                 ? new SolidColorBrush(Color.Parse("#3348D17A"))
                 : new SolidColorBrush(Color.Parse("#15FFFFFF"));
         }
     }
 
+    private void UpdateRestoreAvailability()
+    {
+        bool available = _session?.HasRestoreSource == true;
+        foreach (var name in new[] { "BtnApplyRestore", "BtnApplyRestorePanel", "BtnApplyFill", "BtnApplyFillPanel" })
+        {
+            if (this.FindControl<Button>(name) is { } button)
+                button.IsEnabled = available;
+        }
+    }
+
     private void OnBrushModeClick(object? sender, RoutedEventArgs e)
     {
+        if (!_settings.EditorBrushRestore && _session?.HasRestoreSource != true)
+        {
+            Toast("Piksel gambar asli belum siap; mode Pulihkan belum tersedia.");
+            return;
+        }
         _settings.EditorBrushRestore = !_settings.EditorBrushRestore;
         _settings.Save();
         UpdateBrushModeButton();
@@ -742,7 +768,7 @@ public partial class PreviewWindow
     private void ReadOptionsFromUi()
     {
         if (this.FindControl<Slider>("SldBrushSize") is { } s1) _settings.EditorBrushSize = (int)Math.Round(s1.Value);
-        if (this.FindControl<Slider>("SldBrushHardness") is { } s2) _settings.EditorBrushHardness = s2.Value / 100.0;
+        if (this.FindControl<Slider>("SldBrushHardness") is { } s2) _settings.EditorBrushHardness = 1.0 - s2.Value / 100.0;
         if (this.FindControl<Slider>("SldBrushOpacity") is { } s3) _settings.EditorBrushOpacity = s3.Value / 100.0;
         if (this.FindControl<Slider>("SldBrushFlow") is { } s3f) _settings.EditorBrushFlow = s3f.Value / 100.0;
         if (this.FindControl<Slider>("SldWandTolerance") is { } s4) _settings.EditorWandTolerance = (int)Math.Round(s4.Value);
@@ -762,7 +788,7 @@ public partial class PreviewWindow
     private void UpdateOptionLabels()
     {
         SetText("TxtBrushSize", $"{_settings.EditorBrushSize} px");
-        SetText("TxtBrushHardness", $"{(int)Math.Round(_settings.EditorBrushHardness * 100)}%");
+        SetText("TxtBrushHardness", $"{(int)Math.Round((1.0 - _settings.EditorBrushHardness) * 100)}%");
         SetText("TxtBrushOpacity", $"{(int)Math.Round(_settings.EditorBrushOpacity * 100)}%");
         SetText("TxtBrushFlow", $"{(int)Math.Round(_settings.EditorBrushFlow * 100)}%");
         SetText("TxtWandTolerance", _settings.EditorWandTolerance.ToString());
@@ -793,9 +819,7 @@ public partial class PreviewWindow
     // ========================
 
 
-    /// <summary>Perbarui bitmap hasil dari session (dipakai setelah setiap perubahan mask).
-    /// Memakai WriteableBitmap persisten (ping-pong) supaya tidak ada alokasi
-    /// atau encode/decode PNG tiap frame.</summary>
+    /// <summary>Perbarui hanya area mask yang berubah pada bitmap persisten.</summary>
     private void RefreshResultBitmap()
     {
         if (_session == null) return;
@@ -805,14 +829,16 @@ public partial class PreviewWindow
         try
         {
             EnsureResultBuffers();
-            if (_resultBuf == null) return;
+            if (_resultBuf == null || _resultWb == null) return;
 
-            var next = _resultPing ? _resultWbA! : _resultWbB!;
-            _resultPing = !_resultPing;
+            var bounds = (_resultDirtyBounds ?? PixelBounds.Full(_session.Width, _session.Height))
+                .ClampTo(_session.Width, _session.Height);
+            _resultDirtyBounds = null;
+            if (bounds.IsEmpty) return;
 
-            _session.CompositeInto(_resultBuf);
-            _resultBuf.WriteToUnpremul(next);
-            img.Source = next;
+            _session.CompositeInto(_resultBuf, bounds);
+            _resultBuf.WriteToUnpremul(_resultWb, bounds);
+            if (!ReferenceEquals(img.Source, _resultWb)) img.Source = _resultWb;
         }
         catch (Exception ex)
         {
@@ -831,25 +857,24 @@ public partial class PreviewWindow
         var pf = PixelFormat.Bgra8888;
         var sz = new Avalonia.PixelSize(w, h);
         var dpi = new Avalonia.Vector(96, 96);
-        _resultWbA?.Dispose();
-        _resultWbB?.Dispose();
-        _resultWbA = new WriteableBitmap(sz, dpi, pf, AlphaFormat.Unpremul);
-        _resultWbB = new WriteableBitmap(sz, dpi, pf, AlphaFormat.Unpremul);
-        _resultPing = false;
+        _resultWb?.Dispose();
+        _resultWb = new WriteableBitmap(sz, dpi, pf, AlphaFormat.Unpremul);
         _previewW = w; _previewH = h;
+        _resultDirtyBounds = PixelBounds.Full(w, h);
     }
 
     /// <summary>Coalesce refresh komposit (~30 FPS) saat stroke; force=true
     /// memaksa refresh final segera (dipakai saat stroke selesai).</summary>
-    private void ScheduleComposite(bool force)
+    private void ScheduleComposite(bool force, bool updateResult = true, bool updateQuickMask = false)
     {
+        _pendingResultRefresh |= updateResult;
+        _pendingQuickMaskRefresh |= updateQuickMask;
         long now = Environment.TickCount64;
         if (force || (now - _lastRenderMs >= 33 && !_renderPending))
         {
             _lastRenderMs = now;
             _renderPending = false;
-            RefreshResultBitmap();
-            RenderQuickMask();
+            FlushScheduledComposite();
             return;
         }
         if (_renderPending) return;
@@ -858,9 +883,38 @@ public partial class PreviewWindow
         {
             _renderPending = false;
             _lastRenderMs = Environment.TickCount64;
-            RefreshResultBitmap();
-            RenderQuickMask();
+            FlushScheduledComposite();
         }, TimeSpan.FromMilliseconds(34));
+    }
+
+    private void FlushScheduledComposite()
+    {
+        if (_pendingResultRefresh)
+        {
+            _pendingResultRefresh = false;
+            RefreshResultBitmap();
+        }
+        if (_pendingQuickMaskRefresh)
+        {
+            _pendingQuickMaskRefresh = false;
+            RenderQuickMask(_quickMaskDirtyBounds);
+        }
+    }
+
+    private void MarkResultDirty(PixelBounds bounds)
+    {
+        if (_session == null || bounds.IsEmpty) return;
+        _resultDirtyBounds = _resultDirtyBounds.HasValue
+            ? _resultDirtyBounds.Value.Union(bounds).ClampTo(_session.Width, _session.Height)
+            : bounds.ClampTo(_session.Width, _session.Height);
+    }
+
+    private void MarkQuickMaskDirty(PixelBounds bounds)
+    {
+        if (_session == null || bounds.IsEmpty) return;
+        _quickMaskDirtyBounds = _quickMaskDirtyBounds.HasValue
+            ? _quickMaskDirtyBounds.Value.Union(bounds).ClampTo(_session.Width, _session.Height)
+            : bounds.ClampTo(_session.Width, _session.Height);
     }
 
     /// <summary>
@@ -1465,14 +1519,19 @@ public partial class PreviewWindow
     private void BeginStroke(Vec2 img, PointerPressedEventArgs e)
     {
         if (_session == null) return;
+        if (!_quickMask && _settings.EditorBrushRestore && !_session.HasRestoreSource)
+        {
+            Toast("Piksel gambar asli belum siap; tunggu sebentar sebelum memakai Pulihkan.");
+            e.Handled = true;
+            return;
+        }
 
         _strokeActive = true;
         _lastStrokeImage = img;
         _strokeToSelection = _quickMask;
 
-        // Buffer akumulasi Flow per-piksel (0..255) untuk stroke ini.
-        int n = _session.Width * _session.Height;
-        _strokeAccum = new byte[n];
+        // Akumulasi Flow dibuat per-tile hanya saat brush menyentuhnya.
+        _strokeAccum = new BrushStrokeAccumulator(_session.Width, _session.Height);
 
         // Quick Mask menulis ke lapisan seleksi (bukan mask), jadi tidak masuk
         // riwayat mask; sebaliknya brush normal di-snapshot sebagai satu undo.
@@ -1485,9 +1544,12 @@ public partial class PreviewWindow
             BrushTool.StampFlow(_session.Selection.Coverage, _strokeAccum, _session.Width, _session.Height, stamp);
         else
             BrushTool.StampFlow(_session.Mask, _strokeAccum, _session.Width, _session.Height, stamp);
+        var dirty = BrushTool.GetStampBounds(stamp, _session.Width, _session.Height);
+        if (_strokeToSelection) MarkQuickMaskDirty(dirty);
+        else MarkResultDirty(dirty);
 
         e.Pointer.Capture(this.FindControl<Image>("ImgResult"));
-        ScheduleComposite(false);
+        ScheduleComposite(false, updateResult: !_strokeToSelection, updateQuickMask: _strokeToSelection);
         DrawBrushCursor(img);
         e.Handled = true;
     }
@@ -1503,7 +1565,7 @@ public partial class PreviewWindow
 
         if (dist < spacing) return;
 
-        int steps = (int)(dist / spacing);
+        int steps = (int)Math.Min(100_000, Math.Ceiling(dist / spacing));
         var prev = _lastStamp;
         var dest = _strokeToSelection ? _session.Selection.Coverage : _session.Mask;
         for (int i = 1; i <= steps; i++)
@@ -1512,13 +1574,16 @@ public partial class PreviewWindow
             var p = new Vec2(_lastStrokeImage.X + dx * t, _lastStrokeImage.Y + dy * t);
             var st = MakeStamp(p);
             BrushTool.StampFlow(dest, _strokeAccum, _session.Width, _session.Height, st);
+            var dirty = BrushTool.GetStampBounds(st, _session.Width, _session.Height);
+            if (_strokeToSelection) MarkQuickMaskDirty(dirty);
+            else MarkResultDirty(dirty);
             prev = st;
         }
 
         _lastStamp = prev;
         _lastStrokeImage = img;
 
-        ScheduleComposite(false);
+        ScheduleComposite(false, updateResult: !_strokeToSelection, updateQuickMask: _strokeToSelection);
         DrawBrushCursor(img);
     }
 
@@ -1532,12 +1597,12 @@ public partial class PreviewWindow
             // Quick Mask: goresan ditulis ke seleksi, bukan mask (tanpa undo mask).
             _session?.Selection.NotifyChanged();
             RenderAnts();
-            ScheduleComposite(true);
+            ScheduleComposite(true, updateResult: false, updateQuickMask: true);
             UpdateEditorStatus();
         }
         else
         {
-            AfterMaskChanged(_settings.EditorBrushRestore ? "Brush Restore" : "Brush Erase");
+            AfterMaskChanged(_settings.EditorBrushRestore ? "Pulihkan Brush" : "Hapus Brush", fullRefresh: false);
         }
         _strokeToSelection = false;
     }
@@ -1725,6 +1790,11 @@ public partial class PreviewWindow
     {
         if (_session == null) return;
         if (!_session.Selection.HasSelection) { Toast("Belum ada selection"); return; }
+        if (value > 0 && !_session.HasRestoreSource)
+        {
+            Toast("Piksel gambar asli belum siap; Pulihkan belum tersedia.");
+            return;
+        }
 
         _session.ApplySelectionToMask(value, label);
         AfterMaskChanged(label);
@@ -1735,6 +1805,11 @@ public partial class PreviewWindow
     {
         RenderAnts();
         RenderOverlay();
+        if (_quickMask && _session != null)
+        {
+            MarkQuickMaskDirty(PixelBounds.Full(_session.Width, _session.Height));
+            ScheduleComposite(false, updateResult: false, updateQuickMask: true);
+        }
         UpdateEditorStatus();
     }
 
@@ -2216,7 +2291,7 @@ public partial class PreviewWindow
         UpdateEditorStatus();
     }
 
-    private void RenderQuickMask()
+    private void RenderQuickMask(PixelBounds? requestedBounds = null)
     {
         var img = this.FindControl<Image>("ImgQuickMask");
         if (img == null) return;
@@ -2231,15 +2306,20 @@ public partial class PreviewWindow
         try
         {
             int w = _session.Width, h = _session.Height;
-            if (_qmBuf == null || _qmBuf.Width != w || _qmBuf.Height != h)
+            bool created = _qmBuf == null || _qmBuf.Width != w || _qmBuf.Height != h;
+            if (created)
             {
                 _qmBuf = new PixelBuffer(w, h);
                 _qmWb?.Dispose();
                 _qmWb = new WriteableBitmap(new Avalonia.PixelSize(w, h), new Avalonia.Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
             }
-            CompositeRenderer.RenderMaskOverlayInto(_qmBuf, _session.Selection.Coverage, w, h, Color.Parse("#FFFF0000"), maxAlpha: 128, invert: false);
-            _qmBuf.WriteToUnpremul(_qmWb!);
-            img.Source = _qmWb;
+            var bounds = (created ? PixelBounds.Full(w, h) :
+                requestedBounds ?? _quickMaskDirtyBounds ?? PixelBounds.Full(w, h)).ClampTo(w, h);
+            _quickMaskDirtyBounds = null;
+            CompositeRenderer.RenderMaskOverlayInto(_qmBuf!, _session.Selection.Coverage, w, h,
+                Color.Parse("#FFFF0000"), bounds, maxAlpha: 128, invert: false);
+            _qmBuf!.WriteToUnpremul(_qmWb!, bounds);
+            if (!ReferenceEquals(img.Source, _qmWb)) img.Source = _qmWb;
             img.IsVisible = true;
         }
         catch (Exception ex)
@@ -2255,9 +2335,14 @@ public partial class PreviewWindow
 
     private void OnSaveEditClick(object? sender, RoutedEventArgs e) => SaveInPlace();
 
-    private void SaveInPlace()
+    private bool SaveInPlace()
     {
-        if (_session == null) return;
+        if (_session == null) return false;
+        if (_session.HasPendingRestore && !_session.HasRestoreSource)
+        {
+            Toast("Piksel gambar asli masih dimuat; tunggu sebelum menyimpan hasil restore.");
+            return false;
+        }
 
         try
         {
@@ -2271,10 +2356,12 @@ public partial class PreviewWindow
             Toast("Perubahan berhasil disimpan");
             Saved?.Invoke(this, _resultPath);
             UpdateEditorStatus();
+            return true;
         }
         catch (Exception ex)
         {
             Toast($"Gagal menyimpan: {ex.Message}");
+            return false;
         }
     }
 
@@ -2334,7 +2421,7 @@ public partial class PreviewWindow
         await dialog.ShowDialog(this);
         var choice = await tcs.Task;
 
-        if (choice == 1) { SaveInPlace(); return true; }
+        if (choice == 1) return SaveInPlace();
         if (choice == 2) { await SaveAsCopyInteractively(); return false; }
         return false;
     }
@@ -2346,6 +2433,11 @@ public partial class PreviewWindow
     private async Task SaveAsCopyInteractively()
     {
         if (_session == null) return;
+        if (_session.HasPendingRestore && !_session.HasRestoreSource)
+        {
+            Toast("Piksel gambar asli masih dimuat; tunggu sebelum menyimpan hasil restore.");
+            return;
+        }
 
         try
         {
@@ -2510,9 +2602,11 @@ public partial class PreviewWindow
     // STATUS & TOAST
     // ========================
 
-    private void AfterMaskChanged(string label)
+    private void AfterMaskChanged(string label, bool fullRefresh = true)
     {
         // Render overlay/status segera; komposit bitmap di-coalesce maksimal sekitar 30 FPS.
+        if (fullRefresh && _session != null)
+            MarkResultDirty(PixelBounds.Full(_session.Width, _session.Height));
         RenderOverlay();
         UpdateEditorStatus();
         RefreshHistory();
@@ -2741,12 +2835,15 @@ public partial class PreviewWindow
     /// <summary>Lepas buffer bitmap pratinjau (dipanggil saat ganti gambar / dispose).</summary>
     private void DisposePreviewBuffers()
     {
-        _resultWbA?.Dispose(); _resultWbA = null;
-        _resultWbB?.Dispose(); _resultWbB = null;
+        _resultWb?.Dispose(); _resultWb = null;
         _resultBuf = null;
         _qmWb?.Dispose(); _qmWb = null;
         _qmBuf = null;
         _previewW = -1; _previewH = -1;
+        _resultDirtyBounds = null;
+        _quickMaskDirtyBounds = null;
+        _pendingResultRefresh = false;
+        _pendingQuickMaskRefresh = false;
         _antsLoops = null; _antsVersion = -1;
         _cursorOuter = null; _cursorInner = null;
     }

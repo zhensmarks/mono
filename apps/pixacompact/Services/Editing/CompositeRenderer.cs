@@ -108,22 +108,40 @@ public static class CompositeRenderer
     public static void RenderMaskOverlayInto(PixelBuffer buf, byte[] mask, int width, int height,
         Color color, byte maxAlpha = 128, bool invert = false)
     {
-        int total = width * height;
+        RenderMaskOverlayInto(buf, mask, width, height, color, PixelBounds.Full(width, height), maxAlpha, invert);
+    }
+
+    /// <summary>Update only a changed overlay rectangle; untouched pixels remain cached.</summary>
+    public static void RenderMaskOverlayInto(PixelBuffer buf, byte[] mask, int width, int height,
+        Color color, PixelBounds bounds, byte maxAlpha = 128, bool invert = false)
+    {
+        if (buf == null || mask == null || width <= 0 || height <= 0 || buf.Width != width || buf.Height != height)
+            return;
+        bounds = bounds.ClampTo(width, height);
+        if (bounds.IsEmpty) return;
+
         double cr = color.R, cg = color.G, cb = color.B;
         double ca = color.A / 255.0;
         var bgra = buf.Bgra;
-        Array.Clear(bgra, 0, bgra.Length);
-        for (int i = 0; i < total && i < mask.Length; i++)
+        for (int y = bounds.Y; y < bounds.Bottom; y++)
         {
-            int v = mask[i];
-            int coverage = invert ? 255 - v : v;
-            if (coverage <= 0) continue;
-            double t = (coverage / 255.0) * ca * (maxAlpha / 255.0);
-            int di = i * 4;
-            bgra[di + 0] = (byte)Math.Clamp((int)(cb + 0.5), 0, 255);
-            bgra[di + 1] = (byte)Math.Clamp((int)(cg + 0.5), 0, 255);
-            bgra[di + 2] = (byte)Math.Clamp((int)(cr + 0.5), 0, 255);
-            bgra[di + 3] = (byte)Math.Clamp((int)(t * 255 + 0.5), 0, 255);
+            int rowPixel = y * width;
+            int rowByte = rowPixel * 4;
+            Array.Clear(bgra, rowByte + bounds.X * 4, bounds.Width * 4);
+            for (int x = bounds.X; x < bounds.Right; x++)
+            {
+                int i = rowPixel + x;
+                if (i >= mask.Length) continue;
+                int v = mask[i];
+                int coverage = invert ? 255 - v : v;
+                if (coverage <= 0) continue;
+                double t = (coverage / 255.0) * ca * (maxAlpha / 255.0);
+                int di = rowByte + x * 4;
+                bgra[di + 0] = (byte)Math.Clamp((int)(cb + 0.5), 0, 255);
+                bgra[di + 1] = (byte)Math.Clamp((int)(cg + 0.5), 0, 255);
+                bgra[di + 2] = (byte)Math.Clamp((int)(cr + 0.5), 0, 255);
+                bgra[di + 3] = (byte)Math.Clamp((int)(t * 255 + 0.5), 0, 255);
+            }
         }
     }
 

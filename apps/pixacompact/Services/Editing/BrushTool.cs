@@ -19,117 +19,131 @@ public struct BrushStamp
 
 /// <summary>
 /// Brush mask: cap disk dengan falloff halus. Erase menurunkan alpha menuju 0,
-/// Restore menaikkan menuju 255. Akumulasi per-stroke dilakukan oleh caller
-/// (satu cap per posisi interpolasi), sehingga opacity tidak menumpuk gelap.
+/// Restore menaikkan menuju 255. Akumulasi Flow disimpan dalam tile sparse.
 /// </summary>
 public static class BrushTool
 {
-    /// <summary>
-    /// Terapkan satu cap ke mask.
-    /// </summary>
+    /// <summary>Terapkan satu cap ke mask.</summary>
     public static void Stamp(byte[] mask, int width, int height, BrushStamp stamp)
     {
-        if (mask == null) return;
+        if (!HasValidMask(mask, width, height)) return;
+        var bounds = GetStampBounds(stamp, width, height);
+        if (bounds.IsEmpty) return;
+
         double radius = stamp.Radius;
-        if (radius < 0.5) return;
-
-        int cx = (int)Math.Round(stamp.X);
-        int cy = (int)Math.Round(stamp.Y);
-        int r = (int)Math.Ceiling(radius);
-        int x0 = Math.Max(0, cx - r), x1 = Math.Min(width - 1, cx + r);
-        int y0 = Math.Max(0, cy - r), y1 = Math.Min(height - 1, cy + r);
-        if (x1 < x0 || y1 < y0) return;
-
-        // Hardness mengatur radius "inti" penuh. hardness=1 → inti hampir seluruh radius.
-        double hardness = Math.Clamp(stamp.Hardness, 0.0, 1.0);
+        double hardness = FiniteClamp(stamp.Hardness, 0.0, 1.0);
         double inner = radius * hardness;
         double falloff = Math.Max(0.5, radius - inner);
-
-        double opacity = Math.Clamp(stamp.Opacity, 0.0, 1.0);
+        double opacity = FiniteClamp(stamp.Opacity, 0.0, 1.0);
         double target = stamp.Restore ? 255.0 : 0.0;
 
-        for (int y = y0; y <= y1; y++)
+        for (int y = bounds.Y; y < bounds.Bottom; y++)
         {
             double dy = y - stamp.Y;
             int row = y * width;
-            for (int x = x0; x <= x1; x++)
+            for (int x = bounds.X; x < bounds.Right; x++)
             {
                 double dx = x - stamp.X;
                 double dist = Math.Sqrt(dx * dx + dy * dy);
                 if (dist > radius) continue;
 
-                double falloffT;
-                if (dist <= inner) falloffT = 1.0;
-                else falloffT = 1.0 - (dist - inner) / falloff;
+                double falloffT = dist <= inner ? 1.0 : 1.0 - (dist - inner) / falloff;
                 if (falloffT <= 0) continue;
-                // Kurva halus agar tepi brush tidak "banding".
                 falloffT = falloffT * falloffT * (3 - 2 * falloffT);
-
-                double a = falloffT * opacity;
-                if (a <= 0) continue;
+                double amount = falloffT * opacity;
+                if (amount <= 0) continue;
 
                 int idx = row + x;
-                double cur = mask[idx];
-                double v = cur + (target - cur) * a;
-                mask[idx] = (byte)Math.Clamp((int)(v + 0.5), 0, 255);
+                double value = mask[idx] + (target - mask[idx]) * amount;
+                mask[idx] = (byte)Math.Clamp((int)(value + 0.5), 0, 255);
             }
         }
     }
 
     /// <summary>
-    /// Terapkan satu cap dengan model Opacity cap + Flow buildup (Photoshop).
-    /// param accum menyimpan akumulasi goresan per-piksel (0..255) sejak 
-    /// awal stroke; dengan buffer ini Flow dapat menumpuk antar-cap, sedangkan 
-    /// Opacity membatasi hasil akhir stroke. Bila accum null, fallback ke Stamp.
+    /// Terapkan satu cap dengan model Opacity + Flow buildup. The accumulator
+    /// allocates only 128x128 tiles touched by this stroke.
     /// </summary>
-    public static void StampFlow(byte[] mask, byte[]? accum, int width, int height, BrushStamp stamp)
+    public static void StampFlow(byte[] mask, BrushStrokeAccumulator? accum, int width, int height, BrushStamp stamp)
     {
-        if (mask == null) return;
-        if (accum == null || accum.Length < mask.Length) { Stamp(mask, width, height, stamp); return; }
+        if (!HasValidMask(mask, width, height)) return;
+        if (accum == null) { Stamp(mask, width, height, stamp); return; }
+        if (accum.Width != width || accum.Height != height) return;
+        var bounds = GetStampBounds(stamp, width, height);
+        if (bounds.IsEmpty) return;
+
         double radius = stamp.Radius;
-        if (radius < 0.5) return;
-        int cx = (int)Math.Round(stamp.X);
-        int cy = (int)Math.Round(stamp.Y);
-        int r = (int)Math.Ceiling(radius);
-        int x0 = Math.Max(0, cx - r), x1 = Math.Min(width - 1, cx + r);
-        int y0 = Math.Max(0, cy - r), y1 = Math.Min(height - 1, cy + r);
-        if (x1 < x0 || y1 < y0) return;
-        double hardness = Math.Clamp(stamp.Hardness, 0.0, 1.0);
+        double hardness = FiniteClamp(stamp.Hardness, 0.0, 1.0);
         double inner = radius * hardness;
         double falloff = Math.Max(0.5, radius - inner);
-        double opacity = Math.Clamp(stamp.Opacity, 0.0, 1.0);
-        double flow = Math.Clamp(stamp.Flow, 0.0, 1.0);
+        double opacity = FiniteClamp(stamp.Opacity, 0.0, 1.0);
+        double flow = FiniteClamp(stamp.Flow, 0.0, 1.0);
         double target = stamp.Restore ? 255.0 : 0.0;
-        for (int y = y0; y <= y1; y++)
+
+        for (int y = bounds.Y; y < bounds.Bottom; y++)
         {
             double dy = y - stamp.Y;
             int row = y * width;
-            for (int x = x0; x <= x1; x++)
+            int x = bounds.X;
+            while (x < bounds.Right)
             {
-                double dx = x - stamp.X;
-                double dist = Math.Sqrt(dx * dx + dy * dy);
-                if (dist > radius) continue;
-                double falloffT;
-                if (dist <= inner) falloffT = 1.0;
-                else falloffT = 1.0 - (dist - inner) / falloff;
-                if (falloffT <= 0) continue;
-                falloffT = falloffT * falloffT * (3 - 2 * falloffT);
-                int idx = row + x;
-                double s = accum[idx] / 255.0;
-                double oldE = opacity * s;
-                double newS = s + falloffT * flow;
-                if (newS > 1.0) newS = 1.0;
-                double newE = opacity * newS;
-                accum[idx] = (byte)Math.Clamp((int)(newS * 255 + 0.5), 0, 255);
-                if (oldE >= 1.0) continue;
-                double a = (newE - oldE) / (1.0 - oldE);
-                if (a <= 0) continue;
-                double cur = mask[idx];
-                double v = cur + (target - cur) * a;
-                mask[idx] = (byte)Math.Clamp((int)(v + 0.5), 0, 255);
+                int tileX = x / BrushStrokeAccumulator.TileSize;
+                int tileEnd = Math.Min(bounds.Right, (tileX + 1) * BrushStrokeAccumulator.TileSize);
+                var tile = accum.GetOrCreateTile(tileX, y / BrushStrokeAccumulator.TileSize);
+                int tileRow = (y % BrushStrokeAccumulator.TileSize) * BrushStrokeAccumulator.TileSize;
+
+                for (; x < tileEnd; x++)
+                {
+                    double dx = x - stamp.X;
+                    double dist = Math.Sqrt(dx * dx + dy * dy);
+                    if (dist > radius) continue;
+                    double falloffT = dist <= inner ? 1.0 : 1.0 - (dist - inner) / falloff;
+                    if (falloffT <= 0) continue;
+                    falloffT = falloffT * falloffT * (3 - 2 * falloffT);
+
+                    int maskIndex = row + x;
+                    int accumIndex = tileRow + x % BrushStrokeAccumulator.TileSize;
+                    double priorFlow = tile[accumIndex] / 255.0;
+                    double oldEffect = opacity * priorFlow;
+                    double newFlow = Math.Min(1.0, priorFlow + falloffT * flow);
+                    double newEffect = opacity * newFlow;
+                    tile[accumIndex] = (byte)Math.Clamp((int)(newFlow * 255 + 0.5), 0, 255);
+                    if (oldEffect >= 1.0) continue;
+
+                    double amount = (newEffect - oldEffect) / (1.0 - oldEffect);
+                    if (amount <= 0) continue;
+                    double value = mask[maskIndex] + (target - mask[maskIndex]) * amount;
+                    mask[maskIndex] = (byte)Math.Clamp((int)(value + 0.5), 0, 255);
+                }
             }
         }
     }
+
+    /// <summary>Bounds of pixels the rasterizer may touch for a stamp.</summary>
+    public static PixelBounds GetStampBounds(BrushStamp stamp, int width, int height)
+    {
+        if (width <= 0 || height <= 0 || !double.IsFinite(stamp.X) || !double.IsFinite(stamp.Y))
+            return PixelBounds.Empty;
+        double radius = stamp.Radius;
+        if (!double.IsFinite(radius) || radius < 0.5) return PixelBounds.Empty;
+
+        double cx = Math.Round(stamp.X), cy = Math.Round(stamp.Y);
+        double extent = Math.Ceiling(radius);
+        double left = Math.Max(0, cx - extent), top = Math.Max(0, cy - extent);
+        double right = Math.Min(width - 1.0, cx + extent), bottom = Math.Min(height - 1.0, cy + extent);
+        if (right < left || bottom < top) return PixelBounds.Empty;
+
+        int x0 = (int)left, y0 = (int)top;
+        int x1 = (int)right, y1 = (int)bottom;
+        return new PixelBounds(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+    }
+
+    private static bool HasValidMask(byte[]? mask, int width, int height)
+        => mask != null && width > 0 && height > 0 && (long)width * height <= mask.Length;
+
+    private static double FiniteClamp(double value, double min, double max)
+        => double.IsFinite(value) ? Math.Clamp(value, min, max) : min;
+
     /// <summary>
     /// Bikin daftar cap di sepanjang segmen garis (untuk interpolasi gerakan
     /// pointer sehingga goresan mulus, bukan titik terpisah).
@@ -138,20 +152,20 @@ public static class BrushTool
         BrushStamp from, BrushStamp to, double spacingPx)
     {
         if (output == null) return;
-        double spacing = Math.Max(1.0, spacingPx);
+        double spacing = double.IsFinite(spacingPx) ? Math.Max(1.0, spacingPx) : 1.0;
         double dx = to.X - from.X, dy = to.Y - from.Y;
         double dist = Math.Sqrt(dx * dx + dy * dy);
+        if (!double.IsFinite(dist)) return;
         if (dist <= spacing)
         {
             // Segmen pendek tetap butuh satu cap; versi lama menjatuhkan cap ini.
             output.Add(to);
             return;
         }
-        int steps = (int)(dist / spacing);
+        int steps = (int)Math.Min(100_000, Math.Ceiling(dist / spacing));
         for (int i = 1; i <= steps; i++)
         {
-            double t = (double)i * spacing / dist;
-            if (t > 1) t = 1;
+            double t = (double)i / steps;
             var s = to;
             s.X = from.X + dx * t;
             s.Y = from.Y + dy * t;
