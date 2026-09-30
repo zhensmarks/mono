@@ -3,6 +3,19 @@ using System.Collections.Generic;
 
 namespace PixelcutCompact.Services.Editing;
 
+/// <summary>Pointer-release policy for multi-step selection tools.</summary>
+public static class SelectionInteractionPolicy
+{
+    /// <summary>Tools whose pointer press begins a geometric selection gesture.</summary>
+    public static bool HandlesPointerPress(EditToolKind tool)
+        => tool is EditToolKind.Lasso or EditToolKind.RectMarquee or EditToolKind.EllipseMarquee
+            or EditToolKind.PolyLasso or EditToolKind.Pen;
+
+    /// <summary>Freehand lasso and marquee shapes commit on release; paths require explicit close.</summary>
+    public static bool CommitsOnPointerRelease(EditToolKind tool)
+        => tool is EditToolKind.Lasso or EditToolKind.RectMarquee or EditToolKind.EllipseMarquee;
+}
+
 /// <summary>
 /// Base untuk tool seleksi geometris (Lasso / Polygonal Lasso / Pen).
 /// Semua koordinat di sini adalah <b>koordinat gambar</b> (piksel), bukan layar.

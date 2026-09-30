@@ -46,12 +46,15 @@ public sealed class MattingOnnxService : IDisposable
     {
         lock (_gate)
         {
-            if (_session != null && _loadedSpec?.Id == spec.Id) return;
+            if (_session != null && _loadedSpec?.Id == spec.Id && _loadedSpec?.Sha256 == spec.Sha256) return;
 
             DisposeSession();
+            if (!OnnxModelManager.HasVerifiedSha256(spec))
+                throw new InvalidOperationException("Model refused: no valid pinned SHA-256 checksum is available.");
+            if (!OnnxModelManager.IsInstalled(spec))
+                throw new InvalidOperationException("Model is missing or its SHA-256 checksum does not match the manifest.");
+
             var path = OnnxModelManager.PathFor(spec);
-            if (!File.Exists(path))
-                throw new FileNotFoundException("Model ONNX tidak ditemukan. Unduh dulu.", path);
 
             var options = new SessionOptions();
             options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
