@@ -50,4 +50,8 @@
     <ProjectReference Include="..\..\shared\BMachine.Shared.BugReporter\BMachine.Shared.BugReporter.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Tests/**/*.cs" />
+  </ItemGroup>
+
 </Project>

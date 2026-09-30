@@ -24,7 +24,7 @@ public sealed class PixelBuffer
         if (width <= 0 || height <= 0) throw new ArgumentOutOfRangeException(nameof(width));
         Width = width;
         Height = height;
-        Bgra = new byte[width * height * 4];
+        Bgra = new byte[checked(width * height * 4)];
     }
 
     /// <summary>Buat buffer RGBA kosong (transparan hitam) dengan ukuran tertentu.</summary>
@@ -235,7 +235,17 @@ public sealed class PixelBuffer
 
     /// <summary>Salin langsung isi buffer (non-premul) ke WriteableBitmap non-premul.</summary>
     public void WriteToUnpremul(WriteableBitmap wb)
+        => WriteToUnpremul(wb, PixelBounds.Full(Width, Height));
+
+    /// <summary>Salin hanya region yang berubah ke WriteableBitmap non-premul.</summary>
+    public void WriteToUnpremul(WriteableBitmap wb, PixelBounds bounds)
     {
+        if (wb == null) throw new ArgumentNullException(nameof(wb));
+        if (wb.PixelSize.Width != Width || wb.PixelSize.Height != Height)
+            throw new ArgumentException("Ukuran bitmap tujuan harus sama dengan buffer.", nameof(wb));
+        bounds = bounds.ClampTo(Width, Height);
+        if (bounds.IsEmpty) return;
+
         var locked = wb.Lock();
         try
         {
@@ -244,16 +254,12 @@ public sealed class PixelBuffer
                 byte* dst = (byte*)locked.Address;
                 int dstStride = locked.RowBytes;
                 int rowBytes = Width * 4;
-                if (dstStride == rowBytes)
+                int copyBytes = bounds.Width * 4;
+                int sourceX = bounds.X * 4;
+                for (int y = bounds.Y; y < bounds.Bottom; y++)
                 {
-                    System.Runtime.InteropServices.Marshal.Copy(Bgra, 0, (IntPtr)dst, Bgra.Length);
-                }
-                else
-                {
-                    for (int y = 0; y < Height; y++)
-                    {
-                        System.Runtime.InteropServices.Marshal.Copy(Bgra, y * rowBytes, (IntPtr)(dst + (long)y * dstStride), rowBytes);
-                    }
+                    System.Runtime.InteropServices.Marshal.Copy(Bgra, y * rowBytes + sourceX,
+                        (IntPtr)(dst + (long)y * dstStride + sourceX), copyBytes);
                 }
             }
         }

@@ -56,6 +56,21 @@ public sealed class MaskEditSession : IDisposable
     /// <summary>Sel benar bila ada perubahan yang belum disimpan ke disk.</summary>
     public bool IsDirty { get; private set; }
 
+    /// <summary>True bila gambar sumber yang sejajar tersedia untuk memulihkan RGB.</summary>
+    public bool HasRestoreSource => Original != null && Original.Width == Width && Original.Height == Height;
+
+    /// <summary>True bila mask meminta piksel di luar alpha asli hasil cutout.</summary>
+    public bool HasPendingRestore
+    {
+        get
+        {
+            var result = Result.Bgra;
+            for (int i = 0; i < Mask.Length; i++)
+                if (Mask[i] > result[i * 4 + 3]) return true;
+            return false;
+        }
+    }
+
     /// <summary>Jumlah operasi yang sudah dilakukan (untuk label undo).</summary>
     private string _lastLabel = "Edit";
 
@@ -69,10 +84,12 @@ public sealed class MaskEditSession : IDisposable
     }
 
     /// <summary>Pasang gambar asli secara lazy (untuk Refine Hair / restore).</summary>
-    public void SetOriginalIfMissing(PixelBuffer original)
+    public bool SetOriginalIfMissing(PixelBuffer original)
     {
-        if (Original == null && original != null && original.Width == Width && original.Height == Height)
-            Original = original;
+        if (Original != null || original == null || original.Width != Width || original.Height != Height)
+            return false;
+        Original = original;
+        return true;
     }
 
     public void SetOriginal(PixelBuffer? original) => Original = original;
@@ -309,14 +326,13 @@ public sealed class MaskEditSession : IDisposable
     // ========================
 
     /// <summary>
-    /// Bangun PixelBuffer komposit: RGB dari <see cref="Result"/> dengan alpha
-    /// dari mask. Warna RGB tidak diubah (kecuali Defringe/Restore sudah
-    /// mengubahnya langsung).
+    /// Bangun komposit. Piksel yang alpha-nya dipulihkan memakai RGB sumber asli,
+    /// sedangkan area cutout yang tidak dipulihkan mempertahankan RGB hasil matting.
     /// </summary>
     public PixelBuffer Composite(bool applyMask = true)
     {
-        var buf = Result.Clone();
-        if (applyMask) buf.ApplyAlphaMask(Mask);
+        var buf = new PixelBuffer(Width, Height);
+        CompositeInto(buf, PixelBounds.Full(Width, Height), applyMask);
         return buf;
     }
 
@@ -324,8 +340,55 @@ public sealed class MaskEditSession : IDisposable
     /// lalu unggah ke WriteableBitmap via WriteTo. Dipakai pratinjau cepat.</summary>
     public void CompositeInto(PixelBuffer dst, bool applyMask = true)
     {
-        Buffer.BlockCopy(Result.Bgra, 0, dst.Bgra, 0, Result.Bgra.Length);
-        if (applyMask) dst.ApplyAlphaMask(Mask);
+        CompositeInto(dst, PixelBounds.Full(Width, Height), applyMask);
+    }
+
+    /// <summary>Komposit hanya area yang berubah; RGB pulih dari Original saat mask melewati alpha awal.</summary>
+    public void CompositeInto(PixelBuffer dst, PixelBounds bounds, bool applyMask = true)
+    {
+        if (dst == null) throw new ArgumentNullException(nameof(dst));
+        if (dst.Width != Width || dst.Height != Height)
+            throw new ArgumentException("Ukuran buffer tujuan harus sama dengan sesi.", nameof(dst));
+        bounds = bounds.ClampTo(Width, Height);
+        if (bounds.IsEmpty) return;
+
+        var result = Result.Bgra;
+        var destination = dst.Bgra;
+        var original = HasRestoreSource ? Original!.Bgra : null;
+        for (int y = bounds.Y; y < bounds.Bottom; y++)
+        {
+            int pixel = y * Width + bounds.X;
+            int end = pixel + bounds.Width;
+            for (; pixel < end; pixel++)
+            {
+                int byteIndex = pixel * 4;
+                byte sourceAlpha = result[byteIndex + 3];
+                destination[byteIndex] = result[byteIndex];
+                destination[byteIndex + 1] = result[byteIndex + 1];
+                destination[byteIndex + 2] = result[byteIndex + 2];
+
+                if (!applyMask)
+                {
+                    destination[byteIndex + 3] = sourceAlpha;
+                    continue;
+                }
+
+                byte maskAlpha = pixel < Mask.Length ? Mask[pixel] : sourceAlpha;
+                if (maskAlpha > sourceAlpha && original != null)
+                {
+                    destination[byteIndex] = original[byteIndex];
+                    destination[byteIndex + 1] = original[byteIndex + 1];
+                    destination[byteIndex + 2] = original[byteIndex + 2];
+                    int sourceImageAlpha = original[byteIndex + 3];
+                    destination[byteIndex + 3] = (byte)((maskAlpha * sourceImageAlpha + 127) / 255);
+                }
+                else
+                {
+                    // Without aligned source pixels, never turn transparent cutout RGB into opaque black.
+                    destination[byteIndex + 3] = maskAlpha > sourceAlpha ? sourceAlpha : maskAlpha;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -347,6 +410,9 @@ public sealed class MaskEditSession : IDisposable
     /// </summary>
     public void BakeToFile(string path)
     {
+        if (HasPendingRestore && !HasRestoreSource)
+            throw new InvalidOperationException("Piksel gambar asli masih dimuat; tunggu sebelum menyimpan hasil restore.");
+
         var dir = System.IO.Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir)) System.IO.Directory.CreateDirectory(dir);
 
