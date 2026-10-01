@@ -35,9 +35,17 @@ public partial class PreviewWindow
     // ========================
 
     private MaskEditSession? _session;
-    private EditToolKind _activeTool = EditToolKind.Pan;
+    private readonly TemporaryPanToolState _toolState = new();
+    private EditToolKind _activeTool
+    {
+        get => _toolState.SelectedTool;
+        set => _toolState.SelectTool(value);
+    }
+    private EditToolKind _effectiveTool => _toolState.EffectiveTool;
     private readonly EditorViewPort _viewPort = new();
     private bool _editMode;
+    private bool _editorPanDragActive;
+    private bool _updatingZoomControl;
     private bool _quickMask;
     private EditToolKind _toolBeforeQuickMask = EditToolKind.Brush;
     private bool _suppressOptionEvents;
@@ -270,6 +278,7 @@ public partial class PreviewWindow
 
     private void EndEditMode(bool silent)
     {
+        ReleaseTemporaryPan();
         _editMode = false;
         _strokeActive = false;
         _quickMask = false;
@@ -519,23 +528,49 @@ public partial class PreviewWindow
 
     private void UpdateToolHint(EditToolKind kind)
     {
+        UpdateEditorShortcutToolTips();
+        string Shortcut(EditorShortcutAction action) => EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, action);
         string hint = kind switch
         {
-            EditToolKind.Pan => "H · pan the image; choose another tool to edit.",
-            EditToolKind.Lasso => "L · Shift: add · Alt: subtract · Ctrl+Shift: intersect.",
-            EditToolKind.PolyLasso => "Shift+L · Enter closes · Backspace/Delete removes · Esc cancels.",
-            EditToolKind.MagicWand => "W · Shift: add · Alt: subtract · Ctrl+Shift: intersect.",
-            EditToolKind.Pen => "P · click/drag anchors · Enter closes · Backspace/Delete removes · Esc cancels.",
-            EditToolKind.Brush => "B · [ ] brush size · X restore/erase.",
-            EditToolKind.Eraser => "E · always erases · [ ] brush size.",
-            EditToolKind.Move => "V · drag selection; Shift-drag moves mask pixels.",
-            EditToolKind.RefineEdge => "Shift+R · refine a selection edge.",
-            EditToolKind.RectMarquee => "M · Shift: square/add · Alt: center/subtract · Ctrl+Shift: intersect.",
-            EditToolKind.EllipseMarquee => "Shift+M · Shift: circle/add · Alt: center/subtract · Ctrl+Shift: intersect.",
+            EditToolKind.Pan => $"{Shortcut(EditorShortcutAction.Pan)} · pan the image; choose another tool to edit.",
+            EditToolKind.Lasso => $"{Shortcut(EditorShortcutAction.Lasso)} · Shift: add · Alt: subtract · Ctrl+Shift: intersect.",
+            EditToolKind.PolyLasso => $"{Shortcut(EditorShortcutAction.PolygonLasso)} · Enter closes · Backspace/Delete removes · Esc cancels.",
+            EditToolKind.MagicWand => $"{Shortcut(EditorShortcutAction.MagicWand)} · Shift: add · Alt: subtract · Ctrl+Shift: intersect.",
+            EditToolKind.Pen => $"{Shortcut(EditorShortcutAction.Pen)} · click/drag anchors · Enter closes · Backspace/Delete removes · Esc cancels.",
+            EditToolKind.Brush => $"{Shortcut(EditorShortcutAction.Brush)} · {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size · {Shortcut(EditorShortcutAction.ToggleBrushMode)} erase/restore.",
+            EditToolKind.Eraser => $"{Shortcut(EditorShortcutAction.Eraser)} · always erases · {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size.",
+            EditToolKind.Move => $"{Shortcut(EditorShortcutAction.Move)} · drag selection; Shift-drag moves mask pixels.",
+            EditToolKind.RefineEdge => $"{Shortcut(EditorShortcutAction.RefineEdge)} · refine a selection edge.",
+            EditToolKind.RectMarquee => $"{Shortcut(EditorShortcutAction.RectMarquee)} · Shift: square/add · Alt: center/subtract · Ctrl+Shift: intersect.",
+            EditToolKind.EllipseMarquee => $"{Shortcut(EditorShortcutAction.EllipseMarquee)} · Shift: circle/add · Alt: center/subtract · Ctrl+Shift: intersect.",
             _ => ""
         };
         var t = this.FindControl<TextBlock>("TxtEditorHint");
         if (t != null) t.Text = hint;
+    }
+
+    private void UpdateEditorShortcutToolTips()
+    {
+        string Shortcut(EditorShortcutAction action) => EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, action);
+        void SetTip(string name, string text)
+        {
+            if (this.FindControl<Control>(name) is { } control)
+                ToolTip.SetTip(control, text);
+        }
+
+        SetTip("BtnToolPan", $"Pan tool ({Shortcut(EditorShortcutAction.Pan)}) — pan the image");
+        SetTip("BtnToolMove", $"Move tool ({Shortcut(EditorShortcutAction.Move)}) — drag the selection");
+        SetTip("BtnToolLasso", $"Freehand lasso ({Shortcut(EditorShortcutAction.Lasso)})");
+        SetTip("BtnToolPolyLasso", $"Polygon lasso ({Shortcut(EditorShortcutAction.PolygonLasso)}) — Enter closes; Esc cancels");
+        SetTip("BtnToolWand", $"Magic wand ({Shortcut(EditorShortcutAction.MagicWand)})");
+        SetTip("BtnToolPen", $"Pen ({Shortcut(EditorShortcutAction.Pen)}) — Enter closes; Esc cancels");
+        SetTip("BtnToolBrush", $"Brush ({Shortcut(EditorShortcutAction.Brush)}) — {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size; {Shortcut(EditorShortcutAction.ToggleBrushMode)} erase/restore");
+        SetTip("BtnToolEraser", $"Eraser ({Shortcut(EditorShortcutAction.Eraser)}) — {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size");
+        SetTip("BtnToolRefineEdge", $"Refine Edge ({Shortcut(EditorShortcutAction.RefineEdge)})");
+        SetTip("BtnToolRectMarquee", $"Rectangular marquee ({Shortcut(EditorShortcutAction.RectMarquee)})");
+        SetTip("BtnToolEllipseMarquee", $"Elliptical marquee ({Shortcut(EditorShortcutAction.EllipseMarquee)})");
+        SetTip("BtnQuickMask", $"Quick Mask ({Shortcut(EditorShortcutAction.QuickMask)})");
+        SetTip("BtnBrushRestore", $"Toggle brush restore/erase mode ({Shortcut(EditorShortcutAction.ToggleBrushMode)}; Brush tool only)");
     }
 
     private void UpdateCursorForTool(EditToolKind kind)
@@ -555,15 +590,13 @@ public partial class PreviewWindow
 
     private void OnEditorZoomChanged(object? sender, NumericUpDownValueChangedEventArgs e)
     {
-        if (!_editMode || e.NewValue is not decimal value) return;
-        double zoom = Math.Clamp((double)value, 0.2, 20.0);
-        foreach (var name in new[] { "ImgOriginal", "ImgResult", "ImgOriginalCompare", "ImgQuickMask" })
-        {
-            var image = this.FindControl<Image>(name);
-            if (image?.RenderTransform is not TransformGroup group) continue;
-            foreach (var transform in group.Children)
-                if (transform is ScaleTransform scale) { scale.ScaleX = zoom; scale.ScaleY = zoom; }
-        }
+        if (!_editMode || _updatingZoomControl || e.NewValue is not decimal value) return;
+        SyncViewPort();
+        double currentZoom = double.IsFinite(_viewPort.Zoom) && _viewPort.Zoom > 0 ? _viewPort.Zoom : 1;
+        double zoom = Math.Clamp((double)value, EditorViewPort.MinimumZoom, EditorViewPort.MaximumZoom);
+        var center = new Point(_viewPort.ViewWidth / 2.0, _viewPort.ViewHeight / 2.0);
+        if (!_viewPort.ZoomAtViewportPoint(center, zoom / currentZoom)) return;
+        ApplyEditorViewTransform();
         OnViewTransformChanged();
     }
 
@@ -1265,6 +1298,71 @@ public partial class PreviewWindow
         _viewPort.PanX = tx;
         _viewPort.PanY = ty;
     }
+
+    private void ApplyEditorViewTransform()
+    {
+        foreach (var name in new[] { "ImgOriginal", "ImgResult", "ImgOriginalCompare", "ImgQuickMask" })
+        {
+            var image = this.FindControl<Image>(name);
+            if (image?.RenderTransform is not TransformGroup group) continue;
+            foreach (var transform in group.Children)
+            {
+                if (transform is ScaleTransform scale)
+                {
+                    scale.ScaleX = _viewPort.Zoom;
+                    scale.ScaleY = _viewPort.Zoom;
+                }
+                else if (transform is TranslateTransform translate)
+                {
+                    translate.X = _viewPort.PanX;
+                    translate.Y = _viewPort.PanY;
+                }
+            }
+        }
+
+        if (this.FindControl<NumericUpDown>("ZoomControl") is not { } zoomControl) return;
+        var zoomValue = (decimal)_viewPort.Zoom;
+        if (zoomControl.Value == zoomValue) return;
+        _updatingZoomControl = true;
+        try { zoomControl.Value = zoomValue; }
+        finally { _updatingZoomControl = false; }
+    }
+
+    private bool HandleEditorWheelZoom(Image image, Avalonia.Input.PointerWheelEventArgs e)
+    {
+        if (!_editMode || image.Name != "ImgResult") return false;
+        if (e.Delta.Y == 0) return true;
+
+        SyncViewPort();
+        var bounds = image.Bounds;
+        Point cursor;
+        if (image.Parent is Avalonia.Visual parent)
+        {
+            var pointerInViewport = e.GetPosition(parent);
+            cursor = new Point(pointerInViewport.X - bounds.X, pointerInViewport.Y - bounds.Y);
+        }
+        else
+        {
+            cursor = e.GetPosition(image);
+        }
+        double factor = e.Delta.Y > 0 ? 1.15 : 1.0 / 1.15;
+        if (_viewPort.ZoomAtViewportPoint(cursor, factor))
+        {
+            ApplyEditorViewTransform();
+            OnViewTransformChanged();
+        }
+        return true;
+    }
+
+    private void ApplyEditorPan(Avalonia.Vector screenDelta)
+    {
+        if (!_editMode) return;
+        SyncViewPort();
+        _viewPort.PanByScreenDelta(screenDelta.X, screenDelta.Y);
+        ApplyEditorViewTransform();
+        OnViewTransformChanged();
+    }
+
     /// tidak ikut transform: harus digambar ulang agar tetap presisi.
     /// </summary>
     private void OnViewTransformChanged()
@@ -2722,13 +2820,26 @@ public partial class PreviewWindow
         return false;
     }
 
+    private void ReleaseTemporaryPan()
+    {
+        if (!_toolState.ReleaseSpace()) return;
+        if (_editorPanDragActive)
+        {
+            _editorPanDragActive = false;
+            _isDragging = false;
+            _targetImage = null;
+            _capturedPointer?.Capture(null);
+            _capturedPointer = null;
+        }
+        UpdateCursorForTool(_activeTool);
+    }
+
     private bool HandleEditorKey(KeyEventArgs e)
     {
         var modifiers = e.KeyModifiers;
         bool noModifiers = modifiers == KeyModifiers.None;
         bool ctrlOnly = modifiers == KeyModifiers.Control;
         bool ctrlShift = modifiers == (KeyModifiers.Control | KeyModifiers.Shift);
-        bool shiftOnly = modifiers == KeyModifiers.Shift;
 
         if (ctrlOnly && e.Key == Key.Z) { OnUndoClick(this, new RoutedEventArgs()); return true; }
         if ((ctrlOnly && e.Key == Key.Y) || (ctrlShift && e.Key == Key.Z))
@@ -2777,36 +2888,34 @@ public partial class PreviewWindow
             return true;
         }
 
-        // Bracket keys adjust brush size; X toggles brush restore/erase mode.
-        if (noModifiers && e.Key == Key.OemOpenBrackets) { AdjustBrushSize(-1); return true; }
-        if (noModifiers && e.Key == Key.OemCloseBrackets) { AdjustBrushSize(1); return true; }
-        if (noModifiers && e.Key == Key.X && _activeTool == EditToolKind.Brush)
+        if (EditorShortcutMap.TryGetAction(_settings.EditorShortcuts, e.Key, modifiers, out var shortcutAction))
         {
-            _settings.EditorBrushRestore = !_settings.EditorBrushRestore;
-            _settings.Save();
-            UpdateOptionLabels();
-            return true;
-        }
-
-        if (noModifiers && e.Key == Key.Q) { OnQuickMaskClick(this, new RoutedEventArgs()); return true; }
-
-        // Tool keys are exact and context-specific; only L/M have Shift variants.
-        if (shiftOnly && e.Key == Key.R) { SetActiveTool(EditToolKind.RefineEdge); return true; }
-        if (shiftOnly && e.Key == Key.L) { SetActiveTool(EditToolKind.PolyLasso); return true; }
-        if (shiftOnly && e.Key == Key.M) { SetActiveTool(EditToolKind.EllipseMarquee); return true; }
-        if (noModifiers)
-        {
-            switch (e.Key)
+            switch (shortcutAction)
             {
-                case Key.H: SetActiveTool(EditToolKind.Pan); return true;
-                case Key.V: SetActiveTool(EditToolKind.Move); return true;
-                case Key.L: SetActiveTool(EditToolKind.Lasso); return true;
-                case Key.W: SetActiveTool(EditToolKind.MagicWand); return true;
-                case Key.P: SetActiveTool(EditToolKind.Pen); return true;
-                case Key.B: SetActiveTool(EditToolKind.Brush); return true;
-                case Key.E: SetActiveTool(EditToolKind.Eraser); return true;
-                case Key.M: SetActiveTool(EditToolKind.RectMarquee); return true;
+                case EditorShortcutAction.Pan: SetActiveTool(EditToolKind.Pan); break;
+                case EditorShortcutAction.Move: SetActiveTool(EditToolKind.Move); break;
+                case EditorShortcutAction.Lasso: SetActiveTool(EditToolKind.Lasso); break;
+                case EditorShortcutAction.PolygonLasso: SetActiveTool(EditToolKind.PolyLasso); break;
+                case EditorShortcutAction.MagicWand: SetActiveTool(EditToolKind.MagicWand); break;
+                case EditorShortcutAction.Pen: SetActiveTool(EditToolKind.Pen); break;
+                case EditorShortcutAction.Brush: SetActiveTool(EditToolKind.Brush); break;
+                case EditorShortcutAction.Eraser: SetActiveTool(EditToolKind.Eraser); break;
+                case EditorShortcutAction.RefineEdge: SetActiveTool(EditToolKind.RefineEdge); break;
+                case EditorShortcutAction.RectMarquee: SetActiveTool(EditToolKind.RectMarquee); break;
+                case EditorShortcutAction.EllipseMarquee: SetActiveTool(EditToolKind.EllipseMarquee); break;
+                case EditorShortcutAction.BrushSizeDown: AdjustBrushSize(-1); break;
+                case EditorShortcutAction.BrushSizeUp: AdjustBrushSize(1); break;
+                case EditorShortcutAction.ToggleBrushMode:
+                    if (_activeTool == EditToolKind.Brush)
+                    {
+                        _settings.EditorBrushRestore = !_settings.EditorBrushRestore;
+                        _settings.Save();
+                        UpdateOptionLabels();
+                    }
+                    break;
+                case EditorShortcutAction.QuickMask: OnQuickMaskClick(this, new RoutedEventArgs()); break;
             }
+            return true;
         }
 
         return false;

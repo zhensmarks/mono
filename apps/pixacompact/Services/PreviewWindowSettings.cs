@@ -1,11 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using PixelcutCompact.Services.Editing;
 
 namespace PixelcutCompact.Services;
 
 public class PreviewWindowSettings
 {
+    public const string DefaultShortcutNext = "Right";
+    public const string DefaultShortcutPrevious = "Left";
+    public const string DefaultShortcutPhotoshop = "P";
+    public const string DefaultShortcutRotate = "R";
+    public const string DefaultShortcutFitScreen = "F";
+
     public double X { get; set; } = -1;
     public double Y { get; set; } = -1;
     public double Width { get; set; } = 1000;
@@ -14,11 +22,12 @@ public class PreviewWindowSettings
     public string PhotoshopPath { get; set; } = "";
     
     // Shortcuts
-    public string ShortcutNext { get; set; } = "Right";
-    public string ShortcutPrevious { get; set; } = "Left";
-    public string ShortcutPhotoshop { get; set; } = "P";
-    public string ShortcutRotate { get; set; } = "R";
-    public string ShortcutFitScreen { get; set; } = "F";
+    public string ShortcutNext { get; set; } = DefaultShortcutNext;
+    public string ShortcutPrevious { get; set; } = DefaultShortcutPrevious;
+    public string ShortcutPhotoshop { get; set; } = DefaultShortcutPhotoshop;
+    public string ShortcutRotate { get; set; } = DefaultShortcutRotate;
+    public string ShortcutFitScreen { get; set; } = DefaultShortcutFitScreen;
+    public Dictionary<string, string> EditorShortcuts { get; set; } = EditorShortcutMap.CreateDefaults();
     
     // Photopea settings
     public string PhotopeaSaveFormat { get; set; } = "png"; // "png" or "psd"
@@ -65,6 +74,16 @@ public class PreviewWindowSettings
     public bool EditorToolsPreferTwoColumns { get; set; } = false;
     public int EditorAntsAnimationMs { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultAntsAnimationMs;
 
+    public void RestoreKeyboardShortcutDefaults()
+    {
+        ShortcutNext = DefaultShortcutNext;
+        ShortcutPrevious = DefaultShortcutPrevious;
+        ShortcutPhotoshop = DefaultShortcutPhotoshop;
+        ShortcutRotate = DefaultShortcutRotate;
+        ShortcutFitScreen = DefaultShortcutFitScreen;
+        EditorShortcuts = EditorShortcutMap.CreateDefaults();
+    }
+
     private static string GetPath() => Path.Combine(AppContext.BaseDirectory, "preview_settings.json");
 
     public static PreviewWindowSettings Load()
@@ -75,7 +94,9 @@ public class PreviewWindowSettings
             if (File.Exists(path))
             {
                 var json = File.ReadAllText(path);
-                return JsonSerializer.Deserialize<PreviewWindowSettings>(json) ?? new PreviewWindowSettings();
+                var settings = JsonSerializer.Deserialize<PreviewWindowSettings>(json) ?? new PreviewWindowSettings();
+                settings.EditorShortcuts = EditorShortcutMap.MergeWithDefaults(settings.EditorShortcuts);
+                return settings;
             }
         }
         catch { }
@@ -86,6 +107,7 @@ public class PreviewWindowSettings
     {
         try
         {
+            EditorShortcuts = EditorShortcutMap.MergeWithDefaults(EditorShortcuts);
             var json = JsonSerializer.Serialize(this);
             File.WriteAllText(GetPath(), json);
         }

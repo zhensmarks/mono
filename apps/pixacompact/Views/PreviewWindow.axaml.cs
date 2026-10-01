@@ -5,6 +5,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.Diagnostics;
@@ -125,6 +126,8 @@ if (pngPath && jpgPath) {
         if (zoomControl != null) zoomControl.Value = (decimal)Math.Max(0.2, _settings.Zoom);
 
         ApplyBackground();
+        AddHandler(InputElement.KeyUpEvent, OnPreviewKeyUp, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        Deactivated += (_, _) => ReleaseTemporaryPan();
 
         Closing += (s, e) =>
         {
@@ -330,6 +333,12 @@ if (pngPath && jpgPath) {
         var sourceImg = sender as Image;
         if (sourceImg == null) return;
 
+        if (_editMode)
+        {
+            e.Handled = HandleEditorWheelZoom(sourceImg, e);
+            return;
+        }
+
         var img1 = this.FindControl<Image>("ImgOriginal");
         var img2 = this.FindControl<Image>("ImgResult");
         if (img1 == null || img2 == null) return;
@@ -419,13 +428,15 @@ if (pngPath && jpgPath) {
     private bool _isDragging = false;
     private Avalonia.Point _lastPoint;
     private Image? _targetImage;
+    private IPointer? _capturedPointer;
 
     private void OnImagePointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
         if (sender is Image img)
         {
+            if (_editMode && img.Name == "ImgResult") img.Focus();
             // Editor mode: check if editor handles this event first
-            if (_editMode && _activeTool != EditToolKind.Pan)
+            if (_editMode && _effectiveTool != EditToolKind.Pan)
             {
                 if (EditorPointerPressed(img, e))
                 {
@@ -441,8 +452,9 @@ if (pngPath && jpgPath) {
                 _isDragging = true;
                 _lastPoint = e.GetPosition(this);
                 _targetImage = img;
-                
+                _editorPanDragActive = _editMode && _effectiveTool == EditToolKind.Pan;
                 e.Pointer.Capture(img);
+                _capturedPointer = e.Pointer;
                 Cursor = new Cursor(Avalonia.Input.StandardCursorType.Hand);
                 e.Handled = true;
             }
@@ -450,7 +462,7 @@ if (pngPath && jpgPath) {
     }
     private void OnImagePointerMoved(object? sender, Avalonia.Input.PointerEventArgs e)
     {
-        if (sender is Image editorImage && _editMode && _activeTool != EditToolKind.Pan)
+        if (!_editorPanDragActive && sender is Image editorImage && _editMode && _effectiveTool != EditToolKind.Pan)
         {
             // Editor handles move events for tools
             if (EditorPointerMoved(editorImage, e))
@@ -465,11 +477,18 @@ if (pngPath && jpgPath) {
         var currentPoint = e.GetPosition(this);
         var delta = currentPoint - _lastPoint;
         _lastPoint = currentPoint;
-        ApplyPanToImage(this.FindControl<Image>("ImgOriginal"), delta);
-        ApplyPanToImage(this.FindControl<Image>("ImgResult"), delta);
-        ApplyPanToImage(this.FindControl<Image>("ImgOriginalCompare"), delta);
-        ApplyPanToImage(this.FindControl<Image>("ImgQuickMask"), delta);
-        OnViewTransformChanged();
+        if (_editMode)
+        {
+            ApplyEditorPan(delta);
+        }
+        else
+        {
+            ApplyPanToImage(this.FindControl<Image>("ImgOriginal"), delta);
+            ApplyPanToImage(this.FindControl<Image>("ImgResult"), delta);
+            ApplyPanToImage(this.FindControl<Image>("ImgOriginalCompare"), delta);
+            ApplyPanToImage(this.FindControl<Image>("ImgQuickMask"), delta);
+            OnViewTransformChanged();
+        }
 
         e.Handled = true;
     }
@@ -491,7 +510,7 @@ if (pngPath && jpgPath) {
 
     private void OnImagePointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)
     {
-        if (sender is Image rimg && _editMode && _activeTool != EditToolKind.Pan)
+        if (!_editorPanDragActive && sender is Image rimg && _editMode && _effectiveTool != EditToolKind.Pan)
         {
             if (EditorPointerReleased(rimg, e))
             {
@@ -503,9 +522,12 @@ if (pngPath && jpgPath) {
         if (_isDragging && _targetImage != null)
         {
             _isDragging = false;
+            _editorPanDragActive = false;
             e.Pointer.Capture(null);
+            _capturedPointer = null;
             _targetImage = null;
-            Cursor = Cursor.Default;
+            if (_editMode) UpdateCursorForTool(_effectiveTool);
+            else Cursor = Cursor.Default;
             e.Handled = true;
         }
     }
@@ -653,12 +675,35 @@ try {{
     {
         if (sender is not TextBox textBox) return;
 
-        // Shortcut preferences store one unmodified key; don't leak captured keys to the window.
+        bool isEditorShortcut = EditorShortcutMap.Definitions.Any(definition =>
+            definition.ControlName.Equals(textBox.Name, StringComparison.Ordinal));
+
+        // Keep capture local to this field; edit-mode bindings also support Shift+key.
         e.Handled = true;
-        if (e.KeyModifiers != KeyModifiers.None || e.Key is Key.LeftCtrl or Key.RightCtrl
-            or Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin)
+        if (e.Key is Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift
+            or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin)
             return;
 
+        if (isEditorShortcut)
+        {
+            if (EditorShortcutMap.IsReservedKey(e.Key))
+            {
+                Toast(e.Key == Key.Space
+                    ? "Space is reserved for temporary Pan."
+                    : $"{EditorShortcutMap.FormatKey(e.Key)} is reserved by an editor command.", warning: true);
+                return;
+            }
+            if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift))
+            {
+                Toast("Edit-mode shortcuts support one key or Shift+key.", warning: true);
+                return;
+            }
+
+            textBox.Text = EditorShortcutMap.FormatShortcut(e.Key, e.KeyModifiers);
+            return;
+        }
+
+        if (e.KeyModifiers != KeyModifiers.None) return;
         textBox.Text = e.Key.ToString();
     }
 
@@ -675,6 +720,13 @@ try {{
         if (txtPhotoshop != null) txtPhotoshop.Text = _settings.ShortcutPhotoshop;
         if (txtRotate != null) txtRotate.Text = _settings.ShortcutRotate;
         if (txtFitScreen != null) txtFitScreen.Text = _settings.ShortcutFitScreen;
+        foreach (var definition in EditorShortcutMap.Definitions)
+        {
+            var field = this.FindControl<TextBox>(definition.ControlName);
+            if (field != null)
+                field.Text = EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, definition.Action);
+        }
+        UpdateToolHint(_activeTool);
         var betaToggle = this.FindControl<CheckBox>("ChkEditorBetaMode");
         if (betaToggle != null) betaToggle.IsChecked = _settings.EditorBetaMode;
         var cboBgType = this.FindControl<ComboBox>("CboBgType");
@@ -710,15 +762,30 @@ try {{
             return;
         }
 
+        var editorShortcuts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in EditorShortcutMap.Definitions)
+        {
+            var field = this.FindControl<TextBox>(definition.ControlName);
+            editorShortcuts[definition.Action.ToString()] =
+                ReadShortcut(field, EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, definition.Action));
+        }
+        if (!EditorShortcutMap.TryValidate(editorShortcuts, out var editorShortcutError))
+        {
+            Toast(editorShortcutError, warning: true);
+            return;
+        }
+
         _settings.ShortcutNext = shortcuts[0];
         _settings.ShortcutPrevious = shortcuts[1];
         _settings.ShortcutPhotoshop = shortcuts[2];
         _settings.ShortcutRotate = shortcuts[3];
         _settings.ShortcutFitScreen = shortcuts[4];
+        _settings.EditorShortcuts = EditorShortcutMap.MergeWithDefaults(editorShortcuts);
         var betaToggle = this.FindControl<CheckBox>("ChkEditorBetaMode");
         if (betaToggle != null) _settings.EditorBetaMode = betaToggle.IsChecked == true;
         
         _settings.Save();
+        UpdateToolHint(_activeTool);
         
         // Try to close flyout
         if (sender is Control c)
@@ -726,6 +793,15 @@ try {{
             var popup = c.GetVisualAncestors().OfType<Avalonia.Controls.Primitives.Popup>().FirstOrDefault();
             if (popup != null) popup.IsOpen = false;
         }
+    }
+
+    private void OnRestoreShortcutDefaultsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _settings.RestoreKeyboardShortcutDefaults();
+        _settings.Save();
+        OnSettingsFlyoutOpened(this, EventArgs.Empty);
+        UpdateToolHint(_activeTool);
+        Toast("Keyboard shortcuts restored to defaults.");
     }
     
     private void OnEditorBetaModeToggled(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -744,9 +820,31 @@ try {{
         return IsInput(control) || control.GetVisualAncestors().OfType<Control>().Any(IsInput);
     }
 
+    private bool IsSpacePanInputSource(object? source)
+    {
+        if (source == null || ReferenceEquals(source, this)) return true;
+        if (source is not Control control) return false;
+        var image = this.FindControl<Image>("ImgResult");
+        return image != null && (ReferenceEquals(control, image) ||
+            control.GetVisualAncestors().Any(ancestor => ReferenceEquals(ancestor, image)));
+    }
+
+    private void OnPreviewKeyUp(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Space) ReleaseTemporaryPan();
+    }
+
     private void OnPreviewKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
         if (IsShortcutInputSource(e.Source)) return;
+
+        if (_editMode && e.Key == Key.Space && IsSpacePanInputSource(e.Source))
+        {
+            _toolState.HoldSpace();
+            UpdateCursorForTool(EditToolKind.Pan);
+            e.Handled = true;
+            return;
+        }
 
         // Shortcut editor bersifat eksklusif selama mode edit; jangan biarkan
         // tombol yang sama jatuh ke navigasi preview.
