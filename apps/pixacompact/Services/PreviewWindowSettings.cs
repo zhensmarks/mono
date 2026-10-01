@@ -61,6 +61,8 @@ public class PreviewWindowSettings
     public string EditorPropertiesDock { get; set; } = "Right";
     public string EditorHistoryDock { get; set; } = "Right";
     public string EditorLayersDock { get; set; } = "Right";
+    // Prefer two columns for a side-docked Tools rail; Auto still falls back when one column will clip.
+    public bool EditorToolsPreferTwoColumns { get; set; } = false;
     public int EditorAntsAnimationMs { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultAntsAnimationMs;
 
     private static string GetPath() => Path.Combine(AppContext.BaseDirectory, "preview_settings.json");
