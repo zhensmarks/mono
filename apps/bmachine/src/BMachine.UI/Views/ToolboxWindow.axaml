@@ -671,21 +671,45 @@
                                 </Grid>
                             </Border>
                         </Grid>
-                        <!-- Pair List (bounded, scroll internal) -->
+                        <!-- Pair review list (bounded, scroll internal) -->
                         <Border Grid.Row="3" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="96">
                             <Grid RowDefinitions="Auto,*">
-                                <TextBlock Grid.Row="0" Classes="FieldLabel" Text="DAFTAR PASANGAN"/>
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,6">
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Classes="FieldLabel" Text="USULAN PASANGAN — PERIKSA GAMBAR SEBELUM MENERAPKAN"/>
+                                        <TextBlock Text="{Binding MantraNamaVM.AdvancedUnmatchedSummary}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Tandai semua valid ditinjau"
+                                            Command="{Binding MantraNamaVM.ReviewAllAdvancedPairsCommand}"
+                                            VerticalAlignment="Center" ToolTip.Tip="Gunakan setelah memeriksa seluruh thumbnail dan mengoreksi pengecualian."/>
+                                </Grid>
                                 <ListBox Grid.Row="1" Classes="Adv" ItemsSource="{Binding MantraNamaVM.AdvancedPairs}"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="*,16,*,16,*,Auto" Margin="0,2">
-                                                <TextBlock Grid.Column="0" Text="{Binding ReferenceName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="&#x2192;" HorizontalAlignment="Center" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding TargetName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="3" Text="&#x2192;" HorizontalAlignment="Center" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="4" Text="{Binding ResultName}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                                <Button Grid.Column="5" Content="Hapus" Classes="Muted" Padding="10,3" FontSize="11" VerticalAlignment="Center"
+                                            <Grid ColumnDefinitions="42,*,16,42,190,*,Auto,Auto" ColumnSpacing="7" Margin="0,3">
+                                                <Border Grid.Column="0" Width="38" Height="48" CornerRadius="4" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" VerticalAlignment="Center">
+                                                    <Image Source="{Binding ReferencePreview.Thumbnail}" Stretch="Uniform"/>
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ReferenceName}" FontSize="10" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="REFERENSI" FontSize="9" Foreground="{DynamicResource TextFaintBrush}"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="&#x2192;" HorizontalAlignment="Center" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
+                                                <Border Grid.Column="3" Width="38" Height="48" CornerRadius="4" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" VerticalAlignment="Center">
+                                                    <Image Source="{Binding SelectedTargetItem.Thumbnail}" Stretch="Uniform"/>
+                                                </Border>
+                                                <ComboBox Grid.Column="4" ItemsSource="{Binding TargetOptions}" SelectedItem="{Binding SelectedTargetItem}"
+                                                          MinWidth="150" ToolTip.Tip="Pilih ulang target untuk referensi ini; thumbnail akan berubah untuk ditinjau lagi.">
+                                                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                                </ComboBox>
+                                                <StackPanel Grid.Column="5" Spacing="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ResultName}" FontSize="10" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <TextBlock Text="{Binding Status}" FontSize="9" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextFaintBrush}"/>
+                                                </StackPanel>
+                                                <CheckBox Grid.Column="6" Content="Dicek" IsChecked="{Binding IsReviewed}" VerticalAlignment="Center"
+                                                          ToolTip.Tip="Tandai hanya setelah membandingkan thumbnail referensi dan target."/>
+                                                <Button Grid.Column="7" Content="Hapus" Classes="Muted" Padding="10,3" FontSize="11" VerticalAlignment="Center"
                                                         Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveAdvancedPairCommand}" CommandParameter="{Binding}"/>
                                             </Grid>
                                         </DataTemplate>
@@ -723,10 +747,10 @@
                             <Button Grid.Column="4" Classes="Muted" Content="Pasangkan"
                                     Command="{Binding MantraNamaVM.AddAdvancedPairCommand}"
                                     IsVisible="{Binding MantraNamaVM.IsThumbnailMode}" VerticalAlignment="Center"/>
-                            <Button Grid.Column="4" Classes="Muted" Content="Refresh Auto-Pair"
+                            <Button Grid.Column="4" Classes="Muted" Content="Buat usulan"
                                     Command="{Binding MantraNamaVM.RefreshAutoPairCommand}"
-                                    IsVisible="{Binding MantraNamaVM.IsListMode}" VerticalAlignment="Center"/>
-                            <Button Grid.Column="6" Classes="Action" Content="Jalankan Rename"
+                                    VerticalAlignment="Center" ToolTip.Tip="Membuat draf menurut urutan tampilan; semua pasangan belum ditinjau dan tidak akan diterapkan otomatis."/>
+                            <Button Grid.Column="6" Classes="Action" Content="Terapkan yang dicek"
                                     Command="{Binding MantraNamaVM.ExecuteAdvancedRenameCommand}"
                                     IsEnabled="{Binding !MantraNamaVM.IsProcessing}" VerticalAlignment="Center"/>
                         </Grid>

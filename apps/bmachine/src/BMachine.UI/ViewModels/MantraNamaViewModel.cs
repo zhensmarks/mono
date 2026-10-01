@@ -47,15 +47,46 @@ public class AdvancedRenamePair : ObservableObject
 {
     public string ReferenceName { get; set; } = "";
     public string ReferencePath { get; set; } = "";
-    public string TargetName { get; set; } = "";
-    public string TargetPath { get; set; } = "";
-    public string ResultName { get; set; } = "";
+    public RenamePreviewItem? ReferencePreview { get; set; }
+    private IReadOnlyList<RenamePreviewItem> _targetOptions = Array.Empty<RenamePreviewItem>();
+    public IReadOnlyList<RenamePreviewItem> TargetOptions { get => _targetOptions; set => SetProperty(ref _targetOptions, value); }
+    private RenamePreviewItem? _selectedTargetItem;
+    public RenamePreviewItem? SelectedTargetItem
+    {
+        get => _selectedTargetItem;
+        set
+        {
+            var sameSource = string.Equals(_selectedTargetItem?.OriginalPath, value?.OriginalPath, StringComparison.OrdinalIgnoreCase);
+            if (!SetProperty(ref _selectedTargetItem, value)) return;
+            TargetName = value?.OriginalName ?? "";
+            TargetPath = value?.OriginalPath ?? "";
+            if (!sameSource) IsReviewed = false;
+            TargetChanged?.Invoke(this);
+        }
+    }
+    private string _targetName = "";
+    public string TargetName { get => _targetName; set => SetProperty(ref _targetName, value); }
+    private string _targetPath = "";
+    public string TargetPath { get => _targetPath; set => SetProperty(ref _targetPath, value); }
+    private string _resultName = "";
+    public string ResultName { get => _resultName; set => SetProperty(ref _resultName, value); }
+    private bool _isReviewed;
+    public bool IsReviewed
+    {
+        get => _isReviewed;
+        set
+        {
+            if (SetProperty(ref _isReviewed, value)) ReviewChanged?.Invoke(this);
+        }
+    }
     private string _status = "Siap";
     public string Status
     {
         get => _status;
         set => SetProperty(ref _status, value);
     }
+    public event Action<AdvancedRenamePair>? TargetChanged;
+    public event Action<AdvancedRenamePair>? ReviewChanged;
 }
 
 public record AdvancedRenameUndo(string OldPath, string NewPath);
@@ -65,7 +96,7 @@ public partial class MantraNamaViewModel : ObservableObject
 {
     [ObservableProperty] private bool _isAdvancedMode;
     [ObservableProperty] private bool _isThumbnailMode;
-    [ObservableProperty] private bool _autoPairEnabled = true;
+    [ObservableProperty] private bool _autoPairEnabled;
     [ObservableProperty] private bool _advancedRenameSiblings = true;
     // Pengaturan jumlah kolom thumbnail per panel (1-4)
     [ObservableProperty] private int _advancedReferenceColumns = 2;
@@ -87,6 +118,7 @@ public partial class MantraNamaViewModel : ObservableObject
     // Counter per panel
     [ObservableProperty] private int _advancedReferenceCount;
     [ObservableProperty] private int _advancedTargetCount;
+    [ObservableProperty] private string _advancedUnmatchedSummary = "";
 
     // Undo stack
     private readonly Stack<List<AdvancedRenameUndo>> _undoStack = new();
@@ -340,25 +372,115 @@ public partial class MantraNamaViewModel : ObservableObject
         var count = Math.Min(refList.Count, tgtList.Count);
         for (int i = 0; i < count; i++)
         {
-            var reference = refList[i];
-            var target = tgtList[i];
-            var result = Path.GetFileNameWithoutExtension(reference.OriginalName) + Path.GetExtension(target.OriginalName);
-            var destination = Path.Combine(Path.GetDirectoryName(target.OriginalPath)!, result);
-            AdvancedPairs.Add(new AdvancedRenamePair
-            {
-                ReferenceName = reference.OriginalName,
-                ReferencePath = reference.OriginalPath,
-                TargetName = target.OriginalName,
-                TargetPath = target.OriginalPath,
-                ResultName = result,
-                Status = File.Exists(destination) && !string.Equals(result, target.OriginalName, StringComparison.OrdinalIgnoreCase) ? "Konflik" : "Siap"
-            });
+            var pair = CreateAdvancedPair(refList[i], tgtList[i]);
+            AdvancedPairs.Add(pair);
         }
+        var unmatchedReferences = refList.Skip(count).Select(x => x.OriginalName).ToList();
+        var unmatchedTargets = tgtList.Skip(count).Select(x => x.OriginalName).ToList();
+        var summary = new List<string>();
+        if (unmatchedReferences.Count > 0) summary.Add($"referensi tanpa pasangan ({unmatchedReferences.Count}): {string.Join(", ", unmatchedReferences.Take(4))}");
+        if (unmatchedTargets.Count > 0) summary.Add($"target tanpa pasangan ({unmatchedTargets.Count}): {string.Join(", ", unmatchedTargets.Take(4))}");
+        if (_advancedReferenceMaster.Count > 500 || _advancedTargetMaster.Count > 500) summary.Add("daftar dibatasi 500 file per sisi");
+        AdvancedUnmatchedSummary = summary.Count == 0 ? "Tidak ada file tersisa tanpa pasangan." : string.Join(" · ", summary);
         RefreshPairedFlags();
-        StatusText = count > 0 ? $"Dipasangkan otomatis: {count} pasangan" : "Tidak ada file untuk dipasangkan";
+        RefreshPairStatuses();
+        LoadAdvancedPairThumbnails();
+        StatusText = count > 0
+            ? $"Usulan dibuat: {count} pasangan belum ditinjau. Saran mengikuti urutan tampilan; periksa thumbnail dan koreksi target yang keliru sebelum menandai ditinjau."
+            : "Tidak ada file untuk dibuatkan usulan";
     }
-    [RelayCommand] private void ClearAdvancedPairs() { AdvancedPairs.Clear(); RefreshAdvancedLists(); }
+    private AdvancedRenamePair CreateAdvancedPair(RenamePreviewItem reference, RenamePreviewItem target)
+    {
+        var pair = new AdvancedRenamePair
+        {
+            ReferenceName = reference.OriginalName,
+            ReferencePath = reference.OriginalPath,
+            ReferencePreview = reference,
+            TargetOptions = _advancedTargetMaster.ToList()
+        };
+        pair.SelectedTargetItem = target;
+        pair.ResultName = Path.GetFileNameWithoutExtension(reference.OriginalName) + Path.GetExtension(target.OriginalName);
+        pair.TargetChanged += OnAdvancedPairTargetChanged;
+        pair.ReviewChanged += _ => RefreshPairStatuses();
+        return pair;
+    }
+    private void OnAdvancedPairTargetChanged(AdvancedRenamePair pair)
+    {
+        pair.ResultName = pair.SelectedTargetItem == null
+            ? ""
+            : Path.GetFileNameWithoutExtension(pair.ReferenceName) + Path.GetExtension(pair.TargetName);
+        RefreshPairStatuses();
+        RefreshPairedFlags();
+        LoadAdvancedPairThumbnails();
+    }
+    private void RefreshPairStatuses()
+    {
+        var pairs = AdvancedPairs.ToList();
+        var duplicateTargets = pairs.Where(p => !string.IsNullOrWhiteSpace(p.TargetPath))
+            .GroupBy(p => p.TargetPath, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1).SelectMany(g => g).ToHashSet();
+        var destinations = pairs.Where(p => !string.IsNullOrWhiteSpace(p.TargetPath) && !string.IsNullOrWhiteSpace(p.ResultName))
+            .Select(p => (Pair: p, Path: Path.Combine(Path.GetDirectoryName(p.TargetPath) ?? "", p.ResultName)))
+            .ToList();
+        var duplicateDestinations = destinations.GroupBy(x => x.Path, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1).SelectMany(g => g).Select(x => x.Pair).ToHashSet();
+        var reviewedSources = pairs.Where(p => p.IsReviewed && !string.IsNullOrWhiteSpace(p.TargetPath))
+            .Select(p => p.TargetPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pair in pairs)
+        {
+            if (pair.SelectedTargetItem == null || string.IsNullOrWhiteSpace(pair.TargetPath)) { pair.Status = "Target belum dipilih"; continue; }
+            if (!File.Exists(pair.TargetPath)) { pair.Status = "Target tidak ditemukan"; continue; }
+            if (duplicateTargets.Contains(pair)) { pair.Status = "Konflik: target ganda"; continue; }
+            if (duplicateDestinations.Contains(pair)) { pair.Status = "Konflik: nama tujuan ganda"; continue; }
+            if (string.IsNullOrWhiteSpace(pair.ResultName) || Path.GetFileName(pair.ResultName) != pair.ResultName || pair.ResultName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            { pair.Status = "Konflik: nama tidak valid"; continue; }
+            var destination = Path.Combine(Path.GetDirectoryName(pair.TargetPath) ?? "", pair.ResultName);
+            if (!pair.IsReviewed) { pair.Status = "Belum ditinjau"; continue; }
+            if (string.Equals(destination, pair.TargetPath, StringComparison.OrdinalIgnoreCase)) { pair.Status = "Tidak berubah"; continue; }
+            if ((File.Exists(destination) || Directory.Exists(destination)) && !reviewedSources.Contains(destination))
+            { pair.Status = "Konflik: tujuan sudah ada"; continue; }
+            pair.Status = "Siap";
+        }
+    }
+    private void LoadAdvancedPairThumbnails()
+    {
+        var items = AdvancedPairs.SelectMany(p => new[] { p.ReferencePreview, p.SelectedTargetItem })
+            .Where(x => x != null && x.Thumbnail == null && File.Exists(x.OriginalPath))
+            .Cast<RenamePreviewItem>().DistinctBy(x => x.OriginalPath, StringComparer.OrdinalIgnoreCase).ToList();
+        if (items.Count == 0) return;
+        _ = Task.Run(() =>
+        {
+            Parallel.ForEach(items, new ParallelOptions { MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount / 2, 1, 4) }, item =>
+            {
+                var thumbnail = LoadThumbnail(item.OriginalPath);
+                if (thumbnail != null)
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => item.Thumbnail = thumbnail);
+            });
+        });
+    }
+    private void RefreshPendingTargetChoices()
+    {
+        var choices = _advancedTargetMaster.ToList();
+        var pending = AdvancedPairs.Select(pair => new { Pair = pair, TargetPath = pair.TargetPath, WasReviewed = pair.IsReviewed }).ToList();
+        foreach (var entry in pending)
+        {
+            entry.Pair.TargetOptions = choices;
+            var refreshedSelection = choices.FirstOrDefault(x => string.Equals(x.OriginalPath, entry.TargetPath, StringComparison.OrdinalIgnoreCase));
+            entry.Pair.SelectedTargetItem = refreshedSelection;
+            if (refreshedSelection != null && entry.WasReviewed) entry.Pair.IsReviewed = true;
+        }
+        RefreshPairStatuses();
+        LoadAdvancedPairThumbnails();
+    }
+    [RelayCommand] private void ClearAdvancedPairs() { AdvancedPairs.Clear(); AdvancedUnmatchedSummary = ""; RefreshAdvancedLists(); }
     [RelayCommand] private void RefreshAutoPair() => AutoPairByOrder();
+    [RelayCommand] private void ReviewAllAdvancedPairs()
+    {
+        foreach (var pair in AdvancedPairs.Where(p => !p.Status.StartsWith("Konflik", StringComparison.Ordinal))) pair.IsReviewed = true;
+        RefreshPairStatuses();
+        StatusText = "Semua pasangan valid ditandai sudah ditinjau. Periksa kembali pasangan yang Anda koreksi sebelum menjalankan rename.";
+    }
     private void RefreshAdvancedReferenceList()
     {
         AdvancedReferenceFiles.Clear();
@@ -380,6 +502,7 @@ public partial class MantraNamaViewModel : ObservableObject
         RefreshAdvancedReferenceList();
         RefreshAdvancedTargetList();
         RefreshPairedFlags();
+        RefreshPairStatuses();
     }
     private void RefreshPairedFlags()
     {
@@ -428,150 +551,224 @@ public partial class MantraNamaViewModel : ObservableObject
             StatusText = "File target tersebut sudah memiliki pasangan";
             return;
         }
-        var result = Path.GetFileNameWithoutExtension(SelectedAdvancedReference.OriginalName) + Path.GetExtension(SelectedAdvancedTarget.OriginalName);
-        var destination = Path.Combine(Path.GetDirectoryName(SelectedAdvancedTarget.OriginalPath)!, result);
-        AdvancedPairs.Add(new AdvancedRenamePair
+        if (AdvancedPairs.Any(x => string.Equals(x.ReferencePath, SelectedAdvancedReference.OriginalPath, StringComparison.OrdinalIgnoreCase)))
         {
-            ReferenceName = SelectedAdvancedReference.OriginalName,
-            ReferencePath = SelectedAdvancedReference.OriginalPath,
-            TargetName = SelectedAdvancedTarget.OriginalName,
-            TargetPath = SelectedAdvancedTarget.OriginalPath,
-            ResultName = result,
-            Status = File.Exists(destination) && !string.Equals(result, SelectedAdvancedTarget.OriginalName, StringComparison.OrdinalIgnoreCase) ? "Konflik" : "Siap"
-        });
+            StatusText = "File referensi tersebut sudah memiliki pasangan";
+            return;
+        }
+        var pair = CreateAdvancedPair(SelectedAdvancedReference, SelectedAdvancedTarget);
+        AdvancedPairs.Add(pair);
+        RefreshPairStatuses();
+        LoadAdvancedPairThumbnails();
         RefreshPairedFlags();
-        StatusText = $"Pasangan ditambahkan: {SelectedAdvancedReference.OriginalName} -> {result}";
+        StatusText = $"Pasangan ditambahkan: {SelectedAdvancedTarget.OriginalName} → {pair.ResultName}. Tandai sudah ditinjau setelah memeriksa gambar.";
     }
  
     [RelayCommand] private void RemoveAdvancedPair(AdvancedRenamePair? pair) { if (pair != null) { AdvancedPairs.Remove(pair); RefreshAdvancedLists(); } }
  
+    private sealed class PlannedRenameOperation(AdvancedRenamePair? pair, string sourcePath, string destinationPath)
+    {
+        public AdvancedRenamePair? Pair { get; } = pair;
+        public string SourcePath { get; } = sourcePath;
+        public string DestinationPath { get; } = destinationPath;
+    }
+
+    private static (Dictionary<AdvancedRenamePair, string> PairErrors, string? GlobalError) InspectRenamePlan(IReadOnlyList<PlannedRenameOperation> operations)
+    {
+        var pairErrors = new Dictionary<AdvancedRenamePair, string>();
+        string? globalError = null;
+        void Mark(PlannedRenameOperation operation, string reason)
+        {
+            if (operation.Pair != null) pairErrors.TryAdd(operation.Pair, reason);
+            else globalError ??= reason;
+        }
+
+        foreach (var group in operations.GroupBy(x => x.SourcePath, StringComparer.OrdinalIgnoreCase).Where(x => x.Count() > 1))
+            foreach (var operation in group) Mark(operation, "satu file sumber dipakai lebih dari sekali");
+        foreach (var group in operations.GroupBy(x => x.DestinationPath, StringComparer.OrdinalIgnoreCase).Where(x => x.Count() > 1))
+            foreach (var operation in group) Mark(operation, "beberapa file memiliki nama tujuan yang sama");
+        foreach (var operation in operations.Where(x => !File.Exists(x.SourcePath)))
+            Mark(operation, "file sumber tidak ditemukan");
+
+        while (true)
+        {
+            var previousIssueCount = pairErrors.Count + (globalError == null ? 0 : 1);
+            var active = operations.Where(x => x.Pair == null ? globalError == null : !pairErrors.ContainsKey(x.Pair)).ToList();
+            var activeSources = active.Select(x => x.SourcePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var operation in active)
+            {
+                if (string.Equals(operation.SourcePath, operation.DestinationPath, StringComparison.OrdinalIgnoreCase)) continue;
+                if ((File.Exists(operation.DestinationPath) || Directory.Exists(operation.DestinationPath)) && !activeSources.Contains(operation.DestinationPath))
+                    Mark(operation, "nama tujuan sudah digunakan oleh file yang tidak ikut dipindahkan");
+            }
+            if (pairErrors.Count + (globalError == null ? 0 : 1) == previousIssueCount) break;
+        }
+        return (pairErrors, globalError);
+    }
+
+    private List<PlannedRenameOperation> BuildRenameOperations(IReadOnlyList<AdvancedRenamePair> pairs)
+    {
+        var operations = new List<PlannedRenameOperation>();
+        var primarySources = pairs.Select(x => x.TargetPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in pairs)
+        {
+            var directory = Path.GetDirectoryName(pair.TargetPath);
+            if (string.IsNullOrWhiteSpace(directory)) throw new InvalidOperationException($"Folder target tidak valid: {pair.TargetName}");
+            var destination = Path.Combine(directory, pair.ResultName);
+            if (!string.Equals(pair.TargetPath, destination, StringComparison.OrdinalIgnoreCase))
+                operations.Add(new PlannedRenameOperation(pair, pair.TargetPath, destination));
+
+            if (!AdvancedRenameSiblings || string.Equals(Path.GetFileNameWithoutExtension(pair.TargetName), Path.GetFileNameWithoutExtension(pair.ResultName), StringComparison.OrdinalIgnoreCase)) continue;
+            var oldBase = Path.GetFileNameWithoutExtension(pair.TargetName);
+            var newBase = Path.GetFileNameWithoutExtension(pair.ResultName);
+            foreach (var sibling in Directory.EnumerateFiles(directory, oldBase + ".*", SearchOption.TopDirectoryOnly))
+            {
+                if (primarySources.Contains(sibling) || !string.Equals(Path.GetFileNameWithoutExtension(sibling), oldBase, StringComparison.OrdinalIgnoreCase)) continue;
+                var siblingDestination = Path.Combine(directory, newBase + Path.GetExtension(sibling));
+                if (!string.Equals(sibling, siblingDestination, StringComparison.OrdinalIgnoreCase))
+                    operations.Add(new PlannedRenameOperation(pair, sibling, siblingDestination));
+            }
+        }
+        return operations;
+    }
+
+    private static List<AdvancedRenameUndo> ExecuteTwoPhaseRename(IReadOnlyList<PlannedRenameOperation> operations)
+    {
+        var inspection = InspectRenamePlan(operations);
+        if (inspection.GlobalError != null || inspection.PairErrors.Count > 0)
+            throw new IOException(inspection.GlobalError ?? inspection.PairErrors.Values.First());
+
+        var staged = new List<(PlannedRenameOperation Operation, string TemporaryPath, bool Committed)>();
+        try
+        {
+            foreach (var operation in operations)
+            {
+                var directory = Path.GetDirectoryName(operation.SourcePath) ?? throw new IOException("Folder sumber tidak valid.");
+                string temporaryPath;
+                do { temporaryPath = Path.Combine(directory, $".bmachine-rename-{Guid.NewGuid():N}.tmp"); }
+                while (File.Exists(temporaryPath) || Directory.Exists(temporaryPath));
+                File.Move(operation.SourcePath, temporaryPath);
+                staged.Add((operation, temporaryPath, false));
+            }
+            for (var index = 0; index < staged.Count; index++)
+            {
+                var entry = staged[index];
+                if (File.Exists(entry.Operation.DestinationPath) || Directory.Exists(entry.Operation.DestinationPath))
+                    throw new IOException($"Tujuan muncul saat proses berjalan: {entry.Operation.DestinationPath}");
+                File.Move(entry.TemporaryPath, entry.Operation.DestinationPath);
+                staged[index] = (entry.Operation, entry.TemporaryPath, true);
+            }
+            return operations.Select(x => new AdvancedRenameUndo(x.SourcePath, x.DestinationPath)).ToList();
+        }
+        catch (Exception failure)
+        {
+            var rollbackErrors = new List<string>();
+            foreach (var entry in staged.AsEnumerable().Reverse())
+            {
+                var currentPath = entry.Committed ? entry.Operation.DestinationPath : entry.TemporaryPath;
+                try
+                {
+                    if (File.Exists(currentPath) && !File.Exists(entry.Operation.SourcePath) && !Directory.Exists(entry.Operation.SourcePath))
+                        File.Move(currentPath, entry.Operation.SourcePath);
+                    else if (File.Exists(currentPath))
+                        rollbackErrors.Add($"{currentPath} tetap ada karena {entry.Operation.SourcePath} sudah digunakan");
+                }
+                catch (Exception rollbackFailure) { rollbackErrors.Add($"{currentPath}: {rollbackFailure.Message}"); }
+            }
+            if (rollbackErrors.Count > 0)
+                throw new IOException($"Rename gagal ({failure.Message}); pemulihan sebagian gagal: {string.Join("; ", rollbackErrors)}", failure);
+            throw;
+        }
+    }
+
     [RelayCommand]
     private async Task ExecuteAdvancedRenameAsync()
-     {
-         if (AdvancedPairs.Count == 0 || IsProcessing) return;
- 
-         IsProcessing = true;
-         StatusText = "Memproses rename...";
- 
-         await Task.Run(() =>
-         {
-             try
-             {
-                int success = 0, skipped = 0, siblingRenamed = 0;
-                var undoBatch = new List<AdvancedRenameUndo>();
-                var toRemove = new List<AdvancedRenamePair>();
+    {
+        if (AdvancedPairs.Count == 0 || IsProcessing) return;
+        RefreshPairStatuses();
+        var reviewed = AdvancedPairs.Where(x => x.IsReviewed).ToList();
+        if (reviewed.Count == 0)
+        {
+            StatusText = "Belum ada pasangan yang ditinjau. Periksa gambar, koreksi usulan, lalu tandai pasangan yang sudah dicek.";
+            return;
+        }
+        var ready = reviewed.Where(x => x.Status == "Siap").ToList();
+        if (ready.Count == 0)
+        {
+            StatusText = "Tidak ada pasangan siap. Perbaiki konflik tujuan atau tandai pasangan yang sudah diverifikasi.";
+            return;
+        }
 
-                foreach (var pair in AdvancedPairs.ToList())
-                {
-                    if (pair.Status == "Konflik") { skipped++; continue; }
+        List<PlannedRenameOperation> operations;
+        try { operations = BuildRenameOperations(ready); }
+        catch (Exception ex) { StatusText = $"Rencana rename dibatalkan: {ex.Message}"; return; }
+        var inspection = InspectRenamePlan(operations);
+        foreach (var issue in inspection.PairErrors) issue.Key.Status = $"Konflik: {issue.Value}";
+        if (inspection.GlobalError != null)
+        {
+            StatusText = $"Rencana rename dibatalkan tanpa perubahan: {inspection.GlobalError}.";
+            return;
+        }
+        var blocked = inspection.PairErrors.Keys.ToHashSet();
+        ready = ready.Where(x => !blocked.Contains(x)).ToList();
+        operations = operations.Where(x => x.Pair == null || !blocked.Contains(x.Pair)).ToList();
+        if (operations.Count == 0)
+        {
+            StatusText = "Tidak ada perubahan yang perlu diterapkan; semua pasangan yang dipilih sudah sama atau mengalami konflik.";
+            return;
+        }
 
-                    var dest = Path.Combine(Path.GetDirectoryName(pair.TargetPath)!, pair.ResultName);
-                    if (File.Exists(dest) && !string.Equals(pair.ResultName, pair.TargetName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        pair.Status = "Konflik";
-                        skipped++;
-                        continue;
-                    }
-
-                    try
-                    {
-                        File.Move(pair.TargetPath, dest);
-                        undoBatch.Add(new AdvancedRenameUndo(pair.TargetPath, dest));
-                        pair.Status = "Selesai";
-                        toRemove.Add(pair);
-                        success++;
-
-                        if (AdvancedRenameSiblings)
-                        {
-                            var dir = Path.GetDirectoryName(pair.TargetPath);
-                            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
-                            {
-                                var oldBase = Path.GetFileNameWithoutExtension(pair.TargetName);
-                                var newBase = Path.GetFileNameWithoutExtension(pair.ResultName);
-                                try
-                                {
-                                    var siblings = Directory.EnumerateFiles(dir, oldBase + ".*", SearchOption.TopDirectoryOnly)
-                                        .Where(f => !string.Equals(f, dest, StringComparison.OrdinalIgnoreCase))
-                                        .ToList();
-
-                                    foreach (var sib in siblings)
-                                    {
-                                        if (string.Equals(Path.GetFileNameWithoutExtension(sib), oldBase, StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            var sibExt = Path.GetExtension(sib);
-                                            var newSibPath = Path.Combine(dir, newBase + sibExt);
-                                            if (!File.Exists(newSibPath) && !string.Equals(sib, newSibPath, StringComparison.OrdinalIgnoreCase))
-                                            {
-                                                File.Move(sib, newSibPath);
-                                                undoBatch.Add(new AdvancedRenameUndo(sib, newSibPath));
-                                                siblingRenamed++;
-                                            }
-                                        }
-                                    }
-                                }
-                                catch { }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        pair.Status = $"Error: {ex.Message}";
-                        skipped++;
-                    }
-                }
-
-                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    foreach (var p in toRemove) AdvancedPairs.Remove(p);
-                    if (undoBatch.Count > 0)
-                    {
-                        _undoStack.Push(undoBatch);
-                        UndoLabel = $"Batalkan rename ({undoBatch.Count} file)";
-                        OnPropertyChanged(nameof(CanUndo));
-                    }
-                    var sibMsg = siblingRenamed > 0 ? $" ({siblingRenamed} file kembar ikut direname)" : "";
-                    StatusText = $"Selesai: {success} berhasil{sibMsg}, {skipped} dilewati";
-                });
-            }
-            catch (Exception ex)
-            {
-                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => StatusText = $"Error: {ex.Message}");
-            }
-        });
-        IsProcessing = false;
+        IsProcessing = true;
+        StatusText = $"Menerapkan {ready.Count} pasangan yang sudah ditinjau secara aman...";
+        try
+        {
+            var undoBatch = await Task.Run(() => ExecuteTwoPhaseRename(operations));
+            foreach (var pair in ready) AdvancedPairs.Remove(pair);
+            _undoStack.Push(undoBatch);
+            UndoLabel = $"Batalkan rename ({undoBatch.Count} file)";
+            OnPropertyChanged(nameof(CanUndo));
+            ReloadAdvancedFiles();
+            RefreshPendingTargetChoices();
+            RefreshPairStatuses();
+            var notReviewed = AdvancedPairs.Count(x => !x.IsReviewed);
+            var remainingConflicts = AdvancedPairs.Count(x => x.Status.StartsWith("Konflik", StringComparison.Ordinal));
+            var sidecars = Math.Max(0, undoBatch.Count - ready.Count);
+            var extra = sidecars > 0 ? $", termasuk {sidecars} file pendamping" : "";
+            StatusText = $"Selesai: {ready.Count} pasangan diubah{extra}; {notReviewed} belum ditinjau, {remainingConflicts} konflik tersisa. Undo tersedia.";
+        }
+        catch (Exception ex)
+        {
+            foreach (var pair in ready) pair.Status = "Konflik: transaksi dibatalkan";
+            StatusText = $"Rename dibatalkan tanpa overwrite. Periksa sumber/tujuan dan coba lagi: {ex.Message}";
+            RefreshPairStatuses();
+        }
+        finally { IsProcessing = false; }
     }
 
     [RelayCommand]
     private async Task UndoAdvancedRenameAsync()
     {
         if (_undoStack.Count == 0 || IsProcessing) return;
-        var batch = _undoStack.Pop();
+        var batch = _undoStack.Peek();
         IsProcessing = true;
         StatusText = "Membatalkan rename...";
-        await Task.Run(() =>
+        try
         {
-            int ok = 0, fail = 0;
-            foreach (var u in batch)
-            {
-                try
-                {
-                    if (File.Exists(u.NewPath) && !File.Exists(u.OldPath))
-                    {
-                        File.Move(u.NewPath, u.OldPath);
-                        ok++;
-                    }
-                }
-                catch { fail++; }
-            }
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                UndoLabel = _undoStack.Count > 0 ? $"Batalkan rename ({_undoStack.Peek().Count} file)" : "";
-                OnPropertyChanged(nameof(CanUndo));
-                StatusText = $"Undo selesai: {ok} dikembalikan, {fail} gagal";
-                ReloadAdvancedFiles();
-            });
-        });
-        IsProcessing = false;
+            var operations = batch.Select(x => new PlannedRenameOperation(null, x.NewPath, x.OldPath)).ToList();
+            await Task.Run(() => ExecuteTwoPhaseRename(operations));
+            _undoStack.Pop();
+            UndoLabel = _undoStack.Count > 0 ? $"Batalkan rename ({_undoStack.Peek().Count} file)" : "";
+            OnPropertyChanged(nameof(CanUndo));
+            StatusText = $"Undo selesai: {batch.Count} file dikembalikan.";
+            ReloadAdvancedFiles();
+            RefreshPendingTargetChoices();
+            RefreshPairStatuses();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Undo dibatalkan tanpa overwrite. File mungkin telah berubah sejak rename: {ex.Message}";
+        }
+        finally { IsProcessing = false; }
     }
 
     [RelayCommand] private void ToggleAdvancedMode() => IsAdvancedMode = !IsAdvancedMode;
