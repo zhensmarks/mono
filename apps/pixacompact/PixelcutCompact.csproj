@@ -48,6 +48,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\shared\BMachine.Shared.BugReporter\BMachine.Shared.BugReporter.csproj" />
+    <InternalsVisibleTo Include="PixelcutCompact.Editing.Tests" />
   </ItemGroup>
 
   <ItemGroup>

@@ -21,8 +21,9 @@ class Program
         {
             try
             {
-                var ex = e.ExceptionObject as Exception;
-                System.IO.File.WriteAllText("crash.log", ex?.ToString() ?? "unknown");
+                var ex = e.ExceptionObject as Exception
+                    ?? new Exception($"Unhandled exception object: {e.ExceptionObject?.ToString() ?? "unknown"}");
+                System.IO.File.WriteAllText("crash.log", ex.ToString());
                 _bug.ReportCrash(ex, appVersion: ThisVersion(), context: "unhandled");
             }
             catch { }

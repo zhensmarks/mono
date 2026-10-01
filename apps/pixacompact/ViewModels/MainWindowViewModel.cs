@@ -1292,6 +1292,9 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 Dispatcher.UIThread.Post(() =>
                 {
+                    var files = Files;
+                    if (files == null) return;
+
                     int skipped = 0;
 
                     // BUG FIX: urutkan per prioritas ekstensi supaya pemilik nama output
@@ -1302,7 +1305,7 @@ public partial class MainWindowViewModel : ObservableObject
 
                     // Kumpulkan nama output yang sudah dipakai item yang ada di tab ini.
                     var takenOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var existing in Files)
+                    foreach (var existing in files)
                     {
                         takenOutputs.Add(string.IsNullOrEmpty(existing.ExpectedResultPath)
                             ? GetOutputPath(existing.FilePath)
@@ -1311,7 +1314,7 @@ public partial class MainWindowViewModel : ObservableObject
 
                     foreach (var p in ordered)
                     {
-                        if (Files.Any(f => f.FilePath == p))
+                        if (files.Any(f => f.FilePath == p))
                         {
                             skipped++;
                             continue;
@@ -1327,9 +1330,9 @@ public partial class MainWindowViewModel : ObservableObject
                             AppendLog($"Nama output dibuat unik: {Path.GetFileName(output)} untuk {Path.GetFileName(p)} (ada nama file sama di folder itu).");
                         }
 
-                        Files.Add(new PixelcutFileItem(p) { ExpectedResultPath = output });
+                        files.Add(new PixelcutFileItem(p) { ExpectedResultPath = output });
                     }
-                    SortFilesByName();
+                    SortFilesByName(files);
 
                     if (skipped > 0)
                     {
@@ -1364,17 +1367,17 @@ public partial class MainWindowViewModel : ObservableObject
         return Path.Combine(dir, $"{name}_{ext}.png");
     }
 
-    private void SortFilesByName()
+    private void SortFilesByName(ObservableCollection<PixelcutFileItem> files)
     {
         try
         {
-            var sorted = Files.OrderBy(x => x.FileName, new NaturalStringComparer()).ToList();
+            var sorted = files.OrderBy(x => x.FileName, new NaturalStringComparer()).ToList();
             for (int i = 0; i < sorted.Count; i++)
             {
-                var oldIdx = Files.IndexOf(sorted[i]);
+                var oldIdx = files.IndexOf(sorted[i]);
                 if (oldIdx != i)
                 {
-                    Files.Move(oldIdx, i);
+                    files.Move(oldIdx, i);
                 }
             }
         }
@@ -1433,7 +1436,9 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void RemoveFile(PixelcutFileItem item)
     {
-        Files.Remove(item);
+        var files = Files;
+        if (files == null) return;
+        files.Remove(item);
         UpdateForwarders();
     }
 
@@ -1451,14 +1456,16 @@ public partial class MainWindowViewModel : ObservableObject
     public void SelectRange(PixelcutFileItem item)
     {
         if (IsProcessing) return;
-        if (_lastSelectedItem == null || !Files.Contains(_lastSelectedItem))
+        var files = Files;
+        if (files == null) return;
+        if (_lastSelectedItem == null || !files.Contains(_lastSelectedItem))
         {
             ToggleSelection(item);
             return;
         }
 
-        var idx1 = Files.IndexOf(_lastSelectedItem);
-        var idx2 = Files.IndexOf(item);
+        var idx1 = files.IndexOf(_lastSelectedItem);
+        var idx2 = files.IndexOf(item);
 
         var start = Math.Min(idx1, idx2);
         var end = Math.Max(idx1, idx2);
@@ -1469,7 +1476,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         for (int i = start; i <= end; i++)
         {
-            Files[i].IsSelected = true;
+            files[i].IsSelected = true;
         }
 
         _lastSelectedItem = item;
@@ -1480,17 +1487,20 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (IsProcessing) return;
 
-        var selected = Files.Where(x => x.IsSelected).ToList();
+        var files = Files;
+        if (files == null) return;
+
+        var selected = files.Where(x => x.IsSelected).ToList();
         if (selected.Count > 0)
         {
             foreach (var item in selected)
             {
-                Files.Remove(item);
+                files.Remove(item);
             }
         }
         else
         {
-            Files.Clear();
+            files.Clear();
         }
 
         UpdateForwarders();
@@ -1536,7 +1546,9 @@ public partial class MainWindowViewModel : ObservableObject
     private async Task RetrySmallFiles()
     {
         if (IsProcessing) return;
-        var toRetry = Files.Where(x => x.IsFailed || (x.IsDone && x.ResultSize > 0 && x.ResultSize < 100)).ToList();
+        var files = Files;
+        if (files == null) return;
+        var toRetry = files.Where(x => x.IsFailed || (x.IsDone && x.ResultSize > 0 && x.ResultSize < 100)).ToList();
 
         if (toRetry.Count == 0) return;
 
@@ -2414,7 +2426,14 @@ public partial class MainWindowViewModel : ObservableObject
     private async Task OpenSelectedInPhotoshop()
     {
         // Find ALL selected items with result
-        var selectedItems = Files.Where(f => f.IsSelected && f.HasResult && File.Exists(f.ResultPath)).ToList();
+        var files = Files;
+        if (files == null)
+        {
+            AlertMessage = "Tidak ada item dipilih dengan hasil.";
+            IsAlertOpen = true;
+            return;
+        }
+        var selectedItems = files.Where(f => f.IsSelected && f.HasResult && File.Exists(f.ResultPath)).ToList();
         if (selectedItems.Count == 0)
         {
             AlertMessage = "Tidak ada item dipilih dengan hasil.";
@@ -2518,17 +2537,19 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnNextPreview(object? sender, EventArgs e)
     {
-        if (_currentPreviewItem == null) return;
-        var oldItem = _currentPreviewItem;
-        var idx = Files.IndexOf(_currentPreviewItem);
-        if (idx >= 0 && idx < Files.Count - 1)
+        var files = Files;
+        var currentItem = _currentPreviewItem;
+        if (currentItem == null || files == null) return;
+        var oldItem = currentItem;
+        var idx = files.IndexOf(currentItem);
+        if (idx >= 0 && idx < files.Count - 1)
         {
             // Find next item with result
-            for (int i = idx + 1; i < Files.Count; i++)
+            for (int i = idx + 1; i < files.Count; i++)
             {
-                if (Files[i].HasResult)
+                if (files[i].HasResult)
                 {
-                    PreviewItem(Files[i]);
+                    PreviewItem(files[i]);
                     RefreshItemThumbnails(oldItem);
                     return;
                 }
@@ -2538,17 +2559,19 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnPreviousPreview(object? sender, EventArgs e)
     {
-        if (_currentPreviewItem == null) return;
-        var oldItem = _currentPreviewItem;
-        var idx = Files.IndexOf(_currentPreviewItem);
+        var files = Files;
+        var currentItem = _currentPreviewItem;
+        if (currentItem == null || files == null) return;
+        var oldItem = currentItem;
+        var idx = files.IndexOf(currentItem);
         if (idx > 0)
         {
             // Find prev item with result
             for (int i = idx - 1; i >= 0; i--)
             {
-                if (Files[i].HasResult)
+                if (files[i].HasResult)
                 {
-                    PreviewItem(Files[i]);
+                    PreviewItem(files[i]);
                     RefreshItemThumbnails(oldItem);
                     return;
                 }

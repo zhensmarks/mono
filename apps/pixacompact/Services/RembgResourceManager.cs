@@ -125,9 +125,10 @@ public class RembgResourceManager
         }
     }
 
-    private async Task<bool> RunProcessAsync(string fileName, string args, string cwd, Action<string>? onOutput, CancellationToken ct)
+    internal static async Task<bool> RunProcessAsync(string fileName, string args, string cwd, Action<string>? onOutput, CancellationToken ct)
     {
-        var tcs = new TaskCompletionSource<bool>();
+        ct.ThrowIfCancellationRequested();
+
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -139,33 +140,72 @@ public class RembgResourceManager
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
-            },
-            EnableRaisingEvents = true
+            }
         };
 
-        process.OutputDataReceived += (s, e) => {
-            if (!string.IsNullOrWhiteSpace(e.Data)) onOutput?.Invoke(e.Data);
-        };
-        process.ErrorDataReceived += (s, e) => {
-            if (!string.IsNullOrWhiteSpace(e.Data)) onOutput?.Invoke(e.Data);
-        };
+        Exception? outputCallbackException = null;
+        var callbackExceptionLock = new object();
+        void ForwardOutput(object? sender, DataReceivedEventArgs eventArgs)
+        {
+            if (string.IsNullOrWhiteSpace(eventArgs.Data) || onOutput == null) return;
+            try
+            {
+                onOutput(eventArgs.Data);
+            }
+            catch (Exception ex)
+            {
+                // Keep draining both redirected streams even if a UI/progress callback fails.
+                lock (callbackExceptionLock)
+                {
+                    outputCallbackException ??= ex;
+                }
+            }
+        }
 
-        process.Exited += (s, e) => {
-            if (process.ExitCode == 0) tcs.TrySetResult(true);
-            else tcs.TrySetException(new Exception($"Command failed (Exit: {process.ExitCode}): {fileName} {args}"));
-        };
-
-        ct.Register(() => {
-            try { process.Kill(); } catch { }
-            tcs.TrySetCanceled();
-        });
+        process.OutputDataReceived += ForwardOutput;
+        process.ErrorDataReceived += ForwardOutput;
 
         process.Start();
-        await tcs.Task;
-        return true;
+        process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        
-        await tcs.Task;
+
+        try
+        {
+            // WaitForExitAsync waits for the process and the redirected output readers to finish.
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // The process may exit between HasExited and Kill.
+            }
+
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Command failed (Exit: {process.ExitCode}): {fileName} {args}");
+        }
+
+        lock (callbackExceptionLock)
+        {
+            if (outputCallbackException != null)
+            {
+                throw new InvalidOperationException("A process output callback failed.", outputCallbackException);
+            }
+        }
+
+        return true;
     }
 
     public void Uninstall()
