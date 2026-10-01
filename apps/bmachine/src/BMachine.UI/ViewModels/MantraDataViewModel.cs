@@ -333,6 +333,7 @@ public partial class MantraDataViewModel : ObservableObject
 
     // Multi-sheet support
     private List<SheetResult> _allSheets = new();
+    private int _activeSheetIndex = -1;
     [ObservableProperty] private ObservableCollection<string> _sheetNames = new();
     [ObservableProperty] private int _currentSheetIndex = -1;
 
@@ -517,6 +518,18 @@ public partial class MantraDataViewModel : ObservableObject
     public void SwitchToSheet(int index)
     {
         if (index < 0 || index >= _allSheets.Count) return;
+        if (index == _activeSheetIndex) return;
+
+        if (_activeSheetIndex >= 0 && _activeSheetIndex < _allSheets.Count)
+        {
+            var previous = _allSheets[_activeSheetIndex];
+            _allSheets[_activeSheetIndex] = previous with
+            {
+                Columns = Columns.ToList(),
+                Rows = Rows.Select(CloneSheetRow).ToList()
+            };
+        }
+
         var target = _allSheets[index];
 
         PushUndo();
@@ -525,7 +538,8 @@ public partial class MantraDataViewModel : ObservableObject
         foreach (var c in target.Columns) Columns.Add(c);
 
         // RangeObservableCollection: Bulk replace (single notification)
-        Rows.ReplaceAll(target.Rows);
+        Rows.ReplaceAll(target.Rows.Select(CloneSheetRow));
+        _activeSheetIndex = index;
 
         TotalRows = Rows.Count; HasData = Rows.Count > 0;
         StatusMessage = "Menampilkan sheet: " + target.Name + " (" + TotalRows + " baris)";
@@ -551,6 +565,30 @@ public partial class MantraDataViewModel : ObservableObject
         CurrentSheetIndex = (CurrentSheetIndex - 1 + SheetNames.Count) % SheetNames.Count;
     }
 
+    private static TableDataRow CloneSheetRow(TableDataRow source) => new()
+    {
+        RowNumber = source.RowNumber,
+        IsSelected = source.IsSelected,
+        TagColor = source.TagColor,
+        MatchedPhoto = source.MatchedPhoto,
+        MatchScore = source.MatchScore,
+        IsPhotoMatched = source.IsPhotoMatched,
+        MatchStatus = source.MatchStatus,
+        MatchNote = source.MatchNote,
+        MatchCandidate = source.MatchCandidate,
+        IsForced = source.IsForced,
+        Status = source.Status,
+        Note = source.Note,
+        MatchReason = source.MatchReason,
+        Confidence = source.Confidence,
+        SourceRowId = source.SourceRowId,
+        RawName = source.RawName,
+        CleanName = source.CleanName,
+        Decision = source.Decision,
+        NeedsConfirmation = source.NeedsConfirmation,
+        Values = new Dictionary<string, string>(source.Values)
+    };
+
     public async Task LoadFileByPathAsync(string path)
     {
         if (!File.Exists(path)) return;
@@ -561,66 +599,86 @@ public partial class MantraDataViewModel : ObservableObject
 
         try
         {
-            await Task.Run(() =>
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            var parsed = await Task.Run(() =>
             {
-                var ext = Path.GetExtension(path).ToLowerInvariant();
-                List<string> cols;
-                List<TableDataRow> dataRows;
+                if (ext == ".docx") return _wordService.LoadWordDocx(path);
+                if (ext is ".csv" or ".tsv" or ".txt") return _excelService.LoadDelimited(path);
+                return _excelService.LoadExcel(path);
+            });
 
-                if (ext == ".docx")
+            bool choseHeaderForUnrecognizedSheets = false;
+            var uncertainSheets = ext == ".docx"
+                ? new List<SheetResult>()
+                : _excelService.GetAllSheets().Where(sheet => sheet.NeedsHeaderChoice).ToList();
+            if (uncertainSheets.Count > 0 && RequestConfirmFunc != null)
+            {
+                var examples = string.Join("\n", uncertainSheets.Take(4).Select(sheet =>
                 {
-                    (cols, dataRows) = _wordService.LoadWordDocx(path);
+                    var first = sheet.SourceMatrix?.FirstOrDefault(row => row.Any(v => v != null && !string.IsNullOrWhiteSpace(v.ToString())));
+                    var preview = first == null ? "" : string.Join(" | ", first.Take(5).Select(v => v?.ToString() ?? ""));
+                    return $"• {sheet.Name}: {preview}";
+                }));
+                var decision = await RequestConfirmFunc(
+                    "Header belum dapat dipastikan",
+                    $"Header yang dapat dikenali tidak ditemukan pada sheet berikut:\n{examples}\n\nYa: gunakan baris pertama berisi sebagai header (baris tersebut tidak menjadi data).\nTidak: pilihan aman—pertahankan semua baris sebagai data dengan nama kolom generik.");
+                if (decision)
+                {
+                    choseHeaderForUnrecognizedSheets = true;
+                    _excelService.UseFirstNonEmptyRowAsHeaderForUnrecognizedSheets();
                 }
-                else if (ext is ".csv" or ".tsv" or ".txt")
+            }
+
+            PushUndo();
+            ColumnFormulas.Clear();
+            CurrentFilePath = path;
+            _activeSheetIndex = -1;
+            if (ext == ".docx")
+            {
+                _allSheets = new List<SheetResult>();
+                SheetNames = new ObservableCollection<string>();
+                CurrentSheetIndex = -1;
+                Columns.Clear();
+                foreach (var column in parsed.Columns) Columns.Add(column);
+                _isBulkLoadingRows = true;
+                Rows.ReplaceAll(parsed.Rows);
+                _isBulkLoadingRows = false;
+            }
+            else
+            {
+                _allSheets = _excelService.GetAllSheets()
+                    .GroupBy(sheet => sheet.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.First())
+                    .ToList();
+                SheetNames = new ObservableCollection<string>(_allSheets.Select(sheet => sheet.Name));
+                CurrentSheetIndex = -1;
+                if (SheetNames.Count > 0)
                 {
-                    (cols, dataRows) = _excelService.LoadDelimited(path);
+                    CurrentSheetIndex = 0;
+                    if (_activeSheetIndex != 0) SwitchToSheet(0);
                 }
                 else
                 {
-                    (cols, dataRows) = _excelService.LoadExcel(path);
-                }
-
-                Dispatcher.UIThread.Post(() =>
-                {
-                    PushUndo();
-                    ColumnFormulas.Clear();
                     Columns.Clear();
-                    foreach (var c in cols) Columns.Add(c);
+                    Rows.Clear();
+                }
+            }
 
-                    _isBulkLoadingRows = true;
-                    
-                    // RangeObservableCollection: Bulk replace (single notification)
-                    Rows.ReplaceAll(dataRows);
-                    
-                    _isBulkLoadingRows = false;
+            TotalRows = Rows.Count;
+            HasData = Rows.Count > 0;
+            var reviewCount = _allSheets.Count(sheet => sheet.NeedsHeaderChoice);
+            StatusMessage = $"Berhasil memuat {TotalRows} baris dari {Path.GetFileName(path)}";
+            if (reviewCount > 0)
+                StatusMessage += $". Header belum dikenali pada {reviewCount} sheet; semua baris dipertahankan dengan kolom generik—periksa atau ganti nama kolom.";
+            else if (choseHeaderForUnrecognizedSheets)
+                StatusMessage += ". Baris pertama digunakan sebagai header sesuai pilihan.";
+            if (_allSheets.Any(sheet => sheet.Columns.Any(column => column.StartsWith("Catatan Impor", StringComparison.OrdinalIgnoreCase))))
+                StatusMessage += " Teks sebelum header disimpan di kolom Catatan Impor.";
+            RefreshFilteredRows();
+            RefreshPhotoStatusCounts();
 
-                    CurrentFilePath = path;
-                    TotalRows = Rows.Count; HasData = Rows.Count > 0;
-                    if (ext == ".docx")
-                    {
-                        _allSheets = new List<SheetResult>();
-                        SheetNames = new ObservableCollection<string>();
-                        CurrentSheetIndex = -1;
-                    }
-                    else
-                    {
-                        _allSheets = _excelService.GetAllSheets()
-                            .GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                            .Select(g => g.First())
-                            .ToList();
-                        SheetNames = new ObservableCollection<string>(_allSheets.Select(s => s.Name));
-                        CurrentSheetIndex = SheetNames.Count > 0 ? 0 : -1;
-                    }
-                    StatusMessage = $"Berhasil memuat {TotalRows} baris dari {Path.GetFileName(path)}";
-                    RefreshFilteredRows();
-                    RefreshPhotoStatusCounts();
-
-                    if (!string.IsNullOrWhiteSpace(PhotoFolderPath) && Directory.Exists(PhotoFolderPath))
-                    {
-                        _ = AutoMatchPhotosAsync();
-                    }
-                });
-            });
+            if (!string.IsNullOrWhiteSpace(PhotoFolderPath) && Directory.Exists(PhotoFolderPath))
+                _ = AutoMatchPhotosAsync();
         }
         catch (Exception ex)
         {
@@ -739,11 +797,17 @@ public partial class MantraDataViewModel : ObservableObject
         }
 
         PushUndo();
+        string mappingWarning = string.Empty;
         _skipUndo = true;
         try
         {
             if (Columns.Count > 0)
+            {
                 ApplyJobLayout();
+                if (StatusMessage.Contains("sumber dengan nilai bertentangan", StringComparison.OrdinalIgnoreCase) ||
+                    StatusMessage.Contains("Header gabungan", StringComparison.OrdinalIgnoreCase))
+                    mappingWarning = StatusMessage;
+            }
 
             foreach (var row in Rows)
             {
@@ -776,12 +840,53 @@ public partial class MantraDataViewModel : ObservableObject
             _skipUndo = false;
         }
 
-        StatusMessage = $"Seluruh data dirapikan untuk {DataJobKindInfo.Label(JobKind)}.";
+        StatusMessage = $"Seluruh data dirapikan untuk {DataJobKindInfo.Label(JobKind)}." +
+            (mappingWarning.Length > 0 ? $" {mappingWarning}" : string.Empty);
         RefreshFilteredRows();
     }
 
     private string? FindCanonical(string canonical) =>
         Columns.FirstOrDefault(c => YearbookLayoutService.CanonicalName(c) == canonical);
+
+    public QuickTransformResult ExpandGenderLabelsColumn(string targetColumn) =>
+        ApplyQuickTransform(targetColumn, QuickTransformService.NormalizeGenderValue, "Jenis kelamin");
+
+    public QuickTransformResult FormatIndonesianDateColumn(string targetColumn) =>
+        ApplyQuickTransform(targetColumn, QuickTransformService.FormatIndonesianDateValue, "Tanggal Indonesia");
+
+    private QuickTransformResult ApplyQuickTransform(
+        string targetColumn,
+        Func<string?, string?> transform,
+        string label)
+    {
+        if (string.IsNullOrWhiteSpace(targetColumn) || !Columns.Contains(targetColumn))
+        {
+            StatusMessage = "Pilih kolom tujuan transformasi terlebih dahulu.";
+            return new QuickTransformResult(0, 0);
+        }
+
+        var updates = new List<(TableDataRow Row, string Value)>();
+        var skipped = 0;
+        foreach (var row in Rows)
+        {
+            var original = row[targetColumn];
+            var converted = transform(original);
+            if (converted != null && !string.Equals(original, converted, StringComparison.Ordinal))
+                updates.Add((row, converted));
+            else
+                skipped++;
+        }
+
+        if (updates.Count > 0)
+        {
+            PushUndo();
+            foreach (var (row, value) in updates)
+                row[targetColumn] = value;
+        }
+
+        StatusMessage = $"{label} ({targetColumn}): {updates.Count} diubah, {skipped} dilewati (kosong/tidak cocok).";
+        return new QuickTransformResult(updates.Count, skipped);
+    }
 
     public void ApplyDateFormat(IEnumerable<TableDataRow> selectedRows, string targetColumn, string formatType = "Full")
     {
@@ -1912,6 +2017,7 @@ public partial class MantraDataViewModel : ObservableObject
         Columns.Clear();
         ColumnFormulas.Clear();
         _allSheets.Clear();
+        _activeSheetIndex = -1;
         SheetNames.Clear();
         CurrentSheetIndex = -1;
         CurrentFilePath = string.Empty;
@@ -2111,15 +2217,61 @@ public partial class MantraDataViewModel : ObservableObject
         var target = YearbookLayoutService.ColumnsFor(JobKind).ToList();
 
         var renameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var mergeMap = new List<(string Source, string Target)>();
         foreach (var col in Columns.ToList())
         {
-            var canon = YearbookLayoutService.CanonicalName(col);
-            if (canon != null && canon != col && !Columns.Contains(canon) && !renameMap.ContainsValue(canon))
+            var canon = YearbookLayoutService.CanonicalNameForJob(col, JobKind);
+            if (canon == null || string.Equals(canon, col, StringComparison.Ordinal)) continue;
+
+            var existingTarget = Columns.FirstOrDefault(name => string.Equals(name, canon, StringComparison.OrdinalIgnoreCase));
+            bool targetWillBeRenamed = renameMap.Values.Contains(canon, StringComparer.OrdinalIgnoreCase);
+            bool ambiguousIdentifier = YearbookLayoutService.IsAmbiguousIdentifierHeader(col);
+            bool sameColumnIgnoringCase = string.Equals(existingTarget, col, StringComparison.Ordinal);
+            if (sameColumnIgnoringCase && !ambiguousIdentifier)
                 renameMap[col] = canon;
+            else if (existingTarget == null && !targetWillBeRenamed && !ambiguousIdentifier)
+                renameMap[col] = canon;
+            else
+                mergeMap.Add((col, canon));
         }
 
         foreach (var kv in renameMap)
             RenameColumnInternal(kv.Key, kv.Value);
+
+        var conflictingSources = new List<string>();
+        var retainedAmbiguousSources = new List<string>();
+        foreach (var (source, targetName) in mergeMap)
+        {
+            if (!Columns.Contains(source)) continue;
+            bool ambiguousIdentifier = YearbookLayoutService.IsAmbiguousIdentifierHeader(source);
+            var destination = Columns.FirstOrDefault(name => string.Equals(name, targetName, StringComparison.OrdinalIgnoreCase));
+            if (destination == null)
+            {
+                if (!ambiguousIdentifier)
+                {
+                    RenameColumnInternal(source, targetName);
+                    continue;
+                }
+                InsertColumnInternal(targetName, Columns.Count);
+                destination = targetName;
+            }
+
+            bool canMerge = Rows.All(row => string.IsNullOrWhiteSpace(row[destination]) ||
+                string.IsNullOrWhiteSpace(row[source]) || string.Equals(row[destination], row[source], StringComparison.Ordinal));
+            if (!canMerge)
+            {
+                conflictingSources.Add(source);
+                continue;
+            }
+
+            foreach (var row in Rows)
+                if (string.IsNullOrWhiteSpace(row[destination]) && !string.IsNullOrWhiteSpace(row[source]))
+                    row[destination] = row[source];
+            if (ambiguousIdentifier)
+                retainedAmbiguousSources.Add(source);
+            else
+                DeleteColumnInternal(source);
+        }
 
         foreach (var name in target)
         {
@@ -2128,7 +2280,13 @@ public partial class MantraDataViewModel : ObservableObject
         }
 
         ReorderColumns(target);
-        StatusMessage = $"Susunan kolom: {DataJobKindInfo.Label(JobKind)}.";
+        var mappingNotes = new List<string>();
+        if (conflictingSources.Count > 0)
+            mappingNotes.Add($"Sumber dengan nilai bertentangan dipertahankan: {string.Join(", ", conflictingSources)}.");
+        if (retainedAmbiguousSources.Count > 0)
+            mappingNotes.Add($"Header gabungan disalin ke kolom keluaran tetapi sumber asli tetap dipertahankan; periksa apakah ID adalah NISN atau NIP: {string.Join(", ", retainedAmbiguousSources)}.");
+        StatusMessage = $"Susunan kolom: {DataJobKindInfo.Label(JobKind)}." +
+            (mappingNotes.Count > 0 ? " " + string.Join(" ", mappingNotes) : string.Empty);
         RefreshFilteredRows();
     }
 
@@ -2200,6 +2358,10 @@ public partial class MantraDataViewModel : ObservableObject
         }
 
         PushUndo();
+        _allSheets.Clear();
+        _activeSheetIndex = -1;
+        SheetNames.Clear();
+        CurrentSheetIndex = -1;
         Columns.Clear();
         Rows.Clear();
         ColumnFormulas.Clear();
@@ -2315,6 +2477,3 @@ public partial class MantraDataViewModel : ObservableObject
         }
     }
 }
-
-
-

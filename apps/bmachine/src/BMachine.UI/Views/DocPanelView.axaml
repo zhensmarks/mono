@@ -172,7 +172,7 @@
         <!-- ========================================== -->
         <!-- 2. FLOATING LAYOUT (Minimalist Hover)      -->
         <!-- ========================================== -->
-        <Grid IsVisible="{Binding BatchVM.IsDocFloating}" RowDefinitions="*, Auto" Margin="14">
+        <Grid IsVisible="{Binding BatchVM.IsDocFloating}" RowDefinitions="*" Margin="14">
             
             <!-- Logo + Text Content Row -->
             <Grid Grid.Row="0">
@@ -293,32 +293,6 @@
                         </StackPanel>
                     </Grid>
                 </Grid>
-            </Grid>
-
-            <!-- Bottom Action Bar (Row 1) -->
-            <Grid Grid.Row="1" Margin="0,16,0,0">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Button Command="{Binding BatchVM.ResetDocCommand}" ToolTip.Tip="Reset Semua (Nama, Alamat, Logo)"
-                            Background="#B54845" BorderThickness="0" Padding="6" CornerRadius="4" Cursor="Hand">
-                        <PathIcon Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" Width="12" Height="12" Foreground="White"/>
-                    </Button>
-                    <Button Click="OnOpenDocSettingsClick" ToolTip.Tip="Pengaturan Teks DOC (Nama &amp; Alamat yang dicari)"
-                            Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Padding="6" CornerRadius="4" Cursor="Hand" Margin="8,0,0,0">
-                        <PathIcon Data="{StaticResource IconSettings}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </Button>
-                </StackPanel>
-                
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                    <Button Command="{Binding BatchVM.ToggleSecondLogoCommand}" ToolTip.Tip="Tambah / Hapus Logo Alternatif"
-                            Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
-                        <PathIcon Data="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
-                    </Button>
-                    <!-- Close Floating Window Button -->
-                    <Button Command="{Binding BatchVM.ToggleDocFloatingCommand}" ToolTip.Tip="Tutup Jendela"
-                            Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
-                        <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </Button>
-                </StackPanel>
             </Grid>
 
         </Grid>

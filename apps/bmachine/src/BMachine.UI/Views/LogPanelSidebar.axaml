@@ -93,9 +93,8 @@
                     </EventTriggerBehavior>
                 </Interaction.Behaviors>
 
-                <!-- FOLDER: nama saja, chevron disediakan TreeViewItem.
-                     ROOT folder (path master beda) tampil BOLD + ikon berwarna
-                     sesuai pengaturan path; subfolder tetap normal. -->
+                <!-- FOLDER: chevron disediakan TreeViewItem; every directory is bold.
+                     Root-only color/icon remains controlled by the path settings. -->
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                             IsVisible="{Binding IsDirectory}">
                     <!-- Ikon root folder (hanya muncul untuk root) -->
@@ -111,7 +110,7 @@
 
                     <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
                                FontFamily="{DynamicResource FontPrimary}"
-                               FontWeight="{Binding IsRoot, Converter={StaticResource RootFontWeightConverter}}"
+                               FontWeight="{Binding IsDirectory, Converter={StaticResource RootFontWeightConverter}}"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
 
@@ -169,27 +168,61 @@
                     <Border Background="{DynamicResource CardBackgroundBrush}" 
                             CornerRadius="8" Padding="3"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
-                         <UniformGrid Rows="1">
-                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsConsoleVisible}" Click="OnConsoleTabClick" ToolTip.Tip="Log">
-                                  <TextBlock Text="LOG" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                             </RadioButton>
-                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsMasterVisible}" Click="OnMasterTabClick" ToolTip.Tip="Master">
-                                  <TextBlock Text="MASTER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                             </RadioButton>
-                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsVisible="False" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
-                                  <TextBlock Text="PS" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                             </RadioButton>
-                             <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsDocVisible}" IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
-                                  <TextBlock Text="DOC" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                             </RadioButton>
-                         </UniformGrid>
+                        <Panel>
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                <Grid MinWidth="144" HorizontalAlignment="Stretch" ColumnDefinitions="*,Auto,*,*,*">
+                                    <RadioButton Grid.Column="0" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0"
+                                                 IsChecked="{Binding IsExplorerPanelSelected}" IsVisible="{Binding IsOutputExplorerVisible}"
+                                                 Click="OnExplorerTabClick" ToolTip.Tip="Explorer">
+                                        <TextBlock Text="EXPLORER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </RadioButton>
+                                    <TextBlock Grid.Column="1" Text="|" FontSize="10" FontWeight="Normal" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center" IsVisible="{Binding IsOutputExplorerVisible}"/>
+                                    <RadioButton Grid.Column="2" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0" Click="OnConsoleTabClick" ToolTip.Tip="Log">
+                                        <RadioButton.IsChecked>
+                                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                <Binding Path="BatchVM.IsConsoleVisible"/>
+                                                <Binding Path="!IsExplorerPanelSelected"/>
+                                            </MultiBinding>
+                                        </RadioButton.IsChecked>
+                                        <TextBlock Text="LOG" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </RadioButton>
+                                    <RadioButton Grid.Column="3" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0" Click="OnMasterTabClick" ToolTip.Tip="Master">
+                                        <RadioButton.IsChecked>
+                                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                <Binding Path="BatchVM.IsMasterVisible"/>
+                                                <Binding Path="!IsExplorerPanelSelected"/>
+                                            </MultiBinding>
+                                        </RadioButton.IsChecked>
+                                        <TextBlock Text="MASTER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </RadioButton>
+                                    <RadioButton Grid.Column="4" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0" Click="OnDocTabClick" ToolTip.Tip="DOC">
+                                        <RadioButton.IsChecked>
+                                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                <Binding Path="BatchVM.IsDocVisible"/>
+                                                <Binding Path="!IsExplorerPanelSelected"/>
+                                            </MultiBinding>
+                                        </RadioButton.IsChecked>
+                                        <TextBlock Text="DOC" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </RadioButton>
+                                </Grid>
+                            </ScrollViewer>
+                            <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsVisible="False" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
+                                <TextBlock Text="PS" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </RadioButton>
+                        </Panel>
                     </Border>
                     
                     <!-- Integrated Compact Search -->
-                    <Border IsVisible="{Binding BatchVM.IsSearchVisible}"
-                            Background="{DynamicResource CardBackgroundBrush}"
+                    <Border Background="{DynamicResource CardBackgroundBrush}"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                             CornerRadius="6" Height="26">
+                        <Border.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="BatchVM.IsSearchVisible"/>
+                                <Binding Path="!IsExplorerPanelSelected"/>
+                            </MultiBinding>
+                        </Border.IsVisible>
                         <TextBox FontSize="11"
                                  Watermark="Search..." Background="Transparent" BorderThickness="0"
                                  VerticalContentAlignment="Center" Padding="10,0,26,0"
@@ -205,6 +238,7 @@
             
             <!-- CONTENT (Row 1) -->
             <Grid Grid.Row="1">
+              <Grid IsVisible="{Binding !IsExplorerPanelSelected}">
                 
                 <!-- 1. CONSOLE VIEW -->
                 <Grid IsVisible="{Binding BatchVM.IsConsoleVisible}">
@@ -284,13 +318,42 @@
                 <Grid IsVisible="{Binding BatchVM.IsDocVisibleInline}" Margin="0,0,0,10">
                     <views:DocPanelView />
                 </Grid>
-                
+                <Border IsVisible="{Binding BatchVM.IsDocFloating}"
+                        Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                        CornerRadius="8" Margin="10" Padding="14"
+                        VerticalAlignment="Top">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Doc is open in a separate window."
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="The floating window remains connected to this Doc tab."
+                                   FontSize="11" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="secondary" Content="Bring to front"
+                                    Click="OnBringDocToFrontClick"/>
+                            <Button Classes="ghost" Content="Dock here"
+                                    Command="{Binding BatchVM.ToggleDocFloatingCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+              </Grid>
+              <views:OutputExplorerView DataContext="{Binding OutputExplorerVM}"
+                                        IsCompactHost="True"
+                                        IsVisible="{Binding DataContext.IsExplorerPanelSelected, ElementName=LogPanelDropZone, FallbackValue=False, TargetNullValue=False}"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             </Grid>
             
             <!-- FOOTER (Row 2) : Floating Minimalist Status Bar -->
             <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" Margin="10,2,10,10" Padding="10,4"
-                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" 
-                    IsVisible="{Binding BatchVM.IsStatusVisible}">
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6">
+                <Border.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="BatchVM.IsStatusVisible"/>
+                        <Binding Path="!IsExplorerPanelSelected"/>
+                    </MultiBinding>
+                </Border.IsVisible>
                 <Grid ColumnDefinitions="*, Auto">
                      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                          

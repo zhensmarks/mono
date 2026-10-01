@@ -29,9 +29,9 @@ public partial class BatchNodeItem : ObservableObject
 
     // Dummy item for lazy loading indicator
     private static readonly BatchNodeItem Dummy = new BatchNodeItem(true);
-    
+
     /// <summary>
-    /// Global filter for allowed extensions (e.g. .jpg, .png). 
+    /// Global filter for allowed extensions (e.g. .jpg, .png).
     /// If null or empty, all files are valid (except system files).
     /// </summary>
     public static HashSet<string>? AllowedExtensions { get; set; }
@@ -41,19 +41,13 @@ public partial class BatchNodeItem : ObservableObject
     public IRelayCommand ExpandCommand { get; }
     public IRelayCommand DeleteCommand { get; }
     public IRelayCommand CreateSubFolderCommand { get; }
-    
-    // Inline Action Bar Commands
-    public IRelayCommand ToggleActionBarCommand { get; }
+
     public IRelayCommand ShowNewFolderInputCommand { get; }
     public IRelayCommand CancelActionCommand { get; }
     public IRelayCommand ConfirmNewFolderCommand { get; } // For "Enter" key or explicit button if needed
-    public IRelayCommand<string> ShowMasterBrowserCommand { get; } // Param: "Left" or "Right"
 
     [ObservableProperty]
     private string _newSubFolderName = "";
-
-    [ObservableProperty]
-    private bool _isActionBarOpen;
 
     [ObservableProperty]
     private bool _isNewFolderInputVisible;
@@ -63,7 +57,7 @@ public partial class BatchNodeItem : ObservableObject
         FullPath = path;
         Name = Path.GetFileName(path);
         if (string.IsNullOrEmpty(Name) && !string.IsNullOrEmpty(path)) Name = path; // Drive root case
-        
+
         IsDirectory = isDirectory;
 
         if (IsDirectory)
@@ -77,33 +71,21 @@ public partial class BatchNodeItem : ObservableObject
         ExpandCommand = new RelayCommand(ToggleExpand);
         DeleteCommand = new RelayCommand(DeleteItem); // Renamed from DeleteFolder to cover both
         CreateSubFolderCommand = new RelayCommand(CreateSubFolder);
-        
-        // Inline Action Bar
-        ToggleActionBarCommand = new RelayCommand(() => IsActionBarOpen = !IsActionBarOpen);
-        ShowNewFolderInputCommand = new RelayCommand(() => 
+
+        ShowNewFolderInputCommand = new RelayCommand(() =>
         {
             IsNewFolderInputVisible = true;
-            IsActionBarOpen = false; // Hide action bar when input is shown
         });
-        CancelActionCommand = new RelayCommand(() => 
+        CancelActionCommand = new RelayCommand(() =>
         {
-            IsActionBarOpen = false;
             IsNewFolderInputVisible = false;
             NewSubFolderName = "";
         });
 
         ConfirmNewFolderCommand = new RelayCommand(CreateSubFolder);
-        ShowMasterBrowserCommand = new RelayCommand<string>(ShowMasterBrowser);
-    }
-    
-    private void ShowMasterBrowser(string? side)
-    {
-        if (string.IsNullOrEmpty(side)) side = "Left"; // Default
-        WeakReferenceMessenger.Default.Send(new OpenMasterBrowserMessage(this, side));
-        IsActionBarOpen = false; // Close action bar
     }
 
-    
+
     // Constructor for Dummy
     private BatchNodeItem(bool isDummy)
     {
@@ -115,7 +97,6 @@ public partial class BatchNodeItem : ObservableObject
         ExpandCommand = new RelayCommand(() => { });
         DeleteCommand = new RelayCommand(() => { });
         CreateSubFolderCommand = new RelayCommand(() => { });
-        ToggleActionBarCommand = new RelayCommand(() => { });
         ShowNewFolderInputCommand = new RelayCommand(() => { });
         CancelActionCommand = new RelayCommand(() => { });
         ConfirmNewFolderCommand = new RelayCommand(() => { });
@@ -146,16 +127,16 @@ public partial class BatchNodeItem : ObservableObject
         {
              // CLEAR on UI Thread
              await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => Children.Clear());
-             
+
              try
              {
-                 var items = await Task.Run(() => 
+                 var items = await Task.Run(() =>
                  {
                      var list = new List<BatchNodeItem>();
                      if (!Directory.Exists(FullPath)) return list;
 
                      var opts = new EnumerationOptions { IgnoreInaccessible = true };
-                     
+
                      // Directories — natural sort so "2" comes before "10"
                      foreach(var d in Directory.EnumerateDirectories(FullPath, "*", opts)
                          .OrderBy(Path.GetFileName, NaturalSortComparer.Instance))
@@ -167,12 +148,12 @@ public partial class BatchNodeItem : ObservableObject
                      IEnumerable<string> fileEnum = Directory.EnumerateFiles(FullPath, "*", opts)
                          .Where(f => !Path.GetFileName(f).Equals("desktop.ini", StringComparison.OrdinalIgnoreCase))
                          .Where(f => !Path.GetExtension(f).Equals(".lnk", StringComparison.OrdinalIgnoreCase));
-                     
+
                      if (AllowedExtensions != null && AllowedExtensions.Count > 0)
                      {
                          fileEnum = fileEnum.Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLower()));
                      }
-                         
+
                      foreach(var f in fileEnum.OrderBy(Path.GetFileName, NaturalSortComparer.Instance))
                      {
                          list.Add(new BatchNodeItem(f, false));
@@ -181,12 +162,12 @@ public partial class BatchNodeItem : ObservableObject
                  });
 
                  // ADD on UI Thread
-                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                  {
                      foreach(var item in items) Children.Add(item);
                  });
              }
-             catch 
+             catch
              {
                  // Handle permission errors etc
              }
@@ -210,11 +191,11 @@ public partial class BatchNodeItem : ObservableObject
     private void OpenText()
     {
         if (IsDirectory) return;
-        
+
         // Supported text extensions
         string[] textExts = { ".txt", ".json", ".xml", ".log", ".md", ".py", ".cs", ".js", ".jsx", ".csv", ".ini" };
         string ext = Path.GetExtension(FullPath).ToLower();
-        
+
         if (textExts.Contains(ext))
         {
              // Send message to open in Log Panel
@@ -260,14 +241,13 @@ public partial class BatchNodeItem : ObservableObject
             if (!Directory.Exists(newPath))
             {
                 Directory.CreateDirectory(newPath);
-                
+
                 // Reset UI State
-                NewSubFolderName = ""; 
+                NewSubFolderName = "";
                 IsNewFolderInputVisible = false;
-                IsActionBarOpen = false;
-                
+
                 // If Expanded, refresh children to show new folder
-                if (IsExpanded) 
+                if (IsExpanded)
                 {
                     _ = LoadChildren();
                 }

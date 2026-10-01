@@ -13,10 +13,10 @@ public static class YearbookLayoutService
     {
         ["NO"] = new[] { "no", "nomor", "no urut", "no.", "nr" },
         ["NAMA"] = new[] { "nama", "nama siswa", "nama lengkap", "name", "nama murid" },
-        ["NIS"] = new[] { "nis", "nisn", "no induk", "nomor induk", "no. induk" },
+        ["NIS"] = new[] { "nis", "nisn", "no induk", "nomor induk", "no. induk", "nisn/nip", "nis/nip", "nisn/nis" },
         ["NIP"] = new[] { "nip", "nuptk", "niy" },
-        ["KELAS"] = new[] { "kelas", "rombel", "class", "ruang" },
-        ["JK"] = new[] { "jk", "gender", "jenis kelamin", "l/p", "lp" },
+        ["KELAS"] = new[] { "kelas", "rombel", "class", "ruang", "kelas/rombel" },
+        ["JK"] = new[] { "jk", "gender", "jenis kelamin", "l/p", "lp", "jk/gender" },
         ["TEMPAT LAHIR"] = new[] { "tempat lahir", "tempat", "kota lahir", "pob" },
         ["TGL LAHIR"] = new[] { "tgl lahir", "tanggal lahir", "tgl", "dob", "tgl. lahir" },
         ["TTL"] = new[] { "ttl", "tempat tanggal lahir", "tempat, tanggal lahir" },
@@ -137,6 +137,8 @@ public static class YearbookLayoutService
     {
         var s = TrimCell(raw);
         if (s.Length == 0) return string.Empty;
+        // IDs are text identifiers, not quantities; leading zeros are significant.
+        if (Regex.IsMatch(s, @"^\d+$")) return s;
         if (Regex.IsMatch(s, @"^\d+\.0+$"))
             return s[..s.IndexOf('.')];
         if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) &&
@@ -180,25 +182,44 @@ public static class YearbookLayoutService
         if (k.Contains("kelas") || k.Contains("rombel")) return FieldRole.Class;
         if (k.Contains("alamat")) return FieldRole.Address;
         if (k.Contains("jk") || k.Contains("kelamin") || k.Contains("gender")) return FieldRole.Gender;
+        if (k.Contains("nis") || k.Contains("nip") || k.Contains("induk")) return FieldRole.Serial;
         return FieldRole.Unknown;
     }
 
     public static string? CanonicalName(string header)
     {
-        var key = Collapse(header);
+        var key = NormalizeHeaderKey(header);
         if (string.IsNullOrEmpty(key)) return null;
 
         foreach (var kv in Aliases)
         {
-            if (Collapse(kv.Key) == key) return kv.Key;
+            if (NormalizeHeaderKey(kv.Key) == key) return kv.Key;
             foreach (var alias in kv.Value)
             {
-                if (Collapse(alias) == key) return kv.Key;
+                if (NormalizeHeaderKey(alias) == key) return kv.Key;
             }
         }
 
         return null;
     }
+
+    public static string? CanonicalNameForJob(string header, DataJobKind kind)
+    {
+        var key = NormalizeHeaderKey(header);
+        if (key is "nisn nip" or "nis nip" or "nisn nis")
+            return kind is DataJobKind.YearbookTeacher or DataJobKind.IdCardStaff ? "NIP" : "NIS";
+
+        if (key == "nisn" && kind is DataJobKind.YearbookTeacher or DataJobKind.IdCardStaff)
+            return null;
+
+        return CanonicalName(header);
+    }
+
+    public static bool IsAmbiguousIdentifierHeader(string header) =>
+        NormalizeHeaderKey(header) is "nisn nip" or "nis nip" or "nisn nis";
+
+    private static string NormalizeHeaderKey(string text) =>
+        Regex.Replace((text ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
 
     public static string NormalizeGender(string raw)
     {

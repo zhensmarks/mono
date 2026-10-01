@@ -31,16 +31,23 @@ public partial class LogPanelSidebar : UserControl
             {
                 if (m.Value)
                 {
-                    // Open floating window if not already open
-                    if (sidebar._docFloatingWindow == null)
+                    if (sidebar._docFloatingWindow is { } existingWindow)
                     {
-                        sidebar._docFloatingWindow = new DocFloatingWindow
-                        {
-                            DataContext = sidebar.DataContext // Inherit ViewModel
-                        };
-                        sidebar._docFloatingWindow.Closed += (s, e) => sidebar._docFloatingWindow = null;
-                        sidebar._docFloatingWindow.Show();
+                        if (existingWindow.WindowState == WindowState.Minimized)
+                            existingWindow.WindowState = WindowState.Normal;
+                        _ = ActivateFloatingDocWindowAsync(existingWindow);
+                        return;
                     }
+
+                    sidebar._docFloatingWindow = new DocFloatingWindow
+                    {
+                        DataContext = sidebar.DataContext
+                    };
+                    sidebar._docFloatingWindow.Closed += (s, e) => sidebar._docFloatingWindow = null;
+                    if (TopLevel.GetTopLevel(sidebar) is Window owner)
+                        sidebar._docFloatingWindow.Show(owner);
+                    else
+                        sidebar._docFloatingWindow.Show();
                 }
                 else
                 {
@@ -48,6 +55,16 @@ public partial class LogPanelSidebar : UserControl
                     sidebar._docFloatingWindow?.Close();
                 }
             });
+        });
+    }
+
+    private static async System.Threading.Tasks.Task ActivateFloatingDocWindowAsync(DocFloatingWindow window)
+    {
+        await System.Threading.Tasks.Task.Delay(120);
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (window.IsVisible && window.WindowState != WindowState.Minimized)
+                window.Activate();
         });
     }
 
@@ -367,28 +384,53 @@ public partial class LogPanelSidebar : UserControl
     }
 
     // --- Panel Navigation Tab Handlers ---
+    private void OnExplorerTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is DashboardViewModel vm)
+            vm.IsExplorerPanelSelected = true;
+    }
+
     private void OnConsoleTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+        {
+            vm.IsExplorerPanelSelected = false;
             vm.BatchVM.SelectedActivityMode = 0;
+        }
     }
     
     private void OnMasterTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+        {
+            vm.IsExplorerPanelSelected = false;
             vm.BatchVM.SelectedActivityMode = 1;
+        }
     }
     
     private void OnPhotoshopTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+        {
+            vm.IsExplorerPanelSelected = false;
             vm.BatchVM.SelectedActivityMode = 2;
+        }
     }
 
     private void OnDocTabClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+        {
+            vm.IsExplorerPanelSelected = false;
             vm.BatchVM.SelectedActivityMode = 3;
+            if (vm.BatchVM.IsDocFloating)
+                WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(true));
+        }
+    }
+
+    private void OnBringDocToFrontClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(true));
     }
 
     private void OnDragOver(object? sender, Avalonia.Input.DragEventArgs e)
@@ -434,7 +476,10 @@ public partial class LogPanelSidebar : UserControl
             if (textExtensions.Any(ext2 => ext.Equals(ext2, StringComparison.OrdinalIgnoreCase)))
             {
                 if (vm.BatchVM != null)
+                {
+                    vm.IsExplorerPanelSelected = false;
                     vm.BatchVM.SelectedActivityMode = 0;
+                }
                 await vm.HandleDroppedLogFile(path);
                 e.Handled = true;
                 return;
@@ -450,4 +495,3 @@ public partial class LogPanelSidebar : UserControl
         }
     }
     }
-

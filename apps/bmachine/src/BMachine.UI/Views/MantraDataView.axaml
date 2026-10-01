@@ -345,37 +345,14 @@ SelectionChanged="OnDataGridSelectionChanged"
                     <!-- Context Menu -->
                     <DataGrid.ContextMenu>
                         <ContextMenu Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" Opened="OnContextMenuOpened">
-                            <!-- 1. Clipboard & Edit -->
+                            <!-- Common table and selection actions -->
                             <MenuItem Tag="Copy" Header="Salin" InputGesture="Ctrl+C" Click="OnMenuCopyClicked"/>
                             <MenuItem Tag="Paste" Header="Tempel" InputGesture="Ctrl+V" Click="OnMenuPasteClicked"/>
-                            <MenuItem Tag="ClearCells" Header="Kosongkan Sel" InputGesture="Delete" Click="OnMenuClearCellsClicked"/>
-                            <Separator Background="{DynamicResource BgHoverBrush}"/>
-
-                            <!-- 2. Data Actions -->
-                            <MenuItem Tag="CustomMerge" Header="Gabung Kolom..." Click="OnMenuCustomMergeClicked"/>
-                            <MenuItem Tag="TitleCase" Header="Rapikan Teks (Title Case)" Click="OnMenuTitleCaseClicked"/>
-                            <MenuItem Tag="DateFormatFull" Header="Format Tanggal (DD MMMM YYYY)" Click="OnMenuDateFormatFullClicked"/>
-                            <MenuItem Tag="PhonePrefix" Header="Format No. HP (+62 / 08)" Click="OnMenuPhonePrefixClicked"/>
                             <MenuItem Tag="FindReplace" Header="Cari dan Ganti..." InputGesture="Ctrl+F" Click="OnMenuFindReplaceClicked"/>
-                            <MenuItem Tag="SplitColumn" Header="Pisah Kolom (Split)..." Click="OnMenuSplitColumnClicked"/>
                             <Separator Background="{DynamicResource BgHoverBrush}"/>
 
-                            <!-- 3. Manage Columns -->
-                            <MenuItem Tag="InsertColumnLeft" Header="Sisipkan Kolom di Kiri" Click="OnMenuInsertColumnLeftClicked"/>
-                            <MenuItem Tag="InsertColumnRight" Header="Sisipkan Kolom di Kanan" Click="OnMenuInsertColumnRightClicked"/>
-                            <MenuItem Tag="MoveColumnLeft" Header="Pindahkan Kolom ke Kiri" Click="OnMenuMoveColumnLeftClicked"/>
-                            <MenuItem Tag="MoveColumnRight" Header="Pindahkan Kolom ke Kanan" Click="OnMenuMoveColumnRightClicked"/>
-                            <MenuItem Tag="RenameColumn" Header="Ganti Nama Kolom..." Click="OnMenuRenameColumnClicked"/>
-                            <MenuItem Tag="DeleteColumn" Header="Hapus Kolom Ini" Click="OnMenuDeleteColumnClicked"/>
-                            <MenuItem Tag="AutoFit" Header="Otomatis Ukuran Kolom" Click="OnMenuAutoFitClicked"/>
-                            <Separator Background="{DynamicResource BgHoverBrush}"/>
-
-                            <!-- 4. Manage Rows -->
+                            <!-- Row actions -->
                             <MenuItem Tag="InsertRow" Header="Tambah Baris Baru" Click="OnMenuInsertRowClicked"/>
-                            <MenuItem Tag="DeleteRows" Header="Hapus Baris Terpilih" Click="OnMenuDeleteRowsClicked"/>
-                            <Separator Background="{DynamicResource BgHoverBrush}"/>
-
-                            <!-- 5. Row Color Tagging -->
                             <MenuItem Tag="ColorTag" Header="Tandai Baris (Warna)">
                                 <MenuItem Tag="ColorGreen" Header="Hijau (Valid)" Click="OnMenuColorGreenClicked"/>
                                 <MenuItem Tag="ColorBlue" Header="Biru (Info)" Click="OnMenuColorBlueClicked"/>
@@ -384,9 +361,37 @@ SelectionChanged="OnDataGridSelectionChanged"
                                 <Separator Background="{DynamicResource BgHoverBrush}"/>
                                 <MenuItem Tag="ColorClear" Header="Hapus Tanda Warna" Click="OnMenuColorClearClicked"/>
                             </MenuItem>
-
-                            <!-- 6. Context Menu Settings -->
                             <Separator Background="{DynamicResource BgHoverBrush}"/>
+
+                            <!-- Transform and format actions -->
+                            <MenuItem Tag="GenderTransform" Header="L/P → Jenis Kelamin" Click="OnQuickGenderTransformClicked"/>
+                            <MenuItem Tag="DateTransform" Header="dd-MM-yyyy → Tanggal Indonesia" Click="OnQuickDateTransformClicked"/>
+                            <MenuItem Tag="TitleCase" Header="Rapikan Teks (Title Case)" Click="OnMenuTitleCaseClicked"/>
+                            <MenuItem Tag="DateFormatFull" Header="Format Tanggal (DD MMMM YYYY)" Click="OnMenuDateFormatFullClicked"/>
+                            <MenuItem Tag="PhonePrefix" Header="Format No. HP (+62 / 08)" Click="OnMenuPhonePrefixClicked"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
+
+                            <!-- Less frequent data restructuring -->
+                            <MenuItem Tag="CustomMerge" Header="Gabung Kolom..." Click="OnMenuCustomMergeClicked"/>
+                            <MenuItem Tag="SplitColumn" Header="Pisah Kolom (Split)..." Click="OnMenuSplitColumnClicked"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
+
+                            <!-- Column management -->
+                            <MenuItem Tag="AutoFit" Header="Otomatis Ukuran Kolom" Click="OnMenuAutoFitClicked"/>
+                            <MenuItem Tag="InsertColumnLeft" Header="Sisipkan Kolom di Kiri" Click="OnMenuInsertColumnLeftClicked"/>
+                            <MenuItem Tag="InsertColumnRight" Header="Sisipkan Kolom di Kanan" Click="OnMenuInsertColumnRightClicked"/>
+                            <MenuItem Tag="MoveColumnLeft" Header="Pindahkan Kolom ke Kiri" Click="OnMenuMoveColumnLeftClicked"/>
+                            <MenuItem Tag="MoveColumnRight" Header="Pindahkan Kolom ke Kanan" Click="OnMenuMoveColumnRightClicked"/>
+                            <MenuItem Tag="RenameColumn" Header="Ganti Nama Kolom..." Click="OnMenuRenameColumnClicked"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
+
+                            <!-- Destructive actions stay near the end -->
+                            <MenuItem Tag="ClearCells" Header="Kosongkan Sel" InputGesture="Delete" Click="OnMenuClearCellsClicked"/>
+                            <MenuItem Tag="DeleteRows" Header="Hapus Baris Terpilih" Click="OnMenuDeleteRowsClicked"/>
+                            <MenuItem Tag="DeleteColumn" Header="Hapus Kolom Ini" Click="OnMenuDeleteColumnClicked"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
+
+                            <!-- Context-menu settings -->
                             <MenuItem Header="Atur Menu Klik Kanan..." Click="OnMenuConfigureContextMenuClicked"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>

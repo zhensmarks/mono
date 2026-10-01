@@ -91,6 +91,20 @@ namespace BMachine.UI.ViewModels;
             SelectedBatchItem = message.TargetNode;
         }
 
+        /// <summary>Keep the Master browser target aligned with the source/output row that was clicked.</summary>
+        public void SelectBatchItemFromTree(object? item, bool isOutputSide)
+        {
+            SelectedBatchItem = item;
+            if (isOutputSide && item is BatchFolderRoot root)
+            {
+                MasterBrowserTargetPath = root.OutputPath;
+                MasterBrowserTargetName = string.IsNullOrWhiteSpace(root.OutputPath)
+                    ? root.OutputHeader
+                    : Path.GetFileName(Path.TrimEndingDirectorySeparator(root.OutputPath));
+                _currentTargetNode = root.OutputRoot;
+            }
+        }
+
         public void Receive(MasterPathsChangedMessage message)
         {
             // Reload master files if browser is open, or if we are in Master/Photoshop mode
@@ -1703,6 +1717,181 @@ if ($img -ne $null) {{
     
     // Event to request file/folder picker from View
     public event Func<Task<string?>>? RequestMasterPathBrowse;
+    public event Func<string, Task<string?>>? RequestManualReplaceFolderBrowse;
+
+    [RelayCommand]
+    private Task ReplaceSourceAuto(object? target) => ReplaceBatchFolderAsync(target, isOutputSide: false, manual: false);
+
+    [RelayCommand]
+    private Task ReplaceSourceManual(object? target) => ReplaceBatchFolderAsync(target, isOutputSide: false, manual: true);
+
+    [RelayCommand]
+    private Task ReplaceOutputAuto(object? target) => ReplaceBatchFolderAsync(target, isOutputSide: true, manual: false);
+
+    [RelayCommand]
+    private Task ReplaceOutputManual(object? target) => ReplaceBatchFolderAsync(target, isOutputSide: true, manual: true);
+
+    private async Task ReplaceBatchFolderAsync(object? target, bool isOutputSide, bool manual)
+    {
+        if (!TryResolveReplaceFolders(target, isOutputSide, out var outputPath, out var sourcePath, out var error))
+        {
+            _logService?.AddLog($"[ERROR] Replace: {error}");
+            return;
+        }
+
+        if (manual)
+        {
+            var title = isOutputSide
+                ? "Select matching Source / Input folder"
+                : "Select matching Output / Master folder";
+            if (RequestManualReplaceFolderBrowse == null)
+            {
+                _logService?.AddLog("[ERROR] Replace: folder picker is unavailable.");
+                return;
+            }
+
+            var selectedPath = await RequestManualReplaceFolderBrowse.Invoke(title);
+            if (string.IsNullOrWhiteSpace(selectedPath)) return;
+            if (isOutputSide) sourcePath = selectedPath;
+            else outputPath = selectedPath;
+        }
+
+        await LaunchReplaceScriptAsync(outputPath, sourcePath);
+    }
+
+    private bool TryResolveReplaceFolders(object? target, bool isOutputSide, out string outputPath, out string sourcePath, out string error)
+    {
+        outputPath = "";
+        sourcePath = "";
+        error = "Select a folder in the Batch Source or Output tree.";
+
+        BatchFolderRoot? root;
+        string clickedPath;
+        string relativePath;
+
+        if (target is BatchFolderRoot batchRoot)
+        {
+            root = batchRoot;
+            clickedPath = isOutputSide ? batchRoot.OutputPath : batchRoot.SourcePath;
+            relativePath = "";
+        }
+        else if (target is BatchNodeItem node && node.IsDirectory)
+        {
+            clickedPath = node.FullPath;
+            root = null;
+            relativePath = "";
+
+            foreach (var candidate in SourceFolders)
+            {
+                var candidateRoot = isOutputSide ? candidate.OutputPath : candidate.SourcePath;
+                if (!TryGetRelativePath(candidateRoot, clickedPath, out var candidateRelative)) continue;
+                if (root == null || candidateRoot.Length > (isOutputSide ? root.OutputPath.Length : root.SourcePath.Length))
+                {
+                    root = candidate;
+                    relativePath = candidateRelative;
+                }
+            }
+        }
+        else
+        {
+            return false;
+        }
+
+        if (root == null)
+        {
+            error = "The selected folder is not part of a Batch Source/Output pair.";
+            return false;
+        }
+
+        outputPath = CombineBatchPath(root.OutputPath, relativePath);
+        sourcePath = CombineBatchPath(root.SourcePath, relativePath);
+        if (isOutputSide) outputPath = clickedPath;
+        else sourcePath = clickedPath;
+        error = "";
+        return true;
+    }
+
+    private static bool TryGetRelativePath(string rootPath, string targetPath, out string relativePath)
+    {
+        relativePath = "";
+        if (string.IsNullOrWhiteSpace(rootPath) || string.IsNullOrWhiteSpace(targetPath)) return false;
+        try
+        {
+            var normalizedRoot = Path.GetFullPath(rootPath);
+            var normalizedTarget = Path.GetFullPath(targetPath);
+            if (string.Equals(normalizedRoot, normalizedTarget, StringComparison.OrdinalIgnoreCase)) return true;
+            var prefix = Path.TrimEndingDirectorySeparator(normalizedRoot) + Path.DirectorySeparatorChar;
+            if (!normalizedTarget.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return false;
+            relativePath = Path.GetRelativePath(normalizedRoot, normalizedTarget);
+            return relativePath != ".." && !relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string CombineBatchPath(string rootPath, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(rootPath)) return "";
+        return string.IsNullOrEmpty(relativePath) ? rootPath : Path.Combine(rootPath, relativePath);
+    }
+
+    private async Task LaunchReplaceScriptAsync(string outputPath, string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath) || !Directory.Exists(outputPath))
+        {
+            _logService?.AddLog($"[ERROR] Replace: Output/Master folder not found: {outputPath}");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(sourcePath) || !Directory.Exists(sourcePath))
+        {
+            _logService?.AddLog($"[ERROR] Replace: Source/Input folder not found: {sourcePath}");
+            return;
+        }
+        if (_database == null)
+        {
+            _logService?.AddLog("[ERROR] Replace: Photoshop path settings are unavailable.");
+            return;
+        }
+
+        try
+        {
+            var photoshopPath = await _database.GetAsync<string>("Configs.Master.PhotoshopPath") ?? "";
+            if (string.IsNullOrWhiteSpace(photoshopPath) || !_platformService.IsExecutableValid(photoshopPath))
+            {
+                _logService?.AddLog("[ERROR] Replace: Configure a valid Photoshop executable in Settings first.");
+                return;
+            }
+
+            var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", "replace.jsx");
+            if (!File.Exists(scriptPath))
+            {
+                _logService?.AddLog($"[ERROR] Replace: replace.jsx was not found at {scriptPath}");
+                return;
+            }
+
+            var context = new
+            {
+                SourceFolders = new[] { new { SourcePath = sourcePath, OutputPath = outputPath } },
+                OutputBasePath = Path.GetDirectoryName(outputPath) ?? outputPath,
+                UseInput = true,
+                UseOutput = true,
+                MasterTemplatePath = outputPath
+            };
+            var json = System.Text.Json.JsonSerializer.Serialize(context, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            var contextPath = await Services.BmachineContextService.WriteContextAsync(json);
+
+            // Launch without polling or a legacy fixed sleep; Photoshop owns the long-running work.
+            _platformService.RunJsxInPhotoshop(scriptPath, photoshopPath);
+            _logService?.AddLog($"[INFO] Replace launched. Master: {outputPath} | Input: {sourcePath}");
+            _logService?.AddLog($"[INFO] Replace context: {contextPath}");
+        }
+        catch (Exception ex)
+        {
+            _logService?.AddLog($"[ERROR] Replace launch failed: {ex.Message}");
+        }
+    }
 
     /// <summary>
     /// The selected Master Template Folder path (e.g. D:\MASTER).
@@ -2220,6 +2409,18 @@ if ($img -ne $null) {{
 
     [ObservableProperty]
     private string _folderOverlayType = "Source";
+
+    [ObservableProperty]
+    private int _folderOverlayGridColumn;
+
+    [ObservableProperty]
+    private string _folderOverlayDescription = "";
+
+    [ObservableProperty]
+    private string _folderOverlayStatusMessage = "";
+
+    [ObservableProperty]
+    private bool _isFolderOverlayStatusVisible;
     
     [ObservableProperty]
     private bool _isFolderTemplatesVisible = false;
@@ -2231,8 +2432,13 @@ if ($img -ne $null) {{
     {
         FolderOverlayType = type;
         FolderOverlayTitle = type.Equals("Source", StringComparison.OrdinalIgnoreCase) ? "New Source Folder" : "New Output Folder";
+        FolderOverlayGridColumn = type.Equals("Source", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+        FolderOverlayDescription = type.Equals("Source", StringComparison.OrdinalIgnoreCase)
+            ? "Create inside the selected Source / Input folder."
+            : "Create inside the current Output / Master destination.";
         NewFolderName = "";
         IsFolderTemplatesVisible = false;
+        SetFolderOverlayStatus("");
         IsFolderOverlayVisible = true;
     }
 
@@ -2242,6 +2448,13 @@ if ($img -ne $null) {{
         IsFolderOverlayVisible = false;
         IsFolderTemplatesVisible = false;
         NewFolderName = "";
+        SetFolderOverlayStatus("");
+    }
+
+    private void SetFolderOverlayStatus(string message)
+    {
+        FolderOverlayStatusMessage = message;
+        IsFolderOverlayStatusVisible = !string.IsNullOrWhiteSpace(message);
     }
 
     [RelayCommand]
@@ -2254,19 +2467,28 @@ if ($img -ne $null) {{
     private async Task ApplyFolderTemplate(string template)
     {
         NewFolderName = template;
+        SetFolderOverlayStatus("");
         await CreateFolder(FolderOverlayType);
     }
     
     [RelayCommand]
     private async Task AddFolderTemplate()
     {
-        if (string.IsNullOrWhiteSpace(NewFolderName)) return;
+        if (string.IsNullOrWhiteSpace(NewFolderName))
+        {
+            SetFolderOverlayStatus("Enter a folder name before saving a template.");
+            return;
+        }
+
         var t = NewFolderName.Trim().ToUpper();
         if (!FolderTemplates.Contains(t))
         {
             FolderTemplates.Add(t);
             await SaveFolderTemplatesAsync();
+            SetFolderOverlayStatus("Template saved.");
         }
+        else
+            SetFolderOverlayStatus("That template is already saved.");
     }
 
     [RelayCommand]
@@ -2324,7 +2546,13 @@ if ($img -ne $null) {{
     [RelayCommand]
     private async Task CreateFolder(string targetType)
     {
-        if (string.IsNullOrWhiteSpace(NewFolderName)) return;
+        if (string.IsNullOrWhiteSpace(NewFolderName))
+        {
+            SetFolderOverlayStatus("Enter a folder name to continue.");
+            return;
+        }
+
+        SetFolderOverlayStatus("");
         
         string? targetPath = null;
         BatchFolderRoot? itemToRefresh = null;
@@ -2359,9 +2587,10 @@ if ($img -ne $null) {{
              }
         }
 
-        if (string.IsNullOrEmpty(targetPath)) 
+        if (string.IsNullOrEmpty(targetPath))
         {
             _logService?.AddLog("[WARNING] Cannot create folder: Target path not found.");
+            SetFolderOverlayStatus("No destination folder is available for this batch.");
             return;
         }
         
@@ -2390,15 +2619,18 @@ if ($img -ne $null) {{
                 NewFolderName = "";
                 IsFolderOverlayVisible = false;
                 IsFolderTemplatesVisible = false;
+                SetFolderOverlayStatus("");
             }
             else
             {
                  _logService?.AddLog($"[WARNING] Folder already exists: {NewFolderName}");
+                 SetFolderOverlayStatus("A folder with that name already exists.");
             }
         }
         catch (Exception ex)
         {
             _logService?.AddLog($"[ERROR] Failed to create folder: {ex.Message}");
+            SetFolderOverlayStatus($"Could not create folder: {ex.Message}");
         }
     }
 

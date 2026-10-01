@@ -14,9 +14,9 @@
 
     <UserControl.Resources>
         <converters:BoolToFolderIconConverter x:Key="BoolToFolderIconConverter"/>
+        <converters:RootFontWeightConverter x:Key="FolderFontWeightConverter"/>
 
-        <!-- Batch TreeView rata-kiri: PART_Header Margin=0 (hapus indent Level x 16),
-             chevron disembunyikan (expand via right-click). BasedOn Fluent -> state utuh. -->
+        <!-- Keep a compact disclosure gutter and flatten Batch hierarchy indentation. -->
         <ControlTheme x:Key="FlatBatchTreeItem" TargetType="TreeViewItem"
                       BasedOn="{StaticResource {x:Type TreeViewItem}}">
             <Setter Property="Template">
@@ -33,10 +33,10 @@
                                 TemplatedControl.IsTemplateFocusTarget="True">
                             <Grid Name="PART_Header" ColumnDefinitions="Auto, *" Margin="0">
                                 <Panel Name="PART_ExpandCollapseChevronContainer"
-                                       Width="0" Margin="0" IsVisible="False">
+                                       Width="16" Margin="0">
                                     <ToggleButton Name="PART_ExpandCollapseChevron"
-                                                  Focusable="False" IsVisible="False"
-                                                  Width="0" MinWidth="0"
+                                                  Focusable="False" IsVisible="True"
+                                                  Width="6" MinWidth="6"
                                                   IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}" />
                                 </Panel>
                                 <ContentPresenter Name="PART_HeaderPresenter"
@@ -61,7 +61,7 @@
 
     <UserControl.DataTemplates>
         <TreeDataTemplate DataType="{x:Type vm:BatchNodeItem}" ItemsSource="{Binding Children}">
-            <StackPanel x:Name="NodePanel" Orientation="Horizontal" Spacing="4" Background="Transparent" Margin="-28,-2,0,-2"
+            <StackPanel x:Name="NodePanel" Orientation="Horizontal" Spacing="4" Background="Transparent" Margin="-28,0,0,0"
                         PointerPressed="OnNodePointerPressed">
                 <!-- Icons Removed per User Request for Compact Look -->
                 
@@ -241,9 +241,6 @@
                      </Button>
                      <!-- Separator between Profile and Nav -->
                      <Border Width="1" Height="20" Background="{DynamicResource SeparatorBrush}" Margin="2,0"/>
-                      <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsExplorerTabSelected}" IsVisible="{Binding IsOutputExplorerVisible}">
-                          <TextBlock Text="EXPLORER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                      </RadioButton>
                       <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}">
                           <TextBlock Text="HOME" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                       </RadioButton>
@@ -278,12 +275,7 @@
                                 <controls:StatWidget Grid.Row="1" Grid.Column="1" Margin="6" MinWidth="140" MinHeight="80" DisplayMode="Bar" Label="SPREADSHEET" Value="{Binding StatPoints}" Suffix="POIN" Percentage="{Binding StatPointsPercentage}" 
                                                      Color="{DynamicResource AccentPointsBrush}" ShowIcon="False" AnimationDuration="{Binding StatAnimationDuration}"
                                                      Command="{Binding OpenLeaderboardWindowCommand}" WindowCommand="{Binding OpenSpreadsheetWindowCommand}"/>
-                    </Grid>
-                </Grid>
-                    
-                <!-- OUTPUT EXPLORER TAB CONTENT -->
-                <Grid IsVisible="{Binding IsExplorerTabSelected}" Margin="20,0,20,0">
-                     <views:OutputExplorerView DataContext="{Binding OutputExplorerVM}"/>
+                        </Grid>
                 </Grid>
 
                 <!-- BATCH TAB CONTENT (REDESIGNED) -->
@@ -314,7 +306,7 @@
                         <!-- SOURCE PANEL -->
                         <Grid Grid.Column="0" Margin="0,0,5,0" RowDefinitions="Auto, *">
                             <!-- Header Area -->
-                            <TextBlock Grid.Row="0" Text="SOURCE" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="10,0,0,5"/>
+                            <TextBlock Grid.Row="0" Text="SOURCE / INPUT" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="10,0,0,5"/>
                             
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
@@ -327,42 +319,48 @@
                                           <TreeView.DataTemplates>
                                               <!-- ROOT LEVEL TEMPLATE -->
                                               <TreeDataTemplate DataType="{x:Type vm:BatchFolderRoot}" ItemsSource="{Binding SourceRoot.Children}">
-                                                  <StackPanel Orientation="Horizontal" Spacing="2">
-                                                       <!-- MENU BUTTON (Replaces Expander) -->
-                                                       <Button Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,4,0">
-                                                           <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                           <Button.Flyout>
-                                                               <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
-                                                                       <StackPanel Spacing="8">
-                                                                           <TextBlock Text="Folder Options" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                                           <!-- Create Subfolder (Horizontal) -->
-                                                                           <StackPanel Orientation="Horizontal" Spacing="4">
-                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder..." Width="140" FontSize="11" CornerRadius="6" Padding="6,4">
-                                                                                   <TextBox.KeyBindings>
-                                                                                       <KeyBinding Gesture="Enter" Command="{Binding CreateSubFolderCommand}"/>
-                                                                                   </TextBox.KeyBindings>
-                                                                               </TextBox>
-                                                                               <Button Command="{Binding CreateSubFolderCommand}" Content="Add" HorizontalContentAlignment="Center" FontSize="11" Padding="8,4" Background="{DynamicResource AccentBlueBrush}" Foreground="White" CornerRadius="6"/>
-                                                                           </StackPanel>
-                                                                           <Separator Height="1" Background="{DynamicResource SeparatorBrush}"/>
-                                                                           <!-- Delete -->
-                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="6"/>
-                                                                       </StackPanel>
-                                                                   </Border>
-                                                               </Flyout>
-                                                           </Button.Flyout>
-                                                       </Button>
-                                                       
-                                                       <TextBlock Text="{Binding DisplayName}" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand" ToolTip.Tip="Klik untuk Copy Path Folder"/>
+                                                  <StackPanel Orientation="Horizontal" Spacing="4" Background="Transparent">
+                                                      <StackPanel.ContextMenu>
+                                                          <ContextMenu DataContext="{Binding}">
+                                                              <MenuItem Header="New Subfolder..." Command="{Binding ShowNewFolderInputCommand}"/>
+                                                              <Separator/>
+                                                              <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceAutoCommand}" CommandParameter="{Binding}"/>
+                                                              <MenuItem Header="Replace (Manual)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceManualCommand}" CommandParameter="{Binding}"/>
+                                                              <Separator/>
+                                                              <MenuItem Header="Copy Source Path" Command="{Binding CopyPathCommand}"/>
+                                                              <MenuItem Header="Delete Source Folder" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
+                                                          </ContextMenu>
+                                                      </StackPanel.ContextMenu>
+                                                      <TextBlock Text="{Binding DisplayName}" Classes="Bold" FontSize="11" FontWeight="Bold"
+                                                                 Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                                                 PointerPressed="OnNodePointerPressed" Tag="Source" Cursor="Hand" ToolTip.Tip="{Binding SourcePath}"
+                                                                 IsVisible="{Binding !IsNewFolderInputVisible}"/>
+                                                      <Grid IsVisible="{Binding IsNewFolderInputVisible}" ColumnDefinitions="100,Auto,Auto" Margin="0,-3,0,-3">
+                                                          <TextBox Grid.Column="0" Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="Subfolder name" FontSize="11" Height="22" MinHeight="0" Padding="4,2">
+                                                              <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding CreateSubFolderCommand}"/></TextBox.KeyBindings>
+                                                          </TextBox>
+                                                          <Button Grid.Column="1" Content="Add" Command="{Binding CreateSubFolderCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
+                                                          <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelNewFolderInputCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
+                                                      </Grid>
                                                   </StackPanel>
                                               </TreeDataTemplate>
     
                                               <!-- CHILD LEVEL TEMPLATE -->
                                               <TreeDataTemplate DataType="{x:Type vm:BatchNodeItem}" ItemsSource="{Binding Children}">
                                                   <StackPanel Orientation="Horizontal" Spacing="2">
+                                                      <StackPanel.ContextMenu>
+                                                          <ContextMenu DataContext="{Binding}">
+                                                              <MenuItem Header="New Subfolder..." Command="{Binding ShowNewFolderInputCommand}" IsVisible="{Binding IsDirectory}"/>
+                                                              <Separator/>
+                                                              <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceAutoCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
+                                                              <MenuItem Header="Replace (Manual)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceManualCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
+                                                              <Separator/>
+                                                              <MenuItem Header="Copy Path" Command="{Binding CopyPathCommand}" IsVisible="{Binding IsDirectory}"/>
+                                                              <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
+                                                          </ContextMenu>
+                                                      </StackPanel.ContextMenu>
                                                        <!-- INLINE ACTION BAR & TOGGLE -->
-                                                       <Panel VerticalAlignment="Center" Margin="0,0,4,0">
+                                                       <Panel VerticalAlignment="Center" Margin="0,0,4,0" IsVisible="False">
                                                            <!-- 1. TOGGLE BUTTON (Visible when Action Bar CLOSED and Input CLOSED) -->
                                                            <Button Command="{Binding ToggleActionBarCommand}"
                                                                    IsVisible="{Binding !IsActionBarOpen}"
@@ -435,9 +433,9 @@
                                                        <!-- <PathIcon Data="{StaticResource IconFile}" ... /> -->
     
                                                        <!-- 4. ITEM NAME (Visible when Input is HIDDEN) -->
-                                                       <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" 
-                                                                  VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand"
-                                                                  IsVisible="{Binding !IsNewFolderInputVisible}" ToolTip.Tip="Klik untuk Copy Path"/>
+                                                       <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="{Binding IsDirectory, Converter={StaticResource FolderFontWeightConverter}}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                  VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand" ToolTip.Tip="{Binding FullPath}"
+                                                                  IsVisible="{Binding !IsNewFolderInputVisible}"/>
                                                                   
                                                        <!-- 5. INLINE INPUT (Visible when Input is SHOWN) -->
                                                        <Grid IsVisible="{Binding IsNewFolderInputVisible}" Margin="0,-4">
@@ -460,17 +458,17 @@
                                           </TreeView.DataTemplates>
                                           <TreeView.Styles>
                                               <Style Selector="TreeViewItem">
-                                                   <Setter Property="Theme" Value="{StaticResource FlatBatchTreeItem}"/>
-                                                   <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                                                   <Setter Property="MinHeight" Value="18"/> <!-- Adjusted spacing (was 24) -->
-                                                   <Setter Property="Padding" Value="0"/>
-                                                   <Setter Property="Margin" Value="0"/>
+                                                  <Setter Property="Theme" Value="{StaticResource FlatBatchTreeItem}"/>
+                                                  <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                                  <Setter Property="MinHeight" Value="18"/> <!-- Adjusted spacing (was 24) -->
+                                                  <Setter Property="Padding" Value="0"/>
+                                                   <Setter Property="Margin" Value="0,3,0,3"/>
                                               </Style>
-                                              <!-- HIDE DEFAULT EXPANDER CHEVRON -->
+                                              <!-- Keep the native expander available; right-click now opens the context menu. -->
                                               <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron">
-                                                  <Setter Property="IsVisible" Value="False"/>
-                                                  <Setter Property="Width" Value="0"/>
-                                                  <Setter Property="MinWidth" Value="0"/>
+                                                  <Setter Property="IsVisible" Value="True"/>
+                                                  <Setter Property="Width" Value="6"/>
+                                                  <Setter Property="MinWidth" Value="6"/>
                                               </Style>
                                               <!-- FLATTEN HIERARCHY: REMOVE INDENTATION -->
                                               <Style Selector="TreeViewItem /template/ ItemsPresenter#PART_ItemsPresenter">
@@ -528,6 +526,7 @@
                                                         <TextBlock Grid.Column="1" Text="{Binding Name}" 
                                                                    VerticalAlignment="Center"
                                                                    FontSize="11"
+                                                                   FontWeight="{Binding IsDirectory, Converter={StaticResource FolderFontWeightConverter}}"
                                                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                     </Grid>
@@ -563,7 +562,7 @@
                         <!-- OUTPUT PANEL -->
                         <Grid Grid.Column="1" Margin="5,0,0,0" RowDefinitions="Auto, *">
                             <!-- Header Area -->
-                            <TextBlock Grid.Row="0" Text="OUTPUT" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="0,0,10,5" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Row="0" Text="OUTPUT / MASTER" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="0,0,10,5" HorizontalAlignment="Right"/>
 
                             <!-- Main Output Area -->
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
@@ -577,9 +576,20 @@
                                           <TreeView.DataTemplates>
                                               <!-- ROOT LEVEL TEMPLATE -->
                                               <TreeDataTemplate DataType="{x:Type vm:BatchFolderRoot}" ItemsSource="{Binding OutputRoot.Children}">
-                                                  <StackPanel Orientation="Horizontal" Spacing="2">
+                                                  <StackPanel Orientation="Horizontal" Spacing="4" Background="Transparent">
+                                                       <StackPanel.ContextMenu>
+                                                           <ContextMenu DataContext="{Binding}">
+                                                               <MenuItem Header="New Subfolder..." Command="{Binding ShowOutputNewFolderInputCommand}"/>
+                                                               <Separator/>
+                                                               <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputAutoCommand}" CommandParameter="{Binding}"/>
+                                                               <MenuItem Header="Replace (Manual)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputManualCommand}" CommandParameter="{Binding}"/>
+                                                               <Separator/>
+                                                               <MenuItem Header="Copy Output Path" Command="{Binding CopyOutputPathCommand}"/>
+                                                               <MenuItem Header="Delete Output Folder" Command="{Binding DeleteOutputCommand}" Foreground="#FF453A"/>
+                                                           </ContextMenu>
+                                                       </StackPanel.ContextMenu>
                                                        <!-- MENU BUTTON -->
-                                                       <Button Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,4,0">
+                                                       <Button Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,4,0" IsVisible="False">
                                                            <PathIcon Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            <Button.Flyout>
                                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
@@ -600,16 +610,41 @@
                                                            </Button.Flyout>
                                                        </Button>
                                                        
-                                                       <TextBlock Text="{Binding OutputHeader}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand" ToolTip.Tip="Klik untuk Copy Path Folder"/>
-                                                       <TextBlock Text="(pending)" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding OutputRoot, Converter={x:Static ObjectConverters.IsNull}}" VerticalAlignment="Center"/>
+                                                       <TextBlock Text="{Binding OutputHeader}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Tag="Output" Cursor="Hand" ToolTip.Tip="{Binding OutputPath}" IsVisible="{Binding !IsOutputNewFolderInputVisible}"/>
+                                                       <Grid IsVisible="{Binding IsOutputNewFolderInputVisible}" ColumnDefinitions="100,Auto,Auto" Margin="0,-3,0,-3">
+                                                           <TextBox Grid.Column="0" Text="{Binding OutputNewSubFolderName, Mode=TwoWay}" Watermark="Subfolder name" FontSize="11" Height="22" MinHeight="0" Padding="4,2">
+                                                               <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding CreateOutputSubFolderCommand}"/></TextBox.KeyBindings>
+                                                           </TextBox>
+                                                           <Button Grid.Column="1" Content="Add" Command="{Binding CreateOutputSubFolderCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
+                                                           <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelOutputNewFolderInputCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
+                                                       </Grid>
+                                                       <TextBlock Text="(pending)" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center">
+                                                           <TextBlock.IsVisible>
+                                                               <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                                   <Binding Path="OutputRoot" Converter="{x:Static ObjectConverters.IsNull}"/>
+                                                                   <Binding Path="!IsOutputNewFolderInputVisible"/>
+                                                               </MultiBinding>
+                                                           </TextBlock.IsVisible>
+                                                       </TextBlock>
                                                   </StackPanel>
                                               </TreeDataTemplate>
     
                                               <!-- CHILD LEVEL TEMPLATE -->
                                               <TreeDataTemplate DataType="{x:Type vm:BatchNodeItem}" ItemsSource="{Binding Children}">
                                                   <StackPanel Orientation="Horizontal" Spacing="2">
+                                                      <StackPanel.ContextMenu>
+                                                          <ContextMenu DataContext="{Binding}">
+                                                              <MenuItem Header="New Subfolder..." Command="{Binding ShowNewFolderInputCommand}" IsVisible="{Binding IsDirectory}"/>
+                                                              <Separator/>
+                                                              <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputAutoCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
+                                                              <MenuItem Header="Replace (Manual)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputManualCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
+                                                              <Separator/>
+                                                              <MenuItem Header="Copy Path" Command="{Binding CopyPathCommand}" IsVisible="{Binding IsDirectory}"/>
+                                                              <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
+                                                          </ContextMenu>
+                                                      </StackPanel.ContextMenu>
                                                        <!-- INLINE ACTION BAR & TOGGLE -->
-                                                       <Panel VerticalAlignment="Center" Margin="0,0,4,0">
+                                                       <Panel VerticalAlignment="Center" Margin="0,0,4,0" IsVisible="False">
                                                            <!-- 1. TOGGLE BUTTON (Visible when Action Bar CLOSED and Input CLOSED) -->
                                                            <Button Command="{Binding ToggleActionBarCommand}"
                                                                    IsVisible="{Binding !IsActionBarOpen}"
@@ -682,9 +717,9 @@
                                                        <!-- <PathIcon Data="{StaticResource IconFile}" ... /> -->
     
                                                        <!-- 4. ITEM NAME (Visible when Input is HIDDEN) -->
-                                                       <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" 
-                                                                  VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand"
-                                                                  IsVisible="{Binding !IsNewFolderInputVisible}" ToolTip.Tip="Klik untuk Copy Path"/>
+                                                       <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="{Binding IsDirectory, Converter={StaticResource FolderFontWeightConverter}}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                  VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Cursor="Hand" ToolTip.Tip="{Binding FullPath}"
+                                                                  IsVisible="{Binding !IsNewFolderInputVisible}"/>
                                                                   
                                                        <!-- 5. INLINE INPUT (Visible when Input is SHOWN) -->
                                                        <Grid IsVisible="{Binding IsNewFolderInputVisible}" Margin="0,-4">
@@ -707,13 +742,13 @@
                                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
                                                    <Setter Property="MinHeight" Value="18"/>
                                                    <Setter Property="Padding" Value="0"/>
-                                                   <Setter Property="Margin" Value="0"/>
+                                                   <Setter Property="Margin" Value="0,3,0,3"/>
                                               </Style>
-                                              <!-- HIDE DEFAULT EXPANDER CHEVRON -->
+                                              <!-- Keep the native expander available; right-click now opens the context menu. -->
                                               <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron">
-                                                  <Setter Property="IsVisible" Value="False"/>
-                                                  <Setter Property="Width" Value="0"/>
-                                                  <Setter Property="MinWidth" Value="0"/>
+                                                  <Setter Property="IsVisible" Value="True"/>
+                                                  <Setter Property="Width" Value="6"/>
+                                                  <Setter Property="MinWidth" Value="6"/>
                                               </Style>
                                               <!-- FLATTEN HIERARCHY -->
                                               <Style Selector="TreeViewItem /template/ ItemsPresenter#PART_ItemsPresenter">
@@ -770,6 +805,7 @@
                                                         <TextBlock Grid.Column="1" Text="{Binding Name}" 
                                                                    VerticalAlignment="Center"
                                                                    FontSize="11"
+                                                                   FontWeight="{Binding IsDirectory, Converter={StaticResource FolderFontWeightConverter}}"
                                                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                     </Grid>
@@ -878,11 +914,6 @@
                                         IsVisible="{Binding DataContext.IsLockerTabSelected, ElementName=Root, FallbackValue=False, TargetNullValue=False}"
                                         Margin="20,0,20,0"/>
 
-                <!-- EXPLORER TAB CONTENT -->
-                <views:OutputExplorerView DataContext="{Binding OutputExplorerVM}"
-                                          IsVisible="{Binding DataContext.IsExplorerTabSelected, ElementName=Root, FallbackValue=False, TargetNullValue=False}"
-                                          Margin="20,0,20,0"/>
-
                 <!-- EMBEDDED VIEW OVERLAY -->
                 <Grid IsVisible="{Binding IsEmbeddedViewOpen}" Background="{DynamicResource AppBackgroundBrush}" ZIndex="100">
                     <ContentControl Content="{Binding CurrentEmbeddedView}" 
@@ -890,116 +921,110 @@
                 </Grid>
 
                 <!-- NEW FOLDER OVERLAY -->
-                <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="500">
-                    <!-- Dimmed transparent backdrop: content behind stays visible -->
-                    <Button Background="#55000000" CornerRadius="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Command="{Binding BatchVM.CloseFolderOverlayCommand}" BorderThickness="0">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="#55000000"/>
-                            </Style>
-                        </Button.Styles>
-                    </Button>
-                    
-                    <!-- Overlay card: solid app background (not translucent CardBackgroundBrush) -->
-                    <Border Background="{DynamicResource AppBackgroundBrush}" 
-                            BorderBrush="{DynamicResource AccentBlueBrush}" 
-                            BorderThickness="1" 
-                            CornerRadius="6" 
-                            Padding="20" 
-                            Width="320" 
-                            HorizontalAlignment="Center" 
-                            VerticalAlignment="Center"
-                            Opacity="1"
-                            BoxShadow="0 8 24 0 #28000000">
-                        <StackPanel Spacing="16">
-                            <!-- Header -->
-                            <TextBlock Text="{Binding BatchVM.FolderOverlayTitle}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            
-                            <!-- Input Area -->
-                            <Grid ColumnDefinitions="*, Auto, Auto">
-                                <TextBox Grid.Column="0" 
-                                         x:Name="FolderInputBox"
-                                         Text="{Binding BatchVM.NewFolderName, Mode=TwoWay}" 
-                                         Watermark="Enter folder name..." 
-                                         CornerRadius="6" 
-                                         FontSize="13"
-                                         Padding="10,8">
-                                    <TextBox.KeyBindings>
-                                        <KeyBinding Gesture="Enter" Command="{Binding BatchVM.CreateFolderCommand}" CommandParameter="{Binding BatchVM.FolderOverlayType}"/>
-                                        <KeyBinding Gesture="Escape" Command="{Binding BatchVM.CloseFolderOverlayCommand}"/>
-                                    </TextBox.KeyBindings>
-                                </TextBox>
-                                
-                                <!-- Add Template Button (+) -->
-                                <Button Grid.Column="1" 
-                                        Command="{Binding BatchVM.AddFolderTemplateCommand}"
-                                        Background="{DynamicResource CardBackgroundBrush}" 
-                                        CornerRadius="6" 
-                                        Width="36" 
-                                        VerticalAlignment="Stretch"
-                                        ToolTip.Tip="Save as Template">
-                                    <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                </Button>
+                <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="500" ColumnDefinitions="*,*">
+                    <!-- A transparent hit target dismisses the editor without dimming either folder list. -->
+                    <Button Grid.ColumnSpan="2" Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            Height="NaN" MinHeight="0" Padding="0"
+                            Command="{Binding BatchVM.CloseFolderOverlayCommand}" BorderThickness="0"/>
 
-                                <!-- Template Toggle Button (Chevron) -->
-                                <Button Grid.Column="2" 
-                                        Command="{Binding BatchVM.ToggleFolderTemplatesCommand}"
-                                        Background="#25FFFFFF" 
-                                        CornerRadius="6" 
-                                        Width="36" 
-                                        VerticalAlignment="Stretch"
-                                        ToolTip.Tip="Select Template">
-                                    <PathIcon Data="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <!-- Keep the editor in its pane, near the lower create control; the other tree stays unobscured. -->
+                    <Border Grid.Column="{Binding BatchVM.FolderOverlayGridColumn}"
+                            Classes="card"
+                            Width="320"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            Margin="12,12,20,88"
+                            ZIndex="1">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="{Binding BatchVM.FolderOverlayTitle}" Classes="h3"/>
+                                    <TextBlock Text="{Binding BatchVM.FolderOverlayDescription}" Classes="caption" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Command="{Binding BatchVM.CloseFolderOverlayCommand}"
+                                        Classes="ghost" Width="28" Height="28" MinHeight="0" Padding="0"
+                                        ToolTip.Tip="Close folder editor">
+                                    <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Button>
                             </Grid>
 
-                            <!-- Templates List (Collapsible) -->
-                            <ItemsControl ItemsSource="{Binding BatchVM.FolderTemplates}" 
-                                          IsVisible="{Binding BatchVM.IsFolderTemplatesVisible}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" Margin="0,0,0,10"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Margin="0,0,6,6">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Button Content="{Binding}" 
-                                                        Command="{Binding DataContext.BatchVM.ApplyFolderTemplateCommand, ElementName=Root}" 
-                                                        CommandParameter="{Binding}"
-                                                        Classes="iconBtn"
-                                                        FontSize="11" 
-                                                        Foreground="{DynamicResource TextPrimaryBrush}"
-                                                        Padding="8,4" 
-                                                        Background="Transparent" 
-                                                        CornerRadius="6"/>
-                                                <Button Command="{Binding DataContext.BatchVM.RemoveFolderTemplateCommand, ElementName=Root}" 
-                                                        CommandParameter="{Binding}"
-                                                        Classes="iconBtn"
-                                                        Padding="6,4" 
-                                                        Background="#B54845" 
-                                                        CornerRadius="6"
-                                                        ToolTip.Tip="Remove Template">
-                                                    <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Width="8" Height="8" Foreground="White"/>
-                                                </Button>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Folder name" Classes="caption" FontWeight="SemiBold"/>
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                    <TextBox Grid.Column="0"
+                                             x:Name="FolderInputBox"
+                                             Text="{Binding BatchVM.NewFolderName, Mode=TwoWay}"
+                                             Watermark="Enter folder name...">
+                                        <TextBox.KeyBindings>
+                                            <KeyBinding Gesture="Enter" Command="{Binding BatchVM.CreateFolderCommand}" CommandParameter="{Binding BatchVM.FolderOverlayType}"/>
+                                            <KeyBinding Gesture="Escape" Command="{Binding BatchVM.CloseFolderOverlayCommand}"/>
+                                        </TextBox.KeyBindings>
+                                    </TextBox>
 
-                            <!-- Create Button -->
-                            <Button Command="{Binding BatchVM.CreateFolderCommand}" CommandParameter="{Binding BatchVM.FolderOverlayType}"
-                                    Content="Create Folder" 
-                                    HorizontalAlignment="Stretch" 
-                                    HorizontalContentAlignment="Center"
-                                    Background="{DynamicResource AccentBlueBrush}" 
-                                    Foreground="White" 
-                                    CornerRadius="6"
-                                    Padding="10,8"
-                                    FontWeight="SemiBold"/>
+                                    <Button Grid.Column="1"
+                                            Command="{Binding BatchVM.AddFolderTemplateCommand}"
+                                            Classes="secondary" Width="36" Height="36" MinHeight="0" Padding="0"
+                                            ToolTip.Tip="Save this name as a template">
+                                        <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </Button>
+
+                                    <Button Grid.Column="2"
+                                            Command="{Binding BatchVM.ToggleFolderTemplatesCommand}"
+                                            Classes="secondary" Width="36" Height="36" MinHeight="0" Padding="0"
+                                            ToolTip.Tip="Show or hide saved templates">
+                                        <Grid>
+                                            <PathIcon Data="{StaticResource IconChevronDown}" Width="14" Height="14"
+                                                      Foreground="{DynamicResource TextSecondaryBrush}"
+                                                      IsVisible="{Binding !BatchVM.IsFolderTemplatesVisible}"/>
+                                            <PathIcon Data="{StaticResource IconChevronUp}" Width="14" Height="14"
+                                                      Foreground="{DynamicResource TextSecondaryBrush}"
+                                                      IsVisible="{Binding BatchVM.IsFolderTemplatesVisible}"/>
+                                        </Grid>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel IsVisible="{Binding BatchVM.IsFolderTemplatesVisible}" Spacing="6">
+                                <TextBlock Text="Saved templates" Classes="caption" FontWeight="SemiBold"/>
+                                <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding BatchVM.FolderTemplates}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,6,6">
+                                                    <Button Content="{Binding}"
+                                                            Command="{Binding DataContext.BatchVM.ApplyFolderTemplateCommand, ElementName=Root}"
+                                                            CommandParameter="{Binding}"
+                                                            Classes="secondary" Height="28" Padding="8,4" FontSize="11"/>
+                                                    <Button Command="{Binding DataContext.BatchVM.RemoveFolderTemplateCommand, ElementName=Root}"
+                                                            CommandParameter="{Binding}"
+                                                            Classes="ghost" Width="28" Height="28" MinHeight="0" Padding="0"
+                                                            ToolTip.Tip="Remove template">
+                                                        <PathIcon Data="{StaticResource IconX}" Width="10" Height="10" Foreground="{DynamicResource AccentRedBrush}"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding BatchVM.FolderOverlayStatusMessage}"
+                                       Classes="caption"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding BatchVM.IsFolderOverlayStatusVisible}"/>
+
+                            <Button Command="{Binding BatchVM.CreateFolderCommand}"
+                                    CommandParameter="{Binding BatchVM.FolderOverlayType}"
+                                    Content="Create Folder"
+                                    Classes="primary"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"/>
                         </StackPanel>
                     </Border>
                 </Grid>

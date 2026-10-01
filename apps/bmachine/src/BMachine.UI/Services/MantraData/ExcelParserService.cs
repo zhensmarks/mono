@@ -3,13 +3,20 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using BMachine.UI.Models.MantraData;
 using ClosedXML.Excel;
 
 namespace BMachine.UI.Services.MantraData;
 
-public record SheetResult(string Name, List<string> Columns, List<TableDataRow> Rows);
+public record SheetResult(
+    string Name,
+    List<string> Columns,
+    List<TableDataRow> Rows,
+    bool NeedsHeaderChoice = false,
+    int? HeaderRowIndex = null,
+    List<List<object?>>? SourceMatrix = null);
 
 public class ExcelParserService
 {
@@ -18,6 +25,9 @@ public class ExcelParserService
         {"no", "No"},
         {"nomor", "No"},
         {"nis", "NIS"},
+        {"nisn nip", "NISN/NIP"},
+        {"nis nip", "NIS/NIP"},
+        {"nisn nis", "NISN/NIS"},
         {"nama", "Nama"},
         {"nama lengkap", "Nama"},
         {"nama siswa", "Nama"},
@@ -25,9 +35,11 @@ public class ExcelParserService
         {"nama guru tendik", "Nama"},
         {"nama guru/ tendik", "Nama"},
         {"jk", "JK"},
+        {"jk gender", "JK/Gender"},
         {"jenis kelamin", "JK"},
         {"kelamin", "JK"},
         {"kelas", "Kelas"},
+        {"kelas rombel", "Kelas/Rombel"},
         {"rombel", "Kelas"},
         {"rombel saat ini", "Kelas"},
         {"nisn", "NISN"},
@@ -181,62 +193,31 @@ public class ExcelParserService
         return result;
     }
 
-    private static bool RowIsStudentData(List<object?> values)
-    {
-        if (values.Count < 7) return false;
-        var number = values[0]?.ToString()?.Trim() ?? "";
-        var gender = values[3]?.ToString()?.Trim().ToUpperInvariant() ?? "";
-        var nisnDigits = Regex.Replace(values[4]?.ToString() ?? "", @"\D", "");
-
-        return int.TryParse(number, out _) &&
-               !string.IsNullOrWhiteSpace(values[1]?.ToString()) &&
-               (gender == "L" || gender == "P") &&
-               nisnDigits.Length >= 8;
-    }
-
     private static (int? Index, List<string> Headers) DetectHeader(List<List<object?>> rows)
     {
         int width = rows.Count > 0 ? rows.Max(r => r.Count) : 0;
+        if (width == 0) return (null, new List<string>());
 
-        for (int i = 0; i < Math.Min(5, rows.Count); i++)
+        // A dense row is not necessarily a header: headerless student rosters are
+        // often denser than their headings. Require at least two recognized labels.
+        for (int i = 0; i < Math.Min(40, rows.Count); i++)
         {
             var row = rows[i];
-            int nonEmpty = row.Count(v => v != null && !string.IsNullOrWhiteSpace(v.ToString()));
-            if (nonEmpty >= width * 0.6)
+            var values = row.Where(v => v != null && !string.IsNullOrWhiteSpace(v.ToString())).ToList();
+            if (values.Count < 2) continue;
+
+            int recognized = values.Count(v =>
             {
+                var key = Regex.Replace(v?.ToString()?.ToLowerInvariant() ?? "", @"[^a-z0-9]+", " ").Trim();
+                return HeaderAliases.ContainsKey(key);
+            });
+
+            if (recognized >= 2)
                 return (i, UniqueHeaders(row, width));
-            }
         }
 
-        int? bestIndex = null;
-        for (int i = 0; i < Math.Min(10, rows.Count); i++)
-        {
-            if (RowIsStudentData(rows[i]))
-            {
-                bestIndex = i > 0 ? i - 1 : null;
-                break;
-            }
-        }
-
-        if (!bestIndex.HasValue)
-        {
-            for (int i = 0; i < Math.Min(10, rows.Count); i++)
-            {
-                var nonEmptyCount = rows[i].Count(v => v != null && !string.IsNullOrWhiteSpace(v.ToString()));
-                if (nonEmptyCount > 0)
-                {
-                    bestIndex = i;
-                    break;
-                }
-            }
-        }
-
-        int firstData = bestIndex.GetValueOrDefault(0);
-        if (firstData > 0 && firstData < rows.Count)
-        {
-            return (firstData, UniqueHeaders(rows[firstData], width));
-        }
-
+        // No reliable heading was found. Caller will keep all non-empty rows as
+        // data under generic column names and may explicitly opt into row 1 as header.
         return (null, new List<string>());
     }
 
@@ -266,23 +247,92 @@ public class ExcelParserService
     private static char DetectDelimiter(string sample)
     {
         char best = ',';
-        int bestScore = -1;
-        foreach (var d in new[] { ',', ';', '\t', '|' })
+        long bestScore = -1;
+        foreach (var delimiter in new[] { ',', ';', '\t', '|' })
         {
-            var lineCounts = sample.Split('\n').Take(5)
-                .Where(l => !string.IsNullOrWhiteSpace(l))
-                .Select(l => l.Count(ch => ch == d))
-                .ToList();
-            int total = lineCounts.Sum();
-            int withHits = lineCounts.Count(c => c > 0);
-            int score = total + withHits * 10;
+            var records = ParseDelimitedText(sample, delimiter);
+            var shaped = records.Select(r => r.Count).Where(count => count > 1).ToList();
+            if (shaped.Count == 0) continue;
+            int mostCommonWidth = shaped.GroupBy(width => width).Max(g => g.Count());
+            long score = shaped.Count * 10000L + mostCommonWidth * 100L + shaped.Max();
             if (score > bestScore)
             {
                 bestScore = score;
-                best = d;
+                best = delimiter;
             }
         }
         return best;
+    }
+
+    private static List<List<string>> ParseDelimitedText(string text, char delimiter)
+    {
+        var records = new List<List<string>>();
+        var fields = new List<string>();
+        var field = new StringBuilder();
+        bool inQuotes = false;
+        bool recordHasContent = false;
+
+        void FinishRecord()
+        {
+            fields.Add(field.ToString());
+            field.Clear();
+            if (recordHasContent || fields.Any(value => value.Length > 0))
+                records.Add(fields);
+            fields = new List<string>();
+            recordHasContent = false;
+        }
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            char ch = text[i];
+            if (ch == '"')
+            {
+                if (inQuotes && i + 1 < text.Length && text[i + 1] == '"')
+                {
+                    field.Append('"');
+                    i++;
+                    recordHasContent = true;
+                }
+                else if (inQuotes)
+                {
+                    inQuotes = false;
+                }
+                else if (field.Length == 0)
+                {
+                    inQuotes = true;
+                    recordHasContent = true;
+                }
+                else
+                {
+                    // Keep malformed/unescaped quotes rather than silently dropping them.
+                    field.Append(ch);
+                    recordHasContent = true;
+                }
+                continue;
+            }
+
+            if (ch == delimiter && !inQuotes)
+            {
+                fields.Add(field.ToString());
+                field.Clear();
+                recordHasContent = true;
+                continue;
+            }
+
+            if ((ch == '\r' || ch == '\n') && !inQuotes)
+            {
+                FinishRecord();
+                if (ch == '\r' && i + 1 < text.Length && text[i + 1] == '\n') i++;
+                continue;
+            }
+
+            field.Append(ch);
+            recordHasContent = true;
+        }
+
+        if (field.Length > 0 || fields.Count > 0 || recordHasContent)
+            FinishRecord();
+        return records;
     }
 
     public (List<string> Columns, List<TableDataRow> Rows) LoadDelimited(string path)
@@ -300,24 +350,14 @@ public class ExcelParserService
         if (text.Length > 0 && text[0] == '\uFEFF')
             text = text.Substring(1);
 
-        string sniff = text.Length > 8192 ? text.Substring(0, 8192) : text;
-        var delimiter = DetectDelimiter(sniff);
-
-        var rawMatrix = new List<List<object?>>();
-        foreach (var rawLine in text.Split('\n'))
-        {
-            var line = rawLine.TrimEnd('\r');
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                rawMatrix.Add(new List<object?> { null });
-                continue;
-            }
-            rawMatrix.Add(line.Split(delimiter).Select(s => (object?)s.Trim()).ToList());
-        }
+        var delimiter = DetectDelimiter(text);
+        var rawMatrix = ParseDelimitedText(text, delimiter)
+            .Select(row => row.Select(value => (object?)value).ToList())
+            .ToList();
 
         _allSheets.Clear();
         var result = BuildTableFromMatrix(rawMatrix, "Data");
-        if (result.Rows.Count > 0)
+        if (result.Rows.Count > 0 || result.NeedsHeaderChoice)
             _allSheets.Add(result);
 
         if (_allSheets.Count == 0)
@@ -347,15 +387,46 @@ public class ExcelParserService
         return BuildTableFromMatrix(rawMatrix, ws.Name);
     }
 
-    private SheetResult BuildTableFromMatrix(List<List<object?>> matrix, string sheetName)
+    private SheetResult BuildTableFromMatrix(
+        List<List<object?>> matrix,
+        string sheetName,
+        bool useFirstNonEmptyRowAsHeader = false)
     {
+        var sourceMatrix = matrix.Select(row => row.ToList()).ToList();
         matrix = TrimMatrix(matrix);
         if (matrix.Count == 0)
-            return new SheetResult(sheetName, new List<string>(), new List<TableDataRow>());
+            return new SheetResult(sheetName, new List<string>(), new List<TableDataRow>(), SourceMatrix: sourceMatrix);
 
         var (headerIndex, headers) = DetectHeader(matrix);
+        bool needsHeaderChoice = !headerIndex.HasValue && matrix.Any(row => row.Any(v => v != null && !string.IsNullOrWhiteSpace(v.ToString())));
+        if (!headerIndex.HasValue && useFirstNonEmptyRowAsHeader)
+        {
+            int firstNonEmpty = matrix.FindIndex(row => row.Any(v => v != null && !string.IsNullOrWhiteSpace(v.ToString())));
+            if (firstNonEmpty >= 0)
+            {
+                headerIndex = firstNonEmpty;
+                headers = UniqueHeaders(matrix[firstNonEmpty], matrix.Max(row => row.Count));
+                needsHeaderChoice = false;
+            }
+        }
         if (headers.Count == 0)
-            return new SheetResult(sheetName, new List<string>(), new List<TableDataRow>());
+        {
+            int width = matrix.Max(row => row.Count);
+            headers = Enumerable.Range(1, width).Select(i => $"Kolom {i}").ToList();
+        }
+
+        var preambleRows = headerIndex.HasValue
+            ? matrix.Take(headerIndex.Value).Where(row => row.Any(v => v != null && !string.IsNullOrWhiteSpace(v.ToString()))).ToList()
+            : new List<List<object?>>();
+        string? preambleColumn = null;
+        if (preambleRows.Count > 0)
+        {
+            preambleColumn = "Catatan Impor";
+            int suffix = 2;
+            while (headers.Contains(preambleColumn, StringComparer.OrdinalIgnoreCase))
+                preambleColumn = $"Catatan Impor ({suffix++})";
+            headers.Add(preambleColumn);
+        }
 
         int dataStart = headerIndex.HasValue ? headerIndex.Value + 1 : 0;
         while (dataStart < matrix.Count && !matrix[dataStart].Any(v => v != null && !string.IsNullOrWhiteSpace(v.ToString())))
@@ -365,6 +436,14 @@ public class ExcelParserService
 
         var rows = new List<TableDataRow>();
         int rowNumber = 1;
+
+        foreach (var preamble in preambleRows)
+        {
+            var noteRow = new TableDataRow { RowNumber = rowNumber++ };
+            foreach (var header in headers) noteRow[header] = string.Empty;
+            noteRow[preambleColumn!] = string.Join(" | ", preamble.Select(v => v?.ToString() ?? "").Where(v => !string.IsNullOrWhiteSpace(v)));
+            rows.Add(noteRow);
+        }
 
         for (int mIdx = dataStart; mIdx < matrix.Count; mIdx++)
         {
@@ -379,7 +458,7 @@ public class ExcelParserService
 
                 if (cIdx < matrixRow.Count)
                 {
-                    cellText = matrixRow[cIdx]?.ToString()?.Trim() ?? "";
+                    cellText = matrixRow[cIdx]?.ToString() ?? "";
                 }
 
                 if (!string.IsNullOrEmpty(cellText))
@@ -398,7 +477,7 @@ public class ExcelParserService
             }
         }
 
-        return new SheetResult(sheetName, headers, rows);
+        return new SheetResult(sheetName, headers, rows, needsHeaderChoice, headerIndex, sourceMatrix);
     }
 
     private List<SheetResult> _allSheets = new();
@@ -411,7 +490,7 @@ public class ExcelParserService
         foreach (var ws in workbook.Worksheets.Where(w => w.Visibility == XLWorksheetVisibility.Visible))
         {
             var result = LoadSheet(ws);
-            if (result.Rows.Count > 0)
+            if (result.Rows.Count > 0 || result.NeedsHeaderChoice)
             {
                 _allSheets.Add(result);
             }
@@ -427,6 +506,19 @@ public class ExcelParserService
     }
 
     public List<SheetResult> GetAllSheets() => _allSheets;
+
+    public void UseFirstNonEmptyRowAsHeaderForUnrecognizedSheets()
+    {
+        for (int i = 0; i < _allSheets.Count; i++)
+        {
+            var sheet = _allSheets[i];
+            if (!sheet.NeedsHeaderChoice || sheet.SourceMatrix == null) continue;
+            _allSheets[i] = BuildTableFromMatrix(
+                sheet.SourceMatrix.Select(row => row.ToList()).ToList(),
+                sheet.Name,
+                useFirstNonEmptyRowAsHeader: true);
+        }
+    }
 
     public static void SaveExcel(string path, List<string> columns, List<TableDataRow> rows)
     {
@@ -462,10 +554,11 @@ public class ExcelParserService
 
     public static void SaveCsv(string path, List<string> columns, List<TableDataRow> rows)
     {
-        using var w = new StreamWriter(path, false, System.Text.Encoding.UTF8);
-        w.WriteLine(string.Join(",", columns.Select(c => $"\"{c}\"")));
+        using var w = new StreamWriter(path, false, new UTF8Encoding(false));
+        static string Quote(string? value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+        w.WriteLine(string.Join(",", columns.Select(Quote)));
         foreach (var row in rows)
-            w.WriteLine(string.Join(",", columns.Select(c => $"\"{(row.Values.TryGetValue(c, out var v) ? v : "")}\"")));
+            w.WriteLine(string.Join(",", columns.Select(c => Quote(row.Values.TryGetValue(c, out var v) ? v : string.Empty))));
     }
 
     public static string ToTitleCase(string input)
@@ -522,5 +615,3 @@ public class ExcelParserService
         SaveExcel(path, columns, rows);
     }
 }
-
-

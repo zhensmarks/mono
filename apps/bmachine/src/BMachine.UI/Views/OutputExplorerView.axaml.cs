@@ -17,6 +17,31 @@ namespace BMachine.UI.Views;
 
 public partial class OutputExplorerView : UserControl
 {
+    public static readonly StyledProperty<bool> IsCompactHostProperty =
+        AvaloniaProperty.Register<OutputExplorerView, bool>(nameof(IsCompactHost));
+    public static readonly StyledProperty<double> CompactSidebarMaxWidthProperty =
+        AvaloniaProperty.Register<OutputExplorerView, double>(nameof(CompactSidebarMaxWidth), 400);
+    public static readonly StyledProperty<bool> ShowDetailsColumnsProperty =
+        AvaloniaProperty.Register<OutputExplorerView, bool>(nameof(ShowDetailsColumns), true);
+
+    public bool IsCompactHost
+    {
+        get => GetValue(IsCompactHostProperty);
+        set => SetValue(IsCompactHostProperty, value);
+    }
+
+    public double CompactSidebarMaxWidth
+    {
+        get => GetValue(CompactSidebarMaxWidthProperty);
+        private set => SetValue(CompactSidebarMaxWidthProperty, value);
+    }
+
+    public bool ShowDetailsColumns
+    {
+        get => GetValue(ShowDetailsColumnsProperty);
+        private set => SetValue(ShowDetailsColumnsProperty, value);
+    }
+
     private readonly System.Collections.Generic.List<KeyBinding> _explorerKeyBindings = new();
     private readonly System.Windows.Input.ICommand _requestCloseTabOrWindowCommand;
     private readonly System.Windows.Input.ICommand _requestNewTabCommand;
@@ -128,11 +153,26 @@ public partial class OutputExplorerView : UserControl
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() => HandleGlobalScroll(m));
         });
+        SizeChanged += (_, _) => UpdateCompactLayout();
     }
 
     private void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);
+    }
+
+    private void UpdateCompactLayout()
+    {
+        if (!IsCompactHost)
+        {
+            CompactSidebarMaxWidth = 400;
+            ShowDetailsColumns = true;
+            return;
+        }
+
+        var width = Bounds.Width;
+        CompactSidebarMaxWidth = System.Math.Clamp(width * 0.25, 40, 160);
+        ShowDetailsColumns = width >= 400;
     }
 
     private void SetupZoom(OutputExplorerViewModel vm)

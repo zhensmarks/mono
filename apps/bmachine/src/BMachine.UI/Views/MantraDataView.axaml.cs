@@ -32,8 +32,8 @@ public partial class MantraDataView : UserControl
 {
     private MantraDataViewModel? _viewModel;
     private string _activeContextColumn = string.Empty;
+    private bool _hasRightClickContext;
     private List<string> _lastSelectedColumns = new();
-
     private readonly HashSet<(TableDataRow Row, string Column)> _selectedCells = new();
     private int _anchorRowIdx = -1;
     private int _anchorColIdx = -1;
@@ -845,6 +845,70 @@ FileTypeFilter = new List<FilePickerFileType>
         return new List<TableDataRow>();
     }
 
+    private string? GetExplicitlySelectedColumn()
+    {
+        if (_viewModel == null) return null;
+
+        if (_hasRightClickContext)
+            return !string.IsNullOrEmpty(_activeContextColumn) && _viewModel.Columns.Contains(_activeContextColumn)
+                ? _activeContextColumn
+                : null;
+
+        if (!string.IsNullOrEmpty(_activeContextColumn) && _viewModel.Columns.Contains(_activeContextColumn))
+            return _activeContextColumn;
+
+        if (_selectedCells.Count > 0)
+        {
+            var selected = _selectedCells.First().Column;
+            if (!string.IsNullOrEmpty(selected) && _viewModel.Columns.Contains(selected))
+                return selected;
+        }
+
+        if (MainDataGrid.CurrentColumn?.Header is string header && _viewModel.Columns.Contains(header))
+            return header;
+
+        var lastSelected = _lastSelectedColumns.FirstOrDefault();
+        return !string.IsNullOrEmpty(lastSelected) && _viewModel.Columns.Contains(lastSelected)
+            ? lastSelected
+            : null;
+    }
+
+    private async void OnQuickGenderTransformClicked(object? sender, RoutedEventArgs e) =>
+        await ApplyQuickTransformAsync(QuickTransformKind.Gender);
+
+    private async void OnQuickDateTransformClicked(object? sender, RoutedEventArgs e) =>
+        await ApplyQuickTransformAsync(QuickTransformKind.IndonesianDate);
+
+    private async Task ApplyQuickTransformAsync(QuickTransformKind kind)
+    {
+        if (_viewModel == null) return;
+
+        var resolution = QuickTransformService.ResolveTargetColumn(
+            _viewModel.Columns,
+            _viewModel.Rows,
+            GetExplicitlySelectedColumn(),
+            kind);
+
+        if (resolution.Column == null)
+        {
+            var title = "Transformasi cepat";
+            var message = resolution.IsAmbiguous
+                ? "Ada beberapa kolom yang cocok. Klik sel di kolom tujuan, lalu jalankan transformasi lagi."
+                : kind == QuickTransformKind.Gender
+                    ? "Kolom jenis kelamin tidak terdeteksi. Klik sel di kolom tujuan, lalu jalankan transformasi lagi."
+                    : "Kolom tanggal tidak terdeteksi. Klik sel di kolom tujuan, lalu jalankan transformasi lagi.";
+            _viewModel.StatusMessage = message;
+            if (_viewModel.RequestAlertFunc != null)
+                await _viewModel.RequestAlertFunc(title, message);
+            return;
+        }
+
+        if (kind == QuickTransformKind.Gender)
+            _viewModel.ExpandGenderLabelsColumn(resolution.Column);
+        else
+            _viewModel.FormatIndonesianDateColumn(resolution.Column);
+    }
+
     private void OnDataGridSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_viewModel == null) return;
@@ -1302,6 +1366,8 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
         _menuActions["Copy"] = () => CopySelectedToClipboard();
         _menuActions["Paste"] = () => PasteFromClipboard();
         _menuActions["ClearCells"] = () => ClearSelectedCells();
+        _menuActions["GenderTransform"] = () => OnQuickGenderTransformClicked(null, new RoutedEventArgs());
+        _menuActions["DateTransform"] = () => OnQuickDateTransformClicked(null, new RoutedEventArgs());
         _menuActions["CustomMerge"] = () => OnMenuCustomMergeClicked(null, new RoutedEventArgs());
         _menuActions["TitleCase"] = () => OnMenuTitleCaseClicked(null, new RoutedEventArgs());
         _menuActions["DateFormatFull"] = () => OnMenuDateFormatFullClicked(null, new RoutedEventArgs());
@@ -1451,11 +1517,57 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
     // --- EXCEL-LIKE CELL SELECTION (Custom Layer) ---
     private void OnDataGridPointerTunnel(object? sender, PointerPressedEventArgs e)
     {
-        if (e.Source is TextBox) return;
-        if (_viewModel == null || _viewModel.Rows.Count == 0) return;
-
         var source = e.Source as Visual;
         if (source == null) return;
+
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+        {
+            _hasRightClickContext = true;
+            if (_viewModel == null || _viewModel.Rows.Count == 0)
+            {
+                _activeContextColumn = string.Empty;
+                return;
+            }
+
+            var contextHeader = FindAncestor<DataGridColumnHeader>(source);
+            if (contextHeader != null)
+            {
+                var contextColumn = DataGridColumn.GetColumnContainingElement(contextHeader);
+                var contextName = contextColumn?.Header?.ToString();
+                _activeContextColumn = !string.IsNullOrEmpty(contextName) && contextName != "#" && _viewModel.Columns.Contains(contextName)
+                    ? contextName
+                    : string.Empty;
+
+                if (!string.IsNullOrEmpty(_activeContextColumn) &&
+                    !_selectedCells.Any(cell => string.Equals(cell.Column, _activeContextColumn, StringComparison.Ordinal)))
+                    HandleColumnHeaderClick(contextHeader, false, false);
+                return;
+            }
+
+            var contextCell = FindAncestor<DataGridCell>(source);
+            if (contextCell != null)
+            {
+                var contextColumn = DataGridColumn.GetColumnContainingElement(contextCell);
+                var contextName = contextColumn?.Header?.ToString();
+                _activeContextColumn = !string.IsNullOrEmpty(contextName) && contextName != "#" && _viewModel.Columns.Contains(contextName)
+                    ? contextName
+                    : string.Empty;
+
+                var contextRow = DataGridRow.GetRowContainingElement(contextCell);
+                if (!string.IsNullOrEmpty(_activeContextColumn) && contextRow?.DataContext is TableDataRow dataRow &&
+                    !_selectedCells.Contains((dataRow, _activeContextColumn)))
+                    HandleCellClick(contextCell, false, false);
+                return;
+            }
+
+            _activeContextColumn = string.Empty;
+            return;
+        }
+
+        _hasRightClickContext = false;
+        _activeContextColumn = string.Empty;
+        if (e.Source is TextBox) return;
+        if (_viewModel == null || _viewModel.Rows.Count == 0) return;
 
         bool isCtrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
         bool isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);

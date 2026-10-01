@@ -3,22 +3,52 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:views="using:BMachine.UI.Views"
-        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
+        mc:Ignorable="d" d:DesignWidth="460" d:DesignHeight="430"
         x:Class="BMachine.UI.Views.DocFloatingWindow"
         Title="Instan Redaksi"
-        Width="320" Height="400"
-        MinWidth="280" MinHeight="150"
+        Width="460" Height="430"
+        MinWidth="360" MinHeight="320"
         SizeToContent="Manual"
         WindowStartupLocation="CenterScreen"
         Topmost="True"
         SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
-        Background="{DynamicResource CardBackgroundBrush}">
-    <Grid PointerPressed="OnPointerPressed" Background="Transparent">
-        <!-- Main Content -->
-        <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0">
-            <views:DocPanelView />
-        </Border>
-    </Grid>
+        Background="{DynamicResource AppBackgroundBrush}">
+    <Border Background="{DynamicResource CardBackgroundBrush}"
+            BorderBrush="{DynamicResource SeparatorBrush}"
+            BorderThickness="1" CornerRadius="8">
+        <Grid RowDefinitions="Auto,*">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" MinHeight="58" Margin="14,8,14,0">
+                <!-- Only the header background starts a move drag; Doc fields and buttons remain clickable. -->
+                <Border Grid.ColumnSpan="2" Background="Transparent" PointerPressed="OnDragRegionPointerPressed"/>
+                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center" IsHitTestVisible="False">
+                    <TextBlock Text="INSTAN REDAKSI" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Nama, alamat, dan logo" FontSize="10"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Button Command="{Binding BatchVM.ResetDocCommand}" ToolTip.Tip="Reset Semua (Nama, Alamat, Logo)"
+                            Background="#B54845" BorderThickness="0" Padding="6" CornerRadius="4" Cursor="Hand" Width="30" Height="30">
+                        <PathIcon Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" Width="12" Height="12" Foreground="White"/>
+                    </Button>
+                    <Button Click="OnOpenDocSettingsClick" ToolTip.Tip="Pengaturan Teks DOC (Nama &amp; Alamat yang dicari)"
+                            Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Padding="6" CornerRadius="4" Cursor="Hand" Width="30" Height="30">
+                        <PathIcon Data="{StaticResource IconSettings}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                    <Button Command="{Binding BatchVM.ToggleSecondLogoCommand}" ToolTip.Tip="Tambah / Hapus Logo Alternatif"
+                            Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Padding="6" CornerRadius="4" Cursor="Hand" Width="30" Height="30">
+                        <PathIcon Data="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
+                    </Button>
+                    <Button Classes="secondary" Content="Close" Height="30" Padding="10,0"
+                            ToolTip.Tip="Close and return Doc to the Log Panel" Click="OnCloseClick"/>
+                </StackPanel>
+            </Grid>
+            <Border Grid.Row="1" Margin="0,8,0,0"
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
+                <views:DocPanelView/>
+            </Border>
+        </Grid>
+    </Border>
 </Window>

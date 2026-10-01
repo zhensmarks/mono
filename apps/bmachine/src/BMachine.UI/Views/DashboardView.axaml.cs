@@ -141,6 +141,8 @@ public partial class DashboardView : UserControl
             // Unsubscribe to avoid duplicates if DataContext is reset
             vm.BatchVM.RequestMasterPathBrowse -= HandleRequestMasterPathBrowse;
             vm.BatchVM.RequestMasterPathBrowse += HandleRequestMasterPathBrowse;
+            vm.BatchVM.RequestManualReplaceFolderBrowse -= HandleRequestManualReplaceFolderBrowse;
+            vm.BatchVM.RequestManualReplaceFolderBrowse += HandleRequestManualReplaceFolderBrowse;
         }
     }
 
@@ -152,6 +154,20 @@ public partial class DashboardView : UserControl
         var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
         {
             Title = "Select Master Root Folder",
+            AllowMultiple = false
+        });
+
+        return folders.FirstOrDefault()?.Path.LocalPath;
+    }
+
+    private async System.Threading.Tasks.Task<string?> HandleRequestManualReplaceFolderBrowse(string title)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null) return null;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
+        {
+            Title = title,
             AllowMultiple = false
         });
 
@@ -260,31 +276,8 @@ public partial class DashboardView : UserControl
     {
         var point = e.GetCurrentPoint(sender as Visual);
 
-        // Detect Right Click (Expand/Collapse)
-        if (point.Properties.IsRightButtonPressed)
-        {
-            if (sender is Control control)
-            {
-                if (control.DataContext is BatchNodeItem item)
-                {
-                    if (item.ExpandCommand.CanExecute(null))
-                    {
-                        item.ExpandCommand.Execute(null);
-                        e.Handled = true;
-                    }
-                }
-                else if (control.DataContext is BatchFolderRoot root)
-                {
-                    if (root.ExpandCommand.CanExecute(null))
-                    {
-                        root.ExpandCommand.Execute(null);
-                        e.Handled = true;
-                    }
-                }
-            }
-        }
         // Detect Double Left Click (Open Text - BatchNodeItem only)
-        else if (e.ClickCount == 2 && point.Properties.IsLeftButtonPressed)
+        if (e.ClickCount == 2 && point.Properties.IsLeftButtonPressed)
         {
             if (sender is Control control && control.DataContext is BatchNodeItem item)
             {
@@ -302,6 +295,7 @@ public partial class DashboardView : UserControl
             {
                 string? pathToCopy = null;
                 object? batchItem = null;
+                bool isOutputRootClick = false;
 
                 if (control.DataContext is BatchNodeItem item)
                 {
@@ -310,7 +304,8 @@ public partial class DashboardView : UserControl
                 }
                 else if (control.DataContext is BatchFolderRoot root)
                 {
-                    pathToCopy = root.SourcePath;
+                    isOutputRootClick = string.Equals(control.Tag as string, "Output", System.StringComparison.OrdinalIgnoreCase);
+                    pathToCopy = isOutputRootClick ? root.OutputPath : root.SourcePath;
                     batchItem = root;
                 }
 
@@ -318,7 +313,7 @@ public partial class DashboardView : UserControl
                 // TARGET follows the clicked source/output folder.
                 if (batchItem != null && DataContext is DashboardViewModel dashVm && dashVm.BatchVM != null)
                 {
-                    dashVm.BatchVM.SelectedBatchItem = batchItem;
+                    dashVm.BatchVM.SelectBatchItemFromTree(batchItem, isOutputRootClick);
                 }
 
                 if (!string.IsNullOrEmpty(pathToCopy))

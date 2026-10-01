@@ -213,7 +213,7 @@
             <!-- 2. Main Content (Sidebar | Splitter | Files) -->
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{Binding SidebarWidth, Mode=TwoWay}" MinWidth="32" MaxWidth="400"/>
+                    <ColumnDefinition Width="{Binding SidebarWidth, Mode=TwoWay}" MinWidth="32" MaxWidth="{Binding #ExplorerRoot.CompactSidebarMaxWidth}"/>
                     <ColumnDefinition Width="2"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
@@ -343,7 +343,7 @@
                             
                             <!-- ITEM TEMPLATE — Details style with name + size + date -->
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                 <Grid ColumnDefinitions="Auto, *, Auto, Auto" MinWidth="200" Background="Transparent" Height="26" DoubleTapped="OnItemDoubleTapped"
+                                 <Grid ColumnDefinitions="Auto, *, Auto, Auto" MinWidth="0" Background="Transparent" Height="26" DoubleTapped="OnItemDoubleTapped"
                                        PointerPressed="OnItemPointerPressed"
                                        PointerMoved="OnItemPointerMoved"
                                        PointerReleased="OnItemPointerReleased">
@@ -406,21 +406,24 @@
                                       </Panel>
 
                                       <!-- File Size -->
-                                      <TextBlock Grid.Column="2" Text="{Binding DisplaySize}"
-                                                 FontSize="10" Opacity="0.55"
-                                                 VerticalAlignment="Center"
-                                                 Foreground="{DynamicResource TextSecondaryBrush}"
-                                                 IsVisible="{Binding !IsEditing}"
-                                                 Margin="0,0,16,0" MinWidth="56" TextAlignment="Right"/>
+                                      <Panel Grid.Column="2" IsVisible="{Binding #ExplorerRoot.ShowDetailsColumns}">
+                                          <TextBlock Text="{Binding DisplaySize}"
+                                                     FontSize="10" Opacity="0.55"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                                     IsVisible="{Binding !IsEditing}"
+                                                     Margin="0,0,16,0" MinWidth="56" TextAlignment="Right"/>
+                                      </Panel>
 
                                       <!-- Date Modified -->
-                                      <TextBlock Grid.Column="3" 
-                                                 Text="{Binding DateModified, StringFormat='{}{0:dd MMM yyyy}'}"
-                                                 FontSize="10" Opacity="0.45"
-                                                 VerticalAlignment="Center"
-                                                 Foreground="{DynamicResource TextSecondaryBrush}"
-                                                 IsVisible="{Binding !IsEditing}"
-                                                 Margin="0,0,8,0" MinWidth="76" TextAlignment="Right"/>
+                                      <Panel Grid.Column="3" IsVisible="{Binding #ExplorerRoot.ShowDetailsColumns}">
+                                          <TextBlock Text="{Binding DateModified, StringFormat='{}{0:dd MMM yyyy}'}"
+                                                     FontSize="10" Opacity="0.45"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                                     IsVisible="{Binding !IsEditing}"
+                                                     Margin="0,0,8,0" MinWidth="76" TextAlignment="Right"/>
+                                      </Panel>
                                  </Grid>
                             </DataTemplate>
                         </ListBox.DataTemplates>

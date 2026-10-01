@@ -34,6 +34,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     public ILanguageService? Language => _languageService;
 
     [ObservableProperty] private bool _isLogPanelOpen;
+    [ObservableProperty] private bool _isExplorerPanelSelected;
     
     /// <summary>Terminal / log sidebar width (persisted).</summary>
     [ObservableProperty] private double _logPanelWidth = 280;
@@ -148,7 +149,14 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
              case "Batch": SelectedTabIndex = 1; break;
              case "Locker": SelectedTabIndex = 2; break;
              case "Points": SelectedTabIndex = 5; break;
-             case "Explorer": SelectedTabIndex = 6; break;
+             case "Explorer":
+                 if (SelectedTabIndex == 6) SelectedTabIndex = 0;
+                 if (IsOutputExplorerVisible)
+                 {
+                     IsLogPanelOpen = true;
+                     IsExplorerPanelSelected = true;
+                 }
+                 break;
         }
     }
 
@@ -163,6 +171,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     partial void OnIsOutputExplorerVisibleChanged(bool value)
     {
          _database?.SetAsync("Settings.Dash.Explorer", value.ToString());
+         if (!value) IsExplorerPanelSelected = false;
     }
 
     partial void OnIsSpreadsheetOnlineChanged(bool value)
@@ -295,8 +304,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [NotifyPropertyChangedFor(nameof(IsBatchTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsLockerTabSelected))]
     [NotifyPropertyChangedFor(nameof(IsPointsTabSelected))] // Added for Points Tab
-    [NotifyPropertyChangedFor(nameof(IsExplorerTabSelected))] // Added for Explorer Tab
-    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive, 5=Points, 6=Explorer
+    private int _selectedTabIndex = 0; // 0=Home, 1=Grid, 2=Locker, 3=Pixelcut, 4=GDrive, 5=Points
 
     public bool IsDashboardTabSelected 
     { 
@@ -322,12 +330,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         set { if (value) SelectedTabIndex = 5; }
     }
     
-    public bool IsExplorerTabSelected
-    {
-        get => SelectedTabIndex == 6; // New Tab Index
-        set { if (value) SelectedTabIndex = 6; }
-    }
-
     partial void OnSelectedTabIndexChanged(int value)
     {
         // When Tab changes, close the Embedded View Overlay if open

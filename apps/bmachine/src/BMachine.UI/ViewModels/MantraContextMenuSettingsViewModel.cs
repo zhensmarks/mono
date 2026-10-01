@@ -48,34 +48,36 @@ public partial class MantraContextMenuSettingsViewModel : ObservableObject
 
     public static readonly IReadOnlyList<(string Key, string Name, string Category, string DefaultShortcut, string ParentKey)> DefaultMenuItems = new List<(string, string, string, string, string)>
     {
-        ("Copy", "Salin", "Clipboard & Edit", "Ctrl+C", ""),
-        ("Paste", "Tempel", "Clipboard & Edit", "Ctrl+V", ""),
-        ("ClearCells", "Kosongkan Sel", "Clipboard & Edit", "Delete", ""),
-
-        ("CustomMerge", "Gabung Kolom...", "Olah Data", "", ""),
-        ("TitleCase", "Rapikan Teks (Title Case)", "Olah Data", "", ""),
-        ("DateFormatFull", "Format Tanggal (DD MMMM YYYY)", "Olah Data", "", ""),
-        ("PhonePrefix", "Format No. HP (+62 / 08)", "Olah Data", "", ""),
-        ("FindReplace", "Cari dan Ganti...", "Olah Data", "Ctrl+F", ""),
-        ("SplitColumn", "Pisah Kolom (Split)...", "Olah Data", "", ""),
-
-        ("InsertColumnLeft", "Sisipkan Kolom di Kiri", "Kelola Kolom", "", ""),
-        ("InsertColumnRight", "Sisipkan Kolom di Kanan", "Kelola Kolom", "", ""),
-        ("MoveColumnLeft", "Pindahkan Kolom ke Kiri", "Kelola Kolom", "", ""),
-        ("MoveColumnRight", "Pindahkan Kolom ke Kanan", "Kelola Kolom", "", ""),
-        ("RenameColumn", "Ganti Nama Kolom...", "Kelola Kolom", "", ""),
-        ("DeleteColumn", "Hapus Kolom Ini", "Kelola Kolom", "", ""),
-        ("AutoFit", "Otomatis Ukuran Kolom", "Kelola Kolom", "", ""),
-
+        ("Copy", "Salin", "Tabel & Seleksi", "Ctrl+C", ""),
+        ("Paste", "Tempel", "Tabel & Seleksi", "Ctrl+V", ""),
+        ("FindReplace", "Cari dan Ganti...", "Tabel & Seleksi", "Ctrl+F", ""),
         ("InsertRow", "Tambah Baris Baru", "Kelola Baris", "", ""),
-        ("DeleteRows", "Hapus Baris Terpilih", "Kelola Baris", "", ""),
-
-        ("ColorTag", "Tandai Baris (Warna)", "Tanda Warna", "", ""),
+        ("ColorTag", "Tandai Baris (Warna)", "Kelola Baris", "", ""),
         ("ColorGreen", "Hijau (Valid)", "Tanda Warna", "", "ColorTag"),
         ("ColorBlue", "Biru (Info)", "Tanda Warna", "", "ColorTag"),
         ("ColorAmber", "Kuning (Periksa)", "Tanda Warna", "", "ColorTag"),
         ("ColorRed", "Merah (Error)", "Tanda Warna", "", "ColorTag"),
         ("ColorClear", "Hapus Tanda Warna", "Tanda Warna", "", "ColorTag"),
+
+        ("GenderTransform", "L/P → Jenis Kelamin", "Transformasi & Format", "", ""),
+        ("DateTransform", "dd-MM-yyyy → Tanggal Indonesia", "Transformasi & Format", "", ""),
+        ("TitleCase", "Rapikan Teks (Title Case)", "Transformasi & Format", "", ""),
+        ("DateFormatFull", "Format Tanggal (DD MMMM YYYY)", "Transformasi & Format", "", ""),
+        ("PhonePrefix", "Format No. HP (+62 / 08)", "Transformasi & Format", "", ""),
+
+        ("CustomMerge", "Gabung Kolom...", "Olah Data Lanjutan", "", ""),
+        ("SplitColumn", "Pisah Kolom (Split)...", "Olah Data Lanjutan", "", ""),
+
+        ("AutoFit", "Otomatis Ukuran Kolom", "Kelola Kolom", "", ""),
+        ("InsertColumnLeft", "Sisipkan Kolom di Kiri", "Kelola Kolom", "", ""),
+        ("InsertColumnRight", "Sisipkan Kolom di Kanan", "Kelola Kolom", "", ""),
+        ("MoveColumnLeft", "Pindahkan Kolom ke Kiri", "Kelola Kolom", "", ""),
+        ("MoveColumnRight", "Pindahkan Kolom ke Kanan", "Kelola Kolom", "", ""),
+        ("RenameColumn", "Ganti Nama Kolom...", "Kelola Kolom", "", ""),
+
+        ("ClearCells", "Kosongkan Sel", "Hapus Data", "Delete", ""),
+        ("DeleteRows", "Hapus Baris Terpilih", "Hapus Data", "", ""),
+        ("DeleteColumn", "Hapus Kolom Ini", "Hapus Data", "", ""),
     };
 
     public MantraContextMenuSettingsViewModel(MantraDataSettings settings)
