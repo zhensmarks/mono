@@ -2152,7 +2152,7 @@ public partial class PreviewWindow
 
     /// <summary>Geser isi buffer (dx,dy) piksel dari <paramref name="src"/> ke
     /// <paramref name="dst"/> (ukuran sama); area di luar kanvas dipotong.</summary>
-    private static void ShiftBuffer(byte[] src, byte[] dst, int w, int h, int dx, int dy)
+    internal static void ShiftBuffer(byte[] src, byte[] dst, int w, int h, int dx, int dy)
     {
         Array.Clear(dst, 0, dst.Length);
         for (int y = 0; y < h; y++)
