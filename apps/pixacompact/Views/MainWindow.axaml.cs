@@ -188,6 +188,63 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnExportAccountBackupClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        try
+        {
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Ekspor cadangan akun PixaCompact",
+                SuggestedFileName = $"PixaCompact-accounts-{DateTime.Now:yyyyMMdd}.json",
+                DefaultExtension = "json",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } }
+                }
+            });
+            if (file == null) return;
+            if (!file.Path.IsFile)
+            {
+                vm.ShowAccountBackupPickerError();
+                return;
+            }
+            vm.ExportAccountBackup(file.Path.LocalPath);
+        }
+        catch
+        {
+            vm.ShowAccountBackupPickerError();
+        }
+    }
+
+    private async void OnImportAccountBackupClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        try
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Pulihkan akun PixaCompact",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("PixaCompact account/settings JSON") { Patterns = new[] { "*.json" } }
+                }
+            });
+            if (files.Count == 0) return;
+            if (!files[0].Path.IsFile)
+            {
+                vm.ShowAccountBackupPickerError();
+                return;
+            }
+            vm.ImportAccountBackup(files[0].Path.LocalPath);
+        }
+        catch
+        {
+            vm.ShowAccountBackupPickerError();
+        }
+    }
+
     private void OnFileDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (e.Source is Control control && control.DataContext is PixelcutCompact.Models.PixelcutFileItem item)

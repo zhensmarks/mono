@@ -11,8 +11,13 @@ public class SettingsService
     private readonly string _filePath;
 
     public SettingsService()
+        : this(Path.Combine(AppContext.BaseDirectory, FileName))
     {
-        _filePath = Path.Combine(AppContext.BaseDirectory, FileName);
+    }
+
+    public SettingsService(string filePath)
+    {
+        _filePath = Path.GetFullPath(filePath);
     }
 
     public AppSettings Load()

@@ -1253,6 +1253,20 @@
                                                             Command="{Binding ResetAccountStatusCommand}"
                                                             ToolTip.Tip="Reset counter &amp; status limit semua akun (mulai sesi baru)."/>
                                                 </StackPanel>
+                                                <Border Background="#10000000" BorderBrush="{DynamicResource CardBorderBrush}"
+                                                        BorderThickness="1" CornerRadius="6" Padding="10">
+                                                    <StackPanel Spacing="7">
+                                                        <TextBlock Text="Cadangan akun" FontSize="12" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                        <TextBlock Text="JSON menyimpan nama, urutan, batas sesi, akun aktif, dan pengenal profil—bukan API key, cookie, atau sesi login. Cadangkan folder BrowserProfile_&lt;suffix&gt; secara terpisah; jika folder tidak dipulihkan, login ulang melalui tombol Login akun."
+                                                                   FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   TextWrapping="Wrap"/>
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                                                            <Button Content="Ekspor JSON" Click="OnExportAccountBackupClick" Height="28" FontSize="11"/>
+                                                            <Button Content="Pulihkan JSON" Click="OnImportAccountBackupClick" Height="28" FontSize="11"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
                                                 <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2,0,2"/>
                                                 <TextBlock Text="Tampilan Warna"
                                                            FontSize="12"

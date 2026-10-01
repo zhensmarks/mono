@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PixelcutCompact.Models;
@@ -7,7 +8,6 @@ public partial class PixaAccount : ObservableObject
 {
     [ObservableProperty] private Guid _id = Guid.NewGuid();
     [ObservableProperty] private string _name = "";
-    [ObservableProperty] private string _apiKey = "";
     [ObservableProperty] private string _lastCredits = "Pending";
     [ObservableProperty] private DateTime? _lastChecked;
     [ObservableProperty] private bool _isActive;
@@ -40,11 +40,26 @@ public partial class PixaAccount : ObservableObject
     /// <summary>Pastikan ProfileSuffix terisi (dipakai sebagai nama folder profil browser).</summary>
     public string EnsureProfileSuffix()
     {
-        if (string.IsNullOrWhiteSpace(ProfileSuffix))
+        if (string.IsNullOrWhiteSpace(ProfileSuffix) || !IsSafeProfileSuffix(ProfileSuffix.Trim()))
         {
             ProfileSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
         }
-        return ProfileSuffix.Trim();
+        var normalized = ProfileSuffix.Trim();
+        if (!string.Equals(ProfileSuffix, normalized, StringComparison.Ordinal))
+            ProfileSuffix = normalized;
+        return normalized;
+    }
+
+    public static bool IsSafeProfileSuffix(string? suffix) =>
+        !string.IsNullOrWhiteSpace(suffix) && suffix.Length <= 64 &&
+        suffix.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
+
+    public static string GetBrowserProfileFolderName(string? profileSuffix)
+    {
+        if (string.IsNullOrWhiteSpace(profileSuffix)) return "BrowserProfile";
+        var normalized = profileSuffix.Trim();
+        if (!IsSafeProfileSuffix(normalized)) throw new ArgumentException("Browser profile suffix contains invalid path characters.", nameof(profileSuffix));
+        return $"BrowserProfile_{normalized}";
     }
 
     /// <summary>Reset status sesi: counter, flag limit, dan waktu mulai.</summary>

@@ -24,6 +24,7 @@ public partial class MainWindowViewModel : ObservableObject
 {
     private readonly PixelcutService _pixelcutService = new();
     private readonly SettingsService _settingsService = new();
+    private readonly PixaAccountBackupService _accountBackupService = new();
     private CancellationTokenSource? _cts;
     private System.Timers.Timer? _vpnCheckTimer;
 
@@ -48,12 +49,19 @@ public partial class MainWindowViewModel : ObservableObject
     private int _snapshotBatchSize;
     private int _snapshotBatchSubSize;
     private bool _snapshotAutoCloseBrowser;
+    private List<AccountSnapshot> _snapshotAccounts = new();
+    private Guid? _snapshotActiveAccountId;
+    private bool _snapshotUseAccountRotation;
+
+    private sealed record AccountSnapshot(Guid Id, string Name, string ProfileSuffix, int MaxImagesPerSession);
 
     // ── Rotasi akun (round-robin) ──
     [ObservableProperty] private ObservableCollection<PixaAccount> _accounts = new();
     [ObservableProperty] private PixaAccount? _selectedAccount;
     [ObservableProperty] private bool _useAccountRotation;
     private PixaAccountRotator? _accountRotator;
+
+    partial void OnSelectedAccountChanged(PixaAccount? value) => MarkSettingsDirty();
 
     [ObservableProperty] private ObservableCollection<ProcessTabViewModel> _tabs = new();
     [ObservableProperty] private ProcessTabViewModel? _selectedTab;
@@ -478,6 +486,7 @@ public partial class MainWindowViewModel : ObservableObject
                 if (acc == null) continue;
                 acc.EnsureProfileSuffix();
                 acc.ResetSession();
+                TrackAccount(acc);
                 Accounts.Add(acc);
             }
         }
@@ -1042,7 +1051,26 @@ public partial class MainWindowViewModel : ObservableObject
             AlphaMattingBackgroundThreshold != _snapshotAlphaMattingBackgroundThreshold ||
             BatchSize != _snapshotBatchSize ||
             BatchSubSize != _snapshotBatchSubSize ||
-            AutoCloseBrowser != _snapshotAutoCloseBrowser;
+            AutoCloseBrowser != _snapshotAutoCloseBrowser ||
+            UseAccountRotation != _snapshotUseAccountRotation ||
+            SelectedAccount?.Id != _snapshotActiveAccountId ||
+            !AccountsMatchSnapshot();
+    }
+
+    private bool AccountsMatchSnapshot()
+    {
+        if (Accounts.Count != _snapshotAccounts.Count) return false;
+        for (var index = 0; index < Accounts.Count; index++)
+        {
+            var current = Accounts[index];
+            var snapshot = _snapshotAccounts[index];
+            if (current.Id != snapshot.Id ||
+                !string.Equals(current.Name, snapshot.Name, StringComparison.Ordinal) ||
+                !string.Equals(current.ProfileSuffix, snapshot.ProfileSuffix, StringComparison.Ordinal) ||
+                current.MaxImagesPerSession != snapshot.MaxImagesPerSession)
+                return false;
+        }
+        return true;
     }
 
     private void TakeSettingsSnapshot()
@@ -1065,6 +1093,10 @@ public partial class MainWindowViewModel : ObservableObject
         _snapshotBatchSize = BatchSize;
         _snapshotBatchSubSize = BatchSubSize;
         _snapshotAutoCloseBrowser = AutoCloseBrowser;
+        _snapshotAccounts = Accounts.Select(account => new AccountSnapshot(
+            account.Id, account.Name, account.ProfileSuffix, account.MaxImagesPerSession)).ToList();
+        _snapshotActiveAccountId = SelectedAccount?.Id;
+        _snapshotUseAccountRotation = UseAccountRotation;
     }
 
     private void RevertSettingsToSnapshot()
@@ -1089,6 +1121,24 @@ public partial class MainWindowViewModel : ObservableObject
             BatchSize = _snapshotBatchSize;
             BatchSubSize = _snapshotBatchSubSize;
             AutoCloseBrowser = _snapshotAutoCloseBrowser;
+
+            foreach (var account in Accounts) UntrackAccount(account);
+            Accounts.Clear();
+            foreach (var snapshot in _snapshotAccounts)
+            {
+                var account = new PixaAccount
+                {
+                    Id = snapshot.Id,
+                    Name = snapshot.Name,
+                    ProfileSuffix = snapshot.ProfileSuffix,
+                    MaxImagesPerSession = snapshot.MaxImagesPerSession
+                };
+                TrackAccount(account);
+                Accounts.Add(account);
+            }
+            UseAccountRotation = _snapshotUseAccountRotation;
+            SelectedAccount = Accounts.FirstOrDefault(account => account.Id == _snapshotActiveAccountId) ?? Accounts.FirstOrDefault();
+            OnAccountsChanged();
         }
         finally { _isRevertingSettings = false; }
 
@@ -1948,6 +1998,7 @@ public partial class MainWindowViewModel : ObservableObject
         };
         acc.EnsureProfileSuffix();
         acc.ResetSession();
+        TrackAccount(acc);
         Accounts.Add(acc);
         SelectedAccount = acc;
         OnAccountsChanged();
@@ -1962,6 +2013,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (acc == null) return;
         int idx = Accounts.IndexOf(acc);
         if (idx < 0) return;
+        UntrackAccount(acc);
         Accounts.RemoveAt(idx);
         SelectedAccount = Accounts.Count == 0 ? null : Accounts[Math.Min(idx, Accounts.Count - 1)];
         OnAccountsChanged();
@@ -2052,13 +2104,86 @@ public partial class MainWindowViewModel : ObservableObject
         _accountRotator = new PixaAccountRotator(Accounts);
         _pixelcutService.AccountRotator = _accountRotator;
         _pixelcutService.UseAccountRotation = UseAccountRotation;
+        MarkSettingsDirty();
+        if (!IsSettingsOpen) SaveSettings();
+    }
+
+    private void TrackAccount(PixaAccount account) => account.PropertyChanged += OnAccountMetadataChanged;
+
+    private void UntrackAccount(PixaAccount account) => account.PropertyChanged -= OnAccountMetadataChanged;
+
+    private void OnAccountMetadataChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not (nameof(PixaAccount.Name) or nameof(PixaAccount.ProfileSuffix) or nameof(PixaAccount.MaxImagesPerSession)))
+            return;
+        MarkSettingsDirty();
         if (!IsSettingsOpen) SaveSettings();
     }
 
     partial void OnUseAccountRotationChanged(bool value)
     {
         _pixelcutService.UseAccountRotation = value;
+        MarkSettingsDirty();
         if (!IsSettingsOpen) SaveSettings();
+    }
+
+    public void ExportAccountBackup(string filePath)
+    {
+        try
+        {
+            var settings = new AppSettings
+            {
+                PixaAccounts = Accounts.ToList(),
+                ActiveAccountId = SelectedAccount?.Id,
+                UseAccountRotation = UseAccountRotation
+            };
+            _accountBackupService.ExportToFile(filePath, settings);
+            ShowToast("Backup akun disimpan. Folder profil browser harus dicadangkan terpisah.", "✅");
+        }
+        catch
+        {
+            ShowToast("Backup akun gagal disimpan. Periksa lokasi file.", "❌");
+        }
+    }
+
+    public void ShowAccountBackupPickerError() => ShowToast("Tidak dapat membuka file cadangan lokal.", "❌");
+
+    public void ImportAccountBackup(string filePath)
+    {
+        try
+        {
+            var settings = _settingsService.Load();
+            settings.PixaAccounts = Accounts.ToList();
+            settings.ActiveAccountId = SelectedAccount?.Id;
+            settings.UseAccountRotation = UseAccountRotation;
+            var backup = _accountBackupService.ImportFromFile(filePath, settings);
+
+            foreach (var account in Accounts) UntrackAccount(account);
+            Accounts.Clear();
+            foreach (var account in settings.PixaAccounts)
+            {
+                account.ResetSession();
+                TrackAccount(account);
+                Accounts.Add(account);
+            }
+            UseAccountRotation = settings.UseAccountRotation;
+            SelectedAccount = Accounts.FirstOrDefault(account => account.Id == settings.ActiveAccountId) ?? Accounts.FirstOrDefault();
+            OnAccountsChanged();
+            SaveSettings();
+            TakeSettingsSnapshot();
+            IsSettingsDirty = false;
+
+            var missingProfiles = backup.Accounts.Count(account =>
+                !Directory.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, account.BrowserProfileFolderName)));
+            if (missingProfiles > 0)
+                ShowToast($"{backup.Accounts.Count} akun dipulihkan; {missingProfiles} profil belum ditemukan. Salin folder BrowserProfile_<suffix> atau login ulang.", "⚠️");
+            else
+                ShowToast($"{backup.Accounts.Count} akun dipulihkan. JSON tidak memuat cookie; login ulang bila sesi belum tersedia.", "✅");
+        }
+        catch
+        {
+            ShowToast("Backup akun tidak dapat dipulihkan. Pastikan file JSON PixaCompact valid.", "❌");
+        }
     }
 
 

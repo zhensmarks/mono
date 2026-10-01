@@ -17,7 +17,6 @@ public class AppSettings
     public string? CustomDarkBackground { get; set; }
     public string? CustomLightBackground { get; set; }
     public string? ProxyAddress { get; set; }
-    public string? PixaApiKey { get; set; }
     public List<PixaAccount> PixaAccounts { get; set; } = new();
     public Guid? ActiveAccountId { get; set; }
     /// <summary>Aktifkan rotasi round-robin antar akun pixelcut (butuh minimal 1 akun terdaftar).</summary>
@@ -41,4 +40,3 @@ public class AppSettings
     public int AlphaMattingForegroundThreshold { get; set; } = 240;
     public int AlphaMattingBackgroundThreshold { get; set; } = 10;
 }
-

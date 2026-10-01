@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 using Microsoft.Win32;
+using PixelcutCompact.Models;
 
 namespace PixelcutCompact.Services;
 
@@ -93,7 +94,7 @@ public class PixaWebAutomationService : IDisposable
     private async Task LaunchBrowserAsync()
     {
         var preferredChannel = DetectDefaultBrowserChannel();
-        var profileName = string.IsNullOrEmpty(_profileSuffix) ? "BrowserProfile" : $"BrowserProfile_{_profileSuffix}";
+        var profileName = PixaAccount.GetBrowserProfileFolderName(_profileSuffix);
         var userDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, profileName);
 
         if (!Directory.Exists(userDataDir)) Directory.CreateDirectory(userDataDir);

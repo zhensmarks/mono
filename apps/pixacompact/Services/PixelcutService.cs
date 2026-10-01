@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
@@ -18,8 +18,6 @@ public class PixelcutService : IDisposable
     private static List<string>? _autoProxyCache;
     private static DateTime _autoProxyCacheAtUtc;
 
-    // API mode has been removed; process always uses web automation.
-    public string? ApiKey { get; set; }
     public bool UseWebMode { get; set; } = true;
     public string RemoveBgEngine { get; set; } = "PIXA";
     public string RembgModel { get; set; } = "u2netp";

@@ -22,7 +22,7 @@ $preserveDir = Join-Path $MONO ".publish-preserve\pixacompact"
 # Path relatif terhadap folder output; wildcard pada nama terakhir didukung.
 # ---------------------------------------------------------------------------
 $PreservePaths = @(
-    "settings.json",          # konfigurasi + API key
+    "settings.json",          # konfigurasi aplikasi + metadata akun
     "preview_settings.json",  # pengaturan jendela editor
     "crash.log",              # log crash terakhir
     "Resources\Rembg",        # Python embedded + rembg (diinstal saat runtime)
