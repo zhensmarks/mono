@@ -17,6 +17,9 @@ publish/
 /BMachine/
 /PixaCompact/
 
+# --- Folder sementara saat publish menyimpan data pengguna ---
+/.publish-preserve/
+
 # --- NuGet ---
 packages/
 *.nupkg
