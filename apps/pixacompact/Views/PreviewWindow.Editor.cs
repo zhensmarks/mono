@@ -488,13 +488,14 @@ public partial class PreviewWindow
                  continue;
              }
              bool isActive = k == kind;
-             b.Background = isActive
-                 ? new SolidColorBrush(Color.Parse("#448BE9"))  // Biru lebih terang untuk aktif
-                 : new SolidColorBrush(Color.Parse("#15FFFFFF"));
-             b.BorderBrush = isActive
-                 ? new SolidColorBrush(Color.Parse("#603B82F6"))
-                 : new SolidColorBrush(Color.Parse("#2A2A2E"));
-             b.BorderThickness = new Thickness(1);
+             if (isActive)
+             {
+                 if (!b.Classes.Contains("active")) b.Classes.Add("active");
+             }
+             else
+             {
+                 b.Classes.Remove("active");
+             }
              Console.WriteLine($"[DEBUG] HighlightActiveTool: {name} -> {(isActive ? "AKTIF" : "nonaktif")}");
          }
          Console.WriteLine($"[DEBUG] HighlightActiveTool selesai untuk tool: {kind}");
@@ -520,17 +521,17 @@ public partial class PreviewWindow
     {
         string hint = kind switch
         {
-            EditToolKind.Pan => "Geser/zoom gambar. Pilih tool lain untuk mengedit mask.",
-            EditToolKind.Lasso => "Tahan klik dan gambar bebas; lepas untuk menutup selection. Shift=Tambah, Alt=Kurangi.",
-            EditToolKind.PolyLasso => "Klik titik-titik; klik titik awal (atau Enter) untuk menutup. Shift=Tambah, Alt=Kurangi.",
-            EditToolKind.MagicWand => "Klik area mirip warna → jadi selection. Shift=Tambah, Alt=Kurangi, Ctrl+Shift=Irisan.",
-            EditToolKind.Pen => "Klik = titik sudut, drag = kurva Bézier. Enter/klik titik awal = tutup.",
-            EditToolKind.Brush => "Pulihkan mask dengan brush. [ ] atur ukuran; tombol Pulihkan/Hapus atau X mengganti mode.",
-            EditToolKind.Eraser => "Penghapus selalu menghapus mask. [ ] atur ukuran.",
-            EditToolKind.Move => "Drag untuk menggeser selection. Shift+drag = geser isi mask juga.",
-            EditToolKind.RefineEdge => "Sapukan pada tepi untuk merapikan (expand+feather lokal, non-AI).",
-            EditToolKind.RectMarquee => "Drag untuk seleksi persegi. Shift=bujur sangkar, Alt=dari tengah.",
-            EditToolKind.EllipseMarquee => "Drag untuk seleksi elips. Shift=lingkaran, Alt=dari tengah.",
+            EditToolKind.Pan => "H · pan the image; choose another tool to edit.",
+            EditToolKind.Lasso => "L · Shift: add · Alt: subtract · Ctrl+Shift: intersect.",
+            EditToolKind.PolyLasso => "Shift+L · Enter closes · Backspace/Delete removes · Esc cancels.",
+            EditToolKind.MagicWand => "W · Shift: add · Alt: subtract · Ctrl+Shift: intersect.",
+            EditToolKind.Pen => "P · click/drag anchors · Enter closes · Backspace/Delete removes · Esc cancels.",
+            EditToolKind.Brush => "B · [ ] brush size · X restore/erase.",
+            EditToolKind.Eraser => "E · always erases · [ ] brush size.",
+            EditToolKind.Move => "V · drag selection; Shift-drag moves mask pixels.",
+            EditToolKind.RefineEdge => "Shift+R · refine a selection edge.",
+            EditToolKind.RectMarquee => "M · Shift: square/add · Alt: center/subtract · Ctrl+Shift: intersect.",
+            EditToolKind.EllipseMarquee => "Shift+M · Shift: circle/add · Alt: center/subtract · Ctrl+Shift: intersect.",
             _ => ""
         };
         var t = this.FindControl<TextBlock>("TxtEditorHint");
@@ -2668,9 +2669,14 @@ public partial class PreviewWindow
     {
         var b = this.FindControl<Button>("BtnQuickMask");
         if (b == null) return;
-        b.Background = _quickMask
-            ? new SolidColorBrush(Color.Parse("#CCE24A4A"))
-            : new SolidColorBrush(Color.Parse("#15FFFFFF"));
+        if (_quickMask)
+        {
+            if (!b.Classes.Contains("active")) b.Classes.Add("active");
+        }
+        else
+        {
+            b.Classes.Remove("active");
+        }
     }
 
     private void Toast(string message, bool warning = false)
@@ -2707,8 +2713,7 @@ public partial class PreviewWindow
     /// </summary>
     private bool HandlePreviewShortcutForEditor(KeyEventArgs e)
     {
-        if (e.Key == Key.E && !e.KeyModifiers.HasFlag(KeyModifiers.Control)
-                            && !e.KeyModifiers.HasFlag(KeyModifiers.Alt))
+        if (e.Key == Key.E && e.KeyModifiers == KeyModifiers.None)
         {
             if (_session == null) return false;
             EnterEditMode();
@@ -2719,36 +2724,38 @@ public partial class PreviewWindow
 
     private bool HandleEditorKey(KeyEventArgs e)
     {
-        bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
-        bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+        var modifiers = e.KeyModifiers;
+        bool noModifiers = modifiers == KeyModifiers.None;
+        bool ctrlOnly = modifiers == KeyModifiers.Control;
+        bool ctrlShift = modifiers == (KeyModifiers.Control | KeyModifiers.Shift);
+        bool shiftOnly = modifiers == KeyModifiers.Shift;
 
-        if (ctrl && e.Key == Key.Z && !shift) { OnUndoClick(this, new RoutedEventArgs()); return true; }
-        if (ctrl && (e.Key == Key.Y || (e.Key == Key.Z && shift))) { OnRedoClick(this, new RoutedEventArgs()); return true; }
-        if (ctrl && e.Key == Key.S) { SaveInPlace(); return true; }
+        if (ctrlOnly && e.Key == Key.Z) { OnUndoClick(this, new RoutedEventArgs()); return true; }
+        if ((ctrlOnly && e.Key == Key.Y) || (ctrlShift && e.Key == Key.Z))
+        { OnRedoClick(this, new RoutedEventArgs()); return true; }
+        if (ctrlOnly && e.Key == Key.S) { SaveInPlace(); return true; }
 
-        if (!ctrl && !shift && !alt && e.Key == Key.L)
+        // Persistent selection commands use Photoshop's standard combinations.
+        if (ctrlShift && e.Key == Key.I) { InvertSelection(); return true; }
+        if (ctrlOnly && e.Key == Key.J) { GrowSelection(); return true; }
+        if (ctrlShift && e.Key == Key.J) { ShrinkSelection(); return true; }
+        if (ctrlOnly && e.Key == Key.A) { SelectAllSelection(); return true; }
+        if (ctrlOnly && e.Key == Key.D) { ClearSelection(); return true; }
+
+        if (noModifiers && e.Key == Key.Escape)
         {
-            SetActiveTool(EditToolKind.Lasso);
+            // Give an unfinished lasso/pen path one Escape to cancel before exiting.
+            if (_activeSelectionTool is { IsActive: true } or { CanCommit: true })
+            {
+                _activeSelectionTool.Cancel();
+                RenderOverlay();
+                return true;
+            }
+
+            EndEditMode(silent: false);
             return true;
         }
-
-        // Seleksi (persisten) — Ctrl+Shift+I, Ctrl+J / Ctrl+Shift+J, Ctrl+Alt+S/O.
-        if (ctrl && shift && e.Key == Key.I) { InvertSelection(); return true; }
-        if (ctrl && !shift && !alt && e.Key == Key.J) { GrowSelection(); return true; }
-        if (ctrl && shift && e.Key == Key.J) { ShrinkSelection(); return true; }
-        // Shortcut standar Photoshop bekerja pada selection persisten, bukan langsung mask.
-        if (ctrl && e.Key == Key.A) { SelectAllSelection(); return true; }
-        if (ctrl && e.Key == Key.D) { ClearSelection(); return true; }
-        if (ctrl && e.Key == Key.I) { InvertSelection(); return true; }
-
-        if (e.Key == Key.Escape)
-        {
-            _activeSelectionTool?.Cancel();
-            RenderOverlay();
-            return true;
-        }
-        if (e.Key == Key.Enter)
+        if (noModifiers && e.Key == Key.Enter)
         {
             if (_activeSelectionTool is PenTool pt && pt.CanCommit)
             {
@@ -2763,46 +2770,42 @@ public partial class PreviewWindow
             }
             return false;
         }
-        if (e.Key == Key.Back || e.Key == Key.Delete)
+        if (noModifiers && (e.Key == Key.Back || e.Key == Key.Delete))
         {
             _activeSelectionTool?.RemoveLastPoint();
             RenderOverlay();
             return true;
         }
 
-        // Ukuran brush.
-        if (e.Key == Key.OemOpenBrackets) { AdjustBrushSize(-1); return true; }
-        if (e.Key == Key.OemCloseBrackets) { AdjustBrushSize(1); return true; }
-
-        // Ganti mode brush.
-        if (e.Key == Key.X)
+        // Bracket keys adjust brush size; X toggles brush restore/erase mode.
+        if (noModifiers && e.Key == Key.OemOpenBrackets) { AdjustBrushSize(-1); return true; }
+        if (noModifiers && e.Key == Key.OemCloseBrackets) { AdjustBrushSize(1); return true; }
+        if (noModifiers && e.Key == Key.X && _activeTool == EditToolKind.Brush)
         {
-            if (_activeTool != EditToolKind.Eraser)
-            {
-                _settings.EditorBrushRestore = !_settings.EditorBrushRestore;
-                _settings.Save();
-                UpdateOptionLabels();
-            }
+            _settings.EditorBrushRestore = !_settings.EditorBrushRestore;
+            _settings.Save();
+            UpdateOptionLabels();
             return true;
         }
 
-        // Quick mask.
-        if (e.Key == Key.Q) { OnQuickMaskClick(this, new RoutedEventArgs()); return true; }
+        if (noModifiers && e.Key == Key.Q) { OnQuickMaskClick(this, new RoutedEventArgs()); return true; }
 
-        // Pilih tool via huruf.
-        if (!ctrl && !alt)
+        // Tool keys are exact and context-specific; only L/M have Shift variants.
+        if (shiftOnly && e.Key == Key.R) { SetActiveTool(EditToolKind.RefineEdge); return true; }
+        if (shiftOnly && e.Key == Key.L) { SetActiveTool(EditToolKind.PolyLasso); return true; }
+        if (shiftOnly && e.Key == Key.M) { SetActiveTool(EditToolKind.EllipseMarquee); return true; }
+        if (noModifiers)
         {
-            if (shift && e.Key == Key.R) { SetActiveTool(EditToolKind.RefineEdge); return true; }
             switch (e.Key)
             {
                 case Key.H: SetActiveTool(EditToolKind.Pan); return true;
                 case Key.V: SetActiveTool(EditToolKind.Move); return true;
-                case Key.L: SetActiveTool(shift ? EditToolKind.PolyLasso : EditToolKind.Lasso); return true;
+                case Key.L: SetActiveTool(EditToolKind.Lasso); return true;
                 case Key.W: SetActiveTool(EditToolKind.MagicWand); return true;
                 case Key.P: SetActiveTool(EditToolKind.Pen); return true;
                 case Key.B: SetActiveTool(EditToolKind.Brush); return true;
                 case Key.E: SetActiveTool(EditToolKind.Eraser); return true;
-                case Key.M: SetActiveTool(shift ? EditToolKind.EllipseMarquee : EditToolKind.RectMarquee); return true;
+                case Key.M: SetActiveTool(EditToolKind.RectMarquee); return true;
             }
         }
 

@@ -15,6 +15,7 @@ Row 2: Main Content (Canvas + Right Panel)
 #### Tool Groups:
 1. **SELECTION TOOLS**
    - Move (V) - Icon: cross arrows
+   - Rectangular Marquee (M) / Elliptical Marquee (Shift+M)
    - Lasso (L) - Icon: free lasso shape
    - Polygonal Lasso (Shift+L) - Icon: polygon outline
    - Magic Wand (W) - Icon: magic wand with sparkles
@@ -22,23 +23,25 @@ Row 2: Main Content (Canvas + Right Panel)
 2. **PAINT TOOLS** 
    - Brush (B) - Icon: brush shape
    - Eraser (E) - Icon: eraser shape
-   - Refine Edge (R) - Icon: search with circle (highlighted gold #F5C97A)
+   - Refine Edge (Shift+R) - Icon: search with circle
 
 3. **VIEW TOOLS**
    - Hand/Pan (H) - Icon: hand with arrows
 
 4. **QUICK ACTIONS**
    - Quick Mask (Q) - Icon: circle
-   - Refine Hair AI - Icon: circle with highlight #1E3A5F (blue background)
+   - Refine Hair AI - Icon: circle; uses the shared tool-button style
 
 5. **UNDO/REDO**
    - Undo (Ctrl+Z) - Icon: arrow curved left
-   - Redo (Ctrl+Y) - Icon: arrow curved right
+   - Redo (Ctrl+Y or Ctrl+Shift+Z) - Icon: arrow curved right
 
 6. **SAVE**
-   - Save (Ctrl+S) - Icon: save/disk (#1E3A2F green border)
-   - Save As (Ctrl+Shift+S) - Icon: duplicate
-   - Exit Edit (Esc) - Icon: X (red #EF4444)
+   - Save (Ctrl+S) - Icon: save/disk; primary blue button style
+   - Save As - no keyboard shortcut
+   - Exit Edit (Esc); an unfinished path is canceled first
+   - Select All (Ctrl+A), Deselect (Ctrl+D), Invert (Ctrl+Shift+I)
+   - Grow (Ctrl+J), Shrink (Ctrl+Shift+J); brush size [ and ]; brush mode X
 
 ### OPTIONS BAR - Implemented ✓
 **Location**: Grid.Row="0", HorizontalAlignment="Right"
@@ -48,9 +51,9 @@ Row 2: Main Content (Canvas + Right Panel)
 - Selection Mode: Replace/Add/Subtract buttons
 
 ### Style System
-- **Colors**: Dark theme (#1A1D21 bg, #2D3139 borders)
-- **Icons**: 16x16 PathIcon, #D1D5DB foreground (neutral gray)
-- **Button Size**: 32x32 with 4px corner radius
+- **Colors**: Dark surfaces (#1A1D21); editor controls (#1B2028/#39424E) with blue accents
+- **Icons**: 16x16 PathIcon, neutral white/gray foreground
+- **Tool Buttons**: 40x40 with 8px radius and a 1px border; compact controls use a 6px radius
 - **Spacing**: 2px between buttons, 6px separator margins
 
 ---
@@ -88,7 +91,7 @@ Need to wire sliders & checkboxes to update tool settings in real-time:
 ## UI/UX Notes
 - **Icons are clear and distinct** - each tool is visually recognizable
 - **Photoshop-familiar layout** - horizontal toolbar at top, options on right
-- **Color coding** - special tools highlighted (Gold #F5C97A for Refine, Blue #1E3A5F for AI)
+- **Button states** - selected tools have a blue outline; Quick Mask has a red active state; keyboard focus keeps a pale-blue 2px outline
 - **Responsive spacing** - 2-6px spacing keeps UI tight and scannable
 - **Separator bars** - visual grouping between tool categories
 

@@ -651,20 +651,15 @@ try {{
 
     private void OnShortcutTextBoxKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
-        if (sender is TextBox textBox)
-        {
-            // Ignore bare modifier keys
-            if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl ||
-                e.Key == Key.LeftShift || e.Key == Key.RightShift ||
-                e.Key == Key.LeftAlt || e.Key == Key.RightAlt ||
-                e.Key == Key.LWin || e.Key == Key.RWin)
-            {
-                return;
-            }
+        if (sender is not TextBox textBox) return;
 
-            textBox.Text = e.Key.ToString();
-            e.Handled = true;
-        }
+        // Shortcut preferences store one unmodified key; don't leak captured keys to the window.
+        e.Handled = true;
+        if (e.KeyModifiers != KeyModifiers.None || e.Key is Key.LeftCtrl or Key.RightCtrl
+            or Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin)
+            return;
+
+        textBox.Text = e.Key.ToString();
     }
 
     private void OnSettingsFlyoutOpened(object? sender, EventArgs e)
@@ -698,10 +693,28 @@ try {{
         var txtRotate = this.FindControl<TextBox>("TxtRotateShortcut");
         var txtFitScreen = this.FindControl<TextBox>("TxtFitScreenShortcut");
         
-        if (txtNext != null && !string.IsNullOrWhiteSpace(txtNext.Text)) _settings.ShortcutNext = txtNext.Text.Trim();
-        if (txtPrev != null && !string.IsNullOrWhiteSpace(txtPrev.Text)) _settings.ShortcutPrevious = txtPrev.Text.Trim();
-        if (txtPhotoshop != null && !string.IsNullOrWhiteSpace(txtPhotoshop.Text)) _settings.ShortcutPhotoshop = txtPhotoshop.Text.Trim();
-        if (txtRotate != null && !string.IsNullOrWhiteSpace(txtRotate.Text)) _settings.ShortcutRotate = txtRotate.Text.Trim();
+        string ReadShortcut(TextBox? box, string current)
+            => string.IsNullOrWhiteSpace(box?.Text) ? current : box.Text.Trim();
+        var shortcuts = new[]
+        {
+            ReadShortcut(txtNext, _settings.ShortcutNext),
+            ReadShortcut(txtPrev, _settings.ShortcutPrevious),
+            ReadShortcut(txtPhotoshop, _settings.ShortcutPhotoshop),
+            ReadShortcut(txtRotate, _settings.ShortcutRotate),
+            ReadShortcut(txtFitScreen, _settings.ShortcutFitScreen)
+        };
+        if (shortcuts.Any(key => key.Equals("E", StringComparison.OrdinalIgnoreCase))
+            || shortcuts.Distinct(StringComparer.OrdinalIgnoreCase).Count() != shortcuts.Length)
+        {
+            Toast("Shortcuts must be unique; E opens the editor.", warning: true);
+            return;
+        }
+
+        _settings.ShortcutNext = shortcuts[0];
+        _settings.ShortcutPrevious = shortcuts[1];
+        _settings.ShortcutPhotoshop = shortcuts[2];
+        _settings.ShortcutRotate = shortcuts[3];
+        _settings.ShortcutFitScreen = shortcuts[4];
         var betaToggle = this.FindControl<CheckBox>("ChkEditorBetaMode");
         if (betaToggle != null) _settings.EditorBetaMode = betaToggle.IsChecked == true;
         
@@ -724,21 +737,32 @@ try {{
         }
     }
 
+    private static bool IsShortcutInputSource(object? source)
+    {
+        if (source is not Control control) return false;
+        static bool IsInput(Control c) => c is TextBox or NumericUpDown or ComboBox or ComboBoxItem;
+        return IsInput(control) || control.GetVisualAncestors().OfType<Control>().Any(IsInput);
+    }
+
     private void OnPreviewKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
+        if (IsShortcutInputSource(e.Source)) return;
+
         // Shortcut editor bersifat eksklusif selama mode edit; jangan biarkan
         // tombol yang sama jatuh ke navigasi preview.
-        if (_editMode && e.Source is not TextBox)
+        if (_editMode)
         {
             e.Handled = HandleEditorKey(e);
             return;
         }
 
-        if (!_editMode && e.Source is not TextBox && HandlePreviewShortcutForEditor(e))
+        if (HandlePreviewShortcutForEditor(e))
         {
             e.Handled = true;
             return;
         }
+
+        if (e.KeyModifiers != KeyModifiers.None) return;
 
         string keyStr = e.Key.ToString();
         if (keyStr.Equals(_settings.ShortcutPrevious, StringComparison.OrdinalIgnoreCase))
