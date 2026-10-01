@@ -9,8 +9,6 @@ namespace BMachine.UI.Views;
 
 public partial class IconPickerWindow : Window
 {
-    private string _selectedKey = "";
-
     public class IconItem
     {
         public string Key { get; set; } = "";

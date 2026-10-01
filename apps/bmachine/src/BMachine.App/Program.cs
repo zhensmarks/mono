@@ -25,7 +25,8 @@ class Program
         {
             try
             {
-                var ex = e.ExceptionObject as Exception;
+                var ex = e.ExceptionObject as Exception
+                    ?? new InvalidOperationException("An unhandled non-Exception object was reported.");
                 // Try AppData path
                 try 
                 {

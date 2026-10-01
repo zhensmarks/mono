@@ -1,5 +1,4 @@
 using System;
-using System;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -11,7 +10,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
-using Avalonia.Data.Converters;
 using Avalonia.Data.Converters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;

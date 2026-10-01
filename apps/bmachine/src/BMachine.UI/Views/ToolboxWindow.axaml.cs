@@ -16,12 +16,21 @@ namespace BMachine.UI.Views;
 public partial class ToolboxWindow : Window
 {
     private readonly string _settingsPath;
+    private Avalonia.Point _advancedDragStartPoint;
+    private RenamePreviewItem? _advancedDragTarget;
+    private bool _advancedDragCandidate;
 
     public ToolboxWindow()
     {
         InitializeComponent();
         var vm = new ToolboxViewModel();
         DataContext = vm;
+        var advancedTargetPanel = this.FindControl<Control>("NamaAdvancedTargetPanel");
+        advancedTargetPanel?.AddHandler(InputElement.PointerPressedEvent, OnAdvancedTargetPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        advancedTargetPanel?.AddHandler(InputElement.PointerMovedEvent, OnAdvancedTargetPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+        var advancedPairList = this.FindControl<Control>("NamaAdvancedPairList");
+        advancedPairList?.AddHandler(DragDrop.DragOverEvent, OnAdvancedPairDragOver, RoutingStrategies.Bubble, handledEventsToo: true);
+        advancedPairList?.AddHandler(DragDrop.DropEvent, OnAdvancedPairDrop, RoutingStrategies.Bubble, handledEventsToo: true);
 
         vm.PsdBucinVM.OnTypingModeExecuted += () =>
         {
@@ -162,9 +171,77 @@ public partial class ToolboxWindow : Window
         catch { }
     }
 
+    private static T? FindVisualDataContext<T>(object? source) where T : class
+    {
+        for (var visual = source as Visual; visual != null; visual = visual.GetVisualParent())
+        {
+            if (visual is Control control && control.DataContext is T data) return data;
+        }
+        return null;
+    }
+
+    private void OnAdvancedTargetPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var item = FindVisualDataContext<RenamePreviewItem>(e.Source);
+        var leftPressed = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed;
+        if (item == null || item.IsHeader) return;
+        if (!leftPressed) return;
+        _advancedDragTarget = item;
+        _advancedDragStartPoint = e.GetPosition(this);
+        _advancedDragCandidate = true;
+    }
+
+    private async void OnAdvancedTargetPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_advancedDragCandidate || _advancedDragTarget == null) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _advancedDragCandidate = false;
+            _advancedDragTarget = null;
+            return;
+        }
+        var current = e.GetPosition(this);
+        if (Math.Abs(current.X - _advancedDragStartPoint.X) < 8 && Math.Abs(current.Y - _advancedDragStartPoint.Y) < 8) return;
+
+        var item = _advancedDragTarget;
+        _advancedDragCandidate = false;
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.CreateText(item.OriginalPath));
+        try { await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy); }
+        catch (Exception ex)
+        {
+            if (DataContext is ToolboxViewModel vm)
+                vm.MantraNamaVM.StatusText = $"Seret foto gagal: {ex.Message}";
+        }
+        finally { _advancedDragTarget = null; }
+    }
+
+    private void OnAdvancedPairDragOver(object? sender, DragEventArgs e)
+    {
+        var path = e.DataTransfer.TryGetText();
+        var pair = FindVisualDataContext<AdvancedRenamePair>(e.Source);
+        if (pair == null) return;
+        if (path is string targetPath && File.Exists(targetPath) && pair.TargetOptions.Any(item => string.Equals(item.OriginalPath, targetPath, StringComparison.OrdinalIgnoreCase)))
+        {
+            e.DragEffects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+    }
+
+    private void OnAdvancedPairDrop(object? sender, DragEventArgs e)
+    {
+        var pair = FindVisualDataContext<AdvancedRenamePair>(e.Source);
+        if (pair == null) return;
+        var targetPath = e.DataTransfer.TryGetText();
+        if (targetPath is not string path || DataContext is not ToolboxViewModel vm) return;
+        if (!vm.MantraNamaVM.AssignAdvancedTarget(pair, path)) return;
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
     private void Drop(object? sender, DragEventArgs e)
     {
-        var files = e.Data.GetFiles()?.Select(f => f.Path.LocalPath).ToList();
+        var files = e.DataTransfer.TryGetFiles()?.Select(f => f.Path.LocalPath).ToList();
         if (files == null || files.Count == 0 || DataContext is not ToolboxViewModel vm) return;
 
         var firstPath = files[0];

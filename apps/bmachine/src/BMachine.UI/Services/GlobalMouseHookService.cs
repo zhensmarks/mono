@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using Avalonia;
 using SharpHook;
 using SharpHook.Native;
-using SharpHook.Native;
 
 namespace BMachine.UI.Services;
 

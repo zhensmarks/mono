@@ -987,6 +987,12 @@ public partial class FloatingWidgetViewModel : ObservableObject
     [RelayCommand]
     public void InstallContextMenu()
     {
+        if (!System.OperatingSystem.IsWindows())
+        {
+            _logService?.AddLog("[INFO] Windows Explorer context menus are available only on Windows.");
+            return;
+        }
+
         try
         {
             var scriptDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Master");
@@ -1042,6 +1048,12 @@ public partial class FloatingWidgetViewModel : ObservableObject
     [RelayCommand]
     public void UninstallContextMenu()
     {
+        if (!System.OperatingSystem.IsWindows())
+        {
+            _logService?.AddLog("[INFO] Windows Explorer context menus are available only on Windows.");
+            return;
+        }
+
         try
         {
             var keyPath = $@"Software\Classes\Directory\shell\{ContextMenuKeyName}";

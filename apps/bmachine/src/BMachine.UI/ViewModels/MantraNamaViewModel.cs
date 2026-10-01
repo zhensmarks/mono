@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -76,9 +76,14 @@ public class AdvancedRenamePair : ObservableObject
         get => _isReviewed;
         set
         {
-            if (SetProperty(ref _isReviewed, value)) ReviewChanged?.Invoke(this);
+            if (!SetProperty(ref _isReviewed, value)) return;
+            OnPropertyChanged(nameof(ReviewStateLabel));
+            ReviewChanged?.Invoke(this);
         }
     }
+    private bool _isSelectedForBulkReview = false;
+    public bool IsSelectedForBulkReview { get => _isSelectedForBulkReview; set => SetProperty(ref _isSelectedForBulkReview, value); }
+    public string ReviewStateLabel => IsReviewed ? "SUDAH DITINJAU" : "BELUM DITINJAU";
     private string _status = "Siap";
     public string Status
     {
@@ -89,6 +94,8 @@ public class AdvancedRenamePair : ObservableObject
     public event Action<AdvancedRenamePair>? ReviewChanged;
 }
 
+public sealed record AdvancedUnmatchedFile(string Side, string FileName);
+
 public record AdvancedRenameUndo(string OldPath, string NewPath);
 
 
@@ -96,7 +103,7 @@ public partial class MantraNamaViewModel : ObservableObject
 {
     [ObservableProperty] private bool _isAdvancedMode;
     [ObservableProperty] private bool _isThumbnailMode;
-    [ObservableProperty] private bool _autoPairEnabled;
+    [ObservableProperty] private bool _autoPairEnabled = true;
     [ObservableProperty] private bool _advancedRenameSiblings = true;
     // Pengaturan jumlah kolom thumbnail per panel (1-4)
     [ObservableProperty] private int _advancedReferenceColumns = 2;
@@ -109,7 +116,7 @@ public partial class MantraNamaViewModel : ObservableObject
     // Backward-compat alias (dipakai di beberapa tempat lama)
     public string AdvancedSortBy
     {
-        get => _advancedReferenceSortBy;
+        get => AdvancedReferenceSortBy;
         set { AdvancedReferenceSortBy = value; AdvancedTargetSortBy = value; }
     }
     public IReadOnlyList<string> SortOptions { get; } = new[] { "Nama / No", "Tipe" };
@@ -138,14 +145,27 @@ public partial class MantraNamaViewModel : ObservableObject
     [ObservableProperty] private string _advancedTargetSearch = string.Empty;
     [ObservableProperty] private RenamePreviewItem? _selectedAdvancedReference;
     [ObservableProperty] private RenamePreviewItem? _selectedAdvancedTarget;
+    [ObservableProperty] private string _advancedPairFilter = "Semua usulan";
     public ObservableCollection<RenamePreviewItem> AdvancedReferenceFiles { get; } = new();
     public ObservableCollection<RenamePreviewItem> AdvancedTargetFiles { get; } = new();
     public ObservableCollection<AdvancedRenamePair> AdvancedPairs { get; } = new();
+    public ObservableCollection<AdvancedRenamePair> VisibleAdvancedPairs { get; } = new();
+    public ObservableCollection<AdvancedUnmatchedFile> AdvancedUnmatchedFiles { get; } = new();
+    public IReadOnlyList<string> AdvancedPairFilterOptions { get; } = new[] { "Semua usulan", "Belum ditinjau / ragu", "Konflik", "Tanpa pasangan" };
+    public bool ShowUnmatchedFiles => string.Equals(AdvancedPairFilter, "Tanpa pasangan", StringComparison.Ordinal);
+    public bool ShowPairList => !ShowUnmatchedFiles;
     public IReadOnlyList<string> AdvancedFileFilters { get; } = new[] { "Semua gambar", "JPG / JPEG", "PNG", "WEBP", "BMP", "GIF" };
     private List<RenamePreviewItem> _advancedReferenceMaster = new();
     private List<RenamePreviewItem> _advancedTargetMaster = new();
+    private bool _isRefreshingAdvancedTargetChoices;
     partial void OnAdvancedReferenceSearchChanged(string value) => RefreshAdvancedReferenceList();
     partial void OnAdvancedTargetSearchChanged(string value) => RefreshAdvancedTargetList();
+    partial void OnAdvancedPairFilterChanged(string value)
+    {
+        OnPropertyChanged(nameof(ShowUnmatchedFiles));
+        OnPropertyChanged(nameof(ShowPairList));
+        RefreshVisibleAdvancedPairs();
+    }
     partial void OnAdvancedReferenceFilterChanged(string value)
     {
         _advancedReferenceMaster = LoadAdvancedFiles(AdvancedReferenceDirectory, value, AdvancedReferenceSortBy);
@@ -182,14 +202,14 @@ public partial class MantraNamaViewModel : ObservableObject
         AdvancedReferenceDirectory = directory;
         _advancedReferenceMaster = LoadAdvancedFiles(directory, AdvancedReferenceFilter, AdvancedReferenceSortBy);
         RefreshAdvancedReferenceList();
-        if (!IsThumbnailMode && AutoPairEnabled) AutoPairByOrder();
+        if (AutoPairEnabled && _advancedTargetMaster.Count > 0) AutoPairByOrder();
     }
     public void SetAdvancedTargetDirectory(string directory)
     {
         AdvancedTargetDirectory = directory;
         _advancedTargetMaster = LoadAdvancedFiles(directory, AdvancedTargetFilter, AdvancedTargetSortBy);
         RefreshAdvancedTargetList();
-        if (!IsThumbnailMode && AutoPairEnabled) AutoPairByOrder();
+        if (AutoPairEnabled && _advancedReferenceMaster.Count > 0) AutoPairByOrder();
     }
     public void SetAdvancedReferencePath(string path) => SetAdvancedPath(path, true);
     public void SetAdvancedTargetPath(string path) => SetAdvancedPath(path, false);
@@ -367,27 +387,37 @@ public partial class MantraNamaViewModel : ObservableObject
     private void AutoPairByOrder()
     {
         AdvancedPairs.Clear();
-        var refList = _advancedReferenceMaster.Where(x => string.IsNullOrWhiteSpace(AdvancedReferenceSearch) || x.OriginalName.Contains(AdvancedReferenceSearch, StringComparison.OrdinalIgnoreCase)).Take(500).ToList();
-        var tgtList = _advancedTargetMaster.Where(x => string.IsNullOrWhiteSpace(AdvancedTargetSearch) || x.OriginalName.Contains(AdvancedTargetSearch, StringComparison.OrdinalIgnoreCase)).Take(500).ToList();
+        AdvancedUnmatchedFiles.Clear();
+        var refList = _advancedReferenceMaster.Take(500).ToList();
+        var tgtList = _advancedTargetMaster.Take(500).ToList();
         var count = Math.Min(refList.Count, tgtList.Count);
         for (int i = 0; i < count; i++)
         {
             var pair = CreateAdvancedPair(refList[i], tgtList[i]);
             AdvancedPairs.Add(pair);
         }
-        var unmatchedReferences = refList.Skip(count).Select(x => x.OriginalName).ToList();
-        var unmatchedTargets = tgtList.Skip(count).Select(x => x.OriginalName).ToList();
-        var summary = new List<string>();
-        if (unmatchedReferences.Count > 0) summary.Add($"referensi tanpa pasangan ({unmatchedReferences.Count}): {string.Join(", ", unmatchedReferences.Take(4))}");
-        if (unmatchedTargets.Count > 0) summary.Add($"target tanpa pasangan ({unmatchedTargets.Count}): {string.Join(", ", unmatchedTargets.Take(4))}");
-        if (_advancedReferenceMaster.Count > 500 || _advancedTargetMaster.Count > 500) summary.Add("daftar dibatasi 500 file per sisi");
-        AdvancedUnmatchedSummary = summary.Count == 0 ? "Tidak ada file tersisa tanpa pasangan." : string.Join(" · ", summary);
+        RefreshUnmatchedFiles();
         RefreshPairedFlags();
         RefreshPairStatuses();
         LoadAdvancedPairThumbnails();
         StatusText = count > 0
-            ? $"Usulan dibuat: {count} pasangan belum ditinjau. Saran mengikuti urutan tampilan; periksa thumbnail dan koreksi target yang keliru sebelum menandai ditinjau."
+            ? $"Draf awal dibuat: {count} pasangan BELUM DITINJAU. Urutan hanya saran awal—bukan pengenalan identitas visual. Periksa thumbnail dan koreksi target sebelum menandai ditinjau."
             : "Tidak ada file untuk dibuatkan usulan";
+    }
+    private void RefreshUnmatchedFiles()
+    {
+        var referencesInPairs = AdvancedPairs.Select(pair => pair.ReferencePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var targetsInPairs = AdvancedPairs.Select(pair => pair.TargetPath).Where(path => !string.IsNullOrWhiteSpace(path)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unmatchedReferences = _advancedReferenceMaster.Where(file => !referencesInPairs.Contains(file.OriginalPath)).ToList();
+        var unmatchedTargets = _advancedTargetMaster.Where(file => !targetsInPairs.Contains(file.OriginalPath)).ToList();
+        AdvancedUnmatchedFiles.Clear();
+        foreach (var file in unmatchedReferences) AdvancedUnmatchedFiles.Add(new AdvancedUnmatchedFile("Referensi", file.OriginalName));
+        foreach (var file in unmatchedTargets) AdvancedUnmatchedFiles.Add(new AdvancedUnmatchedFile("Foto", file.OriginalName));
+        var summary = new List<string>();
+        if (unmatchedReferences.Count > 0) summary.Add($"referensi tanpa pasangan ({unmatchedReferences.Count}): {string.Join(", ", unmatchedReferences.Take(4).Select(file => file.OriginalName))}");
+        if (unmatchedTargets.Count > 0) summary.Add($"foto tanpa pasangan ({unmatchedTargets.Count}): {string.Join(", ", unmatchedTargets.Take(4).Select(file => file.OriginalName))}");
+        if (_advancedReferenceMaster.Count > 500 || _advancedTargetMaster.Count > 500) summary.Add("daftar usulan dibatasi 500 file per sisi");
+        AdvancedUnmatchedSummary = summary.Count == 0 ? "Tidak ada file tersisa tanpa pasangan." : string.Join(" · ", summary);
     }
     private AdvancedRenamePair CreateAdvancedPair(RenamePreviewItem reference, RenamePreviewItem target)
     {
@@ -412,6 +442,7 @@ public partial class MantraNamaViewModel : ObservableObject
         RefreshPairStatuses();
         RefreshPairedFlags();
         LoadAdvancedPairThumbnails();
+        if (!_isRefreshingAdvancedTargetChoices) RefreshUnmatchedFiles();
     }
     private void RefreshPairStatuses()
     {
@@ -436,12 +467,24 @@ public partial class MantraNamaViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(pair.ResultName) || Path.GetFileName(pair.ResultName) != pair.ResultName || pair.ResultName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             { pair.Status = "Konflik: nama tidak valid"; continue; }
             var destination = Path.Combine(Path.GetDirectoryName(pair.TargetPath) ?? "", pair.ResultName);
-            if (!pair.IsReviewed) { pair.Status = "Belum ditinjau"; continue; }
-            if (string.Equals(destination, pair.TargetPath, StringComparison.OrdinalIgnoreCase)) { pair.Status = "Tidak berubah"; continue; }
+            if (string.Equals(destination, pair.TargetPath, StringComparison.OrdinalIgnoreCase))
+            { pair.Status = pair.IsReviewed ? "Tidak berubah" : "Belum ditinjau"; continue; }
             if ((File.Exists(destination) || Directory.Exists(destination)) && !reviewedSources.Contains(destination))
             { pair.Status = "Konflik: tujuan sudah ada"; continue; }
+            if (!pair.IsReviewed) { pair.Status = "Belum ditinjau"; continue; }
             pair.Status = "Siap";
         }
+        RefreshVisibleAdvancedPairs();
+    }
+    private void RefreshVisibleAdvancedPairs()
+    {
+        VisibleAdvancedPairs.Clear();
+        IEnumerable<AdvancedRenamePair> visible = AdvancedPairs;
+        if (string.Equals(AdvancedPairFilter, "Belum ditinjau / ragu", StringComparison.Ordinal))
+            visible = visible.Where(pair => !pair.IsReviewed || pair.Status.StartsWith("Konflik", StringComparison.Ordinal));
+        else if (string.Equals(AdvancedPairFilter, "Konflik", StringComparison.Ordinal))
+            visible = visible.Where(pair => pair.Status.StartsWith("Konflik", StringComparison.Ordinal));
+        foreach (var pair in visible) VisibleAdvancedPairs.Add(pair);
     }
     private void LoadAdvancedPairThumbnails()
     {
@@ -463,23 +506,45 @@ public partial class MantraNamaViewModel : ObservableObject
     {
         var choices = _advancedTargetMaster.ToList();
         var pending = AdvancedPairs.Select(pair => new { Pair = pair, TargetPath = pair.TargetPath, WasReviewed = pair.IsReviewed }).ToList();
-        foreach (var entry in pending)
+        _isRefreshingAdvancedTargetChoices = true;
+        try
         {
-            entry.Pair.TargetOptions = choices;
-            var refreshedSelection = choices.FirstOrDefault(x => string.Equals(x.OriginalPath, entry.TargetPath, StringComparison.OrdinalIgnoreCase));
-            entry.Pair.SelectedTargetItem = refreshedSelection;
-            if (refreshedSelection != null && entry.WasReviewed) entry.Pair.IsReviewed = true;
+            foreach (var entry in pending)
+            {
+                entry.Pair.TargetOptions = choices;
+                var refreshedSelection = choices.FirstOrDefault(x => string.Equals(x.OriginalPath, entry.TargetPath, StringComparison.OrdinalIgnoreCase));
+                entry.Pair.SelectedTargetItem = refreshedSelection;
+                if (refreshedSelection != null && entry.WasReviewed) entry.Pair.IsReviewed = true;
+            }
         }
+        finally { _isRefreshingAdvancedTargetChoices = false; }
+        RefreshUnmatchedFiles();
         RefreshPairStatuses();
         LoadAdvancedPairThumbnails();
     }
-    [RelayCommand] private void ClearAdvancedPairs() { AdvancedPairs.Clear(); AdvancedUnmatchedSummary = ""; RefreshAdvancedLists(); }
-    [RelayCommand] private void RefreshAutoPair() => AutoPairByOrder();
-    [RelayCommand] private void ReviewAllAdvancedPairs()
+    [RelayCommand] private void ClearAdvancedPairs()
     {
-        foreach (var pair in AdvancedPairs.Where(p => !p.Status.StartsWith("Konflik", StringComparison.Ordinal))) pair.IsReviewed = true;
+        AdvancedPairs.Clear();
+        RefreshUnmatchedFiles();
+        RefreshVisibleAdvancedPairs();
+        RefreshAdvancedLists();
+    }
+    [RelayCommand] private void RefreshAutoPair() => AutoPairByOrder();
+    [RelayCommand] private void ReviewVisibleAdvancedPairs()
+    {
+        var selected = VisibleAdvancedPairs.Where(pair => pair.IsSelectedForBulkReview).ToList();
+        if (selected.Count == 0)
+        {
+            StatusText = "Tidak ada pasangan terlihat yang dipilih. Centang baris yang sudah diperiksa secara visual terlebih dahulu.";
+            return;
+        }
+        foreach (var pair in selected)
+        {
+            pair.IsReviewed = true;
+            pair.IsSelectedForBulkReview = false;
+        }
         RefreshPairStatuses();
-        StatusText = "Semua pasangan valid ditandai sudah ditinjau. Periksa kembali pasangan yang Anda koreksi sebelum menjalankan rename.";
+        StatusText = $"{selected.Count} pasangan terlihat yang dipilih ditandai sudah ditinjau. Konflik tetap terblokir sampai diperbaiki.";
     }
     private void RefreshAdvancedReferenceList()
     {
@@ -559,12 +624,29 @@ public partial class MantraNamaViewModel : ObservableObject
         var pair = CreateAdvancedPair(SelectedAdvancedReference, SelectedAdvancedTarget);
         AdvancedPairs.Add(pair);
         RefreshPairStatuses();
+        RefreshUnmatchedFiles();
         LoadAdvancedPairThumbnails();
         RefreshPairedFlags();
         StatusText = $"Pasangan ditambahkan: {SelectedAdvancedTarget.OriginalName} → {pair.ResultName}. Tandai sudah ditinjau setelah memeriksa gambar.";
     }
  
-    [RelayCommand] private void RemoveAdvancedPair(AdvancedRenamePair? pair) { if (pair != null) { AdvancedPairs.Remove(pair); RefreshAdvancedLists(); } }
+    [RelayCommand] private void RemoveAdvancedPair(AdvancedRenamePair? pair)
+    {
+        if (pair == null) return;
+        AdvancedPairs.Remove(pair);
+        RefreshAdvancedLists();
+        RefreshUnmatchedFiles();
+    }
+
+    public bool AssignAdvancedTarget(AdvancedRenamePair? pair, string targetPath)
+    {
+        if (pair == null || !AdvancedPairs.Contains(pair)) return false;
+        var target = pair.TargetOptions.FirstOrDefault(item => string.Equals(item.OriginalPath, targetPath, StringComparison.OrdinalIgnoreCase));
+        if (target == null) return false;
+        pair.SelectedTargetItem = target;
+        StatusText = $"Target untuk {pair.ReferenceName} diubah menjadi {target.OriginalName}. Usulan kembali belum ditinjau.";
+        return true;
+    }
  
     private sealed class PlannedRenameOperation(AdvancedRenamePair? pair, string sourcePath, string destinationPath)
     {
@@ -759,10 +841,10 @@ public partial class MantraNamaViewModel : ObservableObject
             _undoStack.Pop();
             UndoLabel = _undoStack.Count > 0 ? $"Batalkan rename ({_undoStack.Peek().Count} file)" : "";
             OnPropertyChanged(nameof(CanUndo));
-            StatusText = $"Undo selesai: {batch.Count} file dikembalikan.";
             ReloadAdvancedFiles();
             RefreshPendingTargetChoices();
             RefreshPairStatuses();
+            StatusText = $"Undo selesai: {batch.Count} file dikembalikan.";
         }
         catch (Exception ex)
         {

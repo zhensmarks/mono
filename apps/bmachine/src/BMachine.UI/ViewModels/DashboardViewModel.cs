@@ -16,7 +16,6 @@ using BMachine.UI.Messages;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
-using BMachine.UI.Messages; // Ensure this is available or add if missing
 using BMachine.Core.Platform;
 
 namespace BMachine.UI.ViewModels;
@@ -1414,7 +1413,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                  _lastEditingCount = count;
              }
         }
-        catch (Exception ex) { /* Log? */ }
+        catch { }
 
         // 2. Revision List
         try 

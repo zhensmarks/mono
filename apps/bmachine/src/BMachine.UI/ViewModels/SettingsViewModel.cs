@@ -300,18 +300,20 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _navCustomText = "Dashboard";
     partial void OnNavCustomTextChanged(string value) 
     {
-        _database.SetAsync("Dashboard.Nav.Text", value);
+        _database?.SetAsync("Dashboard.Nav.Text", value);
         WeakReferenceMessenger.Default.Send(new NavSettingsChangedMessage());
     }
 
     private void SaveAndNotify(double value, string key)
     {
-        _database.SetAsync(key, value.ToString());
+        _database?.SetAsync(key, value.ToString());
         WeakReferenceMessenger.Default.Send(new NavSettingsChangedMessage());
     }
 
     private async Task LoadNavSettings()
     {
+        if (_database is null) return;
+
         var w = await _database.GetAsync<string>("Dashboard.Nav.Width");
         if (double.TryParse(w, out double dW)) NavButtonWidth = dW;
 
@@ -599,7 +601,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (value == null) return;
         EditingBoardId = value.Id;
-        await _database.SetAsync("Trello.EditingBoardId", value.Id);
+        if (_database != null) await _database.SetAsync("Trello.EditingBoardId", value.Id);
         await FetchListsAsync(value.Id, EditingLists);
     }
 
@@ -607,7 +609,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (value == null) return;
         RevisionBoardId = value.Id;
-        await _database.SetAsync("Trello.RevisionBoardId", value.Id);
+        if (_database != null) await _database.SetAsync("Trello.RevisionBoardId", value.Id);
         await FetchListsAsync(value.Id, RevisionLists);
     }
 
@@ -615,7 +617,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (value == null) return;
         LateBoardId = value.Id;
-        await _database.SetAsync("Trello.LateBoardId", value.Id);
+        if (_database != null) await _database.SetAsync("Trello.LateBoardId", value.Id);
         await FetchListsAsync(value.Id, LateLists);
     }
 
@@ -623,7 +625,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (value == null) return;
         AccBoardId = value.Id;
-        await _database.SetAsync("Trello.AccBoardId", value.Id);
+        if (_database != null) await _database.SetAsync("Trello.AccBoardId", value.Id);
         await FetchListsAsync(value.Id, AccLists);
     }
 
@@ -631,35 +633,35 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (value == null) return;
         QcBoardId = value.Id;
-        await _database.SetAsync("Trello.QcBoardId", value.Id);
+        if (_database != null) await _database.SetAsync("Trello.QcBoardId", value.Id);
     }
 
     partial void OnSelectedEditingListChanged(TrelloItem? value)
     {
          if (value == null) return;
          EditingListId = value.Id;
-         _database.SetAsync("Trello.EditingListId", value.Id);
+         _database?.SetAsync("Trello.EditingListId", value.Id);
     }
 
     partial void OnSelectedRevisionListChanged(TrelloItem? value)
     {
          if (value == null) return;
          RevisionListId = value.Id;
-         _database.SetAsync("Trello.RevisionListId", value.Id);
+         _database?.SetAsync("Trello.RevisionListId", value.Id);
     }
 
     partial void OnSelectedLateListChanged(TrelloItem? value)
     {
          if (value == null) return;
          LateListId = value.Id;
-         _database.SetAsync("Trello.LateListId", value.Id);
+         _database?.SetAsync("Trello.LateListId", value.Id);
     }
 
     partial void OnSelectedAccListChanged(TrelloItem? value)
     {
          if (value == null) return;
          AccListId = value.Id;
-         _database.SetAsync("Trello.AccListId", value.Id);
+         _database?.SetAsync("Trello.AccListId", value.Id);
     }
     partial void OnLeaderboardRangeChanged(string value) => _database?.SetAsync("Leaderboard.Range", value);
     partial void OnLeaderboardMonthlyRangeChanged(string value) => _database?.SetAsync("Leaderboard.MonthlyRange", value);
@@ -1657,23 +1659,26 @@ public partial class SettingsViewModel : ObservableObject
             IsStatusVisible = true;
             
             // Save state immediately
-            try 
+            if (_database != null)
             {
-                 await _database.SetAsync("Trello.IsConnected", "False");
-                 await _database.SetAsync("Trello.EditingBoardId", "");
-                 await _database.SetAsync("Trello.EditingListId", "");
-                 await _database.SetAsync("Trello.RevisionBoardId", "");
-                 await _database.SetAsync("Trello.RevisionListId", "");
-                 await _database.SetAsync("Trello.LateBoardId", "");
-                 await _database.SetAsync("Trello.LateListId", "");
-                 await _database.SetAsync("Trello.QcBoardId", "");
-                 await _database.SetAsync("Trello.AccBoardId", "");
-                 await _database.SetAsync("Trello.AccListId", "");
-             }
-             catch (Exception ex)
-             {
-                 System.Diagnostics.Debug.WriteLine($"Trello disconnect-state save failed: {ex.GetType().Name}");
-             }
+                try
+                {
+                    await _database.SetAsync("Trello.IsConnected", "False");
+                    await _database.SetAsync("Trello.EditingBoardId", "");
+                    await _database.SetAsync("Trello.EditingListId", "");
+                    await _database.SetAsync("Trello.RevisionBoardId", "");
+                    await _database.SetAsync("Trello.RevisionListId", "");
+                    await _database.SetAsync("Trello.LateBoardId", "");
+                    await _database.SetAsync("Trello.LateListId", "");
+                    await _database.SetAsync("Trello.QcBoardId", "");
+                    await _database.SetAsync("Trello.AccBoardId", "");
+                    await _database.SetAsync("Trello.AccListId", "");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Trello disconnect-state save failed: {ex.GetType().Name}");
+                }
+            }
         }
         else
         {
@@ -2795,7 +2800,6 @@ public partial class SettingsViewModel : ObservableObject
             
             // Files check helper
             bool IsMaster(string key) => File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Master", key));
-            bool IsAction(string key) => File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action", key)) || key.EndsWith(".jsx") || key.EndsWith(".pyw");
 
             if (File.Exists(path))
             {
@@ -2987,6 +2991,8 @@ public partial class SettingsViewModel : ObservableObject
     
     private async Task LoadShortcutConfigAsync()
     {
+        if (_database is null) return;
+
         try
         {
             var json = await _database.GetAsync<string>("ShortcutConfig");

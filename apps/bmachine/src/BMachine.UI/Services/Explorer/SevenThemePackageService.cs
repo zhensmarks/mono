@@ -1,4 +1,5 @@
-﻿using SharpCompress.Archives;
+using SharpCompress.Archives;
+using SharpCompress.Readers;
 
 namespace BMachine.UI.Services.Explorer;
 
@@ -20,11 +21,13 @@ public sealed class SevenThemePackageService
         if (!File.Exists(packagePath)) return Invalid(packagePath, "Package file does not exist.");
         try
         {
-            using var archive = ArchiveFactory.Open(packagePath);
+            using var archive = ArchiveFactory.OpenArchive(packagePath, new ReaderOptions());
             var entries = new List<SevenThemeEntry>();
             foreach (var entry in archive.Entries.Where(item => !item.IsDirectory))
             {
-                var normalized = entry.Key.Replace('\\', '/');
+                var key = entry.Key;
+                if (string.IsNullOrWhiteSpace(key)) return Invalid(packagePath, "Package contains an empty entry path.");
+                var normalized = key.Replace('\\', '/');
                 if (Path.IsPathRooted(normalized) || normalized.Split('/').Any(part => part == "..")) return Invalid(packagePath, "Package contains an unsafe path.");
                 entries.Add(new SevenThemeEntry(normalized, entry.Size, ResourceExtensions.Contains(Path.GetExtension(normalized))));
             }

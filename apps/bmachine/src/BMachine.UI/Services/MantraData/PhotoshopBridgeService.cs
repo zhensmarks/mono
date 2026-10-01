@@ -67,31 +67,41 @@ public class PhotoshopBridgeService
         // 3. Dispatch via COM on a dedicated STA thread (COM Photoshop.Application requires STA)
         bool comSuccess = false;
         Exception? comException = null;
-        var staThread = new Thread(() =>
+        if (OperatingSystem.IsWindows())
         {
-            try
+            var staThread = new Thread(() =>
             {
-                var psType = Type.GetTypeFromProgID("Photoshop.Application");
-                if (psType != null)
+                try
                 {
-                    dynamic? psApp = Activator.CreateInstance(psType);
-                    if (psApp != null)
+                    if (!OperatingSystem.IsWindows())
+                        throw new PlatformNotSupportedException("Photoshop COM automation is supported only on Windows.");
+
+                    var psType = Type.GetTypeFromProgID("Photoshop.Application");
+                    if (psType != null)
                     {
-                        psApp.BringToFront();
-                        psApp.DoJavaScriptFile(jsxPath);
-                        comSuccess = true;
+                        dynamic? psApp = Activator.CreateInstance(psType);
+                        if (psApp != null)
+                        {
+                            psApp.BringToFront();
+                            psApp.DoJavaScriptFile(jsxPath);
+                            comSuccess = true;
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                comException = ex;
-            }
-        });
-        staThread.SetApartmentState(ApartmentState.STA);
-        staThread.IsBackground = true;
-        staThread.Start();
-        staThread.Join();
+                catch (Exception ex)
+                {
+                    comException = ex;
+                }
+            });
+            staThread.SetApartmentState(ApartmentState.STA);
+            staThread.IsBackground = true;
+            staThread.Start();
+            staThread.Join();
+        }
+        else
+        {
+            comException = new PlatformNotSupportedException("Photoshop COM automation is supported only on Windows.");
+        }
 
         if (!comSuccess && comException != null)
             progress?.Report($"COM Dispatch warning: {comException.Message}. Mencoba via CLI...");
@@ -136,5 +146,3 @@ public class PhotoshopBridgeService
         throw new TimeoutException("Waktu tunggu proses Photoshop melebihi batas waktu.");
     }
 }
-
-

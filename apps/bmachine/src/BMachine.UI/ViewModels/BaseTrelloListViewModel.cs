@@ -976,7 +976,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 StatusMessage = "Failed to delete checklist.";
             }
         }
-        catch (Exception ex)
+        catch
         {
              StatusMessage = "Error deleting checklist.";
         }

@@ -2263,13 +2263,9 @@ if ($img -ne $null) {{
     
     private async Task RunPythonProcess(List<string> args, Dictionary<string, string>? envVars = null)
     {
-        try 
+        try
         {
-            var scriptPath = "python"; // Default fallback if needed, but the service handles it.
-            // Wait, the interface expects scriptPath separated from args?
-            // The existing `args` list contains "Scripts/batch_wrapper.py" as the first element!
-            // See line 912: "Scripts/batch_wrapper.py"
-            
+            // The first argument contains the wrapper script; the service resolves Python.
             string actualScript = "";
             var actualArgs = new List<string>();
             

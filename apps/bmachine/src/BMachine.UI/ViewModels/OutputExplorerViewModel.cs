@@ -42,7 +42,6 @@ public partial class OutputExplorerViewModel : ObservableObject
 
     private readonly System.Collections.Generic.Stack<string> _backStack = new();
     private readonly System.Collections.Generic.Stack<string> _forwardStack = new();
-    private bool _isNavigatingHistory;
     private bool _isLoadingSettings;
     
     private string? _pendingSelectName;

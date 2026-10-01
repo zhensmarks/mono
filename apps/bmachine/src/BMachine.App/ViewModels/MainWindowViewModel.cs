@@ -196,7 +196,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
 
     public async Task InitializeDashboardAsync()
     {
-        _isLoadingDashboard = true;
+        IsLoadingDashboard = true;
 
         if (_cachedDashboardVM == null)
         {

@@ -488,7 +488,7 @@
                 ═══════════════════════ -->
                 <Grid IsVisible="{Binding IsMantraNamaVisible}">
                 <Border Classes="Card" IsVisible="{Binding MantraNamaVM.IsAdvancedMode}" Padding="20,18" ClipToBounds="True">
-                    <Grid RowDefinitions="Auto,Auto,3*,2*,Auto,Auto" RowSpacing="12">
+                    <Grid RowDefinitions="Auto,Auto,2*,3*,Auto,Auto" RowSpacing="12">
                         <!-- Header: Back + Title + Segmented Mode Switch -->
                         <Grid Grid.Row="0" ColumnDefinitions="Auto,16,*,Auto">
                             <Button Grid.Column="0" Classes="Back"
@@ -674,20 +674,26 @@
                         <!-- Pair review list (bounded, scroll internal) -->
                         <Border Grid.Row="3" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="96">
                             <Grid RowDefinitions="Auto,*">
-                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,6">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,6">
                                     <StackPanel Spacing="3">
                                         <TextBlock Classes="FieldLabel" Text="USULAN PASANGAN — PERIKSA GAMBAR SEBELUM MENERAPKAN"/>
-                                        <TextBlock Text="{Binding MantraNamaVM.AdvancedUnmatchedSummary}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap"/>
+                                        <TextBlock Text="Urutan hanya saran awal, bukan pengenalan identitas. Semua draf BELUM DITINJAU; bandingkan thumbnail sebelum memilih baris untuk ditinjau." FontSize="10" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding MantraNamaVM.AdvancedUnmatchedSummary}" FontSize="9" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" Classes="Muted" Content="Tandai semua valid ditinjau"
-                                            Command="{Binding MantraNamaVM.ReviewAllAdvancedPairsCommand}"
-                                            VerticalAlignment="Center" ToolTip.Tip="Gunakan setelah memeriksa seluruh thumbnail dan mengoreksi pengecualian."/>
+                                    <ComboBox Grid.Column="1" Width="190" ItemsSource="{Binding MantraNamaVM.AdvancedPairFilterOptions}"
+                                              SelectedItem="{Binding MantraNamaVM.AdvancedPairFilter}" VerticalAlignment="Center"
+                                              ToolTip.Tip="Filter usulan belum ditinjau, konflik, atau file tanpa pasangan."/>
+                                    <Button Grid.Column="2" Classes="Muted" Content="Tandai pilihan terlihat sudah ditinjau"
+                                            Command="{Binding MantraNamaVM.ReviewVisibleAdvancedPairsCommand}"
+                                            VerticalAlignment="Center" ToolTip.Tip="Pilih baris yang sudah dibandingkan secara visual, lalu tandai sekali. Konflik tetap diblokir."/>
                                 </Grid>
-                                <ListBox Grid.Row="1" Classes="Adv" ItemsSource="{Binding MantraNamaVM.AdvancedPairs}"
+                                <ListBox x:Name="NamaAdvancedPairList" Grid.Row="1" Classes="Adv" IsVisible="{Binding MantraNamaVM.ShowPairList}" DragDrop.AllowDrop="True"
+                                         ItemsSource="{Binding MantraNamaVM.VisibleAdvancedPairs}"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="42,*,16,42,190,*,Auto,Auto" ColumnSpacing="7" Margin="0,3">
+                                            <Grid ColumnDefinitions="42,*,16,42,190,*,Auto,Auto,Auto" ColumnSpacing="7" Margin="0,3"
+                                                  Background="Transparent" DragDrop.AllowDrop="True">
                                                 <Border Grid.Column="0" Width="38" Height="48" CornerRadius="4" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" VerticalAlignment="Center">
                                                     <Image Source="{Binding ReferencePreview.Thumbnail}" Stretch="Uniform"/>
                                                 </Border>
@@ -707,10 +713,27 @@
                                                     <TextBlock Text="{Binding ResultName}" FontSize="10" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     <TextBlock Text="{Binding Status}" FontSize="9" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextFaintBrush}"/>
                                                 </StackPanel>
-                                                <CheckBox Grid.Column="6" Content="Dicek" IsChecked="{Binding IsReviewed}" VerticalAlignment="Center"
-                                                          ToolTip.Tip="Tandai hanya setelah membandingkan thumbnail referensi dan target."/>
-                                                <Button Grid.Column="7" Content="Hapus" Classes="Muted" Padding="10,3" FontSize="11" VerticalAlignment="Center"
+                                                <CheckBox Grid.Column="6" Content="Pilih" IsChecked="{Binding IsSelectedForBulkReview}" VerticalAlignment="Center"
+                                                          ToolTip.Tip="Pilih baris ini setelah memastikan gambarnya secara visual."/>
+                                                <StackPanel Grid.Column="7" Spacing="2" VerticalAlignment="Center">
+                                                    <CheckBox Content="Dicek" IsChecked="{Binding IsReviewed}" VerticalAlignment="Center"
+                                                              ToolTip.Tip="Tandai hanya setelah membandingkan thumbnail referensi dan target."/>
+                                                    <TextBlock Text="{Binding ReviewStateLabel}" FontSize="8" Foreground="{DynamicResource TextFaintBrush}"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="8" Content="Hapus" Classes="Muted" Padding="10,3" FontSize="11" VerticalAlignment="Center"
                                                         Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveAdvancedPairCommand}" CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <ListBox Grid.Row="1" Classes="Adv" IsVisible="{Binding MantraNamaVM.ShowUnmatchedFiles}"
+                                         ItemsSource="{Binding MantraNamaVM.AdvancedUnmatchedFiles}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="110,*" ColumnSpacing="10" Margin="0,3">
+                                                <TextBlock Text="{Binding Side}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding FileName}" FontSize="10" TextTrimming="CharacterEllipsis"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
