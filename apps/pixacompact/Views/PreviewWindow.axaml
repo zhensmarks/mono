@@ -229,13 +229,45 @@
                   </StackPanel>
             </Grid>
 
+            <!-- Workspace focus and tool docking remain available while panels are rearranged. -->
+            <Border x:Name="DockFocusBar" Grid.Row="1" IsVisible="False" Height="36"
+                    Background="#17191D" BorderBrush="#2A2A2E" BorderThickness="0,0,0,1" Padding="10,4">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                    <TextBlock Text="Focus" FontSize="11" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="CboEditorFocus" Grid.Column="1" Width="142" SelectedIndex="0"
+                              Background="#252830" BorderBrush="#353A44" CornerRadius="5"
+                              SelectionChanged="OnEditorFocusChanged" ToolTip.Tip="Pilih panel yang ingin difokuskan">
+                        <ComboBoxItem Content="All panels" Tag="All"/>
+                        <ComboBoxItem Content="Tools" Tag="Tools"/>
+                        <ComboBoxItem Content="Properties" Tag="Properties"/>
+                        <ComboBoxItem Content="History" Tag="History"/>
+                        <ComboBoxItem Content="Layers" Tag="Layers"/>
+                        <ComboBoxItem Content="Canvas only" Tag="Canvas"/>
+                    </ComboBox>
+                    <TextBlock Grid.Column="3" Text="Tools dock" FontSize="11" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="CboToolsDock" Grid.Column="4" Width="96" SelectedIndex="0" Tag="Tools"
+                              Background="#252830" BorderBrush="#353A44" CornerRadius="5"
+                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan toolbar Tools ke sisi workspace">
+                        <ComboBoxItem Content="Top" Tag="Top"/>
+                        <ComboBoxItem Content="Right" Tag="Right"/>
+                        <ComboBoxItem Content="Bottom" Tag="Bottom"/>
+                        <ComboBoxItem Content="Left" Tag="Left"/>
+                    </ComboBox>
+                    <Button Grid.Column="5" Content="Reset layout" Click="OnResetEditorWorkspaceClick"
+                            Margin="10,0,0,0" Padding="8,3" FontSize="10" Background="#252830"
+                            BorderBrush="#353A44" Foreground="#D1D5DB" CornerRadius="5"/>
+                </Grid>
+            </Border>
+
+            <!-- Parked here until the editor applies the saved dock position. -->
+            <StackPanel x:Name="EditorToolParking" Grid.Row="1" IsVisible="False">
             <!-- Editor Tool Rail (Horizontal Top Toolbar) -->
-            <Border x:Name="PanelToolRail" Grid.Row="1" VerticalAlignment="Top" Margin="0,0,0,0"
+            <Border x:Name="PanelToolRail" VerticalAlignment="Top" Margin="0,0,0,0"
                     Background="#1A1C20" BorderBrush="#2A2A2E" BorderThickness="0,0,0,1" Padding="8,6"
                     IsVisible="False" Height="52" CornerRadius="0" ClipToBounds="True">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                <Grid x:Name="PanelToolContentGrid" ColumnDefinitions="Auto,*,Auto,Auto">
                     <!-- Selection Tools Group -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2">
+                    <StackPanel x:Name="ToolSelectionGroup" Grid.Column="0" Orientation="Horizontal" Spacing="2">
                         <Button x:Name="BtnToolMove" Tag="Move" Click="OnToolClick" Width="40" Height="40" Background="#15FFFFFF" BorderThickness="0" CornerRadius="6" ToolTip.Tip="Move Tool (V) - Geser selection aktif">
                             <PathIcon Data="M13,6H11V11H6V13H11V18H13V13H18V11H13V6M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" Width="16" Height="16" Foreground="White"/>
                         </Button>
@@ -261,7 +293,7 @@
                     </StackPanel>
 
                     <!-- Paint Tools Group -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Left">
+                    <StackPanel x:Name="ToolPaintGroup" Grid.Column="1" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Left">
                         <Button x:Name="BtnToolBrush" Tag="Brush" Click="OnToolClick" Width="40" Height="40" Background="#15FFFFFF" BorderThickness="0" CornerRadius="6" ToolTip.Tip="Brush (B) - Pulihkan atau hapus mask">
                             <PathIcon Data="M20.71,4.04C21.1,3.65 21.1,3 20.71,2.63L18.37,0.29C18,-0.1 17.35,-0.1 16.96,0.29L15.12,2.12L18.87,5.87M3,14.25V18H6.75L17.81,6.93L14.06,3.18L3,14.25M5.92,15.08L5,14.16L14.31,4.85L15.23,5.77L5.92,15.08Z" Width="16" Height="16" Foreground="White"/>
                         </Button>
@@ -278,7 +310,7 @@
                     </StackPanel>
 
                     <!-- Quick Actions Group -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
+                    <StackPanel x:Name="ToolQuickGroup" Grid.Column="2" Orientation="Horizontal" Spacing="2">
                         <Button x:Name="BtnSelectAll" Width="40" Height="40" Background="#15FFFFFF" BorderThickness="0" CornerRadius="6" ToolTip.Tip="Select All (Ctrl+A)">
                             <PathIcon Data="M3,3H21V21H3V3M5,5V19H19V5H5Z" Width="16" Height="16" Foreground="White"/>
                         </Button>
@@ -298,7 +330,7 @@
                     </StackPanel>
 
                     <!-- Undo/Redo and Save Group -->
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2">
+                    <StackPanel x:Name="ToolSaveGroup" Grid.Column="3" Orientation="Horizontal" Spacing="2">
                         <Button x:Name="BtnUndo" Click="OnUndoClick" Width="40" Height="40" Background="#15FFFFFF" BorderThickness="0" CornerRadius="6" ToolTip.Tip="Undo (Ctrl+Z)">
                             <PathIcon Data="M12.5,8C9.85,8 7.45,9.16 5.75,11L2,7.25V16H11L7.04,12.04C8.26,10.77 10.27,10 12.5,10C16.55,10 19.85,12.81 20.75,16.5L22.64,16C21.5,11.25 17.36,8 12.5,8Z" Width="16" Height="16" Foreground="White"/>
                         </Button>
@@ -318,6 +350,7 @@
                     </StackPanel>
                 </Grid>
             </Border>
+            </StackPanel>
 
             <!-- Options Bar (Tool-specific settings) -->
             <Border x:Name="PanelOptionsBar" Grid.Row="2" VerticalAlignment="Top" Margin="0,0,0,0"
@@ -399,8 +432,20 @@
                     <TextBlock x:Name="TxtEditorHint" Grid.Column="6" Text="Pilih tool untuk mulai mengedit mask." VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#D1D5DB" FontSize="12"/>
                 </Grid>
             </Border>
-            <Grid Grid.Row="3" ColumnDefinitions="*, Auto">
-                <Grid Grid.Column="0">
+            <Grid x:Name="EditorWorkspaceGrid" Grid.Row="3" RowDefinitions="Auto,*,Auto" ColumnDefinitions="Auto,*,Auto">
+                <Border x:Name="DockTopHost" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
+                        MaxHeight="280" Background="#111317" BorderBrush="#2A2A2E" BorderThickness="0,0,0,1" Padding="4">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DockTopPanel" Orientation="Horizontal" Spacing="8"/>
+                    </ScrollViewer>
+                </Border>
+                <Border x:Name="DockLeftHost" Grid.Row="1" Grid.Column="0" IsVisible="False"
+                        Background="#111317" BorderBrush="#2A2A2E" BorderThickness="0,0,1,0" Padding="4">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DockLeftPanel" Spacing="8"/>
+                    </ScrollViewer>
+                </Border>
+                <Grid Grid.Row="1" Grid.Column="1">
                     <!-- STATE 1: Normal Preview (Side-by-Side) -->
                     <Grid x:Name="PanelNormalPreview" ColumnDefinitions="*, 2, *" Margin="10,0,10,10">
                         <!-- Original -->
@@ -562,10 +607,26 @@
                 </Grid>
 
                 <!-- Panel Kanan: Selection / Mask / History / Layers -->
-                <Border x:Name="PanelRightEditor" Grid.Column="1" IsVisible="False" Width="240"
+                <Border x:Name="PanelRightEditor" Grid.Row="1" Grid.Column="2" IsVisible="False" Width="240"
                         Background="#1A1D21" BorderBrush="#2D3139" BorderThickness="1,0,0,0" Padding="0" Margin="0">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel Spacing="0">
+                        <StackPanel x:Name="DockRightPanel" Spacing="0">
+
+                            <Border x:Name="PanelProperties" Width="240" Background="#1A1D21" BorderBrush="#2D3139" BorderThickness="0,0,0,1">
+                                <StackPanel Spacing="0">
+                                    <Border Background="#1B2028" BorderBrush="#2D3139" BorderThickness="0,0,0,1" Padding="12,8">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="PROPERTIES" FontSize="11" FontWeight="Bold" Foreground="#93C5FD" VerticalAlignment="Center"/>
+                                            <ComboBox x:Name="CboPropertiesDock" Grid.Column="1" Width="82" SelectedIndex="1" Tag="Properties"
+                                                      Background="#252830" BorderBrush="#353A44" CornerRadius="5" FontSize="10"
+                                                      SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Dock Properties">
+                                                <ComboBoxItem Content="Top" Tag="Top"/>
+                                                <ComboBoxItem Content="Right" Tag="Right"/>
+                                                <ComboBoxItem Content="Bottom" Tag="Bottom"/>
+                                                <ComboBoxItem Content="Left" Tag="Left"/>
+                                            </ComboBox>
+                                        </Grid>
+                                    </Border>
 
                             <!-- SELECTION SECTION -->
                             <Border Background="#252830" BorderBrush="#2D3139" BorderThickness="0,0,0,1" Padding="12,10">
@@ -573,7 +634,7 @@
                                     <Grid ColumnDefinitions="Auto,*,Auto">
                                         <PathIcon Grid.Column="0" Data="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z" Width="14" Height="14" Foreground="#A78BFA" VerticalAlignment="Center"/>
                                         <TextBlock Grid.Column="1" Text="SELECTION" FontSize="11" FontWeight="Bold" Foreground="#A78BFA" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                        <Button x:Name="BtnToggleEditorPanel" Grid.Column="2" Content="Panel" FontSize="9" Padding="6,2" CornerRadius="4" Background="#374151" BorderThickness="0" Foreground="#E5E7EB"/>
+                                        <Button x:Name="BtnToggleEditorPanel" Grid.Column="2" Content="Panel" Click="OnToggleEditorPanel" FontSize="9" Padding="6,2" CornerRadius="4" Background="#374151" BorderThickness="0" Foreground="#E5E7EB"/>
                                     </Grid>
                                     <TextBlock x:Name="TxtSelStatus" Text="No active selection" FontSize="10" TextWrapping="Wrap" Foreground="#9CA3AF"/>
                                     <Grid ColumnDefinitions="*,*,*" Margin="0,2">
@@ -618,14 +679,24 @@
                                     <Button x:Name="BtnMaskDefringePanel" Content="Defringe" FontSize="10" Padding="10,4" CornerRadius="4" Background="#374151" BorderThickness="0" Foreground="#E5E7EB" HorizontalAlignment="Stretch"/>
                                 </StackPanel>
                             </Border>
+                                </StackPanel>
+                            </Border>
 
                             <!-- HISTORY SECTION -->
-                            <Border Background="#252830" BorderBrush="#2D3139" BorderThickness="0,0,0,1" Padding="12,10">
+                            <Border x:Name="PanelHistory" Width="240" Background="#252830" BorderBrush="#2D3139" BorderThickness="0,0,0,1" Padding="12,10">
                                 <StackPanel Spacing="10">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <PathIcon Data="M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.15,8 12.5,8Z" Width="14" Height="14" Foreground="#60A5FA"/>
-                                        <TextBlock Text="HISTORY" FontSize="11" FontWeight="Bold" Foreground="#60A5FA" VerticalAlignment="Center"/>
-                                    </StackPanel>
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <PathIcon Grid.Column="0" Data="M12.5,8C9.85,8 7.45,9.16 5.75,11L2,7.25V16H11L7.04,12.04C8.26,10.77 10.27,10 12.5,10C16.55,10 19.85,12.81 20.75,16.5L22.64,16C21.5,11.25 17.36,8 12.5,8Z" Width="14" Height="14" Foreground="#60A5FA"/>
+                                        <TextBlock Grid.Column="1" Text="HISTORY" FontSize="11" FontWeight="Bold" Foreground="#60A5FA" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                        <ComboBox x:Name="CboHistoryDock" Grid.Column="2" Width="82" SelectedIndex="1" Tag="History"
+                                                  Background="#252830" BorderBrush="#353A44" CornerRadius="5" FontSize="10"
+                                                  SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Dock History">
+                                            <ComboBoxItem Content="Top" Tag="Top"/>
+                                            <ComboBoxItem Content="Right" Tag="Right"/>
+                                            <ComboBoxItem Content="Bottom" Tag="Bottom"/>
+                                            <ComboBoxItem Content="Left" Tag="Left"/>
+                                        </ComboBox>
+                                    </Grid>
                                     <Border Background="#1A1D21" CornerRadius="6" Padding="4" MaxHeight="200">
                                         <ListBox x:Name="LstHistory" Background="Transparent" BorderThickness="0" FontSize="10" Foreground="#9CA3AF" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                                     </Border>
@@ -633,12 +704,20 @@
                             </Border>
 
                             <!-- LAYERS SECTION -->
-                            <Border x:Name="PanelDocLayers" Background="#1A1D21" BorderBrush="#2D3139" BorderThickness="0" Padding="12,10" IsVisible="False">
+                            <Border x:Name="PanelDocLayers" Width="240" Background="#1A1D21" BorderBrush="#2D3139" BorderThickness="0" Padding="12,10" IsVisible="False">
                                 <StackPanel Spacing="8">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <PathIcon Data="M12,2L2,7L12,12L22,7L12,2M2,17L12,22L22,17L2,17M2,12L12,17L22,12L2,12Z" Width="14" Height="14" Foreground="#34D399"/>
-                                        <TextBlock Text="LAYERS" FontSize="11" FontWeight="Bold" Foreground="#34D399" VerticalAlignment="Center"/>
-                                    </StackPanel>
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <PathIcon Grid.Column="0" Data="M12,2L2,7L12,12L22,7L12,2M2,17L12,22L22,17L2,17M2,12L12,17L22,12L2,12Z" Width="14" Height="14" Foreground="#34D399"/>
+                                        <TextBlock Grid.Column="1" Text="LAYERS" FontSize="11" FontWeight="Bold" Foreground="#34D399" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                        <ComboBox x:Name="CboLayersDock" Grid.Column="2" Width="82" SelectedIndex="1" Tag="Layers"
+                                                  Background="#252830" BorderBrush="#353A44" CornerRadius="5" FontSize="10"
+                                                  SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Dock Layers">
+                                            <ComboBoxItem Content="Top" Tag="Top"/>
+                                            <ComboBoxItem Content="Right" Tag="Right"/>
+                                            <ComboBoxItem Content="Bottom" Tag="Bottom"/>
+                                            <ComboBoxItem Content="Left" Tag="Left"/>
+                                        </ComboBox>
+                                    </Grid>
                                     <Border Background="#12141A" CornerRadius="6" Padding="4" MaxHeight="220">
                                         <ItemsControl x:Name="LayerList">
                                             <ItemsControl.ItemTemplate>
@@ -664,6 +743,12 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
+                    </ScrollViewer>
+                </Border>
+                <Border x:Name="DockBottomHost" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
+                        MaxHeight="220" Background="#111317" BorderBrush="#2A2A2E" BorderThickness="0,1,0,0" Padding="4">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DockBottomPanel" Orientation="Horizontal" Spacing="8"/>
                     </ScrollViewer>
                 </Border>
             </Grid>

@@ -244,10 +244,10 @@ public partial class PreviewWindow
         // Layar penuh: sembunyikan kolom Original + splitter supaya editor lega.
         SetPreviewSplit(editing: true);
 
-        // Mode seleksi dari preferensi + panel kanan sesuai setelan.
+        // Mode seleksi dan susunan workspace dipulihkan dari preferensi.
         _selMode = (SelectionCombineMode)Math.Clamp(_settings.EditorSelectionMode,
             (int)SelectionCombineMode.Replace, (int)SelectionCombineMode.Intersect);
-        SetVisible("PanelRightEditor", _settings.EditorShowRightPanel);
+        ConfigureEditorWorkspace();
 
         // Pulihkan tool terakhir (bila valid), jika tidak default Pan.
         var startTool = _settings.ActiveEditTool >= (int)EditToolKind.Pan &&
@@ -262,6 +262,7 @@ public partial class PreviewWindow
 
         // Layer V2 — aktifkan dengan thumbnail caching (ImageLayer.GetThumbnail sudah cached).
         try { if (_session?.Result != null) EnterDocEditMode(_session.Result); } catch (Exception ex) { Console.WriteLine($"LayerV2: {ex.Message}"); }
+        ApplyEditorDockVisibility();
         ApplyCheckerboardBackground();
     }
 
@@ -289,7 +290,7 @@ public partial class PreviewWindow
         SetVisible("EditOverlay", false);
         try { ExitDocEditMode(); } catch { }
         SetVisible("PanelEditorStatus", false);
-        SetVisible("PanelRightEditor", false);
+        SetEditorWorkspaceActive(false);
         SetVisible("EditOverlay", false);
         SetVisible("PanelRefineBusy", false);
         SetVisible("ImgQuickMask", false);
@@ -568,7 +569,8 @@ public partial class PreviewWindow
     private void OnToggleEditorPanel(object? sender, RoutedEventArgs e)
     {
         _settings.EditorShowRightPanel = !_settings.EditorShowRightPanel;
-        SetVisible("PanelRightEditor", _settings.EditorShowRightPanel);
+        _settings.Save();
+        ApplyEditorDockVisibility();
         var button = this.FindControl<Button>("BtnToggleEditorPanel");
         if (button != null) button.Content = _settings.EditorShowRightPanel ? "Panel" : "Panel +";
     }

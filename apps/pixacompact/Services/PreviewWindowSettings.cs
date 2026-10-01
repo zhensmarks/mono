@@ -56,6 +56,11 @@ public class PreviewWindowSettings
     public int EditorRefineEdgeSize { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineEdgeSize;
     public int EditorRefineEdgeFeather { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineEdgeFeather;
     public bool EditorShowRightPanel { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultShowRightPanel;
+    public string EditorWorkspaceFocus { get; set; } = "All";
+    public string EditorToolsDock { get; set; } = "Top";
+    public string EditorPropertiesDock { get; set; } = "Right";
+    public string EditorHistoryDock { get; set; } = "Right";
+    public string EditorLayersDock { get; set; } = "Right";
     public int EditorAntsAnimationMs { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultAntsAnimationMs;
 
     private static string GetPath() => Path.Combine(AppContext.BaseDirectory, "preview_settings.json");
