@@ -188,7 +188,8 @@ public partial class OutputExplorerView : UserControl
         if (DataContext is OutputExplorerViewModel vm)
         {
             var window = new ExplorerSettingsWindow { DataContext = vm };
-            window.ShowDialog(TopLevel.GetTopLevel(this) as Window);
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
+            window.ShowDialog(owner);
         }
     }
 

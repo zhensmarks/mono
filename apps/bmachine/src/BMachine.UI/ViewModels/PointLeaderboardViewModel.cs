@@ -94,7 +94,10 @@ public partial class PointLeaderboardViewModel : ObservableObject
             Google.Apis.Auth.OAuth2.GoogleCredential credential;
             using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read))
             {
-                credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromStream(stream).CreateScoped(Google.Apis.Sheets.v4.SheetsService.Scope.SpreadsheetsReadonly);
+                credential = Google.Apis.Auth.OAuth2.CredentialFactory
+                    .FromStream<Google.Apis.Auth.OAuth2.ServiceAccountCredential>(stream)
+                    .ToGoogleCredential()
+                    .CreateScoped(Google.Apis.Sheets.v4.SheetsService.Scope.SpreadsheetsReadonly);
             }
 
             var service = new Google.Apis.Sheets.v4.SheetsService(new Google.Apis.Services.BaseClientService.Initializer()

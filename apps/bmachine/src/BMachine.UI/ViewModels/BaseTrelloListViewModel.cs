@@ -1345,8 +1345,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         // Update IsAllSelected state based on actual card selections
         if (Cards.Count > 0)
         {
-            _isAllSelected = Cards.All(c => c.IsSelected);
-            OnPropertyChanged(nameof(IsAllSelected));
+            IsAllSelected = Cards.All(c => c.IsSelected);
         }
     }
 

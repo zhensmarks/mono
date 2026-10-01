@@ -132,8 +132,8 @@ public partial class SpreadsheetViewModel : ObservableObject
         
         if (Rows.Count > 0)
             StatusText = $"{FilteredRows.Count} found (of {Rows.Count})";
-        else 
-            StatusText = _isLoading ? "Loading..." : "No data.";
+        else
+            StatusText = IsLoading ? "Loading..." : "No data.";
     }
 
     [RelayCommand]
@@ -198,7 +198,9 @@ public partial class SpreadsheetViewModel : ObservableObject
             GoogleCredential credential;
             using (var stream = new FileStream(credsPath, FileMode.Open, FileAccess.Read))
             {
-                credential = GoogleCredential.FromStream(stream).CreateScoped(SheetsService.Scope.Spreadsheets);
+                credential = CredentialFactory.FromStream<ServiceAccountCredential>(stream)
+                    .ToGoogleCredential()
+                    .CreateScoped(SheetsService.Scope.Spreadsheets);
             }
 
             _sheetsService = new SheetsService(new BaseClientService.Initializer()
@@ -235,8 +237,8 @@ public partial class SpreadsheetViewModel : ObservableObject
                     
                     colVM.PropertyChanged += (s, e) =>
                     {
-                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.IsVisible) && !_isLoadingSettings && !_isLoading) SaveColumnSettings();
-                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.Width) && !_isLoadingWidths && !_isLoading) DebounceSaveColumnWidths();
+                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.IsVisible) && !_isLoadingSettings && !IsLoading) SaveColumnSettings();
+                        if (e.PropertyName == nameof(SpreadsheetColumnViewModel.Width) && !_isLoadingWidths && !IsLoading) DebounceSaveColumnWidths();
                     };
                     
                     columnViewModels.Add(colVM);
@@ -672,7 +674,7 @@ public partial class SpreadsheetViewModel : ObservableObject
 
     public void DebounceSaveColumnWidths()
     {
-        if (_isLoadingWidths || _isLoading) return;
+        if (_isLoadingWidths || IsLoading) return;
         _widthSaveTimer?.Dispose();
         _widthSaveTimer = new System.Threading.Timer(async _ =>
         {
@@ -690,7 +692,7 @@ public partial class SpreadsheetViewModel : ObservableObject
 
     public async Task SaveColumnWidthsAsync()
     {
-        if (_database == null || _isLoadingWidths || _isLoading || Columns.Count == 0) return;
+        if (_database == null || _isLoadingWidths || IsLoading || Columns.Count == 0) return;
         var widths = new Dictionary<string, double>();
         var cols = Columns.ToList();
         foreach (var col in cols)
@@ -783,7 +785,7 @@ public partial class SpreadsheetViewModel : ObservableObject
 
     private void SaveColumnSettings()
     {
-        if (_isLoadingSettings || _isLoading || Columns.Count == 0) return;
+        if (_isLoadingSettings || IsLoading || Columns.Count == 0) return;
         // Save hidden column indices so duplicate headers are independent like Excel
         var hiddenIndices = Columns.Where(c => !c.IsVisible).Select(c => c.Index.ToString());
         var str = string.Join(",", hiddenIndices);

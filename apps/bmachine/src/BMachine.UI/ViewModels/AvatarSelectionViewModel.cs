@@ -39,9 +39,9 @@ public partial class AvatarSelectionViewModel : ObservableObject
     
     private void LoadPresets()
     {
-        _debugStatus = "";
+        DebugStatus = "";
         Presets.Clear();
-        
+
         var filesFound = 0;
         
         // 1. Try AssetLoader with multiple URI variations
@@ -65,8 +65,8 @@ public partial class AvatarSelectionViewModel : ObservableObject
                          Presets.Add(new AvatarItem { Source = $"preset:{filename}", Image = bitmap });
                          loaded = true;
                          break;
-                     } 
-                     catch(Exception ex) { _debugStatus += $"Err load {uri}: {ex.Message}\n"; }
+                     }
+                     catch(Exception ex) { DebugStatus += $"Err load {uri}: {ex.Message}\n"; }
                  }
              }
              
@@ -114,17 +114,17 @@ public partial class AvatarSelectionViewModel : ObservableObject
                          filesFound++;
                          break;
                      }
-                     catch(Exception ex) { _debugStatus += $"Err file {p}: {ex.Message}\n"; }
+                     catch(Exception ex) { DebugStatus += $"Err file {p}: {ex.Message}\n"; }
                  }
              }
-             
-             if (!loaded) _debugStatus += $"Missing: {filename}\n";
+
+             if (!loaded) DebugStatus += $"Missing: {filename}\n";
         }
         
         if (filesFound == 0)
         {
-            _debugStatus += $"Checked BaseDir: {AppDomain.CurrentDomain.BaseDirectory}\n";
-            _debugStatus += "No avatars found in Assets/Avatars or via avares://.\n";
+            DebugStatus += $"Checked BaseDir: {AppDomain.CurrentDomain.BaseDirectory}\n";
+            DebugStatus += "No avatars found in Assets/Avatars or via avares://.\n";
             // Show Debug log
         }
     }

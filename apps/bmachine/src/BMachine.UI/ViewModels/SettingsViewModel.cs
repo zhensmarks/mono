@@ -2648,10 +2648,10 @@ public partial class SettingsViewModel : ObservableObject
              Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
              ? desktop.MainWindow : null);
              
-        if (topLevel == null) return null;
+        if (topLevel is not Window owner) return null;
 
         var picker = new BMachine.UI.Views.IconPickerWindow();
-        var result = await picker.ShowDialog<string?>(topLevel as Window);
+        var result = await picker.ShowDialog<string?>(owner);
         
         return result;
     }

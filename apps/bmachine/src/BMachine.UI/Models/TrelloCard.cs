@@ -70,7 +70,7 @@ public partial class TrelloCard : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasAttachments))]
     private int? _attachmentCount;
 
-    public bool HasAttachments => _attachmentCount.HasValue && _attachmentCount.Value > 0;
+    public bool HasAttachments => AttachmentCount.HasValue && AttachmentCount.Value > 0;
 
     [ObservableProperty]
     private bool _hasChecklist;

@@ -161,9 +161,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
 
     public void Receive(RequestOpenExplorerWindowMessage message)
     {
-        if (_outputExplorerVM != null && _outputExplorerVM.NewExplorerWindowCommand.CanExecute(null))
+        if (OutputExplorerVM != null && OutputExplorerVM.NewExplorerWindowCommand.CanExecute(null))
         {
-            _outputExplorerVM.NewExplorerWindowCommand.Execute(null);
+            OutputExplorerVM.NewExplorerWindowCommand.Execute(null);
         }
     }
 
@@ -465,10 +465,10 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private void OpenLeaderboardWindow()
     {
          // Refresh Data
-         _pointLeaderboardVM.LoadDataCommand.Execute(null);
+         PointLeaderboardVM.LoadDataCommand.Execute(null);
          
          // Embedded version
-         var view = new BMachine.UI.Views.LeaderboardView { DataContext = _pointLeaderboardVM };
+         var view = new BMachine.UI.Views.LeaderboardView { DataContext = PointLeaderboardVM };
          NavigateToView(view);
     }
 
@@ -652,13 +652,13 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         {
             // Initialize Child ViewModels
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init FolderLocker...\n");
-            _folderLockerVM = new FolderLockerViewModel();
+            FolderLockerVM = new FolderLockerViewModel();
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init BatchVM...\n");
-            _batchVM = new BatchViewModel(database, logService, _platformService);
+            BatchVM = new BatchViewModel(database, logService, _platformService);
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init PointLeaderboardVM...\n");
-            _pointLeaderboardVM = new PointLeaderboardViewModel(database);
+            PointLeaderboardVM = new PointLeaderboardViewModel(database);
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init SpreadsheetVM...\n");
             SpreadsheetVM = new SpreadsheetViewModel(database);
@@ -667,7 +667,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             _fileManager = new BMachine.UI.Services.FileOperationManager(); // Init Manager
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init OutputExplorerVM...\n");
-            _outputExplorerVM = new OutputExplorerViewModel(database, new BMachine.UI.Services.NotificationService(), _fileManager, _platformService); // Init Explorer
+            OutputExplorerVM = new OutputExplorerViewModel(database, new BMachine.UI.Services.NotificationService(), _fileManager, _platformService); // Init Explorer
             
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init ConnectivityTimer...\n");
             // Connectivity Check Timer
@@ -1513,7 +1513,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                                     GoogleCredential credential;
                                     using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
                                     {
-                                        credential = GoogleCredential.FromStream(stream)
+                                        credential = CredentialFactory.FromStream<ServiceAccountCredential>(stream)
+                                            .ToGoogleCredential()
                                             .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
                                     }
                                     

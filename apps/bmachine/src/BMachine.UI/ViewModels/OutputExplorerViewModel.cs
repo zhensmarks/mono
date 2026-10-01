@@ -2437,11 +2437,11 @@ try {{
     }
 
     [RelayCommand]
-    public async Task CreateNewFolder(string name)
+    public Task CreateNewFolder(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) return;
+        if (string.IsNullOrWhiteSpace(name)) return Task.CompletedTask;
         var path = Path.Combine(CurrentPath, name);
-        try 
+        try
         {
             Directory.CreateDirectory(path);
             Refresh();
@@ -2450,6 +2450,7 @@ try {{
         {
             _notificationService.ShowError($"Failed to create folder: {ex.Message}");
         }
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -2471,10 +2472,10 @@ try {{
     }
 
     [RelayCommand]
-    public async Task DuplicateItem(int count)
+    public Task DuplicateItem(int count)
     {
         var items = GetSelectedItems(null);
-        if (!items.Any()) return;
+        if (!items.Any()) return Task.CompletedTask;
 
         foreach (var item in items)
         {
@@ -2503,6 +2504,7 @@ try {{
             catch {}
         }
         Refresh();
+        return Task.CompletedTask;
     }
     
     [RelayCommand]
