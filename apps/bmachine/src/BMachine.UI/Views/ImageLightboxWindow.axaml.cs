@@ -129,39 +129,19 @@ public partial class ImageLightboxWindow : Window
             {
                 try
                 {
-                    using var handler = new System.Net.Http.HttpClientHandler
+                    Log("download-start");
+                    var data = await BMachine.UI.Services.TrelloRequestSecurity.DownloadMediaAsync(url, _apiKey, _token);
+                    if (data is null)
                     {
-                        AllowAutoRedirect = true
-                    };
-                    using var client = new HttpClient(handler);
-                    client.Timeout = TimeSpan.FromSeconds(30);
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("BMachine/1.0");
-                    
-                    // Use OAuth Authorization header for Trello (query params get stripped on redirects)
-                    if (!string.IsNullOrEmpty(_apiKey) && !string.IsNullOrEmpty(_token))
-                    {
-                        client.DefaultRequestHeaders.Add("Authorization", 
-                            $"OAuth oauth_consumer_key=\"{_apiKey}\", oauth_token=\"{_token}\"");
-                    }
-                    
-                    Log("getasync-start");
-                    // Use default ResponseContentRead (NOT ResponseHeadersRead which causes native crashes)
-                    using var response = await client.GetAsync(url);
-                    Log($"getasync-status={response.StatusCode}");
-                    
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        Log($"http-fail: {(int)response.StatusCode} {response.ReasonPhrase}");
+                        Log("download-unavailable");
                         return null;
                     }
-                    
-                    var data = await response.Content.ReadAsByteArrayAsync();
                     Log($"downloaded bytes={data.Length}");
                     return data;
                 }
                 catch (Exception httpEx)
                 {
-                    Log($"http-error: {httpEx.Message}");
+                    Log($"http-error: {httpEx.GetType().Name}");
                     return null;
                 }
             });
@@ -184,7 +164,7 @@ public partial class ImageLightboxWindow : Window
             }
             catch (Exception dex)
             {
-                Log($"decode-managed-error: {dex}");
+                Log($"decode-managed-error: {dex.GetType().Name}");
                 throw;
             }
             Log($"decode-done px={bitmap.PixelSize.Width}x{bitmap.PixelSize.Height}");
@@ -203,15 +183,15 @@ public partial class ImageLightboxWindow : Window
                 }
                 catch (Exception setEx)
                 {
-                    Console.WriteLine($"[Lightbox] Set image failed: {setEx.Message}");
-                    Log($"set-image-failed: {setEx}");
+                    Console.WriteLine($"[Lightbox] Set image failed: {setEx.GetType().Name}");
+                    Log($"set-image-failed: {setEx.GetType().Name}");
                 }
             });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Lightbox] Error loading image: {ex.Message}");
-            Log($"load-error: {ex}");
+            Console.WriteLine($"[Lightbox] Error loading image: {ex.GetType().Name}");
+            Log($"load-error: {ex.GetType().Name}");
         }
         finally
         {
@@ -243,13 +223,13 @@ public partial class ImageLightboxWindow : Window
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Lightbox] BeginMoveDrag: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"[Lightbox] BeginMoveDrag failed: {ex.GetType().Name}");
                 }
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Lightbox] OnBackgroundPointerPressed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Lightbox] Background pointer handling failed: {ex.GetType().Name}");
         }
     }
 
@@ -413,7 +393,7 @@ public partial class ImageLightboxWindow : Window
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Lightbox] Failed to save image: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[Lightbox] Image save failed: {ex.GetType().Name}");
             }
         }
     }

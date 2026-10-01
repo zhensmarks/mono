@@ -151,7 +151,7 @@ public partial class SpreadsheetViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Flush settings error before LoadData: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Flush settings failed: {ex.GetType().Name}");
             }
         }
 
@@ -352,7 +352,7 @@ public partial class SpreadsheetViewModel : ObservableObject
                 }
                 catch (Exception metaEx)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Metadata Fetch Error (non-fatal): {metaEx.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Metadata fetch failed (non-fatal): {metaEx.GetType().Name}");
                 }
 
                 // Load saved column widths (saved widths override Google Sheets metadata widths)
@@ -490,8 +490,8 @@ public partial class SpreadsheetViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"Error: {ex.Message}";
-            System.Diagnostics.Debug.WriteLine($"Spreadsheet Error: {ex}");
+            StatusText = $"Google Sheets request failed ({ex.GetType().Name}).";
+            System.Diagnostics.Debug.WriteLine($"Spreadsheet request failed: {ex.GetType().Name}");
         }
         finally
         {
@@ -579,7 +579,7 @@ public partial class SpreadsheetViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"Save Error: {ex.Message}";
+            StatusText = $"Google Sheets save failed ({ex.GetType().Name}).";
         }
         finally
         {
@@ -683,7 +683,7 @@ public partial class SpreadsheetViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Column width save error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Column width save failed: {ex.GetType().Name}");
             }
         }, null, 250, System.Threading.Timeout.Infinite);
     }
@@ -752,7 +752,7 @@ public partial class SpreadsheetViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Column Width Sync Error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Google Sheets column-width sync failed: {ex.GetType().Name}");
             }
         }
     }

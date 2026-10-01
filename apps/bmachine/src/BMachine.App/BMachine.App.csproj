@@ -36,7 +36,7 @@
     <None Include="..\..\Scripts\**\*.py" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
     <None Include="..\..\Scripts\**\*.pyw" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
     <None Include="..\..\Scripts\**\*.jsx" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
-    <None Include="..\..\Scripts\**\*.json" CopyToOutputDirectory="PreserveNewest" LinkBase="Scripts\" />
+    <None Include="..\..\Scripts\scripts.json" CopyToOutputDirectory="PreserveNewest" Link="Scripts\scripts.json" />
   </ItemGroup>
 
   <PropertyGroup>

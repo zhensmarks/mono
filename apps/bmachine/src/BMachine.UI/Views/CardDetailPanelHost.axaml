@@ -26,15 +26,9 @@
                                 </WrapPanel>
                                 <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Bold" FontSize="24" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" LineHeight="32"/>
                             </StackPanel>
-                            <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseDetailPanelCommand}" Content="✕"
-                                    Background="Transparent" BorderThickness="0" FontSize="16"
-                                    Foreground="{DynamicResource TextSecondaryBrush}"
-                                    Cursor="Hand" VerticalAlignment="Top" Padding="6,2">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover">
-                                        <Setter Property="Foreground" Value="#ef4444"/>
-                                    </Style>
-                                </Button.Styles>
+                            <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseDetailPanelCommand}"
+                                    Classes="PanelClose" VerticalAlignment="Top">
+                                <PathIcon Data="{StaticResource IconX}"/>
                             </Button>
                         </Grid>
 
@@ -60,7 +54,7 @@
                             </Button>
                             
                             <!-- Due Date Badge -->
-                            <Border Background="#1C1C1F" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Height="30" Padding="10,0" Margin="0,0,8,6" VerticalAlignment="Center"
+                            <Border Background="{DynamicResource ButtonSecondaryBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Height="30" Padding="10,0" Margin="0,0,8,6" VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedCard.DueDateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                     <TextBlock Text="Due:" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -150,13 +144,9 @@
                             </Button.Styles>
                             <PathIcon Data="{StaticResource IconOpenWindow}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </Button>
-                        <Button Command="{Binding $parent[UserControl].DataContext.CloseCommentsPanelCommand}" Content="X"
-                                Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover">
-                                    <Setter Property="Foreground" Value="#ef4444"/>
-                                </Style>
-                            </Button.Styles>
+                        <Button Command="{Binding $parent[UserControl].DataContext.CloseCommentsPanelCommand}"
+                                Classes="PanelClose" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconX}"/>
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -402,13 +392,9 @@
                         <TextBlock Text="Checklists" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseChecklistPanelCommand}" Content="X"
-                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Foreground" Value="#ef4444"/>
-                            </Style>
-                        </Button.Styles>
+                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseChecklistPanelCommand}"
+                            Classes="PanelClose" VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconX}"/>
                     </Button>
                 </Grid>
 
@@ -524,13 +510,9 @@
                         <TextBlock Text="Move Card" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseMovePanelCommand}" Content="X"
-                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Foreground" Value="#ef4444"/>
-                            </Style>
-                        </Button.Styles>
+                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseMovePanelCommand}"
+                            Classes="PanelClose" VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconX}"/>
                     </Button>
                 </Grid>
 
@@ -590,13 +572,9 @@
                         <TextBlock Text="Attachments" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseAttachmentPanelCommand}" Content="X"
-                            Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" Padding="0" VerticalAlignment="Center">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Foreground" Value="#ef4444"/>
-                            </Style>
-                        </Button.Styles>
+                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseAttachmentPanelCommand}"
+                            Classes="PanelClose" VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconX}"/>
                     </Button>
                 </Grid>
 
@@ -650,7 +628,7 @@
                                             <Border Grid.Row="1" Background="#CC000000" Padding="8">
                                                 <StackPanel>
                                                     <TextBlock Text="{Binding Name}" Foreground="White" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
-                                                    <TextBlock Text="{Binding Bytes}" Foreground="#BBB" FontSize="9"/>
+                                                    <TextBlock Text="{Binding Bytes}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="9"/>
                                                 </StackPanel>
                                             </Border>
                                         </Grid>

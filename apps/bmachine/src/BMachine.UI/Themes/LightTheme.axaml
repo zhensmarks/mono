@@ -22,6 +22,37 @@
     <SolidColorBrush x:Key="BackgroundBrush" Color="#F1F3F5"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#E5E7EB"/>
 
+    <!-- Shared presentation tokens (resolved by the active theme). -->
+    <SolidColorBrush x:Key="BgHoverBrush" Color="#F2F4F7"/>
+    <SolidColorBrush x:Key="BgActiveBrush" Color="#1A3B82F6"/>
+    <SolidColorBrush x:Key="BgInputBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BgInputHoverBrush" Color="#F9FAFB"/>
+    <SolidColorBrush x:Key="BorderDefaultBrush" Color="#CBD5E1"/>
+    <SolidColorBrush x:Key="BorderHoverBrush" Color="#94A3B8"/>
+    <SolidColorBrush x:Key="BorderFocusBrush" Color="#2563EB"/>
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E1E5EA"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#52525B"/>
+    <SolidColorBrush x:Key="TextFaintBrush" Color="#52525B"/>
+    <SolidColorBrush x:Key="AccentSubtleBrush" Color="#263B82F6"/>
+    <SolidColorBrush x:Key="AccentSubtleHoverBrush" Color="#333B82F6"/>
+    <SolidColorBrush x:Key="ButtonSecondaryBackgroundBrush" Color="#F3F4F6"/>
+    <SolidColorBrush x:Key="ButtonSecondaryForegroundBrush" Color="#1F2937"/>
+    <SolidColorBrush x:Key="ButtonSecondaryBorderBrush" Color="#CBD5E1"/>
+    <SolidColorBrush x:Key="ButtonSecondaryHoverBrush" Color="#E5E7EB"/>
+    <SolidColorBrush x:Key="ButtonSecondaryPressedBrush" Color="#D1D5DB"/>
+    <SolidColorBrush x:Key="ButtonPrimaryBackgroundBrush" Color="#EDEDED"/>
+    <SolidColorBrush x:Key="ButtonPrimaryForegroundBrush" Color="#111111"/>
+    <SolidColorBrush x:Key="ButtonPrimaryHoverBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ButtonPrimaryPressedBrush" Color="#D4D4D4"/>
+    <SolidColorBrush x:Key="ButtonDangerBackgroundBrush" Color="#FEF2F2"/>
+    <SolidColorBrush x:Key="ButtonDangerForegroundBrush" Color="#991B1B"/>
+    <SolidColorBrush x:Key="ButtonDangerBorderBrush" Color="#FECACA"/>
+    <SolidColorBrush x:Key="ButtonDangerHoverBrush" Color="#FEE2E2"/>
+    <SolidColorBrush x:Key="ButtonDangerPressedBrush" Color="#FECACA"/>
+    <SolidColorBrush x:Key="SwitchOffBackgroundBrush" Color="#E5E7EB"/>
+    <SolidColorBrush x:Key="SwitchOffBorderBrush" Color="#CBD5E1"/>
+    <SolidColorBrush x:Key="SwitchHoverBackgroundBrush" Color="#D1D5DB"/>
+
     <!-- Log Brushes (Darker for Light Theme) -->
     <SolidColorBrush x:Key="LogInfoBrush" Color="#004d99"/>     <!-- Dark Blue -->
     <SolidColorBrush x:Key="LogSystemBrush" Color="#006666"/>   <!-- Dark Teal -->

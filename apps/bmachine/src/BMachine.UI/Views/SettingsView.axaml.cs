@@ -9,10 +9,13 @@ namespace BMachine.UI.Views;
 
 public partial class SettingsView : UserControl
 {
+    private bool _hasAppliedResponsiveLayout;
+
     public SettingsView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        Loaded += OnViewLoaded;
         
         // Wire DragDrop handlers for script drop zones
         var masterZone = this.FindControl<Grid>("MasterDropZone");
@@ -61,7 +64,24 @@ public partial class SettingsView : UserControl
             };
 
             vm.OpenAvatarSelectionRequested += () => OpenAvatarSelection(vm);
+            vm.IsMobileContentOpen = false;
+            _hasAppliedResponsiveLayout = false;
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (ReferenceEquals(DataContext, vm) && this.FindControl<Grid>("Part_RootGrid") is { } rootGrid)
+                    ApplyResponsiveLayout(rootGrid, Math.Max(rootGrid.Bounds.Width, Bounds.Width));
+            });
         }
+    }
+
+    private void OnViewLoaded(object? sender, RoutedEventArgs e)
+    {
+        if (this.FindControl<Grid>("Part_RootGrid") is not { } rootGrid)
+            return;
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            ApplyResponsiveLayout(rootGrid, Math.Max(rootGrid.Bounds.Width, Bounds.Width)));
     }
 
     private async void OnBrowseCredsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -109,6 +129,42 @@ public partial class SettingsView : UserControl
         }
 
         var properties = e.GetCurrentPoint(this).Properties;
+        var sectionList = this.FindControl<ListBox>("SettingsSectionList");
+        if (properties.IsLeftButtonPressed && DataContext is SettingsViewModel compactVm && compactVm.IsMobileView && sectionList is { IsVisible: true, IsHitTestVisible: true })
+        {
+            var listPoint = e.GetPosition(sectionList);
+            if (listPoint.X >= 0 && listPoint.Y >= 0 && listPoint.X < sectionList.Bounds.Width && listPoint.Y < sectionList.Bounds.Height)
+            {
+                var sectionItems = new[]
+                {
+                    this.FindControl<ListBoxItem>("SettingsItemGeneral"),
+                    this.FindControl<ListBoxItem>("SettingsItemAppearance"),
+                    this.FindControl<ListBoxItem>("SettingsItemAccount"),
+                    this.FindControl<ListBoxItem>("SettingsItemExtensions"),
+                    this.FindControl<ListBoxItem>("SettingsItemScriptManager"),
+                    this.FindControl<ListBoxItem>("SettingsItemPaths"),
+                    this.FindControl<ListBoxItem>("SettingsItemAbout")
+                };
+
+                for (var index = 0; index < sectionItems.Length; index++)
+                {
+                    var candidate = sectionItems[index];
+                    if (candidate is null || !candidate.IsVisible || !candidate.IsHitTestVisible)
+                        continue;
+
+                    var itemPoint = e.GetPosition(candidate);
+                    if (itemPoint.X < 0 || itemPoint.Y < 0 || itemPoint.X > candidate.Bounds.Width || itemPoint.Y > candidate.Bounds.Height)
+                        continue;
+
+                    compactVm.SelectedMenuIndex = index;
+                    compactVm.IsMobileContentOpen = true;
+                    InvalidateSettingsSurface();
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+
         if (properties.IsRightButtonPressed)
         {
             if (DataContext is SettingsViewModel navVm)
@@ -117,6 +173,7 @@ public partial class SettingsView : UserControl
                 if (navVm.IsMobileView && navVm.IsMobileContentOpen)
                 {
                     navVm.IsMobileContentOpen = false;
+                    InvalidateSettingsSurface();
                     e.Handled = true;
                     return;
                 }
@@ -129,6 +186,23 @@ public partial class SettingsView : UserControl
                 }
             }
         }
+    }
+
+    private void OnMobileBackClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is SettingsViewModel vm && vm.IsMobileView)
+            vm.IsMobileContentOpen = false;
+
+        InvalidateSettingsSurface();
+        e.Handled = true;
+    }
+
+    private void InvalidateSettingsSurface()
+    {
+        if (this.FindControl<Grid>("Part_RootGrid") is { } rootGrid)
+            rootGrid.InvalidateVisual();
+
+        InvalidateVisual();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -303,45 +377,65 @@ public partial class SettingsView : UserControl
 
         await dialog.ShowDialog(parentWindow);
     }
+    private void OnSettingsMenuPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is not SettingsViewModel vm || !vm.IsMobileView || e.Source is not Control source)
+            return;
+
+        if (source is ListBoxItem || source.FindAncestorOfType<ListBoxItem>() is not null)
+        {
+            vm.IsMobileContentOpen = true;
+            InvalidateSettingsSurface();
+        }
+    }
+
     private void OnRootGridSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        if (sender is not Grid grid) return;
+        if (sender is Grid grid)
+            ApplyResponsiveLayout(grid, e.NewSize.Width);
+    }
+
+    private void ApplyResponsiveLayout(Grid grid, double width)
+    {
         if (DataContext is not SettingsViewModel vm) return;
-        
+
         var sidebar = this.FindControl<Control>("Part_Sidebar");
         var contentWrapper = this.FindControl<Control>("Part_ContentWrapper");
-        
         if (sidebar == null || contentWrapper == null) return;
 
-        double threshold = 600;
-        bool isMobile = e.NewSize.Width < threshold;
+        if (width <= 0)
+            width = Math.Max(grid.Bounds.Width, Bounds.Width);
+        if (width <= 0) return;
 
+        var wasMobile = vm.IsMobileView;
+        const double threshold = 800;
+        bool isMobile = width < threshold;
         vm.IsMobileView = isMobile;
 
         if (isMobile)
         {
-            // Mobile: Single Column, Overlay Logic
+            // Keep a page visible when a laid-out desktop view crosses into compact mode;
+            // the first compact layout still opens on the section list.
+            if (!wasMobile)
+                vm.IsMobileContentOpen = _hasAppliedResponsiveLayout && vm.SelectedMenuIndex >= 0;
+
             grid.ColumnDefinitions = new ColumnDefinitions("*");
-            
-            // Sidebar in Col 0 (Full Width)
             Grid.SetColumn(sidebar, 0);
             sidebar.Margin = new Thickness(0);
-
-            // Content in Col 0 (Full Width)
             Grid.SetColumn(contentWrapper, 0);
         }
         else
         {
-            // Desktop: Side by Side
+            // Desktop keeps both panes visible and hides the compact-only back affordance.
+            vm.IsMobileContentOpen = false;
             grid.ColumnDefinitions = new ColumnDefinitions("300, *");
-            
-            // Sidebar in Col 0 with margin
             Grid.SetColumn(sidebar, 0);
             sidebar.Margin = new Thickness(0, 0, 30, 0);
-
-            // Content in Col 1
             Grid.SetColumn(contentWrapper, 1);
         }
+
+        _hasAppliedResponsiveLayout = true;
+        InvalidateSettingsSurface();
     }
 
     // --- Drag-and-Drop for Script Reordering ---
@@ -548,6 +642,3 @@ public partial class SettingsView : UserControl
 }
 
 // Extension helper logic not strictly needed if we do the Contains check.
-
-
-

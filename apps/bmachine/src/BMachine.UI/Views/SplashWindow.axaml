@@ -53,23 +53,23 @@
                         <TextBlock Text="B" 
                                    FontSize="22" 
                                    FontWeight="Black"
-                                   FontFamily="Inter, Segoe UI, sans-serif"
+                                   FontFamily="{DynamicResource FontPrimary}"
                                    Foreground="#3B82F6"
                                    LetterSpacing="1"/>
                         <TextBlock Text="MACHINE" 
                                    FontSize="22" 
                                    FontWeight="Light"
-                                   FontFamily="Inter, Segoe UI, sans-serif"
-                                   Foreground="#FAFAFA" 
+                                   FontFamily="{DynamicResource FontPrimary}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
                                    LetterSpacing="4"/>
                     </StackPanel>
                 </StackPanel>
                     <TextBlock Text="{Binding VersionText}" 
                                FontSize="10" 
                                FontWeight="Medium"
-                               FontFamily="Inter, Segoe UI, sans-serif"
+                               FontFamily="{DynamicResource FontPrimary}"
                                HorizontalAlignment="Center" 
-                               Foreground="#71717A" 
+                               Foreground="{DynamicResource TextMutedBrush}"
                                LetterSpacing="2"/>
                 </StackPanel>
 
@@ -86,8 +86,8 @@
                         <DataTemplate>
                             <TextBlock Text="{Binding}" 
                                        FontSize="11" 
-                                       FontFamily="Consolas, Courier New, monospace"
-                                       Foreground="#52525B" 
+                                       FontFamily="{DynamicResource FontMono}"
+                                       Foreground="{DynamicResource TextFaintBrush}"
                                        Opacity="0.8"
                                        TextAlignment="Center"
                                        TextWrapping="NoWrap"
@@ -98,7 +98,7 @@
                            
                 <!-- Edge-to-Edge Progress Bar -->
                 <ProgressBar Value="{Binding Progress}" Maximum="100" Height="3" 
-                             Background="#18181B"
+                             Background="{DynamicResource CardBackgroundBrush}"
                              Foreground="#3B82F6" 
                              BorderThickness="0" CornerRadius="6"
                              ShowProgressText="False"

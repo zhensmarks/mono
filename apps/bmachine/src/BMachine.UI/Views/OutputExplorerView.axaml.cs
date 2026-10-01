@@ -65,6 +65,8 @@ public partial class OutputExplorerView : UserControl
         // NOTE: OnFileAreaPointerPressed/Moved/Released are wired in XAML on FileAreaGrid
         this.AddHandler(KeyDownEvent, OnRootKeyDown, RoutingStrategies.Tunnel);
         this.AddHandler(PointerPressedEvent, OnRootPointerPressed, RoutingStrategies.Tunnel);
+        if (this.FindControl<Border>("AddressBarSurface") is { } addressBar)
+            addressBar.AddHandler(PointerPressedEvent, OnAddressBarSurfacePointerPressed, RoutingStrategies.Tunnel);
         Loaded += OnViewLoaded;
         Unloaded += OnViewUnloaded;
         
@@ -263,7 +265,23 @@ public partial class OutputExplorerView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(OutputExplorerViewModel.ContentScale) && _zoomTransform != null && DataContext is OutputExplorerViewModel vm)
+        if (e.PropertyName == nameof(OutputExplorerViewModel.IsAddressBarEditing) && DataContext is OutputExplorerViewModel addressVm)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (addressVm.IsAddressBarEditing)
+                {
+                    var addressBar = this.FindControl<TextBox>("AddressBarTextBox");
+                    addressBar?.Focus();
+                    addressBar?.SelectAll();
+                }
+                else
+                {
+                    FocusActiveListBox();
+                }
+            });
+        }
+        else if (e.PropertyName == nameof(OutputExplorerViewModel.ContentScale) && _zoomTransform != null && DataContext is OutputExplorerViewModel vm)
         {
             _zoomTransform.ScaleX = vm.ContentScale;
             _zoomTransform.ScaleY = vm.ContentScale;
@@ -710,10 +728,32 @@ public partial class OutputExplorerView : UserControl
         }
     }
 
+    private void OnAddressBarSurfacePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is not OutputExplorerViewModel vm || vm.IsAddressBarEditing)
+            return;
+
+        vm.ActivateAddressBarCommand.Execute(null);
+        e.Handled = true;
+    }
+
     private void OnRootPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var vm = DataContext as OutputExplorerViewModel;
         var point = e.GetCurrentPoint(this);
+
+        if (vm is not null && !vm.IsAddressBarEditing &&
+            this.FindControl<Border>("AddressBarSurface") is { IsVisible: true } addressBar)
+        {
+            var addressPoint = e.GetPosition(addressBar);
+            if (addressPoint.X >= 0 && addressPoint.Y >= 0 &&
+                addressPoint.X < addressBar.Bounds.Width && addressPoint.Y < addressBar.Bounds.Height)
+            {
+                vm.ActivateAddressBarCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+        }
 
         if (point.Properties.IsXButton1Pressed)
         {

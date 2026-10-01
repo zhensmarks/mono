@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -27,8 +27,8 @@
 
         <!-- NAV BAR — flat, bordered, no shadow -->
         <Style Selector="Border.Nav">
-            <Setter Property="Background" Value="#111113"/>
-            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="4"/>
@@ -37,7 +37,7 @@
         <!-- TAB BUTTONS — modern minimal planner-style with bottom indicator -->
         <Style Selector="Button.Tab">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
             <Setter Property="BorderThickness" Value="0,0,0,2"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="0"/>
@@ -54,7 +54,7 @@
             </Setter>
         </Style>
         <Style Selector="Button.Tab:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1A1A1D"/>
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
             <Setter Property="TextElement.Foreground" Value="#C4C4C0"/>
         </Style>
         <Style Selector="Button.Tab.on">
@@ -68,8 +68,8 @@
 
         <!-- BENTO CARD — flat, 1px border, no shadow -->
         <Style Selector="Border.Card">
-            <Setter Property="Background" Value="#111113"/>
-            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="24,20"/>
@@ -80,17 +80,17 @@
         <Style Selector="TextBlock.Section">
             <Setter Property="FontSize" Value="10.5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#52525B"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}"/>
             <Setter Property="LetterSpacing" Value="1.2"/>
-            <Setter Property="FontFamily" Value="Cascadia Code, JetBrains Mono, Consolas"/>
+            <Setter Property="FontFamily" Value="{DynamicResource FontMono}"/>
         </Style>
 
         <!-- PATH — monospace, dim -->
         <Style Selector="TextBlock.Path">
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#3F3F46"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="FontFamily" Value="Cascadia Code, JetBrains Mono, Consolas"/>
+            <Setter Property="FontFamily" Value="{DynamicResource FontMono}"/>
             <Setter Property="MaxLines" Value="2"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
@@ -98,47 +98,47 @@
         <!-- BODY LABEL -->
         <Style Selector="TextBlock.Body">
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         </Style>
 
         <!-- FIELD LABEL -->
         <Style Selector="TextBlock.FieldLabel">
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#52525B"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
 
         <!-- INPUT -->
         <Style Selector="TextBox.Input">
-            <Setter Property="Background" Value="#0C0C0E"/>
-            <Setter Property="Foreground" Value="#E8E8E6"/>
-            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="Background" Value="{DynamicResource BgInputBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="Padding" Value="12,10"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="CaretBrush" Value="#E8E8E6"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="TextBox.Input:focus /template/ Border#PART_BorderElement">
-            <Setter Property="BorderBrush" Value="#4B4B52"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
         </Style>
 
         <Style Selector="NumericUpDown.Input">
-            <Setter Property="Background" Value="#0C0C0E"/>
-            <Setter Property="Foreground" Value="#E8E8E6"/>
-            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="Background" Value="{DynamicResource BgInputBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="CornerRadius" Value="7"/>
         </Style>
 
         <Style Selector="CheckBox.Option">
-            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
             <Setter Property="FontSize" Value="12.5"/>
         </Style>
 
         <!-- PRIMARY BUTTON — always visible, explicitly targets Avalonia template border -->
         <Style Selector="Button.Action">
-            <Setter Property="Background" Value="#EDEDED"/>
-            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="Padding" Value="20,10"/>
             <Setter Property="FontSize" Value="13"/>
@@ -146,11 +146,11 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.Action /template/ ContentPresenter">
-            <Setter Property="Background" Value="#EDEDED"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#D4D4D4"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
         </Style>
         <Style Selector="Button.Action:pressed /template/ ContentPresenter">
             <Setter Property="Background" Value="#BDBDBD"/>
@@ -158,47 +158,47 @@
 
         <!-- SECONDARY / OUTLINED BUTTON -->
         <Style Selector="Button.Muted">
-            <Setter Property="Background" Value="#1C1C1F"/>
-            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="Padding" Value="16,10"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.Muted /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1C1C1F"/>
-            <Setter Property="TextElement.Foreground" Value="#A1A1AA"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
         <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#27272B"/>
-            <Setter Property="TextElement.Foreground" Value="#D4D4D8"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
 
         <!-- DANGER -->
         <Style Selector="Button.Warn">
-            <Setter Property="Background" Value="#1C0F0F"/>
-            <Setter Property="Foreground" Value="#A05252"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonDangerBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="Padding" Value="14,9"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="BorderBrush" Value="#5A2020"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonDangerBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.Warn /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1C0F0F"/>
-            <Setter Property="TextElement.Foreground" Value="#A05252"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonDangerBackgroundBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Warn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#2A1010"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonDangerHoverBrush}"/>
         </Style>
 
         <!-- PROGRESS BAR -->
         <Style Selector="ProgressBar.Bar">
-            <Setter Property="Foreground" Value="#C4C4C0"/>
-            <Setter Property="Background" Value="#1A1A1D"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
             <Setter Property="Height" Value="3"/>
             <Setter Property="CornerRadius" Value="2"/>
         </Style>
@@ -225,10 +225,10 @@
             <Setter Property="FontSize" Value="12"/>
         </Style>
         <Style Selector="ListBox.Adv ListBoxItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1A1A1D"/>
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
         </Style>
         <Style Selector="ListBox.Adv ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1E3A8A"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
         </Style>
 
         <!-- LISTBOX (Advanced thumbnail grid) -->
@@ -243,16 +243,16 @@
             <Setter Property="CornerRadius" Value="9"/>
         </Style>
         <Style Selector="ListBox.AdvThumb ListBoxItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1A1A1D"/>
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
         </Style>
         <Style Selector="ListBox.AdvThumb ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1E3A8A"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
         </Style>
 
         <!-- DROP CARD (folder input as wide drop zone) -->
         <Style Selector="Border.DropCard">
-            <Setter Property="Background" Value="#0C0C0E"/>
-            <Setter Property="BorderBrush" Value="#232326"/>
+            <Setter Property="Background" Value="{DynamicResource BgInputBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="10,6"/>
@@ -275,7 +275,7 @@
 
         <!-- SEGMENTED MODE SWITCH (List / Thumbnail) -->
         <Style Selector="Border.SegWrap">
-            <Setter Property="Background" Value="#0A0A0C"/>
+            <Setter Property="Background" Value="{DynamicResource BgInputBrush}"/>
             <Setter Property="BorderBrush" Value="#26262B"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="11"/>
@@ -283,7 +283,7 @@
         </Style>
         <Style Selector="Button.Seg">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#6B6B75"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="16,7"/>
@@ -302,7 +302,7 @@
         </Style>
         <Style Selector="Button.Seg:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#1C1C20"/>
-            <Setter Property="TextElement.Foreground" Value="#D4D4D8"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Seg.on /template/ ContentPresenter">
             <Setter Property="Background">
@@ -316,8 +316,8 @@
 
         <!-- BACK BUTTON -->
         <Style Selector="Button.Back">
-            <Setter Property="Background" Value="#161619"/>
-            <Setter Property="Foreground" Value="#C4C4C0"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="BorderBrush" Value="#33333A"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="9"/>
@@ -332,7 +332,7 @@
             </Setter>
         </Style>
         <Style Selector="Button.Back /template/ ContentPresenter">
-            <Setter Property="Background" Value="#161619"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="#33333A"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="TextElement.Foreground" Value="#C4C4C0"/>
@@ -398,11 +398,13 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             
-            <TextBlock Grid.Column="0" Text="BMachine Toolbox" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold" FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False" />
+            <TextBlock Grid.Column="0" Text="BMachine Toolbox" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" IsHitTestVisible="False" />
             
             <Button Grid.Column="1" Classes="Muted" Content="Laporkan Bug" Height="26" FontSize="11" Padding="10,0" Margin="0,0,8,0" Click="OnReportBugClick" ToolTip.Tip="Kirim laporan bug"/>
 
-            <Button Grid.Column="2" Classes="Tab" Content="X" Width="45" Height="40" Padding="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Click="OnCloseButtonClick" CornerRadius="6" FontSize="14" />
+            <Button Grid.Column="2" Classes="WindowClose" Click="OnCloseButtonClick" ToolTip.Tip="Close Toolbox">
+                <PathIcon Data="{StaticResource IconX}"/>
+            </Button>
             
             <!-- Separator -->
             <Rectangle Grid.ColumnSpan="3" Height="1" Fill="#232326" VerticalAlignment="Bottom" />
@@ -502,7 +504,7 @@
                                     <TextBlock Text="&#x2728;" FontSize="14" VerticalAlignment="Center" Foreground="#7C9CF5"/>
                                     <TextBlock Classes="Section" Text="ADVANCED MODE" FontSize="12"/>
                                 </StackPanel>
-                                <TextBlock FontSize="11" Foreground="#52525B" Text="Samakan nama file: kiri = referensi, kanan = target"/>
+                                <TextBlock FontSize="11" Foreground="{DynamicResource TextFaintBrush}" Text="Samakan nama file: kiri = referensi, kanan = target"/>
                             </StackPanel>
                             <Border Grid.Column="3" Classes="SegWrap" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="2">
@@ -552,12 +554,12 @@
                         </Grid>
                         <!-- File Panels (fluid, scroll internal) -->
                         <Grid Grid.Row="2" ColumnDefinitions="*,10,*">
-                            <Border Grid.Column="0" x:Name="NamaAdvancedReferencePanel" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="10" DragDrop.AllowDrop="True">
+                            <Border Grid.Column="0" x:Name="NamaAdvancedReferencePanel" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" DragDrop.AllowDrop="True">
                                 <Grid RowDefinitions="Auto,Auto,*">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                             <TextBlock Classes="FieldLabel" Text="REFERENSI KIRI" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding MantraNamaVM.AdvancedReferenceCount}" FontSize="10" Foreground="#52525B" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding MantraNamaVM.AdvancedReferenceCount}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                         <ComboBox Grid.Column="1" Width="96" ItemsSource="{Binding MantraNamaVM.SortOptions}" SelectedItem="{Binding MantraNamaVM.AdvancedSortBy}" ToolTip.Tip="Urutkan berdasarkan nama/nomor atau tipe"/>
                                         <ComboBox Grid.Column="2" Width="112" Margin="6,0,0,0" ItemsSource="{Binding MantraNamaVM.AdvancedFileFilters}" SelectedItem="{Binding MantraNamaVM.AdvancedReferenceFilter}"/>
@@ -575,7 +577,7 @@
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                                         <TextBlock Text="&#x1F4C1;" FontSize="12" VerticalAlignment="Center"/>
                                                         <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="#9DB2F0" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding NewName}" FontSize="10" Foreground="#52525B" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding NewName}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Border>
                                                 <TextBlock Grid.Column="0" IsVisible="{Binding !IsHeader}" Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
@@ -594,12 +596,12 @@
                                                 <Border IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#9DB2F0" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="#52525B"/>
+                                                        <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="{DynamicResource TextFaintBrush}"/>
                                                     </StackPanel>
                                                 </Border>
                                                 <StackPanel IsVisible="{Binding !IsHeader}" Spacing="4">
                                                     <Viewbox Stretch="Uniform">
-                                                        <Border Width="150" Height="200" CornerRadius="6" Background="#161619" ClipToBounds="True">
+                                                        <Border Width="150" Height="200" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True">
                                                             <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
                                                         </Border>
                                                     </Viewbox>
@@ -610,12 +612,12 @@
                                     </ListBox>
                                 </Grid>
                             </Border>
-                            <Border Grid.Column="2" x:Name="NamaAdvancedTargetPanel" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="10" DragDrop.AllowDrop="True">
+                            <Border Grid.Column="2" x:Name="NamaAdvancedTargetPanel" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" DragDrop.AllowDrop="True">
                                 <Grid RowDefinitions="Auto,Auto,*">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                             <TextBlock Classes="FieldLabel" Text="TARGET KANAN" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding MantraNamaVM.AdvancedTargetCount}" FontSize="10" Foreground="#52525B" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding MantraNamaVM.AdvancedTargetCount}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                         <ComboBox Grid.Column="1" Width="96" ItemsSource="{Binding MantraNamaVM.SortOptions}" SelectedItem="{Binding MantraNamaVM.AdvancedSortBy}" ToolTip.Tip="Urutkan berdasarkan nama/nomor atau tipe"/>
                                         <ComboBox Grid.Column="2" Width="112" Margin="6,0,0,0" ItemsSource="{Binding MantraNamaVM.AdvancedFileFilters}" SelectedItem="{Binding MantraNamaVM.AdvancedTargetFilter}"/>
@@ -633,7 +635,7 @@
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                                         <TextBlock Text="&#x1F4C1;" FontSize="12" VerticalAlignment="Center"/>
                                                         <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="#9DB2F0" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding NewName}" FontSize="10" Foreground="#52525B" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding NewName}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Border>
                                                 <TextBlock Grid.Column="0" IsVisible="{Binding !IsHeader}" Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
@@ -652,12 +654,12 @@
                                                 <Border IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#9DB2F0" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="#52525B"/>
+                                                        <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="{DynamicResource TextFaintBrush}"/>
                                                     </StackPanel>
                                                 </Border>
                                                 <StackPanel IsVisible="{Binding !IsHeader}" Spacing="4">
                                                     <Viewbox Stretch="Uniform">
-                                                        <Border Width="150" Height="200" CornerRadius="6" Background="#161619" ClipToBounds="True">
+                                                        <Border Width="150" Height="200" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True">
                                                             <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
                                                         </Border>
                                                     </Viewbox>
@@ -670,7 +672,7 @@
                             </Border>
                         </Grid>
                         <!-- Pair List (bounded, scroll internal) -->
-                        <Border Grid.Row="3" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="96">
+                        <Border Grid.Row="3" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="96">
                             <Grid RowDefinitions="Auto,*">
                                 <TextBlock Grid.Row="0" Classes="FieldLabel" Text="DAFTAR PASANGAN"/>
                                 <ListBox Grid.Row="1" Classes="Adv" ItemsSource="{Binding MantraNamaVM.AdvancedPairs}"
@@ -679,10 +681,10 @@
                                         <DataTemplate>
                                             <Grid ColumnDefinitions="*,16,*,16,*,Auto" Margin="0,2">
                                                 <TextBlock Grid.Column="0" Text="{Binding ReferenceName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="&#x2192;" HorizontalAlignment="Center" Foreground="#52525B" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="&#x2192;" HorizontalAlignment="Center" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="2" Text="{Binding TargetName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="3" Text="&#x2192;" HorizontalAlignment="Center" Foreground="#52525B" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="4" Text="{Binding ResultName}" TextTrimming="CharacterEllipsis" Foreground="#C4C4C0" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="3" Text="&#x2192;" HorizontalAlignment="Center" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding ResultName}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                                 <Button Grid.Column="5" Content="Hapus" Classes="Muted" Padding="10,3" FontSize="11" VerticalAlignment="Center"
                                                         Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveAdvancedPairCommand}" CommandParameter="{Binding}"/>
                                             </Grid>
@@ -694,10 +696,10 @@
                         <!-- Status + Progress -->
                         <Grid Grid.Row="4" RowDefinitions="Auto,Auto" RowSpacing="6">
                             <TextBlock Grid.Row="0" Classes="Body" Text="{Binding MantraNamaVM.StatusText}"
-                                       TextWrapping="Wrap" Foreground="#A1A1AA"/>
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <ProgressBar Grid.Row="1" Height="3" IsIndeterminate="True"
                                          IsVisible="{Binding MantraNamaVM.IsProcessing}"
-                                         Background="#1A1A1D" Foreground="#7C9CF5"/>
+                                         Background="{DynamicResource BgHoverBrush}" Foreground="#7C9CF5"/>
                         </Grid>
                         <!-- Actions -->
                         <Grid Grid.Row="5" ColumnDefinitions="Auto,Auto,Auto,*,Auto,10,Auto">
@@ -763,10 +765,10 @@
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="*,28,*,Auto" Margin="0,2">
                                             <TextBlock Grid.Column="0" Text="{Binding OriginalName}"
-                                                       FontSize="12" Foreground="#3F3F46"
+                                                       FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"
-                                                       FontFamily="Cascadia Code, JetBrains Mono, Consolas"/>
+                                                       FontFamily="{DynamicResource FontMono}"/>
                                             <TextBlock Grid.Column="1" Text="->"
                                                        Foreground="#2A2A2E"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -775,9 +777,9 @@
                                                        FontWeight="Medium"
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"
-                                                       FontFamily="Cascadia Code, JetBrains Mono, Consolas"/>
+                                                       FontFamily="{DynamicResource FontMono}"/>
                                             <Button Grid.Column="3" Content="X" Width="24" Height="24" 
-                                                    Padding="0" Background="Transparent" Foreground="#71717A"
+                                                    Padding="0" Background="Transparent" Foreground="{DynamicResource TextMutedBrush}"
                                                     Cursor="Hand" VerticalAlignment="Center" Margin="8,0,0,0"
                                                     Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveItemCommand}"
                                                     CommandParameter="{Binding}"/>
@@ -808,8 +810,8 @@
 
                                 <!-- Opsi Lanjutan Panel (Dipindah ke atas tombol) -->
                                 <Border Grid.Row="1" IsVisible="{Binding MantraNamaVM.IsOptionsExpanded}"
-                                        Background="#0C0C0E" CornerRadius="7" Padding="14,12"
-                                        BorderBrush="#232326" BorderThickness="1" Margin="0,0,0,12">
+                                        Background="{DynamicResource BgInputBrush}" CornerRadius="7" Padding="14,12"
+                                        BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" Margin="0,0,0,12">
                                     <WrapPanel Orientation="Horizontal">
                                         <CheckBox Classes="Option" Content="Regex" Width="140"
                                                   IsChecked="{Binding MantraNamaVM.UseRegex}" Margin="0,0,0,6"/>
@@ -827,10 +829,10 @@
                                         <TextBlock Grid.Column="0" Text="Opsi Lanjutan" VerticalAlignment="Center"/>
                                         <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="11"
                                                    Text=">" IsVisible="{Binding !MantraNamaVM.IsOptionsExpanded}"
-                                                   VerticalAlignment="Center" Foreground="#52525B"/>
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource TextFaintBrush}"/>
                                         <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="11"
                                                    Text="v" IsVisible="{Binding MantraNamaVM.IsOptionsExpanded}"
-                                                   VerticalAlignment="Center" Foreground="#52525B"/>
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource TextFaintBrush}"/>
                                     </Grid>
                                 </Button>
 
@@ -997,7 +999,7 @@
                     
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                                 IsVisible="{Binding PsdBucinVM.IsLoadingImage}" Spacing="10">
-                        <TextBlock Text="Membuka gambar..." Foreground="#A1A1AA" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Membuka gambar..." Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                     </StackPanel>
 
                     <Border Background="#99000000" IsVisible="{Binding PsdBucinVM.IsProcessing}">
@@ -1036,7 +1038,7 @@
                                                     CornerRadius="4" Padding="4,0">
                                                 <TextBox Text="{Binding ShortcutKey, Mode=TwoWay}"
                                                          Foreground="#FFFFFFBB" FontSize="12"
-                                                         FontFamily="Cascadia Code, JetBrains Mono, Consolas"
+                                                         FontFamily="{DynamicResource FontMono}"
                                                          Background="Transparent" BorderThickness="0"
                                                          Padding="4,2" MinWidth="24" MaxLength="1"
                                                          TextAlignment="Center"/>

@@ -205,7 +205,7 @@
     <Grid RowDefinitions="Auto, *, Auto">
 
         <!-- ═══ Slim header bar (simple menu-bar look, not wide) ═══ -->
-        <Border Grid.Row="0" Padding="10,4"
+        <Border Grid.Row="0" Padding="10,4,48,4"
                 Background="{DynamicResource CardBackgroundBrush}"
                 BorderBrush="{DynamicResource SeparatorBrush}"
                 BorderThickness="0,0,0,1">
@@ -267,14 +267,14 @@
                 <!-- Right: Search -->
                 <Border Grid.Column="3" Background="{DynamicResource AppBackgroundBrush}"
                         BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                        CornerRadius="6" Padding="2,0" VerticalAlignment="Center">
+                        CornerRadius="6" Padding="2,0" MinWidth="112" VerticalAlignment="Center">
                     <Grid ColumnDefinitions="Auto, *">
                         <PathIcon Grid.Column="0" Data="{StaticResource IconSearch}" Width="14" Height="14"
                                   Margin="8,0,4,0" VerticalAlignment="Center"
                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <TextBox Grid.Column="1" Text="{Binding SearchText}" Watermark="Smart Search (nama: teks)..."
                                  Classes="Clear" BorderThickness="0" Background="Transparent"
-                                 VerticalAlignment="Center" MinWidth="170" FontSize="12"/>
+                                 VerticalAlignment="Center" MinWidth="80" FontSize="12"/>
                     </Grid>
                 </Border>
             </Grid>
@@ -362,8 +362,8 @@
                             IsEnabled="{Binding !IsLoading}" ToolTip.Tip="Save All Changes"
                             CornerRadius="5" Padding="12,4" Height="26" Margin="4,0,0,0">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <PathIcon Data="{StaticResource IconSave}" Width="14" Height="14" Foreground="#111111"/>
-                            <TextBlock Text="Save" FontWeight="Bold" FontSize="12" Foreground="#111111"/>
+                            <PathIcon Data="{StaticResource IconSave}" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Save" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>

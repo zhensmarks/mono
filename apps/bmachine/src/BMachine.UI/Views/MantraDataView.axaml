@@ -27,7 +27,7 @@
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Padding" Value="6,4"/>
-            <Setter Property="Foreground" Value="#E8E8E6"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FontSize" Value="12"/>
         </Style>
 
@@ -49,9 +49,9 @@
         </Style>
 
         <Style Selector="DataGridColumnHeader">
-            <Setter Property="Background" Value="#18181B"/>
-            <Setter Property="Foreground" Value="#E4E4E7"/>
-            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -61,7 +61,7 @@
 
         <Style Selector="DataGridColumnHeader:pointerover">
             <Setter Property="Background" Value="#212126"/>
-            <Setter Property="Foreground" Value="#F4F4F5"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 
         <!-- Invisible ScrollBar Style (Scrollable with mouse wheel, but completely hidden visually) -->
@@ -74,9 +74,9 @@
 
         <!-- Tool Buttons: Explicit ContentPresenter background prevents transparent button bug -->
         <Style Selector="Button.ToolBtn">
-            <Setter Property="Background" Value="#18181B"/>
-            <Setter Property="Foreground" Value="#E4E4E7"/>
-            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="4"/>
             <Setter Property="Padding" Value="8,4"/>
@@ -86,26 +86,26 @@
             <Setter Property="FontWeight" Value="Medium"/>
         </Style>
         <Style Selector="Button.ToolBtn /template/ ContentPresenter">
-            <Setter Property="Background" Value="#18181B"/>
-            <Setter Property="BorderBrush" Value="#27272A"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.ToolBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#27272A"/>
-            <Setter Property="BorderBrush" Value="#3F3F46"/>
-            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.ToolBtn:pressed /template/ ContentPresenter">
             <Setter Property="Background" Value="#202023"/>
-            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
         </Style>
 
         <!-- Primary Action Button: Explicit ContentPresenter background prevents transparent button bug -->
         <Style Selector="Button.ActionBtn">
-            <Setter Property="Background" Value="#EDEDED"/>
-            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="14,6"/>
@@ -115,23 +115,23 @@
             <Setter Property="FontSize" Value="12"/>
         </Style>
         <Style Selector="Button.ActionBtn /template/ ContentPresenter">
-            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.ActionBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#FFFFFF"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.ActionBtn:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#D4D4D4"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
 
         <!-- Multi-sheet Tab Items -->
         <Style Selector="ListBox.SheetTabs ListBoxItem">
-            <Setter Property="Background" Value="#18181B"/>
-            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="Margin" Value="0,0,4,0"/>
             <Setter Property="Padding" Value="10,3"/>
             <Setter Property="FontSize" Value="11"/>
@@ -141,7 +141,7 @@
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="ListBox.SheetTabs ListBoxItem /template/ ContentPresenter">
-            <Setter Property="Background" Value="#18181B"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="CornerRadius" Value="4"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -149,8 +149,8 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="ListBox.SheetTabs ListBoxItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#27272A"/>
-            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="ListBox.SheetTabs ListBoxItem:selected /template/ ContentPresenter">
             <Setter Property="Background" Value="#2563EB"/>
@@ -158,7 +158,7 @@
         </Style>
         <Style Selector="Button.SegTab">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#A1A1AA"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="10,4"/>
@@ -169,7 +169,7 @@
         </Style>
         <Style Selector="Button.SegTab:pointerover">
             <Setter Property="Background" Value="#242429"/>
-            <Setter Property="Foreground" Value="#F4F4F5"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="Button.SegTab.Active">
             <Setter Property="Background" Value="#2563EB"/>
@@ -179,7 +179,7 @@
         <!-- Opsi di dalam popup sortir status foto -->
         <Style Selector="Button.FilterOption">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#D4D4D8"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="Padding" Value="10,7"/>
@@ -199,8 +199,8 @@
     <Grid RowDefinitions="Auto, Auto, *, Auto">
 
         <Grid Grid.Row="0" Margin="0,2,0,8" RowDefinitions="Auto, Auto">
-            <DockPanel Grid.Row="0" LastChildFill="False" Background="#101014">
-                <Menu DockPanel.Dock="Left" Background="#101014" Foreground="#D4D4D8" FontSize="12">
+            <DockPanel Grid.Row="0" LastChildFill="False" Background="{DynamicResource BgInputBrush}">
+                <Menu DockPanel.Dock="Left" Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12">
                     <MenuItem Header="File">
                         <MenuItem Header="Tabel Baru" Command="{Binding NewTableCommand}" InputGesture="Ctrl+N"/>
                         <MenuItem Header="Buka File Excel/Word..." Click="OnOpenFileClicked" InputGesture="Ctrl+O"/>
@@ -232,12 +232,12 @@
         </Grid>
 
         <!-- Sheet tabs (kiri) + tombol sortir status foto dengan popup (kanan) -->
-        <Border Grid.Row="1" Background="#121215" BorderBrush="#232326" BorderThickness="1" CornerRadius="4"
+        <Border Grid.Row="1" Background="#121215" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4"
                     Padding="4,2" Margin="0,2,0,0" IsVisible="{Binding HasData}">
                 <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="8">
                     <!-- Kiri: tab sheet -->
                     <DockPanel Grid.Column="0">
-                        <TextBlock Text="Sheet:" Foreground="#71717A" FontSize="11" VerticalAlignment="Center" Margin="6,0,8,0"/>
+                        <TextBlock Text="Sheet:" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="6,0,8,0"/>
                         <ListBox Classes="SheetTabs" ItemsSource="{Binding SheetNames}" SelectedIndex="{Binding CurrentSheetIndex, Mode=TwoWay}"
                                  Background="Transparent" BorderThickness="0">
                             <ListBox.ItemsPanel>
@@ -252,8 +252,8 @@
                              Height="24" MinWidth="220" MaxWidth="360" Margin="8,0"
                              HorizontalAlignment="Stretch"
                              VerticalContentAlignment="Center"
-                             Background="#0A0A0C" Foreground="#E8E8E6"
-                             BorderBrush="#27272A" BorderThickness="1" CornerRadius="4"
+                             Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                             BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4"
                              Padding="8,0" FontSize="11.5"
                              Watermark="Cari data... (nama, NIS, dll)"/>
 
@@ -265,9 +265,9 @@
                             <TextBlock x:Name="PhotoFilterButtonLabel" Text="Status Foto" VerticalAlignment="Center"/>
                             <Border CornerRadius="7" Padding="6,0" Background="#26262C">
                                 <TextBlock x:Name="PhotoFilterButtonCount" Text="{Binding TotalRows}"
-                                           FontSize="9.5" Foreground="#D4D4D8" VerticalAlignment="Center"/>
+                                           FontSize="9.5" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock Text="▾" FontSize="9" Foreground="#71717A" VerticalAlignment="Center"/>
+                            <TextBlock Text="▾" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </Grid>
@@ -279,13 +279,13 @@
                    Placement="BottomEdgeAlignedRight"
                    HorizontalOffset="0" VerticalOffset="4"
                    IsLightDismissEnabled="True">
-                <Border Background="#111113" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="8"
+                <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderHoverBrush}" BorderThickness="1" CornerRadius="8"
                         Padding="6" BoxShadow="0 6 20 8 #33000000" MinWidth="200">
                     <StackPanel x:Name="PhotoFilterList" Orientation="Vertical" Spacing="2">
                         <Button Classes="FilterOption" Tag="SEMUA" Click="OnPhotoFilterOptionClicked">
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBlock Grid.Column="0" Text="Semua" FontSize="12" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="{Binding TotalRows}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalRows}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                             </Grid>
                         </Button>
                         <Button Classes="FilterOption" Tag="REVIEW" Click="OnPhotoFilterOptionClicked">
@@ -309,7 +309,7 @@
                         <Button Classes="FilterOption" Tag="BELUM" Click="OnPhotoFilterOptionClicked">
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBlock Grid.Column="0" Text="Belum Ada" FontSize="12" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="{Binding BelumCount}" FontSize="11" Foreground="#8B949E" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding BelumCount}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                             </Grid>
                         </Button>
                     </StackPanel>
@@ -318,7 +318,7 @@
 
         <!-- Data appears after source file loads. -->
         <!-- Main content area: Empty state shown when no data; DataGrid shown when data loaded -->
-        <Border Grid.Row="2" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+        <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
             <Grid x:Name="GridContainer">
                 <DataGrid x:Name="MainDataGrid"
                           IsVisible="{Binding HasData}"
@@ -334,7 +334,7 @@
                           VerticalScrollBarVisibility="Auto"
                           BorderThickness="0"
                           Background="Transparent"
-                          Foreground="#E8E8E6"
+                          Foreground="{DynamicResource TextPrimaryBrush}"
 HorizontalGridLinesBrush="#27272A"
                           VerticalGridLinesBrush="#27272A"
 SelectionChanged="OnDataGridSelectionChanged"
@@ -344,12 +344,12 @@ SelectionChanged="OnDataGridSelectionChanged"
                     <!-- Context Menu -->
                     <!-- Context Menu -->
                     <DataGrid.ContextMenu>
-                        <ContextMenu Background="#111113" BorderBrush="#232326" BorderThickness="1" Opened="OnContextMenuOpened">
+                        <ContextMenu Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" Opened="OnContextMenuOpened">
                             <!-- 1. Clipboard & Edit -->
                             <MenuItem Tag="Copy" Header="Salin" InputGesture="Ctrl+C" Click="OnMenuCopyClicked"/>
                             <MenuItem Tag="Paste" Header="Tempel" InputGesture="Ctrl+V" Click="OnMenuPasteClicked"/>
                             <MenuItem Tag="ClearCells" Header="Kosongkan Sel" InputGesture="Delete" Click="OnMenuClearCellsClicked"/>
-                            <Separator Background="#232326"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
 
                             <!-- 2. Data Actions -->
                             <MenuItem Tag="CustomMerge" Header="Gabung Kolom..." Click="OnMenuCustomMergeClicked"/>
@@ -358,7 +358,7 @@ SelectionChanged="OnDataGridSelectionChanged"
                             <MenuItem Tag="PhonePrefix" Header="Format No. HP (+62 / 08)" Click="OnMenuPhonePrefixClicked"/>
                             <MenuItem Tag="FindReplace" Header="Cari dan Ganti..." InputGesture="Ctrl+F" Click="OnMenuFindReplaceClicked"/>
                             <MenuItem Tag="SplitColumn" Header="Pisah Kolom (Split)..." Click="OnMenuSplitColumnClicked"/>
-                            <Separator Background="#232326"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
 
                             <!-- 3. Manage Columns -->
                             <MenuItem Tag="InsertColumnLeft" Header="Sisipkan Kolom di Kiri" Click="OnMenuInsertColumnLeftClicked"/>
@@ -368,12 +368,12 @@ SelectionChanged="OnDataGridSelectionChanged"
                             <MenuItem Tag="RenameColumn" Header="Ganti Nama Kolom..." Click="OnMenuRenameColumnClicked"/>
                             <MenuItem Tag="DeleteColumn" Header="Hapus Kolom Ini" Click="OnMenuDeleteColumnClicked"/>
                             <MenuItem Tag="AutoFit" Header="Otomatis Ukuran Kolom" Click="OnMenuAutoFitClicked"/>
-                            <Separator Background="#232326"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
 
                             <!-- 4. Manage Rows -->
                             <MenuItem Tag="InsertRow" Header="Tambah Baris Baru" Click="OnMenuInsertRowClicked"/>
                             <MenuItem Tag="DeleteRows" Header="Hapus Baris Terpilih" Click="OnMenuDeleteRowsClicked"/>
-                            <Separator Background="#232326"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
 
                             <!-- 5. Row Color Tagging -->
                             <MenuItem Tag="ColorTag" Header="Tandai Baris (Warna)">
@@ -381,30 +381,30 @@ SelectionChanged="OnDataGridSelectionChanged"
                                 <MenuItem Tag="ColorBlue" Header="Biru (Info)" Click="OnMenuColorBlueClicked"/>
                                 <MenuItem Tag="ColorAmber" Header="Kuning (Periksa)" Click="OnMenuColorAmberClicked"/>
                                 <MenuItem Tag="ColorRed" Header="Merah (Error)" Click="OnMenuColorRedClicked"/>
-                                <Separator Background="#232326"/>
+                                <Separator Background="{DynamicResource BgHoverBrush}"/>
                                 <MenuItem Tag="ColorClear" Header="Hapus Tanda Warna" Click="OnMenuColorClearClicked"/>
                             </MenuItem>
 
                             <!-- 6. Context Menu Settings -->
-                            <Separator Background="#232326"/>
+                            <Separator Background="{DynamicResource BgHoverBrush}"/>
                             <MenuItem Header="Atur Menu Klik Kanan..." Click="OnMenuConfigureContextMenuClicked"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                 </DataGrid>
 
-                <Border x:Name="EmptyPrompt" Background="#111113" BorderBrush="#232326" BorderThickness="1"
+                <Border x:Name="EmptyPrompt" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
                         CornerRadius="10" Margin="24" IsVisible="{Binding !HasData}">
                     <Grid VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="820" Margin="0,10">
                         <StackPanel Orientation="Vertical" Spacing="22">
 
                             <!-- Header -->
                             <StackPanel Orientation="Vertical" Spacing="8" HorizontalAlignment="Center">
-                                <TextBlock Text="MANTRADATA" FontSize="10" FontWeight="Bold" Foreground="#3F3F46"
+                                <TextBlock Text="MANTRADATA" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"
                                            HorizontalAlignment="Center" LetterSpacing="3"/>
                                 <TextBlock Text="Mulai Pencocokan Data" FontSize="26" FontWeight="SemiBold"
-                                           Foreground="#F4F4F5" HorizontalAlignment="Center"/>
+                                           Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                                 <TextBlock Text="Pilih data utama untuk mulai. Folder foto dan master PSD bersifat opsional dan bisa diatur kapan saja."
-                                           Foreground="#A1A1AA" FontSize="12.5" TextAlignment="Center" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12.5" TextAlignment="Center" TextWrapping="Wrap"
                                            MaxWidth="560" HorizontalAlignment="Center"/>
                             </StackPanel>
 
@@ -412,29 +412,29 @@ SelectionChanged="OnDataGridSelectionChanged"
                             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" MaxWidth="780" HorizontalAlignment="Center">
 
                                 <!-- Step 1 -->
-                                <Border Grid.Column="0" Background="#151519" BorderBrush="#27272A" BorderThickness="1"
+                                <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
                                         CornerRadius="8" Padding="16,14">
                                     <StackPanel Orientation="Vertical" Spacing="6">
-                                        <TextBlock Text="01" FontSize="11" FontWeight="Bold" Foreground="#3F3F46"/>
-                                        <TextBlock Text="Pilih Data Utama" FontSize="13.5" FontWeight="SemiBold" Foreground="#E4E4E7"/>
+                                        <TextBlock Text="01" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="Pilih Data Utama" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"/>
                                         <TextBlock Text="File Excel atau Word berisi tabel nama yang akan dicocokkan dengan foto."
-                                                   FontSize="11.5" Foreground="#71717A" TextWrapping="Wrap" LineHeight="16"/>
+                                                   FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" LineHeight="16"/>
                                         <Button Classes="ActionBtn" Content="Buka File Excel / Word" Height="30"
                                                 HorizontalAlignment="Stretch" Click="OnOpenFileClicked" Margin="0,6,0,0"/>
                                     </StackPanel>
                                 </Border>
 
                                 <!-- Step 2 -->
-                                <Border Grid.Column="1" Background="#151519" BorderBrush="#27272A" BorderThickness="1"
+                                <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
                                         CornerRadius="8" Padding="16,14">
                                     <StackPanel Orientation="Vertical" Spacing="6">
-                                        <TextBlock Text="02" FontSize="11" FontWeight="Bold" Foreground="#3F3F46"/>
-                                        <TextBlock Text="Master PSD" FontSize="13.5" FontWeight="SemiBold" Foreground="#E4E4E7"/>
+                                        <TextBlock Text="02" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="Master PSD" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"/>
                                         <TextBlock Text="Template Photoshop untuk pengisian otomatis. Opsional."
-                                                   FontSize="11.5" Foreground="#71717A" TextWrapping="Wrap" LineHeight="16"/>
-                                        <Border Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"
+                                                   FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" LineHeight="16"/>
+                                        <Border Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6"
                                                 Padding="8,4" HorizontalAlignment="Left" Margin="0,6,0,0">
-                                            <TextBlock Text="{Binding MasterPsdStatus}" FontSize="10.5" Foreground="#8B949E"/>
+                                            <TextBlock Text="{Binding MasterPsdStatus}" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                         </Border>
                                         <Button Classes="ToolBtn" Content="Pilih folder PSD" Height="30"
                                                 HorizontalAlignment="Stretch" Margin="0,6,0,0"
@@ -443,16 +443,16 @@ SelectionChanged="OnDataGridSelectionChanged"
                                 </Border>
 
                                 <!-- Step 3 -->
-                                <Border Grid.Column="2" Background="#151519" BorderBrush="#27272A" BorderThickness="1"
+                                <Border Grid.Column="2" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
                                         CornerRadius="8" Padding="16,14">
                                     <StackPanel Orientation="Vertical" Spacing="6">
-                                        <TextBlock Text="03" FontSize="11" FontWeight="Bold" Foreground="#3F3F46"/>
-                                        <TextBlock Text="Folder Foto" FontSize="13.5" FontWeight="SemiBold" Foreground="#E4E4E7"/>
+                                        <TextBlock Text="03" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="Folder Foto" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"/>
                                         <TextBlock Text="Kumpulan foto peserta. Pencocokan otomatis berjalan setelah data dimuat."
-                                                   FontSize="11.5" Foreground="#71717A" TextWrapping="Wrap" LineHeight="16"/>
-                                        <Border Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"
+                                                   FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" LineHeight="16"/>
+                                        <Border Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6"
                                                 Padding="8,4" HorizontalAlignment="Left" Margin="0,6,0,0">
-                                            <TextBlock Text="{Binding PhotoFolderStatus}" FontSize="10.5" Foreground="#8B949E"/>
+                                            <TextBlock Text="{Binding PhotoFolderStatus}" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                         </Border>
                                         <Button Classes="ToolBtn" Content="Pilih folder foto" Height="30"
                                                 HorizontalAlignment="Stretch" Margin="0,6,0,0"
@@ -464,19 +464,19 @@ SelectionChanged="OnDataGridSelectionChanged"
                             <!-- Hint + Shortcuts -->
                             <StackPanel Orientation="Vertical" Spacing="10" HorizontalAlignment="Center">
                                 <TextBlock Text="Seret file langsung ke area ini, atau gunakan pintasan berikut"
-                                           Foreground="#52525B" FontSize="11" TextAlignment="Center"/>
+                                           Foreground="{DynamicResource TextFaintBrush}" FontSize="11" TextAlignment="Center"/>
                                 <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3">
-                                        <TextBlock Text="Ctrl+N  Tabel Baru" FontSize="10.5" Foreground="#A1A1AA"/>
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <TextBlock Text="Ctrl+N  Tabel Baru" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Border>
-                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3">
-                                        <TextBlock Text="F3  Pembersihan AI" FontSize="10.5" Foreground="#A1A1AA"/>
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <TextBlock Text="F3  Pembersihan AI" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Border>
-                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3">
-                                        <TextBlock Text="F8  Atur Kolom" FontSize="10.5" Foreground="#A1A1AA"/>
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <TextBlock Text="F8  Atur Kolom" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Border>
-                                    <Border Background="#18181B" BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="8,3">
-                                        <TextBlock Text="Ctrl+F  Cari &amp; Ganti" FontSize="10.5" Foreground="#A1A1AA"/>
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                        <TextBlock Text="Ctrl+F  Cari &amp; Ganti" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Border>
                                 </StackPanel>
                             </StackPanel>
@@ -497,13 +497,13 @@ SelectionChanged="OnDataGridSelectionChanged"
         <!-- Floating: Dropdown Cari & Ganti Cepat (menurun ke bawah, rata tengah dgn kotak Cari data) -->
         <Border Grid.Row="1" IsVisible="{Binding IsAdvancedSearchOpen}"
                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-36,31,0"
-                Background="#111113" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                 CornerRadius="8" Padding="10,8" BoxShadow="0 4 16 6 #1A000000">
             <StackPanel Orientation="Vertical" Spacing="6" Width="140">
-                <TextBlock Text="Ganti dengan" Foreground="#A1A1AA" FontSize="11"/>
+                <TextBlock Text="Ganti dengan" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
                 <TextBox Text="{Binding ReplaceText, Mode=TwoWay}" Height="26"
-                         VerticalContentAlignment="Center" Background="#0A0A0C" Foreground="#E8E8E6"
-                         BorderBrush="#27272A" BorderThickness="1" CornerRadius="4" Padding="6,0" FontSize="11"
+                         VerticalContentAlignment="Center" Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                         BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4" Padding="6,0" FontSize="11"
                          Watermark="Ganti teks..."/>
                 <Button Content="Ganti Semua" Classes="ToolBtn" Height="26" Padding="0,0"
                         FontWeight="SemiBold"
@@ -512,31 +512,31 @@ SelectionChanged="OnDataGridSelectionChanged"
         </Border>
 
         <!-- ═══ 3. STATUS BAR FOOTER BENTO (Pure Text) ═══ -->
-        <Border Grid.Row="3" Background="#0C0C0E" BorderBrush="#232326" BorderThickness="1"
+        <Border Grid.Row="3" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
                 CornerRadius="8" Padding="14,6" Margin="0,8,0,0">
             <Grid ColumnDefinitions="*, Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <ProgressBar IsIndeterminate="True" Width="14" Height="14" IsVisible="{Binding IsLoading}"/>
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="#71717A" FontSize="11.5" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11.5" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
                     <!-- Info master PSD -->
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="PSD" FontSize="9.5" FontWeight="SemiBold" Foreground="#52525B" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding MasterPsdStatus}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                        <TextBlock Text="PSD" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding MasterPsdStatus}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <Border Width="1" Height="12" Background="#27272A" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="12" Background="{DynamicResource ButtonSecondaryHoverBrush}" VerticalAlignment="Center"/>
                     <!-- Info folder foto (JPG dihitung) -->
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="FOTO" FontSize="9.5" FontWeight="SemiBold" Foreground="#52525B" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding PhotoFolderStatus}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                        <TextBlock Text="FOTO" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding PhotoFolderStatus}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <Border Width="1" Height="12" Background="#27272A" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="12" Background="{DynamicResource ButtonSecondaryHoverBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding TotalRows, StringFormat='Data: {0} baris'}"
-                               FontSize="11" Foreground="#71717A" VerticalAlignment="Center"/>
+                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding SelectedRowCount, StringFormat='Terpilih: {0}'}"
-                               FontSize="11" Foreground="#52525B" VerticalAlignment="Center"/>
+                               FontSize="11" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>

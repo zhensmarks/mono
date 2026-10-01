@@ -45,6 +45,8 @@ config.json
 
 # Credentials (NEVER COMMIT)
 credentials.json
+credentials*.json
+*service*account*.json
 token.json
 client_secret*.json
 
@@ -101,4 +103,4 @@ src/PixelcutCompact/rembg_installer.exe
 
 # Machine-specific agent skill symlinks
 .agents/skills/antislop*
-.agents/skills/taste-skill
+.agents/skills/taste-skill

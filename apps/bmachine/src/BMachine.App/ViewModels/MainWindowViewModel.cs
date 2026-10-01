@@ -107,7 +107,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[MainWindow] Error pre-loading SettingsViewModel: {ex.Message}");
+                Console.WriteLine($"[MainWindow] SettingsViewModel preload failed ({ex.GetType().Name}).");
             }
         });
     }

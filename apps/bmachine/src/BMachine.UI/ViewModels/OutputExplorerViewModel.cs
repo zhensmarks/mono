@@ -25,6 +25,8 @@ public partial class OutputExplorerViewModel : ObservableObject
     private readonly IPlatformService _platformService;
 
     [ObservableProperty] private string _currentPath = "";
+    [ObservableProperty] private bool _isAddressBarEditing;
+    [ObservableProperty] private string _addressBarText = "";
 
     /// <summary>Display name of current folder (for title bar).</summary>
     public string CurrentFolderName => string.IsNullOrEmpty(CurrentPath) ? "" : Path.GetFileName(CurrentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
@@ -549,6 +551,50 @@ public partial class OutputExplorerViewModel : ObservableObject
     }
 
 
+
+    [RelayCommand]
+    private void ActivateAddressBar()
+    {
+        AddressBarText = CurrentPath;
+        IsAddressBarEditing = true;
+    }
+
+    [RelayCommand]
+    private void CancelAddressBar()
+    {
+        IsAddressBarEditing = false;
+        AddressBarText = CurrentPath;
+    }
+
+    [RelayCommand]
+    private void CommitAddressBar()
+    {
+        var input = AddressBarText.Trim();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            CancelAddressBar();
+            return;
+        }
+
+        try
+        {
+            var path = Path.GetFullPath(Environment.ExpandEnvironmentVariables(input));
+            if (!Directory.Exists(path))
+            {
+                _notificationService.ShowError("The folder path does not exist.", "Address Bar");
+                CancelAddressBar();
+                return;
+            }
+
+            NavigateTo(path);
+            IsAddressBarEditing = false;
+        }
+        catch
+        {
+            _notificationService.ShowError("The folder path is invalid.", "Address Bar");
+            CancelAddressBar();
+        }
+    }
 
     [RelayCommand]
     public void NavigateTo(string path)

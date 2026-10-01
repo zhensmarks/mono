@@ -178,15 +178,7 @@ public partial class FormattedTextBlock : UserControl
         
         btn.Click += (s, e) =>
         {
-            // Ekstrak apiKey dan token dari URL agar Lightbox bisa memuat gambar dengan autentikasi
-            string lightboxApiKey = "";
-            string lightboxToken = "";
-            var keyMatch = System.Text.RegularExpressions.Regex.Match(url, @"[?&]key=([^&]+)");
-            var tokenMatch = System.Text.RegularExpressions.Regex.Match(url, @"[?&]token=([^&]+)");
-            if (keyMatch.Success) lightboxApiKey = keyMatch.Groups[1].Value;
-            if (tokenMatch.Success) lightboxToken = tokenMatch.Groups[1].Value;
-
-            var lightbox = new ImageLightboxWindow(url, lightboxApiKey, lightboxToken);
+            var lightbox = new ImageLightboxWindow(url);
             var topLevel = TopLevel.GetTopLevel(this);
             if (topLevel is Window win)
             {
@@ -211,36 +203,9 @@ public partial class FormattedTextBlock : UserControl
     {
         try
         {
-            var cleanUrl = url;
-            string apiKey = "";
-            string token = "";
+            var bytes = await BMachine.UI.Services.TrelloRequestSecurity.DownloadMediaAsync(url);
+            if (bytes is null) return;
 
-            var matchKey = Regex.Match(url, @"[?&]key=([^&]+)");
-            var matchToken = Regex.Match(url, @"[?&]token=([^&]+)");
-
-            if (matchKey.Success && matchToken.Success)
-            {
-                apiKey = matchKey.Groups[1].Value;
-                token = matchToken.Groups[1].Value;
-            }
-
-            using var handler = new System.Net.Http.HttpClientHandler { AllowAutoRedirect = true };
-            using var client = new System.Net.Http.HttpClient(handler);
-            if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token) && url.Contains("trello.com"))
-            {
-                client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
-            }
-
-            var response = await client.GetAsync(cleanUrl);
-            
-            if (!response.IsSuccessStatusCode)
-            {
-                System.Console.WriteLine($"[FormattedTextBlock] Failed downloading inline image: {response.StatusCode} for URL: {cleanUrl}");
-                return;
-            }
-
-            var bytes = await response.Content.ReadAsByteArrayAsync();
-            
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 using var stream = new System.IO.MemoryStream(bytes);
@@ -249,15 +214,15 @@ public partial class FormattedTextBlock : UserControl
                     stream.Position = 0;
                     imgControl.Source = new Avalonia.Media.Imaging.Bitmap(stream); 
                 } 
-                catch(System.Exception ex) 
+                catch(System.Exception ex)
                 {
-                     System.Console.WriteLine($"[FormattedTextBlock] Error loading bitmap: {ex.Message}");
+                     System.Diagnostics.Debug.WriteLine($"[FormattedTextBlock] Bitmap decode failed: {ex.GetType().Name}");
                 }
             });
         }
         catch (System.Exception ex)
         {
-            System.Console.WriteLine($"[FormattedTextBlock] Exception {ex.Message} on URL: {url}");
+            System.Diagnostics.Debug.WriteLine($"[FormattedTextBlock] Image download failed: {ex.GetType().Name}");
         }
     }
 

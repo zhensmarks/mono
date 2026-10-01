@@ -175,8 +175,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 boardId = await _database.GetAsync<string>("Trello.LateBoardId") ?? "";
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token) || string.IsNullOrEmpty(boardId)) return;
 
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/boards/{boardId}/members?key={apiKey}&token={token}&fields=fullName,username,initials";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
+            var url = $"https://api.trello.com/1/boards/{boardId}/members?fields=fullName,username,initials";
             var json = await client.GetStringAsync(url);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
 
@@ -500,7 +500,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
 
             // 1. Upload pending attachments first
             if (HasPendingAttachments)
@@ -509,7 +509,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 {
                     try
                     {
-                        var attUrl = $"https://api.trello.com/1/cards/{SelectedCard.Id}/attachments?key={apiKey}&token={token}";
+                        var attUrl = $"https://api.trello.com/1/cards/{SelectedCard.Id}/attachments";
                         using var form = new MultipartFormDataContent();
                         var fileBytes = await System.IO.File.ReadAllBytesAsync(att.FilePath);
                         var fileContent = new ByteArrayContent(fileBytes);
@@ -526,7 +526,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             // 2. Post comment text (if any)
             if (!string.IsNullOrWhiteSpace(text))
             {
-                var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/actions/comments?key={apiKey}&token={token}&text={Uri.EscapeDataString(text)}";
+                var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/actions/comments?text={Uri.EscapeDataString(text)}";
                 var response = await client.PostAsync(url, null);
                 if (response.IsSuccessStatusCode)
                 {
@@ -578,8 +578,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             {
                 try
                 {
-                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-                    var url = $"https://api.trello.com/1/cards/{cardId}/actions?filter=commentCard&key={apiKey}&token={token}&memberCreator=true&memberCreator_fields=fullName,initials,avatarHash";
+                    using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token, TimeSpan.FromSeconds(15));
+                    var url = $"https://api.trello.com/1/cards/{cardId}/actions?filter=commentCard&memberCreator=true&memberCreator_fields=fullName,initials,avatarHash";
                     json = await client.GetStringAsync(url);
                     break;
                 }
@@ -609,15 +609,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     if (data.TryGetProperty("text", out var txt))
                     {
                         var textStr = txt.GetString() ?? "";
-                        if (!string.IsNullOrEmpty(textStr) && textStr.Contains("trello.com"))
-                        {
-                            textStr = System.Text.RegularExpressions.Regex.Replace(textStr, @"(https://trello\.com/[^\s\)]+)", match => 
-                            {
-                                var m = match.Value;
-                                var sep = m.Contains("?") ? "&" : "?";
-                                return $"{m}{sep}key={apiKey}&token={token}";
-                            });
-                        }
+                        // Comment text is untrusted content; never embed app credentials in its URLs.
                         comment.Text = textStr;
                     }
 
@@ -633,11 +625,10 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                             urlStr = urlProp.GetString() ?? "";
                         }
                         
-                        if (!string.IsNullOrEmpty(urlStr) && !comment.Text.Contains(urlStr))
+                        if (!string.IsNullOrEmpty(urlStr) && !comment.Text.Contains(urlStr) &&
+                            BMachine.UI.Services.TrelloRequestSecurity.TryNormalizeMediaUri(urlStr, out var safeAttachmentUri))
                         {
-                             var sep = urlStr.Contains("?") ? "&" : "?";
-                             var secureUrl = $"{urlStr}{sep}key={apiKey}&token={token}";
-                             comment.Text += $"\n\n![attachment]({secureUrl})";
+                            comment.Text += $"\n\n![attachment]({safeAttachmentUri.AbsoluteUri})";
                         }
                     }
                 }
@@ -662,8 +653,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 {
                     try
                     {
-                        using var meClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-                        var meUrl = $"https://api.trello.com/1/members/me?key={apiKey}&token={token}&fields=id";
+                        using var meClient = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token, TimeSpan.FromSeconds(10));
+                        var meUrl = $"https://api.trello.com/1/members/me?fields=id";
                         var meJson = await meClient.GetStringAsync(meUrl);
                         using var meDoc = System.Text.Json.JsonDocument.Parse(meJson);
                         _currentMemberId = meDoc.RootElement.GetProperty("id").GetString();
@@ -763,9 +754,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
             // Trello API uses PUT /1/actions/{idAction}
-            var url = $"https://api.trello.com/1/actions/{comment.Id}?key={apiKey}&token={token}&text={Uri.EscapeDataString(comment.EditText)}";
+            var url = $"https://api.trello.com/1/actions/{comment.Id}?text={Uri.EscapeDataString(comment.EditText)}";
             
             var response = await client.PutAsync(url, null);
             if (response.IsSuccessStatusCode)
@@ -796,9 +787,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
             // Trello API uses DELETE /1/actions/{idAction}
-            var url = $"https://api.trello.com/1/actions/{comment.Id}?key={apiKey}&token={token}";
+            var url = $"https://api.trello.com/1/actions/{comment.Id}";
             
             var response = await client.DeleteAsync(url);
             if (response.IsSuccessStatusCode)
@@ -894,9 +885,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
             
-            using var client = new HttpClient();
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
             
-            var createUrl = $"https://api.trello.com/1/checklists?idCard={SelectedCard.Id}&idChecklistSource={SelectedSourceChecklist.Id}&name={Uri.EscapeDataString(DuplicateChecklistName)}&key={apiKey}&token={token}";
+            var createUrl = $"https://api.trello.com/1/checklists?idCard={SelectedCard.Id}&idChecklistSource={SelectedSourceChecklist.Id}&name={Uri.EscapeDataString(DuplicateChecklistName)}";
             var createRes = await client.PostAsync(createUrl, null);
             if (!createRes.IsSuccessStatusCode)
             {
@@ -923,7 +914,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             {
                 if (srcItem.State == "complete" && newItemsMap.TryGetValue(srcItem.Name, out var newItemId))
                 {
-                    var updateUrl = $"https://api.trello.com/1/cards/{SelectedCard.Id}/checkItem/{newItemId}?state=complete&key={apiKey}&token={token}";
+                    var updateUrl = $"https://api.trello.com/1/cards/{SelectedCard.Id}/checkItem/{newItemId}?state=complete";
                     updateTasks.Add(client.PutAsync(updateUrl, null));
                 }
             }
@@ -965,8 +956,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
             
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/checklists/{checklist.Id}?key={apiKey}&token={token}";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
+            var url = $"https://api.trello.com/1/checklists/{checklist.Id}";
             var response = await client.DeleteAsync(url);
             
             if (response.IsSuccessStatusCode)
@@ -1005,8 +996,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/cards/{cardId}/checklists?key={apiKey}&token={token}";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
+            var url = $"https://api.trello.com/1/cards/{cardId}/checklists";
             
             var json = await client.GetStringAsync(url);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -1057,8 +1048,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
              if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-             using var client = new HttpClient();
-             var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/checkItem/{item.Id}?state={newState}&key={apiKey}&token={token}";
+             using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
+             var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/checkItem/{item.Id}?state={newState}";
              var response = await client.PutAsync(url, null);
              if (!response.IsSuccessStatusCode)
              {
@@ -1129,8 +1120,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/cards/{cardId}/attachments?key={apiKey}&token={token}";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
+            var url = $"https://api.trello.com/1/cards/{cardId}/attachments";
             
             var json = await client.GetStringAsync(url);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -1185,51 +1176,27 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
     private async Task LoadCardCover(TrelloCard card)
     {
-        if (string.IsNullOrEmpty(card.CoverUrl)) 
-        {
-             return;
-        }
-        
+        if (string.IsNullOrWhiteSpace(card.CoverUrl)) return;
+
         try
         {
-             var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
-             var token = await _database.GetAsync<string>("Trello.Token") ?? "";
-             
-             using var client = new HttpClient();
-             if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token))
-             {
-                 client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
-             }
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            var bytes = await BMachine.UI.Services.TrelloRequestSecurity.DownloadMediaAsync(card.CoverUrl, apiKey, token);
+            if (bytes is null)
+            {
+                StatusMessage = "Cover image unavailable.";
+                return;
+            }
 
-             System.Diagnostics.Debug.WriteLine($"[LoadCardCover] URL: {card.CoverUrl}");
-
-             var response = await client.GetAsync(card.CoverUrl);
-             
-             // Fallback: coba dengan query params jika OAuth gagal
-             if (!response.IsSuccessStatusCode)
-             {
-                 System.Diagnostics.Debug.WriteLine($"[LoadCardCover] OAuth failed ({(int)response.StatusCode}), trying query params...");
-                 using var client2 = new HttpClient();
-                 var separator = card.CoverUrl.Contains("?") ? "&" : "?";
-                 var fallbackUrl = $"{card.CoverUrl}{separator}key={apiKey}&token={token}";
-                 response = await client2.GetAsync(fallbackUrl);
-             }
-             
-             if (!response.IsSuccessStatusCode)
-             {
-                 StatusMessage = $"Cover {(int)response.StatusCode}: {response.ReasonPhrase}";
-                 return;
-             }
-             
-             var bytes = await response.Content.ReadAsByteArrayAsync();
-             using var stream = new System.IO.MemoryStream(bytes);
-             card.CoverImage = new Avalonia.Media.Imaging.Bitmap(stream); 
-             StatusMessage = "";
+            using var stream = new System.IO.MemoryStream(bytes);
+            card.CoverImage = new Avalonia.Media.Imaging.Bitmap(stream);
+            StatusMessage = "";
         }
         catch (Exception ex)
         {
-             StatusMessage = $"Cover err: {ex.Message}";
-             System.Diagnostics.Debug.WriteLine($"[LoadCardCover] Error: {ex.Message}");
+            StatusMessage = "Cover image unavailable.";
+            System.Diagnostics.Debug.WriteLine($"[LoadCardCover] {ex.GetType().Name}");
         }
     }
 
@@ -1238,23 +1205,16 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         try
         {
-             // Get API credentials for authenticated access
-             var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
-             var token = await _database.GetAsync<string>("Trello.Token") ?? "";
-             
-             using var client = new HttpClient();
-             if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token))
-             {
-                 client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
-             }
-
-             var bytes = await client.GetByteArrayAsync(att.PreviewUrl);
-             using var stream = new System.IO.MemoryStream(bytes);
-             att.Thumbnail = new Avalonia.Media.Imaging.Bitmap(stream); 
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
+            var token = await _database.GetAsync<string>("Trello.Token");
+            var bytes = await BMachine.UI.Services.TrelloRequestSecurity.DownloadMediaAsync(att.PreviewUrl, apiKey, token);
+            if (bytes is null) return;
+            using var stream = new System.IO.MemoryStream(bytes);
+            att.Thumbnail = new Avalonia.Media.Imaging.Bitmap(stream);
         }
-        catch 
+        catch (Exception ex)
         {
-            // Ignore thumbnail errors
+            System.Diagnostics.Debug.WriteLine($"[LoadThumbnail] {ex.GetType().Name}");
         }
     }
 
@@ -1262,51 +1222,43 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     private async Task OpenAttachment(TrelloAttachment att)
     {
         if (att == null) return;
-        try 
+        if (!BMachine.UI.Services.TrelloRequestSecurity.TryNormalizeMediaUri(att.Url, out var safeUri))
         {
-            if (att.IsImage)
-            {
-                var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
-                var token = await _database.GetAsync<string>("Trello.Token") ?? "";
-
-                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                {
-                    try
-                    {
-                        var lightbox = new BMachine.UI.Views.ImageLightboxWindow(att.Url, apiKey, token);
-                        var app = Avalonia.Application.Current;
-                        var desktop = app?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-                        
-                        // Find the currently active window, or the most recently created visible window
-                        var owner = desktop?.Windows.FirstOrDefault(w => w.IsActive) 
-                                 ?? desktop?.Windows.LastOrDefault(w => w.IsVisible) 
-                                 ?? desktop?.MainWindow;
-                        
-                        if (owner != null)
-                        {
-                            lightbox.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
-                            lightbox.Show(owner);
-                        }
-                        else
-                        {
-                            lightbox.Show();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[Lightbox] Failed to open: {ex.Message}");
-                        StatusMessage = $"Could not open image: {ex.Message}";
-                    }
-                });
-            }
-            else
-            {
-                _platformService.OpenUrl(att.Url);
-            }
+            StatusMessage = "Attachment link is unavailable.";
+            return;
         }
-        catch (Exception ex)
+
+        if (att.IsImage)
         {
-            StatusMessage = $"Cannot open link: {ex.Message}";
+            var apiKey = await _database.GetAsync<string>("Trello.ApiKey") ?? "";
+            var token = await _database.GetAsync<string>("Trello.Token") ?? "";
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var lightbox = new BMachine.UI.Views.ImageLightboxWindow(safeUri.AbsoluteUri, apiKey, token);
+                    var app = Avalonia.Application.Current;
+                    var desktop = app?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                    var owner = desktop?.Windows.FirstOrDefault(w => w.IsActive)
+                             ?? desktop?.Windows.LastOrDefault(w => w.IsVisible)
+                             ?? desktop?.MainWindow;
+                    if (owner != null)
+                    {
+                        lightbox.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner;
+                        lightbox.Show(owner);
+                    }
+                    else lightbox.Show();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Lightbox] {ex.GetType().Name}");
+                    StatusMessage = "Could not open image.";
+                }
+            });
+        }
+        else
+        {
+            _platformService.OpenUrl(safeUri.AbsoluteUri);
         }
     }
 
@@ -1314,44 +1266,38 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     private async Task DownloadAttachment(TrelloAttachment attachment)
     {
         if (attachment == null || SelectedCard == null) return;
-        
+
         attachment.IsDownloading = true;
         try
         {
             var offlinePath = await _database.GetAsync<string>("Configs.Storage.OfflinePath");
             if (string.IsNullOrEmpty(offlinePath))
-            {
-                 offlinePath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), "Downloads", "BMachine_Attachments");
-            }
+                offlinePath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), "Downloads", "BMachine_Attachments");
 
-            var folder = System.IO.Path.Combine(offlinePath, "Attachments", SelectedCard.Id);
-            if (!System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(folder);
+            var cardFolder = System.IO.Path.GetFileName(SelectedCard.Id.Replace('\\', '/'));
+            if (string.IsNullOrWhiteSpace(cardFolder) || cardFolder is "." or "..") cardFolder = "card";
+            var folder = System.IO.Path.Combine(offlinePath, "Attachments", cardFolder);
+            System.IO.Directory.CreateDirectory(folder);
 
-            var filePath = System.IO.Path.Combine(folder, attachment.Name);
+            var fileName = System.IO.Path.GetFileName((attachment.Name ?? "").Replace('\\', '/'));
+            if (string.IsNullOrWhiteSpace(fileName) || fileName is "." or "..") fileName = "attachment";
+            var filePath = System.IO.Path.Combine(folder, fileName);
 
-            using var client = new HttpClient();
-            
             var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
             var token = await _database.GetAsync<string>("Trello.Token");
-            
-            if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(token))
-            {
-                client.DefaultRequestHeaders.Add("Authorization", $"OAuth oauth_consumer_key=\"{apiKey}\", oauth_token=\"{token}\"");
-            }
+            var data = await BMachine.UI.Services.TrelloRequestSecurity.DownloadMediaAsync(
+                attachment.Url, apiKey, token, maximumBytes: 250_000_000);
+            if (data is null) throw new InvalidOperationException("Attachment could not be downloaded safely.");
 
-            var downloadUrl = attachment.Url;
-            var data = await client.GetByteArrayAsync(downloadUrl);
             await System.IO.File.WriteAllBytesAsync(filePath, data);
-            
-            StatusMessage = $"Downloaded: {attachment.Name}";
-            await LogActivity("Attachment", "Downloaded", $"{attachment.Name} from {SelectedCard.Name}");
-
-            // Open Folder?
+            StatusMessage = $"Downloaded: {fileName}";
+            await LogActivity("Attachment", "Downloaded", $"{fileName} from {SelectedCard.Name}");
             _platformService.RevealFileInExplorer(filePath);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Download failed: {ex.Message}";
+            StatusMessage = "Download failed. Verify the attachment is available.";
+            System.Diagnostics.Debug.WriteLine($"[DownloadAttachment] {ex.GetType().Name}");
         }
         finally
         {
@@ -1523,8 +1469,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             // If board/list not provided, use defaults or logic for automove?
             // Existing logic for DataMoveCard seemed to expect specific targets.
             
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/cards/{card.Id}?idList={listId}&idBoard={boardId}&key={apiKey}&token={token}";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
+            var url = $"https://api.trello.com/1/cards/{card.Id}?idList={listId}&idBoard={boardId}";
             
             // Handle Automove scenario if parameters are empty (though typically passed explicitly)
             if (string.IsNullOrEmpty(boardId) || string.IsNullOrEmpty(listId))
@@ -1583,8 +1529,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
             var token = await _database.GetAsync<string>("Trello.Token");
             
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/boards/{qcBoardId}/lists?key={apiKey}&token={token}&fields=name,id";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
+            var url = $"https://api.trello.com/1/boards/{qcBoardId}/lists?fields=name,id";
             var json = await client.GetStringAsync(url);
             
             using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -1653,10 +1599,10 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
             
             // Always fetch ALL boards to allow user selection
-            var url = $"https://api.trello.com/1/members/me/boards?key={apiKey}&token={token}&fields=name,id";
+            var url = $"https://api.trello.com/1/members/me/boards?fields=name,id";
             var json = await client.GetStringAsync(url);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             
@@ -1700,8 +1646,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
-            var url = $"https://api.trello.com/1/boards/{boardId}/lists?key={apiKey}&token={token}&fields=name,id";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
+            var url = $"https://api.trello.com/1/boards/{boardId}/lists?fields=name,id";
             var json = await client.GetStringAsync(url);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             if (loadVersion != _moveListsLoadVersion || SelectedMoveBoard?.Id != boardId) return;
@@ -1791,9 +1737,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             var token = await _database.GetAsync<string>("Trello.Token");
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
-            using var client = new HttpClient();
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
             // Trello API uses PUT /1/cards/{id}?pos={pos}
-            var url = $"https://api.trello.com/1/cards/{card.Id}?pos={card.Pos}&key={apiKey}&token={token}";
+            var url = $"https://api.trello.com/1/cards/{card.Id}?pos={card.Pos}";
             var response = await client.PutAsync(url, null);
             if (!response.IsSuccessStatusCode)
             {
@@ -1865,10 +1811,10 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         var results = new List<TrelloCard>();
         var cacheKey = $"Cache.List.{listId}";
         
-        using var client = new HttpClient();
+        using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
         client.Timeout = TimeSpan.FromSeconds(15); 
         // Added cover to fields, attachments=true to get cover image URL, and pos
-        var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges,cover,pos&checklists=all&attachments=true&attachment_fields=url,name";
+        var url = $"https://api.trello.com/1/lists/{listId}/cards?fields=name,desc,due,labels,idMembers,badges,cover,pos&checklists=all&attachments=true&attachment_fields=url,name";
         
         string json = "";
         
@@ -1882,7 +1828,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Fetch Error (Offline?): {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Trello data fetch failed: {ex.GetType().Name}");
             IsOnline = false;
             
             // Fallback to Cache
@@ -2056,11 +2002,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return false;
 
-            using var client = new HttpClient();
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
             client.Timeout = TimeSpan.FromSeconds(10);
             
             // Fetch only IDs to minimize data transfer and parsing
-            var url = $"https://api.trello.com/1/lists/{listId}/cards?key={apiKey}&token={token}&fields=id";
+            var url = $"https://api.trello.com/1/lists/{listId}/cards?fields=id";
             var json = await client.GetStringAsync(url);
             
             // If offline/error, client throws, goes to catch.

@@ -74,6 +74,8 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [ObservableProperty] private string _customIconPath = ""; // Custom 7tsp icon pack path
     [ObservableProperty] private string _explorerFontFamily = "";
 
+    public string ExplorerFontFamilyDisplayLabel => $"Current: {(string.IsNullOrWhiteSpace(ExplorerFontFamily) ? "System default" : ExplorerFontFamily)}";
+
     public System.Collections.ObjectModel.ObservableCollection<string> AvailableFontFamilies { get; } =
         new(Avalonia.Media.FontManager.Current.SystemFonts
             .Select(x => x.Name)
@@ -327,6 +329,7 @@ public partial class ExplorerSettingsViewModel : ObservableObject
 
     partial void OnExplorerFontFamilyChanged(string value)
     {
+        OnPropertyChanged(nameof(ExplorerFontFamilyDisplayLabel));
         var normalized = value?.Trim() ?? "";
         if (!string.IsNullOrWhiteSpace(normalized) && !AvailableFontFamilies.Contains(normalized, StringComparer.OrdinalIgnoreCase))
         {

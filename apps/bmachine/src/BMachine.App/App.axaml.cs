@@ -50,7 +50,7 @@ public partial class App : Application,
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[CRITICAL] Error showing Splash Screen: {ex}");
+                Console.WriteLine($"[CRITICAL] Splash screen initialization failed ({ex.GetType().Name}).");
                 // Fallback: Try to show MainWindow directly if Splash fails
                 try
                 {
@@ -61,7 +61,7 @@ public partial class App : Application,
                 }
                 catch(Exception e2)
                 {
-                     Console.WriteLine($"[CRITICAL] Fallback failed: {e2}");
+                     Console.WriteLine($"[CRITICAL] Main-window fallback failed ({e2.GetType().Name}).");
                 }
             }
             
@@ -206,8 +206,8 @@ public partial class App : Application,
             }
             catch(Exception ex)
             {
-                Log($"[Hook Error] Failed to init global hook: {ex.Message}");
-                _logService.AddLog($"[Hook Error] Failed to init global hook: {ex.Message}");
+                Log($"[Hook Error] Global hook initialization failed ({ex.GetType().Name}).");
+                _logService.AddLog($"[Hook Error] Global hook initialization failed ({ex.GetType().Name}).");
             }
 
             desktop.Exit += (s, e) => 
@@ -221,8 +221,8 @@ public partial class App : Application,
         }
         catch (Exception ex)
         {
-             Log($"[CRITICAL ERROR] Launch Failed: {ex}");
-             Console.WriteLine($"Error launching App: {ex.Message}");
+             Log($"[CRITICAL ERROR] App launch failed ({ex.GetType().Name}).");
+             Console.WriteLine($"[CRITICAL ERROR] App launch failed ({ex.GetType().Name}).");
              splashWindow.Close();
         }
     }

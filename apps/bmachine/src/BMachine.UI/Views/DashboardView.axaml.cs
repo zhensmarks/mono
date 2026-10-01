@@ -9,7 +9,6 @@ namespace BMachine.UI.Views;
 
 public partial class DashboardView : UserControl
 {
-    private double _previousWidth = 0;
     private bool _isTogglingTerminal = false;
     private bool _isRestoringState = true; // Skip auto-close during initial restore
 
@@ -46,27 +45,23 @@ public partial class DashboardView : UserControl
 
     private void OnDashboardSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        // Skip auto-close if we are mid-toggle, restoring state, or on initial layout
+        // Keep the Log Panel available during compact resizes; only fit its visual width.
         if (_isTogglingTerminal || _isRestoringState) return;
         if (e.PreviousSize.Width <= 0) return; // Skip initial layout pass
 
-        if (DataContext is DashboardViewModel vm)
-        {
-            // Auto close if window is manually resized smaller than 800
-            if (vm.IsLogPanelOpen && e.NewSize.Width < 800 && e.NewSize.Width < e.PreviousSize.Width)
-            {
-                vm.IsLogPanelOpen = false;
-                // Also shrink the window back
-                var window = TopLevel.GetTopLevel(this) as Window;
-                if (window != null && window.WindowState == WindowState.Normal)
-                {
-                    double curW = window.Bounds.Width;
-                    if (curW > 520) window.Width = Math.Max(520, curW - 279);
-                }
-            }
+        if (DataContext is DashboardViewModel vm && vm.IsLogPanelOpen)
+            UpdateLogPanelMaxWidth(e.NewSize.Width);
+    }
 
-            _previousWidth = e.NewSize.Width;
-        }
+    private void UpdateLogPanelMaxWidth(double hostWidth)
+    {
+        if (double.IsNaN(hostWidth) || double.IsInfinity(hostWidth) || hostWidth <= 0) return;
+
+        var logPanel = this.FindControl<Control>("LogPanel");
+        if (logPanel is null) return;
+
+        // Reserve at least 340px for the compact dashboard and its 6px splitter.
+        logPanel.MaxWidth = Math.Min(600, Math.Max(180, hostWidth - 340));
     }
 
     private void OnTerminalToggleClick(object? sender, RoutedEventArgs e)
@@ -74,42 +69,14 @@ public partial class DashboardView : UserControl
         if (DataContext is DashboardViewModel vm)
         {
             bool wasOpen = vm.IsLogPanelOpen;
-            
-            var window = TopLevel.GetTopLevel(this) as Window;
-            if (window != null && window.WindowState == WindowState.Normal)
-            {
-                double currentWidth = window.Bounds.Width;
-                if (currentWidth <= 0 || double.IsNaN(currentWidth))
-                    currentWidth = window.Width;
 
-                _isTogglingTerminal = true;
+            _isTogglingTerminal = true;
+            if (!wasOpen)
+                UpdateLogPanelMaxWidth(Bounds.Width);
 
-                if (!wasOpen) // Opening: expand window FIRST, then show panel
-                {
-                    window.Width = currentWidth + 279;
-                    // Show panel on next layout pass so the window has already expanded
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                    {
-                        vm.IsLogPanelOpen = true;
-                        _isTogglingTerminal = false;
-                    }, Avalonia.Threading.DispatcherPriority.Render);
-                }
-                else // Closing: hide panel first, then shrink window
-                {
-                    vm.IsLogPanelOpen = false;
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                    {
-                        double w = window.Bounds.Width;
-                        window.Width = Math.Max(520, w - 279);
-                        _isTogglingTerminal = false;
-                    }, Avalonia.Threading.DispatcherPriority.Render);
-                }
-            }
-            else
-            {
-                // Maximized or window not found, just toggle
-                vm.IsLogPanelOpen = !wasOpen;
-            }
+            // Opening/closing a sidebar must not silently resize the user's window.
+            vm.IsLogPanelOpen = !wasOpen;
+            _isTogglingTerminal = false;
         }
         Part_ProfileNavButton.Flyout?.Hide();
     }
@@ -412,7 +379,7 @@ public partial class DashboardView : UserControl
              }
              catch (Exception ex)
              {
-                 System.Diagnostics.Debug.WriteLine($"Failed to open image: {ex.Message}");
+                 System.Diagnostics.Debug.WriteLine($"Failed to open image: {ex.GetType().Name}");
              }
         }
     }
@@ -448,7 +415,8 @@ public partial class DashboardView : UserControl
 
         var currentPos = e.GetPosition(this);
         double delta = _resizeStartPoint.X - currentPos.X;
-        double newWidth = Math.Max(180, Math.Min(600, _resizeStartWidth + delta));
+        double maxWidth = Math.Max(180, Math.Min(600, Bounds.Width - 340));
+        double newWidth = Math.Clamp(_resizeStartWidth + delta, 180, maxWidth);
         vm.LogPanelWidth = newWidth;
         e.Handled = true;
     }

@@ -16,17 +16,19 @@
 
     <ScrollViewer>
         <StackPanel Spacing="20" Margin="20">
-            <TextBlock Text="Explorer &amp; Paths Configuration" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock Text="Explorer &amp; Paths Configuration" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock Text="Set default locations for Local Output, Photoshop, and Master Design assets." 
-                       FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.7"/>
+                       FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" Opacity="0.7"/>
 
             <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Explorer Defaults" FontWeight="SemiBold" FontSize="16"/>
                     
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Default Local Output (Optional)" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="If set, you only need to pick Input folder." FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="2" Margin="0,0,0,6">
+                            <TextBlock Text="Default Local Output (Optional)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <TextBlock Text="If set, you only need to pick Input folder." FontSize="10" Opacity="0.6" TextWrapping="Wrap"/>
+                        </StackPanel>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathLocalOutput}" Watermark="Auto-Ask if empty" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="LocalOutput" Classes="secondary"/>
                     </Grid>
@@ -38,8 +40,10 @@
                     </Grid>
 
                     <Grid ColumnDefinitions="*, Auto, Auto" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Photoshop Executable (.exe / .app)" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Required for JSX Scripts" FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="2" Margin="0,0,0,6">
+                            <TextBlock Text="Photoshop Executable (.exe / .app)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <TextBlock Text="Required for JSX Scripts" FontSize="10" Opacity="0.6" TextWrapping="Wrap"/>
+                        </StackPanel>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding PathPhotoshop}" Watermark="Select Photoshop.exe or .app" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowseFileCommand}" CommandParameter="Photoshop" Classes="secondary" Margin="0,0,6,0"/>
                         <Button Grid.Row="1" Grid.Column="2" Command="{Binding FixPhotoshopWarningCommand}"
@@ -323,8 +327,10 @@
                 <StackPanel Spacing="10">
                     <TextBlock Text="Storage Settings" FontWeight="SemiBold" FontSize="16"/>
                     <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Attachment Download Path" VerticalAlignment="Center" Margin="0,0,0,5"/>
-                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Files from Trello attachments will be saved here." FontSize="10" Opacity="0.6" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="2" Margin="0,0,0,6">
+                            <TextBlock Text="Attachment Download Path" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <TextBlock Text="Files from Trello attachments will be saved here." FontSize="10" Opacity="0.6" TextWrapping="Wrap"/>
+                        </StackPanel>
                         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding OfflineStoragePath}" Watermark="Select Download Folder" Margin="0,0,10,0"/>
                         <Button Grid.Row="1" Grid.Column="1" Content="Browse" Command="{Binding BrowsePathCommand}" CommandParameter="OfflineStorage" Classes="secondary"/>
                     </Grid>

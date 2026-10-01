@@ -94,7 +94,7 @@ public partial class PointLeaderboardViewModel : ObservableObject
             Google.Apis.Auth.OAuth2.GoogleCredential credential;
             using (var stream = new System.IO.FileStream(credsPath, System.IO.FileMode.Open, System.IO.FileAccess.Read))
             {
-                credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromStream(stream).CreateScoped(Google.Apis.Sheets.v4.SheetsService.Scope.Spreadsheets);
+                credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromStream(stream).CreateScoped(Google.Apis.Sheets.v4.SheetsService.Scope.SpreadsheetsReadonly);
             }
 
             var service = new Google.Apis.Sheets.v4.SheetsService(new Google.Apis.Services.BaseClientService.Initializer()
@@ -117,7 +117,7 @@ public partial class PointLeaderboardViewModel : ObservableObject
         }
         catch (System.Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Leaderboard Error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Leaderboard request failed: {ex.GetType().Name}");
         }
         finally
         {
@@ -157,7 +157,6 @@ public partial class PointLeaderboardViewModel : ObservableObject
                         if (!string.IsNullOrEmpty(testStr) && 
                             (!char.IsDigit(testStr[0]) || testStr.Contains("TOTAL") || testStr.Contains("POIN")))
                         {
-                            Console.WriteLine($"[Leaderboard] Skipping header row: {testStr}");
                             continue;
                         }
                     }
@@ -195,7 +194,6 @@ public partial class PointLeaderboardViewModel : ObservableObject
                             points = (int)Math.Round(dPoints);
                         }
                         
-                        Console.WriteLine($"[Leaderboard] Parsed: {name} = {points} (Raw: '{row[1]}')");
                     }
                 }
 

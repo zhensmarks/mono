@@ -14,7 +14,7 @@
              x:Class="BMachine.UI.Views.OutputExplorerView"
              x:DataType="vm:OutputExplorerViewModel"
              Focusable="True"
-             FontFamily="{Binding ExplorerFontFamily}"
+             FontFamily="{DynamicResource FontPrimary}"
              Loaded="OnViewLoaded"
              x:Name="ExplorerRoot">
 
@@ -156,7 +156,7 @@
                     </StackPanel>
 
                     <!-- Center: DUAL-MODE ADDRESS BAR -->
-                    <Border Grid.Column="1" Margin="4,0" CornerRadius="5" ClipToBounds="True"
+                    <Border x:Name="AddressBarSurface" Grid.Column="1" Margin="4,0" CornerRadius="5" ClipToBounds="True"
                             Background="{DynamicResource CardBackgroundBrush}"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                         <Panel>
@@ -166,13 +166,7 @@
                                           Cursor="IBeam" Padding="6,0">
                                 <Grid>
                                     <!-- Transparent tap target over entire breadcrumb to activate editing -->
-                                    <Border Background="Transparent" Cursor="IBeam">
-                                        <i:Interaction.Behaviors>
-                                            <ia:EventTriggerBehavior EventName="PointerPressed">
-                                                <ia:InvokeCommandAction Command="{Binding ActivateAddressBarCommand}"/>
-                                            </ia:EventTriggerBehavior>
-                                        </i:Interaction.Behaviors>
-                                    </Border>
+                                    <Border Background="Transparent" Cursor="IBeam"/>
                                     <ItemsControl ItemsSource="{Binding Breadcrumbs}" IsHitTestVisible="False">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -204,11 +198,6 @@
                                     <KeyBinding Gesture="Enter" Command="{Binding CommitAddressBarCommand}"/>
                                     <KeyBinding Gesture="Escape" Command="{Binding CancelAddressBarCommand}"/>
                                 </TextBox.KeyBindings>
-                                <i:Interaction.Behaviors>
-                                    <ia:EventTriggerBehavior EventName="LostFocus">
-                                        <ia:InvokeCommandAction Command="{Binding CancelAddressBarCommand}"/>
-                                    </ia:EventTriggerBehavior>
-                                </i:Interaction.Behaviors>
                             </TextBox>
                         </Panel>
                     </Border>
@@ -305,7 +294,7 @@
                              <!-- 1. Normal Empty -->
                              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" 
                                          IsVisible="{Binding IsEmpty}">
-                                  <PathIcon Data="{StaticResource IconFolder}" Width="40" Height="40" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.5"/>
+                                  <PathIcon Data="{StaticResource IconFolder}" Width="40" Height="40" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.5" IsVisible="{Binding !IsRootPathMissing}"/>
                                   <TextBlock Text="Folder kosong." Foreground="{DynamicResource TextSecondaryBrush}" 
                                          IsVisible="{Binding !IsRootPathMissing}" HorizontalAlignment="Center"/>
                                   
@@ -1037,7 +1026,7 @@
 
         <!-- TYPE AHEAD OVERLAY (Premium Glassmorphism Pill) -->
         <Border Grid.Row="0" Grid.RowSpan="3" Background="#D91E1E1E"
-                BorderBrush="#40FFFFFF"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="1"
                 CornerRadius="20"
                 Padding="16,6"

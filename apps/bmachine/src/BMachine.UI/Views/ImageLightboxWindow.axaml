@@ -50,12 +50,9 @@
                         ToolTip.Tip="Download Image">
                 </Button>
                 <!-- Close Button -->
-                <Button Width="36" Height="36" CornerRadius="4"
-                        Background="Transparent" BorderThickness="0"
-                        Cursor="Hand" Click="OnCloseClick"
-                        Foreground="{DynamicResource TextPrimaryBrush}" FontSize="16" FontWeight="Bold" Content="✕"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                <Button Classes="WindowClose" Click="OnCloseClick"
                         ToolTip.Tip="Close Viewer (Esc / Right Click)">
+                    <PathIcon Data="{StaticResource IconX}"/>
                 </Button>
             </StackPanel>
         </Border>

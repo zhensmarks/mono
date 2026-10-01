@@ -143,9 +143,9 @@
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border x:Name="SwitchTrack"
-                            Background="#1AFFFFFF"
+                            Background="{DynamicResource SwitchOffBackgroundBrush}"
                             BorderThickness="1"
-                            BorderBrush="#0AFFFFFF"
+                            BorderBrush="{DynamicResource SwitchOffBorderBrush}"
                             CornerRadius="12"
                             Width="44" Height="24" Opacity="1">
                         <Border.Transitions>
@@ -200,7 +200,7 @@
 
         <!-- Switch: Hover States -->
         <Style Selector="ToggleButton.Switch:pointerover /template/ Border#SwitchTrack">
-            <Setter Property="Background" Value="#25FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource SwitchHoverBackgroundBrush}"/>
         </Style>
         <Style Selector="ToggleButton.Switch:checked:pointerover /template/ Border#SwitchTrack">
             <Setter Property="Opacity" Value="0.85"/>

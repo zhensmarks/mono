@@ -34,7 +34,7 @@ public class Bootstrapper
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error initializing theme: {ex.Message}");
+            Console.WriteLine($"[WARNING] Theme initialization failed ({ex.GetType().Name}).");
             status?.Report("Peringatan: Gagal memuat UI Tema khusus.");
         }
         progress?.Report(30);
@@ -51,8 +51,8 @@ public class Bootstrapper
         catch (Exception ex)
         {
             // Don't crash if preload fails - just log and continue
-            Console.WriteLine($"[WARNING] Error preloading settings: {ex.Message}");
-            status?.Report($"Peringatan Preload: {ex.Message}");
+            Console.WriteLine($"[WARNING] Settings preload failed ({ex.GetType().Name}); continuing with defaults.");
+            status?.Report("Peringatan Preload: Konfigurasi tidak dapat dimuat.");
         }
         progress?.Report(50);
 
@@ -102,7 +102,7 @@ public class Bootstrapper
         }
         catch (Exception ex)
         {
-             Console.WriteLine($"Plugin Init Error: {ex}");
+             Console.WriteLine($"[WARNING] Plugin initialization failed ({ex.GetType().Name}).");
              status?.Report("Peringatan: Sebagian plugin gagal dimuat.");
         }
 
@@ -121,7 +121,7 @@ public class Bootstrapper
         public void Debug(string message) => Console.WriteLine($"[DEBUG] {message}");
         public void Info(string message) => Console.WriteLine($"[INFO] {message}");
         public void Warning(string message) => Console.WriteLine($"[WARN] {message}");
-        public void Error(string message, Exception? ex = null) => Console.WriteLine($"[ERROR] {message} {ex}");
+        public void Error(string message, Exception? ex = null) => Console.WriteLine(ex is null ? "[ERROR] Plugin operation failed." : $"[ERROR] Plugin operation failed ({ex.GetType().Name}).");
     }
 
     public class AppServiceProvider : IServiceProvider

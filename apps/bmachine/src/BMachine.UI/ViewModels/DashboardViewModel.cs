@@ -1491,7 +1491,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                 {
                     if (!System.IO.File.Exists(credsPath))
                     {
-                        _logService?.AddLog($"[GSheet Error] File kredensial tidak ditemukan di: {credsPath}");
+                        _logService?.AddLog("[GSheet Error] Google credential file was not found.");
                         StatPoints = "ErrFile";
                     }
                     else
@@ -1552,7 +1552,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
                                     retries--;
                                     if (retries == 0)
                                     {
-                                        _logService?.AddLog($"[GSheet Fail] After {attempts} attempts: {ex.Message}");
+                                        _logService?.AddLog($"[GSheet Fail] After {attempts} attempts ({ex.GetType().Name}).");
                                         // Keep previous value or show Err?
                                         // StatPoints = "Err"; // Maybe keep last known
                                     }
@@ -1569,7 +1569,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             }
             catch (Exception ex)
             {
-                _logService?.AddLog($"[Points Error] {ex.Message}");
+                _logService?.AddLog($"[Points Error] {ex.GetType().Name}");
             }
         }
 
@@ -1615,9 +1615,8 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         
         try 
         {
-            using var client = new System.Net.Http.HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(15);
-            var url = $"https://api.trello.com/1/lists/{listId}?key={apiKey}&token={token}&cards=open&fields=none";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey!, token!, TimeSpan.FromSeconds(15));
+            var url = $"https://api.trello.com/1/lists/{listId}?cards=open&fields=none";
             var json = await client.GetStringAsync(url);
             
             using var doc = System.Text.Json.JsonDocument.Parse(json);

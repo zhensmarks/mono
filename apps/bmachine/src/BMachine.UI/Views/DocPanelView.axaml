@@ -105,13 +105,13 @@
                     </Border>
                     <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
-                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="1" ToolTip.Tip="Copy Logo" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="1" ToolTip.Tip="Copy Logo" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
-                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                             </Button>
                         </StackPanel>
@@ -131,13 +131,13 @@
                     </Border>
                     <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4">
-                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
-                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="1" ToolTip.Tip="Copy Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="1" ToolTip.Tip="Copy Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
-                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop (Logo 1)" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop (Logo 1)" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                             </Button>
                         </StackPanel>
@@ -153,13 +153,13 @@
                     </Border>
                     <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4">
-                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="2" ToolTip.Tip="Paste Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="2" ToolTip.Tip="Paste Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
-                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="2" ToolTip.Tip="Copy Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.CopySchoolLogoCommand}" CommandParameter="2" ToolTip.Tip="Copy Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
-                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="2" ToolTip.Tip="Kirim ke Photoshop (Logo 2)" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="6" CornerRadius="4" Cursor="Hand">
+                            <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="2" ToolTip.Tip="Kirim ke Photoshop (Logo 2)" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="6" CornerRadius="4" Cursor="Hand">
                                 <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                             </Button>
                         </StackPanel>
@@ -192,10 +192,10 @@
                             </Border>
                             <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
-                                    <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                    <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="4" CornerRadius="4" Cursor="Hand">
                                         <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
-                                    <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                    <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="4" CornerRadius="4" Cursor="Hand">
                                         <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                                     </Button>
                                 </StackPanel>
@@ -244,10 +244,10 @@
                         </Border>
                         <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
-                                <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="1" ToolTip.Tip="Paste Logo 1" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="4" CornerRadius="4" Cursor="Hand">
                                     <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Button>
-                                <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="1" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="4" CornerRadius="4" Cursor="Hand">
                                     <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                                 </Button>
                             </StackPanel>
@@ -264,10 +264,10 @@
                         </Border>
                         <Border Classes="hoverActions" Background="#C0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="2">
-                                <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="2" ToolTip.Tip="Paste Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                <Button Command="{Binding BatchVM.PasteLogoCommand}" CommandParameter="2" ToolTip.Tip="Paste Logo 2" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="4" CornerRadius="4" Cursor="Hand">
                                     <PathIcon Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Button>
-                                <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="2" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="#50FFFFFF" Padding="4" CornerRadius="4" Cursor="Hand">
+                                <Button Command="{Binding BatchVM.SendLogoToPhotoshopCommand}" CommandParameter="2" ToolTip.Tip="Kirim ke Photoshop" Background="#30FFFFFF" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" Padding="4" CornerRadius="4" Cursor="Hand">
                                     <PathIcon Data="M2,21L23,12L2,3V10L17,12L2,14V21Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                                 </Button>
                             </StackPanel>

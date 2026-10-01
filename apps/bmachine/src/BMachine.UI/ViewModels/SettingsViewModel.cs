@@ -372,16 +372,10 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsScriptsManagerSelected))]
     [NotifyPropertyChangedFor(nameof(IsPathsSelected))]
     [NotifyPropertyChangedFor(nameof(IsAboutSelected))] 
-    private int _selectedMenuIndex = -1;
+    private int _selectedMenuIndex = 0;
     
     partial void OnSelectedMenuIndexChanged(int value)
     {
-        // Responsive Logic
-        if (IsMobileView && value != -1)
-        {
-            IsMobileContentOpen = true;
-        }
-        
         // Navigation Logic
         OnPropertyChanged(nameof(IsGeneralSelected));
         OnPropertyChanged(nameof(IsAppearanceSelected));
@@ -1108,7 +1102,7 @@ public partial class SettingsViewModel : ObservableObject
         }
         
         // Direct Token Generation URL (same format as list_trello)
-        var url = $"https://trello.com/1/authorize?expiration=30days&name=BMachine%20Task%20Panel&scope=read,write&response_type=token&key={TrelloApiKey}";
+        var url = $"https://trello.com/1/authorize?expiration=30days&name=BMachine%20Task%20Panel&scope=read,write&response_type=token&key={Uri.EscapeDataString(TrelloApiKey)}";
         OpenUrl(url);
     }
     
@@ -1133,13 +1127,17 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
     
-    private void OpenUrl(string url)
+    [RelayCommand]
+    private void OpenUrl(string? url)
     {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            return;
+
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = url,
+                FileName = uri.AbsoluteUri,
                 UseShellExecute = true
             });
         }
@@ -1316,9 +1314,20 @@ public partial class SettingsViewModel : ObservableObject
             // --------------------------
 
             // Load Integrations
-            var storedKey = await _database.GetAsync<string>("Trello.ApiKey");
-            TrelloApiKey = !string.IsNullOrEmpty(storedKey) ? storedKey : string.Empty;
-            TrelloToken = await _database.GetAsync<string>("Trello.Token") ?? "";
+            try
+            {
+                var storedKey = await _database.GetAsync<string>("Trello.ApiKey");
+                TrelloApiKey = !string.IsNullOrEmpty(storedKey) ? storedKey : string.Empty;
+                TrelloToken = await _database.GetAsync<string>("Trello.Token") ?? "";
+                TrelloCredentialStatus = "Trello credentials are protected by the OS credential vault.";
+            }
+            catch (Exception ex)
+            {
+                TrelloApiKey = "";
+                TrelloToken = "";
+                TrelloCredentialStatus = "Could not access the OS credential vault. Unlock or enable it to use Trello.";
+                System.Diagnostics.Debug.WriteLine($"[TrelloCredentialStore] {ex.GetType().Name}");
+            }
             
             var trelloConnStr = await _database.GetAsync<string>("Trello.IsConnected");
             IsTrelloConnected = trelloConnStr == "True";
@@ -1663,7 +1672,7 @@ public partial class SettingsViewModel : ObservableObject
              }
              catch (Exception ex)
              {
-                 Console.WriteLine($"Error saving Trello disconnect state: {ex.Message}");
+                 System.Diagnostics.Debug.WriteLine($"Trello disconnect-state save failed: {ex.GetType().Name}");
              }
         }
         else
@@ -1697,11 +1706,45 @@ public partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsTrelloKeyProvided))]
     private string _trelloApiKey = ""; // Manual Input
 
+    [ObservableProperty] private string _trelloCredentialStatus = "";
+    private CancellationTokenSource? _trelloCredentialSave;
+
     public bool IsTrelloKeyMissing => string.IsNullOrEmpty(TrelloApiKey);
     public bool IsTrelloKeyProvided => !string.IsNullOrEmpty(TrelloApiKey);
 
-    partial void OnTrelloApiKeyChanged(string value) => _database?.SetAsync("Trello.ApiKey", value);
-    partial void OnTrelloTokenChanged(string value) => _database?.SetAsync("Trello.Token", value);
+    partial void OnTrelloApiKeyChanged(string value) => ScheduleTrelloCredentialSave();
+    partial void OnTrelloTokenChanged(string value) => ScheduleTrelloCredentialSave();
+
+    private void ScheduleTrelloCredentialSave()
+    {
+        if (_database is null || _isInitializing) return;
+        var next = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _trelloCredentialSave, next);
+        previous?.Cancel();
+        _ = SaveTrelloCredentialsAfterTypingAsync(next);
+    }
+
+    private async Task SaveTrelloCredentialsAfterTypingAsync(CancellationTokenSource save)
+    {
+        try
+        {
+            await Task.Delay(500, save.Token);
+            await _database!.SetAsync("Trello.ApiKey", TrelloApiKey);
+            await _database.SetAsync("Trello.Token", TrelloToken);
+            TrelloCredentialStatus = "Trello credentials are protected by the OS credential vault.";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            TrelloCredentialStatus = "Could not access the OS credential vault. Unlock or enable it, then save again.";
+            System.Diagnostics.Debug.WriteLine($"[TrelloCredentialStore] {ex.GetType().Name}");
+        }
+        finally
+        {
+            Interlocked.CompareExchange(ref _trelloCredentialSave, null, save);
+            save.Dispose();
+        }
+    }
 
     [RelayCommand]
     private void OpenTrelloAdmin()
@@ -1742,8 +1785,8 @@ public partial class SettingsViewModel : ObservableObject
 
         try
         {
-            using var client = new System.Net.Http.HttpClient();
-            var boardsUrl = $"https://api.trello.com/1/members/me/boards?key={TrelloApiKey}&token={TrelloToken}&fields=name,id";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(TrelloApiKey, TrelloToken);
+            var boardsUrl = $"https://api.trello.com/1/members/me/boards?fields=name,id";
             var response = await client.GetStringAsync(boardsUrl);
             
             using var doc = System.Text.Json.JsonDocument.Parse(response);
@@ -1784,7 +1827,7 @@ public partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error fetching Trello boards: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Trello board fetch failed: {ex.GetType().Name}");
             if (!silent) StatusMessage = "Koneksi Gagal!";
         }
         finally
@@ -1845,8 +1888,8 @@ public partial class SettingsViewModel : ObservableObject
 
         try
         {
-            using var client = new System.Net.Http.HttpClient();
-            var listsUrl = $"https://api.trello.com/1/boards/{boardId}/lists?key={TrelloApiKey}&token={TrelloToken}&fields=name,id";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(TrelloApiKey, TrelloToken);
+            var listsUrl = $"https://api.trello.com/1/boards/{boardId}/lists?fields=name,id";
             var response = await client.GetStringAsync(listsUrl);
 
             using var doc = System.Text.Json.JsonDocument.Parse(response);
@@ -1870,7 +1913,7 @@ public partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex) 
         {
-            Console.WriteLine($"Error fetching lists for board {boardId}: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Trello list fetch failed: {ex.GetType().Name}");
         }
     }
     
@@ -1881,8 +1924,8 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             // Fetch boards
-            using var client = new System.Net.Http.HttpClient();
-            var boardsUrl = $"https://api.trello.com/1/members/me/boards?key={TrelloApiKey}&token={TrelloToken}&fields=name,id";
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(TrelloApiKey, TrelloToken);
+            var boardsUrl = $"https://api.trello.com/1/members/me/boards?fields=name,id";
             var response = await client.GetStringAsync(boardsUrl);
 
             using var doc = System.Text.Json.JsonDocument.Parse(response);
@@ -1950,7 +1993,7 @@ public partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex) 
         {
-            Console.WriteLine($"Error refreshing Trello data: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Trello refresh failed: {ex.GetType().Name}");
         }
     }
     
@@ -3045,5 +3088,3 @@ public partial class ScriptItem : ObservableObject
         IsEditing = false;
     }
 }
-
-

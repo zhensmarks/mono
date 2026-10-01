@@ -25,8 +25,9 @@
                 <TextBlock Text="Comments" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Text="{Binding SelectedCard.Name}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
             </StackPanel>
-            <Button Grid.Column="1" Click="CloseButton_Click" Content="✕"
-                    Background="Transparent" BorderThickness="0" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Top"/>
+            <Button Grid.Column="1" Classes="WindowClose" Click="CloseButton_Click" VerticalAlignment="Top" ToolTip.Tip="Close">
+                <PathIcon Data="{StaticResource IconX}"/>
+            </Button>
         </Grid>
 
         <!-- Comments List -->

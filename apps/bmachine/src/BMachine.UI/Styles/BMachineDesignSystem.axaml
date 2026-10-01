@@ -9,8 +9,8 @@
 
     <Styles.Resources>
         <!-- ── Typography ── -->
-        <FontFamily x:Key="FontPrimary">Segoe UI Variable, SF Pro Text, Helvetica Neue</FontFamily>
-        <FontFamily x:Key="FontMono">Cascadia Code, JetBrains Mono, Consolas</FontFamily>
+        <FontFamily x:Key="FontPrimary">Inter, Segoe UI Variable, Segoe UI, SF Pro Text, Helvetica Neue, Arial, sans-serif</FontFamily>
+        <FontFamily x:Key="FontMono">Cascadia Code, JetBrains Mono, Consolas, monospace</FontFamily>
 
         <!-- ── Radius scale (selaras) ── -->
         <CornerRadius x:Key="RadiusSm">6</CornerRadius>
@@ -94,17 +94,17 @@
     </Style>
     <Style Selector="TextBlock.caption">
         <Setter Property="FontSize" Value="11" />
-        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
     </Style>
     <Style Selector="TextBlock.eyebrow">
         <Setter Property="FontSize" Value="10.5" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{StaticResource TextFaintBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
         <Setter Property="LetterSpacing" Value="1.2" />
-        <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontMono}" />
     </Style>
     <Style Selector="TextBlock.mono">
-        <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontMono}" />
         <Setter Property="FontSize" Value="12" />
     </Style>
 
@@ -140,7 +140,7 @@
 
     <!-- ================================================================ -->
     <!-- BUTTON — 4 varian selaras                                        -->
-    <!-- primary (Action) : solid #EDEDED / hover #FFFFFF / pressed #D4D4D4 -->
+    <!-- primary (Action) : high-contrast semantic brushes resolved by theme -->
     <!-- secondary (Muted): #1C1C1F + border #3F3F46 / hover #27272B       -->
     <!-- ghost (Clear)    : transparent / hover #10FFFFFF                 -->
     <!-- danger (Warn)    : #1C0F0F + border #5A2020 / hover #2A1010      -->
@@ -173,20 +173,20 @@
     </Style>
     <!-- Primary = Action (canonical) -->
     <Style Selector="Button.primary, Button.Action">
-        <Setter Property="Background" Value="#EDEDED" />
-        <Setter Property="Foreground" Value="#111111" />
+        <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}" />
         <Setter Property="BorderThickness" Value="0" />
     </Style>
     <Style Selector="Button.primary /template/ ContentPresenter, Button.Action /template/ ContentPresenter">
-        <Setter Property="Background" Value="#EDEDED" />
+        <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}" />
         <Setter Property="CornerRadius" Value="6" />
-        <Setter Property="TextElement.Foreground" Value="#111111" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}" />
     </Style>
     <Style Selector="Button.primary:pointerover /template/ ContentPresenter, Button.Action:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}" />
     </Style>
     <Style Selector="Button.primary:pressed /template/ ContentPresenter, Button.Action:pressed /template/ ContentPresenter">
-        <Setter Property="Background" Value="#D4D4D4" />
+        <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}" />
     </Style>
     <Style Selector="Button.primary:disabled, Button.Action:disabled">
         <Setter Property="Opacity" Value="0.4" />
@@ -194,25 +194,25 @@
 
     <!-- Secondary = Muted (canonical) -->
     <Style Selector="Button.secondary, Button.Muted">
-        <Setter Property="Background" Value="#1C1C1F" />
-        <Setter Property="Foreground" Value="#E4E4E7" />
-        <Setter Property="BorderBrush" Value="#3F3F46" />
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Button.secondary /template/ ContentPresenter, Button.Muted /template/ ContentPresenter">
-        <Setter Property="Background" Value="#1C1C1F" />
-        <Setter Property="BorderBrush" Value="#3F3F46" />
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="6" />
-        <Setter Property="TextElement.Foreground" Value="#E4E4E7" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}" />
     </Style>
     <Style Selector="Button.secondary:pointerover /template/ ContentPresenter, Button.Muted:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#27272B" />
-        <Setter Property="BorderBrush" Value="#52525B" />
-        <Setter Property="TextElement.Foreground" Value="#F4F4F5" />
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}" />
     </Style>
     <Style Selector="Button.secondary:pressed /template/ ContentPresenter, Button.Muted:pressed /template/ ContentPresenter">
-        <Setter Property="Background" Value="#222226" />
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}" />
     </Style>
 
     <!-- Ghost = Clear -->
@@ -226,25 +226,25 @@
         <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="Button.ghost:pointerover /template/ ContentPresenter, Button.Clear:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#10FFFFFF" />
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
     </Style>
     <Style Selector="Button.ghost:pressed /template/ ContentPresenter, Button.Clear:pressed /template/ ContentPresenter">
-        <Setter Property="Background" Value="#1AFFFFFF" />
+        <Setter Property="Background" Value="{DynamicResource BgActiveBrush}" />
     </Style>
 
     <!-- Danger = Warn -->
     <Style Selector="Button.danger, Button.Warn">
-        <Setter Property="Background" Value="#1C0F0F" />
-        <Setter Property="Foreground" Value="#A05252" />
-        <Setter Property="BorderBrush" Value="#5A2020" />
+        <Setter Property="Background" Value="{DynamicResource ButtonDangerBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ButtonDangerBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Button.danger /template/ ContentPresenter, Button.Warn /template/ ContentPresenter">
-        <Setter Property="Background" Value="#1C0F0F" />
-        <Setter Property="TextElement.Foreground" Value="#A05252" />
+        <Setter Property="Background" Value="{DynamicResource ButtonDangerBackgroundBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}" />
     </Style>
     <Style Selector="Button.danger:pointerover /template/ ContentPresenter, Button.Warn:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#2A1010" />
+        <Setter Property="Background" Value="{DynamicResource ButtonDangerHoverBrush}" />
     </Style>
 
     <!-- Accent (outline) -->
@@ -255,7 +255,7 @@
         <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="Button.accent:pointerover /template/ Border#PART_Border, Button.Accent:pointerover /template/ Border#PART_Border">
-        <Setter Property="Background" Value="{StaticResource AccentSubtleBrush}" />
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
     </Style>
 
     <!-- ================================================================ -->
@@ -266,9 +266,9 @@
     <Style Selector="TextBox">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="Background" Value="{DynamicResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Padding" Value="10,0" />
@@ -284,19 +284,19 @@
         </Setter>
     </Style>
     <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{StaticResource BorderHoverBrush}" />
-        <Setter Property="Background" Value="{StaticResource BgInputHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+        <Setter Property="Background" Value="{DynamicResource BgInputHoverBrush}" />
     </Style>
     <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{StaticResource BorderFocusBrush}" />
-        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
+        <Setter Property="Background" Value="{DynamicResource BgInputBrush}" />
     </Style>
     <Style Selector="TextBox:disabled /template/ Border#PART_BorderElement">
         <Setter Property="Opacity" Value="0.4" />
     </Style>
     <!-- Variants -->
     <Style Selector="TextBox.mono">
-        <Setter Property="FontFamily" Value="{StaticResource FontMono}" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontMono}" />
         <Setter Property="FontSize" Value="12" />
     </Style>
     <Style Selector="TextBox.search">
@@ -310,9 +310,9 @@
     <Style Selector="ComboBox">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="Background" Value="{DynamicResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Padding" Value="10,0,8,0" />
@@ -321,10 +321,10 @@
         <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="ComboBox:pointerover /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{StaticResource BorderHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
     </Style>
     <Style Selector="ComboBox:focus /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{StaticResource BorderFocusBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
     </Style>
     <Style Selector="ComboBoxItem">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
@@ -334,19 +334,19 @@
         <Setter Property="Margin" Value="2" />
     </Style>
     <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{StaticResource BgHoverBrush}" />
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
     </Style>
     <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
-        <Setter Property="Background" Value="{StaticResource AccentSubtleBrush}" />
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
     <Style Selector="AutoCompleteBox">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="Background" Value="{DynamicResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Padding" Value="10,0" />
@@ -356,19 +356,19 @@
     <Style Selector="NumericUpDown">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Background" Value="{StaticResource BgInputBrush}" />
+        <Setter Property="Background" Value="{DynamicResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource BorderDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="Padding" Value="8,0" />
     </Style>
     <Style Selector="NumericUpDown:pointerover /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{StaticResource BorderHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
     </Style>
     <Style Selector="NumericUpDown:focus /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{StaticResource BorderFocusBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
     </Style>
 
     <!-- ================================================================ -->
@@ -388,7 +388,7 @@
         <Setter Property="Height" Value="16" />
         <Setter Property="CornerRadius" Value="4" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="BorderBrush" Value="#3F3F46" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Transitions">
             <Transitions>
@@ -398,8 +398,8 @@
         </Setter>
     </Style>
     <Style Selector="CheckBox:pointerover /template/ Border#PART_Border">
-        <Setter Property="BorderBrush" Value="#52525B" />
-        <Setter Property="Background" Value="#1A1A1D" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
     </Style>
     <Style Selector="CheckBox:checked /template/ Border#PART_Border">
         <Setter Property="Background" Value="{DynamicResource AccentColorBrush}" />
@@ -453,6 +453,66 @@
     <!-- Icon di dalam button: ikut warna button -->
     <Style Selector="Button PathIcon">
         <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+    </Style>
+
+    <!-- Custom window-close buttons share one compact hit target and glyph size. -->
+    <Style Selector="Button.WindowClose">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.WindowClose:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.WindowClose:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.WindowClose:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.WindowClose PathIcon">
+        <Setter Property="Width" Value="{StaticResource IconXs}" />
+        <Setter Property="Height" Value="{StaticResource IconXs}" />
+    </Style>
+
+    <!-- Inline side-panel dismiss controls use one smaller, consistent hit target. -->
+    <Style Selector="Button.PanelClose">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="5" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.PanelClose:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}" />
+    </Style>
+    <Style Selector="Button.PanelClose:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ButtonDangerHoverBrush}" />
+        <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="Button.PanelClose:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource ButtonDangerPressedBrush}" />
+        <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="Button.PanelClose PathIcon">
+        <Setter Property="Width" Value="{StaticResource IconXs}" />
+        <Setter Property="Height" Value="{StaticResource IconXs}" />
     </Style>
 
     <!-- ================================================================ -->

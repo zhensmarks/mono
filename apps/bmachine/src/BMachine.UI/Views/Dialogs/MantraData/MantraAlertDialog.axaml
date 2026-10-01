@@ -18,8 +18,8 @@
 
     <Window.Styles>
         <Style Selector="Button.Action">
-            <Setter Property="Background" Value="#EDEDED"/>
-            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="20,8"/>
@@ -31,28 +31,28 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.Action /template/ ContentPresenter">
-            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#FFFFFF"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Action:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#D4D4D4"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
     </Window.Styles>
 
-    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
-        <Border Margin="14" Padding="22" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+        <Border Margin="14" Padding="22" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="10">
             <Grid RowDefinitions="Auto,*,Auto">
                 <Border Grid.Row="0" Background="Transparent" PointerPressed="OnTitleBarPointerPressed" Margin="-22,-22,-22,0" Padding="22,8,22,12">
-                    <TextBlock x:Name="TxtTitle" Text="Perhatian" FontSize="16" FontWeight="SemiBold" Foreground="#F4F4F5"/>
+                    <TextBlock x:Name="TxtTitle" Text="Perhatian" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </Border>
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <TextBlock x:Name="TxtMessage" Text="Pesan" FontSize="13" Foreground="#A1A1AA" TextWrapping="Wrap" LineHeight="20"/>
+                    <TextBlock x:Name="TxtMessage" Text="Pesan" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" LineHeight="20"/>
                 </ScrollViewer>
                 <Button Grid.Row="2" Classes="Action" Content="OK" MinWidth="110" HorizontalAlignment="Right" Margin="0,18,0,0" Click="OnOkClick"/>
             </Grid>

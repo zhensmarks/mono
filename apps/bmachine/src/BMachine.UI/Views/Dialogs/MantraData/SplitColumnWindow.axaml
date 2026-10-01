@@ -16,7 +16,7 @@
 
     <Window.Styles><Style Selector="Button.ChromeClose">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="0"/>
             <Setter Property="Padding" Value="0"/>
@@ -24,12 +24,12 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.ChromeClose:pointerover">
-            <Setter Property="Background" Value="#1A1A1D"/>
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
         </Style>
 
         <Style Selector="Button.Action">
-            <Setter Property="Background" Value="#EDEDED"/>
-            <Setter Property="Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="18,8"/>
@@ -41,23 +41,23 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.Action /template/ ContentPresenter">
-            <Setter Property="Background" Value="#EDEDED"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#FFFFFF"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Action:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#D4D4D4"/>
-            <Setter Property="TextElement.Foreground" Value="#111111"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
 
         <Style Selector="Button.Muted">
-            <Setter Property="Background" Value="#1C1C1F"/>
-            <Setter Property="Foreground" Value="#E4E4E7"/>
-            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="18,8"/>
@@ -68,23 +68,23 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.Muted /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1C1C1F"/>
-            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="#E4E4E7"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#27272B"/>
-            <Setter Property="BorderBrush" Value="#52525B"/>
-            <Setter Property="TextElement.Foreground" Value="#F4F4F5"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#222226"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
         </Style>
     </Window.Styles>
 
-    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="#232326" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
 
         <!-- ═══ WINDOW TITLE BAR ═══ -->
@@ -96,46 +96,46 @@
 
             <TextBlock Grid.Column="0" Text="{Binding $parent[Window].Title, FallbackValue=Pisah Kolom}"
                        VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"
-                       FontSize="13" Foreground="#A1A1AA" IsHitTestVisible="False"/>
+                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" IsHitTestVisible="False"/>
 
-            <Button Grid.Column="1" Classes="ChromeClose" Content="X" Width="45" Height="40"
-                    VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                    Click="OnCloseButtonClick"/>
+            <Button Grid.Column="1" Classes="WindowClose" Click="OnCloseButtonClick">
+                <PathIcon Data="{StaticResource IconX}"/>
+            </Button>
 
             <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
         </Grid>
 
-    <Border Grid.Row="1" Margin="16" Padding="20" Background="#111113" BorderBrush="#232326" BorderThickness="1" CornerRadius="10">
+    <Border Grid.Row="1" Margin="16" Padding="20" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="10">
         <Grid RowDefinitions="Auto, *, Auto">
             <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                <TextBlock Text="Pisah Kolom" FontSize="15" FontWeight="SemiBold" Foreground="#F4F4F5"/>
-                <TextBlock Text="Pecah isi satu kolom menjadi dua kolom dengan pemisah tertentu." FontSize="12" Foreground="#71717A" Margin="0,4,0,0"/>
+                <TextBlock Text="Pisah Kolom" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="Pecah isi satu kolom menjadi dua kolom dengan pemisah tertentu." FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0"/>
             </StackPanel>
 
             <StackPanel Grid.Row="1" Spacing="8">
-                <TextBlock Text="Kolom yang akan dipisah" FontSize="12" FontWeight="Medium" Foreground="#A1A1AA"/>
+                <TextBlock Text="Kolom yang akan dipisah" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <ComboBox x:Name="CmbSource" HorizontalAlignment="Stretch" Height="34" FontSize="12"
                           VerticalContentAlignment="Center" Padding="10,0,8,0"
-                          Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1" CornerRadius="6"/>
+                          Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6"/>
 
-                <TextBlock Text="Karakter pemisah (koma, titik dua, strip, dll)" FontSize="12" FontWeight="Medium" Foreground="#A1A1AA" Margin="0,4,0,0"/>
+                <TextBlock Text="Karakter pemisah (koma, titik dua, strip, dll)" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
                 <TextBox x:Name="TxtSeparator" Text="," Height="34" FontSize="12.5" VerticalContentAlignment="Center"
-                         Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="10,0"/>
+                         Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="10,0"/>
 
-                <TextBlock Text="Nama kolom hasil 1" FontSize="12" FontWeight="Medium" Foreground="#A1A1AA" Margin="0,4,0,0"/>
+                <TextBlock Text="Nama kolom hasil 1" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
                 <TextBox x:Name="TxtColA" Height="34" FontSize="12.5" VerticalContentAlignment="Center"
-                         Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="10,0"/>
+                         Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="10,0"/>
 
-                <TextBlock Text="Nama kolom hasil 2" FontSize="12" FontWeight="Medium" Foreground="#A1A1AA" Margin="0,4,0,0"/>
+                <TextBlock Text="Nama kolom hasil 2" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
                 <TextBox x:Name="TxtColB" Height="34" FontSize="12.5" VerticalContentAlignment="Center"
-                         Background="#0C0C0E" Foreground="#E8E8E6" BorderBrush="#232326" BorderThickness="1" CornerRadius="6" Padding="10,0"/>
+                         Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="10,0"/>
 
-                <CheckBox x:Name="ChkDeleteSource" Content="Hapus kolom sumber setelah dipisah" FontSize="12" Foreground="#71717A" Margin="0,6,0,0"/>
+                <CheckBox x:Name="ChkDeleteSource" Content="Hapus kolom sumber setelah dipisah" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,6,0,0"/>
             </StackPanel>
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
                 <Button Classes="Muted" Content="Batal" MinWidth="90" Click="OnCancelClick"/>
-                <Button Classes="Action" Content="Pisah Kolom" MinWidth="130" Background="#EDEDED" Foreground="#111111" Click="OnOkClick"/>
+                <Button Classes="Action" Content="Pisah Kolom" MinWidth="130" Background="{DynamicResource ButtonPrimaryBackgroundBrush}" Foreground="{DynamicResource ButtonPrimaryForegroundBrush}" Click="OnOkClick"/>
             </StackPanel>
         </Grid>
     </Border>

@@ -1,4 +1,5 @@
 using BMachine.SDK;
+using BMachine.Core.Security;
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
 
@@ -7,9 +8,12 @@ namespace BMachine.Core.Database;
 public class DatabaseService : IDatabase, IActivityService
 {
     private readonly string _connectionString;
+    private readonly ISecureCredentialStore _secureCredentialStore;
+    private readonly SemaphoreSlim _credentialGate = new(1, 1);
     
     public DatabaseService(string databasePath = "BMachine.db")
     {
+        _secureCredentialStore = SecureCredentialStore.CreateForCurrentPlatform();
         // Use Platform Service to get persistent app data path
         var platform = BMachine.Core.Platform.PlatformServiceFactory.Get();
         var appData = platform.GetAppDataDirectory();
@@ -60,6 +64,15 @@ public class DatabaseService : IDatabase, IActivityService
 
     public async Task<T?> GetAsync<T>(string key) where T : class
     {
+        if (IsTrelloSecret(key))
+        {
+            if (typeof(T) != typeof(string))
+                throw new InvalidOperationException("Trello secrets can only be read as strings from the OS credential vault.");
+
+            var secret = await GetTrelloSecretAsync(key);
+            return secret is null ? null : (T)(object)secret;
+        }
+
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync();
 
@@ -84,6 +97,29 @@ public class DatabaseService : IDatabase, IActivityService
 
     public async Task SetAsync<T>(string key, T value) where T : class
     {
+        if (IsTrelloSecret(key))
+        {
+            if (value is not null && value is not string)
+                throw new ArgumentException("Trello secrets must be stored as strings.", nameof(value));
+
+            await _credentialGate.WaitAsync();
+            try
+            {
+                var secret = value as string;
+                if (string.IsNullOrEmpty(secret))
+                    await _secureCredentialStore.DeleteAsync(key);
+                else
+                    await _secureCredentialStore.SetAsync(key, secret);
+
+                await DeleteLegacyValueAsync(key);
+            }
+            finally
+            {
+                _credentialGate.Release();
+            }
+            return;
+        }
+
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync();
 
@@ -108,6 +144,21 @@ public class DatabaseService : IDatabase, IActivityService
 
     public async Task DeleteAsync(string key)
     {
+        if (IsTrelloSecret(key))
+        {
+            await _credentialGate.WaitAsync();
+            try
+            {
+                await _secureCredentialStore.DeleteAsync(key);
+                await DeleteLegacyValueAsync(key);
+            }
+            finally
+            {
+                _credentialGate.Release();
+            }
+            return;
+        }
+
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync();
         
@@ -118,6 +169,78 @@ public class DatabaseService : IDatabase, IActivityService
         await command.ExecuteNonQueryAsync();
     }
 
+    private async Task<string?> GetTrelloSecretAsync(string key)
+    {
+        await _credentialGate.WaitAsync();
+        try
+        {
+            var secret = await _secureCredentialStore.GetAsync(key);
+            if (secret is not null)
+            {
+                await DeleteLegacyValueAsync(key);
+                return secret;
+            }
+
+            var legacyJson = await ReadLegacyValueAsync(key);
+            if (legacyJson is null) return null;
+
+            string? legacySecret;
+            try { legacySecret = JsonSerializer.Deserialize<string>(legacyJson); }
+            catch { return null; }
+            if (string.IsNullOrEmpty(legacySecret))
+            {
+                await DeleteLegacyValueAsync(key);
+                return legacySecret;
+            }
+
+            // Do not return or retain a legacy value until its OS-vault write succeeds.
+            await _secureCredentialStore.SetAsync(key, legacySecret);
+            await DeleteLegacyValueAsync(key);
+            return legacySecret;
+        }
+        finally
+        {
+            _credentialGate.Release();
+        }
+    }
+
+    private async Task<string?> ReadLegacyValueAsync(string key)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT Value FROM KeyValueStore WHERE Key = $key";
+        command.Parameters.AddWithValue("$key", key);
+        return await command.ExecuteScalarAsync() as string;
+    }
+
+    private async Task DeleteLegacyValueAsync(string key)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync();
+        var secureDelete = connection.CreateCommand();
+        secureDelete.CommandText = "PRAGMA secure_delete = ON";
+        await secureDelete.ExecuteNonQueryAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM KeyValueStore WHERE Key = $key";
+        command.Parameters.AddWithValue("$key", key);
+        await command.ExecuteNonQueryAsync();
+
+        var journalModeCommand = connection.CreateCommand();
+        journalModeCommand.CommandText = "PRAGMA journal_mode";
+        var journalMode = (await journalModeCommand.ExecuteScalarAsync()) as string;
+        if (string.Equals(journalMode, "wal", StringComparison.OrdinalIgnoreCase))
+        {
+            var checkpoint = connection.CreateCommand();
+            checkpoint.CommandText = "PRAGMA wal_checkpoint(TRUNCATE)";
+            await checkpoint.ExecuteNonQueryAsync();
+        }
+    }
+
+    private static bool IsTrelloSecret(string key) =>
+        string.Equals(key, "Trello.ApiKey", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(key, "Trello.Token", StringComparison.OrdinalIgnoreCase);
+
     // This is a naive implementation of Query for InMemory filtering
     // Ideally we map predicates to SQL but that's complex for generic key-value
     public async Task<IEnumerable<T>> QueryAsync<T>(Func<T, bool> predicate) where T : class
@@ -126,7 +249,7 @@ public class DatabaseService : IDatabase, IActivityService
         await connection.OpenAsync();
 
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Value FROM KeyValueStore WHERE Type = $type";
+        command.CommandText = "SELECT Value FROM KeyValueStore WHERE Type = $type AND LOWER(Key) NOT IN ('trello.apikey', 'trello.token')";
         command.Parameters.AddWithValue("$type", typeof(T).FullName ?? "Unknown");
 
         var results = new List<T>();

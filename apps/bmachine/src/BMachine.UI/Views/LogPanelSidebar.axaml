@@ -29,7 +29,7 @@
                             HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Path x:Name="ChevronPath"
                               Data="M 1,0 10,10 l -9,10 -1,-1 L 8,10 -0,1 Z"
-                              Fill="{DynamicResource TreeViewItemForeground}"
+                              Fill="{DynamicResource TextSecondaryBrush}"
                               Stretch="Uniform"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
@@ -110,7 +110,7 @@
                     </Panel>
 
                     <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource FontPrimary}"
                                FontWeight="{Binding IsRoot, Converter={StaticResource RootFontWeightConverter}}"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
@@ -146,7 +146,7 @@
                     <PathIcon Data="{StaticResource IconFile}" Width="14" Height="14"
                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource FontPrimary}"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </Panel>
@@ -171,16 +171,16 @@
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                          <UniformGrid Rows="1">
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsConsoleVisible}" Click="OnConsoleTabClick" ToolTip.Tip="Log">
-                                  <TextBlock Text="LOG" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                  <TextBlock Text="LOG" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsMasterVisible}" Click="OnMasterTabClick" ToolTip.Tip="Master">
-                                  <TextBlock Text="MASTER" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                  <TextBlock Text="MASTER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsVisible="False" IsChecked="{Binding BatchVM.IsPhotoshopVisible}" Click="OnPhotoshopTabClick" ToolTip.Tip="Photoshop">
                                   <TextBlock Text="PS" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                              <RadioButton Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" IsChecked="{Binding BatchVM.IsDocVisible}" IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
-                                  <TextBlock Text="DOC" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                  <TextBlock Text="DOC" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                              </RadioButton>
                          </UniformGrid>
                     </Border>
@@ -239,7 +239,7 @@
                                                    Classes.error="{Binding Level, Converter={x:Static vm:LogConverters.IsError}}"
                                                    Classes.debug="{Binding Level, Converter={x:Static vm:LogConverters.IsDebug}}"
                                                    Classes.accent="{Binding Level, Converter={x:Static vm:LogConverters.IsAccent}}"
-                                                   FontSize="13" LineHeight="18" FontFamily="Cascadia Code, JetBrains Mono, Consolas" 
+                                                   FontSize="13" LineHeight="18" FontFamily="{DynamicResource FontMono}"
                                                    TextWrapping="Wrap"/>
                                     </Border>
                                 </DataTemplate>
@@ -288,7 +288,7 @@
             </Grid>
             
             <!-- FOOTER (Row 2) : Floating Minimalist Status Bar -->
-            <Border Grid.Row="2" Background="#0CFFFFFF" Margin="10,2,10,10" Padding="10,4" 
+            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" Margin="10,2,10,10" Padding="10,4"
                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" 
                     IsVisible="{Binding BatchVM.IsStatusVisible}">
                 <Grid ColumnDefinitions="*, Auto">
@@ -308,7 +308,7 @@
                              <TextBlock Text="{Binding ProcessStatusText, Converter={StaticResource StringToUpperConverter}}" 
                                         IsVisible="{Binding !BatchVM.IsMasterVisible}"
                                         Foreground="{DynamicResource TextSecondaryBrush}" 
-                                        FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1.5"
+                                        FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1.5"
                                         TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              
                              <!-- Master Browser Target -->
@@ -319,14 +319,14 @@
                                          <Binding Path="!BatchVM.IsBusy"/>
                                      </MultiBinding>
                                  </StackPanel.IsVisible>
-                                <TextBlock Text="TARGET:" Foreground="#666666" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
-                                <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0" ToolTip.Tip="{Binding BatchVM.MasterBrowserTargetPath}"/>
+                                <TextBlock Text="TARGET:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0" ToolTip.Tip="{Binding BatchVM.MasterBrowserTargetPath}"/>
                              </StackPanel>
  
                              <!-- BUSY INDICATOR -->
                              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding BatchVM.IsBusy}">
                                  <ProgressBar IsIndeterminate="True" Width="20" Height="2" CornerRadius="1" VerticalAlignment="Center" Foreground="{DynamicResource AccentBlueBrush}" Background="{DynamicResource CardBackgroundBrush}"/>
-                                 <TextBlock Text="{Binding BatchVM.BusyMessage, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="9" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontWeight="Bold" LetterSpacing="1.5" TextTrimming="CharacterEllipsis" MaxWidth="110" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                 <TextBlock Text="{Binding BatchVM.BusyMessage, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1.5" TextTrimming="CharacterEllipsis" MaxWidth="110" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              </StackPanel>
                          </Grid>
                      </StackPanel>
@@ -334,7 +334,7 @@
                      <!-- Actions -->
                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                          <Button Classes="statusBtn" Command="{Binding StopProcessCommand}" IsVisible="{Binding IsProcessing}" ToolTip.Tip="Stop">
-                             <PathIcon Data="{StaticResource IconSquare}" Width="12" Height="12" Foreground="#ef4444"/>
+                             <PathIcon Data="{StaticResource IconSquare}" Width="12" Height="12" Foreground="{DynamicResource TerminalErrorBrush}"/>
                          </Button>
                          <Button Classes="statusBtn" Command="{Binding CopyAllLogsCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Copy Log">
                              <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -401,9 +401,9 @@
 
         <!-- Status Action Buttons (Futuristic Pill) -->
         <Style Selector="Button.statusBtn">
-            <Setter Property="Background" Value="#0AFFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="CornerRadius" Value="4"/>
             <Setter Property="Padding" Value="4"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -416,10 +416,10 @@
             </Setter>
         </Style>
         <Style Selector="Button.statusBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
         </Style>
         <Style Selector="Button.statusBtn:pointerover">
-            <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
             <Setter Property="RenderTransform" Value="scale(1.05)"/>
         </Style>
         <Style Selector="Button.statusBtn:pressed">
@@ -442,6 +442,13 @@
         <Style Selector="TextBox.console:focus-within /template/ Border">
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <Style Selector="RadioButton.LogPanelTab">
+            <Setter Property="Padding" Value="2,6"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
 
         <!-- Log Color Styles -->
@@ -468,7 +475,7 @@
              </Setter>
          </Style>
          <Style Selector="Border.logCard:pointerover">
-             <Setter Property="Background" Value="#1AFFFFFF"/>
+             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
          </Style>
         
         <Style Selector="Border.logCard.success">

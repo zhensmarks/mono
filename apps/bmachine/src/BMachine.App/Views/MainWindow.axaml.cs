@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
 using Avalonia;
@@ -113,8 +113,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error saving window state: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Error saving window state ({ex.GetType().Name}).");
         }
     }
 }
-

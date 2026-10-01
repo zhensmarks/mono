@@ -489,7 +489,7 @@
                                         <!-- Header -->
                                         <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                                             <StackPanel>
-                                                <TextBlock Text="COPY TO" FontSize="10" FontWeight="Bold" Foreground="#888"/>
+                                                <TextBlock Text="COPY TO" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                             <Button Grid.Column="1" Command="{Binding BatchVM.CloseMasterBrowserCommand}" Classes="Clear" Padding="5">
@@ -732,7 +732,7 @@
                                         <!-- Header -->
                                         <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,10">
                                             <StackPanel>
-                                                <TextBlock Text="COPY TO" FontSize="10" FontWeight="Bold" Foreground="#888"/>
+                                                <TextBlock Text="COPY TO" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                             <Button Grid.Column="1" Command="{Binding BatchVM.CloseMasterBrowserCommand}" Classes="Clear" Padding="5">
@@ -874,13 +874,13 @@
                 </Grid>
 
                 <!-- LOCKER TAB CONTENT -->
-                <views:FolderLockerView DataContext="{Binding FolderLockerVM}" 
-                                        IsVisible="{Binding DataContext.IsLockerTabSelected, ElementName=Root}" 
+                <views:FolderLockerView DataContext="{Binding FolderLockerVM}"
+                                        IsVisible="{Binding DataContext.IsLockerTabSelected, ElementName=Root, FallbackValue=False, TargetNullValue=False}"
                                         Margin="20,0,20,0"/>
 
                 <!-- EXPLORER TAB CONTENT -->
                 <views:OutputExplorerView DataContext="{Binding OutputExplorerVM}"
-                                          IsVisible="{Binding DataContext.IsExplorerTabSelected, ElementName=Root}"
+                                          IsVisible="{Binding DataContext.IsExplorerTabSelected, ElementName=Root, FallbackValue=False, TargetNullValue=False}"
                                           Margin="20,0,20,0"/>
 
                 <!-- EMBEDDED VIEW OVERLAY -->

@@ -408,11 +408,11 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
             int movedCount = 0;
             int failedCount = 0;
 
-            using var client = new HttpClient();
+            using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
 
             foreach (var card in selectedRegulars)
             {
-                var url = $"https://api.trello.com/1/cards/{card.Id}?idList={accListId}&idBoard={accBoardId}&key={apiKey}&token={token}";
+                var url = $"https://api.trello.com/1/cards/{card.Id}?idList={accListId}&idBoard={accBoardId}";
                 var response = await client.PutAsync(url, null);
                 
                 if (response.IsSuccessStatusCode)
@@ -455,9 +455,9 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
 
     private async Task<TrelloCard?> FetchSingleCard(string cardId, string apiKey, string token)
     {
-        using var client = new HttpClient();
+        using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
         // Added cover + attachments to get cover image URL
-        var url = $"https://api.trello.com/1/cards/{cardId}?key={apiKey}&token={token}&fields=name,desc,due,labels,idMembers,badges,cover&checklists=all&attachments=true&attachment_fields=url,name";
+        var url = $"https://api.trello.com/1/cards/{cardId}?fields=name,desc,due,labels,idMembers,badges,cover&checklists=all&attachments=true&attachment_fields=url,name";
         
         try 
         {
@@ -592,7 +592,7 @@ public partial class EditingCardListViewModel : BaseTrelloListViewModel, Communi
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error fetching card {cardId}: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Trello card fetch failed: {ex.GetType().Name}");
             return null; // Card not found/Error
         }
     }

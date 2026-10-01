@@ -353,7 +353,10 @@ namespace BMachine.UI.ViewModels;
             item.RefreshOutput();
         }
     }
-    
+
+    [RelayCommand]
+    private Task RefreshMaster() => LoadMasterNodes(MasterSearchText);
+
     /// <summary>
     /// Mimics the 'get_relative_path_from_month' logic from Python scripts.
     /// Scans up the directory tree for a pattern like "02 AGUSTUS 2025".
