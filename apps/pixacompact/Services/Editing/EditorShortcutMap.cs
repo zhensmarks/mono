@@ -21,7 +21,9 @@ public enum EditorShortcutAction
     BrushSizeDown,
     BrushSizeUp,
     ToggleBrushMode,
-    QuickMask
+    QuickMask,
+    MaskDelete,
+    MaskRestore
 }
 
 public sealed record EditorShortcutDefinition(
@@ -52,7 +54,9 @@ public static class EditorShortcutMap
         new(EditorShortcutAction.BrushSizeDown, "Brush size down", "TxtEditBrushSizeDownShortcut", "["),
         new(EditorShortcutAction.BrushSizeUp, "Brush size up", "TxtEditBrushSizeUpShortcut", "]"),
         new(EditorShortcutAction.ToggleBrushMode, "Toggle erase / restore", "TxtEditBrushModeShortcut", "X"),
-        new(EditorShortcutAction.QuickMask, "Quick mask", "TxtEditQuickMaskShortcut", "Q")
+        new(EditorShortcutAction.QuickMask, "Quick mask", "TxtEditQuickMaskShortcut", "Q"),
+        new(EditorShortcutAction.MaskDelete, "Delete masking", "TxtEditMaskDeleteShortcut", "Delete"),
+        new(EditorShortcutAction.MaskRestore, "Restore masking", "TxtEditMaskRestoreShortcut", "Shift+Delete")
     ];
 
     private static readonly IReadOnlyDictionary<EditorShortcutAction, EditorShortcutDefinition> ByAction =
@@ -106,7 +110,7 @@ public static class EditorShortcutMap
                 return false;
             }
 
-            if (IsReservedKey(key))
+            if (IsReservedKeyForAction(definition.Action, key))
             {
                 error = key == Key.Space
                     ? "Space is reserved for temporary Pan."
@@ -142,13 +146,14 @@ public static class EditorShortcutMap
     {
         action = default;
         if (modifiers is not (KeyModifiers.None or KeyModifiers.Shift)
-            || IsModifierKey(key) || IsReservedKey(key))
+            || IsModifierKey(key))
             return false;
 
         foreach (var definition in DefinitionList)
         {
             if (TryParse(GetShortcut(shortcuts, definition.Action), out var boundKey, out var boundModifiers)
-                && boundKey == key && boundModifiers == modifiers)
+                && boundKey == key && boundModifiers == modifiers
+                && !IsReservedKeyForAction(definition.Action, key))
             {
                 action = definition.Action;
                 return true;
@@ -196,6 +201,19 @@ public static class EditorShortcutMap
 
     public static bool IsReservedKey(Key key) => key is
         Key.Space or Key.Escape or Key.Enter or Key.Back or Key.Delete;
+
+    /// <summary>
+    /// Varian context-aware dari <see cref="IsReservedKey"/>: Delete/Backspace boleh
+    /// di-bind ke aksi masking (ala Photoshop), tetapi tetap reserved untuk aksi lain
+    /// karena dipakai menghapus titik terakhir lasso/pen yang sedang digambar.
+    /// </summary>
+    public static bool IsReservedKeyForAction(EditorShortcutAction action, Key key)
+    {
+        if (key is Key.Space or Key.Escape or Key.Enter) return true;
+        if (key is Key.Back or Key.Delete)
+            return action is not (EditorShortcutAction.MaskDelete or EditorShortcutAction.MaskRestore);
+        return false;
+    }
 
     private static bool IsModifierKey(Key key) => key is
         Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift

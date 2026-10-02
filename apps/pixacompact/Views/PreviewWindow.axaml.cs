@@ -675,7 +675,7 @@ try {{
     {
         if (sender is not TextBox textBox) return;
 
-        bool isEditorShortcut = EditorShortcutMap.Definitions.Any(definition =>
+        var editorDefinition = EditorShortcutMap.Definitions.FirstOrDefault(definition =>
             definition.ControlName.Equals(textBox.Name, StringComparison.Ordinal));
 
         // Keep capture local to this field; edit-mode bindings also support Shift+key.
@@ -684,9 +684,10 @@ try {{
             or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin)
             return;
 
-        if (isEditorShortcut)
+        if (editorDefinition != null)
         {
-            if (EditorShortcutMap.IsReservedKey(e.Key))
+            // Delete/Backspace boleh di-bind ke aksi masking; reserved untuk aksi lain.
+            if (EditorShortcutMap.IsReservedKeyForAction(editorDefinition.Action, e.Key))
             {
                 Toast(e.Key == Key.Space
                     ? "Space is reserved for temporary Pan."

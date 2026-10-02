@@ -292,6 +292,78 @@ public sealed class PenTool : SelectionTool
         return true;
     }
 
+    /// <summary>
+    /// Hit-test knob handle Bézier (titik absolut = Point + HandleIn/Out), ala
+    /// Photoshop direct-selection. Mengembalikan anchor dan sisi handle yang kena.
+    /// </summary>
+    public (bool hit, int anchorIndex, bool isIn) HitTestHandle(Vec2 p, double radius)
+    {
+        bool found = false;
+        int bestAnchor = -1;
+        bool bestIn = false;
+        double bestD = radius * radius;
+        for (int i = 0; i < _anchors.Count; i++)
+        {
+            var a = _anchors[i];
+            if (IsHandleVec(a.HandleIn))
+            {
+                double d = Dist2(p, a.Point + a.HandleIn);
+                if (d <= bestD) { bestD = d; bestAnchor = i; bestIn = true; found = true; }
+            }
+            if (IsHandleVec(a.HandleOut))
+            {
+                double d = Dist2(p, a.Point + a.HandleOut);
+                if (d <= bestD) { bestD = d; bestAnchor = i; bestIn = false; found = true; }
+            }
+        }
+        return (found, bestAnchor, bestIn);
+    }
+
+    /// <summary>
+    /// Atur satu handle secara absolut (relatif terhadap anchor).
+    /// <paramref name="mirror"/> = true menjaga handle berlawanan tetap simetris
+    /// (smooth); false (tahan Alt) mematahkan simetri ala Photoshop.
+    /// </summary>
+    public bool SetHandle(int index, bool isIn, Vec2 relative, bool mirror)
+    {
+        if (index < 0 || index >= _anchors.Count) return false;
+        var a = _anchors[index];
+        if (isIn) a.HandleIn = relative;
+        else a.HandleOut = relative;
+        if (mirror)
+        {
+            var m = new Vec2(-relative.X, -relative.Y);
+            if (isIn) a.HandleOut = m;
+            else a.HandleIn = m;
+        }
+        RefreshPreviewPath();
+        RaiseChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// Ubah anchor menjadi corner tajam (hapus kedua handle) — setara Alt+klik
+    /// Convert Point Tool di Photoshop.
+    /// </summary>
+    public bool ConvertToCorner(int index)
+    {
+        if (index < 0 || index >= _anchors.Count) return false;
+        var a = _anchors[index];
+        a.HandleIn = default;
+        a.HandleOut = default;
+        RefreshPreviewPath();
+        RaiseChanged();
+        return true;
+    }
+
+    private static bool IsHandleVec(Vec2 v) => v.X * v.X + v.Y * v.Y > 0.25;
+
+    private static double Dist2(Vec2 a, Vec2 b)
+    {
+        double dx = a.X - b.X, dy = a.Y - b.Y;
+        return dx * dx + dy * dy;
+    }
+
     /// <summary>Index anchor terdekat dalam radius (px gambar), atau -1.</summary>
     public int HitTestAnchor(Vec2 p, double radius)
     {
