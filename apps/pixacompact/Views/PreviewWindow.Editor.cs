@@ -44,6 +44,17 @@ public partial class PreviewWindow
     /// ke user (tidak lagi diam-diam).
     /// </summary>
     private string? _restoreUnavailableReason;
+    /// <summary>
+    /// true saat penyiapan sesi editor berjalan di background (Putaran 2 #11).
+    /// Selama true, tombol masuk-editor dinonaktifkan + berlabel "Menyiapkan..."
+    /// agar klik sebelum session siap tidak silent-fail (Tugas A Putaran 2).
+    /// </summary>
+    private bool _sessionPreparing;
+    /// <summary>
+    /// Alasan FATAL terakhir sesi editor gagal disiapkan (null = belum dicoba /
+    /// sukses). Dipakai untuk Toast eksplisit + percobaan ulang otomatis.
+    /// </summary>
+    private string? _sessionFatalError;
     private readonly TemporaryPanToolState _toolState = new();
     private EditToolKind _activeTool
     {
@@ -66,6 +77,9 @@ public partial class PreviewWindow
     private EditToolKind _toolBeforeQuickMask = EditToolKind.Brush;
     private bool _suppressOptionEvents;
     private SelectionTool? _activeSelectionTool;
+    /// <summary>Undo/redo untuk Pen path (daftar anchor). Minimal untuk Putaran 2.</summary>
+    private readonly Stack<List<PenTool.Anchor>> _pathUndo = new();
+    private readonly Stack<List<PenTool.Anchor>> _pathRedo = new();
     private bool _strokeActive;
     private Vec2 _lastStrokeImage;
     private BrushStrokeAccumulator? _strokeAccum;
@@ -137,71 +151,97 @@ public partial class PreviewWindow
     }
 
     /// <summary>Dipanggil oleh LoadImages utama setelah bitmap dimuat, untuk reset/edit session.</summary>
+    /// <summary>Putar PixelBuffer 90° searah jarum jam (untuk restore saat dimensi tertukar).</summary>
+    private static PixelBuffer Rotate90Clockwise(PixelBuffer src)
+    {
+        // src: W×H -> hasil: H×W. rotated(xr, yr) = src(yr, H-1-xr).
+        var dst = new PixelBuffer(src.Height, src.Width);
+        var s = src.Bgra; var d = dst.Bgra;
+        int w = src.Width, h = src.Height;
+        for (int yr = 0; yr < w; yr++)
+        {
+            for (int xr = 0; xr < h; xr++)
+            {
+                int xo = yr;
+                int yo = h - 1 - xr;
+                int si = (yo * w + xo) * 4;
+                int di = (yr * h + xr) * 4;
+                d[di] = s[si]; d[di+1] = s[si+1]; d[di+2] = s[si+2]; d[di+3] = s[si+3];
+            }
+        }
+        return dst;
+    }
+
     private async Task<bool> PrepareEditorAsync(string originalPath, string resultPath, PixelBuffer? existingResult = null)
     {
         try
         {
-            await Task.CompletedTask;
             if (!_settings.EditorBetaMode) return false;
-            EndEditMode(silent: true);
-            _session?.Dispose();
-        _session = null;
-        DisposePreviewBuffers();
-            _refineHair.Reset();
-
-            var srcPath = File.Exists(resultPath) ? resultPath : originalPath;
-            if (!File.Exists(srcPath)) return false;
-
-            PixelBuffer? result = existingResult;
-            PixelBuffer? original = null;
-            string? restoreIssue = null;
-
-            // Result sudah dipakai viewer bila tersedia. Hanya decode ulang bila perlu.
+            // Putaran 2 #11: decode berat di background thread agar UI tidak freeze.
+            // UI sudah tampil dengan placeholder; session diisi saat decode selesai.
+            var (result, original, restoreIssue) = await Task.Run(() =>
+            {
+                PixelBuffer? r = existingResult;
+                PixelBuffer? o = null;
+                string? issue = null;
+                var srcPath = File.Exists(resultPath) ? resultPath : originalPath;
+                if (!File.Exists(srcPath)) return ((PixelBuffer?)null, (PixelBuffer?)null, (string?)"file tidak ditemukan");
+                if (r == null)
+                {
+                    try
+                    {
+                        using var bmp = new Bitmap(srcPath);
+                        r = PixelBuffer.FromBitmap(bmp);
+                    }
+                    catch { r = null; }
+                }
+                if (r == null) return ((PixelBuffer?)null, (PixelBuffer?)null, (string?)"gagal decode hasil");
+                bool sameFile = string.Equals(originalPath, srcPath, StringComparison.OrdinalIgnoreCase);                if (sameFile)
+                {
+                    o = r;
+                }
+                else if (File.Exists(originalPath))
+                {
+                    try
+                    {
+                        using var ob = new Bitmap(originalPath);
+                        var obuf = PixelBuffer.FromBitmap(ob);
+                        if (obuf.Width == r.Width && obuf.Height == r.Height)
+                            o = obuf;
+                        else if (obuf.Width == r.Height && obuf.Height == r.Width)
+                            o = Rotate90Clockwise(obuf);
+                        else
+                            issue = $"ukuran gambar asli ({obuf.Width}×{obuf.Height}) tidak sama dengan hasil ({r.Width}×{r.Height})";
+                    }
+                    catch (Exception ex)
+                    {
+                        issue = $"gagal memuat gambar asli ({ex.Message})";
+                    }
+                }
+                else
+                {
+                    issue = "file gambar asli tidak ditemukan";
+                }
+                return (r, o, issue);
+            });
             if (result == null)
             {
-                try
-                {
-                    using var bmp = new Bitmap(srcPath);
-                    result = PixelBuffer.FromBitmap(bmp);
-                }
-                catch { result = null; }
+                // Gagal FATAL (bukan sekadar restore tak tersedia): catat alasannya
+                // agar UI bisa memberi Toast eksplisit + menawarkan retry (Tugas A).
+                // Saat result==null, 'restoreIssue' berisi alasan fatal dari Task.Run
+                // ("file tidak ditemukan" / "gagal decode hasil").
+                _sessionFatalError = restoreIssue ?? "gagal menyiapkan sesi editor";
+                return false;
             }
-            if (result == null) return false;
-
-            // ARSITEKTUR MASKING: gambar Original adalah basis WAJIB sesi edit —
-            // delete = mask→0, restore = mask→255 dengan RGB dari Original. Muat
-            // sinkron di sini agar tidak ada race/jendela "belum siap" (decode JPG
-            // lokal biasanya <500ms dan terjadi sekali per gambar). RGB hasil
-            // matting tetap dipertahankan untuk area cutout (lihat CompositeInto).
-            bool sameFile = string.Equals(originalPath, srcPath, StringComparison.OrdinalIgnoreCase);
-            if (sameFile)
-            {
-                // Result memang gambar asli: pakai buffer yang sama sebagai restore source.
-                original = result;
-            }
-            else if (File.Exists(originalPath))
-            {
-                try
-                {
-                    using var ob = new Bitmap(originalPath);
-                    var obuf = PixelBuffer.FromBitmap(ob);
-                    if (obuf.Width == result.Width && obuf.Height == result.Height)
-                        original = obuf;
-                    else
-                        restoreIssue = $"ukuran gambar asli ({obuf.Width}×{obuf.Height}) tidak sama dengan hasil ({result.Width}×{result.Height})";
-                }
-                catch (Exception ex)
-                {
-                    restoreIssue = $"gagal memuat gambar asli ({ex.Message})";
-                }
-            }
-            else
-            {
-                restoreIssue = "file gambar asli tidak ditemukan";
-            }
+            EndEditMode(silent: true);
+            _session?.Dispose();
+            _session = null;
+            DisposePreviewBuffers();
+            _refineHair.Reset();
 
             _session = new MaskEditSession(result, original,
                 _settings.EditorUndoSteps, _settings.EditorUndoMemoryMb);
+            _sessionFatalError = null;
             _restoreUnavailableReason = original != null ? null : restoreIssue;
             UpdateRestoreAvailability();
 
@@ -214,8 +254,39 @@ public partial class PreviewWindow
         catch (Exception ex)
         {
             Console.WriteLine($"PrepareEditor gagal: {ex.Message}");
+            _sessionFatalError = $"gagal menyiapkan sesi editor ({ex.Message})";
             return false;
         }
+    }
+
+    /// <summary>
+    /// Memulai penyiapan sesi editor dengan status "preparing" yang terlihat di UI
+    /// (Tugas A Putaran 2). Mencegah silent-fail: selama penyiapan berjalan, tombol
+    /// masuk-editor dinonaktifkan dan berlabel "Menyiapkan...". Bila gagal, alasan
+    /// fatal dicatat (<see cref="_sessionFatalError"/>) dan Toast ditampilkan sekali.
+    /// Aman dipanggil dari thread manapun; pembaruan UI selalu di-dispatch.
+    /// </summary>
+    private async Task BeginPrepareEditorSessionAsync(string originalPath, string resultPath, PixelBuffer? existingResult = null)
+    {
+        if (_sessionPreparing) return;
+        _sessionPreparing = true;
+        _sessionFatalError = null;
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(UpdateFooterModeButton);
+        bool ok;
+        try { ok = await PrepareEditorAsync(originalPath, resultPath, existingResult); }
+        catch (Exception ex)
+        {
+            _sessionFatalError = ex.Message;
+            ok = false;
+        }
+        _sessionPreparing = false;
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            UpdateFooterModeButton();
+            WireEditorControls();
+            if (!ok && !_editMode && _sessionFatalError != null)
+                Toast(T("Toast_EditorSessionFailed", _sessionFatalError), warning: true);
+        });
     }
 
     private async void OnEditorBetaChanged(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -235,7 +306,7 @@ public partial class PreviewWindow
         }
 
         if (_session == null && !string.IsNullOrWhiteSpace(_resultPath))
-            await PrepareEditorAsync(_originalPath, _resultPath);
+            await BeginPrepareEditorSessionAsync(_originalPath, _resultPath);
         WireEditorControls();
     }
 
@@ -246,7 +317,29 @@ public partial class PreviewWindow
 
     private void EnterEditMode()
     {
-        if (!_settings.EditorBetaMode || _session == null) return;
+        // Tugas A Putaran 2: JANGAN silent-fail. Setiap kondisi yang menghalangi
+        // masuk editor WAJIB memberi feedback (Toast) ke user.
+        if (!_settings.EditorBetaMode)
+        {
+            Toast(T("Toast_EditorBetaOff"), warning: true);
+            return;
+        }
+        if (_sessionPreparing)
+        {
+            Toast(T("Toast_EditorPreparing"), warning: true);
+            return;
+        }
+        if (_session == null)
+        {
+            if (_sessionFatalError != null)
+                Toast(T("Toast_EditorSessionFailed", _sessionFatalError), warning: true);
+            else
+                Toast(T("Toast_EditorNoSession"), warning: true);
+            // Tawarkan percobaan ulang otomatis: siapkan sesi di background.
+            if (!string.IsNullOrWhiteSpace(_resultPath))
+                _ = BeginPrepareEditorSessionAsync(_originalPath, _resultPath);
+            return;
+        }
 
         _editMode = true;
         _tabPanelsHidden = false;
@@ -425,6 +518,7 @@ public partial class PreviewWindow
         }
         Sync(this.FindControl<ToggleButton>("BtnCompare"));
         Sync(this.FindControl<ToggleButton>("BtnCompareOptions"));
+        Sync(this.FindControl<ToggleButton>("BtnCompareBottom"));
         if (this.FindControl<MenuItem>("MiCompare") is { } mi && mi.IsChecked != _compareOriginal)
             mi.IsChecked = _compareOriginal;
     }
@@ -450,7 +544,13 @@ public partial class PreviewWindow
         // boleh tampil bersamaan karena membuat dua jalur masuk editor.
         if (headerEnter != null) headerEnter.IsVisible = false;
         if (headerExit != null) headerExit.IsVisible = false;
-        if (text != null) text.Text = _editMode ? "MODE EDITOR" : "BUKA EDITOR";
+        // Tugas A Putaran 2: selama session disiapkan di background, tombol
+        // dinonaktifkan + berlabel "Menyiapkan..." (tidak silent-fail).
+        if (button != null) button.IsEnabled = !_sessionPreparing || _editMode;
+        if (text != null)
+            text.Text = _editMode ? T("Footer_EditorMode")
+                : _sessionPreparing ? T("Editor_Preparing")
+                : T("Footer_OpenEditor");
         if (button != null) ToolTip.SetTip(button, _editMode ? T("Tip_ToggleEditor") : T("Tip_OpenEditor"));
         if (icon != null)
             icon.Data = StreamGeometry.Parse(_editMode
@@ -555,26 +655,26 @@ public partial class PreviewWindow
             ("BtnToolMove", EditToolKind.Move),
             ("BtnToolRefineEdge", EditToolKind.RefineEdge),
         };
-         foreach (var (name, k) in map)
-         {
-             var b = this.FindControl<Button>(name);
-             if (b == null)
-             {
-                 Console.WriteLine($"[DEBUG] HighlightActiveTool: Button '{name}' tidak ditemukan!");
-                 continue;
-             }
-             bool isActive = k == kind;
-             if (isActive)
-             {
-                 if (!b.Classes.Contains("active")) b.Classes.Add("active");
-             }
-             else
-             {
-                 b.Classes.Remove("active");
-             }
-             Console.WriteLine($"[DEBUG] HighlightActiveTool: {name} -> {(isActive ? "AKTIF" : "nonaktif")}");
-         }
-         Console.WriteLine($"[DEBUG] HighlightActiveTool selesai untuk tool: {kind}");
+        // NOTE: highlight aktif via class "active"; jika style multi-class bermasalah,
+        // fallback ke properti langsung.
+        foreach (var (name, k) in map)
+        {
+            var b = this.FindControl<Button>(name);
+            if (b == null) continue;
+            bool isActive = k == kind;
+            if (isActive)
+            {
+                if (!b.Classes.Contains("active")) b.Classes.Add("active");
+                b.Background = new SolidColorBrush(Color.FromRgb(0x1F, 0x3A, 0x52));
+                b.BorderBrush = new SolidColorBrush(Color.FromRgb(0x31, 0xA8, 0xFF));
+            }
+            else
+            {
+                b.Classes.Remove("active");
+                b.ClearValue(Button.BackgroundProperty);
+                b.ClearValue(Button.BorderBrushProperty);
+            }
+        }
      }
 
 
@@ -1251,17 +1351,9 @@ public partial class PreviewWindow
                 : null;
             if (_activeSelectionTool is PenTool penTool)
             {
-                long now = Environment.TickCount64;
-                bool dbl = (now - _lastPenClickMs) < 350;
-                if (dbl && penTool.CurrentPath.Count >= 3)
-                {
-                    // Photoshop: double-click HANYA menutup path, tidak membuat selection.
-                    // Selection dibuat eksplisit via Make Selection (Ctrl+Enter).
-                    penTool.ClosePath();
-                    RenderOverlay();
-                    UpdateEditorStatus();
-                    return true;
-                }
+                // Photoshop: double-click HANYA menaruh 2 anchor biasa, TIDAK menutup path.
+                // Path ditutup dengan klik pada anchor pertama (lihat PenTool.AddAnchor).
+                // Enter = akhiri path (tetap terbuka); Esc = batalkan path.
                 // Drag knob handle Bézier diprioritaskan di atas tambah anchor —
                 // ini cara utama mengedit kurva setelah anchor ditempatkan.
                 var (handleHit, handleAnchor, handleIsIn) = penTool.HitTestHandle(imagePos, 10);
@@ -1291,7 +1383,6 @@ public partial class PreviewWindow
                 }
                 e.Pointer.Capture(img);
                 penTool.PointerDown(imagePos, alt);
-                _lastPenClickMs = now;
             }
             else
             {
@@ -1862,6 +1953,7 @@ public partial class PreviewWindow
         // ala Photoshop: Shift selalu berarti tambah.
         var mode = forceMode ?? _pendingSelMode ?? EffectiveMode(mods);
         _pendingSelMode = null;
+        _session.PushSelectionUndo(T("Undo_Selection"));
         _session.Selection.Combine(region, mode, _settings.EditorAntiAlias, feather);
 
         tool.Cancel();
@@ -2004,6 +2096,7 @@ public partial class PreviewWindow
         var sel = Selection;
         if (sel == null || !sel.HasSelection) { Toast(T("Toast_NoSelection")); return; }
         int px = Math.Clamp(_settings.EditorSelGrowPx, 1, EditorSettings.MaxSelGrowPx);
+        _session?.PushSelectionUndo(T("Undo_Shrink"));
         sel.Shrink(px);
         AfterSelectionChanged("Shrink");
     }
@@ -2013,6 +2106,7 @@ public partial class PreviewWindow
         var sel = Selection;
         if (sel == null || !sel.HasSelection) { Toast(T("Toast_NoSelection")); return; }
         int px = Math.Max(1, (int)Math.Round(_settings.EditorSelectionFeather));
+        _session?.PushSelectionUndo(T("Undo_Feather"));
         sel.Feather(px);
         AfterSelectionChanged("Feather");
     }
@@ -2021,6 +2115,7 @@ public partial class PreviewWindow
     {
         var sel = Selection;
         if (sel == null) return;
+        _session?.PushSelectionUndo(T("Undo_Invert"));
         sel.Invert();
         AfterSelectionChanged("Invert");
     }
@@ -2037,6 +2132,7 @@ public partial class PreviewWindow
     {
         var sel = Selection;
         if (sel == null) return;
+        _session?.PushSelectionUndo(T("Undo_SelectAll"));
         sel.SelectAll();
         AfterSelectionChanged("All");
     }
@@ -2339,9 +2435,34 @@ public partial class PreviewWindow
     // UNDO / REDO
     // ========================
 
+    /// <summary>Salin daftar anchor Pen untuk snapshot undo/redo.</summary>
+    private static List<PenTool.Anchor> CloneAnchors(PenTool pen)
+    {
+        var list = new List<PenTool.Anchor>(pen.Anchors.Count);
+        foreach (var a in pen.Anchors)
+        {
+            var c = new PenTool.Anchor(new Vec2(a.Point.X, a.Point.Y))
+            {
+                HandleIn = new Vec2(a.HandleIn.X, a.HandleIn.Y),
+                HandleOut = new Vec2(a.HandleOut.X, a.HandleOut.Y)
+            };
+            list.Add(c);
+        }
+        return list;
+    }
+
     private void OnUndoClick(object? sender, RoutedEventArgs e)
     {
         if (!_editMode || _session == null) return;
+        // Prioritaskan undo path Pen yang sedang digambar.
+        if (_activeSelectionTool is PenTool pen && pen.Anchors.Count > 0)
+        {
+            _pathRedo.Push(CloneAnchors(pen));
+            pen.Cancel();
+            RenderOverlay();
+            UpdateEditorStatus();
+            return;
+        }
         var label = _session.UndoAction();
         if (label != null)
         {
@@ -2349,6 +2470,7 @@ public partial class PreviewWindow
             MarkResultDirty(PixelBounds.Full(_session.Width, _session.Height));
             RefreshResultBitmap();
             RenderQuickMask();
+            RenderAnts();
             RenderOverlay();
             UpdateEditorStatus();
             RefreshHistory();
@@ -2358,6 +2480,16 @@ public partial class PreviewWindow
     private void OnRedoClick(object? sender, RoutedEventArgs e)
     {
         if (!_editMode || _session == null) return;
+        // Prioritaskan redo path Pen.
+        if (_activeSelectionTool is PenTool penRedo && _pathRedo.Count > 0 && penRedo.Anchors.Count == 0)
+        {
+            var anchors = _pathRedo.Pop();
+            _pathUndo.Push(new List<PenTool.Anchor>());
+            penRedo.RestoreAnchors(anchors);
+            RenderOverlay();
+            UpdateEditorStatus();
+            return;
+        }
         var label = _session.RedoAction();
         if (label != null)
         {
@@ -2442,14 +2574,8 @@ public partial class PreviewWindow
     {
         if (this.FindControl<Button>("BtnMaskView") is { } b)
         {
-            if (_maskView)
-            {
-                if (!b.Classes.Contains("active")) b.Classes.Add("active");
-            }
-            else
-            {
-                b.Classes.Remove("active");
-            }
+            if (_maskView) { b.Background = new SolidColorBrush(Color.FromRgb(0x1F, 0x3A, 0x52)); b.BorderBrush = new SolidColorBrush(Color.FromRgb(0x31, 0xA8, 0xFF)); }
+            else { b.ClearValue(Button.BackgroundProperty); b.ClearValue(Button.BorderBrushProperty); }
         }
         if (this.FindControl<MenuItem>("MiMaskView") is { } mi && mi.IsChecked != _maskView)
             mi.IsChecked = _maskView;
@@ -2610,7 +2736,7 @@ public partial class PreviewWindow
         {
             Content = "Unduh", Padding = new Thickness(16, 8), CornerRadius = new CornerRadius(3),
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-            Background = new SolidColorBrush(Color.Parse("#31A8FF")),
+            Background = new SolidColorBrush(Color.FromRgb(0x31, 0xA8, 0xFF)),
             Foreground = Brushes.White, FontWeight = FontWeight.SemiBold, Cursor = new Cursor(StandardCursorType.Hand)
         };
         var no = new Button
@@ -2685,17 +2811,18 @@ public partial class PreviewWindow
     {
         var b = this.FindControl<Button>("BtnQuickMask");
         if (b == null) return;
-        if (_quickMask)
-        {
-            if (!b.Classes.Contains("active")) b.Classes.Add("active");
-        }
-        else
-        {
-            b.Classes.Remove("active");
-        }
+        // QuickMask pakai warna kemerahan sesuai desain awal.
+        if (_quickMask) { b.Background = new SolidColorBrush(Color.FromRgb(0x4A, 0x25, 0x2B)); b.BorderBrush = new SolidColorBrush(Color.FromRgb(0xD8, 0x79, 0x80)); }
+        else { b.ClearValue(Button.BackgroundProperty); b.ClearValue(Button.BorderBrushProperty); }
         if (this.FindControl<MenuItem>("MiQuickMask") is { } mi && mi.IsChecked != _quickMask)
             mi.IsChecked = _quickMask;
     }
+
+    /// <summary>
+    /// Highlight tombol tool via properti langsung (bukan class), karena
+    /// selector multi-class tidak bekerja di Avalonia 11.3.
+    /// </summary>
+
 
     private void Toast(string message, bool warning = false)
     {
@@ -2733,9 +2860,10 @@ public partial class PreviewWindow
     {
         if (e.Key == Key.E && e.KeyModifiers == KeyModifiers.None)
         {
-            if (_session == null) return false;
+            // Tugas A Putaran 2: EnterEditMode selalu memberi feedback (Toast)
+            // bila belum bisa masuk — tidak lagi silent-fail.
             EnterEditMode();
-            return _editMode;
+            return true;
         }
         return false;
     }
@@ -2974,6 +3102,11 @@ public partial class PreviewWindow
         {
             cmp.IsCheckedChanged -= OnCompareToggled;
             cmp.IsCheckedChanged += OnCompareToggled;
+        }
+        if (this.FindControl<ToggleButton>("BtnCompareBottom") is { } cmpBottom)
+        {
+            cmpBottom.IsCheckedChanged -= OnCompareToggled;
+            cmpBottom.IsCheckedChanged += OnCompareToggled;
         }
         if (this.FindControl<ToggleButton>("BtnCompareOptions") is { } cmpOpt)
         {
