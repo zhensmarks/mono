@@ -126,14 +126,16 @@ Status: build sukses, terverifikasi lewat uji langsung (Xvfb + screenshot).
 
 ## Status push ke GitHub
 - Syarat verifikasi user terpenuhi (build sukses + aplikasi jalan + perilaku
-  terverifikasi), sehingga push dicoba via `github push_files`.
-- **TERBLOKIR**: `403 Resource not accessible by integration` saat membuat branch
-  `fix/edit-mode-shortcuts-save` — GitHub App "meta-muse-ai" belum terinstal /
-  belum diberi izin Contents:write pada repo `zhensmarks/mono`.
-- Yang perlu dilakukan user: buka https://github.com/apps/meta-muse-ai/installations/new
-  lalu install (atau perbarui) aplikasi untuk repo `mono` dengan izin write,
-  kemudian push dapat diulang. PR belum dibuat (menunggu push berhasil).
-- Commit lokal siap: branch `fix/edit-mode-shortcuts-save` @ `89f0551`.
+  terverifikasi), dan user meminta push langsung ke `main`.
+- **PUSH BERHASIL** ke `main` via `github push_files` dalam 3 commit
+  (satu file >128KB harus dipecah karena batas argumen CLI):
+  - `f163635` (1/3): summary + EditorShortcutMap + SelectionTool + EditorPen + axaml.cs
+  - `680faf0` (2/3): PreviewWindow.axaml
+  - `5076adf` (3/3): PreviewWindow.Editor.cs
+- Verifikasi pasca-push: blob SHA ketujuh file di `origin/main` sama persis
+  dengan hasil build lokal yang teruji.
+- Screenshot bukti (`verify_shots/`, 12 file) sengaja tidak di-push; tersimpan
+  lokal di `~/workspace/mono-work/verify_shots/`.
 
 ## Catatan
 - Bug `_pendingSelMode` basi ditemukan murni dari pengujian langsung ("sambil mencoba"):
