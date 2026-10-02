@@ -110,6 +110,7 @@ if (pngPath && jpgPath) {
         RotationResult = 0;
 
         _settings = PreviewWindowSettings.Load();
+        ApplyEditorLanguage(_settings.EditorLanguage, save: false);
         if (_settings.X != -1 && _settings.Y != -1)
         {
             Position = new PixelPoint((int)_settings.X, (int)_settings.Y);
@@ -127,6 +128,7 @@ if (pngPath && jpgPath) {
 
         ApplyBackground();
         AddHandler(InputElement.KeyUpEvent, OnPreviewKeyUp, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        AddHandler(InputElement.KeyDownEvent, OnPreviewKeyDownTab, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         Deactivated += (_, _) => ReleaseTemporaryPan();
 
         Closing += (s, e) =>
@@ -671,148 +673,10 @@ try {{
         }
     }
 
-    private void OnShortcutTextBoxKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
-    {
-        if (sender is not TextBox textBox) return;
 
-        var editorDefinition = EditorShortcutMap.Definitions.FirstOrDefault(definition =>
-            definition.ControlName.Equals(textBox.Name, StringComparison.Ordinal));
 
-        // Keep capture local to this field; edit-mode bindings also support Shift+key.
-        e.Handled = true;
-        if (e.Key is Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift
-            or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin)
-            return;
 
-        if (editorDefinition != null)
-        {
-            // Delete/Backspace boleh di-bind ke aksi masking; reserved untuk aksi lain.
-            if (EditorShortcutMap.IsReservedKeyForAction(editorDefinition.Action, e.Key))
-            {
-                Toast(e.Key == Key.Space
-                    ? "Space is reserved for temporary Pan."
-                    : $"{EditorShortcutMap.FormatKey(e.Key)} is reserved by an editor command.", warning: true);
-                return;
-            }
-            if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift))
-            {
-                Toast("Edit-mode shortcuts support one key or Shift+key.", warning: true);
-                return;
-            }
-
-            textBox.Text = EditorShortcutMap.FormatShortcut(e.Key, e.KeyModifiers);
-            return;
-        }
-
-        if (e.KeyModifiers != KeyModifiers.None) return;
-        textBox.Text = e.Key.ToString();
-    }
-
-    private void OnSettingsFlyoutOpened(object? sender, EventArgs e)
-    {
-        var txtNext = this.FindControl<TextBox>("TxtNextShortcut");
-        var txtPrev = this.FindControl<TextBox>("TxtPrevShortcut");
-        var txtPhotoshop = this.FindControl<TextBox>("TxtPhotoshopShortcut");
-        var txtRotate = this.FindControl<TextBox>("TxtRotateShortcut");
-        var txtFitScreen = this.FindControl<TextBox>("TxtFitScreenShortcut");
-        
-        if (txtNext != null) txtNext.Text = _settings.ShortcutNext;
-        if (txtPrev != null) txtPrev.Text = _settings.ShortcutPrevious;
-        if (txtPhotoshop != null) txtPhotoshop.Text = _settings.ShortcutPhotoshop;
-        if (txtRotate != null) txtRotate.Text = _settings.ShortcutRotate;
-        if (txtFitScreen != null) txtFitScreen.Text = _settings.ShortcutFitScreen;
-        foreach (var definition in EditorShortcutMap.Definitions)
-        {
-            var field = this.FindControl<TextBox>(definition.ControlName);
-            if (field != null)
-                field.Text = EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, definition.Action);
-        }
-        UpdateToolHint(_activeTool);
-        var betaToggle = this.FindControl<CheckBox>("ChkEditorBetaMode");
-        if (betaToggle != null) betaToggle.IsChecked = _settings.EditorBetaMode;
-        var cboBgType = this.FindControl<ComboBox>("CboBgType");
-        if (cboBgType != null) cboBgType.SelectedIndex = _settings.BackgroundType;
-        
-        // Refresh color preview indicators
-        UpdateColorPreviewIndicators();
-        UpdateBgVisibility();
-    }
-
-    private void OnSaveSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        var txtNext = this.FindControl<TextBox>("TxtNextShortcut");
-        var txtPrev = this.FindControl<TextBox>("TxtPrevShortcut");
-        var txtPhotoshop = this.FindControl<TextBox>("TxtPhotoshopShortcut");
-        var txtRotate = this.FindControl<TextBox>("TxtRotateShortcut");
-        var txtFitScreen = this.FindControl<TextBox>("TxtFitScreenShortcut");
-        
-        string ReadShortcut(TextBox? box, string current)
-            => string.IsNullOrWhiteSpace(box?.Text) ? current : box.Text.Trim();
-        var shortcuts = new[]
-        {
-            ReadShortcut(txtNext, _settings.ShortcutNext),
-            ReadShortcut(txtPrev, _settings.ShortcutPrevious),
-            ReadShortcut(txtPhotoshop, _settings.ShortcutPhotoshop),
-            ReadShortcut(txtRotate, _settings.ShortcutRotate),
-            ReadShortcut(txtFitScreen, _settings.ShortcutFitScreen)
-        };
-        if (shortcuts.Any(key => key.Equals("E", StringComparison.OrdinalIgnoreCase))
-            || shortcuts.Distinct(StringComparer.OrdinalIgnoreCase).Count() != shortcuts.Length)
-        {
-            Toast("Shortcuts must be unique; E opens the editor.", warning: true);
-            return;
-        }
-
-        var editorShortcuts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var definition in EditorShortcutMap.Definitions)
-        {
-            var field = this.FindControl<TextBox>(definition.ControlName);
-            editorShortcuts[definition.Action.ToString()] =
-                ReadShortcut(field, EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, definition.Action));
-        }
-        if (!EditorShortcutMap.TryValidate(editorShortcuts, out var editorShortcutError))
-        {
-            Toast(editorShortcutError, warning: true);
-            return;
-        }
-
-        _settings.ShortcutNext = shortcuts[0];
-        _settings.ShortcutPrevious = shortcuts[1];
-        _settings.ShortcutPhotoshop = shortcuts[2];
-        _settings.ShortcutRotate = shortcuts[3];
-        _settings.ShortcutFitScreen = shortcuts[4];
-        _settings.EditorShortcuts = EditorShortcutMap.MergeWithDefaults(editorShortcuts);
-        var betaToggle = this.FindControl<CheckBox>("ChkEditorBetaMode");
-        if (betaToggle != null) _settings.EditorBetaMode = betaToggle.IsChecked == true;
-        
-        _settings.Save();
-        UpdateToolHint(_activeTool);
-        
-        // Try to close flyout
-        if (sender is Control c)
-        {
-            var popup = c.GetVisualAncestors().OfType<Avalonia.Controls.Primitives.Popup>().FirstOrDefault();
-            if (popup != null) popup.IsOpen = false;
-        }
-    }
-
-    private void OnRestoreShortcutDefaultsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        _settings.RestoreKeyboardShortcutDefaults();
-        _settings.Save();
-        OnSettingsFlyoutOpened(this, EventArgs.Empty);
-        UpdateToolHint(_activeTool);
-        Toast("Keyboard shortcuts restored to defaults.");
-    }
     
-    private void OnEditorBetaModeToggled(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (sender is CheckBox chk)
-        {
-            _settings.EditorBetaMode = chk.IsChecked == true;
-            _settings.Save();
-        }
-    }
 
     private static bool IsShortcutInputSource(object? source)
     {
@@ -835,9 +699,65 @@ try {{
         if (e.Key == Key.Space) ReleaseTemporaryPan();
     }
 
+    // ========================
+    // DIALOG PREFERENSI (Ctrl+K / ikon gear)
+    // ========================
+
+    private void OnPreferencesClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var dlg = new PreferencesWindow(this);
+        _ = dlg.ShowDialog(this);
+    }
+
+    // --- API publik untuk PreferencesWindow ---
+
+    /// <summary>Settings (dipakai dialog Preferensi).</summary>
+    public PreviewWindowSettings Settings => _settings;
+
+    /// <summary>Ambil string lokal (dipakai dialog Preferensi).</summary>
+    public string Tr(string key, params object[] args) => T(key, args);
+
+    /// <summary>Tampilkan Toast (dipakai dialog Preferensi).</summary>
+    public void ShowToast(string message, bool warning = false) => Toast(message, warning);
+
+    /// <summary>Terapkan bahasa + simpan (dipakai dialog Preferensi).</summary>
+    public void ApplyPreferencesLanguage(string lang) => ApplyEditorLanguage(lang, save: true);
+
+    /// <summary>Set warna garis path pen: persist + render ulang live (dipakai dialog Preferensi).</summary>
+    public void SetPenPathColorPref(string hex)
+    {
+        _settings.EditorPenPathColor = PenPathStyle.NormalizeColor(hex);
+        _settings.Save();
+        RenderOverlay();
+    }
+
+    /// <summary>Segarkan hint tool aktif (dipakai dialog Preferensi).</summary>
+    public void RefreshEditorHints() => UpdateToolHint(_activeTool);
+
+    /// <summary>Tunnel: Tab untuk toggle panel ditangkap SEBELUM focus-navigation
+    /// Avalonia mengonsumsinya (ala Photoshop, Tab selalu hide/show panel).</summary>
+    private void OnPreviewKeyDownTab(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (!_editMode) return;
+        if (IsShortcutInputSource(e.Source)) return;
+        if (e.KeyModifiers == Avalonia.Input.KeyModifiers.None && e.Key == Avalonia.Input.Key.Tab)
+        {
+            ToggleEditorPanels();
+            e.Handled = true;
+        }
+    }
+
     private void OnPreviewKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
         if (IsShortcutInputSource(e.Source)) return;
+
+        // Ctrl+K: buka dialog Preferensi ala Photoshop (berlaku di preview & edit mode).
+        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.K)
+        {
+            OnPreferencesClick(this, new Avalonia.Interactivity.RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
 
         if (_editMode && e.Key == Key.Space && IsSpacePanInputSource(e.Source))
         {
@@ -894,108 +814,15 @@ try {{
 
 
 
-    private void UpdateBgVisibility()
-    {
-        var type = _settings.BackgroundType;
-        var pnlSolid = this.FindControl<StackPanel>("PanelSolidColor");
-        var pnlChecker = this.FindControl<StackPanel>("PanelCheckerColor");
-        
-        if (pnlSolid != null) pnlSolid.IsVisible = type == 2;
-        if (pnlChecker != null) pnlChecker.IsVisible = type == 1;
-    }
 
-    private void OnBgTypeChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (sender is ComboBox cbo && cbo.SelectedIndex >= 0)
-        {
-            _settings.BackgroundType = cbo.SelectedIndex;
-            UpdateBgVisibility();
-            ApplyBackground();
-            _settings.Save();
-        }
-    }
 
-    private void OnBgColorChanged(object? sender, TextChangedEventArgs e)
-    {
-        // Legacy handler kept as stub (TextBox inputs removed, now use swatches)
-    }
 
-    private void ApplyColorFromHex(string hex, bool isSolid)
-    {
-        if (isSolid)
-        {
-            _settings.SolidColorHex = hex;
-        }
-        ApplyBackground();
-        _settings.Save();
-        UpdateColorPreviewIndicators();
-    }
 
-    private void UpdateColorPreviewIndicators()
-    {
-        // Solid color indicator
-        var brdCurrent = this.FindControl<Border>("BrdCurrentColor");
-        var txtHex = this.FindControl<TextBlock>("TxtCurrentColorHex");
-        try
-        {
-            var col = Avalonia.Media.Color.Parse(_settings.SolidColorHex);
-            if (brdCurrent != null) brdCurrent.Background = new Avalonia.Media.SolidColorBrush(col);
-            if (txtHex != null) txtHex.Text = _settings.SolidColorHex.ToUpperInvariant();
-        }
-        catch { }
 
-        // Checker indicators
-        var brdC1 = this.FindControl<Border>("BrdChecker1Preview");
-        var brdC2 = this.FindControl<Border>("BrdChecker2Preview");
-        var txtCk = this.FindControl<TextBlock>("TxtCheckerHex");
-        try
-        {
-            var c1 = Avalonia.Media.Color.Parse(_settings.CheckerColor1);
-            var c2 = Avalonia.Media.Color.Parse(_settings.CheckerColor2);
-            if (brdC1 != null) brdC1.Background = new Avalonia.Media.SolidColorBrush(c1);
-            if (brdC2 != null) brdC2.Background = new Avalonia.Media.SolidColorBrush(c2);
-            if (txtCk != null) txtCk.Text = $"{_settings.CheckerColor1.ToUpperInvariant()} / {_settings.CheckerColor2.ToUpperInvariant()}";
-        }
-        catch { }
-    }
 
-    private void OnColorSwatchClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (sender is Button btn && btn.Name != null && btn.Name.StartsWith("SwColor_"))
-        {
-            var hex = "#" + btn.Name.Substring(8); // e.g. SwColor_FFFFFF -> #FFFFFF
-            _settings.SolidColorHex = hex;
-            ApplyBackground();
-            _settings.Save();
-            UpdateColorPreviewIndicators();
-        }
-    }
 
-    private void OnChecker1SwatchClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (sender is Button btn && btn.Name != null && btn.Name.StartsWith("CkColor1_"))
-        {
-            var hex = "#" + btn.Name.Substring(9); // e.g. CkColor1_FFFFFF -> #FFFFFF
-            _settings.CheckerColor1 = hex;
-            ApplyBackground();
-            _settings.Save();
-            UpdateColorPreviewIndicators();
-        }
-    }
 
-    private void OnChecker2SwatchClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (sender is Button btn && btn.Name != null && btn.Name.StartsWith("CkColor2_"))
-        {
-            var hex = "#" + btn.Name.Substring(9);
-            _settings.CheckerColor2 = hex;
-            ApplyBackground();
-            _settings.Save();
-            UpdateColorPreviewIndicators();
-        }
-    }
-
-    private void ApplyBackground()
+    public void ApplyBackground()
     {
         Avalonia.Media.IBrush? bgBrush = null;
         try
