@@ -24,7 +24,6 @@ public partial class PreviewWindow
     private PenHoverKind _penHoverKind = PenHoverKind.None;
     private int _penHoverIndex = -1;
     private bool _penHoverIsIn;
-    private long _lastPenClickMs;
 
     /// Gambar anchor, handle Bézier, dan rubber band Pen Tool dengan gaya Photoshop.
     /// Handle disimpan sebagai vektor RELATIF terhadap anchor, jadi titik absolutnya
@@ -107,6 +106,24 @@ public partial class PreviewWindow
             Canvas.SetLeft(shape, ox);
             Canvas.SetTop(shape, oy);
             overlay.Children.Add(shape);
+        }
+
+        // Indikator Photoshop: lingkaran kecil di kursor saat hover anchor pertama
+        // (path bisa ditutup dengan klik).
+        if (anchors.Count >= 3 && pen.IsActive && !pen.IsClosed
+            && _penHoverKind == PenHoverKind.Anchor && _penHoverIndex == 0)
+        {
+            var cur = ImageToOverlay(pen.Cursor);
+            var circle = new Ellipse
+            {
+                Width = 10, Height = 10,
+                Stroke = new SolidColorBrush(Color.Parse("#FFE24A")),
+                StrokeThickness = 2,
+                Fill = Brushes.Transparent
+            };
+            Canvas.SetLeft(circle, cur.X + 12);
+            Canvas.SetTop(circle, cur.Y - 5);
+            overlay.Children.Add(circle);
         }
     }
 

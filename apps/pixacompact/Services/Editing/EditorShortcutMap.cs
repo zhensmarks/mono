@@ -120,7 +120,7 @@ public static class EditorShortcutMap
                 return false;
             }
 
-            if (IsReservedKeyForAction(definition.Action, key))
+            if (IsReservedKeyForAction(definition.Action, key, modifiers))
             {
                 error = key == Key.Space
                     ? Tmpl("Err_SpaceReserved", "Space is reserved for temporary Pan.")
@@ -167,7 +167,7 @@ public static class EditorShortcutMap
         {
             if (TryParse(GetShortcut(shortcuts, definition.Action), out var boundKey, out var boundModifiers)
                 && KeysEquivalent(boundKey, key) && boundModifiers == modifiers
-                && !IsReservedKeyForAction(definition.Action, key))
+                && !IsReservedKeyForAction(definition.Action, key, modifiers))
             {
                 action = definition.Action;
                 return true;
@@ -258,9 +258,13 @@ public static class EditorShortcutMap
     /// karena dipakai menghapus titik terakhir lasso/pen yang sedang digambar.
     /// Enter hanya boleh di-bind ke aksi Make Selection (ala Photoshop: Ctrl+Enter).
     /// </summary>
-    public static bool IsReservedKeyForAction(EditorShortcutAction action, Key key)
+    public static bool IsReservedKeyForAction(EditorShortcutAction action, Key key, KeyModifiers modifiers = KeyModifiers.None)
     {
-        if (key is Key.Space or Key.Escape) return true;
+        // Space polos (tanpa modifier) reserved untuk Pan sementara (tahan Space).
+        // Space + Shift/Ctrl BOLEH di-remap (mis. Shift+Space untuk Make Selection),
+        // karena tidak konflik dengan tahan-Space.
+        if (key == Key.Space) return modifiers == KeyModifiers.None;
+        if (key == Key.Escape) return true;
         if (key == Key.Enter) return action != EditorShortcutAction.MakeSelection;
         if (key is Key.Back or Key.Delete)
             return action is not (EditorShortcutAction.MaskDelete or EditorShortcutAction.MaskRestore);

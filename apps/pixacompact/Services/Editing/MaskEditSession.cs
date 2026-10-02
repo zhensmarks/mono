@@ -114,9 +114,10 @@ public sealed class MaskEditSession : IDisposable
 
     public string? UndoAction()
     {
-        var restored = Undo.Undo(Mask, out var label);
+        var restored = Undo.Undo(Mask, Selection.Coverage, out var label, out var restoredSel);
         if (restored == null) return null;
         Mask = restored;
+        if (restoredSel != null) Selection.CopyFrom(restoredSel);
         IsDirty = true;
         _lastLabel = label;
         return label;
@@ -124,12 +125,20 @@ public sealed class MaskEditSession : IDisposable
 
     public string? RedoAction()
     {
-        var restored = Undo.Redo(Mask, out var label);
+        var restored = Undo.Redo(Mask, Selection.Coverage, out var label, out var restoredSel);
         if (restored == null) return null;
         Mask = restored;
+        if (restoredSel != null) Selection.CopyFrom(restoredSel);
         IsDirty = true;
         _lastLabel = label;
         return label;
+    }
+
+    /// <summary>Push snapshot untuk operasi seleksi (mask tidak berubah, seleksi berubah).</summary>
+    public void PushSelectionUndo(string label)
+    {
+        Undo.Push(Mask, (byte[])Selection.Coverage.Clone(), label);
+        _lastLabel = label;
     }
 
     // ========================

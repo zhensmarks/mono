@@ -457,6 +457,25 @@ public sealed class PenTool : SelectionTool
         base.Cancel();
     }
 
+    /// <summary>Kembalikan daftar anchor dari snapshot (untuk undo/redo path).</summary>
+    public void RestoreAnchors(IEnumerable<Anchor> anchors)
+    {
+        _anchors.Clear();
+        foreach (var a in anchors)
+        {
+            var c = new Anchor(new Vec2(a.Point.X, a.Point.Y))
+            {
+                HandleIn = new Vec2(a.HandleIn.X, a.HandleIn.Y),
+                HandleOut = new Vec2(a.HandleOut.X, a.HandleOut.Y)
+            };
+            _anchors.Add(c);
+        }
+        _dragIndex = -1;
+        IsActive = _anchors.Count > 0;
+        RefreshPreviewPath();
+        RaiseChanged();
+    }
+
     public override bool RemoveLastPoint()
     {
         if (_anchors.Count == 0) return false;

@@ -18,6 +18,9 @@ public sealed class MaskUndoStack
         public int Length;
         public string Label = "";
         public long MemoryBytes;
+        /// <summary>Snapshot coverage seleksi (null bila tidak ada perubahan seleksi).</summary>
+        public byte[]? SelectionCompressed;
+        public int SelectionLength;
     }
 
     private readonly List<Snapshot> _undo = new();
@@ -110,7 +113,20 @@ public sealed class MaskUndoStack
     /// <summary>Snapshot kondisi SEKARANG sebelum sebuah operasi dilakukan.</summary>
     public void Push(byte[] mask, string label)
     {
+        Push(mask, null, label);
+    }
+
+    /// <summary>Push dengan snapshot seleksi (untuk operasi seleksi/path).</summary>
+    public void Push(byte[] mask, byte[]? selection, string label)
+    {
         var snap = Compress(mask, label);
+        if (selection != null)
+        {
+            var selSnap = Compress(selection, label);
+            snap.SelectionCompressed = selSnap.Compressed;
+            snap.SelectionLength = selSnap.Length;
+            snap.MemoryBytes += selSnap.MemoryBytes;
+        }
         _undo.Add(snap);
         _usedBytes += snap.MemoryBytes;
 
@@ -122,7 +138,14 @@ public sealed class MaskUndoStack
 
     public byte[]? Undo(byte[] currentMask, out string label)
     {
+        return Undo(currentMask, null, out label, out _);
+    }
+
+    /// <summary>Undo dengan snapshot seleksi.</summary>
+    public byte[]? Undo(byte[] currentMask, byte[]? currentSelection, out string label, out byte[]? restoredSelection)
+    {
         label = "";
+        restoredSelection = null;
         if (_undo.Count == 0) return null;
 
         var snap = _undo[^1];
@@ -130,6 +153,13 @@ public sealed class MaskUndoStack
         // Simpan kondisi sekarang ke redo agar bisa di-redo. Label redo =
         // nama operasi yang sedang di-undo.
         var current = Compress(currentMask, snap.Label);
+        if (currentSelection != null)
+        {
+            var selSnap = Compress(currentSelection, snap.Label);
+            current.SelectionCompressed = selSnap.Compressed;
+            current.SelectionLength = selSnap.Length;
+            current.MemoryBytes += selSnap.MemoryBytes;
+        }
         _redo.Add(current);
         _redoLabels.Add(snap.Label);
         _usedBytes += current.MemoryBytes;
@@ -138,17 +168,40 @@ public sealed class MaskUndoStack
         _usedBytes -= snap.MemoryBytes;
         label = snap.Label;
         Trim();
+        if (snap.SelectionCompressed != null)
+        {
+            restoredSelection = Decompress(new Snapshot
+            {
+                Compressed = snap.SelectionCompressed,
+                Length = snap.SelectionLength,
+                Label = snap.Label
+            });
+        }
         return Decompress(snap);
     }
 
     public byte[]? Redo(byte[] currentMask, out string label)
     {
+        return Redo(currentMask, null, out label, out _);
+    }
+
+    /// <summary>Redo dengan snapshot seleksi.</summary>
+    public byte[]? Redo(byte[] currentMask, byte[]? currentSelection, out string label, out byte[]? restoredSelection)
+    {
         label = "";
+        restoredSelection = null;
         if (_redo.Count == 0) return null;
 
         string redoLabel = _redoLabels[^1];
 
         var current = Compress(currentMask, redoLabel);
+        if (currentSelection != null)
+        {
+            var selSnap = Compress(currentSelection, redoLabel);
+            current.SelectionCompressed = selSnap.Compressed;
+            current.SelectionLength = selSnap.Length;
+            current.MemoryBytes += selSnap.MemoryBytes;
+        }
         _undo.Add(current);
         _usedBytes += current.MemoryBytes;
 
@@ -158,6 +211,15 @@ public sealed class MaskUndoStack
         _usedBytes -= snap.MemoryBytes;
         label = snap.Label;
         Trim();
+        if (snap.SelectionCompressed != null)
+        {
+            restoredSelection = Decompress(new Snapshot
+            {
+                Compressed = snap.SelectionCompressed,
+                Length = snap.SelectionLength,
+                Label = snap.Label
+            });
+        }
         return Decompress(snap);
     }
 
