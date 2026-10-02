@@ -9,9 +9,9 @@
         Width="460" Height="430"
         MinWidth="360" MinHeight="320"
         SizeToContent="Manual"
-        WindowStartupLocation="CenterScreen"
-        Topmost="True"
-        SystemDecorations="Full"
+        WindowStartupLocation="Manual"
+        Topmost="False"
+        SystemDecorations="None"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         Background="{DynamicResource AppBackgroundBrush}">

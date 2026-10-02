@@ -168,6 +168,28 @@ public class NavigationVisualRegressionTests
     }
 
     [Fact]
+    public void FloatingDocUsesCustomNoChromeStyleWithoutForcingTopmost()
+    {
+        var floatingWindow = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DocFloatingWindow.axaml");
+
+        Assert.Contains("WindowStartupLocation=\"Manual\"", floatingWindow);
+        Assert.Contains("SystemDecorations=\"None\"", floatingWindow);
+        Assert.Contains("Topmost=\"False\"", floatingWindow);
+        Assert.Contains("ExtendClientAreaChromeHints=\"NoChrome\"", floatingWindow);
+        Assert.Contains("PointerPressed=\"OnDragRegionPointerPressed\"", floatingWindow);
+    }
+
+    [Fact]
+    public void FloatingDocCancelsPendingBoundsSaveWithoutDirectCtsCancelInOnClosing()
+    {
+        var codeBehind = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DocFloatingWindow.axaml.cs");
+        var onClosing = codeBehind[(codeBehind.IndexOf("protected override void OnClosing", StringComparison.Ordinal))..];
+
+        Assert.Contains("CancelPendingBoundsSave();", onClosing);
+        Assert.DoesNotContain("_boundsSaveCts?.Cancel()", onClosing);
+    }
+
+    [Fact]
     public void DocPanelKeepsVisibleBordersAndComfortableLogoActionTargets()
     {
         var docPanel = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DocPanelView.axaml");

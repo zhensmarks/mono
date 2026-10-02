@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Globalization;
 using System.Collections.Generic;
 using BMachine.SDK;
 using CommunityToolkit.Mvvm.Messaging;
@@ -511,8 +512,8 @@ namespace BMachine.UI.ViewModels;
         {
             await _database.SetAsync("Settings.DocFloating.X", x.ToString());
             await _database.SetAsync("Settings.DocFloating.Y", y.ToString());
-            await _database.SetAsync("Settings.DocFloating.Width", width.ToString());
-            await _database.SetAsync("Settings.DocFloating.Height", height.ToString());
+            await _database.SetAsync("Settings.DocFloating.Width", width.ToString(CultureInfo.InvariantCulture));
+            await _database.SetAsync("Settings.DocFloating.Height", height.ToString(CultureInfo.InvariantCulture));
         }
         catch { }
     }
@@ -527,8 +528,10 @@ namespace BMachine.UI.ViewModels;
             var wStr = await _database.GetAsync<string>("Settings.DocFloating.Width");
             var hStr = await _database.GetAsync<string>("Settings.DocFloating.Height");
 
-            if (int.TryParse(xStr, out int x) && int.TryParse(yStr, out int y) &&
-                double.TryParse(wStr, out double w) && double.TryParse(hStr, out double h))
+            if (int.TryParse(xStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out int x) &&
+                int.TryParse(yStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out int y) &&
+                double.TryParse(wStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double w) &&
+                double.TryParse(hStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double h))
             {
                 return (x, y, w, h);
             }
