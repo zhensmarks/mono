@@ -6,7 +6,7 @@
              mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="120"
              x:Class="BMachine.UI.Controls.StatWidget"
              x:Name="Root">
-    
+
     <UserControl.Styles>
         <Style Selector="Button.StatBtn">
             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
@@ -40,42 +40,58 @@
                 </Transitions>
             </Setter>
         </Style>
-        
         <Style Selector="Button.StatBtn /template/ Border#PART_Border">
             <Setter Property="BoxShadow" Value="0 4 10 0 #00000000"/>
         </Style>
-
         <Style Selector="Button.StatBtn:pointerover /template/ Border#PART_Border">
             <Setter Property="Background" Value="{DynamicResource MenuSelectedBrush}"/>
             <Setter Property="BorderBrush" Value="{Binding #Root.Color}"/>
             <Setter Property="BoxShadow" Value="0 10 25 0 #30000000"/>
         </Style>
-        
-        <Style Selector="Button.StatBtn:pointerover">
-            <!-- No translation or scale per user request -->
+        <Style Selector="Button.StatBtn:pressed /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource BgActiveBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="Button.StatBtn:focus /template/ Border#PART_Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
         </Style>
 
-        <Style Selector="Button.StatBtn:pressed">
-            <!-- No translation or scale per user request -->
+        <Style Selector="Button.statWindowBtn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.statWindowBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.statWindowBtn:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
+        </Style>
+        <Style Selector="Button.statWindowBtn:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+        </Style>
+        <Style Selector="Button.statWindowBtn:disabled">
+            <Setter Property="Opacity" Value="0.4"/>
+            <Setter Property="Cursor" Value="Arrow"/>
         </Style>
     </UserControl.Styles>
 
-    <Button Classes="StatBtn" 
-            Command="{Binding #Root.Command}"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
-            HorizontalContentAlignment="Stretch"
-            VerticalContentAlignment="Stretch">
-
-        <Border Padding="0" Background="Transparent" BorderThickness="0">
+    <Grid>
+        <Button Classes="StatBtn"
+                Command="{Binding #Root.Command}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch">
             <Grid RowDefinitions="Auto, *">
-                <!-- Header -->
-                <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto, *, 20">
                     <Ellipse Width="6" Height="6" Fill="{Binding #Root.Color}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBlock Grid.Column="1" Text="{Binding #Root.Label}" FontSize="10" FontWeight="Black" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="1.5" VerticalAlignment="Center"/>
-                    <Button Grid.Column="2" Command="{Binding #Root.WindowCommand}" IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}" Width="20" Height="20" Background="Transparent" BorderThickness="0" Padding="0" ToolTip.Tip="Open in New Window" VerticalAlignment="Center" Cursor="Hand">
-                        <shapes:Path Data="M14 3l-1.4 1.4L17.2 9H3v2h14.2l-4.6 4.6L14 17l7-7z" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" Width="10" Height="10" VerticalAlignment="Center"/>
-                    </Button>
+                    <Border Grid.Column="2" Width="20" Height="20"/>
                 </Grid>
 
                 <StackPanel Grid.Row="1" VerticalAlignment="Bottom" IsVisible="{Binding #Root.IsBarMode}" Margin="0,16,0,0">
@@ -95,6 +111,14 @@
                     </Grid>
                 </Grid>
             </Grid>
-        </Border>
-    </Button>
+        </Button>
+
+        <Button Classes="statWindowBtn"
+                Command="{Binding #Root.WindowCommand}"
+                IsVisible="{Binding #Root.WindowCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
+                Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,16,16,0" ToolTip.Tip="Open in New Window">
+            <shapes:Path Data="M14 3l-1.4 1.4L17.2 9H3v2h14.2l-4.6 4.6L14 17l7-7z" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" Width="10" Height="10" VerticalAlignment="Center"/>
+        </Button>
+    </Grid>
 </UserControl>

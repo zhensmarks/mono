@@ -478,28 +478,30 @@ namespace BMachine.UI.ViewModels;
     public bool IsConsoleVisible => SelectedActivityMode == 0;
     public bool IsMasterVisible => SelectedActivityMode == 1;
     public bool IsPhotoshopVisible => SelectedActivityMode == 2;
-    public bool IsDocVisible => SelectedActivityMode == 3;
-    public bool IsDocVisibleInline => SelectedActivityMode == 3 && !IsDocFloating;
+    public bool IsDocVisible => DocPanelStatePolicy.IsVisibleInPanel(SelectedActivityMode, IsDocFloating);
+    public bool IsDocVisibleInline => IsDocVisible;
+
+    private int _lastNonDocActivityMode;
+    private int? _activityModeToRestoreAfterFloatingDoc;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDocVisible))]
     [NotifyPropertyChangedFor(nameof(IsDocVisibleInline))]
     private bool _isDocFloating;
 
     [RelayCommand]
     private void ToggleDocFloating()
     {
-        IsDocFloating = !IsDocFloating;
-        
-        // When popping out, we need to open the floating window
-        if (IsDocFloating)
-        {
-            // Send a message or handle it at the View level
-            WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(true));
-        }
-        else
-        {
-            WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(false));
-        }
+        var next = DocPanelStatePolicy.ToggleFloating(
+            IsDocFloating,
+            SelectedActivityMode,
+            _lastNonDocActivityMode,
+            _activityModeToRestoreAfterFloatingDoc);
+
+        _activityModeToRestoreAfterFloatingDoc = next.ActivityModeToRestore;
+        IsDocFloating = next.IsFloating;
+        SelectedActivityMode = next.SelectedActivityMode;
+        WeakReferenceMessenger.Default.Send(new DocFloatingChangedMessage(next.IsFloating));
     }
 
     public async Task SaveFloatingDocBounds(int x, int y, double width, double height)
@@ -540,6 +542,9 @@ namespace BMachine.UI.ViewModels;
 
     partial void OnSelectedActivityModeChanged(int value)
     {
+        if (value >= 0 && value < DocPanelStatePolicy.DocActivityMode)
+            _lastNonDocActivityMode = value;
+
         if (value == 1) _ = LoadMasterNodes();
         if (value == 2) _ = LoadPhotoshopNodes();
     }

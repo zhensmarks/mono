@@ -162,14 +162,31 @@
                                             <!-- Close btn: only on hover, explicitly remove avalonia default hover bg -->
                                             <Style Selector="Border.tabHeader Button.tabClose">
                                                 <Setter Property="Opacity" Value="0"/>
-                                                <Setter Property="IsHitTestVisible" Value="False"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
                                             </Style>
                                             <Style Selector="Border.tabHeader:pointerover Button.tabClose">
                                                 <Setter Property="Opacity" Value="1"/>
                                                 <Setter Property="IsHitTestVisible" Value="True"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
+                                            </Style>
+                                            <Style Selector="Border.tabHeader Button.tabClose:focus">
+                                                <Setter Property="Opacity" Value="1"/>
+                                                <Setter Property="IsHitTestVisible" Value="True"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource ButtonDangerForegroundBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+                                                <Setter Property="BorderThickness" Value="1"/>
                                             </Style>
                                             <Style Selector="Border.tabHeader Button.tabClose:pointerover /template/ ContentPresenter">
-                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Background" Value="{DynamicResource ButtonDangerHoverBrush}"/>
+                                                <Setter Property="CornerRadius" Value="6"/>
+                                            </Style>
+                                            <Style Selector="Border.tabHeader Button.tabClose:pressed /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="{DynamicResource ButtonDangerPressedBrush}"/>
+                                                <Setter Property="CornerRadius" Value="6"/>
+                                            </Style>
+                                            <Style Selector="Border.tabHeader Button.tabClose:focus /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
+                                                <Setter Property="CornerRadius" Value="6"/>
                                             </Style>
                                             <!-- Label colors -->
                                             <Style Selector="Border.tabHeader TextBlock.tabLabel">
@@ -202,9 +219,7 @@
                                                         Margin="4,0,0,0"
                                                         Background="Transparent" BorderThickness="0"
                                                         Click="OnCloseTabClick" ToolTip.Tip="Close Tab">
-                                                    <PathIcon Data="{StaticResource IconX}"
-                                                              Width="10" Height="10"
-                                                              Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <PathIcon Data="{StaticResource IconX}" Width="10" Height="10"/>
                                                 </Button>
                                             </Grid>
                                             <!-- Active underline -->

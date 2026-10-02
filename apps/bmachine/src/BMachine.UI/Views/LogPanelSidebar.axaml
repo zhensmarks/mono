@@ -115,11 +115,9 @@
                 </StackPanel>
 
                 <!-- FILE .psd/.psb punya JPG: kartu thumbnail (2 kolom) -->
-                <Border IsVisible="{Binding HasPreview}"
-                        Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                        CornerRadius="6" Height="88" Margin="0,2,6,2" ClipToBounds="True"
-                        Cursor="Hand" ToolTip.Tip="{Binding Name}">
+                <Button IsVisible="{Binding HasPreview}" Classes="masterPreview"
+                        Height="88" Margin="0,2,6,2" ClipToBounds="True"
+                        Cursor="Hand" ToolTip.Tip="{Binding Name}" KeyDown="OnMasterPreviewKeyDown">
                     <Panel>
                         <!-- Placeholder selagi thumbnail didekode -->
                         <PathIcon Data="{StaticResource IconFile}" Width="22" Height="22"
@@ -128,11 +126,11 @@
                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
                         <Border VerticalAlignment="Bottom" Background="#CC000000" Padding="6,3">
-                            <TextBlock Text="{Binding Name}" FontSize="10" Foreground="White"
+                            <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="Normal" Foreground="White"
                                        TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
                         </Border>
                     </Panel>
-                </Border>
+                </Button>
 
                 <!-- FILE tanpa JPG: baris nama + ikon (lebar penuh) -->
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -144,7 +142,7 @@
                     </StackPanel.IsVisible>
                     <PathIcon Data="{StaticResource IconFile}" Width="14" Height="14"
                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Normal" VerticalAlignment="Center"
                                FontFamily="{DynamicResource FontPrimary}"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
@@ -170,14 +168,14 @@
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                         <Panel>
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                <Grid MinWidth="144" HorizontalAlignment="Stretch" ColumnDefinitions="*,Auto,*,*,*">
-                                    <RadioButton Grid.Column="0" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0"
+                                <Grid x:Name="PanelTabsGrid" MinWidth="144" HorizontalAlignment="Stretch" ColumnDefinitions="*,Auto,*,*,*">
+                                    <RadioButton x:Name="ExplorerPanelTab" Grid.Column="0" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0"
                                                  IsChecked="{Binding IsExplorerPanelSelected}" IsVisible="{Binding IsOutputExplorerVisible}"
                                                  Click="OnExplorerTabClick" ToolTip.Tip="Explorer">
                                         <TextBlock Text="EXPLORER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </RadioButton>
-                                    <TextBlock Grid.Column="1" Text="|" FontSize="10" FontWeight="Normal" Foreground="{DynamicResource TextSecondaryBrush}"
-                                               VerticalAlignment="Center" IsVisible="{Binding IsOutputExplorerVisible}"/>
+                                    <Border x:Name="ExplorerLogSeparator" Grid.Column="1" Classes="navigationSeparator"
+                                            IsVisible="{Binding IsOutputExplorerVisible}"/>
                                     <RadioButton Grid.Column="2" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0" Click="OnConsoleTabClick" ToolTip.Tip="Log">
                                         <RadioButton.IsChecked>
                                             <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -196,7 +194,8 @@
                                         </RadioButton.IsChecked>
                                         <TextBlock Text="MASTER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </RadioButton>
-                                    <RadioButton Grid.Column="4" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0" Click="OnDocTabClick" ToolTip.Tip="DOC">
+                                    <RadioButton x:Name="DocPanelTab" Grid.Column="4" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0"
+                                                 IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
                                         <RadioButton.IsChecked>
                                             <MultiBinding Converter="{x:Static BoolConverters.And}">
                                                 <Binding Path="BatchVM.IsDocVisible"/>
@@ -318,26 +317,6 @@
                 <Grid IsVisible="{Binding BatchVM.IsDocVisibleInline}" Margin="0,0,0,10">
                     <views:DocPanelView />
                 </Grid>
-                <Border IsVisible="{Binding BatchVM.IsDocFloating}"
-                        Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                        CornerRadius="8" Margin="10" Padding="14"
-                        VerticalAlignment="Top">
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="Doc is open in a separate window."
-                                   FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="The floating window remains connected to this Doc tab."
-                                   FontSize="11" TextWrapping="Wrap"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Classes="secondary" Content="Bring to front"
-                                    Click="OnBringDocToFrontClick"/>
-                            <Button Classes="ghost" Content="Dock here"
-                                    Command="{Binding BatchVM.ToggleDocFloatingCommand}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
               </Grid>
               <views:OutputExplorerView DataContext="{Binding OutputExplorerVM}"
                                         IsCompactHost="True"
@@ -416,6 +395,21 @@
     </Border>
 
     <UserControl.Styles>
+        <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+        </Style>
+        <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="TreeViewItem:focus /template/ Border#PART_LayoutRoot">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="TreeViewItem:disabled /template/ Border#PART_LayoutRoot">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
         
         <!-- Panel Tab Button (Segmented Style) -->
         <Style Selector="Button.panelTab">
@@ -487,6 +481,28 @@
         </Style>
         <Style Selector="Button.statusBtn:pressed">
             <Setter Property="RenderTransform" Value="scale(0.95)"/>
+        </Style>
+
+        <Style Selector="Button.masterPreview">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.masterPreview:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="Button.masterPreview:pressed">
+            <Setter Property="Background" Value="{DynamicResource BgActiveBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="Button.masterPreview:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
         
         <!-- Console TextBox -->

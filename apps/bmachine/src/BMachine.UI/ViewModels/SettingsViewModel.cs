@@ -1469,6 +1469,7 @@ public partial class SettingsViewModel : ObservableObject
     
     // --- Extensions Logic ---
     [ObservableProperty] private ObservableCollection<ExtensionItem> _extensions = new();
+    public bool IsExtensionsEmpty => Extensions.Count == 0;
 
     public async Task LoadExtensionsAsync()
     {
@@ -1511,6 +1512,8 @@ public partial class SettingsViewModel : ObservableObject
              };
              Extensions.Add(item);
         }
+
+        OnPropertyChanged(nameof(IsExtensionsEmpty));
     }
 
     [RelayCommand]
@@ -1583,6 +1586,7 @@ public partial class SettingsViewModel : ObservableObject
          {
              if (File.Exists(item.FullPath)) File.Delete(item.FullPath);
              Extensions.Remove(item);
+             OnPropertyChanged(nameof(IsExtensionsEmpty));
          }
          catch {}
     }

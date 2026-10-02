@@ -49,7 +49,12 @@
         <Border Margin="14" Padding="22" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="10">
             <Grid RowDefinitions="Auto,*,Auto">
                 <Border Grid.Row="0" Background="Transparent" PointerPressed="OnTitleBarPointerPressed" Margin="-22,-22,-22,0" Padding="22,8,22,12">
-                    <TextBlock x:Name="TxtTitle" Text="Perhatian" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" x:Name="TxtTitle" Text="Perhatian" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Classes="WindowClose" Click="OnCloseButtonClick" ToolTip.Tip="Close">
+                            <PathIcon Data="{StaticResource IconX}"/>
+                        </Button>
+                    </Grid>
                 </Border>
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <TextBlock x:Name="TxtMessage" Text="Pesan" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" LineHeight="20"/>

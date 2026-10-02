@@ -13,7 +13,7 @@ namespace BMachine.UI.Views.Dialogs.MantraData;
 /// user diberi tahu laporan tersimpan lokal &amp; bisa dicoba lagi.
 ///
 /// UI mengikuti token MantraData (AGENTS.md): Button.Action / Button.Muted /
-/// Button.ChromeClose, tanpa ikon &amp; tanpa glyph.
+/// Button.WindowClose, tanpa ikon &amp; tanpa glyph.
 /// </summary>
 public partial class ReportBugDialog : MantraDialogBase
 {

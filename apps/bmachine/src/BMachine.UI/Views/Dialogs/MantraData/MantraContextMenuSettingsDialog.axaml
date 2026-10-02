@@ -17,18 +17,6 @@
         Foreground="{DynamicResource TextPrimaryBrush}">
 
     <Window.Styles>
-        <Style Selector="Button.ChromeClose">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.ChromeClose:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
-        </Style>
 
         <Style Selector="Button.Action">
             <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
@@ -135,7 +123,7 @@
                 <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
                     <Grid RowDefinitions="Auto, *">
                         <!-- Table Column Headers -->
-                        <Border Grid.Row="0" Background="#151518" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,0,1" Padding="12,8">
+                        <Border Grid.Row="0" Background="{DynamicResource ButtonSecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,0,1" Padding="12,8">
                             <Grid ColumnDefinitions="Auto, *, Auto">
                                 <TextBlock Grid.Column="0" Text="TAMPIL" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" Width="55"/>
                                 <TextBlock Grid.Column="1" Text="NAMA MENU" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}"/>
@@ -148,7 +136,7 @@
                             <ItemsControl ItemsSource="{Binding Items}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="vm:MantraContextMenuItemConfig">
-                                        <Border BorderBrush="#1C1C20" BorderThickness="0,0,0,1" Padding="12,6">
+                                        <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1" Padding="12,6">
                                             <Grid ColumnDefinitions="Auto, *, Auto">
                                                 <CheckBox Grid.Column="0" IsChecked="{Binding IsVisible, Mode=TwoWay}"
                                                           Width="55" VerticalAlignment="Center"

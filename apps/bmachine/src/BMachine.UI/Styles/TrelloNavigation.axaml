@@ -184,22 +184,30 @@
         </Setter>
     </Style>
     <Style Selector="RadioButton.TrelloBoardTab:pointerover">
-        <Setter Property="Background" Value="#22272B" />
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="RadioButton.TrelloBoardTab:checked">
-        <Setter Property="Background" Value="#263B82F6" />
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+    <Style Selector="RadioButton.TrelloBoardTab:focus /template/ Border#PART_Root">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
     <Style Selector="RadioButton.TrelloBoardTab:checked /template/ Border#PART_Root">
         <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="RadioButton.TrelloBoardTab:checked:focus /template/ Border#PART_Root">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style Selector="RadioButton.TrelloBoardTab:checked /template/ Border#PART_Indicator">
         <Setter Property="Opacity" Value="1" />
     </Style>
     <Style Selector="RadioButton.TrelloBoardTab:checked:pointerover">
-        <Setter Property="Background" Value="#333B82F6" />
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleHoverBrush}" />
     </Style>
 
     <Style Selector="RadioButton.LogPanelTab, RadioButton.CompactTab">

@@ -5,10 +5,12 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using BMachine.UI.ViewModels;
 using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
 
@@ -17,10 +19,14 @@ namespace BMachine.UI.Views;
 public partial class LogPanelSidebar : UserControl
 {
     private DocFloatingWindow? _docFloatingWindow;
+    private DashboardViewModel? _navigationDashboardViewModel;
+    private BatchViewModel? _navigationBatchViewModel;
 
     public LogPanelSidebar()
     {
         InitializeComponent();
+        DataContextChanged += (_, _) => RebindPanelNavigationSources();
+        RebindPanelNavigationSources();
         
         WeakReferenceMessenger.Default.Register<DocFloatingChangedMessage>(this, (r, m) =>
         {
@@ -56,6 +62,51 @@ public partial class LogPanelSidebar : UserControl
                 }
             });
         });
+    }
+
+    private void RebindPanelNavigationSources()
+    {
+        if (_navigationDashboardViewModel != null)
+            _navigationDashboardViewModel.PropertyChanged -= OnPanelNavigationPropertyChanged;
+        if (_navigationBatchViewModel != null)
+            _navigationBatchViewModel.PropertyChanged -= OnPanelNavigationPropertyChanged;
+
+        _navigationDashboardViewModel = DataContext as DashboardViewModel;
+        _navigationBatchViewModel = _navigationDashboardViewModel?.BatchVM;
+
+        if (_navigationDashboardViewModel != null)
+            _navigationDashboardViewModel.PropertyChanged += OnPanelNavigationPropertyChanged;
+        if (_navigationBatchViewModel != null)
+            _navigationBatchViewModel.PropertyChanged += OnPanelNavigationPropertyChanged;
+
+        UpdatePanelNavigationColumns();
+    }
+
+    private void OnPanelNavigationPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DashboardViewModel.IsOutputExplorerVisible)
+            or nameof(BatchViewModel.IsDocFloating))
+            UpdatePanelNavigationColumns();
+    }
+
+    private void UpdatePanelNavigationColumns()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(UpdatePanelNavigationColumns);
+            return;
+        }
+
+        var tabsGrid = this.FindControl<Grid>("PanelTabsGrid");
+        if (tabsGrid == null || tabsGrid.ColumnDefinitions.Count != PanelNavigationLayout.ColumnCount)
+            return;
+
+        var widths = PanelNavigationLayout.GetColumnWidths(
+            _navigationDashboardViewModel?.IsOutputExplorerVisible ?? true,
+            _navigationBatchViewModel?.IsDocFloating != true);
+
+        for (var i = 0; i < widths.Length; i++)
+            tabsGrid.ColumnDefinitions[i].Width = widths[i];
     }
 
     private static async System.Threading.Tasks.Task ActivateFloatingDocWindowAsync(DocFloatingWindow window)
@@ -138,25 +189,39 @@ public partial class LogPanelSidebar : UserControl
 
     private void OnMasterNodeDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
     {
-        if (DataContext is DashboardViewModel vm && e.Source is Control control)
+        if (DataContext is DashboardViewModel vm && FindMasterNode(e.Source) is { } node)
         {
-            // Walk up to find the data context if needed, but usually control.DataContext is the item
-            if (control.DataContext is MasterNode node)
-            {
-                 vm.BatchVM.CopyMasterFileCommand.Execute(node);
-            }
+            vm.BatchVM.CopyMasterFileCommand.Execute(node);
+        }
+    }
+
+    private void OnMasterPreviewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is not Key.Enter and not Key.Space) return;
+        if (DataContext is DashboardViewModel vm && sender is Control control && control.DataContext is MasterNode node)
+        {
+            vm.BatchVM.CopyMasterFileCommand.Execute(node);
+            e.Handled = true;
         }
     }
 
     private void OnPhotoshopNodeDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
     {
-        if (DataContext is DashboardViewModel vm && e.Source is Control control)
+        if (DataContext is DashboardViewModel vm && FindMasterNode(e.Source) is { } node)
         {
-            if (control.DataContext is MasterNode node)
-            {
-                 vm.BatchVM.SendToPhotoshopCommand.Execute(node);
-            }
+            vm.BatchVM.SendToPhotoshopCommand.Execute(node);
         }
+    }
+
+    private static MasterNode? FindMasterNode(object? source)
+    {
+        for (Visual? visual = source as Visual; visual != null; visual = visual.GetVisualParent())
+        {
+            if (visual is Control control && control.DataContext is MasterNode node)
+                return node;
+        }
+
+        return null;
     }
 
     private System.IO.FileSystemWatcher? _progressWatcher;

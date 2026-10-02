@@ -303,7 +303,7 @@
                              <!-- 2. Config Missing -->
                              <StackPanel Spacing="5" IsVisible="{Binding IsRootPathMissing}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                   <TextBlock Text="Local Output belum disetting." Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-                                  <TextBlock Text="Silahkan atur di menu Settings > Paths" Foreground="{DynamicResource AccentBrush}" FontSize="12" HorizontalAlignment="Center" Cursor="Hand"/>
+                                  <TextBlock Text="Silahkan atur di menu Settings > Paths" Foreground="{DynamicResource AccentColorBrush}" FontSize="12" HorizontalAlignment="Center" Cursor="Hand"/>
                              </StackPanel>
                     </Grid>
 
@@ -408,7 +408,7 @@
                                       <!-- File Size -->
                                       <Panel Grid.Column="2" IsVisible="{Binding #ExplorerRoot.ShowDetailsColumns}">
                                           <TextBlock Text="{Binding DisplaySize}"
-                                                     FontSize="10" Opacity="0.55"
+                                                     FontSize="10" Opacity="1"
                                                      VerticalAlignment="Center"
                                                      Foreground="{DynamicResource TextSecondaryBrush}"
                                                      IsVisible="{Binding !IsEditing}"
@@ -418,7 +418,7 @@
                                       <!-- Date Modified -->
                                       <Panel Grid.Column="3" IsVisible="{Binding #ExplorerRoot.ShowDetailsColumns}">
                                           <TextBlock Text="{Binding DateModified, StringFormat='{}{0:dd MMM yyyy}'}"
-                                                     FontSize="10" Opacity="0.45"
+                                                     FontSize="10" Opacity="1"
                                                      VerticalAlignment="Center"
                                                      Foreground="{DynamicResource TextSecondaryBrush}"
                                                      IsVisible="{Binding !IsEditing}"
@@ -940,7 +940,7 @@
                     BoxShadow="0 25 50 -12 #80000000"
                     ClipToBounds="True">
                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="15">
-                    <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="24" Height="24" Foreground="{DynamicResource AccentBrush}" Margin="5,0,15,0"/>
+                    <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="24" Height="24" Foreground="{DynamicResource AccentColorBrush}" Margin="5,0,15,0"/>
                     <TextBox Grid.Column="1" Text="{Binding NewItemName}" 
                              IsVisible="{Binding IsNewFolderVisible}"
                              Watermark="Name for new folder..." 
@@ -1011,7 +1011,7 @@
         </Grid>
         
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsDuplicateVisible}">
-            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" MinWidth="320" BoxShadow="0 8 32 0 #80000000">
+            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" MinWidth="320" BoxShadow="0 8 32 0 #80000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Duplicate Items" FontWeight="Bold" FontSize="16"/>
                      <StackPanel Orientation="Horizontal" Spacing="10">

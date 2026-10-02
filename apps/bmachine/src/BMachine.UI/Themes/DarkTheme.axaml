@@ -6,6 +6,7 @@
     <Color x:Key="AccentBlue">#3b82f6</Color>
     <Color x:Key="AccentOrange">#f97316</Color>
     <Color x:Key="AccentPurple">#1d4ed8</Color>
+    <Color x:Key="AccentPoints">#f97316</Color>
     <Color x:Key="TextPrimary">#FFFFFF</Color>
     <Color x:Key="TextSecondary">#99FFFFFF</Color>
     
@@ -14,6 +15,9 @@
     <SolidColorBrush x:Key="CardBackgroundBrush" Color="{DynamicResource CardBackground}"/>
     <SolidColorBrush x:Key="AccentBlueBrush" Color="{DynamicResource AccentBlue}"/>
     <SolidColorBrush x:Key="AccentOrangeBrush" Color="{DynamicResource AccentOrange}"/>
+    <SolidColorBrush x:Key="AccentPointsBrush" Color="{DynamicResource AccentPoints}"/>
+    <SolidColorBrush x:Key="AccentLowOpacityBrush" Color="#263B82F6"/>
+    <SolidColorBrush x:Key="HoverOverlayBrush" Color="#CC000000"/>
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimary}"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondary}"/>
     <SolidColorBrush x:Key="TextOnPrimaryBrush" Color="White"/>

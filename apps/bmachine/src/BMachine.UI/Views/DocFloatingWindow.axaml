@@ -29,16 +29,16 @@
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <Button Command="{Binding BatchVM.ResetDocCommand}" ToolTip.Tip="Reset Semua (Nama, Alamat, Logo)"
-                            Background="#B54845" BorderThickness="0" Padding="6" CornerRadius="4" Cursor="Hand" Width="30" Height="30">
-                        <PathIcon Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" Width="12" Height="12" Foreground="White"/>
+                    <Button Classes="danger" Command="{Binding BatchVM.ResetDocCommand}" ToolTip.Tip="Reset Semua (Nama, Alamat, Logo)"
+                            Width="30" Height="30">
+                        <PathIcon Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" Width="12" Height="12" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
                     </Button>
-                    <Button Click="OnOpenDocSettingsClick" ToolTip.Tip="Pengaturan Teks DOC (Nama &amp; Alamat yang dicari)"
-                            Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Padding="6" CornerRadius="4" Cursor="Hand" Width="30" Height="30">
+                    <Button Classes="docTool" Click="OnOpenDocSettingsClick" ToolTip.Tip="Pengaturan Teks DOC (Nama &amp; Alamat yang dicari)"
+                            Width="30" Height="30">
                         <PathIcon Data="{StaticResource IconSettings}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
-                    <Button Command="{Binding BatchVM.ToggleSecondLogoCommand}" ToolTip.Tip="Tambah / Hapus Logo Alternatif"
-                            Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Padding="6" CornerRadius="4" Cursor="Hand" Width="30" Height="30">
+                    <Button Classes="docTool" Command="{Binding BatchVM.ToggleSecondLogoCommand}" ToolTip.Tip="Tambah / Hapus Logo Alternatif"
+                            Width="30" Height="30">
                         <PathIcon Data="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" Width="12" Height="12" Foreground="{DynamicResource AccentBlueBrush}"/>
                     </Button>
                     <Button Classes="secondary" Content="Close" Height="30" Padding="10,0"

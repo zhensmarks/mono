@@ -125,7 +125,7 @@
             </Border>
 
              <!-- OVERLAY: Top Header Action Bar (Shows when cards are selected) -->
-             <Border Background="#F418181B"
+             <Border Background="{DynamicResource CardBackgroundBrush}"
                      BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
                      CornerRadius="8" HorizontalAlignment="Center" Padding="8,6"
                      Margin="0,0,0,10"
@@ -152,9 +152,18 @@
                                           </Transitions>
                                       </Setter>
                                   </Style>
+                                  <Style Selector="ToggleButton:pointerover /template/ ContentPresenter">
+                                      <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+                                  </Style>
                                   <Style Selector="ToggleButton:pointerover">
-                                      <Setter Property="Background" Value="#10FFFFFF"/>
                                       <Setter Property="RenderTransform" Value="scale(1.05)"/>
+                                  </Style>
+                                  <Style Selector="ToggleButton:pressed /template/ ContentPresenter">
+                                      <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
+                                  </Style>
+                                  <Style Selector="ToggleButton:focus /template/ ContentPresenter">
+                                      <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+                                      <Setter Property="BorderThickness" Value="1"/>
                                   </Style>
                                   <Style Selector="ToggleButton:checked PathIcon">
                                        <Setter Property="Data" Value="{StaticResource IconCheckSquare}"/>
@@ -174,7 +183,7 @@
                       </StackPanel>
                       
                       <!-- Divider -->
-                      <Rectangle Width="1" Height="20" Fill="{DynamicResource SeparatorBrush}" Opacity="0.3" VerticalAlignment="Center"/>
+                      <Border Classes="navigationSeparator"/>
                       
                       <!-- Right: Batch Actions -->
                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -182,8 +191,7 @@
                             <Button Command="{Binding ActiveViewModel.BatchUnlinkCommand}"
                                     IsVisible="{Binding ActiveViewModel.HasSelectedManualCards}"
                                     ToolTip.Tip="Putus Tautan"
-                                    Background="#18EF4444" BorderBrush="#40EF4444" BorderThickness="1" 
-                                    Foreground="#EF4444" Padding="8,4" CornerRadius="6" 
+                                    Classes="danger" Padding="8,4" CornerRadius="6"
                                     Cursor="Hand" FontSize="11" Height="24">
                                 <Button.Styles>
                                     <Style Selector="Button">
@@ -195,15 +203,17 @@
                                         </Setter>
                                     </Style>
                                     <Style Selector="Button:pointerover">
-                                        <Setter Property="Background" Value="#28EF4444"/>
                                         <Setter Property="RenderTransform" Value="scale(1.02)"/>
                                     </Style>
                                     <Style Selector="Button:pressed">
                                         <Setter Property="RenderTransform" Value="scale(0.98)"/>
                                     </Style>
+                                    <Style Selector="Button:focus">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+                                    </Style>
                                 </Button.Styles>
                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <PathIcon Data="{StaticResource IconTrash}" Width="10" Height="10" Foreground="#EF4444"/>
+                                    <PathIcon Data="{StaticResource IconTrash}" Width="10" Height="10" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
                                     <TextBlock Text="Unlink" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </Button>

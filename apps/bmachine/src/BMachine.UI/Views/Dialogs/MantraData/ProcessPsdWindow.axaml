@@ -14,18 +14,7 @@
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}">
 
-    <Window.Styles><Style Selector="Button.ChromeClose">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.ChromeClose:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
-        </Style>
+    <Window.Styles>
 
         <!-- Primary Action Button with solid card background -->
         <Style Selector="Button.Action">
@@ -61,7 +50,7 @@
             <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="#52525B"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFaintBrush}"/>
         </Style>
 
         <!-- Secondary Muted Button with clear border & dark card background -->
@@ -94,9 +83,9 @@
 
         <!-- Small card button -->
         <Style Selector="Button.SmallBtn">
-            <Setter Property="Background" Value="#1F1F23"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="#2C2C30"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="Padding" Value="12,5"/>
@@ -105,19 +94,19 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.SmallBtn /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1F1F23"/>
-            <Setter Property="BorderBrush" Value="#2C2C30"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.SmallBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#2A2A30"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.SmallBtn:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#25252A"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
         </Style>
     </Window.Styles>
 
@@ -139,7 +128,7 @@
                 <PathIcon Data="{StaticResource IconX}"/>
             </Button>
 
-            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Bottom"/>
         </Grid>
 
     <Border Grid.Row="1" Margin="16" Padding="20" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="10">
@@ -156,7 +145,7 @@
                 <StackPanel Spacing="12">
                     <!-- Mode toggle -->
                     <CheckBox x:Name="ChkRevision" Content="Mode Revisi — perbarui kolom terpilih tanpa mengganti foto"
-                              FontSize="12" Foreground="#C9D1D9" IsChecked="False"
+                              FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" IsChecked="False"
                               Checked="OnRevisionModeChanged" Unchecked="OnRevisionModeChanged"/>
 
                     <!-- Zone 1: Folder Template PSD -->
@@ -164,15 +153,15 @@
                             DragDrop.AllowDrop="True" DragDrop.DragEnter="OnPsdDragEnter" DragDrop.DragOver="OnPsdDragOver" DragDrop.DragLeave="OnPsdDragLeave" DragDrop.Drop="OnPsdDrop">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*, Auto">
-                                <TextBlock Grid.Column="0" Text="Folder Template PSD" FontSize="12" FontWeight="SemiBold" Foreground="#E6EDF3"/>
-                                <Border x:Name="BadgePsd" Grid.Column="1" Background="#21262D" CornerRadius="10" Padding="8,2">
+                                <TextBlock Grid.Column="0" Text="Folder Template PSD" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <Border x:Name="BadgePsd" Grid.Column="1" Background="{DynamicResource BgHoverBrush}" CornerRadius="10" Padding="8,2">
                                     <TextBlock x:Name="TxtBadgePsd" Text="Belum Dipilih" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Border>
                             </Grid>
 
                             <StackPanel Spacing="2">
                                 <TextBlock x:Name="TxtPsdFolderName" Text="Tarik &amp; lepas folder PSD ke sini atau klik untuk browse"
-                                           FontSize="12" FontWeight="Medium" Foreground="#C9D1D9" TextTrimming="CharacterEllipsis"/>
+                                           FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock x:Name="TxtPsdPath" Text="Mendukung folder berisikan file dokumen .psd"
                                            FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
@@ -190,15 +179,15 @@
                             DragDrop.AllowDrop="True" DragDrop.DragEnter="OnPhotoDragEnter" DragDrop.DragOver="OnPhotoDragOver" DragDrop.DragLeave="OnPhotoDragLeave" DragDrop.Drop="OnPhotoDrop">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*, Auto">
-                                <TextBlock Grid.Column="0" Text="Folder Foto Siswa / Objek" FontSize="12" FontWeight="SemiBold" Foreground="#E6EDF3"/>
-                                <Border x:Name="BadgePhoto" Grid.Column="1" Background="#21262D" CornerRadius="10" Padding="8,2">
+                                <TextBlock Grid.Column="0" Text="Folder Foto Siswa / Objek" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <Border x:Name="BadgePhoto" Grid.Column="1" Background="{DynamicResource BgHoverBrush}" CornerRadius="10" Padding="8,2">
                                     <TextBlock x:Name="TxtBadgePhoto" Text="Belum Dipilih" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Border>
                             </Grid>
 
                             <StackPanel Spacing="2">
                                 <TextBlock x:Name="TxtPhotoFolderName" Text="Tarik &amp; lepas folder foto ke sini atau klik untuk browse"
-                                           FontSize="12" FontWeight="Medium" Foreground="#C9D1D9" TextTrimming="CharacterEllipsis"/>
+                                           FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock x:Name="TxtPhotoPath" Text="Mendukung file foto format .png, .jpg, .jpeg, atau .psd"
                                            FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
@@ -212,10 +201,10 @@
                     </Border>
 
                     <!-- Zone Revisi: pemilihan kolom -->
-                    <Border x:Name="PanelRevision" Background="{DynamicResource BgInputBrush}" BorderBrush="#2D333B" BorderThickness="1" CornerRadius="8" Padding="14" IsVisible="False">
+                    <Border x:Name="PanelRevision" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14" IsVisible="False">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*, Auto">
-                                <TextBlock Grid.Column="0" Text="Kolom yang ingin diperbarui" FontSize="12" FontWeight="SemiBold" Foreground="#E6EDF3"/>
+                                <TextBlock Grid.Column="0" Text="Kolom yang ingin diperbarui" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <Button Grid.Column="1" Classes="SmallBtn" Content="Kosongkan Pilihan" Click="OnClearRevisionFieldsClick"/>
                             </Grid>
                             <TextBlock Text="Hanya teks pada kolom yang dicentang akan diperbarui. Foto tidak dimasukkan ulang."
@@ -229,16 +218,16 @@
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
                                 <TextBlock x:Name="TxtSummaryTitle" Text="Status Verifikasi"
-                                           FontSize="11.5" FontWeight="SemiBold" Foreground="#828896"/>
+                                           FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock x:Name="TxtSummaryMessage" Text="Menunggu pemilihan folder..."
                                            FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
-                                <Border x:Name="PillPsdReady" CornerRadius="10" Background="#21262D" Padding="8,2">
+                                <Border x:Name="PillPsdReady" CornerRadius="10" Background="{DynamicResource BgHoverBrush}" Padding="8,2">
                                     <TextBlock x:Name="TxtPillPsd" Text="PSD: -" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Border>
-                                <Border x:Name="PillPhotoReady" CornerRadius="10" Background="#21262D" Padding="8,2">
+                                <Border x:Name="PillPhotoReady" CornerRadius="10" Background="{DynamicResource BgHoverBrush}" Padding="8,2">
                                     <TextBlock x:Name="TxtPillPhoto" Text="Foto: -" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Border>
                             </StackPanel>

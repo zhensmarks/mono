@@ -55,7 +55,7 @@
         </Style>
         <Style Selector="Button.Tab:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="#C4C4C0"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
         <Style Selector="Button.Tab.on">
             <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
@@ -150,10 +150,16 @@
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Action:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#BDBDBD"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
+        </Style>
+        <Style Selector="Button.Action:focus /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
         <!-- SECONDARY / OUTLINED BUTTON -->
@@ -263,20 +269,20 @@
             </Setter>
         </Style>
         <Style Selector="Border.DropCard:pointerover">
-            <Setter Property="BorderBrush" Value="#3A3A44"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
         </Style>
 
         <!-- DIVIDER -->
         <Style Selector="Rectangle.Divider">
             <Setter Property="Height" Value="1"/>
-            <Setter Property="Fill" Value="#1A1A1D"/>
+            <Setter Property="Fill" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="Margin" Value="0,12"/>
         </Style>
 
         <!-- SEGMENTED MODE SWITCH (List / Thumbnail) -->
         <Style Selector="Border.SegWrap">
             <Setter Property="Background" Value="{DynamicResource BgInputBrush}"/>
-            <Setter Property="BorderBrush" Value="#26262B"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="11"/>
             <Setter Property="Padding" Value="3"/>
@@ -298,27 +304,28 @@
         </Style>
         <Style Selector="Button.Seg /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="TextElement.Foreground" Value="#6B6B75"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Seg:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1C1C20"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Seg.on /template/ ContentPresenter">
-            <Setter Property="Background">
-                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                    <GradientStop Color="#30303A" Offset="0"/>
-                    <GradientStop Color="#232329" Offset="1"/>
-                </LinearGradientBrush>
-            </Setter>
-            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.Seg:focus /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 
         <!-- BACK BUTTON -->
         <Style Selector="Button.Back">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="BorderBrush" Value="#33333A"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="9"/>
             <Setter Property="Padding" Value="13,8"/>
@@ -333,14 +340,22 @@
         </Style>
         <Style Selector="Button.Back /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="#33333A"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="TextElement.Foreground" Value="#C4C4C0"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
         <Style Selector="Button.Back:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#26262C"/>
-            <Setter Property="BorderBrush" Value="#45454E"/>
-            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.Back:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.Back:focus /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 
         <!-- ADVANCED MODE ENTRY BUTTON (accent gradient pill) -->
@@ -407,7 +422,7 @@
             </Button>
             
             <!-- Separator -->
-            <Rectangle Grid.ColumnSpan="3" Height="1" Fill="#232326" VerticalAlignment="Bottom" />
+            <Rectangle Grid.ColumnSpan="3" Height="1" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Bottom" />
         </Grid>
 
         <Grid Grid.Row="1">
@@ -501,7 +516,7 @@
                             </Button>
                             <StackPanel Grid.Column="2" Spacing="3" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#x2728;" FontSize="14" VerticalAlignment="Center" Foreground="#7C9CF5"/>
+                                    <TextBlock Text="&#x2728;" FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource AccentColorBrush}"/>
                                     <TextBlock Classes="Section" Text="ADVANCED MODE" FontSize="12"/>
                                 </StackPanel>
                                 <TextBlock FontSize="11" Foreground="{DynamicResource TextFaintBrush}" Text="Samakan nama file: kiri = referensi, kanan = target"/>
@@ -530,7 +545,7 @@
                             <Border Grid.Column="0" x:Name="NamaAdvancedReferenceDropZone" Classes="DropCard"
                                     DragDrop.AllowDrop="True" ToolTip.Tip="Seret folder atau file ke sini">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Background="Transparent" DragDrop.AllowDrop="True">
-                                    <TextBlock Grid.Column="0" Text="&#x1F4C1;" FontSize="15" VerticalAlignment="Center" Foreground="#7C9CF5"/>
+                                    <TextBlock Grid.Column="0" Text="&#x1F4C1;" FontSize="15" VerticalAlignment="Center" Foreground="{DynamicResource AccentColorBrush}"/>
                                     <TextBox Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="2,0" DragDrop.AllowDrop="True"
                                              Text="{Binding MantraNamaVM.AdvancedReferenceDirectory}"
                                              Watermark="Folder kiri: referensi (seret folder / file)"/>
@@ -542,7 +557,7 @@
                             <Border Grid.Column="2" x:Name="NamaAdvancedTargetDropZone" Classes="DropCard"
                                     DragDrop.AllowDrop="True" ToolTip.Tip="Seret folder atau file ke sini">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Background="Transparent" DragDrop.AllowDrop="True">
-                                    <TextBlock Grid.Column="0" Text="&#x1F4C1;" FontSize="15" VerticalAlignment="Center" Foreground="#7C9CF5"/>
+                                    <TextBlock Grid.Column="0" Text="&#x1F4C1;" FontSize="15" VerticalAlignment="Center" Foreground="{DynamicResource AccentColorBrush}"/>
                                     <TextBox Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="2,0" DragDrop.AllowDrop="True"
                                              Text="{Binding MantraNamaVM.AdvancedTargetDirectory}"
                                              Watermark="Folder kanan: target (seret folder / file)"/>
@@ -573,15 +588,15 @@
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,2">
+                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,2">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                                         <TextBlock Text="&#x1F4C1;" FontSize="12" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="#9DB2F0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                                         <TextBlock Text="{Binding NewName}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Border>
                                                 <TextBlock Grid.Column="0" IsVisible="{Binding !IsHeader}" Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" IsVisible="{Binding IsPaired}" Text="TERPASANG" FontSize="9" Foreground="#7C9CF5" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                                <TextBlock Grid.Column="1" IsVisible="{Binding IsPaired}" Text="TERPASANG" FontSize="9" Foreground="{DynamicResource AccentColorBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                                             </Grid>
                                         </DataTemplate></ListBox.ItemTemplate>
                                     </ListBox>
@@ -593,9 +608,9 @@
                                         </ItemsPanelTemplate></ListBox.ItemsPanel>
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Grid Margin="3">
-                                                <Border IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
+                                                <Border IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
                                                     <StackPanel>
-                                                        <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#9DB2F0" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="{DynamicResource TextFaintBrush}"/>
                                                     </StackPanel>
                                                 </Border>
@@ -631,15 +646,15 @@
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,2">
+                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,2">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                                         <TextBlock Text="&#x1F4C1;" FontSize="12" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="#9DB2F0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                                         <TextBlock Text="{Binding NewName}" FontSize="10" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Border>
                                                 <TextBlock Grid.Column="0" IsVisible="{Binding !IsHeader}" Text="{Binding OriginalName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" IsVisible="{Binding IsPaired}" Text="TERPASANG" FontSize="9" Foreground="#7C9CF5" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                                <TextBlock Grid.Column="1" IsVisible="{Binding IsPaired}" Text="TERPASANG" FontSize="9" Foreground="{DynamicResource AccentColorBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                                             </Grid>
                                         </DataTemplate></ListBox.ItemTemplate>
                                     </ListBox>
@@ -651,9 +666,9 @@
                                         </ItemsPanelTemplate></ListBox.ItemsPanel>
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Grid Margin="3">
-                                                <Border IsVisible="{Binding IsHeader}" Background="#141826" BorderBrush="#2A3A66" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
+                                                <Border IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
                                                     <StackPanel>
-                                                        <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#9DB2F0" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="{DynamicResource TextFaintBrush}"/>
                                                     </StackPanel>
                                                 </Border>
@@ -746,7 +761,7 @@
                                        TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <ProgressBar Grid.Row="1" Height="3" IsIndeterminate="True"
                                          IsVisible="{Binding MantraNamaVM.IsProcessing}"
-                                         Background="{DynamicResource BgHoverBrush}" Foreground="#7C9CF5"/>
+                                         Background="{DynamicResource BgHoverBrush}" Foreground="{DynamicResource AccentColorBrush}"/>
                         </Grid>
                         <!-- Actions -->
                         <Grid Grid.Row="5" ColumnDefinitions="Auto,Auto,Auto,*,Auto,10,Auto">
@@ -817,7 +832,7 @@
                                                        VerticalAlignment="Center"
                                                        FontFamily="{DynamicResource FontMono}"/>
                                             <TextBlock Grid.Column="1" Text="->"
-                                                       Foreground="#2A2A2E"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             <TextBlock Grid.Column="2" Text="{Binding NewName}"
                                                        FontSize="12" Foreground="#9CA3AF"

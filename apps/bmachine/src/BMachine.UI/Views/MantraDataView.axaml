@@ -60,16 +60,8 @@
         </Style>
 
         <Style Selector="DataGridColumnHeader:pointerover">
-            <Setter Property="Background" Value="#212126"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        </Style>
-
-        <!-- Invisible ScrollBar Style (Scrollable with mouse wheel, but completely hidden visually) -->
-        <Style Selector="ScrollBar">
-            <Setter Property="Width" Value="0"/>
-            <Setter Property="Height" Value="0"/>
-            <Setter Property="Opacity" Value="0"/>
-            <Setter Property="IsVisible" Value="False"/>
         </Style>
 
         <!-- Tool Buttons: Explicit ContentPresenter background prevents transparent button bug -->
@@ -98,7 +90,7 @@
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.ToolBtn:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#202023"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
         </Style>
 
@@ -153,8 +145,8 @@
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="ListBox.SheetTabs ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="#2563EB"/>
-            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.SegTab">
             <Setter Property="Background" Value="Transparent"/>
@@ -168,12 +160,12 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.SegTab:pointerover">
-            <Setter Property="Background" Value="#242429"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="Button.SegTab.Active">
-            <Setter Property="Background" Value="#2563EB"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
 
         <!-- Opsi di dalam popup sortir status foto -->
@@ -189,10 +181,18 @@
             <Setter Property="FontSize" Value="12"/>
         </Style>
         <Style Selector="Button.FilterOption:pointerover">
-            <Setter Property="Background" Value="#1E1E24"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.FilterOption:pressed">
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
+        </Style>
+        <Style Selector="Button.FilterOption:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
         <Style Selector="Button.FilterOption.Active">
-            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
     </UserControl.Styles>
 
@@ -232,7 +232,7 @@
         </Grid>
 
         <!-- Sheet tabs (kiri) + tombol sortir status foto dengan popup (kanan) -->
-        <Border Grid.Row="1" Background="#121215" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4"
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4"
                     Padding="4,2" Margin="0,2,0,0" IsVisible="{Binding HasData}">
                 <Grid ColumnDefinitions="Auto, *, Auto" ColumnSpacing="8">
                     <!-- Kiri: tab sheet -->
@@ -263,7 +263,7 @@
                             Click="OnPhotoFilterButtonClicked">
                         <StackPanel Orientation="Horizontal" Spacing="7">
                             <TextBlock x:Name="PhotoFilterButtonLabel" Text="Status Foto" VerticalAlignment="Center"/>
-                            <Border CornerRadius="7" Padding="6,0" Background="#26262C">
+                            <Border CornerRadius="7" Padding="6,0" Background="{DynamicResource ButtonSecondaryBackgroundBrush}">
                                 <TextBlock x:Name="PhotoFilterButtonCount" Text="{Binding TotalRows}"
                                            FontSize="9.5" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             </Border>
@@ -291,19 +291,19 @@
                         <Button Classes="FilterOption" Tag="REVIEW" Click="OnPhotoFilterOptionClicked">
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBlock Grid.Column="0" Text="Perlu Review" FontSize="12" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="{Binding ReviewCount}" FontSize="11" Foreground="#FBBF24" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding ReviewCount}" FontSize="11" Foreground="{DynamicResource LogWarningBrush}" VerticalAlignment="Center"/>
                             </Grid>
                         </Button>
                         <Button Classes="FilterOption" Tag="GANDA" Click="OnPhotoFilterOptionClicked">
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBlock Grid.Column="0" Text="Ambigu / Ganda" FontSize="12" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="{Binding GandaCount}" FontSize="11" Foreground="#60A5FA" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding GandaCount}" FontSize="11" Foreground="{DynamicResource LogInfoBrush}" VerticalAlignment="Center"/>
                             </Grid>
                         </Button>
                         <Button Classes="FilterOption" Tag="COCOK" Click="OnPhotoFilterOptionClicked">
                             <Grid ColumnDefinitions="*, Auto">
                                 <TextBlock Grid.Column="0" Text="Cocok" FontSize="12" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="{Binding CocokCount}" FontSize="11" Foreground="#3FB950" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding CocokCount}" FontSize="11" Foreground="{DynamicResource LogSuccessBrush}" VerticalAlignment="Center"/>
                             </Grid>
                         </Button>
                         <Button Classes="FilterOption" Tag="BELUM" Click="OnPhotoFilterOptionClicked">
@@ -335,8 +335,8 @@
                           BorderThickness="0"
                           Background="Transparent"
                           Foreground="{DynamicResource TextPrimaryBrush}"
-HorizontalGridLinesBrush="#27272A"
-                          VerticalGridLinesBrush="#27272A"
+HorizontalGridLinesBrush="{DynamicResource SeparatorBrush}"
+                          VerticalGridLinesBrush="{DynamicResource SeparatorBrush}"
 SelectionChanged="OnDataGridSelectionChanged"
                           BeginningEdit="OnDataGridBeginningEdit"
                           CellEditEnded="OnDataGridCellEditEnded">
@@ -490,11 +490,11 @@ SelectionChanged="OnDataGridSelectionChanged"
                 </Border>
 
                 <!-- Drag Glow Overlay (Pure Text, No Icons) -->
-                <Border x:Name="DragOverlay" Background="#203B82F6" BorderBrush="#60A5FA" BorderThickness="2"
+                <Border x:Name="DragOverlay" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource AccentColorBrush}" BorderThickness="2"
                         CornerRadius="10" IsVisible="False" IsHitTestVisible="False">
                     <TextBlock Text="Lepaskan di sini — Excel/Word untuk data, folder JPG untuk foto, folder PSD untuk master"
                                FontWeight="SemiBold" FontSize="15" TextWrapping="Wrap" TextAlignment="Center"
-                               Foreground="#93C5FD" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                               Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
 </Grid>
         </Border>

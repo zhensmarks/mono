@@ -16,18 +16,6 @@
         Foreground="{DynamicResource TextPrimaryBrush}">
 
     <Window.Styles>
-        <Style Selector="Button.ChromeClose">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.ChromeClose:pointerover">
-            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
-        </Style>
 
         <Style Selector="Button.Action">
             <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>

@@ -133,6 +133,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
         
         // Update the Dynamic Resource
         Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(borderColor);
+        Application.Current.Resources["SeparatorBrush"] = SolidColorBrush.Parse(borderColor);
 
         // Update Background Brush
         UpdateBackgroundBrush(isLight);
@@ -160,7 +161,6 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
         {
             var brush = new SolidColorBrush(color);
             Application.Current.Resources["AppBackgroundBrush"] = brush;
-            Application.Current.Resources["CardBackgroundBrush"] = brush;
             Application.Current.Resources["TerminalBackgroundBrush"] = brush;
             Application.Current.Resources["BackgroundDarkBrush"] = brush;
         }
@@ -202,6 +202,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
             if (Application.Current.RequestedThemeVariant == ThemeVariant.Dark)
             {
                 Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(hexColor);
+                Application.Current.Resources["SeparatorBrush"] = SolidColorBrush.Parse(hexColor);
             }
         }
         else
@@ -213,6 +214,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
             if (Application.Current.RequestedThemeVariant == ThemeVariant.Light)
             {
                 Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(hexColor);
+                Application.Current.Resources["SeparatorBrush"] = SolidColorBrush.Parse(hexColor);
             }
         }
     }
