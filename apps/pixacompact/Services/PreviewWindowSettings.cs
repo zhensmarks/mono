@@ -64,6 +64,8 @@ public class PreviewWindowSettings
     public int EditorSelGrowPx { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultSelGrowPx;
     public int EditorRefineEdgeSize { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineEdgeSize;
     public int EditorRefineEdgeFeather { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultRefineEdgeFeather;
+    public double EditorPenPathThickness { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultPenPathThickness;
+    public string EditorPenPathColor { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultPenPathColor;
     public bool EditorShowRightPanel { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultShowRightPanel;
     public string EditorWorkspaceFocus { get; set; } = "All";
     public string EditorToolsDock { get; set; } = "Top";
@@ -73,6 +75,8 @@ public class PreviewWindowSettings
     // Prefer two columns for a side-docked Tools rail; Auto still falls back when one column will clip.
     public bool EditorToolsPreferTwoColumns { get; set; } = false;
     public int EditorAntsAnimationMs { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultAntsAnimationMs;
+    // Bahasa UI mode edit: "id" (default) atau "en".
+    public string EditorLanguage { get; set; } = "id";
 
     public void RestoreKeyboardShortcutDefaults()
     {

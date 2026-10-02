@@ -78,7 +78,9 @@ public partial class PreviewWindow
             bool nearFirst = isFirst && anchors.Count >= 3 && pen.IsActive;
             bool hot = nearFirst || i == _penDragIndex || i == _penDragHandleIndex
                 || (_penHoverKind == PenHoverKind.Anchor && _penHoverIndex == i);
-            IBrush fill = hot ? new SolidColorBrush(Color.Parse("#FFE24A")) : Brushes.White;
+            // Anchor mengikuti warna garis path (pola outline hitam dipertahankan);
+            // yang di-hover / di-drag tetap disorot kuning.
+            IBrush fill = hot ? new SolidColorBrush(Color.Parse("#FFE24A")) : new SolidColorBrush(PenPathColor());
 
             var shape = smooth
                 ? (Shape)new Polygon

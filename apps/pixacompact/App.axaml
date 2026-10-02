@@ -6,6 +6,10 @@
 
     <Application.Resources>
         <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- String lokalilasi UI (id/en); ditukar saat user mengganti bahasa. -->
+                <ResourceInclude Source="avares://PixelcutCompact/Resources/Strings.id.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
              <!-- Colors -->
             <Color x:Key="AppBackground">#121212</Color>
             <Color x:Key="CardBackground">#1A1C20</Color>

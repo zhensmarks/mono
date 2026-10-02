@@ -47,6 +47,12 @@ public static class EditorSettings
     public const int MinRefineEdgeSize = 4;
     public const int MaxRefineEdgeSize = 400;
 
+    // Pen path (garis path overlay)
+    public const double DefaultPenPathThickness = 2.0; // px, rentang 1..8
+    public const double MinPenPathThickness = 1.0;
+    public const double MaxPenPathThickness = 8.0;
+    public const string DefaultPenPathColor = "#FFFFFF"; // putih + outline gelap = selalu terbaca
+
     // UI editor
     public const bool DefaultShowRightPanel = true;
     public const int DefaultAntsAnimationMs = 120;    // kecepatan marching ants

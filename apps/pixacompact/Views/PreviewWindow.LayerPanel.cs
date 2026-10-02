@@ -15,7 +15,7 @@ public partial class PreviewWindow
     {  
         if(_layerPanelWired)return;  
         _layerPanelWired=true;  
-        if(this.FindControl<Button>("BtnLayerAdd") is{} btn) btn.Click+=OnLayerAdd;  
+        var btnAdd=this.FindControl<Button>("BtnLayerAdd");if(btnAdd is{} b) b.Click+=OnLayerAdd;  
         if(this.FindControl<Button>("BtnLayerDelete") is{} bd) bd.Click+=OnLayerDelete;  
         if(this.FindControl<Button>("BtnLayerMerge") is{} bm) bm.Click+=OnLayerMerge;  
         if(this.FindControl<Button>("BtnLayerDup") is{} dup) dup.Click+=OnLayerDuplicate;  
@@ -44,7 +44,7 @@ public partial class PreviewWindow
         if(img!=null)img.Source=_docSession.GetComposite();  
     }  
     private void OnLayerAdd(object? s,RoutedEventArgs e)  
-    {  
+    { 
         if(_docSession==null)return;  
         var doc=_docSession.Document;  
         var layer=new ImageLayer{Name="New Layer",Pixels=new PixelBuffer(doc.Width,doc.Height),  

@@ -120,3 +120,6 @@ crash.log
 
 # --- Shortcut & progress lokal ---
 *.lnk
+
+# Screenshot verifikasi GUI lokal (jangan push)
+verify_shots/
