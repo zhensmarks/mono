@@ -249,6 +249,10 @@ public partial class PreviewWindow
             (int)SelectionCombineMode.Replace, (int)SelectionCombineMode.Intersect);
         ConfigureEditorWorkspace();
 
+        // Panel Layers (DocSession V2): isi sesi dokumen dari gambar hasil supaya
+        // daftar layer tampil. Kanvas tetap dipegang sesi mask (tidak diubah).
+        try { EnsureLayerDocSession(_session.Result); } catch { }
+
         // Pulihkan tool terakhir (bila valid), jika tidak default Pan.
         var startTool = _settings.ActiveEditTool >= (int)EditToolKind.Pan &&
                         _settings.ActiveEditTool <= (int)EditToolKind.EllipseMarquee

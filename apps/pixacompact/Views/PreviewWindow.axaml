@@ -29,7 +29,7 @@
     </Window.Styles>
 
     <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" ClipToBounds="True">
-        <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
+        <Grid RowDefinitions="Auto, Auto, Auto, Auto, *, Auto">
             <!-- Header (Draggable) -->
             <Grid Grid.Row="0" Background="Transparent" ColumnDefinitions="*, Auto" MinHeight="45" PointerPressed="OnHeaderPointerPressed">
                   <!-- Left: Title & Icon -->
@@ -127,8 +127,58 @@
             <!-- Parked here until the editor applies the saved dock position. -->
             
 
+            <!-- Baris dock: pilih sisi untuk tiap panel (dockable workspace) -->
+            <Border x:Name="DockFocusBar" Grid.Row="2" IsVisible="False"
+                    Height="{StaticResource EditorMenuBarHeight}"
+                    Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="8,2">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Grid.Column="0" Text="Tools" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{StaticResource EditorTextSecondary}" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="CboToolsDock" Grid.Column="1" Width="82" Tag="Tools"
+                              Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" CornerRadius="5"
+                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan toolbar Tools ke kiri/kanan">
+                        <ComboBoxItem Content="Left" Tag="Left"/>
+                        <ComboBoxItem Content="Right" Tag="Right"/>
+                    </ComboBox>
+                    <TextBlock Grid.Column="3" Text="Properties" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{StaticResource EditorTextSecondary}" Margin="12,0,6,0"/>
+                    <ComboBox x:Name="CboPropertiesDock" Grid.Column="4" Width="86" Tag="Properties"
+                              Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" CornerRadius="5"
+                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan panel Properties ke salah satu sisi">
+                        <ComboBoxItem Content="Top" Tag="Top"/>
+                        <ComboBoxItem Content="Left" Tag="Left"/>
+                        <ComboBoxItem Content="Right" Tag="Right"/>
+                        <ComboBoxItem Content="Bottom" Tag="Bottom"/>
+                    </ComboBox>
+                    <TextBlock Grid.Column="5" Text="History" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{StaticResource EditorTextSecondary}" Margin="12,0,6,0"/>
+                    <ComboBox x:Name="CboHistoryDock" Grid.Column="6" Width="86" Tag="History"
+                              Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" CornerRadius="5"
+                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan panel History ke salah satu sisi">
+                        <ComboBoxItem Content="Top" Tag="Top"/>
+                        <ComboBoxItem Content="Left" Tag="Left"/>
+                        <ComboBoxItem Content="Right" Tag="Right"/>
+                        <ComboBoxItem Content="Bottom" Tag="Bottom"/>
+                    </ComboBox>
+                    <TextBlock Grid.Column="7" Text="Layers" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{StaticResource EditorTextSecondary}" Margin="12,0,6,0"/>
+                    <ComboBox x:Name="CboLayersDock" Grid.Column="8" Width="86" Tag="Layers"
+                              Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" CornerRadius="5"
+                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan panel Layers ke salah satu sisi">
+                        <ComboBoxItem Content="Top" Tag="Top"/>
+                        <ComboBoxItem Content="Left" Tag="Left"/>
+                        <ComboBoxItem Content="Right" Tag="Right"/>
+                        <ComboBoxItem Content="Bottom" Tag="Bottom"/>
+                    </ComboBox>
+                    <Button Grid.Column="9" Content="Reset layout" Click="OnResetEditorWorkspaceClick"
+                            Margin="12,0,0,0" Padding="8,2" FontSize="11"
+                            Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}"
+                            Foreground="{StaticResource EditorTextPrimary}" CornerRadius="5"/>
+                </Grid>
+            </Border>
+
             <!-- Options Bar (Tool-specific settings) -->
-            <Border x:Name="PanelOptionsBar" Grid.Row="2"
+            <Border x:Name="PanelOptionsBar" Grid.Row="3"
                     Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="12,0"
                     IsVisible="False" Height="{StaticResource EditorOptionsBarHeight}" CornerRadius="0" ClipToBounds="True">
                 <Grid ColumnDefinitions="Auto,*,Auto">
@@ -232,9 +282,25 @@
                     </ScrollViewer>
                 </Grid>
             </Border>
-            <Grid x:Name="EditorWorkspaceGrid" Grid.Row="3" RowDefinitions="*,Auto" ColumnDefinitions="Auto,*,Auto"
+            <Grid x:Name="EditorWorkspaceGrid" Grid.Row="4" RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto"
                   Background="{StaticResource EditorBg}">
-                <Border x:Name="PanelToolRail" Grid.Row="0" Grid.Column="0" IsVisible="False"
+                <!-- Dock host atas: panel yang dipindah ke sisi atas -->
+                <Border x:Name="DockTopHost" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
+                        MaxHeight="280" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
+                        BorderThickness="0,0,0,1" Padding="6">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DockTopPanel" Orientation="Horizontal" Spacing="8"/>
+                    </ScrollViewer>
+                </Border>
+                <!-- Dock host kiri: rail tools (atau panel lain yang dipindah ke kiri) -->
+                <Border x:Name="DockLeftHost" Grid.Row="1" Grid.Column="0" IsVisible="False"
+                        Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
+                        BorderThickness="0,0,1,0" Padding="0">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DockLeftPanel"/>
+                    </ScrollViewer>
+                </Border>
+                <Border x:Name="PanelToolRail" Grid.Row="1" Grid.Column="0" IsVisible="False"
                         Width="{StaticResource EditorRailWidth}"
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,1,0"
                         Padding="8,10">
@@ -293,7 +359,8 @@
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
-                <Grid Grid.Row="0" Grid.Column="1">
+                <!-- Kanvas: selalu di baris/kolom tengah -->
+                <Grid Grid.Row="1" Grid.Column="1">
                     <!-- STATE 1: Normal Preview (Side-by-Side) -->
                     <Grid x:Name="PanelNormalPreview" ColumnDefinitions="*, 2, *" Margin="10,0,10,10">
                         <!-- Original -->
@@ -426,7 +493,7 @@
                         </Border>
                     </Grid>
                 </Grid>
-                <Border x:Name="PanelRightEditor" Grid.Row="0" Grid.Column="2" IsVisible="False" Width="240"
+                <Border x:Name="PanelRightEditor" Grid.Row="1" Grid.Column="2" IsVisible="False" Width="240"
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="1,0,0,0" Padding="0" Margin="0">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel x:Name="DockRightPanel" Spacing="0">
@@ -528,7 +595,15 @@
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
-                <Border x:Name="PanelEditorStatus" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
+                <!-- Dock host bawah -->
+                <Border x:Name="DockBottomHost" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
+                        MaxHeight="220" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
+                        BorderThickness="0,1,0,0" Padding="6">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DockBottomPanel" Orientation="Horizontal" Spacing="8"/>
+                    </ScrollViewer>
+                </Border>
+                <Border x:Name="PanelEditorStatus" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
                         Height="{StaticResource EditorStatusBarHeight}"
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,1,0,0"
                         Padding="12,0">
@@ -548,7 +623,7 @@
                     </Grid>
                 </Border>
             </Grid>
-<Border Grid.Row="4" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="#0AFFFFFF" Padding="15,10" MinHeight="55">
+<Border Grid.Row="5" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="#0AFFFFFF" Padding="15,10" MinHeight="55">
                  <Grid>
                      <!-- Center: Navigation Buttons & Photoshop & Toast -->
                      <Grid HorizontalAlignment="Center" VerticalAlignment="Center">

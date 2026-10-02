@@ -1,21 +1,24 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace PixelcutCompact.Views;
 
 /// <summary>
-/// Layout TETAP mode edit ala Photoshop/Affinity/Compositor:
-/// menu bar → options bar kontekstual → rail tools kiri (vertikal, hanya tools edit)
-/// → kanvas tengah → panel kanan → status bar bawah.
-/// Tidak ada docking/pindah panel: satu hierarki yang selalu sama supaya user tidak bingung.
+/// Layout mode edit ala Photoshop: menu bar → options bar → rail tools →
+/// kanvas tengah → dock kanan → status bar.
+/// Docking ringan berbasis Grid/StackPanel bawaan Avalonia: tiap panel bisa dipindah
+/// ke sisi Top/Left/Right/Bottom lewat combo "Dock" (posisi disimpan di settings).
 /// Logika session/mask/composite tidak disentuh di sini (murni presentation).
 /// </summary>
 public partial class PreviewWindow
 {
     /// <summary>Photoshop: Tab menyembunyikan/menampilkan semua panel.</summary>
     private bool _tabPanelsHidden;
+    private bool _workspaceLayoutUpdating;
 
     // Visibilitas per panel dari menu Window. Key yang tidak ada = tampil (default ala Photoshop).
     // Sumber kebenaran = _settings.EditorPanelVisibility supaya pilihan bertahan lintas sesi.
@@ -29,6 +32,15 @@ public partial class PreviewWindow
         ("MiWindowHistory", "history"),
         ("MiWindowLayers", "layers"),
         ("MiWindowRightDock", "rightdock"),
+    };
+
+    // Panel yang bisa di-dock: nama kontrol, key menu Window, nama setting posisi.
+    private static readonly (string Name, string Key, string Setting)[] DockedPanels =
+    {
+        ("PanelToolRail", "toolrail", "Tools"),
+        ("PanelProperties", "properties", "Properties"),
+        ("PanelHistory", "history", "History"),
+        ("PanelDocLayers", "layers", "Layers"),
     };
 
     /// <summary>Menu Window: centang = panel tampil, tidak centang = panel disembunyikan.</summary>
@@ -47,9 +59,10 @@ public partial class PreviewWindow
 
     private void ConfigureEditorWorkspace()
     {
-        // Selaraskan centang menu Window dengan nilai tersimpan; panel yang belum
-        // pernah di-toggle dianggap tampil (default ala Photoshop).
         SyncPanelMenuChecks();
+        SyncDockCombos();
+        ArrangeDockedPanels();
+        SetVisible("DockFocusBar", true);
         ApplyEditorDockVisibility();
     }
 
@@ -63,28 +76,134 @@ public partial class PreviewWindow
         }
     }
 
+    private void SyncDockCombos()
+    {
+        _workspaceLayoutUpdating = true;
+        SetDockCombo("CboToolsDock", DockPositionOf("Tools"));
+        SetDockCombo("CboPropertiesDock", DockPositionOf("Properties"));
+        SetDockCombo("CboHistoryDock", DockPositionOf("History"));
+        SetDockCombo("CboLayersDock", DockPositionOf("Layers"));
+        _workspaceLayoutUpdating = false;
+    }
+
+    /// <summary>Pindahkan tiap panel ke host sesuai posisi tersimpan.</summary>
+    private void ArrangeDockedPanels()
+    {
+        var top = this.FindControl<StackPanel>("DockTopPanel");
+        var left = this.FindControl<StackPanel>("DockLeftPanel");
+        var right = this.FindControl<StackPanel>("DockRightPanel");
+        var bottom = this.FindControl<StackPanel>("DockBottomPanel");
+        if (top == null || left == null || right == null || bottom == null) return;
+
+        foreach (var (name, _, setting) in DockedPanels)
+        {
+            if (this.FindControl<Control>(name) is not { } panel) continue;
+
+            // Lepas dari parent mana pun (host dock ATAU grid awal), lalu pindah ke host tujuan.
+            if (panel.Parent is Panel currentParent) currentParent.Children.Remove(panel);
+
+            FindDockHost(DockPositionOf(setting), top, left, right, bottom).Children.Add(panel);
+        }
+
+        ConfigureToolOrientation(DockPositionOf("Tools"));
+    }
+
+    private static StackPanel FindDockHost(string position, StackPanel top, StackPanel left, StackPanel right, StackPanel bottom)
+        => position switch
+        {
+            "Top" => top,
+            "Left" => left,
+            "Bottom" => bottom,
+            _ => right
+        };
+
+    /// <summary>Rail tools selalu vertikal (hanya boleh Left/Right); atur lebar & sisi border.</summary>
+    private void ConfigureToolOrientation(string position)
+    {
+        var rail = this.FindControl<Border>("PanelToolRail");
+        if (rail == null) return;
+
+        rail.Width = 56;
+        rail.Height = double.NaN;
+        rail.Padding = new Thickness(8, 10);
+        rail.BorderThickness = position == "Right"
+            ? new Thickness(1, 0, 0, 0)
+            : new Thickness(0, 0, 1, 0);
+    }
+
     private void ApplyEditorDockVisibility()
     {
         if (!_editMode) return;
-        bool show = !_tabPanelsHidden;
-        SetVisible("PanelToolRail", show && Visible("toolrail"));
-        SetVisible("PanelOptionsBar", show && Visible("optionsbar"));
-        SetVisible("PanelMenuBar", true);
-        if (this.FindControl<Border>("PanelRightEditor") is { } right)
-            right.IsVisible = show && Visible("rightdock") && _settings.EditorShowRightPanel;
-        // Panel Layers ditampilkan kembali (restorasi minimal Putaran 2);
-        // konten diisi oleh DocSession saat tersedia.
-        SetVisible("PanelDocLayers", show && Visible("layers"));
 
-        // Properties/History hidup di dalam dock kanan: sembunyikan per-panel,
-        // dock-nya tetap berdiri supaya Properties dan History bisa di-toggle sendiri.
-        // Hormati juga "sembunyikan semua panel" (Tab) agar konsisten dengan rail/dock.
-        SetVisible("PanelProperties", show && Visible("properties"));
-        SetVisible("PanelHistory", show && Visible("history"));
+        // Master dock kanan: menu "Dock Kanan" + tombol Panel (EditorShowRightPanel).
+        bool rightMaster = Visible("rightdock") && _settings.EditorShowRightPanel;
+
+        bool Shown(string key, string setting)
+        {
+            if (_tabPanelsHidden) return false;
+            if (!Visible(key)) return false;
+            if (DockPositionOf(setting) == "Right" && !rightMaster) return false;
+            return true;
+        }
+
+        SetVisible("PanelToolRail", Shown("toolrail", "Tools"));
+        SetVisible("PanelProperties", Shown("properties", "Properties"));
+        SetVisible("PanelHistory", Shown("history", "History"));
+        SetVisible("PanelDocLayers", Shown("layers", "Layers"));
+
+        SetVisible("PanelOptionsBar", !_tabPanelsHidden && Visible("optionsbar"));
+        SetVisible("PanelMenuBar", true);
+
+        bool AnyVisibleAt(string position) => DockedPanels.Any(p =>
+            DockPositionOf(p.Setting) == position && Shown(p.Key, p.Setting));
+
+        // Host atas/kiri/bawah hanya tampil bila ada panel yang memakainya.
+        SetVisible("DockTopHost", AnyVisibleAt("Top"));
+        SetVisible("DockLeftHost", AnyVisibleAt("Left"));
+        SetVisible("DockBottomHost", AnyVisibleAt("Bottom"));
+
+        // Host kanan = PanelRightEditor (Border). Lebar mengikuti isi: panel penuh = 240,
+        // hanya rail tools = 70, kosong = sembunyi.
+        if (this.FindControl<Border>("PanelRightEditor") is { } right)
+        {
+            bool rightHasNonTool = DockedPanels.Any(p => p.Setting != "Tools" &&
+                DockPositionOf(p.Setting) == "Right" && Shown(p.Key, p.Setting));
+            bool rightHasAny = AnyVisibleAt("Right");
+            right.Width = rightHasNonTool ? 240 : (rightHasAny ? 70 : 0);
+            right.IsVisible = rightHasAny;
+        }
+
+        SetVisible("DockFocusBar", true);
     }
 
-    /// <summary>Key yang tidak ada di dictionary = tampil (default ala Photoshop).</summary>
     private bool Visible(string key) => !PanelVisibility.TryGetValue(key, out var on) || on;
+
+    /// <summary>Posisi dock tersimpan untuk sebuah panel (Tools hanya Left/Right).</summary>
+    private string DockPositionOf(string setting) => setting switch
+    {
+        "Tools" => NormalizeToolDock(_settings.EditorToolsDock),
+        "Properties" => NormalizeDock(_settings.EditorPropertiesDock),
+        "History" => NormalizeDock(_settings.EditorHistoryDock),
+        _ => NormalizeDock(_settings.EditorLayersDock)
+    };
+
+    private void SetEditorWorkspaceActive(bool active)
+    {
+        SetVisible("DockFocusBar", active);
+        SetVisible("PanelMenuBar", active);
+        if (active)
+        {
+            ApplyEditorDockVisibility();
+            return;
+        }
+
+        SetVisible("PanelRightEditor", false);
+        SetVisible("DockTopHost", false);
+        SetVisible("DockLeftHost", false);
+        SetVisible("DockBottomHost", false);
+        SetVisible("PanelToolRail", false);
+        SetVisible("PanelOptionsBar", false);
+    }
 
     /// <summary>Photoshop: Tab = sembunyikan/tampilkan rail + options bar + dock kanan.</summary>
     private void ToggleEditorPanels()
@@ -94,17 +213,63 @@ public partial class PreviewWindow
         ApplyEditorDockVisibility();
     }
 
-    private void SetEditorWorkspaceActive(bool active)
+    private void OnEditorPanelDockChanged(object? sender, SelectionChangedEventArgs e)
     {
-        SetVisible("PanelMenuBar", active);
-        if (active)
+        if (!_editMode || _workspaceLayoutUpdating || sender is not ComboBox combo) return;
+        var position = NormalizeDock(SelectedTag(combo));
+        switch (combo.Tag?.ToString())
         {
-            ApplyEditorDockVisibility();
-            return;
+            case "Tools": _settings.EditorToolsDock = NormalizeToolDock(position); break;
+            case "Properties": _settings.EditorPropertiesDock = position; break;
+            case "History": _settings.EditorHistoryDock = position; break;
+            case "Layers": _settings.EditorLayersDock = position; break;
+            default: return;
         }
 
-        SetVisible("PanelRightEditor", false);
-        SetVisible("PanelToolRail", false);
-        SetVisible("PanelOptionsBar", false);
+        _settings.Save();
+        ArrangeDockedPanels();
+        ApplyEditorDockVisibility();
     }
+
+    private void OnResetEditorWorkspaceClick(object? sender, RoutedEventArgs e)
+    {
+        _settings.EditorShowRightPanel = true;
+        _settings.EditorToolsDock = "Left";
+        _settings.EditorPropertiesDock = "Right";
+        _settings.EditorHistoryDock = "Right";
+        _settings.EditorLayersDock = "Right";
+        _settings.Save();
+        ConfigureEditorWorkspace();
+    }
+
+    private void SetDockCombo(string name, string tag)
+    {
+        if (this.FindControl<ComboBox>(name) is not { } combo) return;
+        foreach (var item in combo.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private static string SelectedTag(ComboBox combo)
+        => combo.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() ?? string.Empty : string.Empty;
+
+    private static string NormalizeDock(string? position) => position?.Trim().ToUpperInvariant() switch
+    {
+        "TOP" => "Top",
+        "LEFT" => "Left",
+        "BOTTOM" => "Bottom",
+        _ => "Right"
+    };
+
+    /// <summary>Rail tools hanya boleh kiri/kanan (selalu vertikal); default kiri.</summary>
+    private static string NormalizeToolDock(string? position) => position?.Trim().ToUpperInvariant() switch
+    {
+        "RIGHT" => "Right",
+        _ => "Left"
+    };
 }

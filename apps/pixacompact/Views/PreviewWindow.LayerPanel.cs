@@ -11,6 +11,22 @@ public partial class PreviewWindow
 {  
     internal DocEditorSession? _docSession;  
     private bool _layerPanelWired;  
+    private PixelBuffer? _docBaseBuffer;  
+    /// <summary>
+    /// Siapkan sesi dokumen layer dari gambar hasil supaya panel Layers menampilkan
+    /// isinya (minimal layer dasar). Dipanggil saat masuk mode edit; kanvas tetap
+    /// diatur sesi mask, jadi alur masking tidak berubah.
+    /// </summary>
+    internal void EnsureLayerDocSession(PixelBuffer? basePixels)  
+    {  
+        if (_docSession != null) return;  
+        if (basePixels == null) return;  
+        _docBaseBuffer = basePixels;  
+        _docSession = DocEditorSession.FromPixelBuffer(basePixels);  
+        _docSession.DocumentChanged += () => Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLayerPanel);  
+        EnsureLayerPanelWired();  
+        RefreshLayerPanel();  
+    }  
     private void EnsureLayerPanelWired()  
     {  
         if(_layerPanelWired)return;  
