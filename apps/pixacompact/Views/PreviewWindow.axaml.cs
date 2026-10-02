@@ -194,11 +194,14 @@ if (pngPath && jpgPath) {
 
                 if (imgResult != null && resultBitmap != null) imgResult.Source = resultBitmap;
 
-                // Result session siap sekarang; tombol Edit tidak menunggu Original.
+                // Result session disiapkan di background agar UI langsung tampil;
+                // placeholder ditampilkan selama decode (Putaran 2 #11).
+                // Tugas A: lewat BeginPrepareEditorSessionAsync agar tombol
+                // masuk-editor menunjukkan status "Menyiapkan..." (tidak silent-fail).
                 if (resultBuffer != null)
                 {
-                    await PrepareEditorAsync(originalPath, resultPath, resultBuffer);
-                    WireEditorControls();
+                    var rb = resultBuffer;
+                    _ = BeginPrepareEditorSessionAsync(originalPath, resultPath, rb);
                 }
 
                 // Original visual dimuat terpisah untuk preview dan restore/refine lazy.
@@ -731,6 +734,15 @@ try {{
         RenderOverlay();
     }
 
+    public void SetPenPathThicknessPref(double thickness)
+    {
+        _settings.EditorPenPathThickness = Math.Clamp(thickness,
+            PixelcutCompact.Models.EditorSettings.MinPenPathThickness,
+            PixelcutCompact.Models.EditorSettings.MaxPenPathThickness);
+        _settings.Save();
+        RenderOverlay();
+    }
+
     /// <summary>Segarkan hint tool aktif (dipakai dialog Preferensi).</summary>
     public void RefreshEditorHints() => UpdateToolHint(_activeTool);
 
@@ -759,7 +771,9 @@ try {{
             return;
         }
 
-        if (_editMode && e.Key == Key.Space && IsSpacePanInputSource(e.Source))
+        // Space polos = Pan sementara (tahan). Space + modifier (mis. Shift+Space)
+        // dilewatkan ke sistem shortcut agar bisa di-remap.
+        if (_editMode && e.Key == Key.Space && e.KeyModifiers == KeyModifiers.None && IsSpacePanInputSource(e.Source))
         {
             _toolState.HoldSpace();
             UpdateCursorForTool(EditToolKind.Pan);
