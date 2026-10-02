@@ -224,6 +224,7 @@
     <x:String x:Key="Btn_AntiAlias">Anti-alias</x:String>
     <x:String x:Key="Set_PenSection">Pen</x:String>
     <x:String x:Key="Set_PenColor">Warna garis:</x:String>
+    <x:String x:Key="Set_PenThickness">Tebal garis:</x:String>
     <x:String x:Key="Dlg_Choose">Pilih</x:String>
     <x:String x:Key="Dlg_PenColorTitle">Warna garis path</x:String>
     <x:String x:Key="Dlg_ExtraColors">Warna tambahan:</x:String>
@@ -281,4 +282,17 @@
     <x:String x:Key="Err_Modifiers">{0}: hanya tombol tanpa modifier, atau Shift/Ctrl/Ctrl+Shift+tombol yang didukung.</x:String>
     <x:String x:Key="Err_Hardcoded">{0}: {1} dipakai perintah bawaan editor (mis. Ctrl+S simpan).</x:String>
     <x:String x:Key="Err_Conflict">{0} bentrok dengan {1} pada {2}.</x:String>
+    <x:String x:Key="Undo_Grow">Perluas seleksi</x:String>
+    <x:String x:Key="Undo_Shrink">Perkecil seleksi</x:String>
+    <x:String x:Key="Undo_Feather">Feather seleksi</x:String>
+    <x:String x:Key="Undo_Invert">Balikkan seleksi</x:String>
+    <x:String x:Key="Undo_Selection">Buat seleksi</x:String>
+    <x:String x:Key="Undo_SelectAll">Pilih semua</x:String>
+    <x:String x:Key="Footer_OpenEditor">BUKA EDITOR</x:String>
+    <x:String x:Key="Footer_EditorMode">MODE EDITOR</x:String>
+    <x:String x:Key="Editor_Preparing">Menyiapkan...</x:String>
+    <x:String x:Key="Toast_EditorPreparing">Menyiapkan editor, mohon tunggu sebentar...</x:String>
+    <x:String x:Key="Toast_EditorSessionFailed">Sesi editor gagal disiapkan: {0}. Menyiapkan ulang...</x:String>
+    <x:String x:Key="Toast_EditorNoSession">Sesi editor belum siap.</x:String>
+    <x:String x:Key="Toast_EditorBetaOff">Aktifkan Mode Editor (Beta) di Preferensi → Umum untuk mengedit.</x:String>
 </ResourceDictionary>
