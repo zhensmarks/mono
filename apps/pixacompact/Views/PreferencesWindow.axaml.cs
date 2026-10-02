@@ -34,6 +34,7 @@ public partial class PreferencesWindow : Window
     // Snapshot untuk Batal.
     private readonly string _snapLang;
     private readonly string _snapPenColor;
+    private readonly double _snapPenThickness;
     private readonly bool _snapBeta;
     private readonly int _snapBgType;
     private readonly string _snapSolid;
@@ -54,6 +55,7 @@ public partial class PreferencesWindow : Window
 
         _snapLang = _settings.EditorLanguage;
         _snapPenColor = _settings.EditorPenPathColor;
+        _snapPenThickness = _settings.EditorPenPathThickness;
         _snapBeta = _settings.EditorBetaMode;
         _snapBgType = _settings.BackgroundType;
         _snapSolid = _settings.SolidColorHex;
@@ -205,6 +207,7 @@ public partial class PreferencesWindow : Window
         _settings.Save();
         _owner.ApplyBackground();
         _owner.SetPenPathColorPref(_snapPenColor);
+        _owner.SetPenPathThicknessPref(_snapPenThickness);
         _owner.ApplyPreferencesLanguage(_snapLang);
         Close(false);
     }
@@ -238,7 +241,8 @@ public partial class PreferencesWindow : Window
         if (editorDefinition != null)
         {
             // Delete/Backspace boleh di-bind ke aksi masking; Enter hanya ke Make selection.
-            if (EditorShortcutMap.IsReservedKeyForAction(editorDefinition.Action, e.Key))
+            // Space + modifier (mis. Shift+Space) boleh; Space polos reserved untuk Pan.
+            if (EditorShortcutMap.IsReservedKeyForAction(editorDefinition.Action, e.Key, e.KeyModifiers))
             {
                 _owner.ShowToast(e.Key == Key.Space
                     ? Tr("Toast_SpaceReserved")
@@ -378,12 +382,33 @@ public partial class PreferencesWindow : Window
     private void WirePenColorUi()
     {
         BuildPenSwatches();
+        WirePenThicknessUi();
         var btn = this.FindControl<Button>("BtnPenCustomColorSettings");
         if (btn != null)
         {
             btn.Click -= OnPenCustomColorClick;
             btn.Click += OnPenCustomColorClick;
         }
+    }
+
+    private void WirePenThicknessUi()
+    {
+        var sld = this.FindControl<Slider>("SldPenThickness");
+        var txt = this.FindControl<TextBlock>("TxtPenThickness");
+        if (sld == null) return;
+        sld.Value = _settings.EditorPenPathThickness;
+        if (txt != null) txt.Text = $"{_settings.EditorPenPathThickness:0} px";
+        sld.ValueChanged -= OnPenThicknessChanged;
+        sld.ValueChanged += OnPenThicknessChanged;
+    }
+
+    private void OnPenThicknessChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        if (!_uiReady) return;
+        var v = Math.Round(e.NewValue);
+        _owner.SetPenPathThicknessPref(v);
+        var txt = this.FindControl<TextBlock>("TxtPenThickness");
+        if (txt != null) txt.Text = $"{v:0} px";
     }
 
     /// <summary>Bangun 8 swatch warna preset sekali saja (dipanggil dari WirePenColorUi).</summary>
