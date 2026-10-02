@@ -29,8 +29,9 @@ public partial class PreviewWindow
         SetVisible("PanelMenuBar", true);
         if (this.FindControl<Border>("PanelRightEditor") is { } right)
             right.IsVisible = show && _settings.EditorShowRightPanel;
-        // Panel Layers hanya relevan saat Layer V2 aktif.
-        SetVisible("PanelDocLayers", _editorV2Active && show);
+        // Panel Layers ditampilkan kembali (restorasi minimal Putaran 2);
+        // konten diisi oleh DocSession saat tersedia.
+        SetVisible("PanelDocLayers", show);
     }
 
     /// <summary>Photoshop: Tab = sembunyikan/tampilkan rail + options bar + dock kanan.</summary>

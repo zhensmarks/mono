@@ -64,7 +64,7 @@
                       <Border x:Name="ChipEditMode" IsVisible="False" Background="{StaticResource EditorAccent}" CornerRadius="3" Padding="10,4" Margin="0,0,8,0" VerticalAlignment="Center">
                           <TextBlock Text="MODE EDITOR" FontSize="11" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
                       </Border>
-                      <Button x:Name="BtnEnterEditHeader" Classes="editor-primary" ToolTip.Tip="{DynamicResource Tip_StartEditor}" IsVisible="False" Content="{DynamicResource Btn_StartEdit}" VerticalAlignment="Center" Padding="12,6" Margin="0,0,8,0" Foreground="White" FontSize="12" FontWeight="SemiBold" Cursor="Hand"/>
+
                       <Button x:Name="BtnExitEditHeader" Classes="editor-compact" IsVisible="False" Content="{DynamicResource Btn_Done}" ToolTip.Tip="{DynamicResource Tip_ExitEditor}" VerticalAlignment="Center" Padding="12,6" Margin="0,0,8,0" Foreground="White" FontSize="12" FontWeight="SemiBold" Cursor="Hand"/>
 
                       <!-- Close Button -->
@@ -358,21 +358,8 @@
                                           Stroke="#DD111111" StrokeThickness="3" StrokeDashArray="4,4" Fill="Transparent"/>
                                     <Path x:Name="SelectionAnts" IsHitTestVisible="False" ZIndex="102"
                                           Stroke="White" StrokeThickness="1" StrokeDashArray="4,4" Fill="Transparent"/>
-                                    <!-- View controls (compare + zoom): disembunyikan saat mode edit,
-                                         diganti toggle Bandingkan di options bar -->
-                                    <StackPanel x:Name="PanelViewControls" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8" Spacing="4">
-                                        <ToggleButton x:Name="BtnCompare" Content="{DynamicResource Btn_Compare}" FontSize="10" Padding="8,4" CornerRadius="6"
-                                                      Background="#CC1A1D21" Foreground="White" BorderThickness="0" ToolTip.Tip="{DynamicResource Tip_Compare}"/>
-                                        <NumericUpDown x:Name="ZoomControl" Minimum="0.2" Maximum="20" Increment="0.1" Value="1" FormatString="0.0"
-                                                       Width="92" FontSize="10" Background="#CC1A1D21" Foreground="White"/>
-                                    </StackPanel>
-                                    <!-- Tombol Edit (pill, tengah-bawah kanvas) -->
-                                    <Button x:Name="BtnEnterEdit" Classes="editor-primary" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,16" Padding="16,9" ToolTip.Tip="{DynamicResource Tip_StartEditor}">
-                                        <StackPanel Orientation="Horizontal" Spacing="7">
-                                            <PathIcon Data="M20.71,4.63L19.37,3.29C19,2.9 18.35,2.9 17.96,3.29L9,12.25L11.75,15L20.71,6.04C21.1,5.65 21.1,5 20.71,4.63M7,14A3,3 0 0,0 4,17C4,18.31 2.84,19 2,19C2.92,20.22 4.5,21 6,21A4,4 0 0,0 10,17A3,3 0 0,0 7,14Z" Width="15" Height="15" Foreground="White" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{DynamicResource Btn_StartEdit}" FontSize="12" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
+
+
                                     <!-- Spinner Refine Hair -->
                                     <Border x:Name="PanelRefineBusy" IsVisible="False" Background="#B0000000" CornerRadius="3">
                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10">
@@ -430,48 +417,48 @@
                                     </Border>
 
                             <!-- SELECTION SECTION -->
-                            <Border Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="12,10">
-                                <StackPanel Spacing="8">
+                            <Border Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="8,8">
+                                <StackPanel Spacing="6">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Text="{DynamicResource Panel_Selection}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
                                         <Button x:Name="BtnToggleEditorPanel" Classes="editor-compact" Grid.Column="1" Content="{DynamicResource Btn_Panel}" Click="OnToggleEditorPanel" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
                                     </Grid>
                                     <TextBlock x:Name="TxtSelStatus" Text="{DynamicResource SelStatus_None}" FontSize="10" TextWrapping="Wrap" Foreground="{StaticResource EditorTextSecondary}"/>
-                                    <Grid ColumnDefinitions="*,*,*" Margin="0,2">
-                                        <Button x:Name="BtnSelAllPanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_SelectAll}" Grid.Column="0" Content="{DynamicResource Btn_All}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="0,0,2,0"/>
-                                        <Button x:Name="BtnSelNonePanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_Deselect}" Grid.Column="1" Content="{DynamicResource Btn_None}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0"/>
-                                        <Button x:Name="BtnSelInvertPanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_InvertSel}" Grid.Column="2" Content="{DynamicResource Btn_Invert}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0,0,0"/>
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="2" Margin="0,1">
+                                        <Button x:Name="BtnSelAllPanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_SelectAll}" Grid.Column="0" Content="{DynamicResource Btn_All}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnSelNonePanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_Deselect}" Grid.Column="1" Content="{DynamicResource Btn_None}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnSelInvertPanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_InvertSel}" Grid.Column="2" Content="{DynamicResource Btn_Invert}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
                                     </Grid>
                                     <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,4">
                                         <TextBlock Text="{DynamicResource Opt_Pixels}" FontSize="10" Foreground="{StaticResource EditorTextDisabled}" VerticalAlignment="Center"/>
                                         <Slider x:Name="SldSelGrowPxPanel" Grid.Column="1" Margin="8,0" Minimum="1" Maximum="200" Value="4" VerticalAlignment="Center"/>
                                         <TextBlock x:Name="TxtSelGrowPxPanel" Grid.Column="2" Text="4" FontSize="10" Width="24" Foreground="{StaticResource EditorTextPrimary}" VerticalAlignment="Center"/>
                                     </Grid>
-                                    <Grid ColumnDefinitions="*,*,*" Margin="0,2">
-                                        <Button x:Name="BtnSelGrowPanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_GrowSel}" Grid.Column="0" Content="{DynamicResource Btn_Grow}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="0,0,2,0"/>
-                                        <Button x:Name="BtnSelShrinkPanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_ShrinkSel}" Grid.Column="1" Content="{DynamicResource Btn_Shrink}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0"/>
-                                        <Button x:Name="BtnSelFeatherPanel" Classes="editor-compact" Grid.Column="2" Content="{DynamicResource Btn_Feather}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0,0,0"/>
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="2" Margin="0,1">
+                                        <Button x:Name="BtnSelGrowPanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_GrowSel}" Grid.Column="0" Content="{DynamicResource Btn_Grow}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnSelShrinkPanel" Classes="editor-compact" ToolTip.Tip="{DynamicResource Tip_ShrinkSel}" Grid.Column="1" Content="{DynamicResource Btn_Shrink}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnSelFeatherPanel" Classes="editor-compact" Grid.Column="2" Content="{DynamicResource Btn_Feather}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
                                     </Grid>
-                                    <Grid ColumnDefinitions="*,*" Margin="0,2">
-                                        <Button x:Name="BtnSelSavePanel" Classes="editor-compact" Grid.Column="0" Content="{DynamicResource Btn_SaveSel}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="0,0,2,0"/>
-                                        <Button x:Name="BtnSelLoadPanel" Classes="editor-compact" Grid.Column="1" Content="{DynamicResource Btn_LoadSel}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0,0,0"/>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="2" Margin="0,1">
+                                        <Button x:Name="BtnSelSavePanel" Classes="editor-compact" Grid.Column="0" Content="{DynamicResource Btn_SaveSel}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnSelLoadPanel" Classes="editor-compact" Grid.Column="1" Content="{DynamicResource Btn_LoadSel}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
                                     </Grid>
                                 </StackPanel>
                             </Border>
 
                             <!-- MASK SECTION -->
-                            <Border Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="12,10">
-                                <StackPanel Spacing="8">
+                            <Border Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="8,8">
+                                <StackPanel Spacing="6">
                                     <TextBlock Text="{DynamicResource Panel_Mask}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
-                                    <Grid ColumnDefinitions="*,*,*" Margin="0,2">
-                                        <Button x:Name="BtnApplyErasePanel" Classes="editor-compact" Grid.Column="0" Content="{DynamicResource Btn_Erase}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="0,0,2,0"/>
-                                        <Button x:Name="BtnApplyRestorePanel" Classes="editor-compact" Grid.Column="1" Content="{DynamicResource Btn_Restore}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0"/>
-                                        <Button x:Name="BtnApplyFillPanel" Classes="editor-compact" Grid.Column="2" Content="{DynamicResource Btn_Fill}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0,0,0"/>
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="2" Margin="0,1">
+                                        <Button x:Name="BtnApplyErasePanel" Classes="editor-compact" Grid.Column="0" Content="{DynamicResource Btn_Erase}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnApplyRestorePanel" Classes="editor-compact" Grid.Column="1" Content="{DynamicResource Btn_Restore}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnApplyFillPanel" Classes="editor-compact" Grid.Column="2" Content="{DynamicResource Btn_Fill}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
                                     </Grid>
-                                    <Grid ColumnDefinitions="*,*,*" Margin="0,2">
-                                        <Button x:Name="BtnMaskExpandPanel" Classes="editor-compact" Grid.Column="0" Content="{DynamicResource Btn_Expand}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="0,0,2,0"/>
-                                        <Button x:Name="BtnMaskContractPanel" Classes="editor-compact" Grid.Column="1" Content="{DynamicResource Btn_Contract}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0"/>
-                                        <Button x:Name="BtnMaskFeatherPanel" Classes="editor-compact" Grid.Column="2" Content="{DynamicResource Btn_Feather}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" Margin="2,0,0,0"/>
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="2" Margin="0,1">
+                                        <Button x:Name="BtnMaskExpandPanel" Classes="editor-compact" Grid.Column="0" Content="{DynamicResource Btn_Expand}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnMaskContractPanel" Classes="editor-compact" Grid.Column="1" Content="{DynamicResource Btn_Contract}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
+                                        <Button x:Name="BtnMaskFeatherPanel" Classes="editor-compact" Grid.Column="2" Content="{DynamicResource Btn_Feather}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}"/>
                                     </Grid>
                                     <Button x:Name="BtnMaskDefringePanel" Classes="editor-compact" Content="{DynamicResource Btn_Defringe}" FontSize="11" Foreground="{StaticResource EditorTextPrimary}" HorizontalAlignment="Stretch"/>
                                 </StackPanel>
@@ -490,7 +477,7 @@
                             </Border>
 
                             <!-- LAYERS SECTION -->
-                            <Border x:Name="PanelDocLayers" Width="240" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0" Padding="12,10" IsVisible="False">
+                            <Border x:Name="PanelDocLayers" Width="240" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0" Padding="12,10" IsVisible="True">
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="{DynamicResource Panel_Layers}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
                                     <Border Background="{StaticResource EditorBg}" CornerRadius="3" Padding="4" MaxHeight="220">
@@ -550,10 +537,12 @@
                                   <PathIcon Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
                               </Button>
 
+                              <ToggleButton x:Name="BtnCompareBottom" Content="{DynamicResource Btn_Compare}" FontSize="11" Padding="12,8" CornerRadius="8" Background="#15FFFFFF" BorderBrush="#30FFFFFF" BorderThickness="1" Foreground="{DynamicResource TextPrimaryBrush}" ToolTip.Tip="{DynamicResource Tip_Compare}" VerticalAlignment="Center"/>
+
                               <Button x:Name="BtnFooterMode" IsVisible="True" Click="OnFooterModeClick" Padding="20,8" Background="#206366F1" BorderBrush="#806366F1" BorderThickness="1" CornerRadius="8" ToolTip.Tip="{DynamicResource Tip_OpenPhotoshop}">
                                   <StackPanel Orientation="Horizontal" Spacing="8">
                                       <PathIcon x:Name="IconFooterMode" Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M19,19H5V5H19V19M11,14.5V11.5H13C14.1,11.5 15,12.4 15,13.5C15,14.6 14.1,15.5 13,15.5H11M11,10H13C14.93,10 16.5,11.57 16.5,13.5C16.5,15.43 14.93,17 13,17H9.5V7H11V10Z" Width="14" Height="14" Foreground="White" VerticalAlignment="Center"/>
-                                      <TextBlock x:Name="TxtFooterMode" Text="PHOTOSHOP" FontSize="12" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                                      <TextBlock x:Name="TxtFooterMode" Text="{DynamicResource Footer_OpenEditor}" FontSize="12" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
                                   </StackPanel>
                               </Button>
 
