@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using PixelcutCompact.Services.Editing;
 
 namespace PixelcutCompact.Views;
 
@@ -43,6 +46,10 @@ public partial class PreviewWindow
         ("PanelDocLayers", "layers", "Layers"),
     };
 
+    // Grup tool di rail (dipakai untuk tata letak 1/2 kolom).
+    private static readonly string[] ToolGroupNames =
+        { "ToolSelectionGroup", "ToolPaintGroup", "ToolViewGroup", "ToolAiGroup" };
+
     /// <summary>Menu Window: centang = panel tampil, tidak centang = panel disembunyikan.</summary>
     private void OnTogglePanelClick(object? sender, RoutedEventArgs e)
     {
@@ -61,9 +68,19 @@ public partial class PreviewWindow
     {
         SyncPanelMenuChecks();
         SyncDockCombos();
+        if (this.FindControl<ToggleButton>("BtnToolsTwoColumns") is { } t) t.IsChecked = _settings.EditorToolsPreferTwoColumns;
         ArrangeDockedPanels();
         SetVisible("DockFocusBar", true);
         ApplyEditorDockVisibility();
+    }
+
+    /// <summary>Toggle "2 kolom" untuk rail Tools.</summary>
+    private void OnToolsTwoColumnsChanged(object? sender, RoutedEventArgs e)
+    {
+        if (!_editMode || sender is not ToggleButton tb) return;
+        _settings.EditorToolsPreferTwoColumns = tb.IsChecked == true;
+        _settings.Save();
+        ConfigureToolOrientation(DockPositionOf("Tools"));
     }
 
     /// <summary>Samakan IsChecked tiap item menu Window dengan visibilitas tersimpan.</summary>
@@ -117,18 +134,76 @@ public partial class PreviewWindow
             _ => right
         };
 
-    /// <summary>Rail tools selalu vertikal (hanya boleh Left/Right); atur lebar & sisi border.</summary>
+    /// <summary>
+    /// Rail tools selalu vertikal (hanya boleh Left/Right). Bisa 1 atau 2 kolom:
+    /// 2 kolom kalau user mengaktifkannya (EditorToolsPreferTwoColumns) atau kalau
+    /// satu kolom tidak muat di tinggi tersedia (kebijakan ToolDockColumnPolicy).
+    /// </summary>
     private void ConfigureToolOrientation(string position)
     {
         var rail = this.FindControl<Border>("PanelToolRail");
         if (rail == null) return;
 
-        rail.Width = 56;
         rail.Height = double.NaN;
         rail.Padding = new Thickness(8, 10);
         rail.BorderThickness = position == "Right"
             ? new Thickness(1, 0, 0, 0)
             : new Thickness(0, 0, 1, 0);
+
+        var grid = this.FindControl<Grid>("PanelToolContentGrid");
+        var left = this.FindControl<StackPanel>("ToolColumnLeft");
+        var right = this.FindControl<StackPanel>("ToolColumnRight");
+        var groups = ToolGroupNames.Select(n => this.FindControl<StackPanel>(n)).Where(g => g != null).Select(g => g!).ToArray();
+        if (grid == null || left == null || right == null || groups.Length == 0) return;
+
+        // Pastikan semua grup berada di kolom kiri dulu (agar bisa diukur & dipindah).
+        foreach (var g in groups)
+        {
+            if (g.Parent is Panel pp && pp != left) pp.Children.Remove(g);
+            if (!left.Children.Contains(g)) left.Children.Add(g);
+        }
+
+        foreach (var g in groups) { g.Orientation = Orientation.Vertical; g.Spacing = 2; SetToolButtonSize(g, 36); }
+
+        double oneColumnHeight = groups.Sum(g => { g.Measure(Size.Infinity); return g.DesiredSize.Height; })
+                                 + Math.Max(0, groups.Length - 1) * 2 + 20;
+        double available = GetAvailableToolHeight(position);
+        bool two = ToolDockColumnPolicy.UseTwoColumns(available, oneColumnHeight, _settings.EditorToolsPreferTwoColumns);
+
+        int size = two ? 34 : 36;
+        int spacing = two ? 1 : 2;
+        foreach (var g in groups) { g.Spacing = spacing; SetToolButtonSize(g, size); }
+
+        right.Children.Clear();
+        if (two)
+        {
+            foreach (var g in new[] { "ToolViewGroup", "ToolAiGroup" })
+                if (this.FindControl<StackPanel>(g) is { } gp && left.Children.Contains(gp)) { left.Children.Remove(gp); right.Children.Add(gp); }
+            right.IsVisible = true;
+            rail.Width = size * 2 + 18;
+        }
+        else
+        {
+            right.IsVisible = false;
+            rail.Width = size + 20;
+        }
+    }
+
+    private double GetAvailableToolHeight(string position)
+    {
+        var host = this.FindControl<Border>(position == "Right" ? "PanelRightEditor" : "DockLeftHost");
+        double h = host?.Bounds.Height ?? 0;
+        if (h <= 0 && this.FindControl<Border>("PanelToolRail") is { } rail) h = rail.Bounds.Height;
+        return h;
+    }
+
+    private static void SetToolButtonSize(StackPanel group, double size)
+    {
+        foreach (var button in group.Children.OfType<Button>())
+        {
+            button.Width = size;
+            button.Height = size;
+        }
     }
 
     private void ApplyEditorDockVisibility()

@@ -1,6 +1,9 @@
 using System;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.VisualTree;
 
 namespace PixelcutCompact.Views;
 
@@ -64,6 +67,29 @@ public partial class PreviewWindow
 
     /// <summary>True bila semua panel utama terlihat (dipakai untuk gate langkah tes).</summary>
     public bool EditorTestIsEditMode => _editMode;
+
+    /// <summary>Set preferensi 2 kolom rail Tools lalu terapkan.</summary>
+    public void EditorTestSetToolsTwoColumns(bool two)
+    {
+        _settings.EditorToolsPreferTwoColumns = two;
+        if (this.FindControl<ToggleButton>("BtnToolsTwoColumns") is { } t) t.IsChecked = two;
+        ConfigureToolOrientation(DockPositionOf("Tools"));
+    }
+
+    /// <summary>Laporan tata letak rail Tools (lebar, jumlah kolom, isi tiap kolom).</summary>
+    public string EditorTestToolRailReport()
+    {
+        double w = this.FindControl<Border>("PanelToolRail")?.Width ?? -1;
+        var left = this.FindControl<StackPanel>("ToolColumnLeft");
+        var right = this.FindControl<StackPanel>("ToolColumnRight");
+        string pos(StackPanel? p)
+        {
+            if (p == null) return "n/a";
+            var pt = p.TranslatePoint(new Avalonia.Point(0, 0), this);
+            return pt == null ? "?" : $"X={pt.Value.X:0} Y={pt.Value.Y:0} W={p.Bounds.Width:0} H={p.Bounds.Height:0}";
+        }
+        return $"RailWidth={w:0} LeftGroups={left?.Children.Count ?? -1} RightGroups={right?.Children.Count ?? -1} RightVisible={(right?.IsVisible ?? false)} | Left[{pos(left)}] Right[{pos(right)}]";
+    }
 
     /// <summary>Laporan isi panel Layers (jumlah item + nama) untuk assertion.</summary>
     public string EditorTestLayerReport()

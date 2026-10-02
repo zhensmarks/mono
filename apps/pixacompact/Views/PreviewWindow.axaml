@@ -131,7 +131,7 @@
             <Border x:Name="DockFocusBar" Grid.Row="2" IsVisible="False"
                     Height="{StaticResource EditorMenuBarHeight}"
                     Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="8,2">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                     <TextBlock Grid.Column="0" Text="Tools" FontSize="11" VerticalAlignment="Center"
                                Foreground="{StaticResource EditorTextSecondary}" Margin="0,0,6,0"/>
                     <ComboBox x:Name="CboToolsDock" Grid.Column="1" Width="82" Tag="Tools"
@@ -174,6 +174,12 @@
                             Margin="12,0,0,0" Padding="8,2" FontSize="11"
                             Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}"
                             Foreground="{StaticResource EditorTextPrimary}" CornerRadius="5"/>
+                    <ToggleButton x:Name="BtnToolsTwoColumns" Grid.Column="10" Content="2 kolom"
+                                  Margin="8,0,0,0" Padding="8,2" FontSize="11"
+                                  Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}"
+                                  Foreground="{StaticResource EditorTextPrimary}" CornerRadius="5"
+                                  IsCheckedChanged="OnToolsTwoColumnsChanged"
+                                  ToolTip.Tip="Tampilkan rail Tools dalam 2 kolom (hemat tinggi)"/>
                 </Grid>
             </Border>
 
@@ -305,8 +311,10 @@
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,1,0"
                         Padding="8,10">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                        <Grid x:Name="PanelToolContentGrid" ColumnDefinitions="Auto,Auto" HorizontalAlignment="Center">
+                            <StackPanel x:Name="ToolColumnLeft" Grid.Column="0" Orientation="Vertical" Spacing="2">
                             <!-- Grup seleksi -->
+                            <StackPanel x:Name="ToolSelectionGroup" Orientation="Vertical" Spacing="2">
                                                     <Button x:Name="BtnToolMove" Classes="editor-tool" Tag="Move" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolMove}">
                                                         <PathIcon Data="M10.5,5.4L13.5,5.4L13.5,18.6L10.5,18.6ZM5.4,10.5L18.6,10.5L18.6,13.5L5.4,13.5ZM12,1.8L9,6.6L15,6.6ZM12,22.2L9,17.4L15,17.4ZM1.8,12L6.6,9L6.6,15ZM22.2,12L17.4,9L17.4,15Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
@@ -328,8 +336,10 @@
                                                     <Button x:Name="BtnToolPen" Classes="editor-tool" Tag="Pen" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolPen}">
                                                         <PathIcon Data="M12,1.7L13.4,4.3L14.4,7.2L14.6,10.2L13.7,13.5L12,14.7L10.3,13.5L9.4,10.2L9.6,7.2L10.6,4.3ZM13.6,8.6L13.4,9.3L13,9.9L12.4,10.2L11.6,10.2L11,9.9L10.6,9.3L10.4,8.6L10.6,7.9L11,7.3L11.6,7L12.4,7L13,7.3L13.4,7.9L13.6,8.6ZM11.5,10.4L12.5,10.4L12.5,13.4L11.5,13.4Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
+                            </StackPanel>
                             <Border Height="1" Background="{StaticResource EditorBorder}" Margin="4,6"/>
                             <!-- Grup brush -->
+                            <StackPanel x:Name="ToolPaintGroup" Orientation="Vertical" Spacing="2">
                                                     <Button x:Name="BtnToolBrush" Classes="editor-tool" Tag="Brush" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolBrush}">
                                                         <PathIcon Data="M19,5L17.7,5.8L16.4,7L15.1,8.5L13.8,10.5L15.6,12.3L16.8,10.5L17.8,8.7L18.5,6.9L19,5ZM13.8,10.5L15.6,12.3L12.8,15.1L11,13.3ZM10.5,12.8L3.8,19.5L6.6,22.3L13.3,15.6ZM7.2,20.9L7,21.8L6.4,22.5L5.6,22.8L4.8,22.8L4,22.5L3.4,21.8L3.2,20.9L3.4,20L4,19.3L4.8,19L5.6,19L6.4,19.3L7,20L7.2,20.9Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
@@ -339,13 +349,18 @@
                                                     <Button x:Name="BtnToolRefineEdge" Classes="editor-tool" Tag="RefineEdge" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolRefineEdge}">
                                                         <PathIcon Data="M6,19L11,14L9,12L4,17ZM6.4,18L6.2,18.7L5.7,19.2L5,19.4L4.3,19.2L3.8,18.7L3.6,18L3.8,17.3L4.3,16.8L5,16.6L5.7,16.8L6.2,17.3L6.4,18ZM14.6,8.2L11,11.6L12.6,13.2ZM3.6,20.3L4.8,21.9L6,20.1L7.2,21.7L8.4,19.9L9.6,21.5L10.8,19.7L12.1,21.3L13.3,19.5L14.5,21.1L15.7,19.3L16.9,20.9L18.1,19.1L19.3,20.7L20.6,18.9L20.4,17.5L19.2,19.3L18,17.7L16.8,19.5L15.6,17.9L14.4,19.7L13.2,18.1L11.9,19.9L10.7,18.3L9.5,20.1L8.3,18.5L7.1,20.3L5.9,18.7L4.7,20.5L3.4,18.9Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
+                            </StackPanel>
                             <Border Height="1" Background="{StaticResource EditorBorder}" Margin="4,6"/>
                             <!-- Pan -->
+                            <StackPanel x:Name="ToolViewGroup" Orientation="Vertical" Spacing="2">
                                                     <Button x:Name="BtnToolPan" Classes="editor-tool" Tag="Pan" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolPan}">
                                                         <PathIcon Data="M7.7,13.5L7.7,7L7.7,7L7.8,6.5L8.2,6.1L8.7,6L9.2,6.1L9.6,6.5L9.7,7L9.7,13.5ZM10.2,13.5L10.2,6.2L10.2,6.2L10.3,5.7L10.7,5.3L11.2,5.2L11.7,5.3L12.1,5.7L12.2,6.2L12.2,13.5ZM12.7,13.5L12.7,6.4L12.7,6.4L12.8,5.9L13.2,5.5L13.7,5.4L14.2,5.5L14.6,5.9L14.7,6.4L14.7,13.5ZM15.2,13.5L15.2,7.4L15.2,7.4L15.3,6.9L15.7,6.5L16.2,6.4L16.7,6.5L17.1,6.9L17.2,7.4L17.2,13.5ZM7.6,12.5L17.4,12.5L17.4,19L16.4,20.8L8.6,20.8L7.6,19ZM8.6,15.1L5.4,12.5L3.8,14.3L7,16.9ZM5.9,13.4L5.8,14.1L5.3,14.6L4.6,14.8L3.9,14.6L3.4,14.1L3.2,13.4L3.4,12.7L3.9,12.2L4.6,12.1L5.3,12.2L5.8,12.7L5.9,13.4Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
 
+                            </StackPanel>
                             <Border Height="1" Background="{StaticResource EditorBorder}" Margin="4,6"/>
+                            <!-- Grup view: overlay & AI -->
+                            <StackPanel x:Name="ToolAiGroup" Orientation="Vertical" Spacing="2">
                                                     <Button x:Name="BtnQuickMask" Classes="editor-tool quick-mask" Click="OnQuickMaskClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_QuickMask}">
                                                         <PathIcon Data="M20.6,12L20.5,13.5L20.1,14.9L19.4,16.3L18.6,17.5L17.5,18.6L16.3,19.4L14.9,20.1L13.5,20.5L12,20.6L10.5,20.5L9.1,20.1L7.7,19.4L6.5,18.6L5.4,17.5L4.6,16.3L3.9,14.9L3.5,13.5L3.4,12L3.5,10.5L3.9,9.1L4.6,7.7L5.4,6.5L6.5,5.4L7.7,4.6L9.1,3.9L10.5,3.5L12,3.4L13.5,3.5L14.9,3.9L16.3,4.6L17.5,5.4L18.6,6.5L19.4,7.7L20.1,9.1L20.5,10.5L20.6,12ZM18.9,12L18.8,13.3L18.4,14.6L17.7,15.8L16.9,16.9L15.8,17.7L14.6,18.4L13.3,18.8L12,18.9L10.7,18.8L9.4,18.4L8.2,17.7L7.1,16.9L6.3,15.8L5.6,14.6L5.2,13.3L5.1,12L5.2,10.7L5.6,9.4L6.3,8.2L7.1,7.1L8.2,6.3L9.4,5.6L10.7,5.2L12,5.1L13.3,5.2L14.6,5.6L15.8,6.3L16.9,7.1L17.7,8.2L18.4,9.4L18.8,10.7L18.9,12ZM12.4,8.2L14.7,5.9L13.9,5.1L11.6,7.4ZM12.4,10.6L16.2,6.8L15.4,6L11.6,9.8ZM12.4,13L17.5,7.9L16.7,7.1L11.6,12.2ZM12.4,15.4L18.5,9.3L17.7,8.5L11.6,14.6ZM12.4,17.8L19.1,11.1L18.3,10.3L11.6,17ZM13.4,19.2L19.2,13.4L18.4,12.6L12.6,18.4Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
@@ -355,8 +370,10 @@
                                                     <Button x:Name="BtnRefineHair" Classes="editor-tool" Click="OnRefineHairClick" Width="36" Height="36" ToolTip.Tip="Refine Hair (AI)">
                                                         <PathIcon Data="M16.3,9.4L16.2,10.4L15.8,11.4L15.2,12.3L14.4,12.9L13.5,13.4L12.5,13.7L11.5,13.7L10.5,13.4L9.6,12.9L8.8,12.3L8.2,11.4L7.8,10.4L7.7,9.4L7.8,8.4L8.2,7.4L8.8,6.5L9.6,5.9L10.5,5.4L11.5,5.1L12.5,5.1L13.5,5.4L14.4,5.9L15.2,6.5L15.8,7.4L16.2,8.4L16.3,9.4ZM8,8.6L6,7.2L8.4,7.4ZM8.5,7.3L7.1,5.3L9.3,6.3ZM9.4,6.2L8.8,3.9L10.5,5.6ZM10.7,5.5L10.9,3.1L11.9,5.3ZM12.1,5.3L13.1,3.1L13.3,5.5ZM13.5,5.6L15.2,3.9L14.6,6.2ZM14.7,6.3L16.9,5.3L15.5,7.3ZM15.6,7.4L18,7.2L16,8.6ZM4.5,21.5L6,17.6L9,16L9.2,14.6L14.8,14.6L15,16L18,17.6L19.5,21.5Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                            <!-- Grup view: overlay & AI -->
-                        </StackPanel>
+                            </StackPanel>
+                            </StackPanel>
+                            <StackPanel x:Name="ToolColumnRight" Grid.Column="1" Orientation="Vertical" Spacing="2"/>
+                        </Grid>
                     </ScrollViewer>
                 </Border>
                 <!-- Kanvas: selalu di baris/kolom tengah -->

@@ -128,6 +128,15 @@ class Program
         await Settle();
         Console.WriteLine("STEP7 " + win.EditorTestVisibilityReport());
         Shoot(win, "07_tools_docked_right");
+
+        // Rail Tools 2 kolom.
+        win.EditorTestSetDock("Tools", "Left");
+        await Settle();
+        Console.WriteLine("RAIL-1COL " + win.EditorTestToolRailReport());
+        win.EditorTestSetToolsTwoColumns(true);
+        await Settle();
+        Console.WriteLine("RAIL-2COL " + win.EditorTestToolRailReport());
+        Shoot(win, "08_tools_two_columns");
     }
 
     static async Task Settle()
