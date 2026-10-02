@@ -30,6 +30,7 @@ namespace PixelcutCompact.Views;
 /// </summary>
 public partial class PreviewWindow
 {
+
     // ========================
     // STATE EDITOR
     // ========================
@@ -55,8 +56,6 @@ public partial class PreviewWindow
     private BrushStrokeAccumulator? _strokeAccum;
     private bool _strokeToSelection; // true = goresan ditulis ke Selection.Coverage (Quick Mask)
     private BrushStamp _lastStamp;
-    private int _penDragIndex = -1;
-    private long _lastPenClickMs;
     private ColumnDefinitions? _savedColumns;
     private bool _compareOriginal;
     private bool _optionsWired;
@@ -440,6 +439,8 @@ public partial class PreviewWindow
         _activeSelectionTool = null;
         _strokeActive = false;
         _penDragIndex = -1;
+        _penDragHandleIndex = -1;
+        _penHoverKind = PenHoverKind.None;
         // Batalkan state drag yang mungkin tertinggal (mis. pointer lepas di luar kanvas).
         _movingSelection = false;
         _moveBaseCoverage = null;
@@ -530,19 +531,22 @@ public partial class PreviewWindow
     {
         UpdateEditorShortcutToolTips();
         string Shortcut(EditorShortcutAction action) => EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, action);
+        string delMask = Shortcut(EditorShortcutAction.MaskDelete);
+        string restoreMask = Shortcut(EditorShortcutAction.MaskRestore);
+        string maskHint = $"{delMask}: erase masking · {restoreMask}: restore masking";
         string hint = kind switch
         {
             EditToolKind.Pan => $"{Shortcut(EditorShortcutAction.Pan)} · pan the image; choose another tool to edit.",
-            EditToolKind.Lasso => $"{Shortcut(EditorShortcutAction.Lasso)} · Shift: add · Alt: subtract · Ctrl+Shift: intersect.",
+            EditToolKind.Lasso => $"{Shortcut(EditorShortcutAction.Lasso)} · Shift: add · Alt: subtract · Ctrl+Shift: intersect · {maskHint}.",
             EditToolKind.PolyLasso => $"{Shortcut(EditorShortcutAction.PolygonLasso)} · Enter closes · Backspace/Delete removes · Esc cancels.",
-            EditToolKind.MagicWand => $"{Shortcut(EditorShortcutAction.MagicWand)} · Shift: add · Alt: subtract · Ctrl+Shift: intersect.",
-            EditToolKind.Pen => $"{Shortcut(EditorShortcutAction.Pen)} · click/drag anchors · Enter closes · Backspace/Delete removes · Esc cancels.",
+            EditToolKind.MagicWand => $"{Shortcut(EditorShortcutAction.MagicWand)} · Shift: add · Alt: subtract · Ctrl+Shift: intersect · {maskHint}.",
+            EditToolKind.Pen => $"{Shortcut(EditorShortcutAction.Pen)} · click: anchor · drag: curve · drag handle: adjust (Alt: break symmetry) · Alt+click anchor: corner · Ctrl+drag: move anchor · Enter/double-click: close · Esc: cancel.",
             EditToolKind.Brush => $"{Shortcut(EditorShortcutAction.Brush)} · {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size · {Shortcut(EditorShortcutAction.ToggleBrushMode)} erase/restore.",
             EditToolKind.Eraser => $"{Shortcut(EditorShortcutAction.Eraser)} · always erases · {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size.",
             EditToolKind.Move => $"{Shortcut(EditorShortcutAction.Move)} · drag selection; Shift-drag moves mask pixels.",
             EditToolKind.RefineEdge => $"{Shortcut(EditorShortcutAction.RefineEdge)} · refine a selection edge.",
-            EditToolKind.RectMarquee => $"{Shortcut(EditorShortcutAction.RectMarquee)} · Shift: square/add · Alt: center/subtract · Ctrl+Shift: intersect.",
-            EditToolKind.EllipseMarquee => $"{Shortcut(EditorShortcutAction.EllipseMarquee)} · Shift: circle/add · Alt: center/subtract · Ctrl+Shift: intersect.",
+            EditToolKind.RectMarquee => $"{Shortcut(EditorShortcutAction.RectMarquee)} · Shift: square/add · Alt: center/subtract · Ctrl+Shift: intersect · {maskHint}.",
+            EditToolKind.EllipseMarquee => $"{Shortcut(EditorShortcutAction.EllipseMarquee)} · Shift: circle/add · Alt: center/subtract · Ctrl+Shift: intersect · {maskHint}.",
             _ => ""
         };
         var t = this.FindControl<TextBlock>("TxtEditorHint");
@@ -563,7 +567,7 @@ public partial class PreviewWindow
         SetTip("BtnToolLasso", $"Freehand lasso ({Shortcut(EditorShortcutAction.Lasso)})");
         SetTip("BtnToolPolyLasso", $"Polygon lasso ({Shortcut(EditorShortcutAction.PolygonLasso)}) — Enter closes; Esc cancels");
         SetTip("BtnToolWand", $"Magic wand ({Shortcut(EditorShortcutAction.MagicWand)})");
-        SetTip("BtnToolPen", $"Pen ({Shortcut(EditorShortcutAction.Pen)}) — Enter closes; Esc cancels");
+        SetTip("BtnToolPen", $"Pen ({Shortcut(EditorShortcutAction.Pen)}) — click: anchor · drag: curve · drag handle: adjust (Alt breaks) · Alt+click: corner · Enter closes; Esc cancels");
         SetTip("BtnToolBrush", $"Brush ({Shortcut(EditorShortcutAction.Brush)}) — {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size; {Shortcut(EditorShortcutAction.ToggleBrushMode)} erase/restore");
         SetTip("BtnToolEraser", $"Eraser ({Shortcut(EditorShortcutAction.Eraser)}) — {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size");
         SetTip("BtnToolRefineEdge", $"Refine Edge ({Shortcut(EditorShortcutAction.RefineEdge)})");
@@ -571,6 +575,10 @@ public partial class PreviewWindow
         SetTip("BtnToolEllipseMarquee", $"Elliptical marquee ({Shortcut(EditorShortcutAction.EllipseMarquee)})");
         SetTip("BtnQuickMask", $"Quick Mask ({Shortcut(EditorShortcutAction.QuickMask)})");
         SetTip("BtnBrushRestore", $"Toggle brush restore/erase mode ({Shortcut(EditorShortcutAction.ToggleBrushMode)}; Brush tool only)");
+        SetTip("BtnApplyErase", $"Delete masking ({Shortcut(EditorShortcutAction.MaskDelete)}) — apply selection to erase");
+        SetTip("BtnApplyRestore", $"Restore masking ({Shortcut(EditorShortcutAction.MaskRestore)}) — apply selection to restore");
+        SetTip("BtnApplyErasePanel", $"Delete masking ({Shortcut(EditorShortcutAction.MaskDelete)}) — apply selection to erase");
+        SetTip("BtnApplyRestorePanel", $"Restore masking ({Shortcut(EditorShortcutAction.MaskRestore)}) — apply selection to restore");
     }
 
     private void UpdateCursorForTool(EditToolKind kind)
@@ -1025,96 +1033,9 @@ public partial class PreviewWindow
     }
 
     /// <summary>
-    /// Gambar anchor, handle Bézier, dan rubber band Pen Tool dengan gaya Photoshop.
-    /// Handle disimpan sebagai vektor RELATIF terhadap anchor, jadi titik absolutnya
-    /// adalah <c>a.Point + a.HandleIn/Out</c>.
-    /// </summary>
-    private void DrawPenOverlay(Canvas overlay, PenTool pen)
-    {
-        var anchors = pen.Anchors;
-        if (anchors.Count == 0) return;
 
-        // Garis handle + knob untuk tiap anchor yang punya handle.
-        foreach (var a in anchors)
-        {
-            var p = ImageToOverlay(a.Point);
-            var hin = a.Point + a.HandleIn;
-            var hout = a.Point + a.HandleOut;
-            bool hasIn = HasHandle(a.HandleIn);
-            bool hasOut = HasHandle(a.HandleOut);
 
-            if (hasIn)
-            {
-                var sh = ImageToOverlay(hin);
-                DrawLine(overlay, p, sh, "#99A9C7FF");
-                DrawHandleKnob(overlay, sh);
-            }
-            if (hasOut)
-            {
-                var sh = ImageToOverlay(hout);
-                DrawLine(overlay, p, sh, "#99A9C7FF");
-                DrawHandleKnob(overlay, sh);
-            }
-        }
 
-        // Rubber band: garis putus-putus dari anchor terakhir ke kursor.
-        if (pen.IsActive && !pen.IsClosed && anchors.Count > 0)
-        {
-            var last = ImageToOverlay(anchors[anchors.Count - 1].Point);
-            var cur = ImageToOverlay(pen.Cursor);
-            DrawLine(overlay, last, cur, "#80FFE24A", dash: true);
-        }
-
-        // Anchor: kotak (corner) atau diamond (smooth/has handle).
-        for (int i = 0; i < anchors.Count; i++)
-        {
-            var a = anchors[i];
-            var p = ImageToOverlay(a.Point);
-            bool smooth = HasHandle(a.HandleIn) || HasHandle(a.HandleOut);
-            bool isFirst = i == 0;
-            bool nearFirst = isFirst && anchors.Count >= 3 && pen.IsActive;
-
-            var shape = smooth
-                ? (Shape)new Polygon
-                {
-                    Points = new AvaloniaList<Point>
-                    {
-                        new Point(p.X, p.Y - 5), new Point(p.X + 5, p.Y),
-                        new Point(p.X, p.Y + 5), new Point(p.X - 5, p.Y)
-                    },
-                    Fill = nearFirst ? new SolidColorBrush(Color.Parse("#FFE24A")) : Brushes.White,
-                    Stroke = Brushes.Black,
-                    StrokeThickness = 1
-                }
-                : (Shape)new Rectangle
-                {
-                    Width = 8, Height = 8,
-                    Fill = nearFirst ? new SolidColorBrush(Color.Parse("#FFE24A")) : Brushes.White,
-                    Stroke = Brushes.Black,
-                    StrokeThickness = 1
-                };
-
-            double ox = p.X - (smooth ? 5 : 4);
-            double oy = p.Y - (smooth ? 5 : 4);
-            Canvas.SetLeft(shape, ox);
-            Canvas.SetTop(shape, oy);
-            overlay.Children.Add(shape);
-        }
-    }
-
-    private void DrawHandleKnob(Canvas overlay, Point p)
-    {
-        var knob = new Ellipse
-        {
-            Width = 6, Height = 6,
-            Fill = new SolidColorBrush(Color.Parse("#FF3B82F6")),
-            Stroke = Brushes.White,
-            StrokeThickness = 1
-        };
-        Canvas.SetLeft(knob, p.X - 3);
-        Canvas.SetTop(knob, p.Y - 3);
-        overlay.Children.Add(knob);
-    }
 
     private void DrawPathOutline(Canvas overlay, IReadOnlyList<Vec2> pts, bool closed, bool penStyle = false)
     {
@@ -1428,7 +1349,12 @@ public partial class PreviewWindow
             bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
 
-            _pendingSelMode = EffectiveMode(e.KeyModifiers);
+            // Mode kombinasi (add/sub/…) hanya di-latch untuk tool yang commit saat
+            // pointer dilepas (lasso/marquee). Pen & poly-lasso commit eksplisit via
+            // Enter/double-click belakangan, jadi pakai modifier saat itu (jangan basi).
+            _pendingSelMode = SelectionInteractionPolicy.CommitsOnPointerRelease(_activeTool)
+                ? EffectiveMode(e.KeyModifiers)
+                : null;
             if (_activeSelectionTool is PenTool penTool)
             {
                 long now = Environment.TickCount64;
@@ -1440,10 +1366,32 @@ public partial class PreviewWindow
                     else RenderOverlay();
                     return true;
                 }
+                // Drag knob handle Bézier diprioritaskan di atas tambah anchor —
+                // ini cara utama mengedit kurva setelah anchor ditempatkan.
+                var (handleHit, handleAnchor, handleIsIn) = penTool.HitTestHandle(imagePos, 10);
+                if (handleHit)
+                {
+                    _penDragHandleIndex = handleAnchor;
+                    _penDragHandleIsIn = handleIsIn;
+                    e.Pointer.Capture(img);
+                    RenderOverlay();
+                    return true;
+                }
+                int anchorHit = penTool.HitTestAnchor(imagePos, 10);
+                if (alt && anchorHit >= 0)
+                {
+                    // Photoshop: Alt+klik anchor = convert smooth→corner; Alt+drag
+                    // langsung menarik handle-out baru dari anchor tersebut.
+                    penTool.ConvertToCorner(anchorHit);
+                    _penDragHandleIndex = anchorHit;
+                    _penDragHandleIsIn = false;
+                    e.Pointer.Capture(img);
+                    RenderOverlay();
+                    return true;
+                }
                 if (ctrl && !alt)
                 {
-                    int hit = penTool.HitTestAnchor(imagePos, 10);
-                    if (hit >= 0) { _penDragIndex = hit; e.Pointer.Capture(img); return true; }
+                    if (anchorHit >= 0) { _penDragIndex = anchorHit; e.Pointer.Capture(img); return true; }
                 }
                 e.Pointer.Capture(img);
                 penTool.PointerDown(imagePos, alt);
@@ -1527,6 +1475,26 @@ public partial class PreviewWindow
             return true;
         }
 
+        // Drag knob handle Bézier pen; tahan Alt untuk mematahkan simetri handle.
+        if (_penDragHandleIndex >= 0 && _activeSelectionTool is PenTool penHandle)
+        {
+            var ha = penHandle.Anchors[_penDragHandleIndex];
+            var rel = new Vec2(imagePos.X - ha.Point.X, imagePos.Y - ha.Point.Y);
+            penHandle.SetHandle(_penDragHandleIndex, _penDragHandleIsIn, rel,
+                mirror: !e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+            RenderOverlay();
+            return true;
+        }
+
+        // Hover highlight anchor/handle pen + kursor kontekstual (tanpa drag).
+        if (_activeSelectionTool is PenTool penHov && penHov.Anchors.Count > 0
+            && _penDragIndex < 0 && _penDragHandleIndex < 0
+            && !e.GetCurrentPoint(img).Properties.IsLeftButtonPressed)
+        {
+            if (UpdatePenHover(penHov, imagePos))
+                RenderOverlay();
+        }
+
         // Selama jalur seleksi sedang dibangun, teruskan gerakan (pen/lasso/poly).
         if (_activeSelectionTool is SelectionTool st &&
             (st.IsActive || st is PenTool { IsClosed: false } && st.CurrentPath.Count > 0))
@@ -1585,9 +1553,10 @@ public partial class PreviewWindow
             return true;
         }
 
-        if (_penDragIndex >= 0)
+        if (_penDragIndex >= 0 || _penDragHandleIndex >= 0)
         {
             _penDragIndex = -1;
+            _penDragHandleIndex = -1;
             e.Pointer.Capture(null);
             RenderOverlay();
             return true;
@@ -2462,10 +2431,7 @@ public partial class PreviewWindow
 
         try
         {
-            // Backup sekali sebelum overwrite file asli.
-            if (File.Exists(_resultPath) && !File.Exists(_resultPath + ".bak"))
-                File.Copy(_resultPath, _resultPath + ".bak", false);
-
+            // Ctrl+S langsung me-replace file asli; tidak ada backup .bak.
             _session.BakeToFile(_resultPath);
             _session.MarkSaved();
 
@@ -2881,10 +2847,31 @@ public partial class PreviewWindow
             }
             return false;
         }
-        if (noModifiers && (e.Key == Key.Back || e.Key == Key.Delete))
+        if ((noModifiers || modifiers == KeyModifiers.Shift) && (e.Key == Key.Back || e.Key == Key.Delete))
         {
-            _activeSelectionTool?.RemoveLastPoint();
-            RenderOverlay();
+            // Context-aware ala Photoshop: saat selection tool sedang menggambar,
+            // Delete/Backspace memangkas titik terakhir (perilaku lama dipertahankan);
+            // di luar itu tombol ini menjalankan aksi masking sesuai shortcut.
+            if (_activeSelectionTool is { IsActive: true } or { CanCommit: true })
+            {
+                if (noModifiers)
+                {
+                    _activeSelectionTool.RemoveLastPoint();
+                    RenderOverlay();
+                }
+                return true;
+            }
+            if (EditorShortcutMap.TryGetAction(_settings.EditorShortcuts, e.Key, modifiers, out var maskAction)
+                || EditorShortcutMap.TryGetAction(_settings.EditorShortcuts,
+                    e.Key == Key.Back ? Key.Delete : Key.Back, modifiers, out maskAction))
+            {
+                // Backspace/Delete diperlakukan sebagai pasangan (ala Photoshop):
+                // bila tombol yang ditekan tidak ter-bind, pakai binding pasangannya.
+                if (maskAction == EditorShortcutAction.MaskDelete)
+                    ApplySelectionToMask(0, "Hapus Selection");
+                else if (maskAction == EditorShortcutAction.MaskRestore)
+                    ApplySelectionToMask(255, "Restore Selection");
+            }
             return true;
         }
 
@@ -2914,6 +2901,8 @@ public partial class PreviewWindow
                     }
                     break;
                 case EditorShortcutAction.QuickMask: OnQuickMaskClick(this, new RoutedEventArgs()); break;
+                case EditorShortcutAction.MaskDelete: ApplySelectionToMask(0, "Hapus Selection"); break;
+                case EditorShortcutAction.MaskRestore: ApplySelectionToMask(255, "Restore Selection"); break;
             }
             return true;
         }
