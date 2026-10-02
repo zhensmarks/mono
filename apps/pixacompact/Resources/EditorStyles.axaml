@@ -86,6 +86,8 @@
             <Setter Property="CornerRadius" Value="3"/>
             <Setter Property="Padding" Value="8,4"/>
             <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.12"/>

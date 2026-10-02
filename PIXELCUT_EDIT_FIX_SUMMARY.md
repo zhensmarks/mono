@@ -701,3 +701,47 @@ Branch: `fix/edit-ui-round2` (dari `main` @ `bd6a730`). 11 keluhan user dari scr
   - Tombol "e" memanggil `EnterEditMode()` langsung (selalu ada feedback).
 - **Bukti GUI**: `taskA-07-early-e.png` — tekan "e" segera setelah window tampil → Toast oranye "⚠ Sesi editor belum siap." (tidak lagi diam); `taskA-04-e-key.png` — setelah session siap, "e" masuk edit mode normal (layout Photoshop penuh).
 - Build Release 0/0; logiccheck ALL PASS.
+
+## Putaran 3 — WS2: Audit Total Tombol (2026-10-02)
+
+Keluhan user: tombol-tombol masih belum rapih, belum grid/rapat, lebar beda-beda.
+
+### Temuan (screenshot ulang semua options bar)
+1. Tombol mode Baru/Tambah/Kurang/Iris pakai `Width=72` di StackPanel — kaku, tidak auto-fit bahasa.
+2. Tombol brush "Lanjutan" vs "Hapus" content-sized, lebar beda.
+3. Wand: "Kurang" terpotong ("Kuran") — bar overflow di 1000px.
+4. Panel Properti: tombol "Isi" lebih sempit dari "Hapus"/"Pulihkan" (tidak Stretch).
+5. Margin redundan `Margin="8,0,0,0"` (StackPanel sudah Spacing=8).
+
+### Perbaikan
+- `PreviewWindow.axaml`:
+  - `OptSelectionModeGroup` pindah ke PALING KIRI (ala Photoshop) + Grid SharedSizeGroup (kolom auto sama lebar, fit ID/EN) + Padding 6,4.
+  - `BrushModeButtonGrid` baru: Grid 2 kolom untuk Lanjutan/Hapus (sama lebar).
+  - Hapus 5 margin redundan.
+- `PreviewWindow.EditorOptions.cs`: `UpdateBrushModeButton` — saat Eraser (Hapus hidden), Lanjutan ColumnSpan=2.
+- `EditorStyles.axaml`: `editor-compact` += `HorizontalAlignment=Stretch`, `HorizontalContentAlignment=Center`.
+
+### Verifikasi GUI
+- Brush: Lanjutan/Hapus sama lebar ✓ (`ws2-brush-adv.png`)
+- Wand: 4 mode + Toleransi + 3 checkbox + 8-Terhubung penuh terlihat ✓ (`ws2-wand10.png`)
+- Lasso/Marquee/Pen: mode di kiri, rapi ✓ (`ws2-lasso8.png`, `ws2-marquee10.png`, `ws2-pen10.png`)
+- Properti: Hapus/Pulihkan/Isi sama lebar ✓ (`ws2-maskrow-final.png`)
+- Build: 0 warning/error.
+
+## Putaran 3 — WS3: Highlight Tombol Rail Terpotong (2026-10-02)
+
+Keluhan user: highlight tombol rail masih terpotong (perbaikan lama Focusable=false tidak menyentuh akar).
+
+### Akar masalah (terbukti via analisis piksel)
+Rail width 52px - padding 16px = 36px content, tombol 36×36 = PAS 0px ruang napas.
+Highlight aktif (border biru #31A8FF) sisi kanan terpotong oleh clip ScrollViewer:
+- Sebelum: top=37, bottom=35, left=38, **right=6 piksel** (102 piksel biru total)
+- Fokus/keyboard bukan penyebab (Focusable=false sudah benar, tapi bukan akar).
+
+### Perbaikan
+- `EditorTheme.axaml`: `EditorRailWidth` 52 → 56 (content 40px, tombol 36px dapat 2px napas tiap sisi).
+
+### Verifikasi piksel
+- Sesudah: top=38, bottom=36, left=38, **right=36 piksel** (134 piksel biru total) — keempat sisi lengkap.
+- Screenshot: `ws3-blue-fixed-vis.png` (visualisasi border biru utuh).
+- Build: 0 warning/error.
