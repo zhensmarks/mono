@@ -137,7 +137,7 @@
             <Button Grid.Column="0" Click="OnMobileBackClick"
                     IsVisible="{Binding IsMobileContentOpen}"
                     Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" Margin="0,0,6,0">
-                <PathIcon Data="{StaticResource IconArrowLeft}" Width="16" Height="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="{Binding Language[Nav.Back]}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </Button>
             <!-- Accent dot -->
             <Border Grid.Column="1" Width="4" Height="4" CornerRadius="2"
@@ -302,48 +302,41 @@
                     <!-- 0: General -->
                     <ListBoxItem x:Name="SettingsItemGeneral">
                         <StackPanel Orientation="Horizontal" Spacing="9">
-                            <PathIcon Data="{StaticResource IconSettings}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                             <TextBlock Text="{Binding Language[Nav.General]}" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
                     <!-- 1: Appearance -->
                     <ListBoxItem x:Name="SettingsItemAppearance">
                         <StackPanel Orientation="Horizontal" Spacing="9">
-                            <PathIcon Data="{StaticResource IconImage}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                             <TextBlock Text="{Binding Language[Nav.Appearance]}" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
                     <!-- 2: Account -->
                     <ListBoxItem x:Name="SettingsItemAccount" Classes="sep">
                         <StackPanel Orientation="Horizontal" Spacing="9">
-                            <PathIcon Data="{StaticResource IconUser}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                             <TextBlock Text="{Binding Language[Nav.Account]}" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
                     <!-- 3: Extensions -->
                     <ListBoxItem x:Name="SettingsItemExtensions">
                         <StackPanel Orientation="Horizontal" Spacing="9">
-                            <PathIcon Data="{StaticResource IconExtension}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                             <TextBlock Text="{Binding Language[Nav.Extensions]}" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
                     <!-- 4: Script Manager -->
                     <ListBoxItem x:Name="SettingsItemScriptManager" Classes="sep">
                         <StackPanel Orientation="Horizontal" Spacing="9">
-                             <PathIcon Data="{StaticResource IconScript}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                              <TextBlock Text="Script Manager" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
                     <!-- 5: Paths -->
                     <ListBoxItem x:Name="SettingsItemPaths">
                         <StackPanel Orientation="Horizontal" Spacing="9">
-                             <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                              <TextBlock Text="Paths" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>
                     <ListBoxItem x:Name="SettingsItemAbout" Classes="sep">
                         <StackPanel Orientation="Horizontal" Spacing="9">
-                            <PathIcon Data="{StaticResource IconInfoCircle}" Width="14" Height="14" Foreground="{Binding $parent[ListBoxItem].Foreground}"/>
                             <TextBlock Text="About" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ListBoxItem>

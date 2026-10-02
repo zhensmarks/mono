@@ -98,6 +98,7 @@ public partial class LanguageService : ObservableObject, ILanguageService
             ["Nav.Appearance"] = "Appearance",
             ["Nav.Account"] = "Account",
             ["Nav.Extensions"] = "Extensions",
+            ["Nav.Back"] = "Back",
             
             ["Extensions.Title"] = "Extensions Manager",
             ["Extensions.Add"] = "Add Extension",
@@ -152,6 +153,7 @@ public partial class LanguageService : ObservableObject, ILanguageService
             ["Nav.Appearance"] = "Tampilan",
             ["Nav.Account"] = "Akun",
             ["Nav.Extensions"] = "Ekstensi",
+            ["Nav.Back"] = "Kembali",
             
             ["Extensions.Title"] = "Manajer Ekstensi",
             ["Extensions.Add"] = "Tambah Ekstensi",

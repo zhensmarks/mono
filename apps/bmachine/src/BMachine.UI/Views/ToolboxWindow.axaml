@@ -510,7 +510,6 @@
                                     Command="{Binding MantraNamaVM.ExitAdvancedModeCommand}"
                                     VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#x2190;" FontSize="15" VerticalAlignment="Center"/>
                                     <TextBlock Text="Kembali" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -804,7 +803,6 @@
                                     <TextBlock Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)" VerticalAlignment="Center"/>
                                     <Button Classes="AdvEntry" Command="{Binding MantraNamaVM.ToggleAdvancedModeCommand}" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="7">
-                                            <TextBlock Text="&#x2728;" FontSize="12" VerticalAlignment="Center"/>
                                             <TextBlock Text="Advanced Mode" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>

@@ -172,7 +172,6 @@
                                                  IsChecked="{Binding IsExplorerPanelSelected}" IsVisible="{Binding IsOutputExplorerVisible}"
                                                  Click="OnExplorerTabClick" ToolTip.Tip="Explorer">
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14"/>
                                             <TextBlock Text="EXPLORER" FontSize="9" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
@@ -186,7 +185,6 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <PathIcon Data="{StaticResource IconTerminal2}" Width="14" Height="14"/>
                                             <TextBlock Text="LOG" FontSize="9" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
@@ -198,7 +196,6 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <PathIcon Data="{StaticResource IconDatabase}" Width="14" Height="14"/>
                                             <TextBlock Text="MASTER" FontSize="9" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
@@ -211,7 +208,6 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <PathIcon Data="{StaticResource IconFileText}" Width="14" Height="14"/>
                                             <TextBlock Text="DOC" FontSize="9" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
