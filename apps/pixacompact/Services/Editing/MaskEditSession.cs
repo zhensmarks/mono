@@ -178,17 +178,26 @@ public sealed class MaskEditSession : IDisposable
     /// <paramref name="value"/> = 0 → hapus, 255 → restore/isi.
     /// Satu entri undo; no-op tidak menambah entri.
     /// </summary>
-    public void ApplySelectionToMask(byte value, string label)
+    public void ApplySelectionToMask(byte value, string label, bool fillAll = false)
     {
-        var cov = Selection.Coverage;
         var before = (byte[])Mask.Clone();
-        for (int i = 0; i < Mask.Length; i++)
+        if (fillAll)
         {
-            int c = cov[i];
-            if (c == 0) continue;
-            if (c >= 255) { Mask[i] = value; continue; }
-            int v = Mask[i];
-            Mask[i] = (byte)(v + (value - v) * c / 255);
+            // Ala Photoshop: tanpa seleksi, fill seluruh mask (0 = sembunyikan semua,
+            // 255 = tampilkan/kembalikan seluruh gambar).
+            for (int i = 0; i < Mask.Length; i++) Mask[i] = value;
+        }
+        else
+        {
+            var cov = Selection.Coverage;
+            for (int i = 0; i < Mask.Length; i++)
+            {
+                int c = cov[i];
+                if (c == 0) continue;
+                if (c >= 255) { Mask[i] = value; continue; }
+                int v = Mask[i];
+                Mask[i] = (byte)(v + (value - v) * c / 255);
+            }
         }
         if (!MaskChanged(before))
         {

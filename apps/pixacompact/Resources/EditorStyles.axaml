@@ -1,0 +1,253 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Style Selector="Border.shimmer">
+            <Style.Animations>
+                <Animation Duration="0:0:1.5" IterationCount="Infinite" Easing="SineEaseInOut">
+                    <KeyFrame KeyTime="0:0:0">
+                        <Setter Property="Opacity" Value="0.1"/>
+                    </KeyFrame>
+                    <KeyFrame KeyTime="0:0:0.75">
+                        <Setter Property="Opacity" Value="0.5"/>
+                    </KeyFrame>
+                    <KeyFrame KeyTime="0:0:1.5">
+                        <Setter Property="Opacity" Value="0.1"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <!-- Consistent, editor-only controls; focus remains explicit for keyboard users. -->
+        <Style Selector="Button.editor-tool">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorBtnBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.editor-tool:pointerover">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgHover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorAccent}"/>
+
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.editor-tool:pressed">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgPressed}"/>
+            <Setter Property="BorderBrush" Value="#C6DDFF"/>
+
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.editor-tool.active">
+            <Setter Property="Background" Value="{StaticResource EditorAccentDark}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource EditorAccent}"/>
+        </Style>
+        <Style Selector="Button.editor-tool.active:pointerover">
+            <Setter Property="Background" Value="{StaticResource EditorAccentDarkHover}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource EditorAccentHover}"/>
+        </Style>
+        <Style Selector="Button.editor-tool.quick-mask.active">
+            <Setter Property="Background" Value="#4A252B"/>
+            <Setter Property="BorderBrush" Value="#D87980"/>
+        </Style>
+        <Style Selector="Button.editor-tool.quick-mask.active:pointerover">
+            <Setter Property="Background" Value="#593136"/>
+            <Setter Property="BorderBrush" Value="#F09AA0"/>
+        </Style>
+        <Style Selector="Button.editor-tool:disabled">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgDisabled}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorBtnBorderDisabled}"/>
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector="Button.editor-tool:focus">
+            <Setter Property="BorderBrush" Value="#C6DDFF"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="Button.editor-primary">
+            <Setter Property="Background" Value="{StaticResource EditorAccent}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource EditorAccent}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.editor-primary:pointerover">
+            <Setter Property="Background" Value="{DynamicResource EditorAccentHover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorAccent}"/>
+
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.editor-primary:pressed">
+            <Setter Property="Background" Value="{DynamicResource EditorAccentPressed}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorAccent}"/>
+
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.editor-primary:disabled">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgDisabled}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorBtnBorderDisabled}"/>
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector="Button.editor-primary:focus">
+            <Setter Property="BorderBrush" Value="#C6DDFF"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="Button.editor-compact, ToggleButton.editor-compact">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorBtnBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.editor-compact:pointerover, ToggleButton.editor-compact:pointerover">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgHover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorAccent}"/>
+
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.editor-compact:pressed, ToggleButton.editor-compact:pressed">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgPressed}"/>
+            <Setter Property="BorderBrush" Value="#C6DDFF"/>
+
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="ToggleButton.editor-compact:checked">
+            <Setter Property="Background" Value="{StaticResource EditorAccentDark}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource EditorAccent}"/>
+        </Style>
+        <Style Selector="Button.editor-compact:disabled, ToggleButton.editor-compact:disabled">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgDisabled}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorBtnBorderDisabled}"/>
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector="Button.editor-compact:focus, ToggleButton.editor-compact:focus">
+            <Setter Property="BorderBrush" Value="#C6DDFF"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="ComboBox.editor-dock-selector">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorBtnBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="MinHeight" Value="26"/>
+        </Style>
+        <Style Selector="ComboBox.editor-dock-selector:pointerover">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgHover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorAccent}"/>
+        </Style>
+        <Style Selector="ComboBox.editor-dock-selector:focus">
+            <Setter Property="BorderBrush" Value="#C6DDFF"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="ComboBox.editor-dock-selector:disabled">
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorBtnBorderDisabled}"/>
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector="TabControl.editor-dock-tabs">
+            <Setter Property="Background" Value="{StaticResource EditorBg}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource EditorBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="TabItem.editor-dock-tab">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorBtnBorder}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Foreground" Value="{StaticResource EditorTextSecondary}"/>
+        </Style>
+        <Style Selector="TabItem.editor-dock-tab:pointerover">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgHover}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource EditorAccent}"/>
+        </Style>
+        <Style Selector="TabItem.editor-dock-tab:selected">
+            <Setter Property="Background" Value="{StaticResource EditorAccentDark}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource EditorAccent}"/>
+            <Setter Property="Foreground" Value="{StaticResource EditorTextPrimary}"/>
+        </Style>
+        <Style Selector="TabItem.editor-dock-tab:focus">
+            <Setter Property="BorderBrush" Value="#C6DDFF"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+        </Style>
+
+        <!-- Menu bar mode edit: gelap, item hover jelas, shortcut rata kanan. -->
+        <Style Selector="Menu.editor-menubar">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="MenuItem.editor-menuitem">
+            <Setter Property="Foreground" Value="#D6D6D6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,6"/>
+        </Style>
+        <!-- Item di dalam dropdown: padding rapat. -->
+        <Style Selector="MenuItem.editor-menuitem MenuItem.editor-menuitem">
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+        <Style Selector="MenuItem.editor-menuitem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource EditorBtnBgHover}"/>
+        </Style>
+        <Style Selector="MenuItem.editor-menuitem:disabled">
+            <Setter Property="Foreground" Value="{StaticResource EditorTextDisabled}"/>
+            <Setter Property="Opacity" Value="0.6"/>
+        </Style>
+        <!-- Tombol destruktif (Buang perubahan): merah jelas + state lengkap. -->
+        <Style Selector="Button.editor-danger">
+            <Setter Property="Background" Value="#3A1D1D"/>
+            <Setter Property="BorderBrush" Value="#7F2D2D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Foreground" Value="#FCA5A5"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.editor-danger:pointerover">
+            <Setter Property="Background" Value="#4A2424"/>
+            <Setter Property="BorderBrush" Value="#EF4444"/>
+            <Setter Property="Foreground" Value="#FECACA"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.editor-danger:pressed">
+            <Setter Property="Background" Value="#5A2A2A"/>
+            <Setter Property="BorderBrush" Value="#F87171"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.editor-danger:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <Style Selector="Button.editor-danger:focus">
+            <Setter Property="BorderBrush" Value="#FCA5A5"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <!-- Tipografi hierarkis panel kanan. -->
+        <Style Selector="TextBlock.editor-section-title">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource EditorTextSecondary}"/>
+            <Setter Property="LetterSpacing" Value="0.5"/>
+        </Style>
+        <Style Selector="TextBlock.editor-hint">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{StaticResource EditorTextSecondary}"/>
+        </Style>
+</Styles>

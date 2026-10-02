@@ -230,10 +230,15 @@ public sealed class PenTool : SelectionTool
     /// Klik: tambah anchor baru; klik dekat anchor pertama (≥3 anchor) menutup jalur.
     /// Bila <paramref name="breakHandle"/> = true (Alt), handle tidak dibuat simetris
     /// sehingga memungkinkan sudut tajam setelah kurva (perilaku Photoshop).
+    /// Path yang sudah tertutup dipertahankan sampai klik baru: klik berikutnya
+    /// memulai path baru (reset), ala Photoshop yang menyelesaikan path aktif.
     /// </summary>
     public override void PointerDown(Vec2 p, bool breakHandle = false)
     {
         _breakHandle = breakHandle;
+
+        if (IsClosed)
+            Reset();
 
         if (_anchors.Count >= 3)
         {
