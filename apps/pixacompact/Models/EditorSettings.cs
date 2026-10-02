@@ -32,8 +32,8 @@ public static class EditorSettings
 
     // Refine hair
     public const string DefaultRefineHairModel = "modnet";
-    public const int DefaultRefineHairBandRadius = 12;    // lebar band unknown di trimap (px)
-    public const int DefaultRefineHairFeather = 8;        // blend transition pada seam (px)
+    public const int DefaultRefineHairBandRadius = 16;    // lebar band unknown di trimap (px)
+    public const int DefaultRefineHairFeather = 10;       // blend transition pada seam (px)
     public const bool DefaultSaveEditorAsCopy = false;    // false = in-place, true = simpan terpisah
     // Seleksi persisten
     public const int DefaultSelectionMode = 0;        // index SelectionCombineMode: 0 Replace

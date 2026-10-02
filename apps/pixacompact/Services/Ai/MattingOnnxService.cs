@@ -214,7 +214,9 @@ public sealed class MattingOnnxService : IDisposable
             raw[idx++] = v;
         }
 
-        // Normalisasi min-max (aman untuk output yang belum 0..1).
+        // Normalisasi: MODNet/BiRefNet sudah mengeluarkan alpha 0..1 (sigmoid).
+        // Hanya pakai min-max bila output jelas di luar rentang itu (mis. logits),
+        // supaya alpha tidak terdistorsi (min-max memaksa 0..1 walau aslinya sudah benar).
         float mn = float.MaxValue, mx = float.MinValue;
         foreach (var v in raw)
         {
@@ -222,6 +224,7 @@ public sealed class MattingOnnxService : IDisposable
             if (v < mn) mn = v;
             if (v > mx) mx = v;
         }
+        bool alreadyUnit = mn >= -0.01f && mx <= 1.01f;
         float range = mx - mn;
         if (range < 1e-6f) range = 1f;
 
@@ -249,7 +252,7 @@ public sealed class MattingOnnxService : IDisposable
                 double top = raw[y0 * outW + x0] * (1 - wx) + raw[y0 * outW + x1] * wx;
                 double bot = raw[y1 * outW + x0] * (1 - wx) + raw[y1 * outW + x1] * wx;
                 double v = top * (1 - wy) + bot * wy;
-                double norm = (v - mn) / range;
+                double norm = alreadyUnit ? v : (v - mn) / range;
                 if (norm < 0) norm = 0;
                 if (norm > 1) norm = 1;
                 alpha[y * srcW + x] = (byte)(norm * 255 + 0.5);

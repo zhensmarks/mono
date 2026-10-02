@@ -97,19 +97,15 @@ public sealed class RefineHairService : IDisposable
             };
         }
 
-        // 2) Sumber RGB untuk matting: pakai original bila tersedia (lebih bersih
-        //    di tepi rambut, tanpa halo dari hasil rembg), fallback ke result.
+        // 3) Jalankan matting pada SELURUH gambar (bukan crop band). Model matting
+        //    potret (MODNet/BiRefNet) butuh konteks subjek penuh; kalau hanya diberi
+        //    potongan kecil di sekitar tepi rambut, hasilnya kacau. Blend di langkah 5
+        //    tetap HANYA menulis band tepi, jadi area solid tidak bergeser.
         var source = session.Original ?? session.Result;
         if (source.Width != w || source.Height != h)
             source = source.Resize(w, h);
 
-        // 3) Crop ke bbox unknown + margin supaya inferensi cepat di gambar besar.
-        int cx0 = Math.Max(0, trimap.MinX - CropMargin);
-        int cy0 = Math.Max(0, trimap.MinY - CropMargin);
-        int cx1 = Math.Min(w - 1, trimap.MaxX + CropMargin);
-        int cy1 = Math.Min(h - 1, trimap.MaxY + CropMargin);
-        int cw = cx1 - cx0 + 1;
-        int ch = cy1 - cy0 + 1;
+        int cx0 = 0, cy0 = 0, cw = w, ch = h;
 
         var cropRgb = CropBuffer(source, cx0, cy0, cw, ch);
         byte[]? cropTrimap = spec.AcceptsTrimap ? CropBytes(trimap.Trimap, w, cx0, cy0, cw, ch) : null;

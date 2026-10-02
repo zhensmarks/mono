@@ -28,9 +28,11 @@ class Program
         Directory.CreateDirectory(_outDir);
 
         var bahan = @"D:\#DATA ABENG\#PROJECT\#BAHAN_UJI_COBA\#bahan_coba_seleksi";
-        _origJpg = FindFirst(bahan, "*.JPG") ?? FindFirst(bahan, "*.jpg");
-        _resultPng = FindFirst(bahan, "*.png");
-        if (_origJpg == null || _resultPng == null)
+        // Pasangan asli berambut (JPG + PNG cutout dengan alpha) untuk uji Refine Hair.
+        var damkar = Path.Combine(bahan, "1. FOTO 10RP OB PROFESI MINIMALIS", "KELAS A1", "DAMKAR", "45 (1)");
+        _origJpg = File.Exists(damkar + ".JPG") ? damkar + ".JPG" : (FindFirst(bahan, "*.JPG") ?? "");
+        _resultPng = File.Exists(damkar + ".png") ? damkar + ".png" : (FindFirst(bahan, "*.png") ?? "");
+        if (string.IsNullOrEmpty(_origJpg) || string.IsNullOrEmpty(_resultPng))
         {
             Console.WriteLine("BAHAN-NOT-FOUND orig=" + _origJpg + " result=" + _resultPng);
             return 3;
@@ -137,6 +139,18 @@ class Program
         await Settle();
         Console.WriteLine("RAIL-2COL " + win.EditorTestToolRailReport());
         Shoot(win, "08_tools_two_columns");
+
+        // Refine Hair AI pada cutout asli berambut: zoom ke kepala, jalankan, bandingkan.
+        win.EditorTestZoomToImageRect(1300, 300, 1400, 1500);
+        await Settle();
+        Shoot(win, "09_before_refine");
+        win.EditorTestSaveComposite(Path.Combine(_outDir, "09_before_refine_comp.png"));
+        Console.WriteLine("REFINE-START");
+        var refineReport = await win.EditorTestRunRefineHair();
+        Console.WriteLine("REFINE-RESULT " + refineReport);
+        await Settle();
+        Shoot(win, "10_after_refine");
+        win.EditorTestSaveComposite(Path.Combine(_outDir, "10_after_refine_comp.png"));
     }
 
     static async Task Settle()

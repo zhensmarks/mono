@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -107,5 +108,78 @@ public partial class PreviewWindow
             }
         }
         return $"LayerCount={n} Names=[{string.Join(",", names)}]";
+    }
+
+    /// <summary>Isi mask jadi setengah (kiri opaque, kanan transparan) untuk menguji Refine Hair.</summary>
+    public void EditorTestSeedHalfMask()
+    {
+        if (_session == null) return;
+        int w = _session.Width, h = _session.Height;
+        var m = new byte[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                m[y * w + x] = x < w / 2 ? (byte)255 : (byte)0;
+        _session.ReplaceMask(m, "TestSeed");
+    }
+
+    /// <summary>Zoom kanvas ke area gambar tertentu (untuk memotret detail tepi rambut).</summary>
+    public void EditorTestZoomToImageRect(double x, double y, double w, double h)
+    {
+        if (_session == null) return;
+        var canvas = this.FindControl<Canvas>("EditOverlay");
+        double vw = canvas?.Bounds.Width ?? 0, vh = canvas?.Bounds.Height ?? 0;
+        if (vw <= 10 || vh <= 10) { vw = 1000; vh = 820; }
+        _viewPort.ViewWidth = vw; _viewPort.ViewHeight = vh;
+        _viewPort.ImageWidth = _session.Width; _viewPort.ImageHeight = _session.Height;
+        double z = Math.Min(vw / w, vh / h) * 0.92;
+        if (z < 0.2) z = 0.2; if (z > 20) z = 20;
+        _viewPort.Zoom = z;
+        double cx = x + w / 2.0, cy = y + h / 2.0;
+        _viewPort.PanX = -cx * z;
+        _viewPort.PanY = -cy * z;
+        ApplyEditorViewTransform();
+        OnViewTransformChanged();
+    }
+
+    /// <summary>Simpan komposit sesi sekarang ke PNG (untuk bukti visual).</summary>
+    public void EditorTestSaveComposite(string path)
+    {
+        if (_session == null) return;
+        try
+        {
+            var buf = _session.Composite();
+            var wb = new Avalonia.Media.Imaging.WriteableBitmap(
+                new Avalonia.PixelSize(buf.Width, buf.Height),
+                new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Unpremul);
+            using (var fb = wb.Lock())
+            {
+                System.Runtime.InteropServices.Marshal.Copy(buf.Bgra, 0, fb.Address, buf.Bgra.Length);
+            }
+            wb.Save(path);
+        }
+        catch (Exception ex) { Console.WriteLine("SAVE-COMPOSITE-ERR " + ex.Message); }
+    }
+
+    /// <summary>Jalankan Refine Hair (AI) dan laporkan hasil nyata untuk verifikasi.</summary>
+    public async Task<string> EditorTestRunRefineHair()
+    {
+        if (_session == null) return "NO-SESSION";
+        var spec = PixelcutCompact.Services.Ai.OnnxModelManager.Find(_settings.EditorRefineHairModel)
+                   ?? PixelcutCompact.Services.Ai.OnnxModelManager.ModNet;
+        var svc = new PixelcutCompact.Services.Ai.RefineHairService();
+        try
+        {
+            var before = (byte[])_session.Mask.Clone();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var r = await svc.RefineAsync(_session, spec, _settings.EditorRefineHairBandRadius,
+                _settings.EditorRefineHairFeather, null, System.Threading.CancellationToken.None);
+            sw.Stop();
+            int changed = 0;
+            for (int i = 0; i < before.Length && i < r.Mask.Length; i++) if (before[i] != r.Mask[i]) changed++;
+            if (!r.NoChange) _session.ReplaceMask(r.Mask, "Refine Hair");
+            return $"provider={r.ExecutionProvider} noChange={r.NoChange} changedPx={changed} elapsedMs={sw.ElapsedMilliseconds} bbox=({r.MinX},{r.MinY},{r.MaxX},{r.MaxY})";
+        }
+        catch (Exception ex) { return "REFINE-ERROR: " + ex.GetType().Name + ": " + ex.Message; }
+        finally { svc.Dispose(); }
     }
 }
