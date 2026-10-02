@@ -611,3 +611,93 @@ radius 3px, font 11px). Murni visual — nol perubahan perilaku.
 - Tahap 7 (lokalisasi + warna pen di pengaturan + dialog Preferensi) selesai di
   branch `fix/pen-selection-revert`, **belum di-commit**. **JANGAN push** —
   menunggu perintah user (push ke `main` setelah konfirmasi akhir).
+
+---
+
+## Putaran 2 (2026-10-02)
+
+Branch: `fix/edit-ui-round2` (dari `main` @ `bd6a730`). 11 keluhan user dari screenshot.
+
+### #1: Rail tool button terpotong
+- **Perbaikan**: `Focusable="False"` di style `Button.editor-tool`; hapus perubahan `BorderThickness` pada `:focus`.
+- **Bukti**: `r2-v1f-6x.png` — tombol penuh tidak kepotong.
+
+### #2: Animasi tombol aneh
+- **Perbaikan**: Hapus `scale(1.025)/scale(0.975)` di App.axaml + `TransformOperationsTransition`; hapus `scale(1)` no-op di EditorStyles.axaml. Tombol kini hanya fade warna 0.12s.
+- **Bukti**: Dialog "Perubahan belum disimpan" — transisi halus.
+
+### #3: Tombol panel PROPERTI tidak rapih
+- **Perbaikan**: 5 grup tombol diubah ke Grid kolom `*` sama lebar, `ColumnSpacing="4"`, margin manual dihapus.
+- **Bukti**: `r2-03-props-zoom.png` — tombol seragam.
+
+### #4: Slider tebal garis Pen
+- **Perbaikan**: Tambah slider "Tebal garis: 1-8 px" di Preferensi kategori Pen, terhubung ke `EditorPenPathThickness`. Live update + persist. Lokalisasi ID/EN.
+- **Bukti**: `r2-04-pref-pen3-crop.png`.
+
+### #5: Remap Ctrl+Enter → Shift+Space
+- **Perbaikan**: `IsReservedKeyForAction` kini terima modifiers — Space polos tetap reserved untuk Pan, tapi Space+Shift/Ctrl boleh di-remap. Handler Space-pan hanya untuk Space polos. `OnShortcutTextBoxKeyDown` teruskan modifiers.
+- **Bukti end-to-end (2026-10-02, Tugas B)**: alur penuh via GUI —
+  1. `taskB-12-remapped.png`: textbox "Buat seleksi" menerima "Shift+Space" (remap tersimpan: `"MakeSelection":"Shift+Space"` di settings).
+  2. `taskB-15-path.png`: path Pen 4 anchor digambar.
+  3. `taskB-16-selection.png`: tekan Shift+Space → SELEKSI TERBENTUK (marching ants; panel SELEKSI "Ada seleksi · 0.13 Mpx"; status bar "Seleksi: 0.13 Mpx · Replace"; Batalkan 1).
+- **Catatan automation**: dialog Preferensi adalah window X11 terpisah — keypress harus dikirim setelah `focus(dialog)`, jika tidak key masuk ke window utama.
+
+### #6: Restorasi panel Layers (minimal)
+- **Perbaikan**: `PanelDocLayers` IsVisible=True; hapus kondisi `_editorV2Active` yang menyembunyikan di runtime. Panel LAPISAN tampil dengan tombol +,-,Dup,Merge yang menerima klik.
+- **Catatan**: Fungsi layer penuh butuh DocSession V2 (fase terpisah). Struktur tetap sebagai kontrol terpisah untuk docking mendatang.
+- **Bukti**: `r2-06-layers3-crop.png`.
+
+### #7: Bersihkan preview mode
+- **Perbaikan**: Hapus 3 elemen melayang: `PanelViewControls` (Bandingkan+zoom), `BtnEnterEdit` (tengah-bawah), `BtnEnterEditHeader` (kanan-atas). Tambah `BtnCompareBottom` di bottom bar agar fungsi bandingkan tetap aksesibel.
+- **Bukti**: `r2-07-preview.png` — preview bersih, bottom bar: < Bandingkan BUKA EDITOR >.
+
+### #8: Undo/redo untuk path & seleksi
+- **Perbaikan**: 
+  - `MaskUndoStack`: Snapshot simpan selection coverage; `Push`/`Undo`/`Redo` overload untuk (mask, selection).
+  - `MaskEditSession`: `UndoAction`/`RedoAction` pulihkan seleksi; `PushSelectionUndo()`.
+  - Operasi seleksi (buat, semua, perluas, perkecil, feather, balikkan) push sebelum ubah.
+  - Pen path: stack di UI; Ctrl+Z saat path aktif → path hilang; Ctrl+Shift+Z → kembali (`PenTool.RestoreAnchors`).
+  - `RenderAnts()` dipanggil setelah undo/redo.
+- **Bukti**: `r2-08-path.png` → `r2-08-undo.png` (path hilang) → `r2-08-redo.png` (kembali); `r2-08-sel3.png` → `r2-08-selundo3.png` (seleksi hilang).
+
+### #9: Restore masking dimensi tertukar (rotasi 90°)
+- **Investigasi**: `PrepareEditorAsync` menolak restore bila `obuf.Width != result.Width`. Kasus umum: hasil = rotasi 90° dari asli (6000×4000 vs 4000×6000).
+- **Perbaikan**: Bila W/H tertukar, putar buffer asli 90° searah jarum jam (`Rotate90Clockwise`) agar cocok; restore tersedia. Dimensi benar-benar beda tetap ditolak dengan pesan jelas.
+- **Bukti end-to-end via GUI dengan gambar rotasi aktual (2026-10-02, Tugas C)**:
+  - File test: `/tmp/rot_orig.png` 600×400 (biru + kotak merah kiri-atas + hijau kanan-bawah); `/tmp/rot_hasil.png` 400×600 (abu-abu + lubang TRANSPARAN di tengah — simulasi background removal).
+  - Alur: masuk edit mode (tombol "Pulihkan" AKTIF — tanpa #9 restore tidak tersedia) → Ctrl+A → Shift+Delete (pulihkan) → Ctrl+S.
+  - `taskC-08-before.png`: lubang transparan terlihat. `taskC-09-restored.png`: lubang terisi BIRU (piksel asli).
+  - **Verifikasi piksel**: file hasil simpan dibandingkan dengan ekspektasi (`original.transpose(ROTATE_270)` mengisi area transparan) via PIL `ImageChops.difference` → **total diff = 0, COCOK SEMPURNA**. Arah rotasi 90° searah jarum jam terbukti benar (kotak merah kiri-atas pindah ke kanan-atas).
+  - Catatan: restore hanya memulihkan area transparan (komposit: `maskAlpha > sourceAlpha` → tampilkan piksel Original); area opaque tetap menampilkan Result. Ini by-design untuk alur background-removal.
+
+### #10: Double-click tidak menutup path (ala Photoshop)
+- **Perbaikan**: Hapus logika double-click menutup path. Double-click kini hanya menaruh 2 anchor biasa. Path ditutup via klik anchor pertama (`PenTool.AddAnchor` via `CloseHitRadius`). Tambah indikator lingkaran kecil di kursor saat hover anchor pertama.
+- **Bukti**: `r2-10-dblclick.png` (path tidak tertutup); `r2-10-hover.png` (indikator); `r2-10-closed.png` (path tertutup via klik anchor pertama).
+
+### #11: Percepat tampil preview
+- **Investigasi**: `PrepareEditorAsync` melakukan decode Bitmap sinkron di UI thread (`await Task.CompletedTask` no-op); gambar besar memblokir jendela.
+- **Perbaikan**: Decode result & original dipindah ke `Task.Run` (background); UI langsung tampil; session diisi saat selesai. Pemanggil tidak await; `WireEditorControls` via Dispatcher.
+- **Angka sebelum/sesudah (2026-10-02, Tugas D)** — diukur jujur via worktree sementara di `001f344^` (sebelum) vs `001f344` (sesudah), instrumentasi Stopwatch sementara (tidak di-commit), gambar test 3000×2000 (original 1.6MB, file beda agar decode original ikut terukur):
+  - SEBELUM: UI thread terblokir **1309 ms** selama penyiapan sesi (`session-done-ui-blocked-ms=1309`) — decode original + alokasi sesi sinkron di UI thread.
+  - SESUDAH: kerja yang sama (**1270 ms**) berjalan di background thread (`session-done-bg-ms=1270`); UI thread bebas segera setelah gambar tampil — **0 ms freeze**.
+  - Kesimpulan: total kerja sama (~1.3 dtk), tapi tidak lagi memblokir interaksi (klik/scroll) selama penyiapan.
+
+### Status verifikasi
+- Build Release: 0 warning, 0 error.
+- Logiccheck: ALL PASS.
+- GUI: **11 dari 11 item terverifikasi end-to-end** via Xvfb screenshot (2026-10-02): #5 (Shift+Space trigger seleksi), #9 (restore rotasi, diff piksel 0), #11 (angka 1309ms → 0ms freeze).
+
+### Susulan: rapatkan tombol panel Properti (fd6d91f)
+- **Perbaikan**: `ColumnSpacing` 4→2, margin grid 0,2→0,1, padding section 12,10→8,8 (SELECTION & MASK) agar tombol rapat mengisi penuh sesuai contoh user.
+- **Bukti**: `taskE-properties-closeup.png` — tombol Semua/Kosongkan/Balikkan, Perluas/Perkecil/Feather, Hapus/Pulihkan/Isi, Defringe full-width: rapat, tanpa ruang kosong aneh.
+
+### Tugas A (2026-10-02): hilangkan silent-fail masuk mode edit — commit `87f31d1`
+- **Masalah**: Sejak #11, `_session` dibuat di background task. `EnterEditMode()` diam-diam return bila `_session == null` → tombol BUKA EDITOR / tombol "e" tidak bereaksi bila diklik sebelum session siap. Background task juga BISA gagal permanen (file hilang/corrupt → `_session` null selamanya).
+- **Perbaikan** (`PreviewWindow.Editor.cs`, `PreviewWindow.axaml.cs`, `PreviewWindow.axaml`, `Strings.id/en.axaml`):
+  - Field baru `_sessionPreparing` + `_sessionFatalError`; `PrepareEditorAsync` mencatat alasan gagal fatal.
+  - `BeginPrepareEditorSessionAsync()`: wrapper terpusat — set status preparing, update UI ("Menyiapkan...", tombol disabled), Toast sekali bila gagal.
+  - `EnterEditMode()`: tidak lagi silent — Toast "Menyiapkan editor, mohon tunggu sebentar..." (bila preparing), Toast alasan + retry otomatis (bila gagal), Toast bila Mode Editor (Beta) nonaktif.
+  - Tombol footer "BUKA EDITOR" dinonaktifkan + berlabel "Menyiapkan..." selama preparing; teks footer kini localized (`Footer_OpenEditor`/`Footer_EditorMode`, default axaml "PHOTOSHOP" diganti resource).
+  - Tombol "e" memanggil `EnterEditMode()` langsung (selalu ada feedback).
+- **Bukti GUI**: `taskA-07-early-e.png` — tekan "e" segera setelah window tampil → Toast oranye "⚠ Sesi editor belum siap." (tidak lagi diam); `taskA-04-e-key.png` — setelah session siap, "e" masuk edit mode normal (layout Photoshop penuh).
+- Build Release 0/0; logiccheck ALL PASS.

@@ -224,6 +224,7 @@
     <x:String x:Key="Btn_AntiAlias">Anti-alias</x:String>
     <x:String x:Key="Set_PenSection">Pen</x:String>
     <x:String x:Key="Set_PenColor">Line color:</x:String>
+    <x:String x:Key="Set_PenThickness">Line thickness:</x:String>
     <x:String x:Key="Dlg_Choose">Choose</x:String>
     <x:String x:Key="Dlg_PenColorTitle">Path line color</x:String>
     <x:String x:Key="Dlg_ExtraColors">Additional colors:</x:String>
@@ -281,4 +282,17 @@
     <x:String x:Key="Err_Modifiers">{0}: only an unmodified key, or Shift/Ctrl/Ctrl+Shift+key is supported.</x:String>
     <x:String x:Key="Err_Hardcoded">{0}: {1} is used by a built-in editor command (e.g. Ctrl+S save).</x:String>
     <x:String x:Key="Err_Conflict">{0} conflicts with {1} on {2}.</x:String>
+    <x:String x:Key="Undo_Grow">Grow selection</x:String>
+    <x:String x:Key="Undo_Shrink">Shrink selection</x:String>
+    <x:String x:Key="Undo_Feather">Feather selection</x:String>
+    <x:String x:Key="Undo_Invert">Invert selection</x:String>
+    <x:String x:Key="Undo_Selection">Make selection</x:String>
+    <x:String x:Key="Undo_SelectAll">Select all</x:String>
+    <x:String x:Key="Footer_OpenEditor">OPEN EDITOR</x:String>
+    <x:String x:Key="Footer_EditorMode">EDITOR MODE</x:String>
+    <x:String x:Key="Editor_Preparing">Preparing...</x:String>
+    <x:String x:Key="Toast_EditorPreparing">Preparing the editor, please wait a moment...</x:String>
+    <x:String x:Key="Toast_EditorSessionFailed">Editor session failed: {0}. Retrying...</x:String>
+    <x:String x:Key="Toast_EditorNoSession">Editor session is not ready yet.</x:String>
+    <x:String x:Key="Toast_EditorBetaOff">Enable Editor (Beta) mode in Preferences → General to edit.</x:String>
 </ResourceDictionary>

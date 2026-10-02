@@ -54,22 +54,14 @@
                  menghalangi klik. Pindahkan ke bawah button dengan jarak agar tidak menempel cursor. -->
             <Setter Property="ToolTip.Placement" Value="Bottom"/>
             <Setter Property="ToolTip.VerticalOffset" Value="12"/>
-            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
             <Setter Property="Transitions">
                 <Transitions>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut"/>
-                    <BrushTransition Property="Background" Duration="0:0:0.15" Easing="CubicEaseOut"/>
-                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15" Easing="CubicEaseOut"/>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12" Easing="CubicEaseOut"/>
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="Button:pointerover">
-            <Setter Property="RenderTransform" Value="scale(1.025)"/>
-        </Style>
-        <Style Selector="Button:pressed">
-            <Setter Property="RenderTransform" Value="scale(0.975)"/>
-        </Style>
-        
+
         <Style Selector="ComboBox">
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Background" Value="#0DFFFFFF"/>
