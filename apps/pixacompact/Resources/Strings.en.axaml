@@ -23,6 +23,13 @@
     <x:String x:Key="Menu_Revert">Revert</x:String>
     <x:String x:Key="Menu_Discard">Discard Changes…</x:String>
     <x:String x:Key="Menu_ExitEdit">Exit Edit Mode</x:String>
+    <x:String x:Key="Menu_Window">Window</x:String>
+    <x:String x:Key="Menu_Window_ToolBox">Tool Box</x:String>
+    <x:String x:Key="Menu_Window_OptionsBar">Options Bar</x:String>
+    <x:String x:Key="Menu_Window_Properties">Properties</x:String>
+    <x:String x:Key="Menu_Window_History">History</x:String>
+    <x:String x:Key="Menu_Window_Layers">Layers</x:String>
+    <x:String x:Key="Menu_Window_RightPanel">Right Dock</x:String>
     <x:String x:Key="Title_Preview">Before/After Preview</x:String>
     <x:String x:Key="Btn_StartEdit">Start Editing</x:String>
     <x:String x:Key="Tip_StartEditor">Start editor (E)</x:String>

@@ -110,6 +110,16 @@
                         <MenuItem x:Name="MiQuickMask" Header="{DynamicResource Menu_QuickMask}" ToggleType="CheckBox" Classes="editor-menuitem"/>
                         <MenuItem x:Name="MiMaskView" Header="{DynamicResource Menu_MaskView}" ToggleType="CheckBox" Classes="editor-menuitem"/>
                     </MenuItem>
+                    <MenuItem Header="{DynamicResource Menu_Window}" Classes="editor-menuitem">
+                        <MenuItem x:Name="MiWindowToolBox" Header="{DynamicResource Menu_Window_ToolBox}" ToggleType="CheckBox" IsChecked="True" Click="OnTogglePanelClick" Tag="toolrail" Classes="editor-menuitem"/>
+                        <MenuItem x:Name="MiWindowOptionsBar" Header="{DynamicResource Menu_Window_OptionsBar}" ToggleType="CheckBox" IsChecked="True" Click="OnTogglePanelClick" Tag="optionsbar" Classes="editor-menuitem"/>
+                        <Separator/>
+                        <MenuItem x:Name="MiWindowProperties" Header="{DynamicResource Menu_Window_Properties}" ToggleType="CheckBox" IsChecked="True" Click="OnTogglePanelClick" Tag="properties" Classes="editor-menuitem"/>
+                        <MenuItem x:Name="MiWindowHistory" Header="{DynamicResource Menu_Window_History}" ToggleType="CheckBox" IsChecked="True" Click="OnTogglePanelClick" Tag="history" Classes="editor-menuitem"/>
+                        <MenuItem x:Name="MiWindowLayers" Header="{DynamicResource Menu_Window_Layers}" ToggleType="CheckBox" IsChecked="True" Click="OnTogglePanelClick" Tag="layers" Classes="editor-menuitem"/>
+                        <Separator/>
+                        <MenuItem x:Name="MiWindowRightDock" Header="{DynamicResource Menu_Window_RightPanel}" ToggleType="CheckBox" IsChecked="True" Click="OnTogglePanelClick" Tag="rightdock" Classes="editor-menuitem"/>
+                    </MenuItem>
                 </Menu>
             </Border>
 

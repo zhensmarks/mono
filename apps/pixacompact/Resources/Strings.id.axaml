@@ -23,6 +23,13 @@
     <x:String x:Key="Menu_Revert">Kembalikan</x:String>
     <x:String x:Key="Menu_Discard">Buang Perubahan…</x:String>
     <x:String x:Key="Menu_ExitEdit">Keluar Mode Edit</x:String>
+    <x:String x:Key="Menu_Window">Jendela</x:String>
+    <x:String x:Key="Menu_Window_ToolBox">Kotak Alat</x:String>
+    <x:String x:Key="Menu_Window_OptionsBar">Baris Opsi</x:String>
+    <x:String x:Key="Menu_Window_Properties">Properties</x:String>
+    <x:String x:Key="Menu_Window_History">History</x:String>
+    <x:String x:Key="Menu_Window_Layers">Layers</x:String>
+    <x:String x:Key="Menu_Window_RightPanel">Dock Kanan</x:String>
     <x:String x:Key="Title_Preview">Pratinjau Sebelum/Sesudah</x:String>
     <x:String x:Key="Btn_StartEdit">Mulai Edit</x:String>
     <x:String x:Key="Tip_StartEditor">Mulai editor (E)</x:String>

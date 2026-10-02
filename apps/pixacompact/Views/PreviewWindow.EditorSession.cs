@@ -207,8 +207,8 @@ public partial class PreviewWindow
         _editMode = true;
         _tabPanelsHidden = false;
 
-        SetVisible("PanelToolRail", true);
-        SetVisible("PanelOptionsBar", true);
+        // Ikuti pilihan menu Window; jangan memaksa panel tampil.
+        ApplyEditorDockVisibility();
         SetVisible("PanelMenuBar", true);
         SetVisible("PanelEditorStatus", true);
         SetVisible("BtnEnterEdit", false);

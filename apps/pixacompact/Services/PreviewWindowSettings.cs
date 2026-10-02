@@ -72,6 +72,8 @@ public class PreviewWindowSettings
     public string EditorPropertiesDock { get; set; } = "Right";
     public string EditorHistoryDock { get; set; } = "Right";
     public string EditorLayersDock { get; set; } = "Right";
+    // Visibilitas panel editor (menu Window): key -> tampil. Key yang tidak ada = tampil (default ala Photoshop).
+    public Dictionary<string, bool> EditorPanelVisibility { get; set; } = new();
     // Prefer two columns for a side-docked Tools rail; Auto still falls back when one column will clip.
     public bool EditorToolsPreferTwoColumns { get; set; } = false;
     public int EditorAntsAnimationMs { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultAntsAnimationMs;

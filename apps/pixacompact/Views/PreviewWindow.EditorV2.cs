@@ -16,14 +16,16 @@ public partial class PreviewWindow
         InitDocSession(session);  
         _editorV2Active=true;  
         WireDocEditorEvents();  
-        SetVisible("PanelDocLayers",true);  
+        // Jangan paksa panel Layers tampil: ikuti pilihan menu Window (Tab + toggle).
+        ApplyEditorDockVisibility();  
     }  
     internal void ExitDocEditMode()  
     {  
         _editorV2Active=false;  
         _docSession?.Dispose();  
         _docSession=null;  
-        SetVisible("PanelDocLayers",false);  
+        // Visibilitas panel dikembalikan lewat ApplyEditorDockVisibility (jangan paksa).
+        ApplyEditorDockVisibility();  
     }  
     private void WireDocEditorEvents(){if(_editorV2Wired)return;_editorV2Wired=true;}  
     internal bool DocEditorHandleKey(KeyEventArgs e)  
