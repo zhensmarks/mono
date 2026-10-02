@@ -236,11 +236,16 @@ public partial class PreviewWindow
     {
         if (this.FindControl<Button>("BtnBrushRestore") is { } tb)
         {
-            tb.IsVisible = _activeTool != EditToolKind.Eraser;
+            bool isEraser = _activeTool == EditToolKind.Eraser;
+            tb.IsVisible = !isEraser;
             tb.Content = _settings.EditorBrushRestore ? T("BrushMode_Restore") : T("BrushMode_Erase");
             tb.Background = _settings.EditorBrushRestore
                 ? new SolidColorBrush(Color.Parse("#3348D17A"))
                 : new SolidColorBrush(Color.Parse("#15FFFFFF"));
+            // WS2 Putaran 3: bila Hapus disembunyikan (eraser), Lanjutan bentang
+            // penuh grid agar tidak ada kolom kosong.
+            if (this.FindControl<Button>("BtnBrushAdvanced") is { } adv)
+                Grid.SetColumnSpan(adv, isEraser ? 2 : 1);
         }
     }
 

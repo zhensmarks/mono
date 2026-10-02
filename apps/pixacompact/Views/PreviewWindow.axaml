@@ -133,15 +133,36 @@
                     <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                                   VerticalAlignment="Center" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+                    <!-- Selection Mode (Replace/Add/Subtract/Intersect): Grid 4 kolom sama lebar.
+                         Paling kiri ala Photoshop agar tidak terpotong saat bar penuh. -->
+                    <StackPanel x:Name="OptSelectionModeGroup" Orientation="Horizontal" Spacing="0" IsVisible="False" VerticalAlignment="Center" Grid.IsSharedSizeScope="True">
+                        <Grid VerticalAlignment="Center" ColumnSpacing="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="ModeBtn"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="ModeBtn"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="ModeBtn"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="ModeBtn"/>
+                            </Grid.ColumnDefinitions>
+                            <ToggleButton x:Name="BtnModeReplace" Grid.Column="0" Classes="editor-compact" Padding="6,4" Content="{DynamicResource SelMode_New}" IsChecked="True" FontSize="11" Foreground="White" IsCheckedChanged="OnSelectionModeClick" ToolTip.Tip="{DynamicResource Tip_SelModeNew}"/>
+                            <ToggleButton x:Name="BtnModeAdd" Grid.Column="1" Classes="editor-compact" Padding="6,4" Content="{DynamicResource SelMode_Add}" FontSize="11" Foreground="White" IsCheckedChanged="OnSelectionModeClick" ToolTip.Tip="{DynamicResource Tip_SelModeAdd}"/>
+                            <ToggleButton x:Name="BtnModeSubtract" Grid.Column="2" Classes="editor-compact" Padding="6,4" Content="{DynamicResource SelMode_Sub}" FontSize="11" Foreground="White" IsCheckedChanged="OnSelectionModeClick" ToolTip.Tip="{DynamicResource Tip_SelModeSub}"/>
+                            <ToggleButton x:Name="BtnModeIntersect" Grid.Column="3" Classes="editor-compact" Padding="6,4" Content="{DynamicResource SelMode_Intersect}" FontSize="11" Foreground="White" IsCheckedChanged="OnSelectionModeClick" ToolTip.Tip="{DynamicResource Tip_SelModeIntersect}"/>
+                        </Grid>
+                        <Border Width="1" Background="{StaticResource EditorBorder}" Margin="8,0"/>
+                    </StackPanel>
+
                     <!-- Brush Settings -->
                     <StackPanel x:Name="OptBrushGroup" Orientation="Horizontal" Spacing="8" IsVisible="False">
                         <TextBlock Text="{DynamicResource Opt_Size}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11"/>
                         <Slider x:Name="SldBrushSize" VerticalAlignment="Center" Minimum="1" Maximum="2000" Value="60" Width="110" IsSnapToTickEnabled="True" TickFrequency="1"/>
                         <TextBlock x:Name="TxtBrushSize" Text="60 px" VerticalAlignment="Center" Foreground="{StaticResource EditorTextPrimary}" FontSize="11" Width="45"/>
-                        <TextBlock Text="{DynamicResource Opt_Softness}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11" Margin="8,0,0,0"/>
+                        <TextBlock Text="{DynamicResource Opt_Softness}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11"/>
                         <Slider x:Name="SldBrushHardness" VerticalAlignment="Center" Minimum="0" Maximum="100" Value="30" Width="110" IsSnapToTickEnabled="True" TickFrequency="1"/>
                         <TextBlock x:Name="TxtBrushHardness" Text="30%" VerticalAlignment="Center" Foreground="{StaticResource EditorTextPrimary}" FontSize="11" Width="30"/>
-                        <Button x:Name="BtnBrushAdvanced" Classes="editor-compact" Content="{DynamicResource Btn_Advanced}" FontSize="11" Foreground="White" ToolTip.Tip="{DynamicResource Tip_ShowOpacityFlow}"/>
+                        <Grid x:Name="BrushModeButtonGrid" ColumnDefinitions="*,*" ColumnSpacing="2" Width="164" VerticalAlignment="Center">
+                            <Button x:Name="BtnBrushAdvanced" Grid.Column="0" Classes="editor-compact" Content="{DynamicResource Btn_Advanced}" FontSize="11" Foreground="White" ToolTip.Tip="{DynamicResource Tip_ShowOpacityFlow}"/>
+                            <Button x:Name="BtnBrushRestore" Grid.Column="1" Classes="editor-compact" Content="{DynamicResource BrushMode_Erase}" Click="OnBrushModeClick" FontSize="11" Foreground="White" ToolTip.Tip="{DynamicResource Tip_BrushRestore}"/>
+                        </Grid>
                         <StackPanel x:Name="OptBrushAdvancedGroup" Orientation="Horizontal" Spacing="8" IsVisible="False">
                             <TextBlock Text="{DynamicResource Opt_Opacity}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11"/>
                             <Slider x:Name="SldBrushOpacity" VerticalAlignment="Center" Minimum="1" Maximum="100" Value="100" Width="100" IsSnapToTickEnabled="True" TickFrequency="1"/>
@@ -150,7 +171,6 @@
                             <Slider x:Name="SldBrushFlow" VerticalAlignment="Center" Minimum="1" Maximum="100" Value="100" Width="100" IsSnapToTickEnabled="True" TickFrequency="1"/>
                             <TextBlock x:Name="TxtBrushFlow" Text="100%" VerticalAlignment="Center" Foreground="{StaticResource EditorTextPrimary}" FontSize="11" Width="35"/>
                         </StackPanel>
-                        <Button x:Name="BtnBrushRestore" Classes="editor-compact" Content="{DynamicResource BrushMode_Erase}" Click="OnBrushModeClick" FontSize="11" Foreground="White" ToolTip.Tip="{DynamicResource Tip_BrushRestore}"/>
                         <Border Width="1" Background="{StaticResource EditorBorder}" Margin="8,0"/>
                     </StackPanel>
 
@@ -159,9 +179,9 @@
                         <TextBlock Text="{DynamicResource Opt_Tolerance}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11"/>
                         <Slider x:Name="SldWandTolerance" VerticalAlignment="Center" Minimum="0" Maximum="255" Value="32" Width="110" IsSnapToTickEnabled="True" TickFrequency="1"/>
                         <TextBlock x:Name="TxtWandTolerance" Text="32" VerticalAlignment="Center" Foreground="{StaticResource EditorTextPrimary}" FontSize="11" Width="25"/>
-                        <CheckBox x:Name="ChkWandContiguous" Content="{DynamicResource Btn_Contiguous}" IsChecked="True" VerticalAlignment="Center" Foreground="White" FontSize="11" Margin="8,0,0,0"/>
-                        <CheckBox x:Name="ChkWandSampleAlpha" Content="{DynamicResource Btn_SampleAlpha}" IsChecked="False" VerticalAlignment="Center" Foreground="White" FontSize="11" Margin="8,0,0,0"/>
-                        <CheckBox x:Name="ChkWand8Conn" Content="{DynamicResource Btn_8Connected}" IsChecked="False" VerticalAlignment="Center" Foreground="White" FontSize="11" Margin="8,0,0,0"/>
+                        <CheckBox x:Name="ChkWandContiguous" Content="{DynamicResource Btn_Contiguous}" IsChecked="True" VerticalAlignment="Center" Foreground="White" FontSize="11"/>
+                        <CheckBox x:Name="ChkWandSampleAlpha" Content="{DynamicResource Btn_SampleAlpha}" IsChecked="False" VerticalAlignment="Center" Foreground="White" FontSize="11"/>
+                        <CheckBox x:Name="ChkWand8Conn" Content="{DynamicResource Btn_8Connected}" IsChecked="False" VerticalAlignment="Center" Foreground="White" FontSize="11"/>
                         <Border Width="1" Background="{StaticResource EditorBorder}" Margin="8,0"/>
                     </StackPanel>
 
@@ -170,7 +190,7 @@
                         <TextBlock Text="{DynamicResource Opt_Feather}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11"/>
                         <Slider x:Name="SldSelectionFeather" VerticalAlignment="Center" Minimum="0" Maximum="50" Value="0" Width="110" IsSnapToTickEnabled="True" TickFrequency="1"/>
                         <TextBlock x:Name="TxtSelectionFeather" Text="0 px" VerticalAlignment="Center" Foreground="{StaticResource EditorTextPrimary}" FontSize="11" Width="35"/>
-                        <CheckBox x:Name="ChkAntiAlias" Content="{DynamicResource Btn_AntiAlias}" IsChecked="True" VerticalAlignment="Center" Foreground="White" FontSize="11" Margin="8,0,0,0"/>
+                        <CheckBox x:Name="ChkAntiAlias" Content="{DynamicResource Btn_AntiAlias}" IsChecked="True" VerticalAlignment="Center" Foreground="White" FontSize="11"/>
                         <Border Width="1" Background="{StaticResource EditorBorder}" Margin="8,0"/>
                     </StackPanel>
 
@@ -179,7 +199,7 @@
                         <TextBlock Text="{DynamicResource Opt_Size}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11"/>
                         <Slider x:Name="SldRefineEdgeSize" VerticalAlignment="Center" Minimum="5" Maximum="100" Value="30" Width="110" IsSnapToTickEnabled="True" TickFrequency="1"/>
                         <TextBlock x:Name="TxtRefineEdgeSize" Text="30 px" VerticalAlignment="Center" Foreground="{StaticResource EditorTextPrimary}" FontSize="11" Width="40"/>
-                        <TextBlock Text="{DynamicResource Opt_Feather}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11" Margin="8,0,0,0"/>
+                        <TextBlock Text="{DynamicResource Opt_Feather}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11"/>
                         <Slider x:Name="SldRefineEdgeFeather" VerticalAlignment="Center" Minimum="0" Maximum="20" Value="2" Width="110" IsSnapToTickEnabled="True" TickFrequency="1"/>
                         <TextBlock x:Name="TxtRefineEdgeFeather" Text="2 px" VerticalAlignment="Center" Foreground="{StaticResource EditorTextPrimary}" FontSize="11" Width="35"/>
                         <Border Width="1" Background="{StaticResource EditorBorder}" Margin="8,0"/>
@@ -190,15 +210,6 @@
                         <TextBlock Text="{DynamicResource Opt_Thickness}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="11"/>
                         <Slider x:Name="SldPenThickness" VerticalAlignment="Center" Minimum="1" Maximum="8" Value="2" Width="110" IsSnapToTickEnabled="True" TickFrequency="1"/>
                         <TextBlock x:Name="TxtPenThickness" Text="2 px" VerticalAlignment="Center" Foreground="{StaticResource EditorTextPrimary}" FontSize="11" Width="30"/>
-                        <Border Width="1" Background="{StaticResource EditorBorder}" Margin="8,0"/>
-                    </StackPanel>
-
-                    <!-- Selection Mode (Replace/Add/Subtract/Intersect) -->
-                    <StackPanel x:Name="OptSelectionModeGroup" Orientation="Horizontal" Spacing="4" IsVisible="False">
-                        <ToggleButton x:Name="BtnModeReplace" Classes="editor-compact" Width="72" Content="{DynamicResource SelMode_New}" IsChecked="True" FontSize="11" Foreground="White" IsCheckedChanged="OnSelectionModeClick" ToolTip.Tip="{DynamicResource Tip_SelModeNew}"/>
-                        <ToggleButton x:Name="BtnModeAdd" Classes="editor-compact" Width="72" Content="{DynamicResource SelMode_Add}" FontSize="11" Foreground="White" IsCheckedChanged="OnSelectionModeClick" ToolTip.Tip="{DynamicResource Tip_SelModeAdd}"/>
-                        <ToggleButton x:Name="BtnModeSubtract" Classes="editor-compact" Width="72" Content="{DynamicResource SelMode_Sub}" FontSize="11" Foreground="White" IsCheckedChanged="OnSelectionModeClick" ToolTip.Tip="{DynamicResource Tip_SelModeSub}"/>
-                        <ToggleButton x:Name="BtnModeIntersect" Classes="editor-compact" Width="72" Content="{DynamicResource SelMode_Intersect}" FontSize="11" Foreground="White" IsCheckedChanged="OnSelectionModeClick" ToolTip.Tip="{DynamicResource Tip_SelModeIntersect}"/>
                         <Border Width="1" Background="{StaticResource EditorBorder}" Margin="8,0"/>
                     </StackPanel>
 
