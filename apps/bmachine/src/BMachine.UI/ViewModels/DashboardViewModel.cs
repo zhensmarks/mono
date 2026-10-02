@@ -1069,18 +1069,18 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         // Sanity check: if message became empty after cleaning, don't show it unless it was intentionally empty?
         if (string.IsNullOrWhiteSpace(msg)) return null;
 
-        // --- 5. COMPACT PREFIX SYMBOLS ---
+        // --- 5. TEXT STATUS PREFIXES ---
         if (level == LogLevel.Success)
         {
-            msg = "✓ " + msg;
+            msg = "Berhasil: " + msg;
         }
         else if (level == LogLevel.Warning)
         {
-            msg = "⚠ " + msg;
+            msg = "Peringatan: " + msg;
         }
         else if (level == LogLevel.Error)
         {
-            msg = "✗ " + msg;
+            msg = "Gagal: " + msg;
         }
 
         var color = level switch 

@@ -219,7 +219,7 @@
                                                         Margin="4,0,0,0"
                                                         Background="Transparent" BorderThickness="0"
                                                         Click="OnCloseTabClick" ToolTip.Tip="Close Tab">
-                                                    <PathIcon Data="{StaticResource IconX}" Width="10" Height="10"/>
+                                                    <PathIcon Data="{StaticResource IconX}" Width="14" Height="14"/>
                                                 </Button>
                                             </Grid>
                                             <!-- Active underline -->
@@ -306,8 +306,8 @@
                                     </MultiBinding>
                                 </Border.IsVisible>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <PathIcon Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"
-                                              Width="12" Height="12"
+                                    <PathIcon Data="{StaticResource IconTrash}"
+                                              Width="14" Height="14"
                                               Foreground="{DynamicResource AccentColorBrush}"
                                               VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding SelectionInfo}"

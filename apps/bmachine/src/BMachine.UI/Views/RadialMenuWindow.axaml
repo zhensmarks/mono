@@ -67,11 +67,14 @@
         <Style Selector="Button.MenuButton:pointerover">
              <Setter Property="Cursor" Value="Hand"/>
              <Setter Property="RenderTransform" Value="scale(1.15)"/>
+             <Setter Property="Foreground" Value="{DynamicResource RadialMenuHoverForegroundBrush}"/>
         </Style>
 
-        <!-- Restore accent highlight effect: handled by the PieWedge slice instead -->
-        <Style Selector="Button.MenuButton.highlighted /template/ Border#PART_Bg">
-             <!-- Empty, let the PieWedge handle the glow beneath it -->
+        <!-- The pointer selects a wedge in the view model, so lift the icon with a theme-aware foreground. -->
+        <Style Selector="Button.MenuButton.highlighted">
+             <Setter Property="Foreground" Value="{DynamicResource RadialMenuHoverForegroundBrush}"/>
+             <Setter Property="RenderTransform" Value="scale(1.15)"/>
+             <Setter Property="Opacity" Value="1"/>
         </Style>
 
         <!-- Navigation Button (More/Back) — theme-aware, minimal, compact -->
@@ -186,14 +189,10 @@
                                     CommandParameter="{Binding ScriptPath}">
                                 <Grid>
                                     <!-- Icon with Drop Shadow for legibility -->
-                                    <Viewbox Width="18" Height="18" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                         <Path Data="{Binding Icon}" Fill="{DynamicResource TextPrimaryBrush}" Stretch="Uniform">
-                                         </Path>
-                                    </Viewbox>
+                                    <PathIcon Data="{Binding Icon}" Width="18" Height="18" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                     
                                     <!-- Fallback Text -->
                                     <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
                                                IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
                                     </TextBlock>
                                 </Grid>
@@ -203,10 +202,12 @@
                             <Button Classes="NavButton"
                                     IsVisible="{Binding IsNavigation}"
                                     IsHitTestVisible="False">
-                                <TextBlock Text="{Binding ShortName}" 
-                                           VerticalAlignment="Center" HorizontalAlignment="Center"
-                                           FontSize="12" FontWeight="Bold"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Panel>
+                                    <PathIcon Data="{Binding Icon}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                               FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                </Panel>
                             </Button>
                         </Grid>
                     </DataTemplate>

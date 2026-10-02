@@ -13,7 +13,7 @@ namespace BMachine.UI.ViewModels;
 public class FilePreviewItem
 {
     public string Name { get; set; } = "";
-    public string Icon { get; set; } = "📄";
+    public string Icon { get; set; } = "IconFileText";
     public bool IsLocked { get; set; }
 }
 
@@ -251,7 +251,7 @@ public partial class FolderLockerViewModel : ObservableObject
             FilePreviewList.Add(new FilePreviewItem 
             { 
                 Name = Path.GetFileName(f), 
-                Icon = isLocked ? "🔒" : "📄",
+                Icon = isLocked ? "IconLock2" : "IconFileText",
                 IsLocked = isLocked
             });
         }

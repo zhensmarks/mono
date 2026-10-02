@@ -50,7 +50,7 @@
                                 <!-- Separator View -->
                                 <Border IsVisible="{Binding IsSeparator}" Margin="0,24,0,8" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
                                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
-                                         <PathIcon Data="{StaticResource IconCheckSquare}" Width="12" Height="12" Foreground="{DynamicResource AccentEditingBrush}"/>
+                                         <PathIcon Data="{StaticResource IconCheckSquare}" Width="14" Height="14" Foreground="{DynamicResource AccentEditingBrush}"/>
                                          <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </StackPanel>
                                 </Border>
@@ -116,7 +116,7 @@
                                                 </Border>
                                                 
                                                 <!-- Hidden Drag Handle (Visible on hover) -->
-                                                <PathIcon x:Name="DragHandle" Data="M12 2v20M2 12h20" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                <PathIcon x:Name="DragHandle" Data="{StaticResource IconGripVertical}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"
                                                           HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="SizeAll" Opacity="0"
                                                           ToolTip.Tip="Drag to Reorder" PointerPressed="OnCardPointerPressed">
                                                     <PathIcon.Transitions>
@@ -289,7 +289,7 @@
                                    </Button.Styles>
                                    <Border Classes="badge" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Background="Transparent" CornerRadius="6" Height="26" Padding="12,0">
                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                           <PathIcon Data="{StaticResource IconPaperclip}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                           <PathIcon Data="{StaticResource IconPaperclip}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                            <TextBlock Text="{Binding SelectedCard.AttachmentCount}" FontSize="11" FontWeight="Bold" Foreground="White"/>
                                        </StackPanel>
                                    </Border>
@@ -299,7 +299,7 @@
                                <Border BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Background="Transparent" CornerRadius="6" Height="26" Padding="12,0" Margin="0,0,8,8" VerticalAlignment="Center"
                                        IsVisible="{Binding SelectedCard.DueDateText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                       <PathIcon Data="{StaticResource IconClock}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                       <PathIcon Data="{StaticResource IconClock}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                        <TextBlock Text="{Binding SelectedCard.DueDateText}" FontSize="11" FontWeight="Bold" Foreground="White"/>
                                    </StackPanel>
                                </Border>
@@ -512,12 +512,12 @@
                                                     <Button Command="{Binding $parent[UserControl].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
                                                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
                                                             IsVisible="{Binding !IsEditing}">
-                                                        <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     </Button>
                                                     <Button Command="{Binding $parent[UserControl].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
                                                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
                                                             IsVisible="{Binding !IsEditing}">
-                                                        <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#EF4444"/>
+                                                        <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#EF4444"/>
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
@@ -608,7 +608,7 @@
                                                  </Button>
                                                  <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
                                                          Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand">
-                                                     <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#EF4444"/>
+                                                     <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#EF4444"/>
                                                  </Button>
                                              </Grid>
                                          </DataTemplate>
@@ -805,7 +805,7 @@
                              Background="Transparent" BorderBrush="{DynamicResource AccentEditingBrush}" BorderThickness="1" Foreground="{DynamicResource AccentEditingBrush}" 
                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" CornerRadius="6" Padding="12" Cursor="Hand">
                          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                             <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource AccentEditingBrush}"/>
+                             <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource AccentEditingBrush}"/>
                              <TextBlock Text="DUPLICATE CHECKLIST" FontWeight="Black" LetterSpacing="2" FontSize="12"/>
                          </StackPanel>
                      </Button>

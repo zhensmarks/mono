@@ -50,7 +50,7 @@
                                 <!-- Separator View -->
                                 <Border IsVisible="{Binding IsSeparator}" Margin="0,24,0,8" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
                                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
-                                         <PathIcon Data="{StaticResource IconCheckSquare}" Width="12" Height="12" Foreground="{DynamicResource AccentRevisionBrush}"/>
+                                         <PathIcon Data="{StaticResource IconCheckSquare}" Width="14" Height="14" Foreground="{DynamicResource AccentRevisionBrush}"/>
                                          <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </StackPanel>
                                 </Border>
@@ -116,7 +116,7 @@
                                                 </Border>
                                                 
                                                 <!-- Hidden Drag Handle (Visible on hover) -->
-                                                <PathIcon x:Name="DragHandle" Data="M12 2v20M2 12h20" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                <PathIcon x:Name="DragHandle" Data="{StaticResource IconGripVertical}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"
                                                           HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="SizeAll" Opacity="0"
                                                           ToolTip.Tip="Drag to Reorder" PointerPressed="OnCardPointerPressed">
                                                     <PathIcon.Transitions>

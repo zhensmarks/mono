@@ -42,12 +42,11 @@
                 BoxShadow="0 4 10 0 #40000000">
             <StackPanel Orientation="Horizontal" Margin="4" Spacing="4">
                 <!-- Download Button -->
-                <Button Width="36" Height="36" CornerRadius="4"
-                        Background="Transparent" BorderThickness="0"
+                <Button Classes="IconBtn" Width="36" Height="36" CornerRadius="6"
                         Cursor="Hand" Click="OnDownloadClick"
-                        Foreground="{DynamicResource TextPrimaryBrush}" FontSize="18" FontWeight="Bold" Content="↓"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                         ToolTip.Tip="Download Image">
+                    <PathIcon Data="{StaticResource IconDownload}" Width="16" Height="16"/>
                 </Button>
                 <!-- Close Button -->
                 <Button Classes="WindowClose" Click="OnCloseClick"

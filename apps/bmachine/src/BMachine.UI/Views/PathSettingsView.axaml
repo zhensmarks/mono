@@ -110,7 +110,7 @@
                                                         Classes="secondary" Margin="4,0" Padding="6,4" CornerRadius="6"
                                                         ToolTip.Tip="Tampilkan / Edit Link Path Manual">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                                        <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                         <TextBlock Text="Edit Link" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Button>
@@ -210,7 +210,7 @@
                         <!-- Add Button -->
                          <Button Command="{Binding AddMasterPathCommand}" Classes="secondary" HorizontalAlignment="Left" Height="34" Padding="12,0" Margin="0,5,0,0">
                              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                 <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                 <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                  <TextBlock Text="Tambah Folder Master" FontFamily="{DynamicResource FontPrimary}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                              </StackPanel>
                          </Button>
@@ -266,7 +266,7 @@
                                                         Classes="secondary" Margin="4,0" Padding="6,4" CornerRadius="6"
                                                         ToolTip.Tip="Tampilkan / Edit Link Path Manual">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                                        <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                         <TextBlock Text="Edit Link" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Button>
@@ -314,7 +314,7 @@
                         <!-- Add Button -->
                          <Button Command="{Binding AddPhotoshopPathCommand}" Classes="secondary" HorizontalAlignment="Left" Height="34" Padding="12,0" Margin="0,5,0,0">
                              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                 <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                 <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                  <TextBlock Text="Tambah Folder Photoshop" FontFamily="{DynamicResource FontPrimary}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                              </StackPanel>
                          </Button>

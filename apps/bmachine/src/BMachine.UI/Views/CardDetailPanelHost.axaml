@@ -189,12 +189,12 @@
                                                     <Button Command="{Binding $parent[UserControl].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
                                                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
                                                             IsVisible="{Binding !IsEditing}">
-                                                        <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     </Button>
                                                     <Button Command="{Binding $parent[UserControl].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
                                                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
                                                             IsVisible="{Binding !IsEditing}">
-                                                        <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444"/>
+                                                        <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
@@ -280,7 +280,7 @@
                                                 </Button>
                                                 <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
                                                         Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
-                                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444"/>
+                                                    <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
                                                 </Button>
                                             </Grid>
                                         </DataTemplate>
@@ -618,7 +618,7 @@
                                             <Button Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Right" Background="#AA000000" CornerRadius="6" Margin="5" Padding="4"
                                                     Command="{Binding $parent[UserControl].DataContext.DownloadAttachmentCommand}" CommandParameter="{Binding}"
                                                     ToolTip.Tip="Download File">
-                                                <PathIcon Data="{StaticResource IconDownload}" Foreground="White" Width="12" Height="12"/>
+                                                <PathIcon Data="{StaticResource IconDownload}" Foreground="White" Width="14" Height="14"/>
                                             </Button>
 
                                             <Grid Grid.Row="0" Background="#66000000" IsVisible="{Binding IsDownloading}">

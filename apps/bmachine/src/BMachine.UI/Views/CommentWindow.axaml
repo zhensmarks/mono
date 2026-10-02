@@ -54,12 +54,12 @@
                                             <Button Command="{Binding $parent[Window].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
                                                     Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
                                                     IsVisible="{Binding !IsEditing}">
-                                                <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </Button>
                                             <Button Command="{Binding $parent[Window].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
                                                     Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
                                                     IsVisible="{Binding !IsEditing}">
-                                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444"/>
+                                                <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
                                             </Button>
                                         </StackPanel>
                                     </Grid>
@@ -123,11 +123,11 @@
                                                         Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" MaxWidth="70"/>
                                          </StackPanel>
                                          <!-- Remove Button -->
-                                         <Button Command="{Binding $parent[Window].DataContext.RemoveAttachmentCommand}" CommandParameter="{Binding}"
-                                                 Width="18" Height="18" CornerRadius="6" Padding="0"
-                                                 Background="#CC000000" BorderThickness="0" Cursor="Hand"
+                                         <Button Classes="IconBtn" Command="{Binding $parent[Window].DataContext.RemoveAttachmentCommand}" CommandParameter="{Binding}"
+                                                 Width="32" Height="32" CornerRadius="6" Padding="6"
+                                                 Foreground="{DynamicResource ButtonDangerForegroundBrush}" Cursor="Hand"
                                                  HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0">
-                                             <TextBlock Text="✕" FontSize="10" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                             <PathIcon Data="{StaticResource IconX2}" Width="14" Height="14"/>
                                          </Button>
                                      </Grid>
                                  </Border>
@@ -156,7 +156,7 @@
                                         </Button>
                                         <Button Grid.Column="1" Command="{Binding $parent[Window].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
                                                 Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
-                                            <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444"/>
+                                            <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
                                         </Button>
                                     </Grid>
                                 </DataTemplate>

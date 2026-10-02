@@ -369,7 +369,7 @@
                                                  IsChecked="{Binding SelectedThemeIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=0}"
                                                  Classes="Segmented">
                                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                                            <PathIcon Data="{StaticResource IconSun}" Width="12" Height="12" Foreground="{Binding $parent[RadioButton].Foreground}"/>
+                                            <PathIcon Data="{StaticResource IconSun}" Width="14" Height="14" Foreground="{Binding $parent[RadioButton].Foreground}"/>
                                             <TextBlock Text="Light" VerticalAlignment="Center" FontSize="12" Foreground="{Binding $parent[RadioButton].Foreground}"/>
                                         </StackPanel>
                                     </RadioButton>
@@ -377,7 +377,7 @@
                                                  IsChecked="{Binding SelectedThemeIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=1}"
                                                  Classes="Segmented">
                                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                                            <PathIcon Data="{StaticResource IconMoon}" Width="12" Height="12" Foreground="{Binding $parent[RadioButton].Foreground}"/>
+                                            <PathIcon Data="{StaticResource IconMoon}" Width="14" Height="14" Foreground="{Binding $parent[RadioButton].Foreground}"/>
                                             <TextBlock Text="Dark" VerticalAlignment="Center" FontSize="12" Foreground="{Binding $parent[RadioButton].Foreground}"/>
                                         </StackPanel>
                                     </RadioButton>
@@ -829,7 +829,7 @@
                                                                 Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Top">
                                                              <Panel>
                                                                  <Viewbox Width="16" Height="16" IsVisible="{Binding !IsEditing}">
-                                                                     <Path Data="{Binding IconGeometry}" Fill="{DynamicResource TextPrimaryBrush}" Stretch="Uniform" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                                     <Path Data="{Binding IconGeometry}" Fill="Transparent" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                                                  </Viewbox>
                                                                  <PathIcon Data="{StaticResource IconScript}" Width="14" Height="14" Foreground="{DynamicResource TextFaintBrush}" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
                                                                  <Button IsVisible="{Binding IsEditing}" Command="{Binding PickIconCommand}"
@@ -837,9 +837,9 @@
                                                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Cursor="Hand" ToolTip.Tip="Select Icon">
                                                                      <Panel>
                                                                          <Viewbox Width="16" Height="16">
-                                                                              <Path Data="{Binding EditIconGeometry}" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform" IsVisible="{Binding EditIconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                                              <Path Data="{Binding EditIconGeometry}" Fill="Transparent" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform" IsVisible="{Binding EditIconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                                                          </Viewbox>
-                                                                         <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding EditIconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding EditIconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
                                                                      </Panel>
                                                                  </Button>
                                                              </Panel>
@@ -890,7 +890,7 @@
                                         <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,16">
                                             <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,16">
                                                 <Button Grid.Column="0" Command="{Binding SwitchToRadialPage1Command}" Classes="Clear" VerticalAlignment="Center" Margin="0,0,24,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 1" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
-                                                    <Path Data="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <PathIcon Data="{StaticResource IconChevronLeft}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Button>
                                                 <Border Grid.Column="1" Width="200" Height="200" CornerRadius="100" Background="{DynamicResource AppBackgroundBrush}" ClipToBounds="True">
                                                 <Grid>
@@ -926,7 +926,7 @@
                                                                         <TextBlock Text="{Binding NavigationLabel}" FontSize="7" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                                     </Border>
                                                                     <Button Classes="Clear" IsVisible="{Binding IsEmpty}" Command="{Binding DataContext.AddScriptToRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Width="36" Height="36" CornerRadius="18" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Background="Transparent" ToolTip.Tip="Add Script to Slot" Padding="0">
-                                                                        <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                        <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                                     </Button>
                                                                     <Button Classes="Clear" IsVisible="{Binding !IsEmpty}"
                                                                             Command="{Binding DataContext.SelectRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -943,7 +943,7 @@
                                                                         <Grid>
                                                                             <Border IsVisible="{Binding IsSelected}" Width="44" Height="44" CornerRadius="22" BorderBrush="White" BorderThickness="2" Margin="-4"/>
                                                                             <Viewbox Width="18" Height="18" IsVisible="{Binding Script.IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                                 <Path Data="{Binding Script.IconGeometry}" Fill="White" Stretch="Uniform"/>
+                                                                                 <Path Data="{Binding Script.IconGeometry}" Fill="Transparent" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
                                                                             </Viewbox>
                                                                             <TextBlock Text="{Binding Script.ShortCode}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10" FontWeight="Bold" Foreground="White" IsVisible="{Binding Script.IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
                                                                         </Grid>
@@ -955,7 +955,7 @@
                                                 </Grid>
                                                 </Border>
                                                 <Button Grid.Column="2" Command="{Binding SwitchToRadialPage2Command}" Classes="Clear" VerticalAlignment="Center" Margin="24,0,0,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 2" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
-                                                    <Path Data="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <PathIcon Data="{StaticResource IconChevronRight}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Button>
                                             </Grid>
                                         </StackPanel>
@@ -974,7 +974,7 @@
                                                             <Button Classes="Clear" Command="{Binding SelectedRadialSlot.Script.PickIconCommand}" ToolTip.Tip="Change Icon" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="28" Padding="0">
                                                                 <Panel>
                                                                      <Viewbox Width="28" Height="28" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                          <Path Data="{Binding SelectedRadialSlot.Script.EditIconGeometry}" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
+                                                                          <Path Data="{Binding SelectedRadialSlot.Script.EditIconGeometry}" Fill="Transparent" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
                                                                      </Viewbox>
                                                                      <PathIcon Data="{StaticResource IconPlus}" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNull}}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                                 </Panel>

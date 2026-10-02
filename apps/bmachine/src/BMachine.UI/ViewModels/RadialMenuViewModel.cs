@@ -158,6 +158,14 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     /// <summary>
     /// Rebuild VisibleItems based on CurrentPage
     /// </summary>
+    private static Avalonia.Media.StreamGeometry? ResolveIcon(string key)
+    {
+        if (Application.Current?.TryGetResource(key, null, out var resource) == true)
+            return resource as Avalonia.Media.StreamGeometry;
+
+        return null;
+    }
+
     private void BuildVisibleItems()
     {
         VisibleItems.Clear();
@@ -187,7 +195,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             VisibleItems.Add(new RadialMenuItem
             {
                 FullName = "More",
-                ShortName = "⋯",
+                ShortName = "MORE",
+                Icon = ResolveIcon("IconMoreHorizontal"),
                 IsNavigation = true,
                 NavigationType = "more"
             });
@@ -206,7 +215,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             VisibleItems.Add(new RadialMenuItem
             {
                 FullName = "Back",
-                ShortName = "←",
+                ShortName = "BACK",
+                Icon = ResolveIcon("IconArrowLeft"),
                 IsNavigation = true,
                 NavigationType = "back"
             });

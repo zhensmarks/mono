@@ -211,15 +211,48 @@
     </Style>
 
     <Style Selector="RadioButton.LogPanelTab, RadioButton.CompactTab">
-        <Setter Property="Padding" Value="7,0" />
-        <Setter Property="Height" Value="32" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="MinHeight" Value="36" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="10" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="RadioButton.LogPanelTab">
+        <Setter Property="Padding" Value="6,5" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="RadioButton.CompactTab">
+        <Setter Property="Padding" Value="12,5" />
+    </Style>
+    <Style Selector="RadioButton.LogPanelTab:checked /template/ Border#PART_Root">
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="RadioButton.LogPanelTab:pointerover /template/ Border#PART_Root">
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
+    </Style>
+    <Style Selector="RadioButton.LogPanelTab:checked:pointerover /template/ Border#PART_Root">
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleHoverBrush}" />
+    </Style>
+    <Style Selector="RadioButton.LogPanelTab:focus /template/ Border#PART_Root">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="RadioButton.LogPanelTab:pressed /template/ Border#PART_Root">
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}" />
+    </Style>
+    <Style Selector="RadioButton.LogPanelTab:disabled">
+        <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="RadioButton.TrelloBoardTab PathIcon">
+        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
     </Style>
     <Style Selector="RadioButton.CompactTab /template/ ContentPresenter">
         <Setter Property="TextWrapping" Value="NoWrap" />

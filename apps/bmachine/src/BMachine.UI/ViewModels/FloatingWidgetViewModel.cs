@@ -1026,7 +1026,7 @@ public partial class FloatingWidgetViewModel : ObservableObject
 
             using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(keyPath))
             {
-                key?.SetValue("", "📋 Buat Master");
+                key?.SetValue("", "Buat Master");
                 key?.SetValue("Icon", "shell32.dll,162");
                 key?.SetValue("Position", "Top");
             }

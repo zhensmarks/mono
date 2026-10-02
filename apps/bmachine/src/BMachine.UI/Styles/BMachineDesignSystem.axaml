@@ -200,19 +200,24 @@
 
     <!-- Small Doc toolbar controls share the same accessible theme states in both layouts. -->
     <Style Selector="Button.docTool">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="4" />
+        <Setter Property="Padding" Value="6" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Cursor" Value="Hand" />
     </Style>
-    <Style Selector="Button.docTool:pointerover /template/ ContentPresenter">
+    <Style Selector="Button.docTool:pointerover">
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}" />
-        <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
-    <Style Selector="Button.docTool:pressed /template/ ContentPresenter">
+    <Style Selector="Button.docTool:pressed">
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}" />
     </Style>
     <Style Selector="Button.docTool:focus">
@@ -447,6 +452,19 @@
         <Setter Property="Width" Value="{StaticResource IconMd}" />
         <Setter Property="Height" Value="{StaticResource IconMd}" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Path Data="{TemplateBinding Data}"
+                      Fill="Transparent"
+                      Stroke="{TemplateBinding Foreground}"
+                      StrokeThickness="1.8"
+                      StrokeLineCap="Round"
+                      StrokeJoin="Round"
+                      Stretch="Uniform"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch" />
+            </ControlTemplate>
+        </Setter>
         <Setter Property="Transitions">
             <Transitions>
                 <BrushTransition Property="Foreground" Duration="0:0:0.15" />
@@ -474,10 +492,57 @@
         <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
     </Style>
 
+    <!-- Icon-only controls share a 32 px target and visible hover/pressed/focus states. -->
+    <Style Selector="Button.IconBtn, Button.iconBtn">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.IconBtn:pointerover, Button.iconBtn:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.IconBtn:pressed, Button.iconBtn:pressed">
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}" />
+    </Style>
+    <Style Selector="Button.IconBtn:focus, Button.iconBtn:focus">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
+    </Style>
+    <Style Selector="Button.IconBtn:disabled, Button.iconBtn:disabled">
+        <Setter Property="Opacity" Value="0.45" />
+        <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+    <Style Selector="Button.IconBtn.primary, Button.iconBtn.primary">
+        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.IconBtn.primary:pointerover, Button.iconBtn.primary:pointerover">
+        <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+    </Style>
+    <Style Selector="Button.IconBtn.primary:pressed, Button.iconBtn.primary:pressed">
+        <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}" />
+    </Style>
+
     <!-- Custom window-close buttons share one compact hit target and glyph size. -->
     <Style Selector="Button.WindowClose">
         <Setter Property="Width" Value="32" />
         <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
@@ -509,14 +574,16 @@
         <Setter Property="CornerRadius" Value="6" />
     </Style>
     <Style Selector="Button.WindowClose PathIcon">
-        <Setter Property="Width" Value="{StaticResource IconXs}" />
-        <Setter Property="Height" Value="{StaticResource IconXs}" />
+        <Setter Property="Width" Value="{StaticResource IconSm}" />
+        <Setter Property="Height" Value="{StaticResource IconSm}" />
     </Style>
 
     <!-- Inline side-panel dismiss controls use one smaller, consistent hit target. -->
     <Style Selector="Button.PanelClose">
-        <Setter Property="Width" Value="24" />
-        <Setter Property="Height" Value="24" />
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
@@ -544,8 +611,8 @@
         <Setter Property="CornerRadius" Value="5" />
     </Style>
     <Style Selector="Button.PanelClose PathIcon">
-        <Setter Property="Width" Value="{StaticResource IconXs}" />
-        <Setter Property="Height" Value="{StaticResource IconXs}" />
+        <Setter Property="Width" Value="{StaticResource IconSm}" />
+        <Setter Property="Height" Value="{StaticResource IconSm}" />
     </Style>
 
     <!-- ================================================================ -->
@@ -565,17 +632,17 @@
     <!-- Shared navigation divider. Horizontal rows use a vertical stroke;
          vertical stacks can add the horizontal class for the rotated form. -->
     <Style Selector="Border.navigationSeparator">
-        <Setter Property="Background" Value="{DynamicResource SeparatorBrush}" />
-        <Setter Property="Width" Value="1" />
-        <Setter Property="Height" Value="16" />
-        <Setter Property="Margin" Value="6,0" />
+        <Setter Property="Background" Value="{DynamicResource NavigationDividerBrush}" />
+        <Setter Property="Width" Value="2" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="Margin" Value="8,0" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.navigationSeparator.horizontal">
-        <Setter Property="Width" Value="16" />
-        <Setter Property="Height" Value="1" />
-        <Setter Property="Margin" Value="0,6" />
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="2" />
+        <Setter Property="Margin" Value="0,8" />
     </Style>
 
     <!-- ================================================================ -->

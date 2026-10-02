@@ -24,58 +24,43 @@ public partial class IconPickerWindow : Window
     private void LoadIcons()
     {
         var icons = new List<IconItem>();
-        
-        // Manual list of keys we added to App.axaml
-        var keys = new[] 
-        {
-            "IconCamera", "IconPrint", "IconEdit", "IconLink", "IconBox", 
-            "IconTrash", "IconTrash2", 
-            "IconStar", "IconSync", "IconFolder", "IconFolderPlus", "IconFolderMinus", "IconFolderOpen",
-            "IconMenu", "IconBolt", "IconPython", "IconScript", 
-            "IconUser", "IconExtension", "IconSettings", "IconPalette",
-            "IconHome", "IconSave", "IconCloud", "IconPlay", "IconPause", 
-            "IconStop", "IconSkipBack", "IconSkipForward", "IconVolume", "IconVolumeX",
-            "IconImage", "IconSearch", "IconCode", "IconTerminal", "IconType", "IconBold", "IconItalic", "IconUnderline",
-            "IconLock", "IconUnlock", "IconClock", "IconCalendar", "IconHeart", 
-            "IconShare", "IconCheck", "IconX",
-            "IconFile", "IconFileText", "IconFilePlus", "IconFileMinus",
-            "IconDownload", "IconUpload", "IconRefresh", "IconWifi", "IconBattery",
-            
-            // Extreme
-            "IconFire", "IconSkull", "IconRadioactive", "IconWarning", 
-            "IconLab", "IconBrain", "IconGhost", "IconRocket", "IconZapFilled",
-            "IconGitBranch", "IconTerminalBash", "IconBug", "IconApi",
-            
-            // Thematic
-            // Tabler Essentials
-            "IconHome2", "IconUserCircle", "IconSettings2", "IconSearch2", "IconMenu2", 
-            
-            // Tabler Editing
-            "IconPencil", "IconBrush", "IconScissors", "IconEraser", "IconPalette2",
-            
-            // Tabler Files
-            "IconFolderFilled", "IconFileFilled", "IconPhoto", "IconMovie", "IconMusic", "IconDownload2",
-            
-            // Tabler Actions
-            "IconPlayerPlay", "IconPlayerPlayFilled", "IconPlayerPause", "IconPlayerStop", "IconPlayerRecord", 
-            "IconReload", "IconPower",
-            
-            // Tabler Tech
-            "IconCode2", "IconTerminal2", "IconBrandGithub", "IconBrandPython", "IconDatabase", "IconServer", "IconCpu", "IconRobot",
-            
-            // Tabler Communication
-            "IconMessage", "IconMessageFilled", "IconMail", "IconSend",
-            
-            // Tabler Alerts
-            "IconAlertCircle", "IconAlertTriangle", "IconCheck2", "IconX2", "IconShieldCheck", "IconLock2", "IconLockOpen",
-            
-            // Tabler Misc
-            "IconHeartFilled", "IconStarFilled", "IconFlame", "IconBook", "IconBookmark", 
-            "IconCalendarFilled", "IconClockFilled", "IconMoodSmile", "IconRocket2",
 
-            "IconBriefcase", "IconMapPin", "IconCreditCard", "IconGraduationCap", "IconGift", "IconFilm", "IconSun"
+        // One entry per distinct Tabler outline geometry, maintained from the shared dictionary.
+        var keys = new[]
+        {
+            "IconHome2", "IconUserCircle", "IconSettings2", "IconSearch2",
+            "IconEye", "IconEyeOff",
+            "IconMenu2", "IconBell", "IconMoon", "IconSun",
+            "IconArrowDown", "IconArrowLeft", "IconArrowRight", "IconArrowUp",
+            "IconChevronDown", "IconChevronLeft", "IconChevronRight", "IconChevronUp",
+            "IconDots", "IconDotsVertical", "IconExternalLink", "IconFolder",
+            "IconFolderOpen", "IconFolderPlus", "IconFolderMinus", "IconFile",
+            "IconFileText", "IconFileCode", "IconFilePlus", "IconFileMinus",
+            "IconClipboard", "IconCopy", "IconPaperclip", "IconDownload",
+            "IconUpload", "IconDeviceFloppy", "IconPrinter", "IconCloud",
+            "IconCloudUpload", "IconPencil", "IconEditSquare", "IconBrush",
+            "IconScissors", "IconEraser", "IconFilter", "IconPalette", "IconCamera",
+            "IconPhoto", "IconMovie", "IconMusic", "IconPlayerPlay",
+            "IconPlayerPause", "IconPlayerStop", "IconPlayerRecord", "IconPlayerSkipBack",
+            "IconPlayerSkipForward", "IconVolume", "IconVolumeOff", "IconReload",
+            "IconPower", "IconBrandGithub", "IconBrandPython", "IconCode",
+            "IconTerminal", "IconApi", "IconGitBranch", "IconBug",
+            "IconDatabase", "IconServer", "IconCpu", "IconRobot",
+            "IconExtension", "IconBolt", "IconActivity", "IconMail",
+            "IconMessage", "IconSend", "IconAlertCircle", "IconAlertTriangle",
+            "IconCheck", "IconX", "IconShieldCheck", "IconLock",
+            "IconLockOpen", "IconLogin", "IconLogout", "IconInfoCircle", "IconWifi", "IconBattery",
+            "IconBook", "IconBookmark", "IconCalendar", "IconClock",
+            "IconCoins", "IconCreditCard", "IconHeart", "IconStar",
+            "IconFlame", "IconBox", "IconBriefcase", "IconGift",
+            "IconGraduationCap", "IconMap", "IconMapPin", "IconRadioactive", "IconLab",
+            "IconBrain", "IconGhost", "IconRocket", "IconSkull",
+            "IconSquare", "IconGrid", "IconLayers", "IconList", "IconCheckbox", "IconChecklist",
+            "IconCirclePlus", "IconPlus", "IconGripVertical", "IconShare",
+            "IconType", "IconBold", "IconItalic", "IconUnderline",
+            "IconLink", "IconTrash",
         };
-        
+
         foreach(var key in keys)
         {
             if (Application.Current!.TryGetResource(key, null, out var res) && res is StreamGeometry geom)
@@ -83,7 +68,7 @@ public partial class IconPickerWindow : Window
                 icons.Add(new IconItem { Key = key, Geometry = geom });
             }
         }
-        
+
         var listControl = this.FindControl<ItemsControl>("IconList");
         if (listControl != null)
         {

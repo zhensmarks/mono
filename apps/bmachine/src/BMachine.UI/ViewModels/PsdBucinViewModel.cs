@@ -142,12 +142,12 @@ public partial class PsdBucinViewModel : ObservableObject
 
             if (psdCount == 0)
             {
-                StatusText = "⚠️ Tidak ada PSD di folder Master";
+                StatusText = "Peringatan: Tidak ada PSD di folder Master";
                 CanStart = false;
             }
             else if (jpgCount == 0)
             {
-                StatusText = "⚠️ Tidak ada Foto di folder";
+                StatusText = "Peringatan: Tidak ada Foto di folder";
                 CanStart = false;
             }
             else
@@ -519,5 +519,4 @@ public partial class PsdBucinViewModel : ObservableObject
 
     public event Action? OnAutoProcessCompleted;
 }
-
 

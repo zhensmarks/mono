@@ -60,9 +60,7 @@
                                 <ToolTip.Tip>
                                     <TextBlock Text="{Binding Key}"/>
                                 </ToolTip.Tip>
-                                <Viewbox Width="24" Height="24">
-                                     <Path Data="{Binding Geometry}" Fill="White" Stretch="Uniform"/>
-                                </Viewbox>
+                                <PathIcon Data="{Binding Geometry}" Width="24" Height="24" Foreground="White"/>
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

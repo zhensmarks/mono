@@ -110,7 +110,7 @@ Default 16×16, foreground TextSecondary, transition 0.15s. Token ukuran: `IconX
 
 Classes: `PathIcon.xs` / `.sm` / `.lg` / `.xl`. Icon di dalam Button otomatis ikut `Foreground` button.
 
-**Aturan:** Semua icon pakai `PathIcon` + `StreamGeometry` dari `App.axaml` / `FeatherIcons.axaml` / `TablerIcons.axaml`. Jangan pakai emoji/unicode icon. Ukuran selaras, jangan hardcode Width/Height random.
+**Aturan:** Semua icon UI memakai outline Tabler melalui `PathIcon` + `StreamGeometry` dari `TablerIcons.axaml`. Alias key lama dipertahankan untuk konfigurasi script tersimpan. Jangan pakai emoji/unicode icon sebagai glyph UI; ukuran mengikuti token di atas, bukan angka ad hoc.
 
 ---
 

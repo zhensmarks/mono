@@ -3,12 +3,16 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
-             xmlns:shapes="using:Avalonia.Controls.Shapes"
              xmlns:p="using:Avalonia.Controls.Primitives"
+             xmlns:converters="using:BMachine.UI.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="BMachine.UI.Views.FolderLockerView"
              x:DataType="vm:FolderLockerViewModel"
              Background="Transparent">
+
+    <UserControl.Resources>
+        <converters:IconConverter x:Key="IconConverter"/>
+    </UserControl.Resources>
 
     <Grid DragDrop.AllowDrop="True">
         <Grid.RowDefinitions>
@@ -86,8 +90,7 @@
                              </Style>
                          </Button.Styles>
                      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="15">
-                         <shapes:Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2Z" 
-                                      Width="64" Height="64" Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" HorizontalAlignment="Center" Opacity="0.5"/>
+                         <PathIcon Data="{StaticResource IconCirclePlus}" Width="64" Height="64" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.5"/>
                          <TextBlock Text="DRAG FOLDERS HERE" FontSize="16" FontWeight="Bold" 
                                     Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                          <TextBlock Text="Drop folder to lock or unlock" FontSize="12" 
@@ -109,7 +112,7 @@
                              </StackPanel>
                              <!-- Clear Button -->
                              <Button Grid.Column="1" Command="{Binding ClearFolderCommand}" Classes="Clear" ToolTip.Tip="Close Folder" Margin="5,0,0,0">
-                                 <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 <PathIcon Data="{StaticResource IconX2}" Foreground="{DynamicResource TextSecondaryBrush}"/>
                              </Button>
                          </Grid>
 
@@ -125,7 +128,7 @@
                                      <ItemsControl.ItemTemplate>
                                          <DataTemplate>
                                              <Grid ColumnDefinitions="Auto, *" Margin="0,2">
-                                                 <TextBlock Text="{Binding Icon}" Margin="0,0,8,0" FontSize="12" VerticalAlignment="Center"/>
+                                                 <PathIcon Data="{Binding Icon, Converter={StaticResource IconConverter}}" Width="16" Height="16" Margin="0,0,8,0" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                                  <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                              </Grid>
                                          </DataTemplate>

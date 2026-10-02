@@ -261,7 +261,8 @@ public partial class OutputExplorerView : UserControl
 
         var rowItem = new MenuItem
         {
-            Header = "📋 BUAT MASTER",
+            Header = "BUAT MASTER",
+            Icon = icon,
             FontWeight = Avalonia.Media.FontWeight.Bold,
             Tag = "BatchButtonRow",
             Command = vm.BatchScriptCommand,

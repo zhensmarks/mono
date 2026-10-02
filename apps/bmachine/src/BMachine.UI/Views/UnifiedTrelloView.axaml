@@ -73,7 +73,7 @@
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
 
                     <!-- Refresh Icon -->
@@ -90,7 +90,7 @@
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </StackPanel>
 
@@ -174,7 +174,7 @@
                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                                   </Style>
                               </ToggleButton.Styles>
-                              <PathIcon Width="12" Height="12"/>
+                              <PathIcon Width="14" Height="14"/>
                           </ToggleButton>
                           
                           <TextBlock Text="{Binding ActiveViewModel.CardsSelectedCount, StringFormat='Terpilih: {0}'}" 
@@ -213,7 +213,7 @@
                                     </Style>
                                 </Button.Styles>
                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <PathIcon Data="{StaticResource IconTrash}" Width="10" Height="10" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
+                                    <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
                                     <TextBlock Text="Unlink" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </Button>
@@ -323,7 +323,7 @@
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                     <!-- Refresh -->
                     <Button Command="{Binding RefreshActiveListCommand}"
@@ -339,7 +339,7 @@
                                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Style>
                         </Button.Styles>
-                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </StackPanel>
             </Grid>
@@ -386,7 +386,7 @@
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                     Height="38" CornerRadius="6" Cursor="Hand">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Width="12" Height="12" Foreground="{DynamicResource ButtonPrimaryForegroundBrush}"/>
+                                    <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource ButtonPrimaryForegroundBrush}"/>
                                     <TextBlock Text="Import Cards" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource ButtonPrimaryForegroundBrush}"/>
                                 </StackPanel>
                             </Button>

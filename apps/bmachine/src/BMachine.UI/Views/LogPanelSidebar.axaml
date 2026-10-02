@@ -163,38 +163,47 @@
             <Border Grid.Row="0" Padding="12,8,12,4">
                 <StackPanel Spacing="6">
                     <!-- Navigation Tab Buttons - compact text labels -->
-                    <Border Background="{DynamicResource CardBackgroundBrush}" 
+                    <Border Background="{DynamicResource CardBackgroundBrush}"
                             CornerRadius="8" Padding="3"
-                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                            BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1">
                         <Panel>
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                <Grid x:Name="PanelTabsGrid" MinWidth="144" HorizontalAlignment="Stretch" ColumnDefinitions="*,Auto,*,*,*">
-                                    <RadioButton x:Name="ExplorerPanelTab" Grid.Column="0" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0"
+                                <Grid x:Name="PanelTabsGrid" MinWidth="336" HorizontalAlignment="Stretch" ColumnDefinitions="*,Auto,*,*,*">
+                                    <RadioButton x:Name="ExplorerPanelTab" Grid.Column="0" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0"
                                                  IsChecked="{Binding IsExplorerPanelSelected}" IsVisible="{Binding IsOutputExplorerVisible}"
                                                  Click="OnExplorerTabClick" ToolTip.Tip="Explorer">
-                                        <TextBlock Text="EXPLORER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14"/>
+                                            <TextBlock Text="EXPLORER" FontSize="9.5" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </RadioButton>
                                     <Border x:Name="ExplorerLogSeparator" Grid.Column="1" Classes="navigationSeparator"
                                             IsVisible="{Binding IsOutputExplorerVisible}"/>
-                                    <RadioButton Grid.Column="2" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0" Click="OnConsoleTabClick" ToolTip.Tip="Log">
+                                    <RadioButton Grid.Column="2" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0" Click="OnConsoleTabClick" ToolTip.Tip="Log">
                                         <RadioButton.IsChecked>
                                             <MultiBinding Converter="{x:Static BoolConverters.And}">
                                                 <Binding Path="BatchVM.IsConsoleVisible"/>
                                                 <Binding Path="!IsExplorerPanelSelected"/>
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
-                                        <TextBlock Text="LOG" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconTerminal2}" Width="14" Height="14"/>
+                                            <TextBlock Text="LOG" FontSize="9.5" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </RadioButton>
-                                    <RadioButton Grid.Column="3" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0" Click="OnMasterTabClick" ToolTip.Tip="Master">
+                                    <RadioButton Grid.Column="3" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0" Click="OnMasterTabClick" ToolTip.Tip="Master">
                                         <RadioButton.IsChecked>
                                             <MultiBinding Converter="{x:Static BoolConverters.And}">
                                                 <Binding Path="BatchVM.IsMasterVisible"/>
                                                 <Binding Path="!IsExplorerPanelSelected"/>
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
-                                        <TextBlock Text="MASTER" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconDatabase}" Width="14" Height="14"/>
+                                            <TextBlock Text="MASTER" FontSize="9.5" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </RadioButton>
-                                    <RadioButton x:Name="DocPanelTab" Grid.Column="4" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Padding="1,0" Margin="0"
+                                    <RadioButton x:Name="DocPanelTab" Grid.Column="4" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0"
                                                  IsVisible="{Binding !BatchVM.IsDocFloating}" Click="OnDocTabClick" ToolTip.Tip="DOC">
                                         <RadioButton.IsChecked>
                                             <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -202,7 +211,10 @@
                                                 <Binding Path="!IsExplorerPanelSelected"/>
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
-                                        <TextBlock Text="DOC" FontSize="10" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconFileText}" Width="14" Height="14"/>
+                                            <TextBlock Text="DOC" FontSize="9.5" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </RadioButton>
                                 </Grid>
                             </ScrollViewer>
@@ -227,7 +239,7 @@
                                  VerticalContentAlignment="Center" Padding="10,0,26,0"
                                  Text="{Binding BatchVM.MasterSearchText, Mode=TwoWay}">
                             <TextBox.InnerRightContent>
-                                <PathIcon Data="{DynamicResource IconSearch}" Width="12" Height="12" 
+                                <PathIcon Data="{DynamicResource IconSearch}" Width="14" Height="14"
                                           Margin="0,0,10,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </TextBox.InnerRightContent>
                         </TextBox>
@@ -376,16 +388,16 @@
                      <!-- Actions -->
                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                          <Button Classes="statusBtn" Command="{Binding StopProcessCommand}" IsVisible="{Binding IsProcessing}" ToolTip.Tip="Stop">
-                             <PathIcon Data="{StaticResource IconSquare}" Width="12" Height="12" Foreground="{DynamicResource TerminalErrorBrush}"/>
+                             <PathIcon Data="{StaticResource IconSquare}" Width="14" Height="14" Foreground="{DynamicResource TerminalErrorBrush}"/>
                          </Button>
                          <Button Classes="statusBtn" Command="{Binding CopyAllLogsCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Copy Log">
-                             <PathIcon Data="{StaticResource IconCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
                          <Button Classes="statusBtn" Command="{Binding ClearLogCommand}" IsVisible="{Binding BatchVM.IsConsoleVisible}" ToolTip.Tip="Clear Log">
-                             <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
                          <Button Classes="statusBtn" Command="{Binding BatchVM.RefreshMasterCommand}" IsVisible="{Binding BatchVM.IsMasterVisible}" ToolTip.Tip="Refresh">
-                             <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                             <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                          </Button>
                      </StackPanel>
                 </Grid>
