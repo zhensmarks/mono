@@ -1885,15 +1885,20 @@ if ($img -ne $null) {{
                 OutputBasePath = Path.GetDirectoryName(outputPath) ?? outputPath,
                 UseInput = true,
                 UseOutput = true,
-                MasterTemplatePath = outputPath
+                MasterTemplatePath = outputPath,
+                BatchAutoReplace = true
             };
-            var json = System.Text.Json.JsonSerializer.Serialize(context, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            var contextPath = await Services.BmachineContextService.WriteContextAsync(json);
+            var json = System.Text.Json.JsonSerializer.Serialize(context);
+            var wrapperPath = Path.Combine(Path.GetTempPath(), $"bmachine_replace_auto_{Guid.NewGuid():N}.jsx");
+            var wrapper = "$.global.BMachineBatchContext = " + json + ";\n" +
+                          "$.evalFile(new File(" + System.Text.Json.JsonSerializer.Serialize(scriptPath) + "));\n" +
+                          "delete $.global.BMachineBatchContext;\n";
+            await File.WriteAllTextAsync(wrapperPath, wrapper, new System.Text.UTF8Encoding(false));
 
-            // Launch without polling or a legacy fixed sleep; Photoshop owns the long-running work.
-            _platformService.RunJsxInPhotoshop(scriptPath, photoshopPath);
+            // The wrapper delivers this invocation's exact paths directly to replace.jsx.
+            _platformService.RunJsxInPhotoshop(wrapperPath, photoshopPath);
             _logService?.AddLog($"[INFO] Replace launched. Master: {outputPath} | Input: {sourcePath}");
-            _logService?.AddLog($"[INFO] Replace context: {contextPath}");
+            _logService?.AddLog($"[INFO] Replace wrapper: {wrapperPath}");
         }
         catch (Exception ex)
         {

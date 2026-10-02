@@ -11,7 +11,7 @@
         SizeToContent="Manual"
         WindowStartupLocation="Manual"
         Topmost="False"
-        SystemDecorations="None"
+        SystemDecorations="Full"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         Background="{DynamicResource AppBackgroundBrush}">

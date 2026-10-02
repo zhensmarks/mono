@@ -71,22 +71,27 @@ public partial class DocFloatingWindow : Window
         if (!_boundsRestored || _restoringBounds || WindowState != WindowState.Normal) return;
         CancelPendingBoundsSave();
         _boundsSaveCts = new CancellationTokenSource();
-        var token = _boundsSaveCts.Token;
-        _ = SaveBoundsAfterDelayAsync(token);
+        _ = SaveBoundsAfterDelayAsync(_boundsSaveCts);
     }
 
-    private async Task SaveBoundsAfterDelayAsync(CancellationToken token)
+    private async Task SaveBoundsAfterDelayAsync(CancellationTokenSource saveCts)
     {
         try
         {
-            await Task.Delay(350, token);
+            await Task.Delay(350, saveCts.Token);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                if (!token.IsCancellationRequested && WindowState == WindowState.Normal)
+                if (!saveCts.IsCancellationRequested && WindowState == WindowState.Normal)
                     await SaveCurrentBoundsAsync();
             });
         }
         catch (OperationCanceledException) { }
+        finally
+        {
+            if (ReferenceEquals(_boundsSaveCts, saveCts))
+                _boundsSaveCts = null;
+            saveCts.Dispose();
+        }
     }
 
     private Task SaveCurrentBoundsAsync()

@@ -172,7 +172,7 @@
                                                  IsChecked="{Binding IsExplorerPanelSelected}" IsVisible="{Binding IsOutputExplorerVisible}"
                                                  Click="OnExplorerTabClick" ToolTip.Tip="Explorer">
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="EXPLORER" FontSize="9" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                            <TextBlock Text="EXPLORER" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
                                     <Border x:Name="ExplorerLogSeparator" Grid.Column="1" Classes="navigationSeparator"
@@ -185,7 +185,7 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="LOG" FontSize="9" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                            <TextBlock Text="LOG" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
                                     <RadioButton Grid.Column="3" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0" Click="OnMasterTabClick" ToolTip.Tip="Master">
@@ -196,7 +196,7 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="MASTER" FontSize="9" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                            <TextBlock Text="MASTER" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
                                     <RadioButton x:Name="DocPanelTab" Grid.Column="4" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0"
@@ -208,7 +208,7 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="DOC" FontSize="9" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                            <TextBlock Text="DOC" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
                             </Grid>

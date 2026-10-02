@@ -177,6 +177,7 @@
                                 Background="{DynamicResource AccentBlueBrush}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Bottom"
+                                Margin="0,0,0,-8"
                                 Opacity="0" />
                     </Grid>
                 </Border>
@@ -223,7 +224,7 @@
     </Style>
     <Style Selector="RadioButton.LogPanelTab">
         <Setter Property="Padding" Value="0,5" />
-        <Setter Property="FontSize" Value="9" />
+        <Setter Property="FontSize" Value="11" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="1" />
