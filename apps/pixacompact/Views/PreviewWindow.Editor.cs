@@ -10,6 +10,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -36,6 +37,13 @@ public partial class PreviewWindow
     // ========================
 
     private MaskEditSession? _session;
+
+    /// <summary>
+    /// Alasan restore masking tidak tersedia (null = tersedia). Diisi saat sesi
+    /// disiapkan bila gambar Original gagal dimuat; dipakai untuk pesan eksplisit
+    /// ke user (tidak lagi diam-diam).
+    /// </summary>
+    private string? _restoreUnavailableReason;
     private readonly TemporaryPanToolState _toolState = new();
     private EditToolKind _activeTool
     {
@@ -48,6 +56,13 @@ public partial class PreviewWindow
     private bool _editorPanDragActive;
     private bool _updatingZoomControl;
     private bool _quickMask;
+
+    /// <summary>
+    /// Mask view ala Photoshop (\): tampilkan mask SESUNGGUHNYA sebagai hitam-putih
+    /// (hitam = tersembunyi, putih = tampil), bukan gambar komposit.
+    /// Berbeda dengan Quick Mask (Q) yang menampilkan SELEKSI sebagai overlay merah.
+    /// </summary>
+    private bool _maskView;
     private EditToolKind _toolBeforeQuickMask = EditToolKind.Brush;
     private bool _suppressOptionEvents;
     private SelectionTool? _activeSelectionTool;
@@ -76,6 +91,11 @@ public partial class PreviewWindow
     private int _antsVersion = -1;
     private Ellipse? _cursorOuter;
     private Ellipse? _cursorInner;
+    // ---- Brush HUD ala Photoshop (Alt + klik kanan + geser) ----
+    private bool _brushHudActive;
+    private Point _brushHudStart;
+    private int _brushHudSize0;
+    private double _brushHudHardness0;
 #if DEBUG
     private const bool EditorBetaEnabled = true;
 #else
@@ -134,6 +154,7 @@ public partial class PreviewWindow
 
             PixelBuffer? result = existingResult;
             PixelBuffer? original = null;
+            string? restoreIssue = null;
 
             // Result sudah dipakai viewer bila tersedia. Hanya decode ulang bila perlu.
             if (result == null)
@@ -145,36 +166,43 @@ public partial class PreviewWindow
                 }
                 catch { result = null; }
             }
-
-            // Original enhancement berjalan terpisah; tidak menghalangi session result.
-            if (File.Exists(originalPath) && !string.Equals(originalPath, srcPath, StringComparison.OrdinalIgnoreCase))
-            {
-                _ = Task.Run(() =>
-                {
-                    try
-                    {
-                        using var ob = new Bitmap(originalPath);
-                        return PixelBuffer.FromBitmap(ob);
-                    }
-                    catch { return null; }
-                }).ContinueWith(t =>
-                {
-                    // Original dipakai hanya untuk Restore/Refine; jangan mengganti session
-                    // bila user sudah pindah gambar atau session sudah disposed.
-                    if (t.Status == TaskStatus.RanToCompletion && t.Result != null &&
-                        ReferenceEquals(_session?.Result, result) && _session?.SetOriginalIfMissing(t.Result) == true)
-                    {
-                        UpdateRestoreAvailability();
-                        MarkResultDirty(PixelBounds.Full(_session.Width, _session.Height));
-                        ScheduleComposite(true);
-                    }
-                }, TaskScheduler.FromCurrentSynchronizationContext());
-            }
-
             if (result == null) return false;
+
+            // ARSITEKTUR MASKING: gambar Original adalah basis WAJIB sesi edit —
+            // delete = mask→0, restore = mask→255 dengan RGB dari Original. Muat
+            // sinkron di sini agar tidak ada race/jendela "belum siap" (decode JPG
+            // lokal biasanya <500ms dan terjadi sekali per gambar). RGB hasil
+            // matting tetap dipertahankan untuk area cutout (lihat CompositeInto).
+            bool sameFile = string.Equals(originalPath, srcPath, StringComparison.OrdinalIgnoreCase);
+            if (sameFile)
+            {
+                // Result memang gambar asli: pakai buffer yang sama sebagai restore source.
+                original = result;
+            }
+            else if (File.Exists(originalPath))
+            {
+                try
+                {
+                    using var ob = new Bitmap(originalPath);
+                    var obuf = PixelBuffer.FromBitmap(ob);
+                    if (obuf.Width == result.Width && obuf.Height == result.Height)
+                        original = obuf;
+                    else
+                        restoreIssue = $"ukuran gambar asli ({obuf.Width}×{obuf.Height}) tidak sama dengan hasil ({result.Width}×{result.Height})";
+                }
+                catch (Exception ex)
+                {
+                    restoreIssue = $"gagal memuat gambar asli ({ex.Message})";
+                }
+            }
+            else
+            {
+                restoreIssue = "file gambar asli tidak ditemukan";
+            }
 
             _session = new MaskEditSession(result, original,
                 _settings.EditorUndoSteps, _settings.EditorUndoMemoryMb);
+            _restoreUnavailableReason = original != null ? null : restoreIssue;
             UpdateRestoreAvailability();
 
             SetVisible("BtnEnterEdit", true);
@@ -221,15 +249,23 @@ public partial class PreviewWindow
         if (!_settings.EditorBetaMode || _session == null) return;
 
         _editMode = true;
+        _tabPanelsHidden = false;
 
         SetVisible("PanelToolRail", true);
         SetVisible("PanelOptionsBar", true);
+        SetVisible("PanelMenuBar", true);
         SetVisible("PanelEditorStatus", true);
         SetVisible("BtnEnterEdit", false);
         SetVisible("BtnEnterEditHeader", false);
         SetVisible("BtnExitEditHeader", true);
         SetVisible("ChipEditMode", true);
         SetVisible("BtnFooterMode", true);
+
+        // Mode edit: panel floating Bandingkan/Zoom di atas kanvas disembunyikan
+        // (diganti toggle Bandingkan di options bar); label "Result" juga disembunyikan
+        // agar tampilan rapat ala Photoshop. Preview mode tidak berubah.
+        SetVisible("PanelViewControls", false);
+        SetVisible("TxtResultLabel", false);
 
         // Aktifkan canvas overlay untuk drawing selection
         var overlay = this.FindControl<Canvas>("EditOverlay");
@@ -247,6 +283,7 @@ public partial class PreviewWindow
         }
         _compareOriginal = false;
         UpdateCompareButtonState();
+        UpdateMaskViewButton();
 
         // Layar penuh: sembunyikan kolom Original + splitter supaya editor lega.
         SetPreviewSplit(editing: true);
@@ -267,8 +304,9 @@ public partial class PreviewWindow
         RenderQuickMask();
         UpdateFooterModeButton();
 
-        // Layer V2 — aktifkan dengan thumbnail caching (ImageLayer.GetThumbnail sudah cached).
-        try { if (_session?.Result != null) EnterDocEditMode(_session.Result); } catch (Exception ex) { Console.WriteLine($"LayerV2: {ex.Message}"); }
+        // Layer V2 dinonaktifkan di mode masking: panel Layers disembunyikan karena
+        // tombol-tombolnya tidak menerima input dan tidak relevan untuk workflow masking.
+        // (Lihat PIXELCUT_EDIT_FIX_SUMMARY.md Tahap 2.)
         ApplyEditorDockVisibility();
         ApplyCheckerboardBackground();
     }
@@ -281,6 +319,7 @@ public partial class PreviewWindow
         _editMode = false;
         _strokeActive = false;
         _quickMask = false;
+        _maskView = false;
         _compareOriginal = false;
         _movingSelection = false;
         _refineEdgeActive = false;
@@ -306,6 +345,10 @@ public partial class PreviewWindow
         SetVisible("ChipEditMode", false);
         SetVisible("BtnExitEditHeader", false);
         SetVisible("BtnEnterEditHeader", _session != null);
+
+        // Kembalikan panel floating + label Result untuk preview mode.
+        SetVisible("PanelViewControls", true);
+        SetVisible("TxtResultLabel", true);
 
         // Kembalikan tata letak berdampingan (Original + splitter).
         SetPreviewSplit(editing: false);
@@ -370,8 +413,9 @@ public partial class PreviewWindow
 
     private void UpdateCompareButtonState()
     {
-        if (this.FindControl<ToggleButton>("BtnCompare") is { } btn)
+        void Sync(ToggleButton? btn)
         {
+            if (btn == null) return;
             if (btn.IsChecked != _compareOriginal)
             {
                 _suppressOptionEvents = true;
@@ -379,6 +423,10 @@ public partial class PreviewWindow
                 _suppressOptionEvents = false;
             }
         }
+        Sync(this.FindControl<ToggleButton>("BtnCompare"));
+        Sync(this.FindControl<ToggleButton>("BtnCompareOptions"));
+        if (this.FindControl<MenuItem>("MiCompare") is { } mi && mi.IsChecked != _compareOriginal)
+            mi.IsChecked = _compareOriginal;
     }
     private void OnFooterModeClick(object? sender, RoutedEventArgs e)
     {
@@ -403,7 +451,7 @@ public partial class PreviewWindow
         if (headerEnter != null) headerEnter.IsVisible = false;
         if (headerExit != null) headerExit.IsVisible = false;
         if (text != null) text.Text = _editMode ? "MODE EDITOR" : "BUKA EDITOR";
-        if (button != null) ToolTip.SetTip(button, _editMode ? "Keluar dari mode editor" : "Buka editor mask dan selection");
+        if (button != null) ToolTip.SetTip(button, _editMode ? T("Tip_ToggleEditor") : T("Tip_OpenEditor"));
         if (icon != null)
             icon.Data = StreamGeometry.Parse(_editMode
                 ? "M3,5H21V19H3V5M5,7V17H19V7H5M7,9H9V15H7V9M11,9H13V15H11V9M15,9H17V15H15V9Z"
@@ -463,6 +511,8 @@ public partial class PreviewWindow
          UpdateBrushModeButton();
          UpdateToolHint(kind);
          UpdateCursorForTool(kind);
+         SetText("TxtOptionsTitle", ToolDisplayName(kind));
+         SetText("TxtEditorTool", ToolDisplayName(kind));
 
          var overlay = this.FindControl<Canvas>("EditOverlay");
          if (overlay != null) ClearOverlayDynamic(overlay);
@@ -472,6 +522,22 @@ public partial class PreviewWindow
 
     /// <summary>Handler tetap agar bisa di-unsubscribe (menghindari kebocoran event).</summary>
     private void _onToolChanged() => RenderOverlay();
+
+    private string ToolDisplayName(EditToolKind kind) => kind switch
+    {
+        EditToolKind.Pan => T("Tool_Pan"),
+        EditToolKind.Move => T("Tool_Move"),
+        EditToolKind.Lasso => T("Tool_Lasso"),
+        EditToolKind.PolyLasso => T("Tool_PolyLasso"),
+        EditToolKind.MagicWand => T("Tool_MagicWand"),
+        EditToolKind.Pen => T("Tool_Pen"),
+        EditToolKind.Brush => T("Tool_Brush"),
+        EditToolKind.Eraser => T("Tool_Eraser"),
+        EditToolKind.RefineEdge => T("Tool_RefineEdge"),
+        EditToolKind.RectMarquee => T("Tool_RectMarquee"),
+        EditToolKind.EllipseMarquee => T("Tool_EllipseMarquee"),
+        _ => kind.ToString()
+    };
 
     private void HighlightActiveTool(EditToolKind kind)
     {
@@ -511,348 +577,88 @@ public partial class PreviewWindow
          Console.WriteLine($"[DEBUG] HighlightActiveTool selesai untuk tool: {kind}");
      }
 
-    private void UpdateOptionsBarVisibility(EditToolKind kind)
-    {
-        SetVisible("OptBrushGroup", kind is EditToolKind.Brush or EditToolKind.Eraser);
-        SetVisible("OptWandGroup", kind == EditToolKind.MagicWand);
-        SetVisible("OptSelectionGroup", kind is EditToolKind.Lasso or EditToolKind.PolyLasso or EditToolKind.Pen
-            or EditToolKind.RectMarquee or EditToolKind.EllipseMarquee);
-        SetVisible("OptRefineEdgeGroup", kind == EditToolKind.RefineEdge);
-        // Mode seleksi + Grow/Shrink selalu tampil saat mode edit (tool seleksi & wand). 
-        SetVisible("OptSelectionModeGroup", kind is EditToolKind.Lasso or EditToolKind.PolyLasso 
-            or EditToolKind.Pen or EditToolKind.MagicWand or EditToolKind.Move or EditToolKind.RefineEdge 
-            or EditToolKind.RectMarquee or EditToolKind.EllipseMarquee); 
-        SetVisible("OptSelGrowGroup", kind is EditToolKind.Lasso or EditToolKind.PolyLasso 
-            or EditToolKind.Pen or EditToolKind.MagicWand or EditToolKind.Move 
-            or EditToolKind.RectMarquee or EditToolKind.EllipseMarquee); 
-    }
-
-    private void UpdateToolHint(EditToolKind kind)
-    {
-        UpdateEditorShortcutToolTips();
-        string Shortcut(EditorShortcutAction action) => EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, action);
-        string delMask = Shortcut(EditorShortcutAction.MaskDelete);
-        string restoreMask = Shortcut(EditorShortcutAction.MaskRestore);
-        string maskHint = $"{delMask}: erase masking · {restoreMask}: restore masking";
-        string hint = kind switch
-        {
-            EditToolKind.Pan => $"{Shortcut(EditorShortcutAction.Pan)} · pan the image; choose another tool to edit.",
-            EditToolKind.Lasso => $"{Shortcut(EditorShortcutAction.Lasso)} · Shift: add · Alt: subtract · Ctrl+Shift: intersect · {maskHint}.",
-            EditToolKind.PolyLasso => $"{Shortcut(EditorShortcutAction.PolygonLasso)} · Enter closes · Backspace/Delete removes · Esc cancels.",
-            EditToolKind.MagicWand => $"{Shortcut(EditorShortcutAction.MagicWand)} · Shift: add · Alt: subtract · Ctrl+Shift: intersect · {maskHint}.",
-            EditToolKind.Pen => $"{Shortcut(EditorShortcutAction.Pen)} · click: anchor · drag: curve · drag handle: adjust (Alt: break symmetry) · Alt+click anchor: corner · Ctrl+drag: move anchor · Enter/double-click: close · Esc: cancel.",
-            EditToolKind.Brush => $"{Shortcut(EditorShortcutAction.Brush)} · {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size · {Shortcut(EditorShortcutAction.ToggleBrushMode)} erase/restore.",
-            EditToolKind.Eraser => $"{Shortcut(EditorShortcutAction.Eraser)} · always erases · {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size.",
-            EditToolKind.Move => $"{Shortcut(EditorShortcutAction.Move)} · drag selection; Shift-drag moves mask pixels.",
-            EditToolKind.RefineEdge => $"{Shortcut(EditorShortcutAction.RefineEdge)} · refine a selection edge.",
-            EditToolKind.RectMarquee => $"{Shortcut(EditorShortcutAction.RectMarquee)} · Shift: square/add · Alt: center/subtract · Ctrl+Shift: intersect · {maskHint}.",
-            EditToolKind.EllipseMarquee => $"{Shortcut(EditorShortcutAction.EllipseMarquee)} · Shift: circle/add · Alt: center/subtract · Ctrl+Shift: intersect · {maskHint}.",
-            _ => ""
-        };
-        var t = this.FindControl<TextBlock>("TxtEditorHint");
-        if (t != null) t.Text = hint;
-    }
-
-    private void UpdateEditorShortcutToolTips()
-    {
-        string Shortcut(EditorShortcutAction action) => EditorShortcutMap.GetShortcut(_settings.EditorShortcuts, action);
-        void SetTip(string name, string text)
-        {
-            if (this.FindControl<Control>(name) is { } control)
-                ToolTip.SetTip(control, text);
-        }
-
-        SetTip("BtnToolPan", $"Pan tool ({Shortcut(EditorShortcutAction.Pan)}) — pan the image");
-        SetTip("BtnToolMove", $"Move tool ({Shortcut(EditorShortcutAction.Move)}) — drag the selection");
-        SetTip("BtnToolLasso", $"Freehand lasso ({Shortcut(EditorShortcutAction.Lasso)})");
-        SetTip("BtnToolPolyLasso", $"Polygon lasso ({Shortcut(EditorShortcutAction.PolygonLasso)}) — Enter closes; Esc cancels");
-        SetTip("BtnToolWand", $"Magic wand ({Shortcut(EditorShortcutAction.MagicWand)})");
-        SetTip("BtnToolPen", $"Pen ({Shortcut(EditorShortcutAction.Pen)}) — click: anchor · drag: curve · drag handle: adjust (Alt breaks) · Alt+click: corner · Enter closes; Esc cancels");
-        SetTip("BtnToolBrush", $"Brush ({Shortcut(EditorShortcutAction.Brush)}) — {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size; {Shortcut(EditorShortcutAction.ToggleBrushMode)} erase/restore");
-        SetTip("BtnToolEraser", $"Eraser ({Shortcut(EditorShortcutAction.Eraser)}) — {Shortcut(EditorShortcutAction.BrushSizeDown)} / {Shortcut(EditorShortcutAction.BrushSizeUp)} size");
-        SetTip("BtnToolRefineEdge", $"Refine Edge ({Shortcut(EditorShortcutAction.RefineEdge)})");
-        SetTip("BtnToolRectMarquee", $"Rectangular marquee ({Shortcut(EditorShortcutAction.RectMarquee)})");
-        SetTip("BtnToolEllipseMarquee", $"Elliptical marquee ({Shortcut(EditorShortcutAction.EllipseMarquee)})");
-        SetTip("BtnQuickMask", $"Quick Mask ({Shortcut(EditorShortcutAction.QuickMask)})");
-        SetTip("BtnBrushRestore", $"Toggle brush restore/erase mode ({Shortcut(EditorShortcutAction.ToggleBrushMode)}; Brush tool only)");
-        SetTip("BtnApplyErase", $"Delete masking ({Shortcut(EditorShortcutAction.MaskDelete)}) — apply selection to erase");
-        SetTip("BtnApplyRestore", $"Restore masking ({Shortcut(EditorShortcutAction.MaskRestore)}) — apply selection to restore");
-        SetTip("BtnApplyErasePanel", $"Delete masking ({Shortcut(EditorShortcutAction.MaskDelete)}) — apply selection to erase");
-        SetTip("BtnApplyRestorePanel", $"Restore masking ({Shortcut(EditorShortcutAction.MaskRestore)}) — apply selection to restore");
-    }
-
-    private void UpdateCursorForTool(EditToolKind kind)
-    {
-        Cursor = kind switch
-        {
-            EditToolKind.Pan => new Cursor(StandardCursorType.SizeAll),
-            EditToolKind.MagicWand => new Cursor(StandardCursorType.Cross),
-            EditToolKind.Pen => new Cursor(StandardCursorType.Cross),
-            EditToolKind.Lasso or EditToolKind.PolyLasso or EditToolKind.RectMarquee or EditToolKind.EllipseMarquee => new Cursor(StandardCursorType.Cross),
-            EditToolKind.Brush or EditToolKind.Eraser => new Cursor(StandardCursorType.None),
-            EditToolKind.Move => new Cursor(StandardCursorType.SizeAll),
-            EditToolKind.RefineEdge => new Cursor(StandardCursorType.None),
-            _ => Cursor.Default
-        };
-    }
-
-    private void OnEditorZoomChanged(object? sender, NumericUpDownValueChangedEventArgs e)
-    {
-        if (!_editMode || _updatingZoomControl || e.NewValue is not decimal value) return;
-        SyncViewPort();
-        double currentZoom = double.IsFinite(_viewPort.Zoom) && _viewPort.Zoom > 0 ? _viewPort.Zoom : 1;
-        double zoom = Math.Clamp((double)value, EditorViewPort.MinimumZoom, EditorViewPort.MaximumZoom);
-        var center = new Point(_viewPort.ViewWidth / 2.0, _viewPort.ViewHeight / 2.0);
-        if (!_viewPort.ZoomAtViewportPoint(center, zoom / currentZoom)) return;
-        ApplyEditorViewTransform();
-        OnViewTransformChanged();
-    }
-
-    private void OnToggleEditorPanel(object? sender, RoutedEventArgs e)
-    {
-        _settings.EditorShowRightPanel = !_settings.EditorShowRightPanel;
-        _settings.Save();
-        ApplyEditorDockVisibility();
-        var button = this.FindControl<Button>("BtnToggleEditorPanel");
-        if (button != null) button.Content = _settings.EditorShowRightPanel ? "Panel" : "Panel +";
-    }
-
-    // ========================
-    // OPTIONS BAR
-    // ========================
-
-    private void ApplyEditorOptionsToUi()
-    {
-        if (!_optionsWired)
-        {
-            if (this.FindControl<Slider>("SldBrushSize") is { } s1) s1.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldBrushHardness") is { } s2) s2.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldBrushOpacity") is { } s3) s3.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldBrushFlow") is { } s3f) s3f.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldWandTolerance") is { } s4) s4.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldSelectionFeather") is { } s5) s5.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldRefineEdgeSize") is { } s6) s6.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldRefineEdgeFeather") is { } s7) s7.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldSelGrowPx") is { } s8) s8.PropertyChanged += OnOptionChanged;
-            if (this.FindControl<Slider>("SldSelGrowPxPanel") is { } s9) s9.PropertyChanged += OnOptionChanged;
-
-            foreach (var name in new[] { "ChkWandContiguous", "ChkWandSampleAlpha", "ChkWand8Conn", "ChkAntiAlias" })
-            {
-                if (this.FindControl<CheckBox>(name) is { } cb)
-                    cb.PropertyChanged += OnOptionChanged;
-            }
-
-            if (this.FindControl<Button>("BtnBrushRestore") is { } tb)
-            {
-                tb.PropertyChanged += OnOptionChanged;
-                // Click sudah terpasang di XAML; jangan pasang ulang di sini.
-            }
-
-            Bind("BtnUndo", OnUndoClick);
-            Bind("BtnRedo", OnRedoClick);
-            Bind("BtnBrushAdvanced", (_, _) => SetVisible("OptBrushAdvancedGroup",
-                !(this.FindControl<Control>("OptBrushAdvancedGroup")?.IsVisible ?? false)));
-            Bind("BtnQuickMask", OnQuickMaskClick);
-            Bind("BtnRefineHair", OnRefineHairClick);
-            Bind("BtnRefineCancel", OnRefineCancelClick);
-            Bind("BtnSaveEdit", OnSaveEditClick);
-            Bind("BtnSaveAsEdit", OnSaveAsEditClick);
-            // Aksi selection → mask (top bar + panel kanan).
-            Bind("BtnSelectAll", (_, _) => SelectAllSelection());
-            Bind("BtnSelectNone", (_, _) => ClearSelection());
-            Bind("BtnInvertSelection", (_, _) => InvertSelection());
-            Bind("BtnApplyErase", (_, _) => ApplySelectionToMask(0, "Hapus Selection"));
-            Bind("BtnApplyRestore", (_, _) => ApplySelectionToMask(255, "Restore Selection"));
-            Bind("BtnApplyFill", (_, _) => ApplySelectionToMask(255, "Isi Mask"));
-            Bind("BtnApplyErasePanel", (_, _) => ApplySelectionToMask(0, "Hapus Selection"));
-            Bind("BtnApplyRestorePanel", (_, _) => ApplySelectionToMask(255, "Restore Selection"));
-            Bind("BtnApplyFillPanel", (_, _) => ApplySelectionToMask(255, "Isi Mask"));
-            Bind("BtnSelAllPanel", (_, _) => SelectAllSelection());
-            Bind("BtnSelNonePanel", (_, _) => ClearSelection());
-            Bind("BtnSelInvertPanel", (_, _) => InvertSelection());
-            Bind("BtnSelGrow", (_, _) => GrowSelection());
-            Bind("BtnSelShrink", (_, _) => ShrinkSelection());
-            Bind("BtnSelGrowPanel", (_, _) => GrowSelection());
-            Bind("BtnSelShrinkPanel", (_, _) => ShrinkSelection());
-            Bind("BtnSelFeatherPanel", (_, _) => FeatherSelection());
-            Bind("BtnSelSave", OnSaveSelectionClick);
-            Bind("BtnSelLoad", OnLoadSelectionClick);
-            Bind("BtnSelSavePanel", OnSaveSelectionClick);
-            Bind("BtnSelLoadPanel", OnLoadSelectionClick);
-
-            // Mask ops (top bar + panel kanan).
-            Bind("BtnExpand", (_, _) => WithSession(s => { s.ShiftEdge(2, true); AfterMaskChanged("Expand"); }));
-            Bind("BtnContract", (_, _) => WithSession(s => { s.ShiftEdge(2, false); AfterMaskChanged("Contract"); }));
-            Bind("BtnFeatherMask", (_, _) => WithSession(s => { s.FeatherMask(Math.Max(1, (int)Math.Round(_settings.EditorSelectionFeather))); AfterMaskChanged("Feather"); }));
-            Bind("BtnDefringe", (_, _) => WithSession(s => { s.Defringe(2); AfterMaskChanged("Defringe"); }));
-            Bind("BtnMaskExpandPanel", (_, _) => WithSession(s => { s.ShiftEdge(2, true); AfterMaskChanged("Expand"); }));
-            Bind("BtnMaskContractPanel", (_, _) => WithSession(s => { s.ShiftEdge(2, false); AfterMaskChanged("Contract"); }));
-            Bind("BtnMaskFeatherPanel", (_, _) => WithSession(s => { s.FeatherMask(Math.Max(1, (int)Math.Round(_settings.EditorSelectionFeather))); AfterMaskChanged("Feather"); }));
-            Bind("BtnMaskDefringePanel", (_, _) => WithSession(s => { s.Defringe(2); AfterMaskChanged("Defringe"); }));
-            Bind("BtnWandToMask", OnWandToMaskClick);
-
-            // Mode seleksi (radio ToggleButton).
-            foreach (var name in new[] { "BtnModeReplace", "BtnModeAdd", "BtnModeSubtract", "BtnModeIntersect" })
-            {
-                var tb2 = this.FindControl<ToggleButton>(name);
-                if (tb2 == null) continue;
-                tb2.IsCheckedChanged -= OnSelectionModeClick;
-                tb2.IsCheckedChanged += OnSelectionModeClick;
-            }
-
-            // History panel.
-            if (this.FindControl<ListBox>("LstHistory") is { } hist)
-            {
-                hist.SelectionChanged -= OnHistorySelected;
-                hist.SelectionChanged += OnHistorySelected;
-            }
-            _optionsWired = true;
-        }
-
-
-        // Sinkronkan slider baru (top bar + panel) dari settings tanpa memicu
-        // event berantai; ini menjaga slider grow/refine edge konsisten.
-        _suppressOptionEvents = true;
-        SetSlider("SldBrushSize", _settings.EditorBrushSize);
-        SetSlider("SldBrushHardness", (1.0 - _settings.EditorBrushHardness) * 100.0);
-        SetSlider("SldBrushOpacity", _settings.EditorBrushOpacity * 100.0);
-        SetSlider("SldBrushFlow", _settings.EditorBrushFlow * 100);
-        SetSlider("SldRefineEdgeSize", _settings.EditorRefineEdgeSize);
-        SetSlider("SldRefineEdgeFeather", _settings.EditorRefineEdgeFeather);
-        SetSlider("SldSelGrowPx", _settings.EditorSelGrowPx);
-        SetSlider("SldSelGrowPxPanel", _settings.EditorSelGrowPx);
-        _suppressOptionEvents = false;
-        UpdateOptionLabels();
-    }
-
-    /// <summary>Toggle mode Erase/Restore brush (dipakai juga saat startup & shortcut X).</summary>
-    private void UpdateBrushModeButton()
-    {
-        if (this.FindControl<Button>("BtnBrushRestore") is { } tb)
-        {
-            tb.IsVisible = _activeTool != EditToolKind.Eraser;
-            tb.Content = _settings.EditorBrushRestore ? "Pulihkan" : "Hapus";
-            tb.Background = _settings.EditorBrushRestore
-                ? new SolidColorBrush(Color.Parse("#3348D17A"))
-                : new SolidColorBrush(Color.Parse("#15FFFFFF"));
-        }
-    }
-
-    private void UpdateRestoreAvailability()
-    {
-        bool available = _session?.HasRestoreSource == true;
-        foreach (var name in new[] { "BtnApplyRestore", "BtnApplyRestorePanel", "BtnApplyFill", "BtnApplyFillPanel" })
-        {
-            if (this.FindControl<Button>(name) is { } button)
-                button.IsEnabled = available;
-        }
-    }
-
-    private void OnBrushModeClick(object? sender, RoutedEventArgs e)
-    {
-        if (_activeTool == EditToolKind.Eraser) return;
-        if (!_settings.EditorBrushRestore && _session?.HasRestoreSource != true)
-        {
-            Toast("Piksel gambar asli belum siap; mode Pulihkan belum tersedia.");
-            return;
-        }
-        _settings.EditorBrushRestore = !_settings.EditorBrushRestore;
-        _settings.Save();
-        UpdateBrushModeButton();
-        UpdateToolHint(_activeTool);
-    }
-
-    private void Bind(string name, EventHandler<RoutedEventArgs> handler)
-    {
-        var b = this.FindControl<Button>(name);
-        if (b != null)
-        {
-            // XAML mungkin sudah memasang Click=; lepas dulu agar tidak fire dua kali.
-            b.Click -= handler;
-            b.Click += handler;
-        }
-    }
-
-    private void SetSlider(string name, double value)
-    {
-        if (this.FindControl<Slider>(name) is { } s) s.Value = value;
-    }
-
-    private void OnOptionChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e)
-    {
-        if (_suppressOptionEvents) return;
-        if (e.Property != RangeBase.ValueProperty &&
-            e.Property != ToggleButton.IsCheckedProperty &&
-            e.Property != CheckBox.IsCheckedProperty) return;
-
-        // Slider kembar (top bar <-> panel kanan): cerminkan nilai agar keduanya
-        // menggerakkan settings yang sama tanpa saling menimpa.
-        MirrorSliderTwin(sender as Slider);
-
-        ReadOptionsFromUi();
-        UpdateOptionLabels();
-    }
-
-    /// <summary>Salin nilai slider ke pasangan kembarnya (SldSelGrowPx <-> Panel).</summary>
-    private void MirrorSliderTwin(Slider? changed)
-    {
-        if (changed?.Name == "SldSelGrowPx" &&
-            this.FindControl<Slider>("SldSelGrowPxPanel") is { } twinA && twinA.Value != changed.Value)
-        {
-            _suppressOptionEvents = true;
-            twinA.Value = changed.Value;
-            _suppressOptionEvents = false;
-        }
-        else if (changed?.Name == "SldSelGrowPxPanel" &&
-            this.FindControl<Slider>("SldSelGrowPx") is { } twinB && twinB.Value != changed.Value)
-        {
-            _suppressOptionEvents = true;
-            twinB.Value = changed.Value;
-            _suppressOptionEvents = false;
-        }
-    }
-
-    private void ReadOptionsFromUi()
-    {
-        if (this.FindControl<Slider>("SldBrushSize") is { } s1) _settings.EditorBrushSize = (int)Math.Round(s1.Value);
-        if (this.FindControl<Slider>("SldBrushHardness") is { } s2) _settings.EditorBrushHardness = 1.0 - s2.Value / 100.0;
-        if (this.FindControl<Slider>("SldBrushOpacity") is { } s3) _settings.EditorBrushOpacity = s3.Value / 100.0;
-        if (this.FindControl<Slider>("SldBrushFlow") is { } s3f) _settings.EditorBrushFlow = s3f.Value / 100.0;
-        if (this.FindControl<Slider>("SldWandTolerance") is { } s4) _settings.EditorWandTolerance = (int)Math.Round(s4.Value);
-        if (this.FindControl<Slider>("SldSelectionFeather") is { } s5) _settings.EditorSelectionFeather = (int)Math.Round(s5.Value);
-        if (this.FindControl<Slider>("SldRefineEdgeSize") is { } s6) _settings.EditorRefineEdgeSize = (int)Math.Round(s6.Value);
-        if (this.FindControl<Slider>("SldRefineEdgeFeather") is { } s7) _settings.EditorRefineEdgeFeather = (int)Math.Round(s7.Value);
-        // Sumber kebenaran tunggal: slider top bar. Slider panel disinkronkan.
-        if (this.FindControl<Slider>("SldSelGrowPx") is { } s8) _settings.EditorSelGrowPx = (int)Math.Round(s8.Value);
-        if (this.FindControl<CheckBox>("ChkWandContiguous") is { } c1) _settings.EditorWandContiguous = c1.IsChecked == true;
-        if (this.FindControl<CheckBox>("ChkWandSampleAlpha") is { } c2) _settings.EditorWandSampleAlpha = c2.IsChecked == true;
-        if (this.FindControl<CheckBox>("ChkWand8Conn") is { } c4) _settings.EditorWand8Connected = c4.IsChecked == true;
-        _settings.Save();
-        // BtnBrushRestore adalah Button toggle-manual; state disimpan di _settings
-        // (lihat OnBrushModeClick). Tidak ada properti IsChecked.
-    }
-
-    private void UpdateOptionLabels()
-    {
-        SetText("TxtBrushSize", $"{_settings.EditorBrushSize} px");
-        SetText("TxtBrushHardness", $"{(int)Math.Round((1.0 - _settings.EditorBrushHardness) * 100)}%");
-        SetText("TxtBrushOpacity", $"{(int)Math.Round(_settings.EditorBrushOpacity * 100)}%");
-        SetText("TxtBrushFlow", $"{(int)Math.Round(_settings.EditorBrushFlow * 100)}%");
-        SetText("TxtWandTolerance", _settings.EditorWandTolerance.ToString());
-        SetText("TxtSelectionFeather", $"{_settings.EditorSelectionFeather} px");
-        SetText("TxtRefineEdgeSize", $"{_settings.EditorRefineEdgeSize} px");
-        SetText("TxtRefineEdgeFeather", $"{_settings.EditorRefineEdgeFeather} px");
-        SetText("TxtSelGrowPx", $"{_settings.EditorSelGrowPx} px");
-        SetText("TxtSelGrowPxPanel", $"{_settings.EditorSelGrowPx} px");
-
-        UpdateBrushModeButton();
-    }
 
     private void SetText(string name, string text)
     {
         var t = this.FindControl<TextBlock>(name);
         if (t != null) t.Text = text;
     }
+
+    /// <summary>Ambil string lokalilasi dari ResourceDictionary bahasa aktif (Strings.id/en.axaml).</summary>
+    protected string T(string key, params object[] args)
+    {
+        string s = key;
+        if (this.TryFindResource(key, out var v) && v is string str && !string.IsNullOrEmpty(str))
+            s = str;
+        return args.Length == 0 ? s : string.Format(s, args);
+    }
+
+
+    /// <summary>
+    /// <summary>IServiceProvider minimal agar ctor ResourceInclude tidak NRE.</summary>
+    private sealed class NullServiceProvider : IServiceProvider
+    {
+        public static readonly NullServiceProvider Instance = new();
+        public object? GetService(Type serviceType) => null;
+    }
+
+    /// <summary>
+    /// Ganti bahasa UI mode edit ("id"/"en"): tukar merged dictionary Strings,
+    /// simpan ke settings, lalu segarkan semua teks yang di-set dari code.
+    /// Berlaku langsung tanpa restart (DynamicResource di axaml ikut ter-update).
+    /// </summary>
+    private void ApplyEditorLanguage(string lang, bool save = true)
+    {
+        lang = lang == "en" ? "en" : "id";
+        // Dictionary bahasa tinggal di level Application agar semua window (termasuk dialog Preferensi) ikut.
+        if (Application.Current?.Resources is ResourceDictionary res)
+        {
+            string want = $"Strings.{lang}.axaml";
+            bool already = false;
+            for (int i = res.MergedDictionaries.Count - 1; i >= 0; i--)
+            {
+                if (res.MergedDictionaries[i] is ResourceInclude inc
+                    && inc.Source?.ToString().Contains("/Strings.") == true)
+                {
+                    if (inc.Source.ToString().EndsWith(want, StringComparison.OrdinalIgnoreCase))
+                        already = true;
+                    else
+                        res.MergedDictionaries.RemoveAt(i);
+                }
+            }
+            if (!already)
+                // NB: ResourceInclude(Uri) hanya mengisi _baseUri, bukan Source
+                // (get_Loaded butuh Source) — dan ctor IServiceProvider butuh
+                // provider non-null. Pakai provider minimal + set Source eksplisit.
+                res.MergedDictionaries.Add(new ResourceInclude(NullServiceProvider.Instance)
+                {
+                    Source = new Uri($"avares://PixelcutCompact/Resources/Strings.{lang}.axaml")
+                });
+        }
+        if (save)
+        {
+            _settings.EditorLanguage = lang;
+            _settings.Save();
+        }
+        else
+        {
+            _settings.EditorLanguage = lang;
+        }
+        RefreshLocalizedTexts();
+    }
+
+    /// <summary>Segarkan semua teks yang di-set dari code-behind setelah ganti bahasa.</summary>
+    private void RefreshLocalizedTexts()
+    {
+        UpdateToolHint(_activeTool);
+        UpdateEditorStatus();
+        UpdateOptionLabels();
+        SetText("TxtOptionsTitle", ToolDisplayName(_activeTool));
+        SetText("TxtEditorTool", ToolDisplayName(_activeTool));
+        UpdateBrushModeButton();
+    }
+
+
 
     private void WithSession(Action<MaskEditSession> action)
     {
@@ -883,13 +689,43 @@ public partial class PreviewWindow
             _resultDirtyBounds = null;
             if (bounds.IsEmpty) return;
 
-            _session.CompositeInto(_resultBuf, bounds);
+            if (_maskView)
+                RenderMaskGrayscaleInto(_resultBuf, bounds);
+            else
+                _session.CompositeInto(_resultBuf, bounds);
             _resultBuf.WriteToUnpremul(_resultWb, bounds);
             if (!ReferenceEquals(img.Source, _resultWb)) img.Source = _resultWb;
         }
         catch (Exception ex)
         {
             Console.WriteLine("Refresh komposit gagal: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Gambar mask sebagai grayscale ke buffer pratinjau (untuk Mask view):
+    /// hitam (0) = tersembunyi, putih (255) = tampil. Alpha selalu penuh agar
+    /// mask terlihat solid seperti Alt+klik thumbnail mask di Photoshop.
+    /// </summary>
+    private void RenderMaskGrayscaleInto(PixelBuffer buf, PixelBounds bounds)
+    {
+        if (_session == null) return;
+        var mask = _session.Mask;
+        var dest = buf.Bgra;
+        int w = _session.Width;
+        for (int y = bounds.Y; y < bounds.Bottom; y++)
+        {
+            int pixel = y * w + bounds.X;
+            int end = pixel + bounds.Width;
+            for (; pixel < end; pixel++)
+            {
+                byte v = pixel < mask.Length ? mask[pixel] : (byte)0;
+                int bi = pixel * 4;
+                dest[bi] = v;
+                dest[bi + 1] = v;
+                dest[bi + 2] = v;
+                dest[bi + 3] = 255;
+            }
         }
     }
 
@@ -1040,10 +876,38 @@ public partial class PreviewWindow
     private void DrawPathOutline(Canvas overlay, IReadOnlyList<Vec2> pts, bool closed, bool penStyle = false)
     {
         if (pts.Count < 2) return;
+        double thickness = penStyle ? PenPathThickness() : 1.5;
+        IBrush stroke = penStyle
+            ? new SolidColorBrush(PenPathColor())
+            : new SolidColorBrush(Color.Parse("#FFE24A"));
+
+        if (penStyle)
+        {
+            // Underlay gelap tipis: garis path selalu terbaca di atas kanvas terang maupun gelap.
+            AddPathPolyline(overlay, pts, closed, Brushes.Black, thickness + 2.0, 0.7);
+        }
+        AddPathPolyline(overlay, pts, closed, stroke, thickness, 1.0);
+
+        if (closed && pts.Count >= 3)
+        {
+            var s0 = ImageToOverlay(pts[0]);
+            var sl = ImageToOverlay(pts[pts.Count - 1]);
+            if (penStyle)
+            {
+                DrawLine(overlay, sl, s0, "#000000", width: thickness + 2.0);
+                DrawLine(overlay, sl, s0, PenPathStyle.NormalizeColor(_settings.EditorPenPathColor), width: thickness);
+            }
+            else DrawLine(overlay, sl, s0, "#FFE24A");
+        }
+    }
+
+    private void AddPathPolyline(Canvas overlay, IReadOnlyList<Vec2> pts, bool closed, IBrush stroke, double thickness, double opacity)
+    {
         var poly = new Polyline
         {
-            Stroke = new SolidColorBrush(Color.Parse("#FFE24A")),
-            StrokeThickness = penStyle ? 1.2 : 1.5
+            Stroke = stroke,
+            StrokeThickness = thickness,
+            Opacity = opacity,
         };
         if (!closed) poly.StrokeDashArray = new AvaloniaList<double> { 4, 3 };
 
@@ -1052,23 +916,16 @@ public partial class PreviewWindow
             poly.Points.Add(ImageToOverlay(p));
         }
         overlay.Children.Add(poly);
-
-        if (closed && pts.Count >= 3)
-        {
-            var s0 = ImageToOverlay(pts[0]);
-            var sl = ImageToOverlay(pts[pts.Count - 1]);
-            DrawLine(overlay, sl, s0, "#FFE24A");
-        }
     }
 
-    private void DrawLine(Canvas overlay, Point a, Point b, string color, bool dash = false)
+    private void DrawLine(Canvas overlay, Point a, Point b, string color, bool dash = false, double width = 1)
     {
         var line = new Line
         {
             StartPoint = a,
             EndPoint = b,
             Stroke = new SolidColorBrush(Color.Parse(color)),
-            StrokeThickness = 1
+            StrokeThickness = width
         };
         if (dash) line.StrokeDashArray = new AvaloniaList<double> { 4, 3 };
         overlay.Children.Add(line);
@@ -1284,6 +1141,32 @@ public partial class PreviewWindow
         OnViewTransformChanged();
     }
 
+    /// <summary>Photoshop: Ctrl++ / Ctrl+- = zoom in/out dari tengah kanvas.</summary>
+    private void EditorZoomStep(double factor)
+    {
+        if (_session == null) return;
+        var img = this.FindControl<Image>("ImgResult");
+        if (img == null) return;
+        SyncViewPort();
+        var bounds = img.Bounds;
+        var center = new Point(bounds.Width / 2.0, bounds.Height / 2.0);
+        if (_viewPort.ZoomAtViewportPoint(center, factor))
+        {
+            ApplyEditorViewTransform();
+            OnViewTransformChanged();
+        }
+    }
+
+    /// <summary>Photoshop: Ctrl+0 = fit to screen.</summary>
+    private void EditorZoomFit()
+    {
+        if (_session == null) return;
+        SyncViewPort();
+        _viewPort.FitToView();
+        ApplyEditorViewTransform();
+        OnViewTransformChanged();
+    }
+
     /// tidak ikut transform: harus digambar ulang agar tetap presisi.
     /// </summary>
     private void OnViewTransformChanged()
@@ -1340,6 +1223,17 @@ public partial class PreviewWindow
         double halfH = _session.Height / 2.0;
         var centered = new Vec2(imagePos.X + halfW, imagePos.Y + halfH);
         bool left = pt.Properties.IsLeftButtonPressed;
+        // Photoshop: Alt + klik kanan + geser = HUD ukuran/hardness brush.
+        // Klik kanan biasa tetap tidak melakukan apa-apa, jadi tidak ada konflik.
+        if (pt.Properties.IsRightButtonPressed
+            && e.KeyModifiers.HasFlag(KeyModifiers.Alt)
+            && !_strokeActive
+            && _activeTool is EditToolKind.Brush or EditToolKind.Eraser)
+        {
+            BeginBrushHud(pos);
+            e.Pointer.Capture(img);
+            return true;
+        }
         // Klik kanan tidak boleh mengubah mask/selection. Pan tetap ditangani viewer.
         if (!left) return false;
 
@@ -1361,9 +1255,11 @@ public partial class PreviewWindow
                 bool dbl = (now - _lastPenClickMs) < 350;
                 if (dbl && penTool.CurrentPath.Count >= 3)
                 {
+                    // Photoshop: double-click HANYA menutup path, tidak membuat selection.
+                    // Selection dibuat eksplisit via Make Selection (Ctrl+Enter).
                     penTool.ClosePath();
-                    if (penTool.CanCommit) CommitSelectionToState(penTool, e.KeyModifiers);
-                    else RenderOverlay();
+                    RenderOverlay();
+                    UpdateEditorStatus();
                     return true;
                 }
                 // Drag knob handle Bézier diprioritaskan di atas tambah anchor —
@@ -1467,6 +1363,13 @@ public partial class PreviewWindow
             return true;
         }
 
+        // Brush HUD ala Photoshop (Alt + klik kanan + geser).
+        if (_brushHudActive)
+        {
+            UpdateBrushHud(pos, centered);
+            return true;
+        }
+
         // Drag anchor pen (Ctrl+klik pada anchor, direct-selection).
         if (_penDragIndex >= 0 && _activeSelectionTool is PenTool penDrag)
         {
@@ -1532,6 +1435,14 @@ public partial class PreviewWindow
         if (!_editMode || _session == null) return false;
         if (img.Name != "ImgResult") return false;
 
+        // Akhiri brush HUD (tombol kanan) sebelum handler tombol kiri.
+        if (_brushHudActive)
+        {
+            EndBrushHud();
+            e.Pointer.Capture(null);
+            return true;
+        }
+
         if (_strokeActive)
         {
             EndStroke();
@@ -1596,7 +1507,7 @@ public partial class PreviewWindow
         bool restore = BrushTool.ShouldRestore(_activeTool, _settings.EditorBrushRestore);
         if (!_quickMask && restore && !_session.HasRestoreSource)
         {
-            Toast("Piksel gambar asli belum siap; tunggu sebentar sebelum memakai Pulihkan.");
+            Toast(T("Toast_OriginalNotReady"));
             e.Handled = true;
             return;
         }
@@ -1744,6 +1655,99 @@ public partial class PreviewWindow
         }
     }
 
+    // ========================
+    // BRUSH HUD (Alt + klik kanan + geser, ala Photoshop)
+    // ========================
+
+    private void BeginBrushHud(Point screenPos)
+    {
+        _brushHudActive = true;
+        _brushHudStart = screenPos;
+        _brushHudSize0 = _settings.EditorBrushSize;
+        _brushHudHardness0 = _settings.EditorBrushHardness;
+    }
+
+    private void UpdateBrushHud(Point screenPos, Vec2 centered)
+    {
+        var (size, hardness) = BrushHudMath.Compute(
+            _brushHudSize0, _brushHudHardness0,
+            screenPos.X - _brushHudStart.X, screenPos.Y - _brushHudStart.Y);
+        _settings.EditorBrushSize = size;
+        _settings.EditorBrushHardness = hardness;
+        DrawBrushCursor(centered);
+        DrawBrushHudLabel(centered);
+    }
+
+    private void EndBrushHud()
+    {
+        _brushHudActive = false;
+        _settings.Save();
+        SetSlider("SldBrushSize", _settings.EditorBrushSize);
+        SyncHardnessSlider();
+        UpdateOptionLabels();
+        RenderOverlay();
+    }
+
+    /// <summary>Label live "120 px · 80%" di samping cursor selama HUD aktif.</summary>
+    private void DrawBrushHudLabel(Vec2 img)
+    {
+        var overlay = this.FindControl<Canvas>("EditOverlay");
+        if (overlay == null || _session == null) return;
+        for (int i = overlay.Children.Count - 1; i >= 0; i--)
+        {
+            if (overlay.Children[i] is TextBlock tb && tb.Tag as string == "hud")
+                overlay.Children.RemoveAt(i);
+        }
+        var s = ImageToOverlay(new Vec2(img.X - _session.Width / 2.0, img.Y - _session.Height / 2.0));
+        double r = _settings.EditorBrushSize / 2.0 * _viewPort.Zoom;
+        // Konvensi persen mengikuti label options bar (100% - hardness internal).
+        var label = new TextBlock
+        {
+            Text = $"{_settings.EditorBrushSize} px · {(int)Math.Round((1.0 - _settings.EditorBrushHardness) * 100)}%",
+            Foreground = Brushes.White,
+            FontSize = 11,
+            Background = new SolidColorBrush(Color.Parse("#CC1A1D21")),
+            Padding = new Thickness(6, 3),
+            Tag = "hud"
+        };
+        Canvas.SetLeft(label, s.X + r + 10);
+        Canvas.SetTop(label, s.Y - r - 12);
+        overlay.Children.Add(label);
+    }
+
+    /// <summary>Photoshop: Shift+[ / Shift+] = hardness brush.</summary>
+    private void AdjustBrushHardness(double delta)
+    {
+        _settings.EditorBrushHardness = Math.Clamp(_settings.EditorBrushHardness + delta, 0.0, 1.0);
+        _settings.Save();
+        SyncHardnessSlider();
+        UpdateOptionLabels();
+    }
+
+    /// <summary>Photoshop: tombol 1..9 = opacity 10%..90%, 0 = 100%.</summary>
+    private static bool TryOpacityDigit(Key key, out double opacity)    {
+        int d = key switch
+        {
+            Key.D1 or Key.NumPad1 => 1,
+            Key.D2 or Key.NumPad2 => 2,
+            Key.D3 or Key.NumPad3 => 3,
+            Key.D4 or Key.NumPad4 => 4,
+            Key.D5 or Key.NumPad5 => 5,
+            Key.D6 or Key.NumPad6 => 6,
+            Key.D7 or Key.NumPad7 => 7,
+            Key.D8 or Key.NumPad8 => 8,
+            Key.D9 or Key.NumPad9 => 9,
+            Key.D0 or Key.NumPad0 => 10,
+            _ => -1
+        };
+        opacity = d / 10.0;
+        return d > 0;
+    }
+
+    /// <summary>Slider hardness memakai skala terbalik (lihat ReadOptionsFromUi).</summary>
+    private void SyncHardnessSlider() =>
+        SetSlider("SldBrushHardness", (1.0 - _settings.EditorBrushHardness) * 100.0);
+
     /// <summary>Cursor kuas Refine Edge: lingkaran sesuai Edge Size + cincin feather.</summary>
     private void DrawRefineEdgeCursor(Vec2 imagePos)
     {
@@ -1838,7 +1842,7 @@ public partial class PreviewWindow
     /// TIDAK menulis mask dan TIDAK menambah entri undo; user menerapkan
     /// seleksi ke mask lewat aksi eksplisit (Hapus/Restore/Isi).
     /// </summary>
-    private void CommitSelectionToState(SelectionTool tool, KeyModifiers mods)
+    private void CommitSelectionToState(SelectionTool tool, KeyModifiers mods, SelectionCombineMode? forceMode = null)
     {
         if (_session == null) return;
         var region = tool.Commit();
@@ -1854,7 +1858,9 @@ public partial class PreviewWindow
         region.Translate(_session.Width / 2.0, _session.Height / 2.0);
 
         int feather = (int)Math.Round(_settings.EditorSelectionFeather);
-        var mode = _pendingSelMode ?? EffectiveMode(mods);
+        // forceMode (misal Ctrl+Shift+Enter = Add) mengalahkan pending & modifier,
+        // ala Photoshop: Shift selalu berarti tambah.
+        var mode = forceMode ?? _pendingSelMode ?? EffectiveMode(mods);
         _pendingSelMode = null;
         _session.Selection.Combine(region, mode, _settings.EditorAntiAlias, feather);
 
@@ -1866,18 +1872,22 @@ public partial class PreviewWindow
     // SELEKSI: AKSI & MARCHING ANTS
     // ========================
 
-    /// <summary>Terapkan lapisan seleksi ke mask (0 = hapus, 255 = restore/isi).</summary>
+    /// <summary>
+    /// Terapkan lapisan seleksi ke mask (0 = hapus/sembunyikan, 255 = restore/tampilkan).
+    /// Ala Photoshop: bila tidak ada seleksi, fill diterapkan ke SELURUH mask
+    /// (fill hitam = sembunyikan semua, fill putih = kembalikan seluruh gambar).
+    /// </summary>
     private void ApplySelectionToMask(byte value, string label)
     {
         if (_session == null) return;
-        if (!_session.Selection.HasSelection) { Toast("Belum ada selection"); return; }
         if (value > 0 && !_session.HasRestoreSource)
         {
-            Toast("Piksel gambar asli belum siap; Pulihkan belum tersedia.");
+            Toast(RestoreUnavailableMessage(), warning: true);
             return;
         }
 
-        _session.ApplySelectionToMask(value, label);
+        bool fillAll = !_session.Selection.HasSelection;
+        _session.ApplySelectionToMask(value, fillAll ? label + " (seluruh gambar)" : label, fillAll: fillAll);
         AfterMaskChanged(label);
     }
 
@@ -1983,7 +1993,7 @@ public partial class PreviewWindow
     private void GrowSelection()
     {
         var sel = Selection;
-        if (sel == null || !sel.HasSelection) { Toast("Belum ada selection"); return; }
+        if (sel == null || !sel.HasSelection) { Toast(T("Toast_NoSelection")); return; }
         int px = Math.Clamp(_settings.EditorSelGrowPx, 1, EditorSettings.MaxSelGrowPx);
         sel.Grow(px);
         AfterSelectionChanged("Grow");
@@ -1992,7 +2002,7 @@ public partial class PreviewWindow
     private void ShrinkSelection()
     {
         var sel = Selection;
-        if (sel == null || !sel.HasSelection) { Toast("Belum ada selection"); return; }
+        if (sel == null || !sel.HasSelection) { Toast(T("Toast_NoSelection")); return; }
         int px = Math.Clamp(_settings.EditorSelGrowPx, 1, EditorSettings.MaxSelGrowPx);
         sel.Shrink(px);
         AfterSelectionChanged("Shrink");
@@ -2001,7 +2011,7 @@ public partial class PreviewWindow
     private void FeatherSelection()
     {
         var sel = Selection;
-        if (sel == null || !sel.HasSelection) { Toast("Belum ada selection"); return; }
+        if (sel == null || !sel.HasSelection) { Toast(T("Toast_NoSelection")); return; }
         int px = Math.Max(1, (int)Math.Round(_settings.EditorSelectionFeather));
         sel.Feather(px);
         AfterSelectionChanged("Feather");
@@ -2139,6 +2149,21 @@ public partial class PreviewWindow
         }
     }
 
+    /// <summary>Photoshop: arrow keys = geser selection 1px (Shift = 10px). Undoable.</summary>
+    private bool NudgeSelection(int dx, int dy)
+    {
+        var sel = Selection;
+        if (_session == null || sel == null || !sel.HasSelection) return false;
+        if (dx == 0 && dy == 0) return false;
+        _session.BeginEdit("Nudge Selection");
+        // ShiftBuffer mengosongkan dst dulu, jadi sumber harus salinan.
+        var src = (byte[])sel.Coverage.Clone();
+        ShiftBuffer(src, sel.Coverage, sel.Width, sel.Height, dx, dy);
+        sel.NotifyChanged();
+        AfterSelectionChanged("Nudge Selection");
+        return true;
+    }
+
     private void EndMoveSelection()
     {
         _movingSelection = false;
@@ -2250,7 +2275,7 @@ public partial class PreviewWindow
     private async Task SaveSelectionInteractively()
     {
         var sel = Selection;
-        if (sel == null || !sel.HasSelection) { Toast("Belum ada selection untuk disimpan"); return; }
+        if (sel == null || !sel.HasSelection) { Toast(T("Toast_NoSelectionSave")); return; }
 
         try
         {
@@ -2264,7 +2289,7 @@ public partial class PreviewWindow
             if (file?.TryGetLocalPath() is not { } path || string.IsNullOrEmpty(path)) return;
 
             await SelectionIo.SaveAsync(sel, path);
-            Toast("Selection disimpan");
+            Toast(T("Toast_SelSaved"));
         }
         catch (Exception ex)
         {
@@ -2292,7 +2317,7 @@ public partial class PreviewWindow
             var loaded = await SelectionIo.LoadAsync(path, _session.Width, _session.Height);
             _session.Selection.CopyFrom(loaded);
             AfterSelectionChanged("Load Selection");
-            Toast("Selection dimuat");
+            Toast(T("Toast_SelLoaded"));
         }
         catch (Exception ex)
         {
@@ -2307,7 +2332,7 @@ public partial class PreviewWindow
     private void UpdateZoomText()
     {
         SyncViewPort();
-        SetText("TxtZoom", $"Zoom {_viewPort.Zoom * 100:0}%");
+        SetText("TxtZoom", T("Status_Zoom", $"{_viewPort.Zoom * 100:0}"));
     }
 
     // ========================
@@ -2355,13 +2380,22 @@ public partial class PreviewWindow
         if (!_editMode || _session == null) return;
         _quickMask = !_quickMask;
 
+        if (_quickMask && _maskView)
+        {
+            // Quick Mask dan Mask view saling lepas.
+            _maskView = false;
+            UpdateMaskViewButton();
+            _resultDirtyBounds = PixelBounds.Full(_session.Width, _session.Height);
+            RefreshResultBitmap();
+        }
+
         if (_quickMask)
         {
             // Masuk Quick Mask: ingat tool lama, pakai Brush agar bisa melukis seleksi.
             _toolBeforeQuickMask = _activeTool;
             if (_activeTool != EditToolKind.Brush)
                 SetActiveTool(EditToolKind.Brush);
-            Toast("Quick Mask: lukis hitam=kurangi, putih=tambah seleksi (Q keluar)");
+            Toast(T("Toast_QuickMask"));
         }
         else
         {
@@ -2374,6 +2408,51 @@ public partial class PreviewWindow
         RenderAnts();
         RenderQuickMask();
         UpdateEditorStatus();
+    }
+
+    /// <summary>
+    /// Toggle Mask view (\) ala Photoshop: tampilkan mask sebagai hitam-putih.
+    /// Saling lepas dengan Quick Mask agar tidak membingungkan.
+    /// </summary>
+    private void OnMaskViewClick(object? sender, RoutedEventArgs e)
+    {
+        if (!_editMode || _session == null) return;
+        _maskView = !_maskView;
+
+        if (_maskView && _quickMask)
+        {
+            // Keluar dari Quick Mask dulu (tanpa toast ganda).
+            _quickMask = false;
+            if (_activeTool == EditToolKind.Brush | _activeTool == EditToolKind.Eraser)
+                SetActiveTool(_toolBeforeQuickMask);
+            UpdateQuickMaskButton();
+            RenderQuickMask();
+        }
+
+        UpdateMaskViewButton();
+        // Gambar ulang seluruh kanvas dalam mode yang baru.
+        _resultDirtyBounds = PixelBounds.Full(_session.Width, _session.Height);
+        RefreshResultBitmap();
+        UpdateEditorStatus();
+        if (_maskView)
+            Toast(T("Toast_MaskView"));
+    }
+
+    private void UpdateMaskViewButton()
+    {
+        if (this.FindControl<Button>("BtnMaskView") is { } b)
+        {
+            if (_maskView)
+            {
+                if (!b.Classes.Contains("active")) b.Classes.Add("active");
+            }
+            else
+            {
+                b.Classes.Remove("active");
+            }
+        }
+        if (this.FindControl<MenuItem>("MiMaskView") is { } mi && mi.IsChecked != _maskView)
+            mi.IsChecked = _maskView;
     }
 
     private void RenderQuickMask(PixelBounds? requestedBounds = null)
@@ -2415,142 +2494,6 @@ public partial class PreviewWindow
     }
 
     // ========================
-    // SAVE
-    // ========================
-
-    private void OnSaveEditClick(object? sender, RoutedEventArgs e) => SaveInPlace();
-
-    private bool SaveInPlace()
-    {
-        if (_session == null) return false;
-        if (_session.HasPendingRestore && !_session.HasRestoreSource)
-        {
-            Toast("Piksel gambar asli masih dimuat; tunggu sebelum menyimpan hasil restore.");
-            return false;
-        }
-
-        try
-        {
-            // Ctrl+S langsung me-replace file asli; tidak ada backup .bak.
-            _session.BakeToFile(_resultPath);
-            _session.MarkSaved();
-
-            Toast("Perubahan berhasil disimpan");
-            Saved?.Invoke(this, _resultPath);
-            UpdateEditorStatus();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Toast($"Gagal menyimpan: {ex.Message}");
-            return false;
-        }
-    }
-
-    private async void OnSaveAsEditClick(object? sender, RoutedEventArgs e)
-        => await SaveAsCopyInteractively();
-
-    /// <summary>
-    /// Tanya user apakah perubahan belum disimpan ditulis dulu (Simpan / Simpan Salinan),
-    /// atau dibatalkan (Batal).
-    /// </summary>
-    /// <returns>
-    /// true  = perubahan sudah disimpan in-place (aman lanjut tanpa dialog lagi);
-    /// false = tulis sebagai salinan, atau user membatalkan → pemanggil lanjut dengan
-    ///         pembersihan diri sendiri.
-    /// </returns>
-    private async Task<bool> ConfirmDiscardChanges()
-    {
-        if (_session is not { IsDirty: true }) return true;
-
-        var tcs = new TaskCompletionSource<int>(); // 0 batal, 1 simpan in-place, 2 salinan
-        var dialog = new Window
-        {
-            Title = "Perubahan belum disimpan",
-            Width = 440,
-            SizeToContent = SizeToContent.Height,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            CanResize = false,
-            Background = new SolidColorBrush(Color.Parse("#1A1C20"))
-        };
-
-        var save = new Button { Content = "Simpan", Padding = new Thickness(16, 8), CornerRadius = new CornerRadius(8), Margin = new Thickness(8, 0, 0, 0) };
-        var copy = new Button { Content = "Simpan Salinan…", Padding = new Thickness(16, 8), CornerRadius = new CornerRadius(8), Margin = new Thickness(8, 0, 0, 0) };
-        var cancel = new Button { Content = "Batal", Padding = new Thickness(16, 8), CornerRadius = new CornerRadius(8) };
-
-        save.Click += (_, _) => { tcs.TrySetResult(1); dialog.Close(); };
-        copy.Click += (_, _) => { tcs.TrySetResult(2); dialog.Close(); };
-        cancel.Click += (_, _) => { tcs.TrySetResult(0); dialog.Close(); };
-        dialog.Closed += (_, _) => tcs.TrySetResult(0);
-
-        dialog.Content = new StackPanel
-        {
-            Margin = new Thickness(20),
-            Spacing = 12,
-            Children =
-            {
-                new TextBlock { Text = "Simpan perubahan sebelum pindah gambar?", FontSize = 14, FontWeight = FontWeight.SemiBold, Foreground = Brushes.White },
-                new TextBlock { Text = "Bila tidak disimpan, semua hasil edit (mask, brush, Refine Hair) akan hilang.", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#99FFFFFF")), TextWrapping = TextWrapping.Wrap },
-                new StackPanel
-                {
-                    Orientation = Avalonia.Layout.Orientation.Horizontal,
-                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                    Children = { cancel, copy, save }
-                }
-            }
-        };
-
-        await dialog.ShowDialog(this);
-        var choice = await tcs.Task;
-
-        if (choice == 1) return SaveInPlace();
-        if (choice == 2) { await SaveAsCopyInteractively(); return false; }
-        return false;
-    }
-
-    /// <summary>
-    /// Buka file picker "Simpan sebagai" dan tulis hasil edit sebagai salinan.
-    /// Dipakai oleh tombol Save As dan oleh guard pindah gambar.
-    /// </summary>
-    private async Task SaveAsCopyInteractively()
-    {
-        if (_session == null) return;
-        if (_session.HasPendingRestore && !_session.HasRestoreSource)
-        {
-            Toast("Piksel gambar asli masih dimuat; tunggu sebelum menyimpan hasil restore.");
-            return;
-        }
-
-        try
-        {
-            var suggested = IOPath.GetFileNameWithoutExtension(string.IsNullOrEmpty(_resultPath) ? "hasil" : _resultPath)
-                            + _settings.EditorOutputSuffix + ".png";
-
-            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = "Simpan sebagai",
-                SuggestedFileName = suggested,
-                DefaultExtension = "png",
-                FileTypeChoices = new[]
-                {
-                    new FilePickerFileType("PNG") { Patterns = new[] { "*.png" } }
-                }
-            });
-
-            if (file?.TryGetLocalPath() is not { } path || string.IsNullOrEmpty(path)) return;
-
-            _session.BakeToFile(path);
-            _session.MarkSaved();
-            Toast("Salinan berhasil disimpan");
-            Saved?.Invoke(this, path);
-        }
-        catch (Exception ex)
-        {
-            Toast($"Gagal menyimpan salinan: {ex.Message}");
-        }
-    }
-
-    // ========================
     // REFINE HAIR
     // ========================
     /// <summary>
@@ -2582,7 +2525,7 @@ public partial class PreviewWindow
         try
         {
             SetVisible("PanelRefineBusy", true);
-            SetText("TxtRefineBusy", "Memeriksa model…");
+            SetText("TxtRefineBusy", T("Refine_Checking"));
 
             if (!OnnxModelManager.HasVerifiedSha256(spec))
             {
@@ -2599,10 +2542,10 @@ public partial class PreviewWindow
                     return;
                 }
 
-                SetText("TxtRefineBusy", "Mengunduh model…");
+                SetText("TxtRefineBusy", T("Refine_Downloading"));
                 var progress = new Progress<InstallProgressInfo>(p =>
                 {
-                    SetText("TxtRefineBusy", $"Mengunduh {spec.DisplayName}… {p.Percentage}%");
+                    SetText("TxtRefineBusy", T("Refine_DownloadingName", spec.DisplayName, p.Percentage));
                 });
                 await OnnxModelManager.EnsureAvailableAsync(spec, progress, CancellationToken.None);
             }
@@ -2621,7 +2564,7 @@ public partial class PreviewWindow
 
             if (result.NoChange)
             {
-                Toast("Tidak ada tepi yang perlu dirapikan");
+                Toast(T("Toast_NoEdge"));
             }
             else
             {
@@ -2634,7 +2577,7 @@ public partial class PreviewWindow
         }
         catch (OperationCanceledException)
         {
-            Toast("Refine Hair dibatalkan");
+            Toast(T("Toast_RefineCancelled"));
         }
         catch (Exception ex)
         {
@@ -2660,11 +2603,23 @@ public partial class PreviewWindow
             SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             CanResize = false,
-            Background = new SolidColorBrush(Color.Parse("#1A1C20"))
+            Background = new SolidColorBrush(Color.Parse("#2B2B2B"))
         };
 
-        var yes = new Button { Content = "Unduh", Padding = new Thickness(16, 8), CornerRadius = new CornerRadius(8) };
-        var no = new Button { Content = "Batal", Padding = new Thickness(16, 8), CornerRadius = new CornerRadius(8), Margin = new Thickness(8, 0, 0, 0) };
+        var yes = new Button
+        {
+            Content = "Unduh", Padding = new Thickness(16, 8), CornerRadius = new CornerRadius(3),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            Background = new SolidColorBrush(Color.Parse("#31A8FF")),
+            Foreground = Brushes.White, FontWeight = FontWeight.SemiBold, Cursor = new Cursor(StandardCursorType.Hand)
+        };
+        var no = new Button
+        {
+            Content = "Batal", Padding = new Thickness(16, 8), CornerRadius = new CornerRadius(3),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            Background = new SolidColorBrush(Color.Parse("#3A3A3A")),
+            Foreground = Brushes.White, FontWeight = FontWeight.SemiBold, Cursor = new Cursor(StandardCursorType.Hand)
+        };
         yes.Click += (_, _) => { tcs.TrySetResult(true); dialog.Close(); };
         no.Click += (_, _) => { tcs.TrySetResult(false); dialog.Close(); };
         dialog.Closed += (_, _) => tcs.TrySetResult(false);
@@ -2675,10 +2630,11 @@ public partial class PreviewWindow
             Spacing = 12,
             Children =
             {
-                new TextBlock { Text = $"Model \"{spec.DisplayName}\" belum terpasang.", FontSize = 14, FontWeight = FontWeight.SemiBold, Foreground = Brushes.White },
-                new TextBlock { Text = $"Ukuran unduhan ≈ {spec.SizeBytes / 1_048_576.0:0.#} MB · Lisensi {spec.License}", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#99FFFFFF")) },
-                new TextBlock { Text = $"Unduh sekarang? Model disimpan di cache pengguna: {OnnxModelManager.ModelsDirectory}", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#99FFFFFF")), TextWrapping = TextWrapping.Wrap },
-                new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { no, yes } }
+                new TextBlock { Text = $"Model \"{spec.DisplayName}\" belum terpasang.", FontSize = 12, FontWeight = FontWeight.SemiBold, Foreground = new SolidColorBrush(Color.Parse("#E8E8E8")) },
+                new TextBlock { Text = $"Ukuran unduhan ≈ {spec.SizeBytes / 1_048_576.0:0.#} MB · Lisensi {spec.License}", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")) },
+                new TextBlock { Text = $"Unduh sekarang? Model disimpan di cache pengguna: {OnnxModelManager.ModelsDirectory}", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")), TextWrapping = TextWrapping.Wrap },
+                // Tombol vertikal full-width seragam, ala referensi Photoshop.
+                new StackPanel { Spacing = 6, Children = { yes, no } }
             }
         };
 
@@ -2707,24 +2663,20 @@ public partial class PreviewWindow
         if (_session == null) return;
 
         SetText("TxtEditorImageSize", $"{_session.Width} × {_session.Height}");
-        SetText("TxtEditorTool", _activeTool.ToString());
-        SetText("TxtEditorUndo", $"Undo {_session.Undo.UndoCount} / Redo {_session.Undo.RedoCount}");
+        SetText("TxtEditorTool", ToolDisplayName(_activeTool));
+        SetText("TxtEditorUndo", T("Status_UndoRedo", _session.Undo.UndoCount, _session.Undo.RedoCount));
         SetText("TxtEditorProvider", $"ONNX: {_refineHair.DescribeProvider()}");
 
         var sel = _session.Selection;
         string selInfo = sel.HasSelection
-            ? $"Selection: {sel.CountSelected() / 1_000_000.0:0.##} Mpx · {_selMode}"
-            : "Selection: -";
+            ? T("Status_SelSome", $"{sel.CountSelected() / 1_000_000.0:0.##}", _selMode)
+            : T("Status_SelNone");
         SetText("TxtSelInfo", selInfo);
         SetText("TxtSelStatus", sel.HasSelection
-            ? $"Ada selection · {sel.CountSelected() / 1_000_000.0:0.##} Mpx"
-            : "Belum ada selection");
+            ? T("Status_SelStatusSome", $"{sel.CountSelected() / 1_000_000.0:0.##}")
+            : T("SelStatus_None"));
         UpdateZoomText();
-
-        var undoBtn = this.FindControl<Button>("BtnUndo");
-        if (undoBtn != null) undoBtn.IsEnabled = _session.CanUndo;
-        var redoBtn = this.FindControl<Button>("BtnRedo");
-        if (redoBtn != null) redoBtn.IsEnabled = _session.CanRedo;
+        UpdateEditMenuState();
 
         UpdateQuickMaskButton();
     }
@@ -2741,6 +2693,8 @@ public partial class PreviewWindow
         {
             b.Classes.Remove("active");
         }
+        if (this.FindControl<MenuItem>("MiQuickMask") is { } mi && mi.IsChecked != _quickMask)
+            mi.IsChecked = _quickMask;
     }
 
     private void Toast(string message, bool warning = false)
@@ -2818,6 +2772,46 @@ public partial class PreviewWindow
         if (ctrlShift && e.Key == Key.J) { ShrinkSelection(); return true; }
         if (ctrlOnly && e.Key == Key.A) { SelectAllSelection(); return true; }
         if (ctrlOnly && e.Key == Key.D) { ClearSelection(); return true; }
+        // Photoshop: Ctrl+Shift+Enter = tambah path pen ke selection yang sudah ada.
+        if (ctrlShift && e.Key == Key.Enter) { MakeSelectionFromPenPath(SelectionCombineMode.Add); return true; }
+        // Photoshop: Shift+[ / Shift+] = brush hardness (lembut/tajam).
+        bool shiftOnly = modifiers == KeyModifiers.Shift;
+        if (shiftOnly && e.Key == Key.OemOpenBrackets) { AdjustBrushHardness(-0.05); return true; }
+        if (shiftOnly && e.Key == Key.OemCloseBrackets) { AdjustBrushHardness(0.05); return true; }
+        // Photoshop: 1..0 = opacity brush 10%..100% (saat brush/eraser aktif).
+        if (noModifiers && TryOpacityDigit(e.Key, out double digitOpacity)
+            && _activeTool is EditToolKind.Brush or EditToolKind.Eraser)
+        {
+            _settings.EditorBrushOpacity = digitOpacity;
+            _settings.Save();
+            SetSlider("SldBrushOpacity", digitOpacity * 100.0);
+            UpdateOptionLabels();
+            return true;
+        }
+        // Photoshop: arrow keys = nudge selection 1px (Shift+arrows = 10px).
+        if ((noModifiers || shiftOnly) && e.Key is Key.Up or Key.Down or Key.Left or Key.Right
+            && e.Source is not Slider)
+        {
+            int step = shiftOnly ? 10 : 1;
+            int ndx = e.Key == Key.Left ? -step : e.Key == Key.Right ? step : 0;
+            int ndy = e.Key == Key.Up ? -step : e.Key == Key.Down ? step : 0;
+            if (NudgeSelection(ndx, ndy)) return true;
+        }
+        // Photoshop: Tab = sembunyikan/tampilkan semua panel.
+        if (noModifiers && e.Key == Key.Tab) { ToggleEditorPanels(); return true; }
+        // Photoshop: Ctrl++ / Ctrl+- = zoom in/out, Ctrl+0 = fit, Ctrl+1 = 100%.
+        if (ctrlOnly && e.Key is Key.OemPlus or Key.Add) { EditorZoomStep(1.25); return true; }
+        if (ctrlShift && e.Key == Key.OemPlus) { EditorZoomStep(1.25); return true; }
+        if (ctrlOnly && e.Key is Key.OemMinus or Key.Subtract) { EditorZoomStep(1.0 / 1.25); return true; }
+        if (ctrlOnly && e.Key is Key.D0 or Key.NumPad0) { EditorZoomFit(); return true; }
+        if (ctrlOnly && e.Key is Key.D1 or Key.NumPad1)
+        {
+            EditorZoomStep(1.0 / Math.Max(0.05, _viewPort.Zoom));
+            return true;
+        }
+
+        // Photoshop: F12 = Revert — buang semua perubahan, kembali ke gambar di disk.
+        if (noModifiers && e.Key == Key.F12) { _ = RevertEditsAsync(); return true; }
 
         if (noModifiers && e.Key == Key.Escape)
         {
@@ -2834,9 +2828,17 @@ public partial class PreviewWindow
         }
         if (noModifiers && e.Key == Key.Enter)
         {
-            if (_activeSelectionTool is PenTool pt && pt.CanCommit)
+            if (_activeSelectionTool is PenTool pt)
             {
-                CommitSelectionToState(pt, e.KeyModifiers);
+                // Photoshop: Enter menutup/menyelesaikan path pen — TIDAK membuat selection.
+                // Path tertutup dipertahankan di overlay sampai Make Selection (Ctrl+Enter),
+                // tool diganti, path baru dimulai, atau Esc.
+                if (!pt.IsClosed && pt.Anchors.Count >= 3)
+                {
+                    pt.ClosePath();
+                    RenderOverlay();
+                    UpdateEditorStatus();
+                }
                 return true;
             }
             if (_activeSelectionTool is PolygonalLassoSelectionTool polygon && polygon.CanCommit)
@@ -2901,13 +2903,42 @@ public partial class PreviewWindow
                     }
                     break;
                 case EditorShortcutAction.QuickMask: OnQuickMaskClick(this, new RoutedEventArgs()); break;
+                case EditorShortcutAction.MaskView: OnMaskViewClick(this, new RoutedEventArgs()); break;
                 case EditorShortcutAction.MaskDelete: ApplySelectionToMask(0, "Hapus Selection"); break;
                 case EditorShortcutAction.MaskRestore: ApplySelectionToMask(255, "Restore Selection"); break;
+                case EditorShortcutAction.MakeSelection: MakeSelectionFromPenPath(); break;
             }
             return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Photoshop: ubah path pen aktif menjadi selection. Path yang belum tertutup
+    /// ditutup dulu; path dipertahankan di overlay sampai di-commit di sini.
+    /// <summary>
+    /// Buat selection dari path pen tertutup (trigger eksplisit: Ctrl+Enter, menu, atau panel).
+    /// forceMode memaksa combine mode — Ctrl+Shift+Enter = Add, ala Photoshop.
+    /// Juga melayani selection tool lain yang sedang punya path committable.
+    /// </summary>
+    private void MakeSelectionFromPenPath(SelectionCombineMode? forceMode = null)
+    {
+        if (_session == null) return;
+
+        if (_activeSelectionTool is PenTool pen && pen.Anchors.Count >= 3)
+        {
+            if (!pen.IsClosed)
+                pen.ClosePath();
+            CommitSelectionToState(pen, KeyModifiers.None, forceMode);
+            return;
+        }
+        if (_activeSelectionTool is { CanCommit: true } tool and not PenTool)
+        {
+            CommitSelectionToState(tool, KeyModifiers.None, forceMode);
+            return;
+        }
+        Toast(T("Toast_NoPath"), warning: true);
     }
 
     private void AdjustBrushSize(int delta)
@@ -2935,14 +2966,19 @@ public partial class PreviewWindow
             zoomControl.ValueChanged -= OnEditorZoomChanged;
             zoomControl.ValueChanged += OnEditorZoomChanged;
         }
-        Bind("BtnExitEdit", OnExitEditClick);
         Bind("BtnExitEditHeader", OnExitEditClick);
 
-        // Toggle "Bandingkan" (Original transparan di atas hasil).
+        // Toggle "Bandingkan" (Original transparan di atas hasil): floating (preview)
+        // dan options bar (mode edit) terhubung ke state yang sama.
         if (this.FindControl<ToggleButton>("BtnCompare") is { } cmp)
         {
             cmp.IsCheckedChanged -= OnCompareToggled;
             cmp.IsCheckedChanged += OnCompareToggled;
+        }
+        if (this.FindControl<ToggleButton>("BtnCompareOptions") is { } cmpOpt)
+        {
+            cmpOpt.IsCheckedChanged -= OnCompareToggled;
+            cmpOpt.IsCheckedChanged += OnCompareToggled;
         }
         // Rail tool: satu handler untuk semua, tool dibaca dari Tag.
         foreach (var name in new[] { "BtnToolPan", "BtnToolMove", "BtnToolLasso", "BtnToolPolyLasso",
