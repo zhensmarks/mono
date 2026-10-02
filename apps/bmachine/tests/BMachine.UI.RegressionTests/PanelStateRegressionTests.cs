@@ -125,9 +125,13 @@ public class NavigationVisualRegressionTests
 
         Assert.Contains("BorderBrush=\"{DynamicResource NavigationDividerBrush}\"", view);
         Assert.Contains("ColumnDefinitions=\"*,Auto,*,*,*\"", view);
+        Assert.DoesNotContain("MinWidth=\"336\"", view);
+        Assert.DoesNotContain("ScrollViewer HorizontalScrollBarVisibility=\"Auto\"", view);
         Assert.Contains("x:Name=\"ExplorerLogSeparator\"", view);
         Assert.Contains("Classes=\"navigationSeparator\"", view);
         Assert.Contains("IsVisible=\"{Binding IsOutputExplorerVisible}\"", view);
+        Assert.Contains("x:Name=\"DocPanelTab\"", view);
+        Assert.Contains("Text=\"DOC\" FontSize=\"9\"", view);
         Assert.Contains("IsVisible=\"{Binding !BatchVM.IsDocFloating}\"", view);
     }
 
