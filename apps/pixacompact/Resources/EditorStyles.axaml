@@ -224,4 +224,20 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="Foreground" Value="{StaticResource EditorTextSecondary}"/>
         </Style>
+
+        <!-- Tooltip ringkas: kecil, tanpa shadow besar, teks seperlunya saja. -->
+        <Style Selector="ToolTip">
+            <Setter Property="Background" Value="{StaticResource EditorSurfaceAlt}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource EditorBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="7,3"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="MaxWidth" Value="260"/>
+        </Style>
+        <Style Selector="ToolTip TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{StaticResource EditorTextPrimary}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
 </Styles>
