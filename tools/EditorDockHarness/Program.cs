@@ -164,6 +164,25 @@ class Program
         Console.WriteLine("RAIL-2COL " + win.EditorTestToolRailReport());
         Shoot(win, "08_tools_two_columns");
 
+        // Custom tool: sembunyikan beberapa tool → rail menyesuaikan.
+        Console.WriteLine("TOOLS-ALL " + win.EditorTestToolVisibilityReport());
+        win.EditorTestSetToolVisible("Pen", false);
+        win.EditorTestSetToolVisible("Lasso", false);
+        win.EditorTestSetToolVisible("QuickMask", false);
+        await Settle();
+        Console.WriteLine("TOOLS-CUSTOM " + win.EditorTestToolVisibilityReport());
+        Shoot(win, "08b_tools_custom_hidden");
+        // 1 kolom eksplisit.
+        win.EditorTestSetToolsColumns(false);
+        await Settle();
+        Console.WriteLine("TOOLS-1COL " + win.EditorTestToolVisibilityReport());
+        Shoot(win, "08c_tools_1col");
+        // Pulihkan.
+        win.EditorTestSetToolVisible("Pen", true);
+        win.EditorTestSetToolVisible("Lasso", true);
+        win.EditorTestSetToolVisible("QuickMask", true);
+        await Settle();
+
         // Docking: cabut panel Layers jadi jendela melayang, lalu pasang ke KIRI.
         win.EditorTestFloatPanel("layers");
         await Settle();

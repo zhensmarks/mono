@@ -80,6 +80,8 @@ public class PreviewWindowSettings
     public Dictionary<string, bool> EditorPanelVisibility { get; set; } = new();
     // Prefer two columns for a side-docked Tools rail; Auto still falls back when one column will clip.
     public bool EditorToolsPreferTwoColumns { get; set; } = false;
+    /// <summary>Visibilitas tiap tool di rail (key = tag tool, mis. "Move","Pen","QuickMask"). Tidak ada = tampil.</summary>
+    public Dictionary<string, bool> EditorToolVisibility { get; set; } = new();
     public int EditorAntsAnimationMs { get; set; } = PixelcutCompact.Models.EditorSettings.DefaultAntsAnimationMs;
     // Bahasa UI mode edit: "id" (default) atau "en".
     public string EditorLanguage { get; set; } = "id";

@@ -83,14 +83,53 @@ public partial class PreviewWindow
         if (key == "toolrail")
         {
             menu.Items.Add(new Separator());
-            var two = new MenuItem { Header = T("Dock_TwoColumns"), ToggleType = MenuItemToggleType.CheckBox, IsChecked = _settings.EditorToolsPreferTwoColumns };
-            two.Click += (_, _) =>
+
+            // Kolom: 1 atau 2 (eksplisit, ala Photoshop).
+            var colsItem = new MenuItem { Header = T("Dock_ToolsColumns") };
+            var oneCol = new MenuItem
             {
-                _settings.EditorToolsPreferTwoColumns = two.IsChecked;
-                _settings.Save();
-                ConfigureToolOrientation(DockPositionOf("Tools"));
+                Header = T("Dock_OneColumn"),
+                ToggleType = MenuItemToggleType.Radio,
+                GroupName = "toolcols",
+                IsChecked = !_settings.EditorToolsPreferTwoColumns
             };
-            menu.Items.Add(two);
+            var twoCol = new MenuItem
+            {
+                Header = T("Dock_TwoColumns"),
+                ToggleType = MenuItemToggleType.Radio,
+                GroupName = "toolcols",
+                IsChecked = _settings.EditorToolsPreferTwoColumns
+            };
+            oneCol.Click += (_, _) => SetToolsColumns(false);
+            twoCol.Click += (_, _) => SetToolsColumns(true);
+            colsItem.Items.Add(oneCol);
+            colsItem.Items.Add(twoCol);
+            menu.Items.Add(colsItem);
+
+            // Tampilkan tool: user boleh menyembunyikan tool tertentu.
+            var showItem = new MenuItem { Header = T("Dock_ShowTools") };
+            foreach (var (label, toolKey) in new[]
+            {
+                (T("Tool_Move"), "Move"), (T("Tool_RectMarquee"), "RectMarquee"),
+                (T("Tool_EllipseMarquee"), "EllipseMarquee"), (T("Tool_Lasso"), "Lasso"),
+                (T("Tool_PolyLasso"), "PolyLasso"), (T("Tool_MagicWand"), "MagicWand"),
+                (T("Tool_Pen"), "Pen"), (T("Tool_Brush"), "Brush"),
+                (T("Tool_Eraser"), "Eraser"), (T("Tool_RefineEdge"), "RefineEdge"),
+                (T("Tool_Pan"), "Pan"), (T("Tip_QuickMask"), "QuickMask"),
+                (T("Tip_MaskView"), "MaskView"), ("Refine Hair", "RefineHair"),
+            })
+            {
+                var tk = toolKey;
+                var item = new MenuItem
+                {
+                    Header = label,
+                    ToggleType = MenuItemToggleType.CheckBox,
+                    IsChecked = ToolShown(tk)
+                };
+                item.Click += (_, _) => SetToolVisible(tk, item.IsChecked);
+                showItem.Items.Add(item);
+            }
+            menu.Items.Add(showItem);
         }
 
         menu.Items.Add(new Separator());

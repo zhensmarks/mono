@@ -147,7 +147,10 @@
     <x:String x:Key="Dock_Bottom">Bawah</x:String>
     <x:String x:Key="Dock_Close">Tutup panel</x:String>
     <x:String x:Key="Dock_Reset">Reset tata letak</x:String>
-    <x:String x:Key="Dock_TwoColumns">Tools 2 kolom</x:String>
+    <x:String x:Key="Dock_TwoColumns">2 kolom</x:String>
+    <x:String x:Key="Dock_OneColumn">1 kolom</x:String>
+    <x:String x:Key="Dock_ToolsColumns">Jumlah kolom tools</x:String>
+    <x:String x:Key="Dock_ShowTools">Tampilkan tool…</x:String>
     <x:String x:Key="Dock_DropHere">Lepas untuk menumpuk di sini</x:String>
     <x:String x:Key="Tip_CloseWindow">Tutup jendela</x:String>
     <x:String x:Key="Save_Busy">Menyimpan…</x:String>

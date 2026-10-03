@@ -132,6 +132,9 @@ public partial class PreviewWindow
         var rail = this.FindControl<Border>("PanelToolRail");
         if (rail == null) return;
 
+        // Terapkan visibilitas tool custom (user boleh menyembunyikan tool tertentu).
+        ApplyToolVisibility();
+
         rail.Height = double.NaN;
         rail.Padding = new Thickness(8, 10);
         rail.BorderThickness = position == "Right"
@@ -153,10 +156,14 @@ public partial class PreviewWindow
 
         foreach (var g in groups) { g.Orientation = Orientation.Vertical; g.Spacing = 2; SetToolButtonSize(g, 36); }
 
-        double oneColumnHeight = groups.Sum(g => { g.Measure(Size.Infinity); return g.DesiredSize.Height; })
-                                 + Math.Max(0, groups.Length - 1) * 2 + 20;
+        // Hanya hitung grup yang punya tool terlihat.
+        double oneColumnHeight = groups.Where(HasVisibleTool)
+                                      .Sum(g => { g.Measure(Size.Infinity); return g.DesiredSize.Height; })
+                                 + Math.Max(0, groups.Count(HasVisibleTool) - 1) * 2 + 20;
         double available = GetAvailableToolHeight(position);
-        bool two = ToolDockColumnPolicy.UseTwoColumns(available, oneColumnHeight, _settings.EditorToolsPreferTwoColumns);
+        bool two = _settings.EditorToolsPreferTwoColumns;
+        // Auto: hanya 2 kolom bila 1 kolom tidak muat.
+        if (!two && available > 0 && oneColumnHeight > available) two = true;
 
         int size = two ? 34 : 36;
         int btnSpacing = two ? 7 : 2;      // jarak antar tombol (2 kolom = lebih lega)
@@ -186,6 +193,77 @@ public partial class PreviewWindow
             left.Spacing = 2;
             rail.Width = size + 20;
         }
+    }
+
+    /// <summary>Daftar tombol tool di rail: nama kontrol → tag (key visibilitas).</summary>
+    private static readonly (string Control, string Key)[] RailToolButtons =
+    {
+        ("BtnToolMove", "Move"),
+        ("BtnToolRectMarquee", "RectMarquee"),
+        ("BtnToolEllipseMarquee", "EllipseMarquee"),
+        ("BtnToolLasso", "Lasso"),
+        ("BtnToolPolyLasso", "PolyLasso"),
+        ("BtnToolWand", "MagicWand"),
+        ("BtnToolPen", "Pen"),
+        ("BtnToolBrush", "Brush"),
+        ("BtnToolEraser", "Eraser"),
+        ("BtnToolRefineEdge", "RefineEdge"),
+        ("BtnToolPan", "Pan"),
+        ("BtnQuickMask", "QuickMask"),
+        ("BtnMaskView", "MaskView"),
+        ("BtnRefineHair", "RefineHair"),
+    };
+
+    private bool ToolShown(string key) =>
+        !_settings.EditorToolVisibility.TryGetValue(key, out var on) || on;
+
+    private bool HasVisibleTool(StackPanel group)
+    {
+        foreach (var c in group.Children)
+        {
+            if (c is Button b && b.Tag is string tag && ToolShown(tag)) return true;
+            if (c is StackPanel inner && HasVisibleTool(inner)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Terapkan visibilitas tool custom; grup tanpa tool terlihat ikut disembunyikan.</summary>
+    private void ApplyToolVisibility()
+    {
+        foreach (var (control, key) in RailToolButtons)
+            if (this.FindControl<Button>(control) is { } b) b.IsVisible = ToolShown(key);
+
+        // Grup kosong disembunyikan; grup tanpa tool terlihat disembunyikan.
+        foreach (var n in ToolGroupNames)
+            if (this.FindControl<StackPanel>(n) is { } g) g.IsVisible = HasVisibleTool(g);
+    }
+
+    /// <summary>Set jumlah kolom rail tools (1 atau 2) eksplisit, lalu simpan + render ulang.</summary>
+    private void SetToolsColumns(bool two)
+    {
+        _settings.EditorToolsPreferTwoColumns = two;
+        _settings.Save();
+        ConfigureToolOrientation(DockPositionOf("Tools"));
+    }
+
+    /// <summary>Tampilkan/sembunyikan satu tool; bila tool aktif disembunyikan, pindah ke Pan.</summary>
+    private void SetToolVisible(string key, bool visible)
+    {
+        _settings.EditorToolVisibility[key] = visible;
+        _settings.Save();
+
+        // Tool yang disembunyikan tidak boleh tetap aktif → pindah ke Pan.
+        if (!visible)
+        {
+            foreach (var (control, k) in RailToolButtons)
+            {
+                if (k != key) continue;
+                if (this.FindControl<Button>(control) is { } b && b.Tag is string tag
+                    && Enum.TryParse<EditToolKind>(tag, out var kind) && _activeTool == kind)
+                    SetActiveTool(EditToolKind.Pan);
+            }
+        }
+        ConfigureToolOrientation(DockPositionOf("Tools"));
     }
 
     private double GetAvailableToolHeight(string position)

@@ -282,6 +282,26 @@ public partial class PreviewWindow
         return $"color={PenPathStyle.NormalizeColor(color)} th={PenPathStyle.ClampThickness(thickness)} polys=[{string.Join("; ", info)}]";
     }
 
+    /// <summary>Uji tool custom: sembunyikan tool lalu laporkan visibilitas rail.</summary>
+    public void EditorTestSetToolVisible(string key, bool visible) => SetToolVisible(key, visible);
+
+    /// <summary>Uji kolom tools: set 1/2 kolom.</summary>
+    public void EditorTestSetToolsColumns(bool two) => SetToolsColumns(two);
+
+    /// <summary>Laporan visibilitas tool di rail (tool mana yang tampil).</summary>
+    public string EditorTestToolVisibilityReport()
+    {
+        var shown = new List<string>();
+        var hidden = new List<string>();
+        foreach (var (control, key) in RailToolButtons)
+        {
+            bool v = this.FindControl<Button>(control)?.IsVisible ?? false;
+            (v ? shown : hidden).Add(key);
+        }
+        double w = this.FindControl<Border>("PanelToolRail")?.Width ?? -1;
+        return $"railWidth={w:0} shown=[{string.Join(",", shown)}] hidden=[{string.Join(",", hidden)}]";
+    }
+
     /// <summary>Laporan tata letak rail Tools (lebar, jumlah kolom, isi tiap kolom).</summary>
     public string EditorTestToolRailReport()
     {

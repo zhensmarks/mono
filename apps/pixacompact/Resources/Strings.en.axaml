@@ -147,7 +147,10 @@
     <x:String x:Key="Dock_Bottom">Bottom</x:String>
     <x:String x:Key="Dock_Close">Close panel</x:String>
     <x:String x:Key="Dock_Reset">Reset layout</x:String>
-    <x:String x:Key="Dock_TwoColumns">Tools 2 columns</x:String>
+    <x:String x:Key="Dock_TwoColumns">2 columns</x:String>
+    <x:String x:Key="Dock_OneColumn">1 column</x:String>
+    <x:String x:Key="Dock_ToolsColumns">Tools column count</x:String>
+    <x:String x:Key="Dock_ShowTools">Show tools…</x:String>
     <x:String x:Key="Dock_DropHere">Drop to stack here</x:String>
     <x:String x:Key="Tip_CloseWindow">Close window</x:String>
     <x:String x:Key="Save_Busy">Saving…</x:String>
