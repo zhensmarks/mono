@@ -171,8 +171,8 @@ public partial class PreviewWindow
         bool two = ToolDockColumnPolicy.UseTwoColumns(available, oneColumnHeight, _settings.EditorToolsPreferTwoColumns);
 
         int size = two ? 34 : 36;
-        int btnSpacing = two ? 5 : 2;      // jarak antar tombol (2 kolom = lebih lega)
-        int groupSpacing = two ? 9 : 2;    // jarak antar grup tool
+        int btnSpacing = two ? 7 : 2;      // jarak antar tombol (2 kolom = lebih lega)
+        int groupSpacing = two ? 7 : 2;    // samakan dgn antar-tombol → 2 kolom persis sama tinggi (simetris)
         foreach (var g in groups) { g.Spacing = btnSpacing; SetToolButtonSize(g, size); }
 
         // Divider hanya relevan saat 1 kolom; sembunyikan saat 2 kolom.
@@ -181,16 +181,20 @@ public partial class PreviewWindow
         right.Children.Clear();
         if (two)
         {
-            foreach (var g in new[] { "ToolViewGroup", "ToolAiGroup" })
-                if (this.FindControl<StackPanel>(g) is { } gp && left.Children.Contains(gp)) { left.Children.Remove(gp); right.Children.Add(gp); }
+            // Bagi rata 7/7: kiri = grup Seleksi; kanan = Paint + View + AI.
+            // Kedua kolom jadi setinggi sama → simetris.
+            foreach (var n in new[] { "ToolPaintGroup", "ToolViewGroup", "ToolAiGroup" })
+                if (this.FindControl<StackPanel>(n) is { } gp && left.Children.Contains(gp)) { left.Children.Remove(gp); right.Children.Add(gp); }
             right.IsVisible = true;
+            right.Margin = new Thickness(12, 0, 0, 0);   // jarak antar kolom
             left.Spacing = groupSpacing;
             right.Spacing = groupSpacing;
-            rail.Width = size * 2 + 26;
+            rail.Width = size * 2 + 46;
         }
         else
         {
             right.IsVisible = false;
+            right.Margin = new Thickness(0);
             left.Spacing = 2;
             rail.Width = size + 20;
         }
