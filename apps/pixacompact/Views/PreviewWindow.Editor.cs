@@ -524,7 +524,17 @@ public partial class PreviewWindow
         _session.PushSelectionUndo(T("Undo_Selection"));
         _session.Selection.Combine(region, mode, _settings.EditorAntiAlias, feather);
 
-        tool.Cancel();
+        // Photoshop: path Pen TETAP ada setelah "Make Selection" (bisa di-commit
+        // lagi / diedit, dan Undo seleksi tidak menghilangkannya). Tool seleksi
+        // lain tetap di-reset karena tidak menyimpan path persisten.
+        if (tool is PenTool penKeep)
+        {
+            penKeep.ClosePath();     // tandai selesai; anchor & handle tetap tersimpan
+        }
+        else
+        {
+            tool.Cancel();
+        }
         AfterSelectionChanged("Selection");
     }
 
@@ -1022,11 +1032,13 @@ public partial class PreviewWindow
     private void OnUndoClick(object? sender, RoutedEventArgs e)
     {
         if (!_editMode || _session == null) return;
-        // Prioritaskan undo path Pen yang sedang digambar.
-        if (_activeSelectionTool is PenTool pen && pen.Anchors.Count > 0)
+        // Pen sedang MENGGAMBAR path → Ctrl+Z memangkas anchor terakhir saja
+        // (ala Photoshop), bukan membuang seluruh path. Setelah path selesai
+        // (Make Selection / tertutup), undo jatuh ke riwayat seleksi.
+        if (_activeSelectionTool is PenTool pen && pen.IsActive && pen.Anchors.Count > 0)
         {
             _pathRedo.Push(CloneAnchors(pen));
-            pen.Cancel();
+            pen.RemoveLastPoint();
             RenderOverlay();
             UpdateEditorStatus();
             return;
@@ -1048,11 +1060,13 @@ public partial class PreviewWindow
     private void OnRedoClick(object? sender, RoutedEventArgs e)
     {
         if (!_editMode || _session == null) return;
-        // Prioritaskan redo path Pen.
-        if (_activeSelectionTool is PenTool penRedo && _pathRedo.Count > 0 && penRedo.Anchors.Count == 0)
+        // Redo anchor Pen yang baru dipangkas (hanya bila memang lebih sedikit
+        // dari snapshot redo). Setelah itu redo jatuh ke riwayat seleksi.
+        if (_activeSelectionTool is PenTool penRedo && _pathRedo.Count > 0
+            && penRedo.Anchors.Count < _pathRedo.Peek().Count)
         {
             var anchors = _pathRedo.Pop();
-            _pathUndo.Push(new List<PenTool.Anchor>());
+            _pathUndo.Push(CloneAnchors(penRedo));
             penRedo.RestoreAnchors(anchors);
             RenderOverlay();
             UpdateEditorStatus();

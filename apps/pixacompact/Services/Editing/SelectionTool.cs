@@ -458,7 +458,7 @@ public sealed class PenTool : SelectionTool
     }
 
     /// <summary>Kembalikan daftar anchor dari snapshot (untuk undo/redo path).</summary>
-    public void RestoreAnchors(IEnumerable<Anchor> anchors)
+    public void RestoreAnchors(IEnumerable<Anchor> anchors, bool closed = false)
     {
         _anchors.Clear();
         foreach (var a in anchors)
@@ -471,7 +471,8 @@ public sealed class PenTool : SelectionTool
             _anchors.Add(c);
         }
         _dragIndex = -1;
-        IsActive = _anchors.Count > 0;
+        IsClosed = closed && _anchors.Count >= 3;
+        IsActive = _anchors.Count > 0 && !IsClosed;
         RefreshPreviewPath();
         RaiseChanged();
     }
@@ -481,6 +482,7 @@ public sealed class PenTool : SelectionTool
         if (_anchors.Count == 0) return false;
         if (IsClosed) IsClosed = false;
         _anchors.RemoveAt(_anchors.Count - 1);
+        if (_anchors.Count == 0) IsActive = false;   // path habis → berhenti menggambar
         RefreshPreviewPath();
         RaiseChanged();
         return true;
@@ -489,7 +491,31 @@ public sealed class PenTool : SelectionTool
     /// <summary>Hapus semua anchor (reset).</summary>
     public void Reset() => Cancel();
 }
- 
+
+/// <summary>
+/// Snapshot path Pen (anchor + status tertutup) untuk undo/redo terpadu dengan
+/// riwayat seleksi — dipakai agar undo setelah "Make Selection" mengembalikan
+/// path Pen, bukan sekadar menghapus seleksinya.
+/// </summary>
+public sealed class PenPathSnapshot
+{
+    public List<PenTool.Anchor> Anchors { get; } = new();
+    public bool IsClosed { get; set; }
+
+    /// <summary>Salin kondisi path sekarang (deep copy anchor + handle).</summary>
+    public static PenPathSnapshot From(PenTool pen)
+    {
+        var s = new PenPathSnapshot { IsClosed = pen.IsClosed };
+        foreach (var a in pen.Anchors)
+            s.Anchors.Add(new PenTool.Anchor(new Vec2(a.Point.X, a.Point.Y))
+            {
+                HandleIn = new Vec2(a.HandleIn.X, a.HandleIn.Y),
+                HandleOut = new Vec2(a.HandleOut.X, a.HandleOut.Y)
+            });
+        return s;
+    }
+}
+
 /// <summary>
 /// Marquee seleksi Rect/Ellipse (Photoshop M / Shift+M).
 /// Klik-drag membentuk region; Shift = bujur sangkar/lingkaran, Alt = dari tengah.

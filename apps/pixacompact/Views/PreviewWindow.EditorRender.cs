@@ -643,6 +643,7 @@ public partial class PreviewWindow
                 }
                 e.Pointer.Capture(img);
                 penTool.PointerDown(imagePos, alt);
+                _pathRedo.Clear();   // aksi baru membatalkan redo path yang tertunda
             }
             else
             {

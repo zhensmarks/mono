@@ -220,4 +220,69 @@ public sealed class EditorMaskRegressionTests
         Assert.True(mask[2048 * size + 2048] > 0);
         Assert.True(allocated < 8 * 1024 * 1024, $"A small selection allocated {allocated:N0} temporary bytes.");
     }
+
+    // ========================
+    // PEN PATH UNDO (regresi)
+    // ========================
+
+    /// <summary>
+    /// Undo saat masih menggambar path Pen harus memangkas SATU anchor terakhir,
+    /// bukan membuang seluruh path (bug: "undo malah menghapus semua path").
+    /// </summary>
+    [Fact]
+    public void PenUndoWhileDrawing_RemovesOnlyLastAnchor()
+    {
+        var pen = new PenTool();
+        pen.PointerDown(new Vec2(0, 0)); pen.PointerUp(new Vec2(0, 0));
+        pen.PointerDown(new Vec2(10, 0)); pen.PointerUp(new Vec2(10, 0));
+        pen.PointerDown(new Vec2(10, 10)); pen.PointerUp(new Vec2(10, 10));
+        Assert.Equal(3, pen.Anchors.Count);
+        Assert.True(pen.IsActive);
+
+        var redo = PenPathSnapshot.From(pen);   // = apa yang OnUndoClick push ke _pathRedo
+        Assert.True(pen.RemoveLastPoint());      // = yang OnUndoClick lakukan
+        Assert.Equal(2, pen.Anchors.Count);
+        Assert.True(pen.IsActive);
+
+        // Redo mengembalikan anchor yang dipangkas.
+        pen.RestoreAnchors(redo.Anchors, redo.IsClosed);
+        Assert.Equal(3, pen.Anchors.Count);
+    }
+
+    /// <summary>
+    /// Setelah "Make Selection", path Pen TETAP ada (ala Photoshop) dan statusnya
+    /// tertutup — sehingga Undo seleksi tidak menghilangkan path.
+    /// </summary>
+    [Fact]
+    public void PenPath_RemainsAfterMakeSelection()
+    {
+        var pen = new PenTool();
+        pen.PointerDown(new Vec2(0, 0)); pen.PointerUp(new Vec2(0, 0));
+        pen.PointerDown(new Vec2(20, 0)); pen.PointerUp(new Vec2(20, 0));
+        pen.PointerDown(new Vec2(20, 20)); pen.PointerUp(new Vec2(20, 20));
+
+        // CommitSelectionToState memanggil ClosePath() untuk PenTool (bukan Cancel()).
+        pen.ClosePath();
+        Assert.True(pen.IsClosed);
+        Assert.Equal(3, pen.Anchors.Count);      // anchor tetap tersimpan
+        Assert.False(pen.IsActive);              // berhenti menggambar
+
+        // Path masih bisa di-commit ulang (mis. Ctrl+Enter lagi).
+        var region = Assert.IsType<MaskRegion>(pen.Commit());
+        Assert.NotNull(region);
+    }
+
+    /// <summary>Snapshot path harus deep-copy: mengubah asli tidak mengubah snapshot.</summary>
+    [Fact]
+    public void PenPathSnapshot_IsDeepCopy()
+    {
+        var pen = new PenTool();
+        pen.PointerDown(new Vec2(1, 2)); pen.PointerUp(new Vec2(1, 2));
+        pen.PointerDown(new Vec2(3, 4)); pen.PointerUp(new Vec2(3, 4));
+        var snap = PenPathSnapshot.From(pen);
+
+        pen.MoveAnchor(0, new Vec2(99, 99));
+        Assert.Equal(1, snap.Anchors[0].Point.X);
+        Assert.Equal(2, snap.Anchors[0].Point.Y);
+    }
 }
