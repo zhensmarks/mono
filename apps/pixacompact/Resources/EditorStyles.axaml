@@ -246,5 +246,25 @@
         <Style Selector="Grid.spinning">
             <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
         </Style>
+
+        <!-- Tombol Bandingkan melayang: JANGAN transparan saat hover/tekan. -->
+        <Style Selector="Button.compare-float">
+            <Setter Property="Background" Value="#CC1F1F1F"/>
+        </Style>
+        <Style Selector="Button.compare-float /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#CC1F1F1F"/>
+            <Setter Property="BorderBrush" Value="#5531A8FF"/>
+        </Style>
+        <Style Selector="Button.compare-float:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#E62A2A2A"/>
+            <Setter Property="BorderBrush" Value="#8831A8FF"/>
+        </Style>
+        <Style Selector="Button.compare-float:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#F2333333"/>
+        </Style>
+        <Style Selector="Button.compare-float.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#E631A8FF"/>
+            <Setter Property="BorderBrush" Value="#FFC6DDFF"/>
+        </Style>
 </Styles>
 

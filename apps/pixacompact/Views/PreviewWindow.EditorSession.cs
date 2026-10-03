@@ -362,21 +362,12 @@ public partial class PreviewWindow
         ApplyCompareOverlay();
     }
 
-    // Tombol Bandingkan melayang (mode edit): TAHAN untuk intip gambar asli.
-    private void OnCompareFloatDown(object? sender, Avalonia.Input.PointerPressedEventArgs? e)
+    // Tombol Bandingkan melayang (mode edit): KLIK = toggle tampilkan gambar asli.
+    private void OnCompareFloatClick(object? sender, RoutedEventArgs e)
     {
         if (!_editMode) return;
-        _compareOriginal = true;
+        _compareOriginal = !_compareOriginal;
         ApplyCompareOverlay();
-        if (e != null) e.Handled = true;
-    }
-
-    private void OnCompareFloatUp(object? sender, Avalonia.Input.PointerReleasedEventArgs? e)
-    {
-        if (!_editMode) return;
-        _compareOriginal = false;
-        ApplyCompareOverlay();
-        if (e != null) e.Handled = true;
     }
 
     private void ApplyCompareOverlay()
@@ -384,14 +375,21 @@ public partial class PreviewWindow
         var img = this.FindControl<Image>("ImgOriginalCompare");
         if (img == null) return;
 
-        // Sumber = gambar original (bukan hasil), agar user bisa peek sebelum/sesudah.
-        if (_compareOriginal && img.Source == null)
-        {
-            var orig = this.FindControl<Image>("ImgOriginal")?.Source;
-            if (orig != null) img.Source = orig;
-        }
+        // Selalu pastikan sumber = gambar original (bukan hasil), agar klik pertama
+        // langsung menampilkan perbandingan (dulu source hanya di-set bila null).
+        var orig = this.FindControl<Image>("ImgOriginal")?.Source;
+        if (orig != null && !ReferenceEquals(img.Source, orig)) img.Source = orig;
 
         img.IsVisible = _editMode && _compareOriginal;
+        // Tombol: sorot saat aktif (via class agar tidak bertabrakan dengan style hover).
+        if (this.FindControl<Button>("BtnCompareFloat") is { } b)
+        {
+            if (_compareOriginal)
+            {
+                if (!b.Classes.Contains("active")) b.Classes.Add("active");
+            }
+            else b.Classes.Remove("active");
+        }
         UpdateCompareButtonState();
     }
 

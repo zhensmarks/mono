@@ -262,13 +262,12 @@ public partial class PreviewWindow
         return $"footer={F("PanelFooter")} toast={F("ToastNotification")} compareFloat={F("BtnCompareFloat")} editMode={_editMode}";
     }
 
-    /// <summary>Uji tombol bandingkan melayang: tekan = overlay asli muncul.</summary>
-    public string EditorTestCompareFloat(bool down)
+    /// <summary>Uji tombol bandingkan melayang: klik = toggle overlay asli.</summary>
+    public string EditorTestCompareFloat(bool on)
     {
-        if (down) OnCompareFloatDown(this, null);
-        else OnCompareFloatUp(this, null);
+        if (_compareOriginal != on) OnCompareFloatClick(this, new Avalonia.Interactivity.RoutedEventArgs());
         var cmp = this.FindControl<Image>("ImgOriginalCompare");
-        return $"compareOriginal={_compareOriginal} overlayVisible={(cmp?.IsVisible ?? false)}";
+        return $"compareOriginal={_compareOriginal} overlayVisible={(cmp?.IsVisible ?? false)} hasSource={(cmp?.Source != null)}";
     }
 
     /// <summary>Uji ukuran window floating: cabut panel lalu laporkan ukuran window.</summary>
