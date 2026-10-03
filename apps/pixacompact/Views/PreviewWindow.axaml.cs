@@ -314,10 +314,10 @@ if (pngPath && jpgPath) {
         => await CloseWithGuardAsync();
 
     /// <summary>
-    /// Tutup jendela preview dengan guard perubahan belum disimpan. Dipakai tombol ✕
-    /// dan shortcut Ctrl+W. Saat user memilih "Buang perubahan", sesi TIDAK dimasuki
-    /// ulang ke mode edit — jendela langsung ditutup (perbaikan: dulu DiscardEditsAsync
-    /// selalu re-enter edit mode sehingga terasa "tidak keluar mode edit").
+    /// Tutup jendela preview dengan guard perubahan belum disimpan. Dipakai tombol ✕.
+    /// Saat user memilih "Buang perubahan", sesi TIDAK dimasuki ulang ke mode edit —
+    /// jendela langsung ditutup (perbaikan: dulu DiscardEditsAsync selalu re-enter
+    /// edit mode sehingga terasa "tidak keluar mode edit").
     /// </summary>
     private async Task CloseWithGuardAsync()
     {
@@ -779,11 +779,11 @@ try {{
             return;
         }
 
-        // Ctrl+W: tutup jendela preview (ala Photoshop menutup dokumen). Berlaku di
-        // preview maupun mode edit, dengan guard perubahan belum disimpan.
+        // Ctrl+W: keluar dari mode edit (kembali ke preview). Ala Photoshop menutup
+        // dokumen, tapi di sini cukup keluar editor — jendela preview TIDAK ditutup.
         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.W)
         {
-            _ = CloseWithGuardAsync();
+            if (_editMode) EndEditMode(silent: false);
             e.Handled = true;
             return;
         }
