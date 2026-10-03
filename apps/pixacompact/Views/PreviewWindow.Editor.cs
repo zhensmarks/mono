@@ -642,6 +642,41 @@ public partial class PreviewWindow
         _antsTimer = null;
     }
 
+    // ========================
+    // SPINNER (Menyimpan… & Refine Hair)
+    // ========================
+    // Rotasi digerakkan dari kode (bukan animasi style) agar pasti terlihat di
+    // semua backend render. Satu timer men-drive kedua spinner.
+    private DispatcherTimer? _spinnerTimer;
+    private double _spinnerAngle;
+
+    private void StartSpinner()
+    {
+        if (_spinnerTimer != null) return;
+        _spinnerTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+        _spinnerTimer.Tick += (_, _) => TickSpinner();
+        _spinnerTimer.Start();
+    }
+
+    private void StopSpinner()
+    {
+        _spinnerTimer?.Stop();
+        _spinnerTimer = null;
+    }
+
+    private void TickSpinner()
+    {
+        _spinnerAngle = (_spinnerAngle + 12) % 360;   // ~1 putaran / detik @30fps
+        ApplySpinnerAngle("SaveSpinner");
+        ApplySpinnerAngle("RefineSpinner");
+    }
+
+    private void ApplySpinnerAngle(string name)
+    {
+        if (this.FindControl<Grid>(name) is not { } g) return;
+        g.RenderTransform = new Avalonia.Media.RotateTransform(_spinnerAngle);
+    }
+
     private void TickAnts()
     {
         var white = this.FindControl<Avalonia.Controls.Shapes.Path>("SelectionAnts");
@@ -1233,6 +1268,7 @@ public partial class PreviewWindow
         try
         {
             SetVisible("PanelRefineBusy", true);
+            StartSpinner();
             SetText("TxtRefineBusy", T("Refine_Checking"));
 
             if (!OnnxModelManager.HasVerifiedSha256(spec))
@@ -1247,6 +1283,7 @@ public partial class PreviewWindow
                 if (!confirm)
                 {
                     SetVisible("PanelRefineBusy", false);
+                    StopSpinner();
                     return;
                 }
 
@@ -1294,6 +1331,7 @@ public partial class PreviewWindow
         finally
         {
             SetVisible("PanelRefineBusy", false);
+            StopSpinner();
             _refineCts?.Dispose();
             _refineCts = null;
         }

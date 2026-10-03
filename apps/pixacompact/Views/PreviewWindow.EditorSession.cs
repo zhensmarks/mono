@@ -215,6 +215,8 @@ public partial class PreviewWindow
         SetVisible("BtnEnterEditHeader", false);
         SetVisible("BtnExitEditHeader", true);
         SetVisible("ChipEditMode", true);
+        // Tombol Bandingkan melayang di tengah-bawah kanvas (hold-to-preview).
+        SetVisible("BtnCompareFloat", true);
         // Footer navigasi (prev/next + tombol mode) tidak relevan di dalam editor:
         // sembunyikan agar tampilan bersih ala Photoshop. Toast tetap muncul (overlay root).
         SetVisible("PanelFooter", false);
@@ -289,6 +291,7 @@ public partial class PreviewWindow
         _activeSelectionTool = null;
         _refineCts?.Cancel();
         StopAntsTimer();
+        StopSpinner();
 
         var overlay = this.FindControl<Canvas>("EditOverlay");
         if (overlay != null)
@@ -304,6 +307,7 @@ public partial class PreviewWindow
         SetVisible("PanelRefineBusy", false);
         SetVisible("ImgQuickMask", false);
         SetVisible("ImgOriginalCompare", false);
+        SetVisible("BtnCompareFloat", false);
         SetVisible("ChipEditMode", false);
         SetVisible("BtnExitEditHeader", false);
         SetVisible("BtnEnterEditHeader", _session != null);
@@ -356,6 +360,23 @@ public partial class PreviewWindow
     {
         _compareOriginal = sender is ToggleButton { IsChecked: true };
         ApplyCompareOverlay();
+    }
+
+    // Tombol Bandingkan melayang (mode edit): TAHAN untuk intip gambar asli.
+    private void OnCompareFloatDown(object? sender, Avalonia.Input.PointerPressedEventArgs? e)
+    {
+        if (!_editMode) return;
+        _compareOriginal = true;
+        ApplyCompareOverlay();
+        if (e != null) e.Handled = true;
+    }
+
+    private void OnCompareFloatUp(object? sender, Avalonia.Input.PointerReleasedEventArgs? e)
+    {
+        if (!_editMode) return;
+        _compareOriginal = false;
+        ApplyCompareOverlay();
+        if (e != null) e.Handled = true;
     }
 
     private void ApplyCompareOverlay()

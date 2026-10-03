@@ -25,6 +25,7 @@ public partial class PreviewWindow
     private void SetSaveBusy(bool busy)
     {
         if (this.FindControl<Border>("PanelSaveBusy") is { } b) b.IsVisible = busy;
+        if (busy) StartSpinner(); else StopSpinner();
     }
 
     /// <summary>

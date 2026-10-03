@@ -259,7 +259,24 @@ public partial class PreviewWindow
     public string EditorTestChromeReport()
     {
         bool F(string n) => this.FindControl<Control>(n)?.IsVisible ?? false;
-        return $"footer={F("PanelFooter")} toast={F("ToastNotification")} editMode={_editMode}";
+        return $"footer={F("PanelFooter")} toast={F("ToastNotification")} compareFloat={F("BtnCompareFloat")} editMode={_editMode}";
+    }
+
+    /// <summary>Uji tombol bandingkan melayang: tekan = overlay asli muncul.</summary>
+    public string EditorTestCompareFloat(bool down)
+    {
+        if (down) OnCompareFloatDown(this, null);
+        else OnCompareFloatUp(this, null);
+        var cmp = this.FindControl<Image>("ImgOriginalCompare");
+        return $"compareOriginal={_compareOriginal} overlayVisible={(cmp?.IsVisible ?? false)}";
+    }
+
+    /// <summary>Uji ukuran window floating: cabut panel lalu laporkan ukuran window.</summary>
+    public string EditorTestFloatWindowSize(string key)
+    {
+        FloatPanel(key);
+        if (!_floatingPanels.TryGetValue(key, out var w)) return "no-float";
+        return $"key={key} size={w.Width:0}x{w.Height:0} sizeToContent={w.SizeToContent}";
     }
 
     /// <summary>Uji warna/tebal path: set preferensi + gambar path 3 titik, lalu lapor.</summary>

@@ -162,10 +162,13 @@ public partial class PreviewWindow
         var win = new Window
         {
             Title = title,
-            Width = key == "toolrail" ? 150 : 320,
-            Height = 460,
-            MinWidth = 170,
-            MinHeight = 220,
+            // Ukuran menyesuaikan isi panel (tidak ada ruang kosong berlebih),
+            // tapi tetap bisa di-resize manual oleh user.
+            SizeToContent = SizeToContent.WidthAndHeight,
+            MaxWidth = 720,
+            MaxHeight = 900,
+            MinWidth = 120,
+            MinHeight = 120,
             SystemDecorations = SystemDecorations.None,   // tanpa chrome OS
             Background = new SolidColorBrush(Color.Parse("#2B2B2B")),
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -239,6 +242,9 @@ public partial class PreviewWindow
         };
 
         win.Show(this);
+        // Setelah ukuran menyesuaikan isi saat dibuka, lepas SizeToContent agar user
+        // bebas me-resize jendela (kalau tetap WidthAndHeight, resize akan "dilawan").
+        win.Opened += (_, _) => win.SizeToContent = SizeToContent.Manual;
         ApplyEditorDockVisibility();
     }
 

@@ -35,6 +35,8 @@
     <x:String x:Key="Tip_StartEditor">Mulai editor (E)</x:String>
     <x:String x:Key="Btn_Compare">Bandingkan</x:String>
     <x:String x:Key="Tip_Compare">Tampilkan gambar asli di atas hasil</x:String>
+    <x:String x:Key="Footer_Compare">Bandingkan</x:String>
+    <x:String x:Key="Tip_CompareHold">Tahan untuk melihat gambar asli</x:String>
     <x:String x:Key="Tip_ExitEditor">Keluar editor (Esc; batalkan path yang masih terbuka dulu)</x:String>
     <x:String x:Key="Tip_OpenPhotoshop">Buka Photoshop</x:String>
     <x:String x:Key="Text_OpenPhotoshop">Buka Photoshop</x:String>

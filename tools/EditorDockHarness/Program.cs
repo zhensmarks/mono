@@ -88,6 +88,8 @@ class Program
         Console.WriteLine("LAYERS " + win.EditorTestLayerReport());
         Console.WriteLine("BG-DEFAULT " + win.EditorTestBackgroundReport());
         Console.WriteLine("CHROME-EDIT " + win.EditorTestChromeReport());
+        Console.WriteLine("COMPARE-DOWN " + win.EditorTestCompareFloat(true));
+        Console.WriteLine("COMPARE-UP " + win.EditorTestCompareFloat(false));
         Console.WriteLine("LOAD-BENCH " + win.EditorTestBenchLoad(3));
         Console.WriteLine("PENPATH-BLUE " + win.EditorTestDrawPenPath("#0A84FF", 4));
         Shoot(win, "01d_penpath_blue_th4");
@@ -187,6 +189,7 @@ class Program
         win.EditorTestFloatPanel("layers");
         await Settle();
         Console.WriteLine("DOCK-FLOAT " + win.EditorTestDockReport());
+        Console.WriteLine("FLOAT-SIZE " + win.EditorTestFloatWindowSize("layers"));
         Console.WriteLine("FLOAT-REPORT " + win.EditorTestFloatingReport());
         Shoot(win, "11_layers_floating");
         win.EditorTestDockPanel("layers", "Left");

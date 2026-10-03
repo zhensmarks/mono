@@ -34,7 +34,9 @@
     <x:String x:Key="Btn_StartEdit">Start Editing</x:String>
     <x:String x:Key="Tip_StartEditor">Start editor (E)</x:String>
     <x:String x:Key="Btn_Compare">Compare</x:String>
-    <x:String x:Key="Tip_Compare">Show original image over result</x:String>
+    <x:String x:Key="Tip_Compare">Show original over the result</x:String>
+    <x:String x:Key="Footer_Compare">Compare</x:String>
+    <x:String x:Key="Tip_CompareHold">Hold to peek the original</x:String>
     <x:String x:Key="Tip_ExitEditor">Exit editor (Esc; cancels an open path first)</x:String>
     <x:String x:Key="Tip_OpenPhotoshop">Open Photoshop</x:String>
     <x:String x:Key="Text_OpenPhotoshop">Open Photoshop</x:String>

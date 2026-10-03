@@ -241,19 +241,10 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
 
-        <!-- Spinner berputar (dipakai overlay "Menyimpan..." & Refine Hair). -->
+        <!-- Spinner: origin rotasi. Rotasi digerakkan dari kode (DispatcherTimer) agar
+             andal di semua backend, tidak bergantung animasi style. -->
         <Style Selector="Grid.spinning">
             <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
-            <Style.Animations>
-                <Animation Duration="0:0:0.9" IterationCount="Infinite" Easing="LinearEasing">
-                    <KeyFrame KeyTime="0:0:0">
-                        <Setter Property="RotateTransform.Angle" Value="0"/>
-                    </KeyFrame>
-                    <KeyFrame KeyTime="0:0:0.9">
-                        <Setter Property="RotateTransform.Angle" Value="360"/>
-                    </KeyFrame>
-                </Animation>
-            </Style.Animations>
         </Style>
 </Styles>
 
