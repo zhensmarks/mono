@@ -84,7 +84,7 @@ public partial class PreviewWindow
 
     private void SyncDockCombos() { }   // combo lama sudah diganti menu ⋮ + drag
 
-    /// <summary>Pindahkan tiap panel ke host sesuai posisi tersimpan.</summary>
+    /// <summary>Pindahkan tiap panel ke host sesuai posisi tersimpan, urut sesuai EditorDockOrder.</summary>
     private void ArrangeDockedPanels()
     {
         var top = this.FindControl<StackPanel>("DockTopPanel");
@@ -93,9 +93,16 @@ public partial class PreviewWindow
         var bottom = this.FindControl<StackPanel>("DockBottomPanel");
         if (top == null || left == null || right == null || bottom == null) return;
 
-        foreach (var (name, _, setting) in DockedPanels)
+        // Kosongkan host dulu agar urutan bisa dibangun ulang persis.
+        top.Children.Clear(); left.Children.Clear(); right.Children.Clear(); bottom.Children.Clear();
+
+        var order = EffectiveDockOrder();
+        foreach (var setting in order)
         {
-            if (this.FindControl<Control>(name) is not { } panel) continue;
+            var match = DockedPanels.FirstOrDefault(d => d.Setting == setting);
+            if (match.Name == null) continue;
+            if (IsFloating(match.Key)) continue;   // panel melayang → biarkan di jendelanya
+            if (this.FindControl<Control>(match.Name) is not { } panel) continue;
 
             // Lepas dari parent mana pun (host dock ATAU grid awal), lalu pindah ke host tujuan.
             if (panel.Parent is Panel currentParent) currentParent.Children.Remove(panel);
@@ -207,11 +214,18 @@ public partial class PreviewWindow
 
         bool Shown(string key, string setting)
         {
+            if (IsFloating(key)) return true;    // melayang → panel hidup di jendelanya sendiri
             if (_tabPanelsHidden) return false;
             if (!Visible(key)) return false;
-            if (IsFloating(key)) return false;   // panel melayang → bukan bagian host dock
             if (DockPositionOf(setting) == "Right" && !rightMaster) return false;
             return true;
+        }
+
+        // Visibilitas host dock: panel melayang BUKAN bagian host (dihitung terpisah).
+        bool DockedHere(string key, string setting)
+        {
+            if (IsFloating(key)) return false;
+            return Shown(key, setting);
         }
 
         SetVisible("PanelToolRail", Shown("toolrail", "Tools"));
@@ -223,7 +237,7 @@ public partial class PreviewWindow
         SetVisible("PanelMenuBar", true);
 
         bool AnyVisibleAt(string position) => DockedPanels.Any(p =>
-            DockPositionOf(p.Setting) == position && Shown(p.Key, p.Setting));
+            DockPositionOf(p.Setting) == position && DockedHere(p.Key, p.Setting));
 
         // Host atas/kiri/bawah hanya tampil bila ada panel yang memakainya.
         SetVisible("DockTopHost", AnyVisibleAt("Top"));
@@ -236,7 +250,7 @@ public partial class PreviewWindow
         if (this.FindControl<Border>("PanelRightEditor") is { } right)
         {
             rightNonTool = DockedPanels.Any(p => p.Setting != "Tools" &&
-                DockPositionOf(p.Setting) == "Right" && Shown(p.Key, p.Setting));
+                DockPositionOf(p.Setting) == "Right" && DockedHere(p.Key, p.Setting));
             bool rightHasAny = AnyVisibleAt("Right");
             double savedW = _settings.EditorRightDockWidth >= 180 ? _settings.EditorRightDockWidth : 240;
             right.Width = rightNonTool ? savedW : (rightHasAny ? 70 : 0);

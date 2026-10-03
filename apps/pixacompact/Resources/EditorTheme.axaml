@@ -25,6 +25,8 @@
             <SolidColorBrush x:Key="EditorBtnBorder">#4A4A4A</SolidColorBrush>
             <SolidColorBrush x:Key="EditorBtnBgDisabled">#262626</SolidColorBrush>
             <SolidColorBrush x:Key="EditorBtnBorderDisabled">#3A3A3A</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorDropHighlight">#3331A8FF</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorDropBorder">#31A8FF</SolidColorBrush>
             <x:Double x:Key="EditorRailWidth">56</x:Double>
             <x:Double x:Key="EditorToolSize">36</x:Double>
             <x:Double x:Key="EditorOptionsBarHeight">32</x:Double>

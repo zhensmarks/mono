@@ -12,10 +12,11 @@ using Avalonia.Controls.Primitives;
 namespace PixelcutCompact.Views;
 
 /// <summary>
-/// Docking ala Photoshop untuk panel editor: panel bisa DICABUT jadi jendela melayang,
-/// DIPASANG balik, dan DIRENDENGKAN ke sisi Kiri/Atas/Kanan/Bawah. Dikendalikan lewat
-/// menu ⋮ di header tiap panel dan lewat seret header panel ke sisi tujuan.
-/// Posisi disimpan di settings (EditorToolsDock/EditorPropertiesDock/... ).
+/// Docking ala Photoshop untuk panel editor: panel bisa DICABUT jadi jendela melayang
+/// (tanpa chrome OS; header nama panel = area geser), DIPASANG balik, dan DIRENDENGKAN
+/// ke sisi Kiri/Atas/Kanan/Bawah. Beberapa panel boleh MENUMPUK di satu sisi — urutannya
+/// diatur dengan menjatuhkan tepat di atas panel lain. Dikendalikan lewat menu ⋮ di header
+/// tiap panel dan lewat seret header panel ke sisi tujuan. Posisi + urutan disimpan di settings.
 /// </summary>
 public partial class PreviewWindow
 {
@@ -31,9 +32,11 @@ public partial class PreviewWindow
     };
 
     private readonly Dictionary<string, Window> _floatingPanels = new();
-    private readonly Dictionary<string, (IBrush? Border, IBrush? Background)> _hostDefaults = new();
-    private static readonly IBrush HighlightBorder = new SolidColorBrush(Color.Parse("#3B82F6"));
-    private static readonly IBrush HighlightFill = new SolidColorBrush(Color.Parse("#333B82F6"));
+
+    // Status drop-zone aktif (diisi saat DragOver, dipakai saat Drop).
+    private string? _dropPosition;
+    private string? _dropAnchor;
+    private bool _dropAfter;
 
     private string ControlOf(string key) => FloatablePanels.FirstOrDefault(p => p.Key == key).Control ?? "";
     private string SettingOf(string key) => FloatablePanels.FirstOrDefault(p => p.Key == key).Setting ?? "";
@@ -112,25 +115,85 @@ public partial class PreviewWindow
         if (panel.Parent is Panel pp) pp.Children.Remove(panel);
         panel.Width = double.NaN;
         panel.Height = double.NaN;
+        panel.IsVisible = true;
+        panel.HorizontalAlignment = HorizontalAlignment.Stretch;
+        panel.VerticalAlignment = VerticalAlignment.Stretch;
 
+        var title = PanelTitle(key);
         var win = new Window
         {
-            Title = PanelTitle(key),
-            Width = key == "toolrail" ? 120 : 300,
-            Height = 420,
-            MinWidth = 140,
-            MinHeight = 160,
+            Title = title,
+            Width = key == "toolrail" ? 150 : 320,
+            Height = 460,
+            MinWidth = 170,
+            MinHeight = 220,
+            SystemDecorations = SystemDecorations.None,   // tanpa chrome OS
             Background = new SolidColorBrush(Color.Parse("#2B2B2B")),
-            Content = panel,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ShowInTaskbar = false,
             CanResize = true,
         };
 
+        // Header kustom: nama panel (mis. TOOLS) = area geser jendela.
+        var headerText = new TextBlock
+        {
+            Text = title.ToUpperInvariant(),
+            FontSize = 11,
+            FontWeight = FontWeight.Bold,
+            Foreground = new SolidColorBrush(Color.Parse("#E8E8E8")),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var closeBtn = new Button
+        {
+            Content = new PathIcon
+            {
+                Data = Geometry.Parse("M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"),
+                Width = 12,
+                Height = 12,
+                Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")),
+            },
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(6, 2),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Cursor = new Cursor(StandardCursorType.Hand),
+        };
+        closeBtn.Click += (_, _) => win.Close();
+
+        var headerGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        headerGrid.Children.Add(headerText);
+        Grid.SetColumn(closeBtn, 1);
+        headerGrid.Children.Add(closeBtn);
+
+        var header = new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#333333")),
+            BorderBrush = new SolidColorBrush(Color.Parse("#3A3A3A")),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(10, 6),
+            Child = headerGrid,
+            Cursor = new Cursor(StandardCursorType.SizeAll),
+        };
+        header.PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(win).Properties.IsLeftButtonPressed) win.BeginMoveDrag(e);
+        };
+
+        var root = new DockPanel();
+        DockPanel.SetDock(header, Dock.Top);
+        root.Children.Add(header);
+        var panelHost = new Border
+        {
+            Child = panel,
+            Background = new SolidColorBrush(Color.Parse("#2B2B2B")),
+        };
+        root.Children.Add(panelHost);
+        win.Content = root;
+
         _floatingPanels[key] = win;
         win.Closed += (_, _) =>
         {
-            win.Content = null;            // lepas panel dari jendela
+            panelHost.Child = null;        // lepas panel dari jendela
             _floatingPanels.Remove(key);
             ArrangeDockedPanels();         // pasang balik ke posisi tersimpan
             ApplyEditorDockVisibility();
@@ -140,10 +203,16 @@ public partial class PreviewWindow
         ApplyEditorDockVisibility();
     }
 
-    private void DockPanelTo(string key, string position)
+    /// <summary>Pasang panel ke sisi tertentu. anchor = panel acuan untuk urutan bertumpuk.</summary>
+    private void DockPanelTo(string key, string position, string? anchor = null, bool after = false)
     {
+        var setting = SettingOf(key);
+        if (string.IsNullOrEmpty(setting)) return;
+
         SetDockSetting(key, position);
+        UpdateOrderForDock(setting, position, anchor, after);
         _settings.Save();
+
         if (_floatingPanels.TryGetValue(key, out var w))
         {
             w.Close();                     // handler Closed → pasang balik
@@ -171,6 +240,7 @@ public partial class PreviewWindow
         _settings.EditorPropertiesDock = "Right";
         _settings.EditorHistoryDock = "Right";
         _settings.EditorLayersDock = "Right";
+        _settings.EditorDockOrder = new List<string> { "Tools", "Properties", "History", "Layers" };
         foreach (var p in PanelVisibility.Keys.ToList()) PanelVisibility[p] = true;
         _settings.Save();
         ConfigureEditorWorkspace();
@@ -185,6 +255,38 @@ public partial class PreviewWindow
             case "History": _settings.EditorHistoryDock = NormalizeDock(position); break;
             case "Layers": _settings.EditorLayersDock = NormalizeDock(position); break;
         }
+    }
+
+    // ─────────────────────────── Urutan panel di dalam satu sisi ───────────────────────────
+
+    /// <summary>Urutan panel efektif (setting yang hilang ditambahkan di akhir).</summary>
+    private List<string> EffectiveDockOrder()
+    {
+        var all = DockedPanels.Select(d => d.Setting).ToList();
+        var saved = _settings.EditorDockOrder?.Where(s => all.Contains(s)).Distinct().ToList() ?? new List<string>();
+        foreach (var s in all) if (!saved.Contains(s)) saved.Add(s);
+        return saved;
+    }
+
+    /// <summary>Taruh <paramref name="setting"/> sebelum/sesudah anchor, atau di ujung grup sisi.</summary>
+    private void UpdateOrderForDock(string setting, string position, string? anchor, bool after)
+    {
+        var order = EffectiveDockOrder();
+        order.Remove(setting);
+
+        if (!string.IsNullOrEmpty(anchor) && anchor != setting && order.Contains(anchor))
+        {
+            int i = order.IndexOf(anchor) + (after ? 1 : 0);
+            order.Insert(Math.Clamp(i, 0, order.Count), setting);
+        }
+        else
+        {
+            int last = -1;
+            for (int i = 0; i < order.Count; i++)
+                if (DockPositionOf(order[i]) == position) last = i;
+            order.Insert(last + 1, setting);
+        }
+        _settings.EditorDockOrder = order;
     }
 
     // ─────────────────────────── Seret header untuk pasang ke sisi ───────────────────────────
@@ -202,59 +304,106 @@ public partial class PreviewWindow
         try { await DragDrop.DoDragDrop(e, data, DragDropEffects.Move); } catch { }
     }
 
-    /// <summary>Pasang penanganan drag-drop ke host dock (Kiri/Atas/Kanan/Bawah).</summary>
+    /// <summary>Drop-zone di seluruh area workspace (ala Photoshop) — tidak bergantung host kosong.</summary>
     private void WireDockHosts()
     {
-        foreach (var name in new[] { "DockTopHost", "DockLeftHost", "DockBottomHost", "PanelRightEditor" })
+        if (this.FindControl<Grid>("EditorWorkspaceGrid") is not { } ws) return;
+        DragDrop.SetAllowDrop(ws, true);
+        ws.RemoveHandler(DragDrop.DragOverEvent, OnWorkspaceDragOver);
+        ws.RemoveHandler(DragDrop.DropEvent, OnWorkspaceDrop);
+        ws.RemoveHandler(DragDrop.DragLeaveEvent, OnWorkspaceDragLeave);
+        ws.AddHandler(DragDrop.DragOverEvent, OnWorkspaceDragOver);
+        ws.AddHandler(DragDrop.DropEvent, OnWorkspaceDrop);
+        ws.AddHandler(DragDrop.DragLeaveEvent, OnWorkspaceDragLeave);
+    }
+
+    private void OnWorkspaceDragOver(object? sender, DragEventArgs e)
+    {
+        if (!e.Data.Contains(PanelDragFormat))
         {
-            if (this.FindControl<Border>(name) is not { } host) continue;
-            _hostDefaults[name] = (host.BorderBrush, host.Background);
-            DragDrop.SetAllowDrop(host, true);
-            host.RemoveHandler(DragDrop.DragOverEvent, OnDockHostDragOver);
-            host.RemoveHandler(DragDrop.DropEvent, OnDockHostDrop);
-            host.RemoveHandler(DragDrop.DragLeaveEvent, OnDockHostDragLeave);
-            host.AddHandler(DragDrop.DragOverEvent, OnDockHostDragOver);
-            host.AddHandler(DragDrop.DropEvent, OnDockHostDrop);
-            host.AddHandler(DragDrop.DragLeaveEvent, OnDockHostDragLeave);
+            e.DragEffects = DragDropEffects.None;
+            HideDropZones();
+            return;
         }
-    }
-
-    private void OnDockHostDragOver(object? sender, DragEventArgs e)
-    {
-        bool ok = e.Data.Contains(PanelDragFormat);
-        e.DragEffects = ok ? DragDropEffects.Move : DragDropEffects.None;
-        if (ok && sender is Border host) HighlightHost(host, true);
+        e.DragEffects = DragDropEffects.Move;
+        if (sender is Grid ws)
+        {
+            var (position, anchor, after) = ComputeDropTarget(ws, e.GetPosition(ws));
+            _dropPosition = position; _dropAnchor = anchor; _dropAfter = after;
+            ShowDropZone(position);
+        }
         e.Handled = true;
     }
 
-    private void OnDockHostDragLeave(object? sender, RoutedEventArgs e)
+    private void OnWorkspaceDragLeave(object? sender, RoutedEventArgs e)
     {
-        if (sender is Border host) HighlightHost(host, false);
+        HideDropZones();
+        _dropPosition = null;
     }
 
-    private void OnDockHostDrop(object? sender, DragEventArgs e)
+    private void OnWorkspaceDrop(object? sender, DragEventArgs e)
     {
-        if (sender is Border host) HighlightHost(host, false);
-        if (sender is not Border h) return;
+        HideDropZones();
         var key = e.Data.Get(PanelDragFormat) as string;
-        if (string.IsNullOrEmpty(key)) return;
-        var position = HostPosition(h.Name);
-        if (position != null) DockPanelTo(key, position);
+        if (string.IsNullOrEmpty(key) || _dropPosition == null) { _dropPosition = null; return; }
+
+        var position = _dropPosition;
+        var anchor = _dropAnchor;
+        bool after = _dropAfter;
+        _dropPosition = null;
+        DockPanelTo(key, position, anchor, after);
         e.Handled = true;
     }
 
-    /// <summary>Highlight host tujuan saat menyeret panel (ala Photoshop drop zone).</summary>
-    private void HighlightHost(Border host, bool on)
+    /// <summary>Tentukan sisi tujuan dari posisi kursor; di tengah = menumpuk di panel acuan.</summary>
+    private (string Position, string? Anchor, bool After) ComputeDropTarget(Grid ws, Point p)
     {
-        if (!_hostDefaults.TryGetValue(host.Name ?? "", out var d)) return;
-        host.BorderBrush = on ? HighlightBorder : d.Border;
-        host.Background = on ? HighlightFill : d.Background;
+        double w = ws.Bounds.Width, h = ws.Bounds.Height;
+        double fx = w > 0 ? p.X / w : 0.5, fy = h > 0 ? p.Y / h : 0.5;
+
+        if (fy < 0.20) return ("Top", null, false);
+        if (fy > 0.80) return ("Bottom", null, false);
+        if (fx < 0.15) return ("Left", null, false);
+        if (fx > 0.85) return ("Right", null, false);
+
+        // Tengah: panel di bawah kursor → pasang sebelum/sesudahnya (menumpuk satu sisi).
+        if (ws.InputHitTest(p) is Control hit)
+        {
+            for (Control? c = hit; c != null; c = c.Parent as Control)
+            {
+                if (string.IsNullOrEmpty(c.Name)) continue;
+                var match = DockedPanels.FirstOrDefault(d => d.Name == c.Name);
+                if (match.Name == null) continue;
+
+                var pos = DockPositionOf(match.Setting);
+                var topLeft = c.TranslatePoint(new Point(0, 0), ws);
+                double top = topLeft?.Y ?? 0;
+                double mid = top + c.Bounds.Height / 2;
+                return (pos, match.Setting, p.Y > mid);
+            }
+        }
+
+        return (fx < 0.5 ? "Left" : "Right", null, false);
     }
 
-    private void ClearHostHighlights()
+    private void ShowDropZone(string position)
     {
-        foreach (var name in new[] { "DockTopHost", "DockLeftHost", "DockBottomHost", "PanelRightEditor" })
-            if (this.FindControl<Border>(name) is { } h) HighlightHost(h, false);
+        SetDropZone("DropZoneTop", position == "Top");
+        SetDropZone("DropZoneLeft", position == "Left");
+        SetDropZone("DropZoneRight", position == "Right");
+        SetDropZone("DropZoneBottom", position == "Bottom");
+        SetDropZone("DropZoneCenter", position is not ("Top" or "Bottom" or "Left" or "Right"));
+        if (this.FindControl<Grid>("DockDropOverlay") is { } overlay) overlay.IsVisible = true;
+    }
+
+    private void HideDropZones()
+    {
+        if (this.FindControl<Grid>("DockDropOverlay") is { } overlay) overlay.IsVisible = false;
+    }
+
+    private void SetDropZone(string name, bool visible)
+    {
+        if (this.FindControl<Border>(name) is { } zone) zone.IsVisible = visible;
     }
 
     /// <summary>Seret tepi kiri dock kanan untuk mengubah lebarnya (disimpan).</summary>
@@ -266,14 +415,5 @@ public partial class PreviewWindow
         right.Width = w;
         _settings.Save();
     }
-
-    private static string? HostPosition(string? hostName) => hostName switch
-    {
-        "DockTopHost" => "Top",
-        "DockLeftHost" => "Left",
-        "DockBottomHost" => "Bottom",
-        "PanelRightEditor" => "Right",
-        _ => null
-    };
 #pragma warning restore CS0618
 }

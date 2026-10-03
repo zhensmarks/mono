@@ -243,9 +243,10 @@
                 <!-- Dock host kiri: rail tools (atau panel lain yang dipindah ke kiri) -->
                 <Border x:Name="DockLeftHost" Grid.Row="1" Grid.Column="0" IsVisible="False"
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
-                        BorderThickness="0,0,1,0" Padding="0">
+                        BorderThickness="0,0,1,0" Padding="0"
+                        MinWidth="70" MinHeight="100">
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="DockLeftPanel"/>
+                        <StackPanel x:Name="DockLeftPanel" Orientation="Vertical" Spacing="8"/>
                     </ScrollViewer>
                 </Border>
                 <Border x:Name="PanelToolRail" Grid.Row="1" Grid.Column="0" IsVisible="False"
@@ -253,10 +254,12 @@
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,1,0"
                         Padding="8,10">
                     <Grid RowDefinitions="Auto,*">
-                        <Button Grid.Row="0" Classes="editor-compact" Content="⋮" Tag="toolrail" Click="OnPanelMenuClick" HorizontalAlignment="Center"
-                                FontSize="14" Padding="6,0" Margin="0,0,0,4" Background="Transparent" BorderThickness="0" Foreground="{StaticResource EditorTextSecondary}"
+                        <Button x:Name="HeaderToolRail" Grid.Row="0" Classes="editor-compact" Tag="toolrail" Click="OnPanelMenuClick" HorizontalAlignment="Center"
+                                Padding="4,0" Margin="0,0,0,4" Background="Transparent" BorderThickness="0"
                                 Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed"
-                                ToolTip.Tip="Opsi panel (cabut / pasang / tutup)"/>
+                                ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
+                            <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="16" Height="16" Foreground="{StaticResource EditorTextSecondary}"/>
+                        </Button>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="PanelToolContentGrid" ColumnDefinitions="Auto,Auto" HorizontalAlignment="Center">
                             <StackPanel x:Name="ToolColumnLeft" Grid.Column="0" Orientation="Vertical" Spacing="2">
@@ -474,7 +477,9 @@
                                             PointerPressed="OnPanelHeaderPressed">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <TextBlock Text="{DynamicResource Panel_Properties}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
-                                            <Button Grid.Column="1" Classes="editor-compact" Content="⋮" Tag="properties" Click="OnPanelMenuClick" FontSize="14" Padding="6,0" Background="Transparent" BorderThickness="0" Foreground="{StaticResource EditorTextSecondary}" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)"/>
+                                            <Button Grid.Column="1" Classes="editor-compact" Tag="properties" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
+                                                <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="14" Height="14" Foreground="{StaticResource EditorTextSecondary}"/>
+                                            </Button>
                                         </Grid>
                                     </Border>
 
@@ -533,7 +538,9 @@
                                 <StackPanel Spacing="8">
                                     <Grid ColumnDefinitions="*,Auto" Tag="history" Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed">
                                         <TextBlock Text="{DynamicResource Panel_History}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
-                                        <Button Grid.Column="1" Classes="editor-compact" Content="⋮" Tag="history" Click="OnPanelMenuClick" FontSize="14" Padding="6,0" Background="Transparent" BorderThickness="0" Foreground="{StaticResource EditorTextSecondary}" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)"/>
+                                        <Button Grid.Column="1" Classes="editor-compact" Tag="history" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
+                                            <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="14" Height="14" Foreground="{StaticResource EditorTextSecondary}"/>
+                                        </Button>
                                     </Grid>
                                     <Border Background="{StaticResource EditorBg}" CornerRadius="3" Padding="4" MaxHeight="200">
                                         <ListBox x:Name="LstHistory" Background="Transparent" BorderThickness="0" FontSize="10" Foreground="{StaticResource EditorTextSecondary}" ScrollViewer.VerticalScrollBarVisibility="Auto" AutoScrollToSelectedItem="False"/>
@@ -546,7 +553,9 @@
                                 <StackPanel Spacing="8">
                                     <Grid ColumnDefinitions="*,Auto" Tag="layers" Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed">
                                         <TextBlock Text="{DynamicResource Panel_Layers}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
-                                        <Button Grid.Column="1" Classes="editor-compact" Content="⋮" Tag="layers" Click="OnPanelMenuClick" FontSize="14" Padding="6,0" Background="Transparent" BorderThickness="0" Foreground="{StaticResource EditorTextSecondary}" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)"/>
+                                        <Button Grid.Column="1" Classes="editor-compact" Tag="layers" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
+                                            <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="14" Height="14" Foreground="{StaticResource EditorTextSecondary}"/>
+                                        </Button>
                                     </Grid>
                                     <Border Background="{StaticResource EditorBg}" CornerRadius="3" Padding="4" MaxHeight="220">
                                         <ItemsControl x:Name="LayerList">
@@ -602,6 +611,27 @@
                                    VerticalAlignment="Center" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="700"/>
                     </Grid>
                 </Border>
+
+                <!-- Overlay drop-zone (ala Photoshop): muncul saat menyeret header panel.
+                     IsHitTestVisible=False agar hit-test tetap menembus ke panel asli. -->
+                <Grid x:Name="DockDropOverlay" Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4"
+                      IsVisible="False" IsHitTestVisible="False" Background="#22000000">
+                    <Border x:Name="DropZoneTop" IsVisible="False" Margin="0" VerticalAlignment="Top" Height="120"
+                            Background="{StaticResource EditorDropHighlight}" BorderBrush="{StaticResource EditorDropBorder}" BorderThickness="0,0,0,2"/>
+                    <Border x:Name="DropZoneBottom" IsVisible="False" VerticalAlignment="Bottom" Height="120"
+                            Background="{StaticResource EditorDropHighlight}" BorderBrush="{StaticResource EditorDropBorder}" BorderThickness="0,2,0,0"/>
+                    <Border x:Name="DropZoneLeft" IsVisible="False" HorizontalAlignment="Left" Width="160"
+                            Background="{StaticResource EditorDropHighlight}" BorderBrush="{StaticResource EditorDropBorder}" BorderThickness="0,0,2,0"/>
+                    <Border x:Name="DropZoneRight" IsVisible="False" HorizontalAlignment="Right" Width="160"
+                            Background="{StaticResource EditorDropHighlight}" BorderBrush="{StaticResource EditorDropBorder}" BorderThickness="2,0,0,0"/>
+                    <Border x:Name="DropZoneCenter" IsVisible="False" Width="260" Height="180"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="6"
+                            Background="{StaticResource EditorDropHighlight}" BorderBrush="{StaticResource EditorDropBorder}" BorderThickness="2">
+                        <TextBlock Text="{DynamicResource Dock_DropHere}" FontSize="12" FontWeight="Bold"
+                                   Foreground="{StaticResource EditorTextPrimary}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
             </Grid>
 <Border Grid.Row="5" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="#0AFFFFFF" Padding="15,10" MinHeight="55">
                  <Grid>

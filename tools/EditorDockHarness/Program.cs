@@ -140,6 +140,40 @@ class Program
         Console.WriteLine("RAIL-2COL " + win.EditorTestToolRailReport());
         Shoot(win, "08_tools_two_columns");
 
+        // Docking: cabut panel Layers jadi jendela melayang, lalu pasang ke KIRI.
+        win.EditorTestFloatPanel("layers");
+        await Settle();
+        Console.WriteLine("DOCK-FLOAT " + win.EditorTestDockReport());
+        Console.WriteLine("FLOAT-REPORT " + win.EditorTestFloatingReport());
+        Shoot(win, "11_layers_floating");
+        win.EditorTestDockPanel("layers", "Left");
+        await Settle();
+        Console.WriteLine("DOCK-LEFT " + win.EditorTestDockReport());
+        Shoot(win, "12_layers_docked_left");
+        win.EditorTestDockPanel("layers", "Right");
+        await Settle();
+        Console.WriteLine("DOCK-RIGHT " + win.EditorTestDockReport());
+        Shoot(win, "13_layers_docked_right");
+
+        // Penumpukan: taruh Layers SEBELUM Properties (Layers di atas Properties, sisi kanan).
+        Console.WriteLine("ORDER-BEFORE " + win.EditorTestHostOrderReport());
+        win.EditorTestDockPanelStacked("layers", "Properties", after: false);
+        await Settle();
+        Console.WriteLine("STACK-BEFORE " + win.EditorTestHostOrderReport());
+        Shoot(win, "14_layers_stacked_before_props");
+
+        // Taruh Layers SESUDAH Properties (kebalikannya).
+        win.EditorTestDockPanelStacked("layers", "Properties", after: true);
+        await Settle();
+        Console.WriteLine("STACK-AFTER " + win.EditorTestHostOrderReport());
+        Shoot(win, "15_layers_stacked_after_props");
+
+        // Uji drop-zone: target berdasarkan koordinat workspace (tepi kiri/atas + tengah).
+        Console.WriteLine("DROP-LEFT " + win.EditorTestDropTargetAt(8, 400));
+        Console.WriteLine("DROP-TOP " + win.EditorTestDropTargetAt(700, 8));
+        Console.WriteLine("DROP-BOTTOM " + win.EditorTestDropTargetAt(700, 1500));
+        Console.WriteLine("DROP-RIGHT " + win.EditorTestDropTargetAt(1490, 400));
+
         // Refine Hair AI pada cutout asli berambut: zoom ke kepala, jalankan, bandingkan.
         win.EditorTestZoomToImageRect(1300, 300, 1400, 1500);
         await Settle();

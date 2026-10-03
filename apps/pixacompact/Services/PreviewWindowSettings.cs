@@ -74,6 +74,8 @@ public class PreviewWindowSettings
     public string EditorLayersDock { get; set; } = "Right";
     /// <summary>Lebar dock kanan (px) — bisa diubah dengan menyeret tepinya.</summary>
     public double EditorRightDockWidth { get; set; } = 240;
+    /// <summary>Urutan panel di dalam sisi dock (nama setting: Tools/Properties/History/Layers).</summary>
+    public List<string> EditorDockOrder { get; set; } = new() { "Tools", "Properties", "History", "Layers" };
     // Visibilitas panel editor (menu Window): key -> tampil. Key yang tidak ada = tampil (default ala Photoshop).
     public Dictionary<string, bool> EditorPanelVisibility { get; set; } = new();
     // Prefer two columns for a side-docked Tools rail; Auto still falls back when one column will clip.

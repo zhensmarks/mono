@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -82,6 +83,58 @@ public partial class PreviewWindow
 
     /// <summary>Uji docking: pasang panel ke sisi tertentu.</summary>
     public void EditorTestDockPanel(string key, string position) => DockPanelTo(key, position);
+
+    /// <summary>Uji docking: pasang panel menumpuk sebelum/sesudah panel lain.</summary>
+    public void EditorTestDockPanelStacked(string key, string anchor, bool after)
+        => DockPanelTo(key, DockPositionOf(SettingOf(anchor)), anchor, after);
+
+    /// <summary>Uji drop-zone: hitung target pada koordinat workspace, lalu pasang panel di sana.</summary>
+    public string EditorTestDropAt(string key, double x, double y)
+    {
+        if (this.FindControl<Grid>("EditorWorkspaceGrid") is not { } ws) return "no-workspace";
+        var (position, anchor, after) = ComputeDropTarget(ws, new Point(x, y));
+        DockPanelTo(key, position, anchor, after);
+        return $"pos={position} anchor={anchor ?? "-"} after={after}";
+    }
+
+    /// <summary>Uji drop-zone: laporan target yang dihitung pada koordinat tertentu (tanpa memasang).</summary>
+    public string EditorTestDropTargetAt(double x, double y)
+    {
+        if (this.FindControl<Grid>("EditorWorkspaceGrid") is not { } ws) return "no-workspace";
+        var (position, anchor, after) = ComputeDropTarget(ws, new Point(x, y));
+        return $"pos={position} anchor={anchor ?? "-"} after={after} ws={ws.Bounds.Width:0}x{ws.Bounds.Height:0}";
+    }
+
+    /// <summary>Laporan urutan panel di tiap host (nama kontrol, dipisah koma).</summary>
+    public string EditorTestHostOrderReport()
+    {
+        string Names(string host)
+        {
+            var sp = this.FindControl<StackPanel>(host);
+            if (sp == null) return "-";
+            var names = sp.Children.OfType<Control>().Select(c => c.Name ?? "?").ToList();
+            return names.Count == 0 ? "-" : string.Join(",", names);
+        }
+        return $"Top[{Names("DockTopPanel")}] Left[{Names("DockLeftPanel")}] "
+             + $"Right[{Names("DockRightPanel")}] Bottom[{Names("DockBottomPanel")}] "
+             + $"order=[{string.Join(",", EffectiveDockOrder())}]";
+    }
+
+    /// <summary>Laporan isi jendela melayang (judul + ada/tidaknya konten panel).</summary>
+    public string EditorTestFloatingReport()
+    {
+        if (_floatingPanels.Count == 0) return "floating=none";
+        var parts = new List<string>();
+        foreach (var (key, win) in _floatingPanels)
+        {
+            var host = win.Content as DockPanel;
+            var body = host?.Children.OfType<Border>()
+                .Select(b => b.Child as Control)
+                .FirstOrDefault(c => c != null && DockedPanels.Any(d => d.Name == c.Name));
+            parts.Add($"{key}:title={win.Title}:body={(body?.Name ?? "NULL")}");
+        }
+        return "floating=" + string.Join(" ", parts);
+    }
 
     /// <summary>Laporan status docking (melayang / posisi).</summary>
     public string EditorTestDockReport()
