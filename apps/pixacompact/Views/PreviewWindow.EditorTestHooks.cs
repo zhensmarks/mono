@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
+using PixelcutCompact.Services.Editing;
 
 namespace PixelcutCompact.Views;
 
@@ -202,11 +203,83 @@ public partial class PreviewWindow
         return $"px={_session.Width}x{_session.Height} " + string.Join(" ", parts);
     }
 
+    /// <summary>Uji kecepatan baca: decode + FromBitmap untuk hasil & asli (ms).</summary>
+    public string EditorTestBenchLoad(int runs = 3)
+    {
+        var parts = new System.Collections.Generic.List<string>();
+        for (int i = 0; i < runs; i++)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            long tResultDecode = 0, tResultBuffer = 0, tOrigDecode = 0, tOrigBuffer = 0;
+            try
+            {
+                using (var b = new Avalonia.Media.Imaging.Bitmap(_resultPath))
+                {
+                    tResultDecode = sw.ElapsedMilliseconds;
+                    _ = PixelBuffer.FromBitmap(b);
+                    tResultBuffer = sw.ElapsedMilliseconds;
+                }
+            }
+            catch { }
+            try
+            {
+                using (var b = new Avalonia.Media.Imaging.Bitmap(_originalPath))
+                {
+                    tOrigDecode = sw.ElapsedMilliseconds;
+                    _ = PixelBuffer.FromBitmap(b);
+                    tOrigBuffer = sw.ElapsedMilliseconds;
+                }
+            }
+            catch { }
+            parts.Add($"[run{i} resDecode={tResultDecode} resBuf={tResultBuffer - tResultDecode} " +
+                      $"origDecode={tOrigDecode - tResultBuffer} origBuf={tOrigBuffer - tOrigDecode} total={tOrigBuffer}]");
+        }
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>Uji round-trip PNG Skia: encode buffer, decode ulang, cek warna piksel.</summary>
+    public string EditorTestPngRoundTrip()
+    {
+        if (_session == null) return "no-session";
+        var buf = _session.Composite();
+        var png = buf.ToPngBytes();
+        using var ms = new System.IO.MemoryStream(png);
+        using var decoded = new Avalonia.Media.Imaging.Bitmap(ms);
+        var back = PixelBuffer.FromBitmap(decoded);
+        // Ambil sampel piksel tengah.
+        int cx = buf.Width / 2, cy = buf.Height / 2;
+        int i = (cy * buf.Width + cx) * 4;
+        string S(byte[] a) => $"B{a[i]}G{a[i + 1]}R{a[i + 2]}A{a[i + 3]}";
+        bool same = buf.Bgra[i] == back.Bgra[i] && buf.Bgra[i + 1] == back.Bgra[i + 1]
+                 && buf.Bgra[i + 2] == back.Bgra[i + 2] && buf.Bgra[i + 3] == back.Bgra[i + 3];
+        return $"bytes={png.Length} orig[{S(buf.Bgra)}] back[{S(back.Bgra)}] centerSame={same} dims={decoded.PixelSize.Width}x{decoded.PixelSize.Height}";
+    }
+
     /// <summary>Uji chrome: laporan visibilitas footer navigasi & toast.</summary>
     public string EditorTestChromeReport()
     {
         bool F(string n) => this.FindControl<Control>(n)?.IsVisible ?? false;
         return $"footer={F("PanelFooter")} toast={F("ToastNotification")} editMode={_editMode}";
+    }
+
+    /// <summary>Uji warna/tebal path: set preferensi + gambar path 3 titik, lalu lapor.</summary>
+    public string EditorTestDrawPenPath(string color, double thickness)
+    {
+        SetPenPathColorPref(color);
+        SetPenPathThicknessPref(thickness);
+        SetActiveTool(EditToolKind.Pen);
+        if (_activeSelectionTool is PenTool pen)
+        {
+            pen.Reset();
+            pen.PointerDown(new Vec2(-300, -150)); pen.PointerUp(new Vec2(-300, -150));
+            pen.PointerDown(new Vec2(0, 150));      pen.PointerUp(new Vec2(0, 150));
+            pen.PointerDown(new Vec2(300, -150));   pen.PointerUp(new Vec2(300, -150));
+            RenderOverlay();
+        }
+        var overlay = this.FindControl<Canvas>("EditOverlay");
+        var polys = overlay?.Children.OfType<Avalonia.Controls.Shapes.Polyline>().ToList() ?? new();
+        var info = polys.Select(p => $"stroke={(p.Stroke as Avalonia.Media.ISolidColorBrush)?.Color} th={p.StrokeThickness} dash={p.StrokeDashArray?.Count ?? 0}");
+        return $"color={PenPathStyle.NormalizeColor(color)} th={PenPathStyle.ClampThickness(thickness)} polys=[{string.Join("; ", info)}]";
     }
 
     /// <summary>Laporan tata letak rail Tools (lebar, jumlah kolom, isi tiap kolom).</summary>

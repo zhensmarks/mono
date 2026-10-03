@@ -150,6 +150,7 @@
     <x:String x:Key="Dock_TwoColumns">Tools 2 kolom</x:String>
     <x:String x:Key="Dock_DropHere">Lepas untuk menumpuk di sini</x:String>
     <x:String x:Key="Tip_CloseWindow">Tutup jendela</x:String>
+    <x:String x:Key="Save_Busy">Menyimpan…</x:String>
     <x:String x:Key="Set_Title">Pintasan keyboard</x:String>
     <x:String x:Key="Set_BetaMode">Mode Editor (Beta)</x:String>
     <x:String x:Key="Tip_BetaMode">Aktifkan editor mask dan seleksi</x:String>

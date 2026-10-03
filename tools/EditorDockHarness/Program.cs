@@ -88,7 +88,13 @@ class Program
         Console.WriteLine("LAYERS " + win.EditorTestLayerReport());
         Console.WriteLine("BG-DEFAULT " + win.EditorTestBackgroundReport());
         Console.WriteLine("CHROME-EDIT " + win.EditorTestChromeReport());
+        Console.WriteLine("LOAD-BENCH " + win.EditorTestBenchLoad(3));
+        Console.WriteLine("PENPATH-BLUE " + win.EditorTestDrawPenPath("#0A84FF", 4));
+        Shoot(win, "01d_penpath_blue_th4");
+        Console.WriteLine("PENPATH-RED " + win.EditorTestDrawPenPath("#FF3B30", 8));
+        Shoot(win, "01e_penpath_red_th8");
         Console.WriteLine("SAVE-BENCH " + win.EditorTestTimeSave(3));
+        Console.WriteLine("PNG-ROUNDTRIP " + win.EditorTestPngRoundTrip());
         Shoot(win, "01_default_all_visible");
 
         // Background: set solid hijau (seperti via Preferences) lalu cek mode edit memakai brush sama.

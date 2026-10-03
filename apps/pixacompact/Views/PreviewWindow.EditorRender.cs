@@ -241,27 +241,22 @@ public partial class PreviewWindow
             ? new SolidColorBrush(PenPathColor())
             : new SolidColorBrush(Color.Parse("#FFE24A"));
 
-        if (penStyle)
-        {
-            // Underlay gelap tipis: garis path selalu terbaca di atas kanvas terang maupun gelap.
-            AddPathPolyline(overlay, pts, closed, Brushes.Black, thickness + 2.0, 0.7);
-        }
-        AddPathPolyline(overlay, pts, closed, stroke, thickness, 1.0);
+        // Garis path Pen: HANYA warna yang dipilih user — solid, ketebalan persis
+        // (tanpa underlay hitam / dash yang membuat tampak "dua warna").
+        AddPathPolyline(overlay, pts, closed, stroke, thickness, 1.0, dash: !penStyle);
 
         if (closed && pts.Count >= 3)
         {
             var s0 = ImageToOverlay(pts[0]);
             var sl = ImageToOverlay(pts[pts.Count - 1]);
             if (penStyle)
-            {
-                DrawLine(overlay, sl, s0, "#000000", width: thickness + 2.0);
                 DrawLine(overlay, sl, s0, PenPathStyle.NormalizeColor(_settings.EditorPenPathColor), width: thickness);
-            }
-            else DrawLine(overlay, sl, s0, "#FFE24A");
+            else
+                DrawLine(overlay, sl, s0, "#FFE24A");
         }
     }
 
-    private void AddPathPolyline(Canvas overlay, IReadOnlyList<Vec2> pts, bool closed, IBrush stroke, double thickness, double opacity)
+    private void AddPathPolyline(Canvas overlay, IReadOnlyList<Vec2> pts, bool closed, IBrush stroke, double thickness, double opacity, bool dash = true)
     {
         var poly = new Polyline
         {
@@ -269,7 +264,7 @@ public partial class PreviewWindow
             StrokeThickness = thickness,
             Opacity = opacity,
         };
-        if (!closed) poly.StrokeDashArray = new AvaloniaList<double> { 4, 3 };
+        if (dash && !closed) poly.StrokeDashArray = new AvaloniaList<double> { 4, 3 };
 
         foreach (var p in pts)
         {

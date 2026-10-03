@@ -91,8 +91,9 @@ public sealed class PixelBuffer
     // ========================
 
     /// <summary>
-    /// Baca dari Avalonia Bitmap. Otomatis meng-copy ke buffer kita dan
-    /// meng-unpremultiply alpha bila format sumber premultiplied.
+    /// Baca dari Avalonia Bitmap ke buffer kita. Cepat: salin piksel LANGSUNG
+    /// via CopyPixels (tanpa PNG encode/decode). Data Bgra8888 premultiplied
+    /// di-unpremultiply agar konsisten dengan format internal (non-premul).
     /// </summary>
     public static PixelBuffer FromBitmap(Bitmap bitmap)
     {
@@ -100,61 +101,41 @@ public sealed class PixelBuffer
         int h = bitmap.PixelSize.Height;
         var buffer = new PixelBuffer(w, h);
 
-        // Render ke RenderTargetBitmap agar komposisinya seragam, lalu baca
-        // pikselnya memakai ILockedFramebuffer (Bgra8888 premultiplied).
-        using var rtb = new RenderTargetBitmap(new Avalonia.PixelSize(w, h), new Avalonia.Vector(96, 96));
-        using (var ctx = rtb.CreateDrawingContext())
-        {
-            ctx.DrawImage(bitmap, new Avalonia.Rect(0, 0, w, h));
-        }
-
-        // RenderTargetBitmap tidak punya Lock(); encode ke PNG lalu decode
-        // memberi kita Bitmap yang bisa di-CopyPixels dengan format pasti.
-        using var ms = new System.IO.MemoryStream();
-        rtb.Save(ms);
-        ms.Position = 0;
-        using var decoded = new Bitmap(ms);
-
-        var fmt = PixelFormat.Bgra8888;
-        var pixels = new byte[w * h * 4];
-        var handle = System.Runtime.InteropServices.GCHandle.Alloc(pixels,
+        var handle = System.Runtime.InteropServices.GCHandle.Alloc(buffer.Bgra,
             System.Runtime.InteropServices.GCHandleType.Pinned);
         try
         {
-            decoded.CopyPixels(new Avalonia.PixelRect(0, 0, w, h),
-                handle.AddrOfPinnedObject(), pixels.Length, w * 4);
+            bitmap.CopyPixels(new Avalonia.PixelRect(0, 0, w, h),
+                handle.AddrOfPinnedObject(), buffer.Bgra.Length, w * 4);
         }
         finally
         {
             handle.Free();
         }
-        _ = fmt;
 
-        for (int i = 0, di = 0; i < pixels.Length; i += 4, di += 4)
+        UnpremultiplyInPlace(buffer.Bgra);
+        return buffer;
+    }
+
+    /// <summary>
+    /// Unpremultiply BGRA in-place (CopyPixels menghasilkan premultiplied).
+    /// Alpha 0 → RGB dipaksa 0 agar cutout transparan tidak jadi hitam pekat.
+    /// </summary>
+    private static void UnpremultiplyInPlace(byte[] bgra)
+    {
+        for (int i = 0; i < bgra.Length; i += 4)
         {
-            byte b = pixels[i + 0];
-            byte g = pixels[i + 1];
-            byte r = pixels[i + 2];
-            byte a = pixels[i + 3];
-
-            // CopyPixels menghasilkan data premultiplied untuk Bgra8888.
+            byte a = bgra[i + 3];
+            if (a == 255) continue;
             if (a == 0)
             {
-                r = 0; g = 0; b = 0;
+                bgra[i + 0] = 0; bgra[i + 1] = 0; bgra[i + 2] = 0;
+                continue;
             }
-            else if (a != 255)
-            {
-                r = Unpremul(r, a);
-                g = Unpremul(g, a);
-                b = Unpremul(b, a);
-            }
-
-            buffer.Bgra[di + 0] = b;
-            buffer.Bgra[di + 1] = g;
-            buffer.Bgra[di + 2] = r;
-            buffer.Bgra[di + 3] = a;
+            bgra[i + 0] = Unpremul(bgra[i + 0], a);
+            bgra[i + 1] = Unpremul(bgra[i + 1], a);
+            bgra[i + 2] = Unpremul(bgra[i + 2], a);
         }
-        return buffer;
     }
 
     private static byte Unpremul(byte c, byte a)
@@ -270,10 +251,37 @@ public sealed class PixelBuffer
     }
 
     /// <summary>
-    /// Ekspor ke PNG bytes. Membuat Bitmap Avalonia dari buffer non-premul
-    /// (encode via Save ke stream).
+    /// Ekspor ke PNG. Memakai encoder Skia LANGSUNG dari buffer BGRA (tanpa
+    /// round-trip Avalonia) dengan level kompresi rendah agar save jauh lebih cepat.
+    /// Fallback ke jalur Avalonia bila Skia gagal.
     /// </summary>
     public void SavePng(System.IO.Stream stream)
+    {
+        try
+        {
+            var info = new SkiaSharp.SKImageInfo(Width, Height,
+                SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Unpremul);
+            var handle = System.Runtime.InteropServices.GCHandle.Alloc(Bgra,
+                System.Runtime.InteropServices.GCHandleType.Pinned);
+            try
+            {
+                using var pixmap = new SkiaSharp.SKPixmap(info, handle.AddrOfPinnedObject(), Width * 4);
+                // Level zlib rendah (1) = encode ~3-5x lebih cepat dari default 6,
+                // ukuran file naik sedikit tapi save jauh lebih responsif.
+                var opts = new SkiaSharp.SKPngEncoderOptions(
+                    SkiaSharp.SKPngEncoderFilterFlags.AllFilters, 1);
+                if (!pixmap.Encode(stream, opts)) SavePngViaAvalonia(stream);
+            }
+            finally { handle.Free(); }
+        }
+        catch
+        {
+            SavePngViaAvalonia(stream);
+        }
+    }
+
+    /// <summary>Jalur lama (Avalonia Bitmap.Save) sebagai fallback.</summary>
+    private void SavePngViaAvalonia(System.IO.Stream stream)
     {
         using var bmp = ToAvaloniaBitmap();
         bmp.Save(stream);

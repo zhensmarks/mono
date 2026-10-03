@@ -51,7 +51,7 @@ public static class EditorSettings
     public const double DefaultPenPathThickness = 2.0; // px, rentang 1..8
     public const double MinPenPathThickness = 1.0;
     public const double MaxPenPathThickness = 8.0;
-    public const string DefaultPenPathColor = "#FFFFFF"; // putih + outline gelap = selalu terbaca
+    public const string DefaultPenPathColor = "#FFFFFF"; // warna garis path (murni, tanpa outline gelap)
 
     // UI editor
     public const bool DefaultShowRightPanel = true;

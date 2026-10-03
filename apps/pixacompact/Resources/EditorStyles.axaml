@@ -240,4 +240,20 @@
             <Setter Property="Foreground" Value="{StaticResource EditorTextPrimary}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
+
+        <!-- Spinner berputar (dipakai overlay "Menyimpan..." & Refine Hair). -->
+        <Style Selector="Grid.spinning">
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Style.Animations>
+                <Animation Duration="0:0:0.9" IterationCount="Infinite" Easing="LinearEasing">
+                    <KeyFrame KeyTime="0:0:0">
+                        <Setter Property="RotateTransform.Angle" Value="0"/>
+                    </KeyFrame>
+                    <KeyFrame KeyTime="0:0:0.9">
+                        <Setter Property="RotateTransform.Angle" Value="360"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
 </Styles>
+

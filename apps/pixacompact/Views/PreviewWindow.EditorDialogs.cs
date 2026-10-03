@@ -19,8 +19,53 @@ public partial class PreviewWindow
     // SAVE
     // ========================
 
-    private void OnSaveEditClick(object? sender, RoutedEventArgs e) => SaveInPlace();
+    private void OnSaveEditClick(object? sender, RoutedEventArgs e) => _ = SaveInPlaceAsync();
 
+    /// <summary>Tampilkan/sembunyikan overlay "Menyimpan…" (spinner).</summary>
+    private void SetSaveBusy(bool busy)
+    {
+        if (this.FindControl<Border>("PanelSaveBusy") is { } b) b.IsVisible = busy;
+    }
+
+    /// <summary>
+    /// Simpan in-place TANPA memblokir UI: encode PNG berjalan di thread latar,
+    /// overlay "Menyimpan…" (spinner) tampil selama proses.
+    /// </summary>
+    private async Task SaveInPlaceAsync()
+    {
+        if (_session == null) return;
+        if (_session.HasPendingRestore && !_session.HasRestoreSource)
+        {
+            Toast(T("Toast_OriginalLoading"));
+            return;
+        }
+
+        var session = _session;
+        var path = _resultPath;
+        SetSaveBusy(true);
+        try
+        {
+            string? err = await Task.Run(() =>
+            {
+                try { session.BakeToFile(path); return null; }
+                catch (Exception ex) { return ex.Message; }
+            });
+            if (err == null)
+            {
+                session.MarkSaved();
+                Toast(T("Toast_Saved"));
+                Saved?.Invoke(this, _resultPath);
+                UpdateEditorStatus();
+            }
+            else
+            {
+                Toast(T("Toast_FailSave", err), warning: true);
+            }
+        }
+        finally { SetSaveBusy(false); }
+    }
+
+    /// <summary>Versi sinkron (untuk guard dialog yang butuh hasil langsung).</summary>
     private bool SaveInPlace()
     {
         if (_session == null) return false;
@@ -279,10 +324,27 @@ public partial class PreviewWindow
 
             if (file?.TryGetLocalPath() is not { } path || string.IsNullOrEmpty(path)) return;
 
-            _session.BakeToFile(path);
-            _session.MarkSaved();
-            Toast(T("Toast_SavedCopy"));
-            Saved?.Invoke(this, path);
+            var session = _session;
+            SetSaveBusy(true);
+            try
+            {
+                string? err = await Task.Run(() =>
+                {
+                    try { session.BakeToFile(path); return null; }
+                    catch (Exception ex) { return ex.Message; }
+                });
+                if (err == null)
+                {
+                    session.MarkSaved();
+                    Toast(T("Toast_SavedCopy"));
+                    Saved?.Invoke(this, path);
+                }
+                else
+                {
+                    Toast(T("Toast_FailSaveCopy", err), warning: true);
+                }
+            }
+            finally { SetSaveBusy(false); }
         }
         catch (Exception ex)
         {

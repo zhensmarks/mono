@@ -285,4 +285,43 @@ public sealed class EditorMaskRegressionTests
         Assert.Equal(1, snap.Anchors[0].Point.X);
         Assert.Equal(2, snap.Anchors[0].Point.Y);
     }
+
+    // ========================
+    // WARNA & KETEBALAN GARIS PATH
+    // ========================
+
+    /// <summary>Warna path dinormalisasi ke #RRGGBB; nilai tak valid jatuh ke default.</summary>
+    [Theory]
+    [InlineData("#0A84FF", "#0A84FF")]
+    [InlineData("0a84ff", "#0A84FF")]
+    [InlineData("  #ff3b30 ", "#FF3B30")]
+    [InlineData("", PixelcutCompact.Models.EditorSettings.DefaultPenPathColor)]
+    [InlineData("bukan-warna", PixelcutCompact.Models.EditorSettings.DefaultPenPathColor)]
+    [InlineData(null, PixelcutCompact.Models.EditorSettings.DefaultPenPathColor)]
+    public void PenPathColor_NormalizesToRrggbb(string? input, string expected)
+    {
+        Assert.Equal(expected, PenPathStyle.NormalizeColor(input));
+    }
+
+    /// <summary>Warna yang diparse harus SAMA PERSIS dengan yang dipilih (tanpa pergeseran).</summary>
+    [Fact]
+    public void PenPathColor_ParsesExactlyAsChosen()
+    {
+        var c = PenPathStyle.ParseColor("#34C759");
+        Assert.Equal((byte)0x34, c.R);
+        Assert.Equal((byte)0xC7, c.G);
+        Assert.Equal((byte)0x59, c.B);
+    }
+
+    /// <summary>Ketebalan path di-clamp ke rentang 1..8 px.</summary>
+    [Theory]
+    [InlineData(0.0, 1.0)]
+    [InlineData(1.0, 1.0)]
+    [InlineData(2.5, 2.5)]
+    [InlineData(8.0, 8.0)]
+    [InlineData(99.0, 8.0)]
+    public void PenPathThickness_ClampsToRange(double input, double expected)
+    {
+        Assert.Equal(expected, PenPathStyle.ClampThickness(input));
+    }
 }

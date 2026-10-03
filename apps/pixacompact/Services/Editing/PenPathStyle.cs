@@ -29,15 +29,17 @@ public static class PenPathStyle
 
     /// <summary>
     /// Normalisasi string warna ke format #RRGGBB (uppercase).
-    /// Input tidak valid/null/kosong → warna default.
+    /// Menerima "#RRGGBB" maupun "RRGGBB" (tanpa '#'). Input tidak valid/null → warna default.
     /// </summary>
     public static string NormalizeColor(string? hex)
     {
         if (!string.IsNullOrWhiteSpace(hex))
         {
+            var s = hex.Trim();
+            if (!s.StartsWith('#')) s = "#" + s;   // terima hex tanpa '#'
             try
             {
-                var c = Color.Parse(hex.Trim());
+                var c = Color.Parse(s);
                 return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
             }
             catch { /* jatuh ke default */ }

@@ -60,11 +60,13 @@ public partial class PreviewWindow
         }
 
         // Rubber band: garis putus-putus dari anchor terakhir ke kursor.
+        // Memakai warna path yang dipilih (transparan) agar tidak ada "warna lain".
         if (pen.IsActive && !pen.IsClosed && anchors.Count > 0)
         {
             var last = ImageToOverlay(anchors[anchors.Count - 1].Point);
             var cur = ImageToOverlay(pen.Cursor);
-            DrawLine(overlay, last, cur, "#80FFE24A", dash: true);
+            var c = PenPathColor();
+            DrawLine(overlay, last, cur, $"#80{c.R:X2}{c.G:X2}{c.B:X2}", dash: true);
         }
 
         // Anchor: kotak (corner) atau diamond (smooth/has handle).

@@ -150,6 +150,7 @@
     <x:String x:Key="Dock_TwoColumns">Tools 2 columns</x:String>
     <x:String x:Key="Dock_DropHere">Drop to stack here</x:String>
     <x:String x:Key="Tip_CloseWindow">Close window</x:String>
+    <x:String x:Key="Save_Busy">Saving…</x:String>
     <x:String x:Key="Set_Title">Keyboard shortcuts</x:String>
     <x:String x:Key="Set_BetaMode">Editor Mode (Beta)</x:String>
     <x:String x:Key="Tip_BetaMode">Enable mask and selection editor</x:String>
