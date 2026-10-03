@@ -181,6 +181,27 @@ public partial class PreviewWindow
     /// <summary>Uji background: panggil jalur background mode edit (harus sama dgn preview).</summary>
     public void EditorTestReapplyEditBackground() => ApplyCheckerboardBackground();
 
+    /// <summary>Uji waktu save: ukur composite + encode PNG + tulis disk untuk gambar sesi.</summary>
+    public string EditorTestTimeSave(int runs = 3)
+    {
+        if (_session == null) return "no-session";
+        var parts = new System.Collections.Generic.List<string>();
+        for (int i = 0; i < runs; i++)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var buf = _session.Composite();
+            long tComposite = sw.ElapsedMilliseconds;
+            var png = buf.ToPngBytes();
+            long tPng = sw.ElapsedMilliseconds;
+            var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"pxasave_bench_{i}.png");
+            System.IO.File.WriteAllBytes(tmp, png);
+            long tWrite = sw.ElapsedMilliseconds;
+            try { System.IO.File.Delete(tmp); } catch { }
+            parts.Add($"[run{i} composite={tComposite} pngEncode={tPng - tComposite} write={tWrite - tPng} total={tWrite} bytes={png.Length}]");
+        }
+        return $"px={_session.Width}x{_session.Height} " + string.Join(" ", parts);
+    }
+
     /// <summary>Laporan tata letak rail Tools (lebar, jumlah kolom, isi tiap kolom).</summary>
     public string EditorTestToolRailReport()
     {

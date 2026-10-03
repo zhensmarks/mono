@@ -87,6 +87,7 @@ class Program
         Console.WriteLine("STEP1 " + win.EditorTestVisibilityReport());
         Console.WriteLine("LAYERS " + win.EditorTestLayerReport());
         Console.WriteLine("BG-DEFAULT " + win.EditorTestBackgroundReport());
+        Console.WriteLine("SAVE-BENCH " + win.EditorTestTimeSave(3));
         Shoot(win, "01_default_all_visible");
 
         // Background: set solid hijau (seperti via Preferences) lalu cek mode edit memakai brush sama.
