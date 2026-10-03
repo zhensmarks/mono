@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Layout;
+using Avalonia.Controls.Primitives;
 
 namespace PixelcutCompact.Views;
 
@@ -30,6 +31,9 @@ public partial class PreviewWindow
     };
 
     private readonly Dictionary<string, Window> _floatingPanels = new();
+    private readonly Dictionary<string, (IBrush? Border, IBrush? Background)> _hostDefaults = new();
+    private static readonly IBrush HighlightBorder = new SolidColorBrush(Color.Parse("#3B82F6"));
+    private static readonly IBrush HighlightFill = new SolidColorBrush(Color.Parse("#333B82F6"));
 
     private string ControlOf(string key) => FloatablePanels.FirstOrDefault(p => p.Key == key).Control ?? "";
     private string SettingOf(string key) => FloatablePanels.FirstOrDefault(p => p.Key == key).Setting ?? "";
@@ -203,29 +207,64 @@ public partial class PreviewWindow
     {
         foreach (var name in new[] { "DockTopHost", "DockLeftHost", "DockBottomHost", "PanelRightEditor" })
         {
-            if (this.FindControl<Control>(name) is not { } host) continue;
+            if (this.FindControl<Border>(name) is not { } host) continue;
+            _hostDefaults[name] = (host.BorderBrush, host.Background);
             DragDrop.SetAllowDrop(host, true);
             host.RemoveHandler(DragDrop.DragOverEvent, OnDockHostDragOver);
             host.RemoveHandler(DragDrop.DropEvent, OnDockHostDrop);
+            host.RemoveHandler(DragDrop.DragLeaveEvent, OnDockHostDragLeave);
             host.AddHandler(DragDrop.DragOverEvent, OnDockHostDragOver);
             host.AddHandler(DragDrop.DropEvent, OnDockHostDrop);
+            host.AddHandler(DragDrop.DragLeaveEvent, OnDockHostDragLeave);
         }
     }
 
     private void OnDockHostDragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.Data.Contains(PanelDragFormat) ? DragDropEffects.Move : DragDropEffects.None;
+        bool ok = e.Data.Contains(PanelDragFormat);
+        e.DragEffects = ok ? DragDropEffects.Move : DragDropEffects.None;
+        if (ok && sender is Border host) HighlightHost(host, true);
         e.Handled = true;
+    }
+
+    private void OnDockHostDragLeave(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Border host) HighlightHost(host, false);
     }
 
     private void OnDockHostDrop(object? sender, DragEventArgs e)
     {
-        if (sender is not Control host) return;
+        if (sender is Border host) HighlightHost(host, false);
+        if (sender is not Border h) return;
         var key = e.Data.Get(PanelDragFormat) as string;
         if (string.IsNullOrEmpty(key)) return;
-        var position = HostPosition(host.Name);
+        var position = HostPosition(h.Name);
         if (position != null) DockPanelTo(key, position);
         e.Handled = true;
+    }
+
+    /// <summary>Highlight host tujuan saat menyeret panel (ala Photoshop drop zone).</summary>
+    private void HighlightHost(Border host, bool on)
+    {
+        if (!_hostDefaults.TryGetValue(host.Name ?? "", out var d)) return;
+        host.BorderBrush = on ? HighlightBorder : d.Border;
+        host.Background = on ? HighlightFill : d.Background;
+    }
+
+    private void ClearHostHighlights()
+    {
+        foreach (var name in new[] { "DockTopHost", "DockLeftHost", "DockBottomHost", "PanelRightEditor" })
+            if (this.FindControl<Border>(name) is { } h) HighlightHost(h, false);
+    }
+
+    /// <summary>Seret tepi kiri dock kanan untuk mengubah lebarnya (disimpan).</summary>
+    private void OnRightDockResizerDragDelta(object? sender, VectorEventArgs e)
+    {
+        if (this.FindControl<Border>("PanelRightEditor") is not { } right) return;
+        double w = Math.Clamp(right.Width - e.Vector.X, 180, 560);
+        _settings.EditorRightDockWidth = w;
+        right.Width = w;
+        _settings.Save();
     }
 
     private static string? HostPosition(string? hostName) => hostName switch

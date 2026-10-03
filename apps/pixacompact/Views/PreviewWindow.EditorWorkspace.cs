@@ -230,18 +230,19 @@ public partial class PreviewWindow
         SetVisible("DockLeftHost", AnyVisibleAt("Left"));
         SetVisible("DockBottomHost", AnyVisibleAt("Bottom"));
 
-        // Host kanan = PanelRightEditor (Border). Lebar mengikuti isi: panel penuh = 240,
-        // hanya rail tools = 70, kosong = sembunyi.
+        // Host kanan = PanelRightEditor (Border). Lebar mengikuti isi: panel penuh =
+        // lebar tersimpan (bisa di-drag), hanya rail tools = 70, kosong = sembunyi.
+        bool rightNonTool = false;
         if (this.FindControl<Border>("PanelRightEditor") is { } right)
         {
-            bool rightHasNonTool = DockedPanels.Any(p => p.Setting != "Tools" &&
+            rightNonTool = DockedPanels.Any(p => p.Setting != "Tools" &&
                 DockPositionOf(p.Setting) == "Right" && Shown(p.Key, p.Setting));
             bool rightHasAny = AnyVisibleAt("Right");
-            right.Width = rightHasNonTool ? 240 : (rightHasAny ? 70 : 0);
+            double savedW = _settings.EditorRightDockWidth >= 180 ? _settings.EditorRightDockWidth : 240;
+            right.Width = rightNonTool ? savedW : (rightHasAny ? 70 : 0);
             right.IsVisible = rightHasAny;
         }
-
-        SetVisible("DockFocusBar", true);
+        SetVisible("RightDockSplitter", rightNonTool);
     }
 
     private bool Visible(string key) => !PanelVisibility.TryGetValue(key, out var on) || on;

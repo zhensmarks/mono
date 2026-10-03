@@ -230,10 +230,10 @@
                     </ScrollViewer>
                 </Grid>
             </Border>
-            <Grid x:Name="EditorWorkspaceGrid" Grid.Row="4" RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto"
+            <Grid x:Name="EditorWorkspaceGrid" Grid.Row="4" RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto,Auto"
                   Background="{StaticResource EditorBg}">
                 <!-- Dock host atas: panel yang dipindah ke sisi atas -->
-                <Border x:Name="DockTopHost" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
+                <Border x:Name="DockTopHost" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" IsVisible="False"
                         MaxHeight="280" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
                         BorderThickness="0,0,0,1" Padding="6">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
@@ -458,7 +458,12 @@
                         </Border>
                     </Grid>
                 </Grid>
-                <Border x:Name="PanelRightEditor" Grid.Row="1" Grid.Column="2" IsVisible="False" Width="240"
+                <!-- Resizer: seret tepi kiri dock kanan untuk atur lebar -->
+                <GridSplitter x:Name="RightDockSplitter" Grid.Row="1" Grid.Column="2" Width="4" IsVisible="False"
+                              Background="Transparent" ResizeDirection="Columns"
+                              HorizontalAlignment="Left" Cursor="SizeWestEast"
+                              DragDelta="OnRightDockResizerDragDelta"/>
+                <Border x:Name="PanelRightEditor" Grid.Row="1" Grid.Column="3" IsVisible="False" Width="240"
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="1,0,0,0" Padding="0" Margin="0">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel x:Name="DockRightPanel" Spacing="0">
@@ -571,14 +576,14 @@
                     </ScrollViewer>
                 </Border>
                 <!-- Dock host bawah -->
-                <Border x:Name="DockBottomHost" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
+                <Border x:Name="DockBottomHost" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" IsVisible="False"
                         MaxHeight="220" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
                         BorderThickness="0,1,0,0" Padding="6">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                         <StackPanel x:Name="DockBottomPanel" Orientation="Horizontal" Spacing="8"/>
                     </ScrollViewer>
                 </Border>
-                <Border x:Name="PanelEditorStatus" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" IsVisible="False"
+                <Border x:Name="PanelEditorStatus" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" IsVisible="False"
                         Height="{StaticResource EditorStatusBarHeight}"
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,1,0,0"
                         Padding="12,0">
