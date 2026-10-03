@@ -385,7 +385,6 @@ public partial class PreviewWindow
         }
         Sync(this.FindControl<ToggleButton>("BtnCompare"));
         Sync(this.FindControl<ToggleButton>("BtnCompareOptions"));
-        Sync(this.FindControl<ToggleButton>("BtnCompareBottom"));
         if (this.FindControl<MenuItem>("MiCompare") is { } mi && mi.IsChecked != _compareOriginal)
             mi.IsChecked = _compareOriginal;
     }

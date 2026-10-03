@@ -1444,11 +1444,6 @@ public partial class PreviewWindow
             cmp.IsCheckedChanged -= OnCompareToggled;
             cmp.IsCheckedChanged += OnCompareToggled;
         }
-        if (this.FindControl<ToggleButton>("BtnCompareBottom") is { } cmpBottom)
-        {
-            cmpBottom.IsCheckedChanged -= OnCompareToggled;
-            cmpBottom.IsCheckedChanged += OnCompareToggled;
-        }
         if (this.FindControl<ToggleButton>("BtnCompareOptions") is { } cmpOpt)
         {
             cmpOpt.IsCheckedChanged -= OnCompareToggled;

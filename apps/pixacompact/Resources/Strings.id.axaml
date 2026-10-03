@@ -139,6 +139,15 @@
     <x:String x:Key="Tip_SelectAll">Pilih semua (Ctrl+A)</x:String>
     <x:String x:Key="Tip_Deselect">Batalkan pilihan (Ctrl+D)</x:String>
     <x:String x:Key="Tip_KeyboardShortcuts">Pintasan keyboard</x:String>
+    <x:String x:Key="Dock_Float">Cabut jadi jendela</x:String>
+    <x:String x:Key="Dock_DockTo">Pasang ke…</x:String>
+    <x:String x:Key="Dock_Left">Kiri</x:String>
+    <x:String x:Key="Dock_Top">Atas</x:String>
+    <x:String x:Key="Dock_Right">Kanan</x:String>
+    <x:String x:Key="Dock_Bottom">Bawah</x:String>
+    <x:String x:Key="Dock_Close">Tutup panel</x:String>
+    <x:String x:Key="Dock_Reset">Reset tata letak</x:String>
+    <x:String x:Key="Dock_TwoColumns">Tools 2 kolom</x:String>
     <x:String x:Key="Set_Title">Pintasan keyboard</x:String>
     <x:String x:Key="Set_BetaMode">Mode Editor (Beta)</x:String>
     <x:String x:Key="Tip_BetaMode">Aktifkan editor mask dan seleksi</x:String>

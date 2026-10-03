@@ -25,7 +25,8 @@ public enum EditorShortcutAction
     MaskDelete,
     MaskRestore,
     MakeSelection,
-    MaskView
+    MaskView,
+    Compare
 }
 
 public sealed record EditorShortcutDefinition(
@@ -62,7 +63,8 @@ public static class EditorShortcutMap
         new(EditorShortcutAction.MaskDelete, "Delete masking", "TxtEditMaskDeleteShortcut", "Delete"),
         new(EditorShortcutAction.MaskRestore, "Restore masking", "TxtEditMaskRestoreShortcut", "Shift+Delete"),
         new(EditorShortcutAction.MakeSelection, "Make selection", "TxtEditMakeSelectionShortcut", "Ctrl+Enter"),
-        new(EditorShortcutAction.MaskView, "Mask view (black & white)", "TxtEditMaskViewShortcut", "\\")
+        new(EditorShortcutAction.MaskView, "Mask view (black & white)", "TxtEditMaskViewShortcut", "\\"),
+        new(EditorShortcutAction.Compare, "Compare (before/after)", "TxtEditCompareShortcut", "Y")
     ];
 
     private static readonly IReadOnlyDictionary<EditorShortcutAction, EditorShortcutDefinition> ByAction =

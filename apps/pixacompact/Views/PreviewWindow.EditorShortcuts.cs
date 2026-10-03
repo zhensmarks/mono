@@ -215,6 +215,11 @@ public partial class PreviewWindow
                 case EditorShortcutAction.MaskDelete: ApplySelectionToMask(0, "Hapus Selection"); break;
                 case EditorShortcutAction.MaskRestore: ApplySelectionToMask(255, "Restore Selection"); break;
                 case EditorShortcutAction.MakeSelection: MakeSelectionFromPenPath(); break;
+                case EditorShortcutAction.Compare:
+                    _compareOriginal = !_compareOriginal;
+                    ApplyCompareOverlay();
+                    UpdateCompareButtonState();
+                    break;
             }
             return true;
         }

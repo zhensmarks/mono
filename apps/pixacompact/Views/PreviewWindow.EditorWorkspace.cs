@@ -21,7 +21,6 @@ public partial class PreviewWindow
 {
     /// <summary>Photoshop: Tab menyembunyikan/menampilkan semua panel.</summary>
     private bool _tabPanelsHidden;
-    private bool _workspaceLayoutUpdating;
 
     // Visibilitas per panel dari menu Window. Key yang tidak ada = tampil (default ala Photoshop).
     // Sumber kebenaran = _settings.EditorPanelVisibility supaya pilihan bertahan lintas sesi.
@@ -67,20 +66,10 @@ public partial class PreviewWindow
     private void ConfigureEditorWorkspace()
     {
         SyncPanelMenuChecks();
-        SyncDockCombos();
         if (this.FindControl<ToggleButton>("BtnToolsTwoColumns") is { } t) t.IsChecked = _settings.EditorToolsPreferTwoColumns;
+        WireDockHosts();
         ArrangeDockedPanels();
-        SetVisible("DockFocusBar", true);
         ApplyEditorDockVisibility();
-    }
-
-    /// <summary>Toggle "2 kolom" untuk rail Tools.</summary>
-    private void OnToolsTwoColumnsChanged(object? sender, RoutedEventArgs e)
-    {
-        if (!_editMode || sender is not ToggleButton tb) return;
-        _settings.EditorToolsPreferTwoColumns = tb.IsChecked == true;
-        _settings.Save();
-        ConfigureToolOrientation(DockPositionOf("Tools"));
     }
 
     /// <summary>Samakan IsChecked tiap item menu Window dengan visibilitas tersimpan.</summary>
@@ -93,15 +82,7 @@ public partial class PreviewWindow
         }
     }
 
-    private void SyncDockCombos()
-    {
-        _workspaceLayoutUpdating = true;
-        SetDockCombo("CboToolsDock", DockPositionOf("Tools"));
-        SetDockCombo("CboPropertiesDock", DockPositionOf("Properties"));
-        SetDockCombo("CboHistoryDock", DockPositionOf("History"));
-        SetDockCombo("CboLayersDock", DockPositionOf("Layers"));
-        _workspaceLayoutUpdating = false;
-    }
+    private void SyncDockCombos() { }   // combo lama sudah diganti menu ⋮ + drag
 
     /// <summary>Pindahkan tiap panel ke host sesuai posisi tersimpan.</summary>
     private void ArrangeDockedPanels()
@@ -228,6 +209,7 @@ public partial class PreviewWindow
         {
             if (_tabPanelsHidden) return false;
             if (!Visible(key)) return false;
+            if (IsFloating(key)) return false;   // panel melayang → bukan bagian host dock
             if (DockPositionOf(setting) == "Right" && !rightMaster) return false;
             return true;
         }
@@ -275,7 +257,6 @@ public partial class PreviewWindow
 
     private void SetEditorWorkspaceActive(bool active)
     {
-        SetVisible("DockFocusBar", active);
         SetVisible("PanelMenuBar", active);
         if (active)
         {
@@ -299,50 +280,9 @@ public partial class PreviewWindow
         ApplyEditorDockVisibility();
     }
 
-    private void OnEditorPanelDockChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (!_editMode || _workspaceLayoutUpdating || sender is not ComboBox combo) return;
-        var position = NormalizeDock(SelectedTag(combo));
-        switch (combo.Tag?.ToString())
-        {
-            case "Tools": _settings.EditorToolsDock = NormalizeToolDock(position); break;
-            case "Properties": _settings.EditorPropertiesDock = position; break;
-            case "History": _settings.EditorHistoryDock = position; break;
-            case "Layers": _settings.EditorLayersDock = position; break;
-            default: return;
-        }
+    private void OnEditorPanelDockChanged(object? sender, SelectionChangedEventArgs e) { }   // combo lama dihapus
 
-        _settings.Save();
-        ArrangeDockedPanels();
-        ApplyEditorDockVisibility();
-    }
-
-    private void OnResetEditorWorkspaceClick(object? sender, RoutedEventArgs e)
-    {
-        _settings.EditorShowRightPanel = true;
-        _settings.EditorToolsDock = "Left";
-        _settings.EditorPropertiesDock = "Right";
-        _settings.EditorHistoryDock = "Right";
-        _settings.EditorLayersDock = "Right";
-        _settings.Save();
-        ConfigureEditorWorkspace();
-    }
-
-    private void SetDockCombo(string name, string tag)
-    {
-        if (this.FindControl<ComboBox>(name) is not { } combo) return;
-        foreach (var item in combo.Items.OfType<ComboBoxItem>())
-        {
-            if (string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase))
-            {
-                combo.SelectedItem = item;
-                return;
-            }
-        }
-    }
-
-    private static string SelectedTag(ComboBox combo)
-        => combo.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() ?? string.Empty : string.Empty;
+    private void OnResetEditorWorkspaceClick(object? sender, RoutedEventArgs e) => ResetLayout();
 
     private static string NormalizeDock(string? position) => position?.Trim().ToUpperInvariant() switch
     {

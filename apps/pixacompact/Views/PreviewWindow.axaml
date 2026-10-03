@@ -126,64 +126,6 @@
 
             <!-- Parked here until the editor applies the saved dock position. -->
             
-
-            <!-- Baris dock: pilih sisi untuk tiap panel (dockable workspace) -->
-            <Border x:Name="DockFocusBar" Grid.Row="2" IsVisible="False"
-                    Height="{StaticResource EditorMenuBarHeight}"
-                    Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="8,2">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-                    <TextBlock Grid.Column="0" Text="Tools" FontSize="11" VerticalAlignment="Center"
-                               Foreground="{StaticResource EditorTextSecondary}" Margin="0,0,6,0"/>
-                    <ComboBox x:Name="CboToolsDock" Grid.Column="1" Width="82" Tag="Tools"
-                              Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" CornerRadius="5"
-                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan toolbar Tools ke kiri/kanan">
-                        <ComboBoxItem Content="Left" Tag="Left"/>
-                        <ComboBoxItem Content="Right" Tag="Right"/>
-                    </ComboBox>
-                    <TextBlock Grid.Column="3" Text="Properties" FontSize="11" VerticalAlignment="Center"
-                               Foreground="{StaticResource EditorTextSecondary}" Margin="12,0,6,0"/>
-                    <ComboBox x:Name="CboPropertiesDock" Grid.Column="4" Width="86" Tag="Properties"
-                              Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" CornerRadius="5"
-                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan panel Properties ke salah satu sisi">
-                        <ComboBoxItem Content="Top" Tag="Top"/>
-                        <ComboBoxItem Content="Left" Tag="Left"/>
-                        <ComboBoxItem Content="Right" Tag="Right"/>
-                        <ComboBoxItem Content="Bottom" Tag="Bottom"/>
-                    </ComboBox>
-                    <TextBlock Grid.Column="5" Text="History" FontSize="11" VerticalAlignment="Center"
-                               Foreground="{StaticResource EditorTextSecondary}" Margin="12,0,6,0"/>
-                    <ComboBox x:Name="CboHistoryDock" Grid.Column="6" Width="86" Tag="History"
-                              Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" CornerRadius="5"
-                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan panel History ke salah satu sisi">
-                        <ComboBoxItem Content="Top" Tag="Top"/>
-                        <ComboBoxItem Content="Left" Tag="Left"/>
-                        <ComboBoxItem Content="Right" Tag="Right"/>
-                        <ComboBoxItem Content="Bottom" Tag="Bottom"/>
-                    </ComboBox>
-                    <TextBlock Grid.Column="7" Text="Layers" FontSize="11" VerticalAlignment="Center"
-                               Foreground="{StaticResource EditorTextSecondary}" Margin="12,0,6,0"/>
-                    <ComboBox x:Name="CboLayersDock" Grid.Column="8" Width="86" Tag="Layers"
-                              Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" CornerRadius="5"
-                              SelectionChanged="OnEditorPanelDockChanged" ToolTip.Tip="Pindahkan panel Layers ke salah satu sisi">
-                        <ComboBoxItem Content="Top" Tag="Top"/>
-                        <ComboBoxItem Content="Left" Tag="Left"/>
-                        <ComboBoxItem Content="Right" Tag="Right"/>
-                        <ComboBoxItem Content="Bottom" Tag="Bottom"/>
-                    </ComboBox>
-                    <Button Grid.Column="9" Content="Reset layout" Click="OnResetEditorWorkspaceClick"
-                            Margin="12,0,0,0" Padding="8,2" FontSize="11"
-                            Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}"
-                            Foreground="{StaticResource EditorTextPrimary}" CornerRadius="5"/>
-                    <ToggleButton x:Name="BtnToolsTwoColumns" Grid.Column="10" Content="2 kolom"
-                                  Margin="8,0,0,0" Padding="8,2" FontSize="11"
-                                  Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}"
-                                  Foreground="{StaticResource EditorTextPrimary}" CornerRadius="5"
-                                  IsCheckedChanged="OnToolsTwoColumnsChanged"
-                                  ToolTip.Tip="Tampilkan rail Tools dalam 2 kolom (hemat tinggi)"/>
-                </Grid>
-            </Border>
-
-            <!-- Options Bar (Tool-specific settings) -->
             <Border x:Name="PanelOptionsBar" Grid.Row="3"
                     Background="{StaticResource EditorSurfaceAlt}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="12,0"
                     IsVisible="False" Height="{StaticResource EditorOptionsBarHeight}" CornerRadius="0" ClipToBounds="True">
@@ -310,7 +252,12 @@
                         Width="{StaticResource EditorRailWidth}"
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,1,0"
                         Padding="8,10">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid RowDefinitions="Auto,*">
+                        <Button Grid.Row="0" Classes="editor-compact" Content="⋮" Tag="toolrail" Click="OnPanelMenuClick" HorizontalAlignment="Center"
+                                FontSize="14" Padding="6,0" Margin="0,0,0,4" Background="Transparent" BorderThickness="0" Foreground="{StaticResource EditorTextSecondary}"
+                                Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed"
+                                ToolTip.Tip="Opsi panel (cabut / pasang / tutup)"/>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="PanelToolContentGrid" ColumnDefinitions="Auto,Auto" HorizontalAlignment="Center">
                             <StackPanel x:Name="ToolColumnLeft" Grid.Column="0" Orientation="Vertical" Spacing="2">
                             <!-- Grup seleksi -->
@@ -375,6 +322,7 @@
                             <StackPanel x:Name="ToolColumnRight" Grid.Column="1" Orientation="Vertical" Spacing="2"/>
                         </Grid>
                     </ScrollViewer>
+                    </Grid>
                 </Border>
                 <!-- Kanvas: selalu di baris/kolom tengah -->
                 <Grid Grid.Row="1" Grid.Column="1">
@@ -517,8 +465,12 @@
 
                             <Border x:Name="PanelProperties" Width="240" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1">
                                 <StackPanel Spacing="0">
-                                    <Border Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="12,8">
-                                        <TextBlock Text="{DynamicResource Panel_Properties}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
+                                    <Border Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="12,6" Tag="properties" Cursor="SizeAll"
+                                            PointerPressed="OnPanelHeaderPressed">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="{DynamicResource Panel_Properties}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
+                                            <Button Grid.Column="1" Classes="editor-compact" Content="⋮" Tag="properties" Click="OnPanelMenuClick" FontSize="14" Padding="6,0" Background="Transparent" BorderThickness="0" Foreground="{StaticResource EditorTextSecondary}" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)"/>
+                                        </Grid>
                                     </Border>
 
                             <!-- SELECTION SECTION -->
@@ -574,7 +526,10 @@
                             <!-- HISTORY SECTION -->
                             <Border x:Name="PanelHistory" Width="240" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1" Padding="12,10">
                                 <StackPanel Spacing="8">
-                                    <TextBlock Text="{DynamicResource Panel_History}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
+                                    <Grid ColumnDefinitions="*,Auto" Tag="history" Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed">
+                                        <TextBlock Text="{DynamicResource Panel_History}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Classes="editor-compact" Content="⋮" Tag="history" Click="OnPanelMenuClick" FontSize="14" Padding="6,0" Background="Transparent" BorderThickness="0" Foreground="{StaticResource EditorTextSecondary}" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)"/>
+                                    </Grid>
                                     <Border Background="{StaticResource EditorBg}" CornerRadius="3" Padding="4" MaxHeight="200">
                                         <ListBox x:Name="LstHistory" Background="Transparent" BorderThickness="0" FontSize="10" Foreground="{StaticResource EditorTextSecondary}" ScrollViewer.VerticalScrollBarVisibility="Auto" AutoScrollToSelectedItem="False"/>
                                     </Border>
@@ -584,7 +539,10 @@
                             <!-- LAYERS SECTION -->
                             <Border x:Name="PanelDocLayers" Width="240" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0" Padding="12,10" IsVisible="True">
                                 <StackPanel Spacing="8">
-                                    <TextBlock Text="{DynamicResource Panel_Layers}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
+                                    <Grid ColumnDefinitions="*,Auto" Tag="layers" Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed">
+                                        <TextBlock Text="{DynamicResource Panel_Layers}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Classes="editor-compact" Content="⋮" Tag="layers" Click="OnPanelMenuClick" FontSize="14" Padding="6,0" Background="Transparent" BorderThickness="0" Foreground="{StaticResource EditorTextSecondary}" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)"/>
+                                    </Grid>
                                     <Border Background="{StaticResource EditorBg}" CornerRadius="3" Padding="4" MaxHeight="220">
                                         <ItemsControl x:Name="LayerList">
                                             <ItemsControl.ItemTemplate>
@@ -649,8 +607,6 @@
                               <Button Click="OnPreviousClick" Width="36" Height="36" CornerRadius="8" Background="#15FFFFFF" BorderThickness="1" BorderBrush="#30FFFFFF" ToolTip.Tip="{DynamicResource Tip_Prev}">
                                   <PathIcon Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
                               </Button>
-
-                              <ToggleButton x:Name="BtnCompareBottom" Content="{DynamicResource Btn_Compare}" FontSize="11" Padding="12,8" CornerRadius="8" Background="#15FFFFFF" BorderBrush="#30FFFFFF" BorderThickness="1" Foreground="{DynamicResource TextPrimaryBrush}" ToolTip.Tip="{DynamicResource Tip_Compare}" VerticalAlignment="Center"/>
 
                               <Button x:Name="BtnFooterMode" IsVisible="True" Click="OnFooterModeClick" Padding="20,8" Background="#206366F1" BorderBrush="#806366F1" BorderThickness="1" CornerRadius="8" ToolTip.Tip="{DynamicResource Tip_OpenPhotoshop}">
                                   <StackPanel Orientation="Horizontal" Spacing="8">

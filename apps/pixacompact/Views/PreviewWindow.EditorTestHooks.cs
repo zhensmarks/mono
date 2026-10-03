@@ -77,6 +77,26 @@ public partial class PreviewWindow
         ConfigureToolOrientation(DockPositionOf("Tools"));
     }
 
+    /// <summary>Uji docking: cabut panel jadi jendela melayang.</summary>
+    public void EditorTestFloatPanel(string key) => FloatPanel(key);
+
+    /// <summary>Uji docking: pasang panel ke sisi tertentu.</summary>
+    public void EditorTestDockPanel(string key, string position) => DockPanelTo(key, position);
+
+    /// <summary>Laporan status docking (melayang / posisi).</summary>
+    public string EditorTestDockReport()
+    {
+        string Pos(string k) => SettingOf(k) switch
+        {
+            "Tools" => _settings.EditorToolsDock,
+            "Properties" => _settings.EditorPropertiesDock,
+            "History" => _settings.EditorHistoryDock,
+            _ => _settings.EditorLayersDock
+        };
+        return $"floating=[{string.Join(",", _floatingPanels.Keys)}] "
+             + $"Tools={Pos("toolrail")} Props={Pos("properties")} History={Pos("history")} Layers={Pos("layers")}";
+    }
+
     /// <summary>Laporan tata letak rail Tools (lebar, jumlah kolom, isi tiap kolom).</summary>
     public string EditorTestToolRailReport()
     {

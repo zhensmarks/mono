@@ -139,6 +139,15 @@
     <x:String x:Key="Tip_SelectAll">Select all (Ctrl+A)</x:String>
     <x:String x:Key="Tip_Deselect">Deselect (Ctrl+D)</x:String>
     <x:String x:Key="Tip_KeyboardShortcuts">Keyboard shortcuts</x:String>
+    <x:String x:Key="Dock_Float">Float as window</x:String>
+    <x:String x:Key="Dock_DockTo">Dock to…</x:String>
+    <x:String x:Key="Dock_Left">Left</x:String>
+    <x:String x:Key="Dock_Top">Top</x:String>
+    <x:String x:Key="Dock_Right">Right</x:String>
+    <x:String x:Key="Dock_Bottom">Bottom</x:String>
+    <x:String x:Key="Dock_Close">Close panel</x:String>
+    <x:String x:Key="Dock_Reset">Reset layout</x:String>
+    <x:String x:Key="Dock_TwoColumns">Tools 2 columns</x:String>
     <x:String x:Key="Set_Title">Keyboard shortcuts</x:String>
     <x:String x:Key="Set_BetaMode">Editor Mode (Beta)</x:String>
     <x:String x:Key="Tip_BetaMode">Enable mask and selection editor</x:String>
