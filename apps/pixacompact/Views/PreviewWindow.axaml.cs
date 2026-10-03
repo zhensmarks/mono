@@ -311,13 +311,21 @@ if (pngPath && jpgPath) {
     }
 
     private async void OnCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => await CloseWithGuardAsync();
+
+    /// <summary>
+    /// Tutup jendela preview dengan guard perubahan belum disimpan. Dipakai tombol ✕
+    /// dan shortcut Ctrl+W. Saat user memilih "Buang perubahan", sesi TIDAK dimasuki
+    /// ulang ke mode edit — jendela langsung ditutup (perbaikan: dulu DiscardEditsAsync
+    /// selalu re-enter edit mode sehingga terasa "tidak keluar mode edit").
+    /// </summary>
+    private async Task CloseWithGuardAsync()
     {
         if (_editMode && _session?.IsDirty == true)
         {
-            var canClose = await ConfirmEditorDiscardAsync();
-            if (!canClose) return;
+            if (!await ConfirmEditorDiscardAsync(reEnterEditMode: false)) return;
         }
-
+        if (_editMode) EndEditMode(silent: true);
         Close();
     }
     
@@ -767,6 +775,15 @@ try {{
         if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.K)
         {
             OnPreferencesClick(this, new Avalonia.Interactivity.RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        // Ctrl+W: tutup jendela preview (ala Photoshop menutup dokumen). Berlaku di
+        // preview maupun mode edit, dengan guard perubahan belum disimpan.
+        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.W)
+        {
+            _ = CloseWithGuardAsync();
             e.Handled = true;
             return;
         }

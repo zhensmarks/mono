@@ -73,6 +73,8 @@ public partial class PreviewWindow
         if ((ctrlOnly && e.Key == Key.Y) || (ctrlShift && e.Key == Key.Z))
         { OnRedoClick(this, new RoutedEventArgs()); return true; }
         if (ctrlOnly && e.Key == Key.S) { SaveInPlace(); return true; }
+        // Photoshop: Ctrl+Shift+S = Simpan sebagai salinan.
+        if (ctrlShift && e.Key == Key.S) { _ = SaveAsCopyInteractively(); return true; }
 
         // Persistent selection commands use Photoshop's standard combinations.
         if (ctrlShift && e.Key == Key.I) { InvertSelection(); return true; }

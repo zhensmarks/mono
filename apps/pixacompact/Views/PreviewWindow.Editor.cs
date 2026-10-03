@@ -144,10 +144,10 @@ public partial class PreviewWindow
     /// Return true  = aman lanjut (tidak ada perubahan, atau sudah disimpan/salinan).
     /// Return false = user menekan Batal; pemanggil harus membatalkan navigasi.
     /// </summary>
-    internal Task<bool> ConfirmEditorDiscardAsync()
+    internal Task<bool> ConfirmEditorDiscardAsync(bool reEnterEditMode = true)
     {
         if (_session is not { IsDirty: true }) return Task.FromResult(true);
-        return ConfirmDiscardChanges();
+        return ConfirmDiscardChanges(reEnterEditMode);
     }
 
     /// <summary>Dipanggil oleh LoadImages utama setelah bitmap dimuat, untuk reset/edit session.</summary>

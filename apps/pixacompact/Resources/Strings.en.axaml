@@ -149,6 +149,7 @@
     <x:String x:Key="Dock_Reset">Reset layout</x:String>
     <x:String x:Key="Dock_TwoColumns">Tools 2 columns</x:String>
     <x:String x:Key="Dock_DropHere">Drop to stack here</x:String>
+    <x:String x:Key="Tip_CloseWindow">Close window (Ctrl+W)</x:String>
     <x:String x:Key="Set_Title">Keyboard shortcuts</x:String>
     <x:String x:Key="Set_BetaMode">Editor Mode (Beta)</x:String>
     <x:String x:Key="Tip_BetaMode">Enable mask and selection editor</x:String>
@@ -212,6 +213,9 @@
     <x:String x:Key="Fx_Tab">Hide/show all panels</x:String>
     <x:String x:Key="Fx_ZoomKeys">Zoom in / out / fit / 100%</x:String>
     <x:String x:Key="Fx_CancelClose">Cancel / close</x:String>
+    <x:String x:Key="Fx_SaveCopy">Save a copy</x:String>
+    <x:String x:Key="Fx_CloseWindow">Close window</x:String>
+    <x:String x:Key="Fx_Preferences">Open preferences</x:String>
     <x:String x:Key="Color_White">White</x:String>
     <x:String x:Key="Color_Black">Black</x:String>
     <x:String x:Key="Color_Red">Red</x:String>

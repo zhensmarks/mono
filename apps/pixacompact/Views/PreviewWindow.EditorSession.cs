@@ -215,7 +215,9 @@ public partial class PreviewWindow
         SetVisible("BtnEnterEditHeader", false);
         SetVisible("BtnExitEditHeader", true);
         SetVisible("ChipEditMode", true);
-        SetVisible("BtnFooterMode", true);
+        // Footer navigasi (prev/next + tombol mode) tidak relevan di dalam editor:
+        // sembunyikan agar tampilan bersih ala Photoshop. Toast tetap muncul (overlay root).
+        SetVisible("PanelFooter", false);
 
         // Mode edit: panel floating Bandingkan/Zoom di atas kanvas disembunyikan
         // (diganti toggle Bandingkan di options bar); label "Result" juga disembunyikan
@@ -309,6 +311,7 @@ public partial class PreviewWindow
         // Kembalikan panel floating + label Result untuk preview mode.
         SetVisible("PanelViewControls", true);
         SetVisible("TxtResultLabel", true);
+        SetVisible("PanelFooter", true);   // footer navigasi kembali di mode preview
 
         // Kembalikan tata letak berdampingan (Original + splitter).
         SetPreviewSplit(editing: false);

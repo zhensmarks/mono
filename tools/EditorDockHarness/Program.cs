@@ -87,6 +87,7 @@ class Program
         Console.WriteLine("STEP1 " + win.EditorTestVisibilityReport());
         Console.WriteLine("LAYERS " + win.EditorTestLayerReport());
         Console.WriteLine("BG-DEFAULT " + win.EditorTestBackgroundReport());
+        Console.WriteLine("CHROME-EDIT " + win.EditorTestChromeReport());
         Console.WriteLine("SAVE-BENCH " + win.EditorTestTimeSave(3));
         Shoot(win, "01_default_all_visible");
 

@@ -129,7 +129,13 @@ public partial class PreviewWindow
     /// Dipakai oleh "Buang perubahan" (dialog pindah gambar) dan Revert (F12/toolbar).
     /// </summary>
     /// <returns>true bila sesi berhasil dimuat ulang.</returns>
-    private async Task<bool> DiscardEditsAsync()
+    /// <param name="reEnterEditMode">
+    /// true  = kembali ke mode edit setelah muat ulang (dipakai Revert/F12: user tetap
+    ///         mengedit gambar yang sama dengan isi yang sudah dikembalikan);
+    /// false = JANGAN masuk mode edit (dipakai tutup jendela / pindah gambar, agar tidak
+    ///         terasa "tidak keluar mode edit").
+    /// </param>
+    private async Task<bool> DiscardEditsAsync(bool reEnterEditMode = true)
     {
         if (_session == null) return false;
         bool wasEditing = _editMode;
@@ -149,7 +155,7 @@ public partial class PreviewWindow
             UpdateEditorStatus();
             UpdateRestoreAvailability();
 
-            if (wasEditing) EnterEditMode();
+            if (wasEditing && reEnterEditMode) EnterEditMode();
             Toast(T("Toast_Discarded"));
             return true;
         }
@@ -182,7 +188,7 @@ public partial class PreviewWindow
     /// false = tulis sebagai salinan, atau user membatalkan → pemanggil lanjut dengan
     ///         pembersihan diri sendiri.
     /// </returns>
-    private async Task<bool> ConfirmDiscardChanges()
+    private async Task<bool> ConfirmDiscardChanges(bool reEnterEditMode = true)
     {
         if (_session is not { IsDirty: true }) return true;
 
@@ -238,7 +244,7 @@ public partial class PreviewWindow
 
         if (choice == 1) return SaveInPlace();
         if (choice == 2) { await SaveAsCopyInteractively(); return false; }
-        if (choice == 3) { await DiscardEditsAsync(); return true; }
+        if (choice == 3) { await DiscardEditsAsync(reEnterEditMode); return true; }
         return false;
     }
 

@@ -149,6 +149,7 @@
     <x:String x:Key="Dock_Reset">Reset tata letak</x:String>
     <x:String x:Key="Dock_TwoColumns">Tools 2 kolom</x:String>
     <x:String x:Key="Dock_DropHere">Lepas untuk menumpuk di sini</x:String>
+    <x:String x:Key="Tip_CloseWindow">Tutup jendela (Ctrl+W)</x:String>
     <x:String x:Key="Set_Title">Pintasan keyboard</x:String>
     <x:String x:Key="Set_BetaMode">Mode Editor (Beta)</x:String>
     <x:String x:Key="Tip_BetaMode">Aktifkan editor mask dan seleksi</x:String>
@@ -212,6 +213,9 @@
     <x:String x:Key="Fx_Tab">Sembunyikan/tampilkan semua panel</x:String>
     <x:String x:Key="Fx_ZoomKeys">Zum masuk / keluar / paskan / 100%</x:String>
     <x:String x:Key="Fx_CancelClose">Batal / tutup</x:String>
+    <x:String x:Key="Fx_SaveCopy">Simpan salinan</x:String>
+    <x:String x:Key="Fx_CloseWindow">Tutup jendela</x:String>
+    <x:String x:Key="Fx_Preferences">Buka preferensi</x:String>
     <x:String x:Key="Color_White">Putih</x:String>
     <x:String x:Key="Color_Black">Hitam</x:String>
     <x:String x:Key="Color_Red">Merah</x:String>

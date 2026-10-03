@@ -202,6 +202,13 @@ public partial class PreviewWindow
         return $"px={_session.Width}x{_session.Height} " + string.Join(" ", parts);
     }
 
+    /// <summary>Uji chrome: laporan visibilitas footer navigasi & toast.</summary>
+    public string EditorTestChromeReport()
+    {
+        bool F(string n) => this.FindControl<Control>(n)?.IsVisible ?? false;
+        return $"footer={F("PanelFooter")} toast={F("ToastNotification")} editMode={_editMode}";
+    }
+
     /// <summary>Laporan tata letak rail Tools (lebar, jumlah kolom, isi tiap kolom).</summary>
     public string EditorTestToolRailReport()
     {

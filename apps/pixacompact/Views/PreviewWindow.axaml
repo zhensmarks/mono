@@ -68,7 +68,7 @@
                       <Button x:Name="BtnExitEditHeader" Classes="editor-compact" IsVisible="False" Content="{DynamicResource Btn_Done}" ToolTip.Tip="{DynamicResource Tip_ExitEditor}" VerticalAlignment="Center" Padding="12,6" Margin="0,0,8,0" Foreground="White" FontSize="12" FontWeight="SemiBold" Cursor="Hand"/>
 
                       <!-- Close Button -->
-                      <Button Click="OnCloseClick" VerticalAlignment="Center" Content="✕" Width="45" Height="45" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14"/>
+                      <Button Click="OnCloseClick" VerticalAlignment="Center" Content="✕" Width="45" Height="45" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" ToolTip.Tip="{DynamicResource Tip_CloseWindow}"/>
                   </StackPanel>
             </Grid>
 
@@ -633,7 +633,7 @@
                     </Border>
                 </Grid>
             </Grid>
-<Border Grid.Row="5" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="#0AFFFFFF" Padding="15,10" MinHeight="55">
+<Border x:Name="PanelFooter" Grid.Row="5" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0" Background="#0AFFFFFF" Padding="15,10" MinHeight="55">
                  <Grid>
                      <!-- Center: Navigation Buttons & Photoshop & Toast -->
                      <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -654,16 +654,21 @@
                                   <PathIcon Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
                               </Button>
                           </StackPanel>
-
-                          <!-- Save Toast Notification -->
-                          <Border x:Name="ToastNotification" Background="#18A05A" CornerRadius="8" Padding="15,8" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center" BorderBrush="#40FFFFFF" BorderThickness="1">
-                              <StackPanel Orientation="Horizontal" Spacing="8">
-                                  <PathIcon x:Name="ToastIcon" Data="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.58L21,7Z" Width="14" Height="14" Foreground="White" VerticalAlignment="Center"/>
-                                  <TextBlock Text="{DynamicResource Toast_Saved}" FontSize="12" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
-                              </StackPanel>
-                          </Border>
                      </Grid>
                  </Grid>
+            </Border>
+
+            <!-- Save Toast Notification: overlay di root agar tetap terlihat
+                 walau footer disembunyikan di mode edit. -->
+            <Border x:Name="ToastNotification" Grid.RowSpan="6" Grid.Row="0" ZIndex="200"
+                    IsVisible="False" IsHitTestVisible="False"
+                    Background="#18A05A" CornerRadius="8" Padding="15,8"
+                    VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,70"
+                    BorderBrush="#40FFFFFF" BorderThickness="1">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon x:Name="ToastIcon" Data="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.58L21,7Z" Width="14" Height="14" Foreground="White" VerticalAlignment="Center"/>
+                    <TextBlock Text="{DynamicResource Toast_Saved}" FontSize="12" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                </StackPanel>
             </Border>
         </Grid>
     </Border>
