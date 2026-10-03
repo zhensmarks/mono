@@ -150,6 +150,37 @@ public partial class PreviewWindow
              + $"Tools={Pos("toolrail")} Props={Pos("properties")} History={Pos("history")} Layers={Pos("layers")}";
     }
 
+    /// <summary>Uji background: laporkan jenis brush BrdOriginal vs BrdResult (harus sama).</summary>
+    public string EditorTestBackgroundReport()
+    {
+        string Desc(Border? b)
+        {
+            if (b?.Background is Avalonia.Media.IImageBrush img)
+                return $"ImageBrush({img.Source?.GetType().Name ?? "?"})";
+            if (b?.Background is Avalonia.Media.ISolidColorBrush sc)
+                return $"Solid({sc.Color})";
+            return b?.Background?.GetType().Name ?? "null";
+        }
+        var o = this.FindControl<Border>("BrdOriginal");
+        var r = this.FindControl<Border>("BrdResult");
+        bool same = ReferenceEquals(o?.Background, r?.Background);
+        return $"type={_settings.BackgroundType} same={same} orig={Desc(o)} result={Desc(r)} "
+             + $"solid={_settings.SolidColorHex} c1={_settings.CheckerColor1} c2={_settings.CheckerColor2}";
+    }
+
+    /// <summary>Uji background: ubah setting lalu terapkan (meniru alur Preferences).</summary>
+    public void EditorTestSetBackground(int type, string solid = "#00FF00", string c1 = "#333333", string c2 = "#4D4D4D")
+    {
+        _settings.BackgroundType = type;
+        _settings.SolidColorHex = solid;
+        _settings.CheckerColor1 = c1;
+        _settings.CheckerColor2 = c2;
+        ApplyBackground();
+    }
+
+    /// <summary>Uji background: panggil jalur background mode edit (harus sama dgn preview).</summary>
+    public void EditorTestReapplyEditBackground() => ApplyCheckerboardBackground();
+
     /// <summary>Laporan tata letak rail Tools (lebar, jumlah kolom, isi tiap kolom).</summary>
     public string EditorTestToolRailReport()
     {

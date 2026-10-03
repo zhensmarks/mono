@@ -843,29 +843,16 @@ try {{
         {
             if (_settings.BackgroundType == 1) // Checkerboard
             {
-                var col1 = Avalonia.Media.Color.Parse(_settings.CheckerColor1);
-                var col2 = Avalonia.Media.Color.Parse(_settings.CheckerColor2);
-                
-                var canvas = new Avalonia.Controls.Canvas { Width = 16, Height = 16 };
-                canvas.Children.Add(new Avalonia.Controls.Shapes.Rectangle { Width = 8, Height = 8, Fill = new Avalonia.Media.SolidColorBrush(col1) });
-                canvas.Children.Add(new Avalonia.Controls.Shapes.Rectangle { Width = 8, Height = 8, Fill = new Avalonia.Media.SolidColorBrush(col1), [Avalonia.Controls.Canvas.LeftProperty] = 8, [Avalonia.Controls.Canvas.TopProperty] = 8 });
-                canvas.Children.Add(new Avalonia.Controls.Shapes.Rectangle { Width = 8, Height = 8, Fill = new Avalonia.Media.SolidColorBrush(col2), [Avalonia.Controls.Canvas.LeftProperty] = 8 });
-                canvas.Children.Add(new Avalonia.Controls.Shapes.Rectangle { Width = 8, Height = 8, Fill = new Avalonia.Media.SolidColorBrush(col2), [Avalonia.Controls.Canvas.TopProperty] = 8 });
-                
-                bgBrush = new Avalonia.Media.VisualBrush
-                {
-                    Visual = canvas,
-                    TileMode = Avalonia.Media.TileMode.Tile,
-                    SourceRect = new Avalonia.RelativeRect(0, 0, 16, 16, Avalonia.RelativeUnit.Absolute),
-                    DestinationRect = new Avalonia.RelativeRect(0, 0, 16, 16, Avalonia.RelativeUnit.Absolute)
-                };
+                bgBrush = BuildCheckerBrush(
+                    Avalonia.Media.Color.Parse(_settings.CheckerColor1),
+                    Avalonia.Media.Color.Parse(_settings.CheckerColor2));
             }
             else if (_settings.BackgroundType == 2) // Solid Color
             {
                 bgBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(_settings.SolidColorHex));
             }
         }
-        catch 
+        catch
         {
             // Fallback
         }
@@ -875,11 +862,50 @@ try {{
             bgBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#0DFFFFFF"));
         }
 
+        // SATU sumber kebenaran: preview DAN mode edit memakai brush yang sama,
+        // sehingga background tidak berubah saat masuk mode edit / buka setting.
         var brdOrig = this.FindControl<Border>("BrdOriginal");
         var brdResult = this.FindControl<Border>("BrdResult");
-        
+
         if (brdOrig != null) brdOrig.Background = bgBrush;
         if (brdResult != null) brdResult.Background = bgBrush;
+    }
+
+    /// <summary>
+    /// Checkerboard 16x16 sebagai WriteableBitmap + ImageBrush (TileMode).
+    /// Avalonia DrawingBrush/VisualBrush tidak andal untuk tiling, jadi bitmap ini
+    /// yang dipakai bersama oleh preview dan mode edit.
+    /// </summary>
+    private static Avalonia.Media.IBrush BuildCheckerBrush(Avalonia.Media.Color c1, Avalonia.Media.Color c2)
+    {
+        const int sz = 16, half = 8;
+        var bmp = new Avalonia.Media.Imaging.WriteableBitmap(
+            new Avalonia.PixelSize(sz, sz),
+            new Avalonia.Vector(96, 96),
+            Avalonia.Platform.PixelFormat.Bgra8888,
+            Avalonia.Platform.AlphaFormat.Opaque);
+        uint p1 = ((uint)c1.A << 24) | ((uint)c1.R << 16) | ((uint)c1.G << 8) | c1.B;
+        uint p2 = ((uint)c2.A << 24) | ((uint)c2.R << 16) | ((uint)c2.G << 8) | c2.B;
+        using (var fb = bmp.Lock())
+        {
+            unsafe
+            {
+                uint* ptr = (uint*)fb.Address;
+                for (int y = 0; y < sz; y++)
+                    for (int x = 0; x < sz; x++)
+                    {
+                        bool isSecond = (x < half) ^ (y < half);
+                        ptr[y * fb.RowBytes / 4 + x] = isSecond ? p2 : p1;
+                    }
+            }
+        }
+        return new Avalonia.Media.ImageBrush(bmp)
+        {
+            TileMode = Avalonia.Media.TileMode.Tile,
+            Stretch = Avalonia.Media.Stretch.None,
+            AlignmentX = Avalonia.Media.AlignmentX.Left,
+            AlignmentY = Avalonia.Media.AlignmentY.Top,
+        };
     }
 
     private void FitOnScreen()

@@ -365,46 +365,12 @@ public partial class PreviewWindow
 
 
     /// <summary>
-    /// Buat checkerboard 16x16 bitmap dan set sebagai ImageBrush background BrdResult.
-    /// Avalonia DrawingBrush tidak mendukung TileMode, jadi kita pakai WriteableBitmap.
+    /// Terapkan background kanvas di mode edit. Ini HARUS memakai jalur yang sama
+    /// dengan preview (<see cref="ApplyBackground"/>) supaya setting background
+    /// (default/checkerboard/solid) konsisten — dulu fungsi ini menimpa dengan
+    /// checkerboard gelap hardcode sehingga mode edit beda dari preview.
     /// </summary>
-    private void ApplyCheckerboardBackground()
-    {
-        var brd = this.FindControl<Border>("BrdResult");
-        if (brd == null) return;
-        try
-        {
-            const int sz = 16, half = 8;
-            var bmp = new Avalonia.Media.Imaging.WriteableBitmap(
-                new Avalonia.PixelSize(sz, sz),
-                new Avalonia.Vector(96, 96),
-                Avalonia.Platform.PixelFormat.Bgra8888,
-                Avalonia.Platform.AlphaFormat.Opaque);
-            using (var fb = bmp.Lock())
-            {
-                unsafe
-                {
-                    uint* ptr = (uint*)fb.Address;
-                    uint dark = 0xFF303030, light = 0xFF3D3D3D;
-                    for (int y = 0; y < sz; y++)
-                        for (int x = 0; x < sz; x++)
-                        {
-                            bool isLight = (x < half) ^ (y < half);
-                            ptr[y * fb.RowBytes / 4 + x] = isLight ? light : dark;
-                        }
-                }
-            }
-            var brush = new Avalonia.Media.ImageBrush(bmp)
-            {
-                TileMode = Avalonia.Media.TileMode.Tile,
-                Stretch = Avalonia.Media.Stretch.None,
-                AlignmentX = Avalonia.Media.AlignmentX.Left,
-                AlignmentY = Avalonia.Media.AlignmentY.Top,
-            };
-            brd.Background = brush;
-        }
-        catch (Exception ex) { Console.WriteLine($"Checkerboard: {ex.Message}"); }
-    }
+    private void ApplyCheckerboardBackground() => ApplyBackground();
 
     private void SyncViewPort()
     {

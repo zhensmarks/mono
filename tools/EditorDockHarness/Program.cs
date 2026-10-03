@@ -86,7 +86,23 @@ class Program
         await Settle();
         Console.WriteLine("STEP1 " + win.EditorTestVisibilityReport());
         Console.WriteLine("LAYERS " + win.EditorTestLayerReport());
+        Console.WriteLine("BG-DEFAULT " + win.EditorTestBackgroundReport());
         Shoot(win, "01_default_all_visible");
+
+        // Background: set solid hijau (seperti via Preferences) lalu cek mode edit memakai brush sama.
+        win.EditorTestSetBackground(2, "#00FF00");
+        await Settle();
+        Console.WriteLine("BG-SOLID " + win.EditorTestBackgroundReport());
+        Shoot(win, "01b_bg_solid_green");
+        // Kembalikan ke checkerboard custom (meniru user set checkerboard di preview).
+        win.EditorTestSetBackground(1, "#00FF00", "#102030", "#405060");
+        await Settle();
+        Console.WriteLine("BG-CHECKER " + win.EditorTestBackgroundReport());
+        Shoot(win, "01c_bg_checker_custom");
+        // Masuk-ulang edit mode: background HARUS tetap checkerboard custom yang sama.
+        win.EditorTestReapplyEditBackground();
+        await Settle();
+        Console.WriteLine("BG-AFTER-EDIT " + win.EditorTestBackgroundReport());
 
         // Panel Layers disembunyikan lewat menu Window.
         win.EditorTestSetPanelVisible("layers", false);
