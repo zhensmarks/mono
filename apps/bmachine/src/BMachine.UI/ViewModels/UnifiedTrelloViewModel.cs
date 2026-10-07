@@ -25,6 +25,13 @@ public partial class UnifiedTrelloViewModel : ObservableObject
 
     // When true, status bar appears at bottom (dashboard embedded mode)
     [ObservableProperty]
+    private string _syncStatusMessage = "🟢 Connected | Last sync: 0m";
+    
+    [ObservableProperty]
+    private bool _isOnline = true;
+
+    // When true, status bar appears at bottom (dashboard embedded mode)
+    [ObservableProperty]
     private bool _isEmbedded;
 
     /// <summary>Set by view when width &lt; threshold. Enables single-view stack navigation.</summary>

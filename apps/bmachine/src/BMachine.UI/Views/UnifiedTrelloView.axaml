@@ -39,26 +39,8 @@
         <Border Grid.Row="0" Margin="20,10,20,0" Padding="12,8" Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusMd}" IsVisible="{Binding IsNotEmbedded}">
             <Grid ColumnDefinitions="*, Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <!-- Status Dot of Active ViewModel -->
-                    <Ellipse Width="6" Height="6" VerticalAlignment="Center" ToolTip.Tip="{Binding ActiveViewModel.ConnectionStatusText, StringFormat='{}Status: {0}'}">
-                        <Ellipse.Styles>
-                            <Style Selector="Ellipse">
-                                <Setter Property="Fill" Value="#EF4444"/> <!-- Red (Offline) -->
-                            </Style>
-                            <Style Selector="Ellipse.online">
-                                <Setter Property="Fill" Value="#22C55E"/> <!-- Green (Online) -->
-                            </Style>
-                        </Ellipse.Styles>
-                        <Classes.online>
-                            <Binding Path="ActiveViewModel.IsOnline"/>
-                        </Classes.online>
-                        <Ellipse.Transitions>
-                            <Transitions>
-                                <BrushTransition Property="Fill" Duration="0:0:0.3"/>
-                            </Transitions>
-                        </Ellipse.Transitions>
-                    </Ellipse>
-                    <TextBlock Text="{Binding ActiveViewModel.StatusMessage}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    <!-- Real-time sync status indicator -->
+                    <TextBlock Text="{Binding SyncStatusMessage}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
 
 

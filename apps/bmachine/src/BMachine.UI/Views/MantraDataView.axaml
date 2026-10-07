@@ -5,6 +5,7 @@
              xmlns:vm="using:BMachine.UI.ViewModels"
              xmlns:models="using:BMachine.UI.Models.MantraData"
              xmlns:local="using:BMachine.UI.Views"
+             xmlns:converters="using:BMachine.UI.Converters"
              x:Class="BMachine.UI.Views.MantraDataView"
              x:DataType="vm:MantraDataViewModel"
              Background="Transparent"
@@ -17,6 +18,7 @@
 
     <UserControl.Resources>
         <local:PhotoFilterEqualsConverter x:Key="FilterEq"/>
+        <converters:WorkflowStepColorConverter x:Key="WorkflowStepColorConverter"/>
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -230,6 +232,56 @@
                 </StackPanel>
             </DockPanel>
         </Grid>
+
+        <!-- WORKFLOW INDICATOR: Import → Clean → Transform → Export → Done -->
+        <Border Grid.Row="1" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4"
+                Padding="8,6" Margin="0,2,0,4" IsVisible="{Binding HasData}">
+            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                <!-- Step 1: Import -->
+                <Border Padding="10,4" CornerRadius="4" Background="{Binding CurrentWorkflowStep, Converter={StaticResource WorkflowStepColorConverter}, ConverterParameter=Import}" Margin="0,0,2,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="📥" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Import" FontSize="10" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="→" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                
+                <!-- Step 2: Clean -->
+                <Border Padding="10,4" CornerRadius="4" Background="{Binding CurrentWorkflowStep, Converter={StaticResource WorkflowStepColorConverter}, ConverterParameter=Clean}" Margin="0,0,2,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="🧹" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Clean" FontSize="10" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="→" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                
+                <!-- Step 3: Transform -->
+                <Border Padding="10,4" CornerRadius="4" Background="{Binding CurrentWorkflowStep, Converter={StaticResource WorkflowStepColorConverter}, ConverterParameter=Transform}" Margin="0,0,2,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="✨" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Transform" FontSize="10" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="→" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                
+                <!-- Step 4: Export -->
+                <Border Padding="10,4" CornerRadius="4" Background="{Binding CurrentWorkflowStep, Converter={StaticResource WorkflowStepColorConverter}, ConverterParameter=Export}" Margin="0,0,2,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="💾" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Export" FontSize="10" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="→" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                
+                <!-- Step 5: Done -->
+                <Border Padding="10,4" CornerRadius="4" Background="{Binding CurrentWorkflowStep, Converter={StaticResource WorkflowStepColorConverter}, ConverterParameter=Done}" Margin="0,0,2,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="✅" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Done" FontSize="10" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
 
         <!-- Sheet tabs (kiri) + tombol sortir status foto dengan popup (kanan) -->
         <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4"
