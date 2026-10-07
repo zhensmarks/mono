@@ -8,7 +8,7 @@
     <Grid>
         <!-- Side Panel: Card Details -->
         <Border x:Name="Part_DetailPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource AppBackgroundBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
+                BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsDetailPanelOpen}"
                 PointerPressed="OnDetailPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">

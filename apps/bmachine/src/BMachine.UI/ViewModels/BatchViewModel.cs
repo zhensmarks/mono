@@ -1126,9 +1126,27 @@ if ($img -ne $null) {{
 
     private BatchNodeItem? _currentTargetNode;
 
+    private Avalonia.Threading.DispatcherTimer? _masterSearchDebounce;
+
     partial void OnMasterSearchTextChanged(string value)
     {
-        ApplyMasterFilter(value);
+        // Debounce: every keystroke previously triggered a full synchronous-ish
+        // reload of the master tree (LoadMasterNodes), which was the main source of
+        // lag while typing. Coalesce rapid keystrokes into a single reload.
+        _masterSearchDebounce?.Stop();
+        _masterSearchDebounce ??= new Avalonia.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(350)
+        };
+        _masterSearchDebounce.Tick -= OnMasterSearchDebounceTick;
+        _masterSearchDebounce.Tick += OnMasterSearchDebounceTick;
+        _masterSearchDebounce.Start();
+    }
+
+    private void OnMasterSearchDebounceTick(object? sender, EventArgs e)
+    {
+        _masterSearchDebounce?.Stop();
+        ApplyMasterFilter(MasterSearchText);
     }
 
     private void ApplyMasterFilter(string filter)
@@ -1220,14 +1238,16 @@ if ($img -ne $null) {{
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
             {
                 MasterNodes.Clear();
-                MasterThumbnailNodes.Clear();
+                // NOTE: Do NOT populate MasterThumbnailNodes here. The view binds the
+                // TreeView directly to MasterNodes and lazily expands children on demand;
+                // MasterThumbnailNodes is not referenced by any view. Walking every leaf
+                // via EnumerateLeaves() forced a full recursive disk scan on the UI thread
+                // (loading all children of every folder), which caused the MASTER tab lag.
                 foreach (var node in nodes)
                 {
                     MasterNodes.Add(node);
-                    foreach (var leaf in node.EnumerateLeaves())
-                        MasterThumbnailNodes.Add(leaf);
                 }
-                System.Diagnostics.Debug.WriteLine($"[MasterGrid] roots={nodes.Count} thumbnails={MasterThumbnailNodes.Count}");
+                System.Diagnostics.Debug.WriteLine($"[MasterGrid] roots={nodes.Count}");
             });
         }
         finally

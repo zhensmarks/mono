@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:BMachine.UI.Controls"
              xmlns:views="using:BMachine.UI.Views"
+             xmlns:viewcontrols="clr-namespace:BMachine.UI.Views.Controls"
              xmlns:shapes="using:Avalonia.Controls.Shapes"
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
              x:Class="BMachine.UI.Views.DashboardView"
@@ -201,7 +202,6 @@
                                         </StackPanel>
 
                                         <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
-
                                         <!-- Menu (no icons) -->
                                         <StackPanel Margin="6,6" Spacing="1">
                                             <ToggleButton Classes="profileMenuItem" Click="OnTerminalToggleClick" IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}">
@@ -1088,7 +1088,7 @@
             PointerMoved="OnResizeHandleMoved"
             PointerReleased="OnResizeHandleReleased">
         <Border Width="2" HorizontalAlignment="Center" VerticalAlignment="Stretch"
-                Background="{DynamicResource NavigationDividerBrush}"
+                Background="{DynamicResource SeparatorBrush}"
                 IsHitTestVisible="False"/>
         <Border.Styles>
             <Style Selector="Border#LogPanelResizeHandle:pointerover">
@@ -1146,6 +1146,14 @@
             </Panel>
         </Border>
     </Grid>
+
+    <!-- IN-APP TOAST NOTIFICATION (Bottom-Right, Non-Blocking) -->
+    <viewcontrols:InAppToast x:Name="AppToast"
+                         Grid.ColumnSpan="3"
+                         VerticalAlignment="Bottom"
+                         HorizontalAlignment="Right"
+                         Margin="0,0,20,20"
+                         ZIndex="1001"/>
 
 </Grid>
 </UserControl>
