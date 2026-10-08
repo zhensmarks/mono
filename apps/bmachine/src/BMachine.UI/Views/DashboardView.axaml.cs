@@ -16,13 +16,6 @@ public partial class DashboardView : UserControl
     {
         InitializeComponent();
         
-        // Register InAppToast control for ToastNotificationService
-        var toastControl = this.FindControl<Controls.InAppToast>("AppToast");
-        if (toastControl != null)
-        {
-            Services.ToastNotificationService.Instance.RegisterToastControl(toastControl);
-        }
-        
         // Wire up Batch Drop Zone drag-drop handlers
         AddHandler(DragDrop.DropEvent, OnBatchDrop);
         AddHandler(DragDrop.DragOverEvent, OnBatchDragOver);

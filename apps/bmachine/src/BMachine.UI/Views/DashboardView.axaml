@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:BMachine.UI.Controls"
              xmlns:views="using:BMachine.UI.Views"
-             xmlns:viewcontrols="clr-namespace:BMachine.UI.Views.Controls"
              xmlns:shapes="using:Avalonia.Controls.Shapes"
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
              x:Class="BMachine.UI.Views.DashboardView"
@@ -202,6 +201,7 @@
                                         </StackPanel>
 
                                         <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+
                                         <!-- Menu (no icons) -->
                                         <StackPanel Margin="6,6" Spacing="1">
                                             <ToggleButton Classes="profileMenuItem" Click="OnTerminalToggleClick" IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}">
@@ -345,6 +345,7 @@
                                                               <MenuItem Header="New Subfolder..." Command="{Binding ShowNewFolderInputCommand}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceAutoCommand}" CommandParameter="{Binding}"/>
+                                                              <MenuItem Header="Replace (Manual)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceManualCommand}" CommandParameter="{Binding}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Copy Source Path" Command="{Binding CopyPathCommand}"/>
                                                               <MenuItem Header="Delete Source Folder" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
@@ -372,6 +373,7 @@
                                                               <MenuItem Header="New Subfolder..." Command="{Binding ShowNewFolderInputCommand}" IsVisible="{Binding IsDirectory}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceAutoCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
+                                                              <MenuItem Header="Replace (Manual)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceManualCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Copy Path" Command="{Binding CopyPathCommand}" IsVisible="{Binding IsDirectory}"/>
                                                               <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
@@ -616,6 +618,7 @@
                                                                <MenuItem Header="New Subfolder..." Command="{Binding ShowOutputNewFolderInputCommand}"/>
                                                                <Separator/>
                                                                <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputAutoCommand}" CommandParameter="{Binding}"/>
+                                                               <MenuItem Header="Replace (Manual)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputManualCommand}" CommandParameter="{Binding}"/>
                                                                <Separator/>
                                                                <MenuItem Header="Copy Output Path" Command="{Binding CopyOutputPathCommand}"/>
                                                                <MenuItem Header="Delete Output Folder" Command="{Binding DeleteOutputCommand}" Foreground="#FF453A"/>
@@ -670,6 +673,7 @@
                                                               <MenuItem Header="New Subfolder..." Command="{Binding ShowNewFolderInputCommand}" IsVisible="{Binding IsDirectory}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputAutoCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
+                                                              <MenuItem Header="Replace (Manual)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputManualCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Copy Path" Command="{Binding CopyPathCommand}" IsVisible="{Binding IsDirectory}"/>
                                                               <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
@@ -1087,9 +1091,6 @@
             PointerPressed="OnResizeHandlePressed"
             PointerMoved="OnResizeHandleMoved"
             PointerReleased="OnResizeHandleReleased">
-        <Border Width="2" HorizontalAlignment="Center" VerticalAlignment="Stretch"
-                Background="{DynamicResource SeparatorBrush}"
-                IsHitTestVisible="False"/>
         <Border.Styles>
             <Style Selector="Border#LogPanelResizeHandle:pointerover">
                 <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
@@ -1146,14 +1147,6 @@
             </Panel>
         </Border>
     </Grid>
-
-    <!-- IN-APP TOAST NOTIFICATION (Bottom-Right, Non-Blocking) -->
-    <viewcontrols:InAppToast x:Name="AppToast"
-                         Grid.ColumnSpan="3"
-                         VerticalAlignment="Bottom"
-                         HorizontalAlignment="Right"
-                         Margin="0,0,20,20"
-                         ZIndex="1001"/>
 
 </Grid>
 </UserControl>

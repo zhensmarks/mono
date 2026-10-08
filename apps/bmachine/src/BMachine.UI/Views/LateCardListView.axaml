@@ -193,14 +193,14 @@
         <!-- Side Panels Container (hidden when panel is hosted by UnifiedTrelloView) -->
         <Grid Grid.Column="1" IsVisible="{Binding !IsPanelHostedExternally}" x:Name="Part_PanelsContainer">
         <!-- Side Panel: Card Details -->
-        <Border x:Name="Part_DetailPanel" MinWidth="400" MaxWidth="500" Background="{DynamicResource SurfaceElevatedBrush}" 
-                BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1,0,0,0"
+        <Border x:Name="Part_DetailPanel" Width="450" Background="#F00A0A0A" 
+                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsDetailPanelOpen}"
                 PointerPressed="OnDetailPanelPointerPressed">
              <Grid RowDefinitions="Auto, *, Auto" Margin="24">
                  
                  <!-- Offline Banner -->
-                 <Border Grid.Row="0" Background="{DynamicResource ButtonDangerBackgroundBrush}" Margin="-24,-24,-24,24" Padding="12" IsVisible="{Binding !IsOnline}" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ButtonDangerHoverBrush}">
+                 <Border Grid.Row="0" Background="#D32F2F" Margin="-24,-24,-24,24" Padding="12" IsVisible="{Binding !IsOnline}" BorderThickness="0,0,0,1" BorderBrush="#FF5252">
                      <TextBlock Text="SYSTEM OFFLINE [READ ONLY]" Foreground="White" FontWeight="Black" LetterSpacing="2" HorizontalAlignment="Center" FontSize="11"/>
                  </Border>
 
@@ -221,10 +221,10 @@
                                   </Grid>
                                   <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Black" FontSize="20" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
                               </StackPanel>
-                              <Button Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Padding="8,0" CornerRadius="6"
-                                      Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextSecondaryBrush}"
-                                      Cursor="Hand" VerticalAlignment="Top" HorizontalAlignment="Center">
-                                  <PathIcon Data="{StaticResource IconX}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                              <Button Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Content="âœ•"
+                                      Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black"
+                                      Foreground="{DynamicResource TextSecondaryBrush}"
+                                      Cursor="Hand" VerticalAlignment="Top" Padding="8,0" CornerRadius="6">
                                   <Button.Styles>
                                       <Style Selector="Button:pointerover /template/ ContentPresenter">
                                           <Setter Property="Background" Value="Transparent"/>
@@ -306,7 +306,7 @@
                                </ItemsControl>
                            </WrapPanel>
 
-                           <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="0"/>
+                           <Border Height="1" Background="{DynamicResource CardBackgroundBrush}" Margin="0"/>
 
                            <!-- ROW 2: Action Buttons -->
                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0">
@@ -378,7 +378,7 @@
                                </Button>
                            </StackPanel>
 
-                           <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="0"/>
+                           <Border Height="1" Background="{DynamicResource CardBackgroundBrush}" Margin="0"/>
 
                            <!-- Description -->
                            <StackPanel Spacing="12">
@@ -396,7 +396,7 @@
         </Border>
 
         <!-- Side Panel: Add Manual Card -->
-        <Border x:Name="Part_AddManualPanel" MinWidth="400" MaxWidth="500" Background="{DynamicResource SurfaceElevatedBrush}" 
+        <Border x:Name="Part_AddManualPanel" Width="450" Background="#F00A0A0A" 
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsAddManualPanelOpen}">
             <Grid RowDefinitions="Auto, *">
@@ -406,9 +406,9 @@
                             <TextBlock Text="ADD MANUAL CARD" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                             <TextBlock Text="PASTE TRELLO LINKS BELOW" FontSize="11" FontWeight="Bold" LetterSpacing="1" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}"
-                                Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Top">
-                            <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}" Content="âœ•" 
+                                Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black"
+                                Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand" VerticalAlignment="Top">
                                 <Button.Styles>
                                     <Style Selector="Button:pointerover /template/ ContentPresenter">
                                         <Setter Property="Background" Value="Transparent"/>
@@ -447,7 +447,7 @@
         </Border>
 
                 <!-- Side Panel: Comments -->
-        <Border x:Name="Part_CommentPanel" MinWidth="400" MaxWidth="500" Background="{DynamicResource SurfaceElevatedBrush}" 
+        <Border x:Name="Part_CommentPanel" Width="450" Background="#F00A0A0A" 
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsCommentPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -462,9 +462,8 @@
                                 Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Open in New Window">
                             <PathIcon Data="{StaticResource IconOpenWindow}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </Button>
-                        <Button Command="{Binding CloseCommentsPanelCommand}"
-                                Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
-                            <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Button Command="{Binding CloseCommentsPanelCommand}" Content="âœ•" 
+                                Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand">
                             <Button.Styles>
                                 <Style Selector="Button:pointerover /template/ ContentPresenter">
                                     <Setter Property="Background" Value="Transparent"/>
@@ -566,7 +565,7 @@
                                                             Width="20" Height="20" CornerRadius="6" Padding="0"
                                                             Background="#CC000000" BorderThickness="0" Cursor="Hand"
                                                             HorizontalAlignment="Right" VerticalAlignment="Top">
-                                                        <PathIcon Data="{StaticResource IconX}" Width="10" Height="10" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="âœ•" FontSize="10" FontWeight="Black" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
                                                 </Grid>
                                             </Border>
@@ -683,7 +682,7 @@
         </Border>
 
                 <!-- Side Panel: Checklist -->
-        <Border x:Name="Part_ChecklistPanel" MinWidth="400" MaxWidth="500" Background="{DynamicResource SurfaceElevatedBrush}" 
+        <Border x:Name="Part_ChecklistPanel" Width="450" Background="#F00A0A0A" 
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsChecklistPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -693,9 +692,8 @@
                          <TextBlock Text="CHECKLISTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}"
-                            Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
-                        <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Button Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}" Content="âœ•" 
+                            Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand">
                          <Button.Styles>
                              <Style Selector="Button:pointerover /template/ ContentPresenter">
                                  <Setter Property="Background" Value="Transparent"/>
@@ -801,7 +799,7 @@
         </Border>
 
         <!-- Side Panel: Attachments -->
-        <Border x:Name="Part_AttachmentPanel" MinWidth="400" MaxWidth="500" Background="{DynamicResource SurfaceElevatedBrush}" 
+        <Border x:Name="Part_AttachmentPanel" Width="450" Background="#F00A0A0A" 
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsAttachmentPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -811,9 +809,8 @@
                          <TextBlock Text="ATTACHMENTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding CloseAttachmentPanelCommand}"
-                            Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
-                        <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Button Grid.Column="1" Command="{Binding CloseAttachmentPanelCommand}" Content="âœ•" 
+                            Background="Transparent" BorderThickness="0" FontSize="16" FontWeight="Black" Foreground="{DynamicResource TextSecondaryBrush}" Cursor="Hand">
                          <Button.Styles>
                              <Style Selector="Button:pointerover /template/ ContentPresenter">
                                  <Setter Property="Background" Value="Transparent"/>

@@ -1,9 +1,5 @@
 // @target photoshop
 
-// Map to track unchecked artboards already exported per class folder (must be
-// declared before main() is invoked below, otherwise it is undefined at runtime).
-var processedUnchecked = {};
-
 /*
     unified_save_master.jsx
     Fitur: Dialog pilihan mode untuk simpan master + export format lain.
@@ -831,12 +827,6 @@ function showScrollableAlert(title, message) {
 }
 
 function exportArtboards(sourceDoc, isPng, quality, schedule, repeatByName) {
-    // Ensure the map exists even if this function is called before the top-level init.
-    if (!processedUnchecked) processedUnchecked = {};
-    // Revised export logic:
-    // - Checked artboards (repeatByName[normalizedName] === true) are exported directly to the document's folder.
-    // - Unchecked artboards are exported once per class folder into a sub‑folder named after the artboard.
-    //   Subsequent exports for the same unchecked artboard will be skipped if the file already exists.
     var successCount = 0;
     var failCount = 0;
     var details = [];
@@ -849,7 +839,7 @@ function exportArtboards(sourceDoc, isPng, quality, schedule, repeatByName) {
         details.push("Tidak ada Artboard yang ditemukan.");
         return { success: 0, fail: 1, details: details, cancelled: cancelled };
     }
-
+    
     var listToProcess = [];
     if (schedule !== undefined && schedule !== null) {
         for (var s = 0; s < schedule.length; s++) {
@@ -862,35 +852,48 @@ function exportArtboards(sourceDoc, isPng, quality, schedule, repeatByName) {
     for (var i = 0; i < listToProcess.length; i++) {
         var ab = listToProcess[i];
         var abName = ab.name;
+        
         try {
             var abBounds = ab.bounds;
-            // 1. Create selection of the artboard area
+            
+            // 1. Buat seleksi di koordinat artboard pada dokumen asli
             var region = [
                 [abBounds[0], abBounds[1]], // left, top
                 [abBounds[2], abBounds[1]], // right, top
                 [abBounds[2], abBounds[3]], // right, bottom
                 [abBounds[0], abBounds[3]]  // left, bottom
             ];
+            
             app.activeDocument = sourceDoc;
             sourceDoc.selection.select(region);
-            // 2. Copy merged pixels
+            
+            // 2. Copy Merged (Salin semua yang terlihat di area tersebut)
             try {
                 sourceDoc.selection.copy(true);
-            } catch (e) {
+            } catch(e) {
+                // Jika kosong/blank, copy(true) akan error. Kita abaikan atau lempar error.
                 throw new Error("Area artboard kosong atau tidak bisa di-copy.");
             }
+            
             sourceDoc.selection.deselect();
-            // 3. Create a new document with the exact artboard size
+            
+            // 3. Buat dokumen baru dengan ukuran persis sama
             var w = abBounds[2] - abBounds[0];
             var h = abBounds[3] - abBounds[1];
             var newDoc = app.documents.add(UnitValue(w, "px"), UnitValue(h, "px"), sourceDoc.resolution, abName, NewDocumentMode.RGB);
             app.activeDocument = newDoc;
-            // 4. Paste the copied pixels
+            
+            // 4. Paste hasilnya
             newDoc.paste();
+            
+            // Flatten (karena hasil paste mungkin floating)
             newDoc.flatten();
+            
             try { app.doAction("anti ramijud", "starter pack"); } catch (e) {}
-            var safeName = abName.replace(new RegExp('[\\\\/:*?"<>|]', 'g'), "_");
-            // Determine if this artboard is marked as repeat (checked)
+            var safeName = abName.replace(new RegExp('[\\\\\\\\/:*?"<>|]', 'g'), "_");
+            // Tentukan lokasi output:
+            // - Artboard DICEKLIS (repeat): langsung di root folder kelas (bersanding dgn PSD)
+            // - Artboard TIDAK diceklis: dibuatkan subfolder per artboard
             var isRepeat = false;
             if (repeatByName) {
                 var normAb = String(abName || "").replace(/^\s+|\s+$/g, "").toUpperCase();
@@ -898,62 +901,50 @@ function exportArtboards(sourceDoc, isPng, quality, schedule, repeatByName) {
                     isRepeat = true;
                 }
             }
+
             var targetFolderPath;
             if (isRepeat) {
-                // Checked artboards: export to the same folder as the PSD
-                targetFolderPath = basePath;
+                targetFolderPath = basePath; // root folder kelas
             } else {
-                // Unchecked artboards: export to a shared class folder (parent of the PSD folder)
-                var classFolderPath = basePath;
-                targetFolderPath = classFolderPath + "/" + safeName;
+                targetFolderPath = basePath + "/" + safeName;
                 var artboardFolder = new Folder(targetFolderPath);
-                if (!artboardFolder.exists) artboardFolder.create();
-
-                // Guard against duplicate export of unchecked artboards across PSDs in the same class
-                var guardKey = classFolderPath + "|" + safeName;
-                if (processedUnchecked.hasOwnProperty(guardKey)) {
-                    details.push(abName + " (Skipped, already processed for this class)");
-                    newDoc.close(SaveOptions.DONOTSAVECHANGES);
-                    app.activeDocument = sourceDoc;
-                    continue;
+                if (!artboardFolder.exists) {
+                    artboardFolder.create();
                 }
-                // Mark as processed
-                processedUnchecked[guardKey] = true;
             }
-            // File name: include PSD base name for checked artboards; for unchecked use just safeName
-            var outName = baseName + "_" + safeName;
 
-            var targetFile = new File(targetFolderPath + "/" + outName + (isPng ? ".png" : ".jpg"));
-            // Skip export if the file already exists for non‑repeat artboards
-            if (!isRepeat && targetFile.exists) {
-                details.push(abName + " (Skipped, already exists)");
-                newDoc.close(SaveOptions.DONOTSAVECHANGES);
-                app.activeDocument = sourceDoc;
-                continue;
-            }
-            // Save the file
+            var outName = baseName + "_" + safeName;
+            var targetPath = targetFolderPath + "/" + outName;
+            
             if (isPng) {
-                savePNG(newDoc, targetFile.fsName);
+                savePNG(newDoc, targetPath + ".png");
             } else {
-                saveJPG(newDoc, targetFile.fsName, quality);
+                saveJPG(newDoc, targetPath + ".jpg", quality);
             }
+            
             newDoc.close(SaveOptions.DONOTSAVECHANGES);
-            app.activeDocument = sourceDoc;
+            
+            app.activeDocument = sourceDoc; // return focus
+            
             successCount++;
             details.push(abName + " (Berhasil)");
         } catch (e) {
             failCount++;
             details.push(abName + " (Gagal: " + e.message + ")");
+            // Try to close active doc if it's the duplicated one
             if (app.activeDocument !== sourceDoc) {
-                try { app.activeDocument.close(SaveOptions.DONOTSAVECHANGES); } catch (ex) {}
+                try { app.activeDocument.close(SaveOptions.DONOTSAVECHANGES); } catch(ex){}
                 app.activeDocument = sourceDoc;
             }
+            
+            // Cek apakah user menekan ESC (User Cancelled)
             if (e.number === 8007 || (e.message && e.message.toLowerCase().indexOf('cancel') !== -1)) {
                 cancelled = true;
-                break;
+                break; // Keluar dari loop artboard
             }
         }
     }
+    
     return { success: successCount, fail: failCount, details: details, cancelled: cancelled };
 }
 

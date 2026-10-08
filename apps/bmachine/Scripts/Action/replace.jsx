@@ -358,17 +358,6 @@ function countFilesFast(folderPath, regex) {
     return total;
 }
 
-function writeReplaceErrorResult(message) {
-    try {
-        var f = new File(Folder.temp + "/bmachine_result.json");
-        f.open("w");
-        f.encoding = "UTF-8";
-        var escaped = message.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-        f.write('{"type":"result","title":"Replace (Auto) Error","lines":["' + escaped + '"]}');
-        f.close();
-    } catch (e) { }
-}
-
 function findLatestContextFile() {
     var tmp = new Folder(Folder.temp);
     var matches = tmp.getFiles("bmachine_context_*.json");
@@ -395,14 +384,9 @@ function main() {
     var defaultMasterPath = "";
     var defaultInputPath = "";
 
-    // Batch Auto wrapper injects the exact paths for this invocation.
-    if ($.global.BMachineBatchContext && $.global.BMachineBatchContext.BatchAutoReplace === true) {
-        bmachineContext = $.global.BMachineBatchContext;
-    }
-
-    // Prefer the newest bmachine_context_*.json, fall back to fixed name for normal/manual launch.
-    if (!bmachineContext) tempFile = findLatestContextFile();
-    if (!bmachineContext && tempFile !== null && tempFile.exists) {
+    // Prefer the newest bmachine_context_*.json, fall back to fixed name.
+    tempFile = findLatestContextFile();
+    if (tempFile !== null && tempFile.exists) {
         try {
             tempFile.open("r");
             var jsonContent = tempFile.read();
@@ -424,39 +408,6 @@ function main() {
             var path = bmachineContext.SourceFolders[0].SourcePath;
             if (path && new Folder(path).exists) defaultInputPath = path;
         }
-    }
-
-    // Batch Replace (Auto) memakai path pasangan yang dikirim BMachine; jangan tampilkan dialog.
-    if (bmachineContext && bmachineContext.BatchAutoReplace === true) {
-        var batchMasterPath = bmachineContext.MasterTemplatePath;
-        var batchInputPath = bmachineContext.SourceFolders && bmachineContext.SourceFolders.length > 0
-            ? bmachineContext.SourceFolders[0].SourcePath
-            : "";
-        var batchMasterFolder = new Folder(batchMasterPath || "");
-        var batchInputFolder = new Folder(batchInputPath || "");
-        if (!batchMasterFolder.exists || !batchInputFolder.exists) {
-            writeReplaceErrorResult("Replace (Auto): folder Master/Output atau Input/Source tidak ditemukan.");
-            return;
-        }
-        var previousDisplayDialogs = app.displayDialogs;
-        app.displayDialogs = DialogModes.NO;
-        try {
-            var batchResult = runReplacementLogic(batchMasterFolder, batchInputFolder, true, true);
-            var batchMessage = "Master: " + decodeURI(batchMasterFolder.name) + "\n" +
-                "Berhasil: " + (batchResult && batchResult.success ? batchResult.success.length : 0) + "\n" +
-                "Gagal: " + (batchResult && batchResult.fail ? batchResult.fail.length : 0) + "\n";
-            if (batchResult && batchResult.fail && batchResult.fail.length > 0) {
-                batchMessage += "\nDetail gagal:\n" + batchResult.fail.join("\n");
-            }
-            if (batchResult && batchResult.skipped) batchMessage += "\n\n" + batchResult.skipMsg;
-            showScrollableAlert("Laporan Replace (Auto)", batchMessage);
-        } catch (batchError) {
-            writeReplaceErrorResult("Replace (Auto) gagal: " + batchError.message);
-            alert("Replace (Auto) gagal:\n" + batchError.message);
-        } finally {
-            app.displayDialogs = previousDisplayDialogs;
-        }
-        return;
     }
 
     // === UI CONFIG ===
@@ -1038,7 +989,7 @@ main();
 // ==========================================
 // suppressAlert = true -> tidak menampilkan alert per-job (dipakai mode antrian),
 // melainkan mengembalikan objek hasil untuk digabung di satu alert akhir.
-function runReplacementLogic(templateFolder, inputFolder, suppressAlert, autoBatch) {
+function runReplacementLogic(templateFolder, inputFolder, suppressAlert) {
 
     // --- Scan Files ---
     var templateFiles = scanFolderForFiles(templateFolder, /\.(psd|psb)$/i);
@@ -1071,7 +1022,6 @@ function runReplacementLogic(templateFolder, inputFolder, suppressAlert, autoBat
 
     if (templateCount == 0 || inputCount == 0) {
         var skipMsg = "Job Skipped (No files).\nMaster: " + templateCount + "\nInput: " + inputCount;
-        if (autoBatch) writeReplaceErrorResult(skipMsg);
         if (!suppressAlert) alert(skipMsg);
         return { type: "standard", masterName: decodeURI(templateFolder.name), success: [], fail: [], skipped: true, skipMsg: skipMsg };
     }
@@ -1301,8 +1251,6 @@ function runReplacementLogic(templateFolder, inputFolder, suppressAlert, autoBat
                     smartS.name = fileForS.displayName.replace(/\.[^\.]+$/, "");
                 }
 
-                // Sama dengan REPLACE manual: biarkan dokumen hasil terbuka di Photoshop.
-                // Auto hanya menghilangkan pemilihan path; tidak mengubah siklus dokumen.
                 successList.push(relPath(templateFolder, template));
             } else {
                 failList.push(relPath(templateFolder, template) + " (No input match)");
@@ -1310,9 +1258,6 @@ function runReplacementLogic(templateFolder, inputFolder, suppressAlert, autoBat
                 continue;
             }
         } catch (e) {
-            try {
-                if (autoBatch && app.documents.length > 0) app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
-            } catch (closeError) { }
             failList.push(relPath(templateFolder, template) + " (Error: " + e.message + ")");
         }
     }
@@ -1329,8 +1274,8 @@ function runReplacementLogic(templateFolder, inputFolder, suppressAlert, autoBat
         report = report.concat(failList);
     }
 
-    // Send Result to BMachine; queue mode gabung laporan setelah semua job selesai.
-    if (!suppressAlert || autoBatch) {
+    // Send Result to BMachine (skip saat Queue Mode; laporan gabungan ditulis di akhir)
+    if (!suppressAlert) {
         var f = new File(Folder.temp + "/bmachine_result.json");
         f.open("w");
         f.encoding = "UTF-8";

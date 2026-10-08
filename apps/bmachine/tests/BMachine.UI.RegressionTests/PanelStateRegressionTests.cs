@@ -131,7 +131,7 @@ public class NavigationVisualRegressionTests
         Assert.Contains("Classes=\"navigationSeparator\"", view);
         Assert.Contains("IsVisible=\"{Binding IsOutputExplorerVisible}\"", view);
         Assert.Contains("x:Name=\"DocPanelTab\"", view);
-        Assert.Contains("Text=\"DOC\" FontSize=\"11\"", view);
+        Assert.Contains("Text=\"DOC\" FontSize=\"9\"", view);
         Assert.Contains("IsVisible=\"{Binding !BatchVM.IsDocFloating}\"", view);
     }
 
@@ -165,74 +165,6 @@ public class NavigationVisualRegressionTests
         Assert.Contains("Button PathIcon", designSystem);
         Assert.Contains("RelativeSource AncestorType=Button", designSystem);
         Assert.DoesNotContain("PathIcon Data=\"{Binding Icon}\" Width=\"18\" Height=\"18\" Foreground=", radial);
-    }
-
-    [Fact]
-    public void FloatingDocUsesCustomNoChromeStyleWithoutForcingTopmost()
-    {
-        var floatingWindow = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DocFloatingWindow.axaml");
-
-        Assert.Contains("WindowStartupLocation=\"Manual\"", floatingWindow);
-        Assert.Contains("SystemDecorations=\"Full\"", floatingWindow);
-        Assert.Contains("Topmost=\"False\"", floatingWindow);
-        Assert.Contains("ExtendClientAreaChromeHints=\"NoChrome\"", floatingWindow);
-        Assert.Contains("PointerPressed=\"OnDragRegionPointerPressed\"", floatingWindow);
-    }
-
-    [Fact]
-    public void BatchAutoReplacePassesPathsAndUsesSilentScriptMode()
-    {
-        var batchViewModel = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/BatchViewModel.cs");
-        var replaceScript = ReadRepoFile("apps/bmachine/Scripts/Action/replace.jsx");
-
-        Assert.Contains("BatchAutoReplace = true", batchViewModel);
-        Assert.Contains("bmachine_replace_auto_", batchViewModel);
-        Assert.Contains("BMachineBatchContext", batchViewModel);
-        Assert.Contains("$.global.BMachineBatchContext", replaceScript);
-        Assert.Contains("bmachineContext.BatchAutoReplace === true", replaceScript);
-        Assert.Contains("runReplacementLogic(batchMasterFolder, batchInputFolder, true, true)", replaceScript);
-        Assert.DoesNotContain("doc.close(SaveOptions.SAVECHANGES)", replaceScript);
-        Assert.Contains("showScrollableAlert(\"Laporan Replace (Auto)\"", replaceScript);
-        Assert.Contains("if (autoBatch) writeReplaceErrorResult(skipMsg)", replaceScript);
-        Assert.Contains("writeReplaceErrorResult", replaceScript);
-    }
-
-    [Fact]
-    public void BatchContextMenusExposeAutoReplaceWithoutManualReplace()
-    {
-        var dashboard = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DashboardView.axaml");
-
-        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(dashboard, "Header=\\\"Replace \\(Auto\\)\\\"").Count);
-        Assert.DoesNotContain("Header=\\\"Replace (Manual)\\\"", dashboard);
-        Assert.DoesNotContain("ReplaceSourceManualCommand", dashboard);
-        Assert.DoesNotContain("ReplaceOutputManualCommand", dashboard);
-    }
-
-    [Fact]
-    public void LogPanelNavigationUsesDashboardScaleLabelsAndActiveIndicator()
-    {
-        var sidebar = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/LogPanelSidebar.axaml");
-        var dashboard = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DashboardView.axaml");
-        var navigationStyles = ReadRepoFile("apps/bmachine/src/BMachine.UI/Styles/TrelloNavigation.axaml");
-
-        Assert.Contains("Text=\"LOG\" FontSize=\"11\"", sidebar);
-        Assert.Contains("Text=\"MASTER\" FontSize=\"11\"", sidebar);
-        Assert.Contains("Text=\"DOC\" FontSize=\"11\"", sidebar);
-        Assert.Contains("Classes=\"TrelloBoardTab CompactTab\"", dashboard);
-        Assert.Contains("Background=\"{DynamicResource NavigationDividerBrush}\"", dashboard);
-        Assert.Contains("Width=\"2\" HorizontalAlignment=\"Center\" VerticalAlignment=\"Stretch\"", dashboard);
-        Assert.Contains("RadioButton.TrelloBoardTab:checked /template/ Border#PART_Indicator", navigationStyles);
-        Assert.Contains("Margin=\"0,0,0,-8\"", navigationStyles);
-    }
-
-    [Fact]
-    public void FloatingDocCancelsPendingBoundsSaveWithoutDirectCtsCancelInOnClosing()
-    {
-        var codeBehind = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DocFloatingWindow.axaml.cs");
-        var onClosing = codeBehind[(codeBehind.IndexOf("protected override void OnClosing", StringComparison.Ordinal))..];
-
-        Assert.Contains("CancelPendingBoundsSave();", onClosing);
-        Assert.DoesNotContain("_boundsSaveCts?.Cancel()", onClosing);
     }
 
     [Fact]

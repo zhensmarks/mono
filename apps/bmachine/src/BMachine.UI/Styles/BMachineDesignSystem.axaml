@@ -324,20 +324,8 @@
         <Setter Property="FontSize" Value="12" />
     </Style>
     <Style Selector="TextBox.search">
-        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}" />
-        <Setter Property="Padding" Value="12,0,10,0" />
-        <Setter Property="MinHeight" Value="36" />
-        <Setter Property="Height" Value="36" />
-        <Setter Property="Background" Value="{DynamicResource BgInputBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
-    </Style>
-    <Style Selector="TextBox.search:pointerover /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
-    </Style>
-    <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="10,6" />
     </Style>
 
     <!-- ================================================================ -->

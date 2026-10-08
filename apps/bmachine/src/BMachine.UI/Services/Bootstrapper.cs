@@ -80,7 +80,7 @@ public class Bootstrapper
             var logger = new SimpleLogger(); 
             var activity = new ActivityService(_database);
             var nav = new NavigationService(); 
-            var notify = ToastNotificationService.Instance; 
+            var notify = new NotificationService(); 
             
             status?.Report("Membangun Plugin Dependency Graph...");
             // Build mocked/real dep graph

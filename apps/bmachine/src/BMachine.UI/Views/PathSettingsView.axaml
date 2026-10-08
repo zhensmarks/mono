@@ -241,12 +241,12 @@
                                                     <Button Command="{Binding $parent[UserControl].DataContext.MovePhotoshopPathUpCommand}" 
                                                             CommandParameter="{Binding}"
                                                             Classes="Clear" Padding="3" ToolTip.Tip="Move Up">
-                                                         <PathIcon Data="{StaticResource IconArrowUp}" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                         <TextBlock Text="▲" FontSize="9" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                     </Button>
                                                     <Button Command="{Binding $parent[UserControl].DataContext.MovePhotoshopPathDownCommand}" 
                                                             CommandParameter="{Binding}"
                                                             Classes="Clear" Padding="3" ToolTip.Tip="Move Down">
-                                                         <PathIcon Data="{StaticResource IconArrowDown}" Width="10" Height="10" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                         <TextBlock Text="▼" FontSize="9" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                     </Button>
                                                 </StackPanel>
 

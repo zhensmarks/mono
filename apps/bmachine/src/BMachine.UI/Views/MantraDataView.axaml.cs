@@ -36,19 +36,6 @@ public partial class MantraDataView : UserControl
     private int _anchorRowIdx = -1;
     private int _anchorColIdx = -1;
 
-    // ── Excel-like selection state (Daftar 1: Basic) ──
-    /// <summary>Active (focused) cell — the single cell with the thick outline border.</summary>
-    private (TableDataRow Row, string Column)? _activeCell;
-    /// <summary>Whether the active cell is in edit mode (used by Esc handler).</summary>
-    private bool _isCellEditing;
-    /// <summary>Marching-ants (copy/cut) overlay timer reference; null when idle.</summary>
-    private System.Threading.Timer? _marchingAntsTimer;
-    private bool _marchingAntsActive;
-    /// <summary>Whether a range drag selection is currently in progress.</summary>
-    private bool _isDragSelecting;
-    /// <summary>Starting cell of the current drag selection.</summary>
-    private (TableDataRow Row, string Column)? _dragAnchor;
-
     private readonly Dictionary<string, Action> _menuActions = new();
     private readonly List<(KeyGesture Gesture, Action Action)> _activeShortcuts = new();
 
@@ -63,10 +50,7 @@ public partial class MantraDataView : UserControl
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(KeyDownEvent, OnKeyDownTunnel, RoutingStrategies.Tunnel);
-        AddHandler(KeyUpEvent, OnKeyUpTunnel, RoutingStrategies.Tunnel);
         AddHandler(PointerPressedEvent, OnDataGridPointerTunnel, RoutingStrategies.Tunnel);
-        AddHandler(PointerMovedEvent, OnDataGridPointerMoved, RoutingStrategies.Tunnel);
-        AddHandler(PointerReleasedEvent, OnDataGridPointerReleased, RoutingStrategies.Tunnel);
 
         Loaded += (_, _) =>
         {
@@ -75,7 +59,7 @@ public partial class MantraDataView : UserControl
                 var sv = MainDataGrid.GetVisualDescendants()
                     .OfType<ScrollViewer>().FirstOrDefault();
                 if (sv != null)
-                    sv.ScrollChanged += OnDataGridScrollChanged;
+                    sv.ScrollChanged += (_, _) => RefreshCellVisuals();
             });
             Dispatcher.UIThread.Post(() =>
             {
@@ -84,18 +68,6 @@ public partial class MantraDataView : UserControl
                 ApplyContextMenuSettings();
             });
         };
-    }
-
-    private bool _refreshPending = false;
-    private void OnDataGridScrollChanged(object? sender, EventArgs e)
-    {
-        if (_refreshPending) return;
-        _refreshPending = true;
-        Dispatcher.UIThread.Post(() =>
-        {
-            _refreshPending = false;
-            RefreshCellVisuals();
-        });
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -323,7 +295,7 @@ vm.RequestCustomMergeFunc = async (cols, pre, sample) =>
             var templateCol = new DataGridTemplateColumn
             {
                 Header = col,
-                Width = new DataGridLength(140),
+                Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells),
                 CanUserSort = false
             };
 
@@ -973,65 +945,6 @@ private void OnDataGridBeginningEdit(object? sender, DataGridBeginningEditEventA
         RefreshCellVisuals();
     }
 
-    // ── Esc key handler (Daftar 1: Basic) ──
-    private void OnKeyUpTunnel(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Escape)
-        {
-            // Cancel edit mode if active
-            if (_isCellEditing)
-            {
-                // Revert active cell to its previous value — simple approach: cancel edit
-                MainDataGrid?.CommitEdit();
-                MainDataGrid?.CancelEdit();
-                _isCellEditing = false;
-                e.Handled = true;
-                return;
-            }
-
-            // Clear selection if range is active
-            if (_selectedCells.Count > 0)
-            {
-                ClearSelection();
-                RefreshCellVisuals();
-                e.Handled = true;
-                return;
-            }
-
-            // Clear marching ants (copy/cut state)
-            if (_marchingAntsTimer != null)
-            {
-                StopMarchingAnts();
-                e.Handled = true;
-            }
-        }
-    }
-
-    // ── Drag selection handlers (Daftar 1: Basic) ──
-    private void OnDataGridPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (_isDragSelecting && _dragAnchor.HasValue && MainDataGrid?.CurrentColumn != null)
-        {
-            var pos = e.GetPosition(MainDataGrid);
-            var hit = HitTest(pos);
-            if (hit != null)
-            {
-                ExtendSelectionTo(hit.Value.Row, hit.Value.Column);
-                RefreshCellVisuals();
-            }
-        }
-    }
-
-    private void OnDataGridPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (_isDragSelecting)
-        {
-            _isDragSelecting = false;
-            _dragAnchor = null;
-            e.Handled = true;
-        }
-    }
-
     // Keyboard Shortcuts (Ctrl+C, Ctrl+V, Del, etc.)
     private void OnKeyDownTunnel(object? sender, KeyEventArgs e)
     {
@@ -1600,54 +1513,10 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
     }
 
     // --- EXCEL-LIKE CELL SELECTION (Custom Layer) ---
-    private void OnDataGridDoubleTapped(object? sender, RoutedEventArgs e)
-    {
-        // do nothing, handled by OnDataGridPointerPressed for double click now
-    }
-
-    private void OnDataGridPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        // Double-click header separator = AutoFit
-        if (e.ClickCount == 2 && e.Source is Visual src)
-        {
-            var header = FindAncestor<DataGridColumnHeader>(src);
-            if (header != null)
-            {
-                var pos = e.GetPosition(header);
-                double distFromRight = header.Bounds.Width - pos.X;
-                double distFromLeft = pos.X;
-                if (distFromRight <= 8 || distFromLeft <= 8)
-                {
-                    var col = DataGridColumn.GetColumnContainingElement(header);
-                    if (col != null)
-                        col.Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells);
-                    e.Handled = true;
-                    return;
-                }
-            }
-        }
-    }
-
     private void OnDataGridPointerTunnel(object? sender, PointerPressedEventArgs e)
     {
         var source = e.Source as Visual;
         if (source == null) return;
-
-        // Allow Avalonia's built-in column-resize gesture through. DataGridColumnHeader
-        // has NO Thumb/gripper: it starts a resize when the pointer is pressed within 5px
-        // of the header's right (or left) edge, via the header's own PointerPressed.
-        // Our tunneled handler runs first and used to mark EVERY header press as Handled,
-        // swallowing that gesture. So when the press is inside the resize region, return
-        // WITHOUT handling, letting the header process the resize itself.
-        var probeHeader = FindAncestor<DataGridColumnHeader>(source);
-        if (probeHeader != null && !e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
-        {
-            var probePos = e.GetPosition(probeHeader);
-            double distFromRight = probeHeader.Bounds.Width - probePos.X;
-            double distFromLeft = probePos.X;
-            if (distFromRight <= 6 || distFromLeft <= 6)
-                return; // let DataGridColumnHeader handle the resize
-        }
 
         if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
         {
@@ -1742,26 +1611,7 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
         if (colIdx < 1 || colIdx >= MainDataGrid.Columns.Count) return;
 
         var colName = column.Header?.ToString();
-        if (string.IsNullOrEmpty(colName)) return;
-
-        // If clicked on "#" (row number cell), select entire row
-        if (colName == "#")
-        {
-            if (!isCtrl && !isShift) _selectedCells.Clear();
-            foreach (var col in _viewModel.Columns)
-            {
-                _selectedCells.Add((dataRow, col));
-            }
-            if (_viewModel.Columns.Count > 0)
-            {
-                _activeCell = (dataRow, _viewModel.Columns[0]);
-            }
-            _anchorRowIdx = rowIdx;
-            _anchorColIdx = 1;
-            RefreshCellVisuals();
-            UpdateSelectionStatus();
-            return;
-        }
+        if (string.IsNullOrEmpty(colName) || colName == "#") return;
 
         if (isShift && _anchorRowIdx >= 0 && _anchorColIdx >= 0)
         {
@@ -1784,7 +1634,6 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
                         _selectedCells.Add((rRow, cName));
                 }
             }
-            _activeCell = (dataRow, colName);
         }
         else if (isCtrl)
         {
@@ -1793,7 +1642,6 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
                 _selectedCells.Add(pair);
             _anchorRowIdx = rowIdx;
             _anchorColIdx = colIdx;
-            _activeCell = (dataRow, colName);
         }
         else
         {
@@ -1801,10 +1649,6 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
             _selectedCells.Add((dataRow, colName));
             _anchorRowIdx = rowIdx;
             _anchorColIdx = colIdx;
-            _activeCell = (dataRow, colName);
-            // Start drag selection
-            _isDragSelecting = true;
-            _dragAnchor = (dataRow, colName);
         }
 
         RefreshCellVisuals();
@@ -1818,31 +1662,10 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
         var column = DataGridColumn.GetColumnContainingElement(header);
         if (column == null) return;
         int colIdx = MainDataGrid.Columns.IndexOf(column);
-        if (colIdx < 0 || colIdx >= MainDataGrid.Columns.Count) return;
+        if (colIdx < 1 || colIdx >= MainDataGrid.Columns.Count) return;
 
         var colName = column.Header?.ToString();
-        if (string.IsNullOrEmpty(colName)) return;
-
-        // Select All if "#" header (intersection box) is clicked
-        if (colName == "#")
-        {
-            _selectedCells.Clear();
-            foreach (var row in _viewModel.FilteredRows)
-            {
-                foreach (var c in _viewModel.Columns)
-                {
-                    _selectedCells.Add((row, c));
-                }
-            }
-            if (_viewModel.FilteredRows.Count > 0 && _viewModel.Columns.Count > 0)
-            {
-                _activeCell = (_viewModel.FilteredRows[0], _viewModel.Columns[0]);
-            }
-            _viewModel.StatusMessage = $"Semua sel terpilih ({_viewModel.FilteredRows.Count} baris, {_viewModel.Columns.Count} kolom).";
-            RefreshCellVisuals();
-            UpdateSelectionStatus();
-            return;
-        }
+        if (string.IsNullOrEmpty(colName) || colName == "#") return;
 
         if (isShift && _anchorColIdx >= 0)
         {
@@ -1942,7 +1765,6 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
         var distinctRows = _selectedCells.Select(c => c.Row).Distinct().Count();
         _viewModel.SelectedRowCount = distinctRows;
         _lastSelectedColumns = _selectedCells.Select(c => c.Column).Distinct().ToList();
-        UpdateAggregates();
     }
 
     private void RefreshCellVisuals()
@@ -1951,55 +1773,39 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
 
         foreach (var desc in MainDataGrid.GetVisualDescendants())
         {
-            if (desc is not DataGridRow dataGridRow) continue;
-            if (dataGridRow.DataContext is not TableDataRow row) continue;
-
-            DataGridCellsPresenter? cellsPresenter = null;
-            foreach (var child in dataGridRow.GetVisualDescendants())
+            if (desc is DataGridRow dataGridRow && dataGridRow.DataContext is TableDataRow row)
             {
-                if (child is DataGridCellsPresenter cp)
-                {
-                    cellsPresenter = cp;
-                    break;
-                }
-            }
-            if (cellsPresenter == null) continue;
+                var cellsPresenter = dataGridRow.GetVisualDescendants()
+                    .OfType<DataGridCellsPresenter>().FirstOrDefault();
+                if (cellsPresenter == null) continue;
 
-            foreach (var cellObj in cellsPresenter.Children)
-            {
-                if (cellObj is not DataGridCell cell) continue;
-                if (!cell.IsVisible) continue;
-
-                var column = DataGridColumn.GetColumnContainingElement(cell);
-                if (column == null) continue;
-                var colName = column.Header?.ToString();
-                if (string.IsNullOrEmpty(colName) || colName == "#") continue;
-
-                bool isSelected = _selectedCells.Contains((row, colName));
-                bool isActive = _activeCell.HasValue && _activeCell.Value.Row == row && _activeCell.Value.Column == colName;
-
-                if (isActive)
+                for (int i = 0; i < cellsPresenter.Children.Count; i++)
                 {
-                    // Active cell: thick 2px outline (Excel-like focus border)
-                    cell.Background = new SolidColorBrush(Color.Parse("#2A3F66"));
-                    cell.BorderThickness = new Thickness(2);
-                    cell.BorderBrush = new SolidColorBrush(Color.Parse("#38BDF8"));
-                }
-                else if (isSelected)
-                {
-                    cell.Background = new SolidColorBrush(Color.Parse("#2A3F66"));
-                    cell.BorderThickness = new Thickness(1);
-                    cell.BorderBrush = new SolidColorBrush(Color.Parse("#38BDF8"));
-                }
-                else
-                {
-                    cell.Background = Brushes.Transparent;
-                    cell.BorderThickness = new Thickness(1);
-                    cell.BorderBrush = Brushes.Transparent;
+                    if (cellsPresenter.Children[i] is not DataGridCell cell) continue;
+                    if (!cell.IsVisible) continue;
+
+                    var column = DataGridColumn.GetColumnContainingElement(cell);
+                    if (column == null) continue;
+                    var colName = column.Header?.ToString();
+                    if (string.IsNullOrEmpty(colName) || colName == "#") continue;
+
+                    bool isSelected = _selectedCells.Contains((row, colName));
+
+                    if (isSelected)
+                    {
+                        cell.Background = new SolidColorBrush(Color.Parse("#2A3F66"));
+                        cell.BorderThickness = new Thickness(1);
+                        cell.BorderBrush = new SolidColorBrush(Color.Parse("#38BDF8"));
+                    }
+                    else
+                    {
+                        cell.Background = Brushes.Transparent;
+                        cell.BorderThickness = new Thickness(1);
+                        cell.BorderBrush = Brushes.Transparent;
+                    }
                 }
             }
         }
-        UpdateFillHandlePosition();
     }
 
     private static T? FindAncestor<T>(Visual? visual) where T : Visual
@@ -2192,178 +1998,6 @@ private void OnMenuTrimSpacesClicked(object? sender, RoutedEventArgs e) => _view
                 "BELUM" => "Belum Ada",
                 _ => "Semua Foto"
             };
-    }
-
-    // ── Excel-like selection helpers (Daftar 1: Basic) ──
-    private (TableDataRow Row, string Column)? HitTest(Point point)
-    {
-        if (MainDataGrid == null) return null;
-        foreach (var desc in MainDataGrid.GetVisualDescendants())
-        {
-            if (desc is DataGridRow dataGridRow && dataGridRow.DataContext is TableDataRow row)
-            {
-                var cellsPresenter = dataGridRow.GetVisualDescendants()
-                    .OfType<DataGridCellsPresenter>().FirstOrDefault();
-                if (cellsPresenter == null) continue;
-
-                for (int i = 0; i < cellsPresenter.Children.Count; i++)
-                {
-                    if (cellsPresenter.Children[i] is not DataGridCell cell) continue;
-                    if (!cell.IsVisible) continue;
-
-                    var column = DataGridColumn.GetColumnContainingElement(cell);
-                    if (column == null) continue;
-                    var colName = column.Header?.ToString();
-                    if (string.IsNullOrEmpty(colName) || colName == "#") continue;
-
-                    var cellBoundsInGrid = cell.Bounds;
-                    var cellPos = cell.TranslatePoint(new Point(0, 0), MainDataGrid);
-                    if (cellPos.HasValue)
-                    {
-                        var rect = new Rect(cellPos.Value, cell.Bounds.Size);
-                        if (rect.Contains(point))
-                            return (row, colName);
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    private void ClearSelection()
-    {
-        _selectedCells.Clear();
-        _activeCell = null;
-    }
-
-    private void StopMarchingAnts()
-    {
-        _marchingAntsTimer?.Dispose();
-        _marchingAntsTimer = null;
-        _marchingAntsActive = false;
-    }
-
-    private void ExtendSelectionTo(TableDataRow row, string col)
-    {
-        if (_dragAnchor == null) return;
-        // Range select: select rectangle from anchor to current cell
-        var idx0 = _viewModel?.Rows.IndexOf(_dragAnchor.Value.Row) ?? 0;
-        var idx1 = _viewModel?.Rows.IndexOf(row) ?? 0;
-        var c0 = _viewModel?.Columns.IndexOf(_dragAnchor.Value.Column) ?? 0;
-        var c1 = _viewModel?.Columns.IndexOf(col) ?? 0;
-        var rmin = Math.Min(idx0, idx1); var rmax = Math.Max(idx0, idx1);
-        var cmin = Math.Min(c0, c1); var cmax = Math.Max(c0, c1);
-        _selectedCells.Clear();
-        for (int r = rmin; r <= rmax; r++)
-        {
-            var rowdata = _viewModel?.Rows[r];
-            if (rowdata == null) continue;
-            for (int c = cmin; c <= cmax; c++)
-            {
-                var colname = _viewModel?.Columns[c];
-                if (colname == null) continue;
-                _selectedCells.Add((rowdata, colname));
-            }
-        }
-        _activeCell = (row, col);
-    }
-
-    private void UpdateFillHandlePosition()
-    {
-        // TODO: Implement visual fill handle positioning
-        // Requires walking visual tree to find DataGridCell bounds
-        if (FillHandle != null)
-            FillHandle.IsVisible = false;
-    }
-
-    private void UpdateAggregates()
-    {
-        if (StatusBarAggregatesText == null) return;
-        if (_selectedCells.Count == 0)
-        {
-            StatusBarAggregatesText.Text = "";
-            return;
-        }
-        // Hitung sum/count/avg dari cell yang selected (hanya kolom numerik)
-        var numericValues = new List<double>();
-        foreach (var (row, col) in _selectedCells)
-        {
-            if (col == "#" || col == "No" || string.IsNullOrEmpty(col)) continue;
-            var val = row[col];
-            if (double.TryParse(val, out var num)) numericValues.Add(num);
-        }
-        if (numericValues.Count == 0)
-        {
-            StatusBarAggregatesText.Text = "";
-            return;
-        }
-        double sum = numericValues.Sum();
-        double avg = numericValues.Average();
-        StatusBarAggregatesText.Text = $"Sum: {sum:N0} | Count: {numericValues.Count} | Avg: {avg:N1}";
-    }
-
-    // --- FILL HANDLE (Excel-like drag auto-fill) ---
-    private bool _fillHandleDragging = false;
-    private Point _fillHandleStart;
-    private (TableDataRow Row, string Column)? _fillHandleAnchor;
-
-    private void OnFillHandlePointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (_activeCell == null) return;
-        _fillHandleDragging = true;
-        _fillHandleStart = e.GetPosition(GridContainer);
-        _fillHandleAnchor = _activeCell;
-        // Note: Border doesn't support CapturePointer in Avalonia
-        e.Handled = true;
-    }
-
-    private void OnFillHandlePointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (!_fillHandleDragging || GridContainer == null) return;
-        // TODO: Implement drag selection extension
-        // Requires hit-testing DataGrid visual tree
-    }
-
-    private void OnFillHandlePointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (!_fillHandleDragging) return;
-        _fillHandleDragging = false;
-        AutoFillSelection();
-        RefreshCellVisuals();
-        UpdateAggregates();
-        e.Handled = true;
-    }
-
-    private void AutoFillSelection()
-    {
-        if (_fillHandleAnchor == null || _activeCell == null || _viewModel == null) return;
-        var anchor = _fillHandleAnchor.Value;
-        var active = _activeCell.Value;
-        int anchorRowIdx = _viewModel.Rows.IndexOf(anchor.Row);
-        int activeRowIdx = _viewModel.Rows.IndexOf(active.Row);
-        int anchorColIdx = _viewModel.Columns.IndexOf(anchor.Column);
-        int activeColIdx = _viewModel.Columns.IndexOf(active.Column);
-        
-        if (activeRowIdx > anchorRowIdx)
-        {
-            // Fill down
-            var sourceVal = anchor.Row[anchor.Column];
-            for (int r = anchorRowIdx + 1; r <= activeRowIdx; r++)
-            {
-                var rowdata = _viewModel.Rows[r];
-                rowdata[anchor.Column] = sourceVal;
-            }
-        }
-        else if (activeColIdx > anchorColIdx)
-        {
-            // Fill right
-            var sourceVal = anchor.Row[anchor.Column];
-            for (int c = anchorColIdx + 1; c <= activeColIdx; c++)
-            {
-                var colname = _viewModel.Columns[c];
-                anchor.Row[colname] = sourceVal;
-            }
-        }
     }
 }
 

@@ -118,11 +118,11 @@ public class AppNavigation : INavigationService
 
 public class AppNotification : INotificationService
 {
-    public void ShowInfo(string message, string? title = null) => ToastNotificationService.Instance.ShowInfo(message, title);
-    public void ShowSuccess(string message, string? title = null) => ToastNotificationService.Instance.ShowSuccess(message, title);
-    public void ShowWarning(string message, string? title = null) => ToastNotificationService.Instance.ShowWarning(message, title);
-    public void ShowError(string message, string? title = null) => ToastNotificationService.Instance.ShowError(message, title);
-    public Task<bool> ShowConfirmAsync(string message, string? title = null) => ToastNotificationService.Instance.ShowConfirmAsync(message, title);
+    public void ShowInfo(string message, string? title = null) { }
+    public void ShowSuccess(string message, string? title = null) { }
+    public void ShowWarning(string message, string? title = null) { }
+    public void ShowError(string message, string? title = null) { }
+    public Task<bool> ShowConfirmAsync(string message, string? title = null) => Task.FromResult(true);
 }
 
 public class AppServiceProvider : IServiceProvider
