@@ -15,9 +15,16 @@
             <ColumnDefinition Width="6"/>
             <ColumnDefinition Width="400" MinWidth="320" MaxWidth="650"/>
         </Grid.ColumnDefinitions>
-        <GridSplitter x:Name="Part_DetailSplitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SeparatorBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0.7"
+        <GridSplitter x:Name="Part_DetailSplitter" Grid.Column="1" ResizeDirection="Columns" Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       IsVisible="{Binding ShouldShowPanelScreen}"
-                      ToolTip.Tip="Resize detail panel"/>
+                      ToolTip.Tip="Resize detail panel">
+            <GridSplitter.Styles>
+                <Style Selector="GridSplitter:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+                    <Setter Property="Opacity" Value="0.4"/>
+                </Style>
+            </GridSplitter.Styles>
+        </GridSplitter>
         
         <!-- LEFT COLUMN / LIST SCREEN: Status + Tabs + Card List + Bottom (compact: hidden when panel open) -->
         <Grid x:Name="Part_ListScreen" Grid.Column="0" IsVisible="{Binding IsListScreenVisible}">
@@ -29,7 +36,7 @@
             </Grid.RowDefinitions>
         
         <!-- ROW 0: Top Status Bar (Window mode only) -->
-        <Border Grid.Row="0" Margin="20,10,20,0" Padding="12,8" Background="{DynamicResource AppBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12" IsVisible="{Binding IsNotEmbedded}">
+        <Border Grid.Row="0" Margin="20,10,20,0" Padding="12,8" Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusMd}" IsVisible="{Binding IsNotEmbedded}">
             <Grid ColumnDefinitions="*, Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <!-- Status Dot of Active ViewModel -->

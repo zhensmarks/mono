@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="BMachine.UI.Views.Controls.InAppToast">
+    <UserControl.Styles>
+        <Style Selector="Border.ToastContainer">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="MinWidth" Value="280"/>
+            <Setter Property="MaxWidth" Value="420"/>
+            <Setter Property="BoxShadow" Value="0 8 24 0 #60000000"/>
+        </Style>
+        
+        <Style Selector="Border.ToastContainer.Success">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentGreenBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        
+        <Style Selector="Border.ToastContainer.Error">
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonDangerBackgroundBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        
+        <Style Selector="Border.ToastContainer.Warning">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentOrangeBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        
+        <Style Selector="Border.ToastContainer.Info">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+    </UserControl.Styles>
+    
+    <Border Name="ToastBorder" Classes="ToastContainer" IsVisible="{Binding IsVisible}">
+        <DockPanel>
+            <PathIcon DockPanel.Dock="Left" Width="18" Height="18" 
+                      Data="{Binding IconPath}" 
+                      Foreground="{Binding IconColor}"
+                      Margin="0,0,12,0" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding Message}" 
+                       FontSize="13" 
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center"/>
+        </DockPanel>
+    </Border>
+</UserControl>

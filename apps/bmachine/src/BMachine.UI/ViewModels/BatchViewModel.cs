@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Globalization;
 using System.Collections.Generic;
 using BMachine.SDK;
 using CommunityToolkit.Mvvm.Messaging;
@@ -511,8 +512,8 @@ namespace BMachine.UI.ViewModels;
         {
             await _database.SetAsync("Settings.DocFloating.X", x.ToString());
             await _database.SetAsync("Settings.DocFloating.Y", y.ToString());
-            await _database.SetAsync("Settings.DocFloating.Width", width.ToString());
-            await _database.SetAsync("Settings.DocFloating.Height", height.ToString());
+            await _database.SetAsync("Settings.DocFloating.Width", width.ToString(CultureInfo.InvariantCulture));
+            await _database.SetAsync("Settings.DocFloating.Height", height.ToString(CultureInfo.InvariantCulture));
         }
         catch { }
     }
@@ -527,8 +528,10 @@ namespace BMachine.UI.ViewModels;
             var wStr = await _database.GetAsync<string>("Settings.DocFloating.Width");
             var hStr = await _database.GetAsync<string>("Settings.DocFloating.Height");
 
-            if (int.TryParse(xStr, out int x) && int.TryParse(yStr, out int y) &&
-                double.TryParse(wStr, out double w) && double.TryParse(hStr, out double h))
+            if (int.TryParse(xStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out int x) &&
+                int.TryParse(yStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out int y) &&
+                double.TryParse(wStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double w) &&
+                double.TryParse(hStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double h))
             {
                 return (x, y, w, h);
             }
@@ -1123,9 +1126,27 @@ if ($img -ne $null) {{
 
     private BatchNodeItem? _currentTargetNode;
 
+    private Avalonia.Threading.DispatcherTimer? _masterSearchDebounce;
+
     partial void OnMasterSearchTextChanged(string value)
     {
-        ApplyMasterFilter(value);
+        // Debounce: every keystroke previously triggered a full synchronous-ish
+        // reload of the master tree (LoadMasterNodes), which was the main source of
+        // lag while typing. Coalesce rapid keystrokes into a single reload.
+        _masterSearchDebounce?.Stop();
+        _masterSearchDebounce ??= new Avalonia.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(350)
+        };
+        _masterSearchDebounce.Tick -= OnMasterSearchDebounceTick;
+        _masterSearchDebounce.Tick += OnMasterSearchDebounceTick;
+        _masterSearchDebounce.Start();
+    }
+
+    private void OnMasterSearchDebounceTick(object? sender, EventArgs e)
+    {
+        _masterSearchDebounce?.Stop();
+        ApplyMasterFilter(MasterSearchText);
     }
 
     private void ApplyMasterFilter(string filter)
@@ -1217,14 +1238,16 @@ if ($img -ne $null) {{
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
             {
                 MasterNodes.Clear();
-                MasterThumbnailNodes.Clear();
+                // NOTE: Do NOT populate MasterThumbnailNodes here. The view binds the
+                // TreeView directly to MasterNodes and lazily expands children on demand;
+                // MasterThumbnailNodes is not referenced by any view. Walking every leaf
+                // via EnumerateLeaves() forced a full recursive disk scan on the UI thread
+                // (loading all children of every folder), which caused the MASTER tab lag.
                 foreach (var node in nodes)
                 {
                     MasterNodes.Add(node);
-                    foreach (var leaf in node.EnumerateLeaves())
-                        MasterThumbnailNodes.Add(leaf);
                 }
-                System.Diagnostics.Debug.WriteLine($"[MasterGrid] roots={nodes.Count} thumbnails={MasterThumbnailNodes.Count}");
+                System.Diagnostics.Debug.WriteLine($"[MasterGrid] roots={nodes.Count}");
             });
         }
         finally
@@ -1882,15 +1905,20 @@ if ($img -ne $null) {{
                 OutputBasePath = Path.GetDirectoryName(outputPath) ?? outputPath,
                 UseInput = true,
                 UseOutput = true,
-                MasterTemplatePath = outputPath
+                MasterTemplatePath = outputPath,
+                BatchAutoReplace = true
             };
-            var json = System.Text.Json.JsonSerializer.Serialize(context, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            var contextPath = await Services.BmachineContextService.WriteContextAsync(json);
+            var json = System.Text.Json.JsonSerializer.Serialize(context);
+            var wrapperPath = Path.Combine(Path.GetTempPath(), $"bmachine_replace_auto_{Guid.NewGuid():N}.jsx");
+            var wrapper = "$.global.BMachineBatchContext = " + json + ";\n" +
+                          "$.evalFile(new File(" + System.Text.Json.JsonSerializer.Serialize(scriptPath) + "));\n" +
+                          "delete $.global.BMachineBatchContext;\n";
+            await File.WriteAllTextAsync(wrapperPath, wrapper, new System.Text.UTF8Encoding(false));
 
-            // Launch without polling or a legacy fixed sleep; Photoshop owns the long-running work.
-            _platformService.RunJsxInPhotoshop(scriptPath, photoshopPath);
+            // The wrapper delivers this invocation's exact paths directly to replace.jsx.
+            _platformService.RunJsxInPhotoshop(wrapperPath, photoshopPath);
             _logService?.AddLog($"[INFO] Replace launched. Master: {outputPath} | Input: {sourcePath}");
-            _logService?.AddLog($"[INFO] Replace context: {contextPath}");
+            _logService?.AddLog($"[INFO] Replace wrapper: {wrapperPath}");
         }
         catch (Exception ex)
         {

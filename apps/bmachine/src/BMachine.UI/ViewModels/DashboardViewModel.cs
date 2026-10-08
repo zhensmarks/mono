@@ -667,7 +667,7 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
             _fileManager = new BMachine.UI.Services.FileOperationManager(); // Init Manager
 
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init OutputExplorerVM...\n");
-            OutputExplorerVM = new OutputExplorerViewModel(database, new BMachine.UI.Services.NotificationService(), _fileManager, _platformService); // Init Explorer
+            OutputExplorerVM = new OutputExplorerViewModel(database, Services.ToastNotificationService.Instance, _fileManager, _platformService); // Init Explorer
             
             System.IO.File.AppendAllText(logPath, $"[{DateTime.Now}] Init ConnectivityTimer...\n");
             // Connectivity Check Timer
@@ -690,9 +690,9 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         // Leaderboard will load in LoadData() async method
         
         // Initialize Persistent List VMs
-        var editingListVM = new EditingCardListViewModel(database);
-        var revisionListVM = new RevisionCardListViewModel(database);
-        var lateListVM = new LateCardListViewModel(database);
+        var editingListVM = new EditingCardListViewModel(database, Services.ToastNotificationService.Instance);
+        var revisionListVM = new RevisionCardListViewModel(database, Services.ToastNotificationService.Instance);
+        var lateListVM = new LateCardListViewModel(database, Services.ToastNotificationService.Instance);
         
         TrelloVM = new UnifiedTrelloViewModel(database, editingListVM, revisionListVM, lateListVM);
 
