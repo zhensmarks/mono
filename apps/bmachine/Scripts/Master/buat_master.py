@@ -22,6 +22,7 @@ Paths are read from BMachine SQLite database automatically.
 
 import os
 import sys
+import re
 import sqlite3
 import subprocess
 import json
@@ -66,6 +67,8 @@ def get_script_dir():
 
 
 _PASFOTO_KEYWORDS   = ["PAS FOTO", "PAS_FOTO", "PASFOTO", "FREE PAS FOTO", "FREE PAS_FOTO", "PAS FOTO FREE", "PFM", "PFB"]
+# Kode pas foto eksplisit (termasuk pemisah underscore): PFM-005 / PFM_005 / PFB 005 / PFM005
+_PASFOTO_CODE_RE    = re.compile(r"PF[MB][\s_\-]*\d+", re.IGNORECASE)
 _PROFESI_KEYWORDS   = ["PROFESI", "SPORTY", "FOTO PROFESI"]
 _MANASIK_KEYWORDS   = ["MANASIK", "MSK"]
 _WISUDA_KEYWORDS    = ["WISUDA", "WSD"]
@@ -92,6 +95,10 @@ def detect_folder_types(pilihan_path):
                 
             combined = filename + " " + content
             
+            # Deteksi kode pas foto eksplisit (termasuk pemisah underscore: PFM_005 / PFB_005)
+            if _PASFOTO_CODE_RE.search(combined):
+                found.add('pasfoto')
+
             for kw in _PASFOTO_KEYWORDS:
                 if kw in combined: found.add('pasfoto')
             for kw in _MANASIK_KEYWORDS:

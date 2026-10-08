@@ -149,9 +149,10 @@ def find_psd_for_code(master_pasfoto_path: str, layer_code: str):
     except Exception:
         return None
 
-    # Ekstrak prefix dan angka dari kode: "PFM 06" → prefix="PFM", num_int=6
-    code_clean = re.sub(r'[\s\-]+', '', layer_code).upper()
-    code_match = re.match(r'(PF[MB])(\d+)', code_clean, re.IGNORECASE)
+    # Ekstrak prefix dan angka dari kode: "PFM 06" / "PFM_06" → prefix="PFM", num_int=6
+    # Underscore '_' juga diterima sebagai pemisah (mis. PFM_005 / PFB_005).
+    code_clean = re.sub(r'[\s\-_]+', '', layer_code).upper()
+    code_match = re.match(r'(PF[MB])_?(\d+)', code_clean, re.IGNORECASE)
     if not code_match:
         return None
     
@@ -166,8 +167,8 @@ def find_psd_for_code(master_pasfoto_path: str, layer_code: str):
         
         fname_no_ext = os.path.splitext(f)[0]
         
-        # Ekstrak prefix dan angka dari nama file: "PFM-006" → prefix="PFM", num=6
-        fname_match = re.search(r'(PF[MB])[\s\-]*(\d+)', fname_no_ext, re.IGNORECASE)
+        # Ekstrak prefix dan angka dari nama file: "PFM-006" / "PFM_006" → prefix="PFM", num=6
+        fname_match = re.search(r'(PF[MB])[\s\-_]*(\d+)', fname_no_ext, re.IGNORECASE)
         if not fname_match:
             continue
         
@@ -205,11 +206,12 @@ def read_txt_get_code_and_flag(txt_path: str):
     except Exception:
         content = ""
 
-    match = re.search(r"PF[MB][\s-]*\d+", content, re.IGNORECASE) or re.search(
-        r"PF[MB][\s-]*\d+", os.path.basename(txt_path), re.IGNORECASE
+    # Underscore '_' juga diterima sebagai pemisah (mis. PFM_005 / PFB_005).
+    match = re.search(r"PF[MB][\s\-_]*\d+", content, re.IGNORECASE) or re.search(
+        r"PF[MB][\s\-_]*\d+", os.path.basename(txt_path), re.IGNORECASE
     )
-    # Normalisasi: "PFM 06" / "PFM-06" → "PFM06"
-    layer_code = re.sub(r'[\s\-]+', '', match.group(0)).upper() if match else None
+    # Normalisasi: "PFM 06" / "PFM-06" / "PFM_06" → "PFM06"
+    layer_code = re.sub(r'[\s\-_]+', '', match.group(0)).upper() if match else None
 
     combined_text_source = (content + " " + os.path.basename(txt_path)).lower()
     show_ribbon = "pakai nama sekolah" in combined_text_source
