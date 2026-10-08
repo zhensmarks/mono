@@ -829,10 +829,7 @@ function main() {
     }
 
     // ==========================================
-    // PANEL 3: DAFTAR ANTRIAN (QUEUE)
-    // ==========================================
-    // ==========================================
-    // TOMBOL AKSI UTAMA (Di Atas List Antrian)
+    // TOMBOL AKSI UTAMA
     // ==========================================
     var grpBtn = w.add("group");
     grpBtn.alignment = "center";
@@ -845,34 +842,79 @@ function main() {
     var btnCancel = grpBtn.add("button", undefined, "Batal", { name: "cancel" });
     btnCancel.preferredSize = [80, 32];
 
-    // ==========================================
-    // PANEL 3: DAFTAR ANTRIAN (QUEUE)
-    // Hanya muncul jika ada list antrian
-    // ==========================================
-    var grpQueue = w.add("panel", undefined, " 3. DAFTAR ANTRIAN KERJA ");
-    grpQueue.orientation = "column";
-    grpQueue.alignChildren = ["fill", "top"];
-    grpQueue.visible = false;
-    grpQueue.spacing = 6;
-    grpQueue.margins = 10;
-
-    var lblQueue = grpQueue.add("statictext", undefined, "Daftar Antrian (Queue):");
-    var listQueue = grpQueue.add("listbox", undefined, [], { multiselect: true });
-    listQueue.preferredSize.height = 110;
-    listQueue.preferredSize.width = 500;
-
-    // Queue Controls
-    var grpQueueControl = grpQueue.add("group");
-    grpQueueControl.orientation = "row";
-    grpQueueControl.alignChildren = ["left", "center"];
-
-    var btnClearQueue = grpQueueControl.add("button", undefined, "Hapus Terpilih");
-    btnClearQueue.size = [110, 25];
-    btnClearQueue.enabled = false;
-
     // Logic Add Queue
-    var queueData = []; // Store real objects {master, input}
+    // Panel antrian TIDAK dibuat di awal supaya tidak ada ruang kosong.
+    // Panel baru dibuat saat item pertama ditambahkan, lalu jendela tumbuh.
+    var queueData = []; // {master, input}
     var selectedRevisiMode = "exact"; // "exact" (Persis) | "flex" (Fleksibel)
+    var grpQueue = null;
+    var listQueue = null;
+    var btnClearQueue = null;
+
+    function queueListHeight() {
+        // Tinggi daftar mengikuti jumlah item, jadi jendela tumbuh bertahap.
+        var h = queueData.length * 22 + 12;
+        if (h < 46) h = 46;
+        if (h > 220) h = 220;
+        return h;
+    }
+
+    function refreshQueueLayout() {
+        w.layout.layout(true);
+        w.layout.resize();
+        w.update();
+    }
+
+    function ensureQueuePanel() {
+        if (grpQueue) return;
+
+        grpQueue = w.add("panel", undefined, " 3. DAFTAR ANTRIAN KERJA ");
+        grpQueue.orientation = "column";
+        grpQueue.alignChildren = ["fill", "top"];
+        grpQueue.spacing = 6;
+        grpQueue.margins = 10;
+
+        grpQueue.add("statictext", undefined, "Daftar Antrian (Queue):");
+        listQueue = grpQueue.add("listbox", undefined, [], { multiselect: true });
+        listQueue.preferredSize.width = 500;
+        listQueue.preferredSize.height = queueListHeight();
+
+        var grpQueueControl = grpQueue.add("group");
+        grpQueueControl.orientation = "row";
+        grpQueueControl.alignChildren = ["left", "center"];
+        btnClearQueue = grpQueueControl.add("button", undefined, "Hapus Terpilih");
+        btnClearQueue.size = [110, 25];
+        btnClearQueue.enabled = false;
+
+        listQueue.onChange = function () {
+            btnClearQueue.enabled = (listQueue.selection != null);
+        };
+
+        btnClearQueue.onClick = function () {
+            if (!listQueue.selection) return;
+            var limits = listQueue.selection;
+            var indices = [];
+            for (var i = 0; i < limits.length; i++) indices.push(limits[i].index);
+            indices.sort(function (a, b) { return b - a; }); // Descending
+
+            for (var j = 0; j < indices.length; j++) {
+                listQueue.remove(indices[j]);
+                queueData.splice(indices[j], 1);
+            }
+
+            if (queueData.length == 0) {
+                // Hapus panel dari layout supaya tidak menyisakan ruang kosong.
+                w.remove(grpQueue);
+                grpQueue = null;
+                listQueue = null;
+                btnClearQueue = null;
+            } else {
+                grpQueue.text = " 3. DAFTAR ANTRIAN KERJA (" + queueData.length + ") ";
+                listQueue.preferredSize.height = queueListHeight();
+            }
+            refreshQueueLayout();
+        };
+    }
 
     btnAddQueue.onClick = function () {
         if (txtMaster.text != "" && txtInput.text == "") {
@@ -890,43 +932,23 @@ function main() {
             input: txtInput.text
         });
 
+        // Buat panel antrian saat item pertama masuk
+        ensureQueuePanel();
+
         // Add to UI
         var label = "M: " + new File(txtMaster.text).displayName + " | I: " + new File(txtInput.text).displayName;
         listQueue.add("item", label);
+        listQueue.selection = listQueue.items[listQueue.items.length - 1];
 
-        // Update UI state: Tampilkan panel antrian hanya ketika ada antrian
         grpQueue.text = " 3. DAFTAR ANTRIAN KERJA (" + queueData.length + ") ";
         grpQueue.visible = true;
-        w.layout.layout(true); // Refresh layout
+        listQueue.preferredSize.height = queueListHeight();
+        refreshQueueLayout();
 
         // Clear fields for next entry
         txtInput.text = "";
         txtMaster.text = "";
         triggerAutoDetect();
-    };
-
-    listQueue.onChange = function () {
-        btnClearQueue.enabled = (listQueue.selection != null);
-    };
-
-    btnClearQueue.onClick = function () {
-        if (!listQueue.selection) return;
-        var limits = listQueue.selection;
-        var indices = [];
-        for (var i = 0; i < limits.length; i++) indices.push(limits[i].index);
-        indices.sort(function (a, b) { return b - a }); // Descending
-
-        for (var i = 0; i < indices.length; i++) {
-            var idx = indices[i];
-            listQueue.remove(idx);
-            queueData.splice(idx, 1);
-        }
-
-        grpQueue.text = " 3. DAFTAR ANTRIAN KERJA (" + queueData.length + ") ";
-        if (listQueue.items.length == 0) {
-            grpQueue.visible = false;
-            w.layout.layout(true);
-        }
     };
 
     // === EXECUTION LOGIC ===
@@ -956,9 +978,12 @@ function main() {
     txtMaster.active = true;
 
     var result = w.show();
-    if (result != 1 && result != 2) return; // Cancel
 
+    // Simpan posisi terakhir APA PUN hasilnya (termasuk Cancel/tutup),
+    // supaya dialog selalu ingat tempat terakhir kali dipakai.
     saveSettings(w.location.x, w.location.y, currentBaseServer, currentBaseMaster);
+
+    if (result != 1 && result != 2) return; // Cancel
 
     // --- COLLECT JOBS ---
     var jobsToRun = [];
