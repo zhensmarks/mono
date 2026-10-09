@@ -5,7 +5,7 @@ Dokumen ini adalah aturan praktis untuk UI PixaCompact, bukan batasan estetika y
 ## Arah visual
 
 - **Permukaan gelap netral** berlapis secukupnya; hindari menumpuk kartu, garis, glow, dan transparansi pada satu area.
-- Gunakan **satu aksen biru** untuk aksi utama, fokus, dan pilihan aktif. Warna lain hanya untuk makna status (berhasil, peringatan, gagal) atau data yang memang berbeda.
+- Gunakan **satu aksen utama** untuk aksi utama, fokus, dan pilihan aktif: biru sebagai default, tetapi hormati warna kustom yang dipilih pengguna. Warna lain hanya untuk makna status atau data yang memang berbeda.
 - Pertahankan ruang kerja foto sebagai fokus: chrome editor tenang, ikon konsisten, dan label hanya ditampilkan saat membantu mengenali aksi.
 - Jangan menambah paket ikon, font ikon, gambar raster dekoratif, atau efek blur global untuk kebutuhan chrome.
 
@@ -17,7 +17,7 @@ Dokumen ini adalah aturan praktis untuk UI PixaCompact, bukan batasan estetika y
 | Permukaan utama | `#171D23` | Panel dan jendela |
 | Permukaan terangkat | `#202830` | Kontrol dan panel sekunder |
 | Hover | `#29343F` | Isyarat hover yang terlihat |
-| Aksen | `#2D78C4` | Aksi utama dan pilihan aktif |
+| Aksen default | `#2D78C4` | Aksi utama dan pilihan aktif; gunakan `AccentBlueBrush` dinamis agar pilihan warna pengguna diterapkan konsisten |
 | Teks utama | `#F1F4F7` | Judul, label, dan isi utama |
 | Teks sekunder | `#AEB9C4` | Bantuan dan metadata |
 | Garis pemisah | `#303A44` | Batas antarkelompok yang perlu |
