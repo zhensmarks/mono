@@ -632,7 +632,7 @@ public partial class PreferencesWindow : Window
 
         hint.Text = string.IsNullOrWhiteSpace(_settings.ExternalEditorPath)
             ? $"Belum diatur. Klik Browse untuk memilih {label}."
-            : $"✓ Diatur: {_settings.ExternalEditorPath}";
+            : $"Diatur: {_settings.ExternalEditorPath}";
     }
 
     private void OnExternalEditorKindChanged(object? sender, SelectionChangedEventArgs e)

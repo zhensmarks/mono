@@ -314,7 +314,7 @@ if (pngPath && jpgPath) {
         => await CloseWithGuardAsync();
 
     /// <summary>
-    /// Tutup jendela preview dengan guard perubahan belum disimpan. Dipakai tombol ✕.
+    /// Tutup jendela preview dengan guard perubahan belum disimpan. Dipakai tombol tutup.
     /// Saat user memilih "Buang perubahan", sesi TIDAK dimasuki ulang ke mode edit —
     /// jendela langsung ditutup (perbaikan: dulu DiscardEditsAsync selalu re-enter
     /// edit mode sehingga terasa "tidak keluar mode edit").

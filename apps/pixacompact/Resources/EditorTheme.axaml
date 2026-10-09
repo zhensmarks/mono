@@ -1,32 +1,30 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-<!-- Design tokens mode edit: SATU definisi warna/metrik, dipakai di semua chrome editor.
-                 Bahasa desain: dark netral ala Photoshop/Affinity (surround #1E1E1E, panel #2B2B2B),
-                 satu aksen biru #31A8FF + turunannya. -->
-            <SolidColorBrush x:Key="EditorBg">#1E1E1E</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorSurface">#2B2B2B</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorSurfaceAlt">#2F2F2F</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorBorder">#3A3A3A</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorTextPrimary">#E8E8E8</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorTextSecondary">#A6A6A6</SolidColorBrush>
+<!-- Editor memakai keluarga warna yang sama dengan jendela utama; satu aksen biru. -->
+            <SolidColorBrush x:Key="EditorBg">#11161B</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorSurface">#171D23</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorSurfaceAlt">#202830</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorBorder">#303A44</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorTextPrimary">#F1F4F7</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorTextSecondary">#AEB9C4</SolidColorBrush>
             <SolidColorBrush x:Key="EditorTextDisabled">#6E6E6E</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorAccent">#31A8FF</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorAccentHover">#4DB8FF</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorAccentPressed">#1E8FDB</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorAccentDark">#1F3A52</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorAccentDarkHover">#2A4A68</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorDanger">#EF4444</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorWarning">#F59E0B</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorSuccess">#22C55E</SolidColorBrush>
-            <!-- Token state tombol: hover harus TERASA (bukan sekadar grey-out samar). -->
-            <SolidColorBrush x:Key="EditorBtnBg">#333333</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorBtnBgHover">#404040</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorBtnBgPressed">#2A2A2A</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorBtnBorder">#4A4A4A</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorBtnBgDisabled">#262626</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorBtnBorderDisabled">#3A3A3A</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorDropHighlight">#3331A8FF</SolidColorBrush>
-            <SolidColorBrush x:Key="EditorDropBorder">#31A8FF</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorAccent">#2D78C4</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorAccentHover">#286FAF</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorAccentPressed">#1E5F99</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorAccentDark">#193A55</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorAccentDarkHover">#224863</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorFocus">#B5D9FF</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorDanger">#CA4B55</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorWarning">#D79B31</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorSuccess">#248552</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorBtnBg">#242D36</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorBtnBgHover">#303B46</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorBtnBgPressed">#1D242B</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorBtnBorder">#394551</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorBtnBgDisabled">#20262C</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorBtnBorderDisabled">#2F3943</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorDropHighlight">#332D78C4</SolidColorBrush>
+            <SolidColorBrush x:Key="EditorDropBorder">#2D78C4</SolidColorBrush>
             <x:Double x:Key="EditorRailWidth">56</x:Double>
             <x:Double x:Key="EditorToolSize">36</x:Double>
             <x:Double x:Key="EditorOptionsBarHeight">32</x:Double>

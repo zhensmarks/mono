@@ -56,19 +56,26 @@
                   <!-- Right: Buttons -->
                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0" VerticalAlignment="Center" HorizontalAlignment="Right">
                       <!-- Settings Button with Flyout -->
-                      <Button VerticalAlignment="Center" Width="45" Height="45" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip.Tip="{DynamicResource Tip_KeyboardShortcuts}" Click="OnPreferencesClick">
+                      <Button Classes="icon quiet" VerticalAlignment="Center" Width="40" Height="40"
+                              ToolTip.Tip="{DynamicResource Tip_KeyboardShortcuts}"
+                              AutomationProperties.Name="{DynamicResource Tip_KeyboardShortcuts}" Click="OnPreferencesClick">
                           <PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.98C19.47,12.66 19.5,12.34 19.5,12C19.5,11.66 19.47,11.34 19.43,11.02L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.48,5.32 14.87,5.07L14.47,2.42C14.43,2.18 14.23,2 14,2H10C9.77,2 9.57,2.18 9.53,2.42L9.13,5.07C8.52,5.32 7.96,5.65 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11.02C4.53,11.34 4.5,11.66 4.5,12C4.5,12.34 4.53,12.66 4.57,12.98L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.04 4.95,18.95L7.44,17.95C7.96,18.35 8.52,18.68 9.13,18.93L9.53,21.58C9.57,21.82 9.77,22 10,22H14C14.23,22 14.43,21.82 14.47,21.58L14.87,18.93C15.48,18.68 16.04,18.35 16.56,17.95L19.05,18.95C19.27,19.04 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.98Z" Width="16" Height="16"/>
                       </Button>
 
                       <!-- Editor Mode Header Controls -->
-                      <Border x:Name="ChipEditMode" IsVisible="False" Background="{StaticResource EditorAccent}" CornerRadius="3" Padding="10,4" Margin="0,0,8,0" VerticalAlignment="Center">
+                      <Border x:Name="ChipEditMode" IsVisible="False" Background="{StaticResource EditorAccent}" CornerRadius="6" Padding="10,4" Margin="0,0,8,0" VerticalAlignment="Center">
                           <TextBlock Text="MODE EDITOR" FontSize="11" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
                       </Border>
 
                       <Button x:Name="BtnExitEditHeader" Classes="editor-compact" IsVisible="False" Content="{DynamicResource Btn_Done}" ToolTip.Tip="{DynamicResource Tip_ExitEditor}" VerticalAlignment="Center" Padding="12,6" Margin="0,0,8,0" Foreground="White" FontSize="12" FontWeight="SemiBold" Cursor="Hand"/>
 
                       <!-- Close Button -->
-                      <Button Click="OnCloseClick" VerticalAlignment="Center" Content="✕" Width="45" Height="45" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" ToolTip.Tip="{DynamicResource Tip_CloseWindow}"/>
+                      <Button Click="OnCloseClick" Classes="icon quiet" VerticalAlignment="Center"
+                              Width="40" Height="40" ToolTip.Tip="{DynamicResource Tip_CloseWindow}"
+                              AutomationProperties.Name="{DynamicResource Tip_CloseWindow}">
+                          <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16"
+                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
+                      </Button>
                   </StackPanel>
             </Grid>
 
@@ -257,7 +264,7 @@
                         <Button x:Name="HeaderToolRail" Grid.Row="0" Classes="editor-compact" Tag="toolrail" Click="OnPanelMenuClick" HorizontalAlignment="Center"
                                 Padding="4,0" Margin="0,0,0,4" Background="Transparent" BorderThickness="0"
                                 Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed"
-                                ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
+                                ToolTip.Tip="Opsi panel (cabut / pasang / tutup)" AutomationProperties.Name="Opsi panel toolbar">
                             <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="16" Height="16" Foreground="{StaticResource EditorTextSecondary}"/>
                         </Button>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
@@ -265,45 +272,45 @@
                             <StackPanel x:Name="ToolColumnLeft" Grid.Column="0" Orientation="Vertical" Spacing="2">
                             <!-- Grup seleksi -->
                             <StackPanel x:Name="ToolSelectionGroup" Orientation="Vertical" Spacing="2">
-                                                    <Button x:Name="BtnToolMove" Classes="editor-tool" Tag="Move" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolMove}">
+                                                    <Button x:Name="BtnToolMove" Classes="editor-tool" Tag="Move" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolMove}" AutomationProperties.Name="{DynamicResource Tip_ToolMove}">
                                                         <PathIcon Data="M10.5,5.4L13.5,5.4L13.5,18.6L10.5,18.6ZM5.4,10.5L18.6,10.5L18.6,13.5L5.4,13.5ZM12,1.8L9,6.6L15,6.6ZM12,22.2L9,17.4L15,17.4ZM1.8,12L6.6,9L6.6,15ZM22.2,12L17.4,9L17.4,15Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnToolRectMarquee" Classes="editor-tool" Tag="RectMarquee" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolRectMarquee}">
+                                                    <Button x:Name="BtnToolRectMarquee" Classes="editor-tool" Tag="RectMarquee" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolRectMarquee}" AutomationProperties.Name="{DynamicResource Tip_ToolRectMarquee}">
                                                         <PathIcon Data="M4,4L7.2,4L7.2,6L4,6ZM4,18L7.2,18L7.2,20L4,20ZM4,4L6,4L6,7.2L4,7.2ZM18,4L20,4L20,7.2L18,7.2ZM8.9,4L12.1,4L12.1,6L8.9,6ZM8.9,18L12.1,18L12.1,20L8.9,20ZM4,8.9L6,8.9L6,12.1L4,12.1ZM18,8.9L20,8.9L20,12.1L18,12.1ZM13.8,4L17,4L17,6L13.8,6ZM13.8,18L17,18L17,20L13.8,20ZM4,13.8L6,13.8L6,17L4,17ZM18,13.8L20,13.8L20,17L18,17ZM18,4L20,4L20,6L18,6ZM18,18L20,18L20,20L18,20ZM4,18L6,18L6,20L4,20ZM18,18L20,18L20,20L18,20Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnToolEllipseMarquee" Classes="editor-tool" Tag="EllipseMarquee" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolEllipseMarquee}">
+                                                    <Button x:Name="BtnToolEllipseMarquee" Classes="editor-tool" Tag="EllipseMarquee" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolEllipseMarquee}" AutomationProperties.Name="{DynamicResource Tip_ToolEllipseMarquee}">
                                                         <PathIcon Data="M21.1,12L21,12.6L21,13.1L20.8,13.6L20.7,14.2L18.6,13.6L18.8,13.2L18.9,12.8L18.9,12.4L18.9,12ZM20.2,15.2L19.8,15.7L19.5,16.2L19.1,16.6L18.6,17.1L17.1,15.6L17.4,15.3L17.7,15L18,14.7L18.3,14.3ZM17.6,17.8L17.1,18.2L16.5,18.4L15.9,18.7L15.3,18.9L14.6,17L15,16.8L15.5,16.6L15.9,16.4L16.3,16.2ZM14,19.3L13.4,19.4L12.7,19.4L12,19.4L11.3,19.4L11.5,17.3L12,17.3L12.5,17.3L13,17.3L13.5,17.2ZM10,19.3L9.3,19.1L8.7,18.9L8.1,18.7L7.5,18.5L8.5,16.6L9,16.8L9.5,17L10,17.1L10.5,17.2ZM6.4,17.8L5.8,17.5L5.4,17.1L4.9,16.7L4.5,16.2L6.3,15L6.6,15.3L6.9,15.6L7.3,15.9L7.7,16.2ZM3.8,15.2L3.6,14.7L3.4,14.2L3.2,13.7L3.1,13.1L5.1,12.8L5.2,13.2L5.4,13.6L5.5,14L5.7,14.3ZM2.9,12L3,11.4L3,10.9L3.2,10.4L3.3,9.8L5.4,10.4L5.2,10.8L5.1,11.2L5.1,11.6L5,12ZM3.8,8.8L4.2,8.3L4.5,7.8L4.9,7.4L5.4,6.9L6.9,8.4L6.6,8.7L6.3,9L6,9.3L5.7,9.7ZM6.4,6.2L6.9,5.8L7.5,5.6L8.1,5.3L8.7,5.1L9.4,7L9,7.2L8.5,7.4L8.1,7.6L7.7,7.8ZM10,4.7L10.6,4.6L11.3,4.6L12,4.6L12.7,4.6L12.5,6.7L12,6.7L11.5,6.7L11,6.7L10.5,6.8ZM14,4.7L14.7,4.9L15.3,5.1L15.9,5.3L16.5,5.5L15.5,7.4L15,7.2L14.5,7L14,6.9L13.5,6.8ZM17.6,6.2L18.2,6.5L18.6,6.9L19.1,7.3L19.5,7.8L17.7,9L17.4,8.7L17.1,8.4L16.7,8.1L16.3,7.8ZM20.2,8.8L20.4,9.3L20.6,9.8L20.8,10.3L20.9,10.9L18.9,11.2L18.8,10.8L18.6,10.4L18.5,10L18.3,9.7Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnToolLasso" Classes="editor-tool" Tag="Lasso" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolLasso}">
+                                                    <Button x:Name="BtnToolLasso" Classes="editor-tool" Tag="Lasso" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolLasso}" AutomationProperties.Name="{DynamicResource Tip_ToolLasso}">
                                                         <PathIcon Data="M17.8,11L17.7,12.2L17.2,13.4L16.5,14.4L15.6,15.3L14.5,16L13.2,16.5L11.9,16.8L10.5,16.8L9.2,16.5L7.9,16L6.8,15.3L5.9,14.4L5.2,13.4L4.7,12.2L4.6,11L4.7,9.8L5.2,8.6L5.9,7.6L6.8,6.7L7.9,6L9.2,5.5L10.5,5.2L11.9,5.2L13.2,5.5L14.5,6L15.6,6.7L16.5,7.6L17.2,8.6L17.7,9.8L17.8,11ZM15.9,11L15.8,11.9L15.4,12.8L14.7,13.6L13.9,14.2L12.9,14.6L11.8,14.9L10.6,14.9L9.5,14.6L8.5,14.2L7.7,13.6L7,12.8L6.6,11.9L6.5,11L6.6,10.1L7,9.2L7.7,8.4L8.5,7.8L9.5,7.4L10.6,7.1L11.8,7.1L12.9,7.4L13.9,7.8L14.7,8.4L15.4,9.2L15.8,10.1L15.9,11ZM6.1,14.5L3,19.8L4.8,20.8L7.9,15.5ZM9,14.7L8.8,15.5L8.2,16.2L7.3,16.4L6.5,16.2L5.8,15.5L5.6,14.7L5.8,13.8L6.4,13.2L7.3,13L8.2,13.2L8.8,13.8L9,14.7Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnToolPolyLasso" Classes="editor-tool" Tag="PolyLasso" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolPolyLasso}">
+                                                    <Button x:Name="BtnToolPolyLasso" Classes="editor-tool" Tag="PolyLasso" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolPolyLasso}" AutomationProperties.Name="{DynamicResource Tip_ToolPolyLasso}">
                                                         <PathIcon Data="M5.9,18L9.4,12L7.6,11L4.1,17ZM8.1,12.4L12.6,14.4L13.4,12.6L8.9,10.6ZM13.8,14L18.3,7L16.7,6L12.2,13ZM3.5,16L6.5,16L6.5,19L3.5,19ZM7,10L10,10L10,13L7,13ZM11.5,12L14.5,12L14.5,15L11.5,15ZM16,5L19,5L19,8L16,8Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnToolWand" Classes="editor-tool" Tag="MagicWand" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolWand}">
+                                                    <Button x:Name="BtnToolWand" Classes="editor-tool" Tag="MagicWand" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolWand}" AutomationProperties.Name="{DynamicResource Tip_ToolWand}">
                                                         <PathIcon Data="M6.6,19.6L14.1,12.1L11.9,9.9L4.4,17.4ZM7.1,18.5L6.9,19.3L6.3,19.9L5.5,20.1L4.7,19.9L4.1,19.3L3.9,18.5L4.1,17.7L4.7,17.1L5.5,16.9L6.3,17.1L6.9,17.7L7.1,18.5ZM14.6,11L14.4,11.8L13.8,12.4L13,12.6L12.2,12.4L11.6,11.8L11.4,11L11.6,10.2L12.2,9.6L13,9.4L13.8,9.6L14.4,10.2L14.6,11ZM16.6,4.1L17.2,6.6L19.7,7.2L17.2,7.8L16.6,10.3L16,7.8L13.5,7.2L16,6.6ZM20,9L20.4,10.8L22.2,11.2L20.4,11.6L20,13.4L19.6,11.6L17.8,11.2L19.6,10.8ZM17.2,1.8L17.6,3.2L19,3.6L17.6,4L17.2,5.4L16.8,4L15.4,3.6L16.8,3.2Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnToolPen" Classes="editor-tool" Tag="Pen" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolPen}">
+                                                    <Button x:Name="BtnToolPen" Classes="editor-tool" Tag="Pen" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolPen}" AutomationProperties.Name="{DynamicResource Tip_ToolPen}">
                                                         <PathIcon Data="M12,1.7L13.4,4.3L14.4,7.2L14.6,10.2L13.7,13.5L12,14.7L10.3,13.5L9.4,10.2L9.6,7.2L10.6,4.3ZM13.6,8.6L13.4,9.3L13,9.9L12.4,10.2L11.6,10.2L11,9.9L10.6,9.3L10.4,8.6L10.6,7.9L11,7.3L11.6,7L12.4,7L13,7.3L13.4,7.9L13.6,8.6ZM11.5,10.4L12.5,10.4L12.5,13.4L11.5,13.4Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
                             </StackPanel>
                             <Border Height="1" Background="{StaticResource EditorBorder}" Margin="4,6"/>
                             <!-- Grup brush -->
                             <StackPanel x:Name="ToolPaintGroup" Orientation="Vertical" Spacing="2">
-                                                    <Button x:Name="BtnToolBrush" Classes="editor-tool" Tag="Brush" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolBrush}">
+                                                    <Button x:Name="BtnToolBrush" Classes="editor-tool" Tag="Brush" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolBrush}" AutomationProperties.Name="{DynamicResource Tip_ToolBrush}">
                                                         <PathIcon Data="M19,5L17.7,5.8L16.4,7L15.1,8.5L13.8,10.5L15.6,12.3L16.8,10.5L17.8,8.7L18.5,6.9L19,5ZM13.8,10.5L15.6,12.3L12.8,15.1L11,13.3ZM10.5,12.8L3.8,19.5L6.6,22.3L13.3,15.6ZM7.2,20.9L7,21.8L6.4,22.5L5.6,22.8L4.8,22.8L4,22.5L3.4,21.8L3.2,20.9L3.4,20L4,19.3L4.8,19L5.6,19L6.4,19.3L7,20L7.2,20.9Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnToolEraser" Classes="editor-tool" Tag="Eraser" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolEraser}">
+                                                    <Button x:Name="BtnToolEraser" Classes="editor-tool" Tag="Eraser" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolEraser}" AutomationProperties.Name="{DynamicResource Tip_ToolEraser}">
                                                         <PathIcon Data="M5.5,17.5L11.5,6.5L20.5,6.5L14.5,17.5ZM10.1,9L19.1,9L18.3,11.4L9.3,11.4Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnToolRefineEdge" Classes="editor-tool" Tag="RefineEdge" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolRefineEdge}">
+                                                    <Button x:Name="BtnToolRefineEdge" Classes="editor-tool" Tag="RefineEdge" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolRefineEdge}" AutomationProperties.Name="{DynamicResource Tip_ToolRefineEdge}">
                                                         <PathIcon Data="M6,19L11,14L9,12L4,17ZM6.4,18L6.2,18.7L5.7,19.2L5,19.4L4.3,19.2L3.8,18.7L3.6,18L3.8,17.3L4.3,16.8L5,16.6L5.7,16.8L6.2,17.3L6.4,18ZM14.6,8.2L11,11.6L12.6,13.2ZM3.6,20.3L4.8,21.9L6,20.1L7.2,21.7L8.4,19.9L9.6,21.5L10.8,19.7L12.1,21.3L13.3,19.5L14.5,21.1L15.7,19.3L16.9,20.9L18.1,19.1L19.3,20.7L20.6,18.9L20.4,17.5L19.2,19.3L18,17.7L16.8,19.5L15.6,17.9L14.4,19.7L13.2,18.1L11.9,19.9L10.7,18.3L9.5,20.1L8.3,18.5L7.1,20.3L5.9,18.7L4.7,20.5L3.4,18.9Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
                             </StackPanel>
                             <Border Height="1" Background="{StaticResource EditorBorder}" Margin="4,6"/>
                             <!-- Pan -->
                             <StackPanel x:Name="ToolViewGroup" Orientation="Vertical" Spacing="2">
-                                                    <Button x:Name="BtnToolPan" Classes="editor-tool" Tag="Pan" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolPan}">
+                                                    <Button x:Name="BtnToolPan" Classes="editor-tool" Tag="Pan" Click="OnToolClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_ToolPan}" AutomationProperties.Name="{DynamicResource Tip_ToolPan}">
                                                         <PathIcon Data="M7.7,13.5L7.7,7L7.7,7L7.8,6.5L8.2,6.1L8.7,6L9.2,6.1L9.6,6.5L9.7,7L9.7,13.5ZM10.2,13.5L10.2,6.2L10.2,6.2L10.3,5.7L10.7,5.3L11.2,5.2L11.7,5.3L12.1,5.7L12.2,6.2L12.2,13.5ZM12.7,13.5L12.7,6.4L12.7,6.4L12.8,5.9L13.2,5.5L13.7,5.4L14.2,5.5L14.6,5.9L14.7,6.4L14.7,13.5ZM15.2,13.5L15.2,7.4L15.2,7.4L15.3,6.9L15.7,6.5L16.2,6.4L16.7,6.5L17.1,6.9L17.2,7.4L17.2,13.5ZM7.6,12.5L17.4,12.5L17.4,19L16.4,20.8L8.6,20.8L7.6,19ZM8.6,15.1L5.4,12.5L3.8,14.3L7,16.9ZM5.9,13.4L5.8,14.1L5.3,14.6L4.6,14.8L3.9,14.6L3.4,14.1L3.2,13.4L3.4,12.7L3.9,12.2L4.6,12.1L5.3,12.2L5.8,12.7L5.9,13.4Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
 
@@ -311,13 +318,13 @@
                             <Border Height="1" Background="{StaticResource EditorBorder}" Margin="4,6"/>
                             <!-- Grup view: overlay & AI -->
                             <StackPanel x:Name="ToolAiGroup" Orientation="Vertical" Spacing="2">
-                                                    <Button x:Name="BtnQuickMask" Classes="editor-tool quick-mask" Click="OnQuickMaskClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_QuickMask}">
+                                                    <Button x:Name="BtnQuickMask" Classes="editor-tool quick-mask" Click="OnQuickMaskClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_QuickMask}" AutomationProperties.Name="{DynamicResource Tip_QuickMask}">
                                                         <PathIcon Data="M20.6,12L20.5,13.5L20.1,14.9L19.4,16.3L18.6,17.5L17.5,18.6L16.3,19.4L14.9,20.1L13.5,20.5L12,20.6L10.5,20.5L9.1,20.1L7.7,19.4L6.5,18.6L5.4,17.5L4.6,16.3L3.9,14.9L3.5,13.5L3.4,12L3.5,10.5L3.9,9.1L4.6,7.7L5.4,6.5L6.5,5.4L7.7,4.6L9.1,3.9L10.5,3.5L12,3.4L13.5,3.5L14.9,3.9L16.3,4.6L17.5,5.4L18.6,6.5L19.4,7.7L20.1,9.1L20.5,10.5L20.6,12ZM18.9,12L18.8,13.3L18.4,14.6L17.7,15.8L16.9,16.9L15.8,17.7L14.6,18.4L13.3,18.8L12,18.9L10.7,18.8L9.4,18.4L8.2,17.7L7.1,16.9L6.3,15.8L5.6,14.6L5.2,13.3L5.1,12L5.2,10.7L5.6,9.4L6.3,8.2L7.1,7.1L8.2,6.3L9.4,5.6L10.7,5.2L12,5.1L13.3,5.2L14.6,5.6L15.8,6.3L16.9,7.1L17.7,8.2L18.4,9.4L18.8,10.7L18.9,12ZM12.4,8.2L14.7,5.9L13.9,5.1L11.6,7.4ZM12.4,10.6L16.2,6.8L15.4,6L11.6,9.8ZM12.4,13L17.5,7.9L16.7,7.1L11.6,12.2ZM12.4,15.4L18.5,9.3L17.7,8.5L11.6,14.6ZM12.4,17.8L19.1,11.1L18.3,10.3L11.6,17ZM13.4,19.2L19.2,13.4L18.4,12.6L12.6,18.4Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnMaskView" Classes="editor-tool" Click="OnMaskViewClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_MaskView}">
+                                                    <Button x:Name="BtnMaskView" Classes="editor-tool" Click="OnMaskViewClick" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_MaskView}" AutomationProperties.Name="{DynamicResource Tip_MaskView}">
                                                         <PathIcon Data="M20.6,12L20.5,13.5L20.1,14.9L19.4,16.3L18.6,17.5L17.5,18.6L16.3,19.4L14.9,20.1L13.5,20.5L12,20.6L10.5,20.5L9.1,20.1L7.7,19.4L6.5,18.6L5.4,17.5L4.6,16.3L3.9,14.9L3.5,13.5L3.4,12L3.5,10.5L3.9,9.1L4.6,7.7L5.4,6.5L6.5,5.4L7.7,4.6L9.1,3.9L10.5,3.5L12,3.4L13.5,3.5L14.9,3.9L16.3,4.6L17.5,5.4L18.6,6.5L19.4,7.7L20.1,9.1L20.5,10.5L20.6,12ZM18.9,12L18.8,13.3L18.4,14.6L17.7,15.8L16.9,16.9L15.8,17.7L14.6,18.4L13.3,18.8L12,18.9L10.7,18.8L9.4,18.4L8.2,17.7L7.1,16.9L6.3,15.8L5.6,14.6L5.2,13.3L5.1,12L5.2,10.7L5.6,9.4L6.3,8.2L7.1,7.1L8.2,6.3L9.4,5.6L10.7,5.2L12,5.1L13.3,5.2L14.6,5.6L15.8,6.3L16.9,7.1L17.7,8.2L18.4,9.4L18.8,10.7L18.9,12ZM12,5.1L12,18.9L11.3,18.9L10.6,18.7L9.9,18.6L9.2,18.3L8.6,18L7.9,17.6L7.4,17.1L6.9,16.6L6.4,16.1L6,15.4L5.7,14.8L5.4,14.1L5.3,13.4L5.1,12.7L5.1,12L5.1,11.3L5.3,10.6L5.4,9.9L5.7,9.2L6,8.5L6.4,7.9L6.9,7.4L7.4,6.9L7.9,6.4L8.5,6L9.2,5.7L9.9,5.4L10.6,5.3L11.3,5.1L12,5.1L12,18.9Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
-                                                    <Button x:Name="BtnRefineHair" Classes="editor-tool" Click="OnRefineHairClick" Width="36" Height="36" ToolTip.Tip="Refine Hair (AI)">
+                                                    <Button x:Name="BtnRefineHair" Classes="editor-tool" Click="OnRefineHairClick" Width="36" Height="36" ToolTip.Tip="Refine Hair (AI)" AutomationProperties.Name="Refine Hair (AI)">
                                                         <PathIcon Data="M16.3,9.4L16.2,10.4L15.8,11.4L15.2,12.3L14.4,12.9L13.5,13.4L12.5,13.7L11.5,13.7L10.5,13.4L9.6,12.9L8.8,12.3L8.2,11.4L7.8,10.4L7.7,9.4L7.8,8.4L8.2,7.4L8.8,6.5L9.6,5.9L10.5,5.4L11.5,5.1L12.5,5.1L13.5,5.4L14.4,5.9L15.2,6.5L15.8,7.4L16.2,8.4L16.3,9.4ZM8,8.6L6,7.2L8.4,7.4ZM8.5,7.3L7.1,5.3L9.3,6.3ZM9.4,6.2L8.8,3.9L10.5,5.6ZM10.7,5.5L10.9,3.1L11.9,5.3ZM12.1,5.3L13.1,3.1L13.3,5.5ZM13.5,5.6L15.2,3.9L14.6,6.2ZM14.7,6.3L16.9,5.3L15.5,7.3ZM15.6,7.4L18,7.2L16,8.6ZM4.5,21.5L6,17.6L9,16L9.2,14.6L14.8,14.6L15,16L18,17.6L19.5,21.5Z" Width="16" Height="16" Foreground="White"/>
                                                     </Button>
                             </StackPanel>
@@ -348,7 +355,7 @@
                                     </Image>
                                     <!-- Rotate Button Overlay -->
                                     <Button Click="OnRotateOriginalClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10"
-                                            Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="{DynamicResource Tip_RotateOriginal}" IsVisible="False">
+                                            Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="{DynamicResource Tip_RotateOriginal}" AutomationProperties.Name="{DynamicResource Tip_RotateOriginal}" IsVisible="False">
                                         <PathIcon Data="M12,4C14.2,4 16.2,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 11,19.9V21.9C13.9,22.2 16.9,21.2 19.1,19C23,15.1 23,8.9 19,5C17.1,3.1 14.5,2.1 12,2V0L7,4L12,8V4Z"
                                                  Width="14" Height="14" Foreground="White">
                                             <PathIcon.RenderTransform>
@@ -447,7 +454,7 @@
                                     
                                     <!-- Rotate Button Overlay -->
                                     <Button Click="OnRotateResultClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10"
-                                            Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="{DynamicResource Tip_RotateResult}" IsVisible="False">
+                                            Background="#80000000" CornerRadius="6" Padding="6" BorderThickness="0" ToolTip.Tip="{DynamicResource Tip_RotateResult}" AutomationProperties.Name="{DynamicResource Tip_RotateResult}" IsVisible="False">
                                         <PathIcon Data="M12,4C14.2,4 16.2,4.8 17.6,6.3C20.7,9.4 20.7,14.5 17.6,17.6C15.8,19.5 13.3,20.2 11,19.9V21.9C13.9,22.2 16.9,21.2 19.1,19C23,15.1 23,8.9 19,5C17.1,3.1 14.5,2.1 12,2V0L7,4L12,8V4Z"
                                                  Width="14" Height="14" Foreground="White">
                                             <PathIcon.RenderTransform>
@@ -464,13 +471,13 @@
                     <!-- Ghost Loading Overlay -->
                     <Grid x:Name="OverlayLoading" ColumnDefinitions="*, 2, *" Margin="10,0,10,10" IsVisible="False">
                         <!-- Left Skeleton -->
-                        <Border Grid.Column="0" Classes="shimmer" Background="#15FFFFFF" CornerRadius="8" ClipToBounds="True">
+                        <Border Grid.Column="0" Background="{StaticResource EditorSurfaceAlt}" CornerRadius="8" ClipToBounds="True">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="15">
                                 <PathIcon Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M5,19V5H19V19H5M6,17H18L14.25,12L11.25,16L9,13L6,17Z" Width="48" Height="48" Foreground="#20FFFFFF"/>
                             </StackPanel>
                         </Border>
                         <!-- Right Skeleton -->
-                        <Border Grid.Column="2" Classes="shimmer" Background="#15FFFFFF" CornerRadius="8" ClipToBounds="True">
+                        <Border Grid.Column="2" Background="{StaticResource EditorSurfaceAlt}" CornerRadius="8" ClipToBounds="True">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="15">
                                 <PathIcon Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M5,19V5H19V19H5M6,17H18L14.25,12L11.25,16L9,13L6,17Z" Width="48" Height="48" Foreground="#20FFFFFF"/>
                             </StackPanel>
@@ -493,7 +500,7 @@
                                             PointerPressed="OnPanelHeaderPressed">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <TextBlock Text="{DynamicResource Panel_Properties}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
-                                            <Button Grid.Column="1" Classes="editor-compact" Tag="properties" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
+                                            <Button Grid.Column="1" Classes="editor-compact" Tag="properties" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)" AutomationProperties.Name="Opsi panel properti">
                                                 <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="14" Height="14" Foreground="{StaticResource EditorTextSecondary}"/>
                                             </Button>
                                         </Grid>
@@ -554,7 +561,7 @@
                                 <StackPanel Spacing="8">
                                     <Grid ColumnDefinitions="*,Auto" Tag="history" Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed">
                                         <TextBlock Text="{DynamicResource Panel_History}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
-                                        <Button Grid.Column="1" Classes="editor-compact" Tag="history" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
+                                        <Button Grid.Column="1" Classes="editor-compact" Tag="history" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)" AutomationProperties.Name="Opsi panel riwayat">
                                             <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="14" Height="14" Foreground="{StaticResource EditorTextSecondary}"/>
                                         </Button>
                                     </Grid>
@@ -569,7 +576,7 @@
                                 <StackPanel Spacing="8">
                                     <Grid ColumnDefinitions="*,Auto" Tag="layers" Cursor="SizeAll" PointerPressed="OnPanelHeaderPressed">
                                         <TextBlock Text="{DynamicResource Panel_Layers}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource EditorTextSecondary}" VerticalAlignment="Center"/>
-                                        <Button Grid.Column="1" Classes="editor-compact" Tag="layers" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
+                                        <Button Grid.Column="1" Classes="editor-compact" Tag="layers" Click="OnPanelMenuClick" Padding="4,0" Background="Transparent" BorderThickness="0" ToolTip.Tip="Opsi panel (cabut / pasang / tutup)" AutomationProperties.Name="Opsi panel layer">
                                             <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="14" Height="14" Foreground="{StaticResource EditorTextSecondary}"/>
                                         </Button>
                                     </Grid>
@@ -655,18 +662,18 @@
                      <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                           <!-- Navigation and Actions -->
                           <StackPanel x:Name="PanelNavigation" Orientation="Horizontal" Spacing="20" IsVisible="True">
-                              <Button Click="OnPreviousClick" Width="36" Height="36" CornerRadius="8" Background="#15FFFFFF" BorderThickness="1" BorderBrush="#30FFFFFF" ToolTip.Tip="{DynamicResource Tip_Prev}">
+                              <Button Click="OnPreviousClick" Classes="icon quiet" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_Prev}" AutomationProperties.Name="{DynamicResource Tip_Prev}">
                                   <PathIcon Data="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
                               </Button>
 
-                              <Button x:Name="BtnFooterMode" IsVisible="True" Click="OnFooterModeClick" Padding="20,8" Background="#206366F1" BorderBrush="#806366F1" BorderThickness="1" CornerRadius="8" ToolTip.Tip="{DynamicResource Tip_OpenPhotoshop}">
+                              <Button x:Name="BtnFooterMode" Classes="primary" IsVisible="True" Click="OnFooterModeClick" Padding="20,8" CornerRadius="7" ToolTip.Tip="{DynamicResource Tip_OpenPhotoshop}">
                                   <StackPanel Orientation="Horizontal" Spacing="8">
                                       <PathIcon x:Name="IconFooterMode" Data="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M19,19H5V5H19V19M11,14.5V11.5H13C14.1,11.5 15,12.4 15,13.5C15,14.6 14.1,15.5 13,15.5H11M11,10H13C14.93,10 16.5,11.57 16.5,13.5C16.5,15.43 14.93,17 13,17H9.5V7H11V10Z" Width="14" Height="14" Foreground="White" VerticalAlignment="Center"/>
                                       <TextBlock x:Name="TxtFooterMode" Text="{DynamicResource Footer_OpenEditor}" FontSize="12" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
                                   </StackPanel>
                               </Button>
 
-                              <Button Click="OnNextClick" Width="36" Height="36" CornerRadius="8" Background="#15FFFFFF" BorderThickness="1" BorderBrush="#30FFFFFF" ToolTip.Tip="{DynamicResource Tip_Next}">
+                              <Button Click="OnNextClick" Classes="icon quiet" Width="36" Height="36" ToolTip.Tip="{DynamicResource Tip_Next}" AutomationProperties.Name="{DynamicResource Tip_Next}">
                                   <PathIcon Data="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
                               </Button>
                           </StackPanel>
