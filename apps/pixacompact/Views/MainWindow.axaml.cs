@@ -18,8 +18,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         
-        // Enforce Min Size
-        MinWidth = 380;
+        // Keep the footer actions fully visible at the narrowest supported size.
+        MinWidth = 520;
         MinHeight = 350;
 
         // Load Window Settings immediately

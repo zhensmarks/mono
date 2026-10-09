@@ -366,10 +366,18 @@ public partial class MainWindowViewModel : ObservableObject
         return false;
     }
 
+    // Toast status uses reusable vector shapes rather than font/emoji glyphs.
+    private enum ToastSeverity { Info, Success, Warning, Error }
+    private static readonly Geometry ToastInfoGeometry = Geometry.Parse("M12 2A10 10 0 1 0 12 22A10 10 0 1 0 12 2M11 10h2v7h-2zM11 7h2v2h-2z");
+    private static readonly Geometry ToastSuccessGeometry = Geometry.Parse("M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z");
+    private static readonly Geometry ToastWarningGeometry = Geometry.Parse("M12 3L1 21H23L12 3ZM11 9H13V14H11ZM11 16H13V18H11Z");
+    private static readonly Geometry ToastErrorGeometry = Geometry.Parse("M7.4 6L12 10.6 16.6 6 18 7.4 13.4 12 18 16.6 16.6 18 12 13.4 7.4 18 6 16.6 10.6 12 6 7.4z");
+
     // Toast Notification
     [ObservableProperty] private string _toastMessage = "";
     [ObservableProperty] private bool _isToastVisible;
-    [ObservableProperty] private string _toastIcon = "✅";
+    [ObservableProperty] private Geometry _toastIconData = ToastSuccessGeometry;
+    [ObservableProperty] private IBrush _toastIconBrush = new SolidColorBrush(Color.Parse("#248552"));
     private System.Timers.Timer? _toastTimer;
 
 
@@ -1142,8 +1150,11 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (Application.Current != null && Color.TryParse(hex, out var color))
         {
+             var hoverColor = Color.FromArgb(color.A,
+                 (byte)(color.R * 0.86), (byte)(color.G * 0.86), (byte)(color.B * 0.86));
              Application.Current.Resources["AccentBlue"] = color;
              Application.Current.Resources["AccentBlueBrush"] = new SolidColorBrush(color);
+             Application.Current.Resources["AccentBlueHoverBrush"] = new SolidColorBrush(hoverColor);
              Application.Current.Resources["AccentColorBrush"] = new SolidColorBrush(color);
              Application.Current.Resources["AccentLowOpacityBrush"] = new SolidColorBrush(color) { Opacity = 0.15 };
         }
@@ -1985,9 +1996,9 @@ public partial class MainWindowViewModel : ObservableObject
                 var sb = new System.Text.StringBuilder();
                 sb.AppendLine("Proses Antrean Selesai!");
                 sb.AppendLine();
-                sb.AppendLine($"✅ Berhasil: {success}");
-                if (small > 0) sb.AppendLine($"⚠️ File Kecil (<500b): {small}");
-                if (failed > 0) sb.AppendLine($"❌ Gagal: {failed}");
+                sb.AppendLine($"Berhasil: {success}");
+                if (small > 0) sb.AppendLine($"Peringatan - File kecil (<500b): {small}");
+                if (failed > 0) sb.AppendLine($"Gagal: {failed}");
 
                 AlertMessage = sb.ToString().Trim();
                 IsAlertOpen = true;
@@ -2133,7 +2144,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         _pixelcutService.ResetWebAutomation();
         AppendLog("Browser direset — sesi baru akan dibuat saat proses berikutnya.");
-        ShowToast("Browser direset ✓", "🔄");
+        ShowToast("Browser direset", ToastSeverity.Success);
     }
     private const string BrowserLoginUrl = "https://www.pixelcut.ai/";
 
@@ -2142,7 +2153,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (IsProcessing)
         {
-            ShowToast("Sedang memproses, tunggu selesai dulu", "⚠️");
+            ShowToast("Sedang memproses, tunggu selesai dulu", ToastSeverity.Warning);
             return;
         }
         try
@@ -2154,25 +2165,25 @@ public partial class MainWindowViewModel : ObservableObject
 
             if (account != null)
             {
-                ShowToast($"Membuka browser {account.Name}... login dulu ya", "🌐");
+                ShowToast($"Membuka browser {account.Name}... login dulu ya", ToastSeverity.Info);
                 AppendLog($"Membuka browser untuk login manual akun '{account.Name}'...");
                 await _pixelcutService.LoginAccountAsync(account, BrowserLoginUrl, CancellationToken.None);
                 account.ResetSession();
                 AppendLog($"Browser login akun '{account.Name}' ditutup. Sesi login tersimpan.");
-                ShowToast("Sesi login tersimpan", "✅");
+                ShowToast("Sesi login tersimpan", ToastSeverity.Success);
                 return;
             }
 
-            ShowToast("Membuka browser... login dulu ya", "🌐");
+            ShowToast("Membuka browser... login dulu ya", ToastSeverity.Info);
             AppendLog("Membuka browser untuk login manual...");
             await _pixelcutService.OpenInteractiveAsync(BrowserLoginUrl, CancellationToken.None);
             AppendLog("Browser login ditutup. Sesi login tersimpan.");
-            ShowToast("Sesi login tersimpan", "✅");
+            ShowToast("Sesi login tersimpan", ToastSeverity.Success);
         }
         catch (Exception ex)
         {
             AppendLog("Gagal buka browser: " + ex.Message);
-            ShowToast("Gagal buka browser", "❌");
+            ShowToast("Gagal buka browser", ToastSeverity.Error);
         }
     }
 
@@ -2192,7 +2203,7 @@ public partial class MainWindowViewModel : ObservableObject
         SelectedAccount = acc;
         OnAccountsChanged();
         AppendLog($"Akun '{acc.Name}' ditambahkan. Login dulu lewat tombol Login.");
-        ShowToast("Akun ditambahkan — jangan lupa Login", "➕");
+        ShowToast("Akun ditambahkan — jangan lupa Login", ToastSeverity.Success);
     }
 
     [RelayCommand]
@@ -2207,7 +2218,7 @@ public partial class MainWindowViewModel : ObservableObject
         SelectedAccount = Accounts.Count == 0 ? null : Accounts[Math.Min(idx, Accounts.Count - 1)];
         OnAccountsChanged();
         AppendLog($"Akun '{acc.Name}' dihapus.");
-        ShowToast("Akun dihapus", "🗑️");
+        ShowToast("Akun dihapus", ToastSeverity.Success);
     }
 
     [RelayCommand]
@@ -2238,27 +2249,27 @@ public partial class MainWindowViewModel : ObservableObject
         var acc = SelectedAccount;
         if (acc == null)
         {
-            ShowToast("Pilih akun dulu", "⚠️");
+            ShowToast("Pilih akun dulu", ToastSeverity.Warning);
             return;
         }
         if (IsProcessing)
         {
-            ShowToast("Sedang memproses, tunggu selesai dulu", "⚠️");
+            ShowToast("Sedang memproses, tunggu selesai dulu", ToastSeverity.Warning);
             return;
         }
         try
         {
-            ShowToast($"Membuka browser {acc.Name}... login dulu ya", "🌐");
+            ShowToast($"Membuka browser {acc.Name}... login dulu ya", ToastSeverity.Info);
             AppendLog($"Membuka browser untuk login manual akun '{acc.Name}'...");
             await _pixelcutService.LoginAccountAsync(acc, BrowserLoginUrl, CancellationToken.None);
             acc.ResetSession();
             AppendLog($"Browser login akun '{acc.Name}' ditutup. Sesi login tersimpan.");
-            ShowToast("Sesi login tersimpan", "✅");
+            ShowToast("Sesi login tersimpan", ToastSeverity.Success);
         }
         catch (Exception ex)
         {
             AppendLog("Gagal buka browser: " + ex.Message);
-            ShowToast("Gagal buka browser", "❌");
+            ShowToast("Gagal buka browser", ToastSeverity.Error);
         }
     }
 
@@ -2275,14 +2286,14 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (Accounts.Count == 0)
         {
-            ShowToast("Belum ada akun", "⚠️");
+            ShowToast("Belum ada akun", ToastSeverity.Warning);
             return;
         }
         foreach (var acc in Accounts) acc.ResetSession();
         _accountRotator?.ResetSession();
         _pixelcutService.ResetWebAutomation();
         AppendLog("Status semua akun direset (counter & limit). Sesi baru dimulai.");
-        ShowToast("Status akun direset ✓", "🔄");
+        ShowToast("Status akun direset", ToastSeverity.Success);
     }
 
     /// <summary>Pastikan rotator & service sinkron setiap daftar akun berubah.</summary>
@@ -2327,15 +2338,15 @@ public partial class MainWindowViewModel : ObservableObject
                 UseAccountRotation = UseAccountRotation
             };
             _accountBackupService.ExportToFile(filePath, settings);
-            ShowToast("Backup akun disimpan. Folder profil browser harus dicadangkan terpisah.", "✅");
+            ShowToast("Backup akun disimpan. Folder profil browser harus dicadangkan terpisah.", ToastSeverity.Success);
         }
         catch
         {
-            ShowToast("Backup akun gagal disimpan. Periksa lokasi file.", "❌");
+            ShowToast("Backup akun gagal disimpan. Periksa lokasi file.", ToastSeverity.Error);
         }
     }
 
-    public void ShowAccountBackupPickerError() => ShowToast("Tidak dapat membuka file cadangan lokal.", "❌");
+    public void ShowAccountBackupPickerError() => ShowToast("Tidak dapat membuka file cadangan lokal.", ToastSeverity.Error);
 
     public void ImportAccountBackup(string filePath)
     {
@@ -2365,23 +2376,36 @@ public partial class MainWindowViewModel : ObservableObject
             var missingProfiles = backup.Accounts.Count(account =>
                 !Directory.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, account.BrowserProfileFolderName)));
             if (missingProfiles > 0)
-                ShowToast($"{backup.Accounts.Count} akun dipulihkan; {missingProfiles} profil belum ditemukan. Salin folder BrowserProfile_<suffix> atau login ulang.", "⚠️");
+                ShowToast($"{backup.Accounts.Count} akun dipulihkan; {missingProfiles} profil belum ditemukan. Salin folder BrowserProfile_<suffix> atau login ulang.", ToastSeverity.Warning);
             else
-                ShowToast($"{backup.Accounts.Count} akun dipulihkan. JSON tidak memuat cookie; login ulang bila sesi belum tersedia.", "✅");
+                ShowToast($"{backup.Accounts.Count} akun dipulihkan. JSON tidak memuat cookie; login ulang bila sesi belum tersedia.", ToastSeverity.Success);
         }
         catch
         {
-            ShowToast("Backup akun tidak dapat dipulihkan. Pastikan file JSON PixaCompact valid.", "❌");
+            ShowToast("Backup akun tidak dapat dipulihkan. Pastikan file JSON PixaCompact valid.", ToastSeverity.Error);
         }
     }
 
 
-    private void ShowToast(string message, string icon = "✅")
+    private void ShowToast(string message, ToastSeverity severity = ToastSeverity.Success)
     {
         Dispatcher.UIThread.Post(() =>
         {
             ToastMessage = message;
-            ToastIcon = icon;
+            ToastIconData = severity switch
+            {
+                ToastSeverity.Info => ToastInfoGeometry,
+                ToastSeverity.Warning => ToastWarningGeometry,
+                ToastSeverity.Error => ToastErrorGeometry,
+                _ => ToastSuccessGeometry
+            };
+            ToastIconBrush = new SolidColorBrush(severity switch
+            {
+                ToastSeverity.Info => Color.Parse("#2D78C4"),
+                ToastSeverity.Warning => Color.Parse("#D79B31"),
+                ToastSeverity.Error => Color.Parse("#A83A43"),
+                _ => Color.Parse("#248552")
+            });
             IsToastVisible = true;
 
             _toastTimer?.Stop();

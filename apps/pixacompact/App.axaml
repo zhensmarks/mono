@@ -11,25 +11,31 @@
                 <ResourceInclude Source="avares://PixelcutCompact/Resources/Strings.id.axaml"/>
             </ResourceDictionary.MergedDictionaries>
             <!-- ===== DESIGN TOKENS ===== -->
-            <!-- Colors -->
-            <Color x:Key="AppBackground">#121212</Color>
-            <Color x:Key="CardBackground">#1E1E1E</Color>
-            <Color x:Key="SurfaceElevated">#262626</Color>
-            <Color x:Key="AccentBlue">#3b82f6</Color>
-            <Color x:Key="TextPrimary">#FFFFFF</Color>
-            <Color x:Key="TextSecondary">#B0B0B0</Color>
-            <Color x:Key="Divider">#2A2A2A</Color>
+            <!-- Neutral charcoal surfaces, satu aksen utama, dan warna state semantik. -->
+            <Color x:Key="AppBackground">#11161B</Color>
+            <Color x:Key="CardBackground">#171D23</Color>
+            <Color x:Key="SurfaceElevated">#202830</Color>
+            <Color x:Key="SurfaceHover">#29343F</Color>
+            <Color x:Key="AccentBlue">#2D78C4</Color>
+            <Color x:Key="TextPrimary">#F1F4F7</Color>
+            <Color x:Key="TextSecondary">#AEB9C4</Color>
+            <Color x:Key="Divider">#303A44</Color>
+            <Color x:Key="FocusRing">#B5D9FF</Color>
+            <Color x:Key="Danger">#CA4B55</Color>
 
             <!-- Brushes -->
             <SolidColorBrush x:Key="AppBackgroundBrush" Color="{StaticResource AppBackground}"/>
             <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackground}"/>
-            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="{StaticResource SurfaceElevated}"/>
+            <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource Divider}"/>
             <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlue}"/>
+            <SolidColorBrush x:Key="AccentBlueHoverBrush" Color="#286FAF"/>
+            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="{StaticResource SurfaceElevated}"/>
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="{StaticResource SurfaceHover}"/>
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
             <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource Divider}"/>
-            <!-- Backward-compat alias used by existing views -->
-            <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource Divider}"/>
+            <SolidColorBrush x:Key="FocusRingBrush" Color="{StaticResource FocusRing}"/>
+            <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Danger}"/>
 
             <!-- Icons -->
             <StreamGeometry x:Key="IconSettings">M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z</StreamGeometry>
@@ -38,6 +44,12 @@
             <StreamGeometry x:Key="IconDelete">M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6</StreamGeometry>
             <StreamGeometry x:Key="IconPlay">M5 3 L19 12 L5 21 L5 3 Z</StreamGeometry>
             <StreamGeometry x:Key="IconPause">M6 4h4v16H6z M14 4h4v16h-4z</StreamGeometry>
+            <StreamGeometry x:Key="IconClose">M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z</StreamGeometry>
+            <StreamGeometry x:Key="IconRefresh">M17.65 6.35A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.76-4.24L13 11h7V4l-2.35 2.35z</StreamGeometry>
+            <StreamGeometry x:Key="IconAdd">M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z</StreamGeometry>
+            <StreamGeometry x:Key="IconChevronUp">M7 14l5-5 5 5z</StreamGeometry>
+            <StreamGeometry x:Key="IconChevronDown">M7 10l5 5 5-5z</StreamGeometry>
+            <StreamGeometry x:Key="IconLogin">M18 3H8c-1.1 0-2 .9-2 2v3h2V5h10v14H8v-3H6v3c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z M13 16l5-4-5-4v3H3v2h10v3z</StreamGeometry>
 
             <!-- Converters -->
             <cv:BooleanToStatusBrushConverter x:Key="BooleanToStatusColorConverter"/>
@@ -52,34 +64,103 @@
         <FluentTheme />
         
         <!-- ============================================================
-             GLOBAL DESIGN SYSTEM — ringan tapi konsisten.
-             Semua kontrol tinggi seragam (32), teks selalu center,
-             tidak ada teks terpotong.
+             GLOBAL DESIGN SYSTEM: satu dasar, varian hanya menurut maksud.
              ============================================================ -->
 
-        <!-- Buttons: teks selalu center vertikal & horizontal (fix teks terpotong) -->
         <Style Selector="Button">
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="10,6"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="ToolTip.Placement" Value="Bottom"/>
             <Setter Property="ToolTip.VerticalOffset" Value="8"/>
             <Setter Property="FontSize" Value="12"/>
         </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}"/>
+        </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector="Button:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource FocusRingBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
 
-        <!-- Tombol ikon saja (square) -->
-        <Style Selector="Button.icon">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
+        <Style Selector="Button.quiet">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.quiet:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="{DynamicResource AccentBlueHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.primary:pressed">
+            <Setter Property="Background" Value="#1E5F99"/>
+            <Setter Property="BorderBrush" Value="#1E5F99"/>
+        </Style>
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.danger:pointerover">
+            <Setter Property="Background" Value="#C34D57"/>
+            <Setter Property="BorderBrush" Value="#C34D57"/>
+        </Style>
+
+        <!-- Target ikon konsisten; swatch tetap dapat memakai ukuran visual lebih kecil. -->
+        <Style Selector="Button.icon, ToggleButton.icon">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="36"/>
+            <Setter Property="MinHeight" Value="36"/>
             <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.icon:pointerover, ToggleButton.icon:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}"/>
+        </Style>
+        <Style Selector="Button.tab-icon">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="7"/>
+        </Style>
+        <Style Selector="Button.swatch">
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
         </Style>
 
         <!-- ComboBox / TextBox: teks center -->
         <Style Selector="ComboBox">
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="MinHeight" Value="34"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="ComboBox /template/ ContentPresenter">
@@ -87,14 +168,15 @@
         </Style>
 
         <Style Selector="TextBox">
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="MinHeight" Value="34"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
 
         <!-- NumericUpDown: teks angka harus punya ruang cukup; spinner kecil & rapi -->
         <Style Selector="NumericUpDown">
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="MinHeight" Value="34"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="MinWidth" Value="100"/>
             <Setter Property="FontSize" Value="12"/>
