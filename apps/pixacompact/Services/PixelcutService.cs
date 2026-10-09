@@ -36,6 +36,21 @@ public class PixelcutService : IDisposable
     /// <summary>Ukuran sub-batch per tab (batch besar dipecah supaya tidak crash).</summary>
     public int BatchSubSize { get; set; } = 25;
 
+    /// <summary>
+    /// Callback pelaporan progres per sub-batch supaya UI hanya menandai item
+    /// yang SEDANG diproses (bukan semua item sekaligus). Menerima daftar item
+    /// aktif pada sub-batch berjalan, atau null bila selesai/di luar sub-batch.
+    /// Dipanggil dari thread background; penerima wajib marshalling ke UI thread.
+    /// </summary>
+    public Action<IReadOnlyList<PixelcutFileItem>?>? OnSubBatchActiveChanged { get; set; }
+
+    /// <summary>
+    /// Callback real-time saat satu item selesai diproses (berhasil/gagal).
+    /// Parameter: item, resultPath (null=gagal), resultSize (0=gagal).
+    /// Dipanggil dari thread background; penerima wajib marshalling ke UI thread.
+    /// </summary>
+    public Action<PixelcutFileItem, string?, long>? OnItemCompleted { get; set; }
+
     public bool UseGpuForRembg { get; set; } = true;
     public bool AlphaMattingEnabled { get; set; }
     public int AlphaMattingErodeSize { get; set; } = 10;
@@ -201,11 +216,28 @@ public class PixelcutService : IDisposable
         if (!canBatch || MixProxyEnabled)
         {
             // Fallback: proses satu-satu (dipanggil paralel dari luar via Task.Run).
+            // Tetap laporkan item aktif per-langkah supaya UI konsisten (spinner
+            // hanya pada item yang sedang dikerjakan).
             foreach (var item in items)
             {
                 ct.ThrowIfCancellationRequested();
-                await ProcessImageAsync(item, jobType, ct);
+                OnSubBatchActiveChanged?.Invoke(new[] { item });
+                try
+                {
+                    await ProcessImageAsync(item, jobType, ct);
+                    var rp = ResolveResultPath(item, jobType);
+                    if (File.Exists(rp))
+                        OnItemCompleted?.Invoke(item, rp, new FileInfo(rp).Length);
+                    else
+                        OnItemCompleted?.Invoke(item, null, 0);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch
+                {
+                    OnItemCompleted?.Invoke(item, null, 0);
+                }
             }
+            OnSubBatchActiveChanged?.Invoke(null);
             return;
         }
 
@@ -230,6 +262,11 @@ public class PixelcutService : IDisposable
                 int subEnd = Math.Min(sub + subSize, end);
                 var chunk = items.Skip(sub).Take(subEnd - sub).ToList();
                 var filePaths = chunk.Select(i => i.FilePath).ToList();
+
+                // Tandai item sub-batch ini sebagai aktif (sedang diproses) supaya
+                // UI hanya menyalakan spinner/progress pada item yang benar-benar
+                // sedang dikerjakan, bukan seluruh antrian sekaligus.
+                OnSubBatchActiveChanged?.Invoke(chunk);
 
                 byte[]?[] results;
                 if (RotationActive)
@@ -257,7 +294,10 @@ public class PixelcutService : IDisposable
                     {
                         try
                         {
-                            await File.WriteAllBytesAsync(ResolveResultPath(item, jobType), results[i]!, ct);
+                            var rp = ResolveResultPath(item, jobType);
+                            await File.WriteAllBytesAsync(rp, results[i]!, ct);
+                            // Tandai selesai real-time segera setelah file ditulis.
+                            OnItemCompleted?.Invoke(item, rp, results[i]!.Length);
                             continue;
                         }
                         catch (OperationCanceledException) { throw; }
@@ -268,15 +308,28 @@ public class PixelcutService : IDisposable
                     try
                     {
                         await ProcessImageAsync(item, jobType, ct);
+                        // ProcessImageAsync menulis ke disk sendiri; cek hasilnya.
+                        var rpFallback = ResolveResultPath(item, jobType);
+                        if (File.Exists(rpFallback))
+                            OnItemCompleted?.Invoke(item, rpFallback, new FileInfo(rpFallback).Length);
+                        else
+                            OnItemCompleted?.Invoke(item, null, 0);
                     }
                     catch (OperationCanceledException) { throw; }
                     catch
                     {
                         failed++;
+                        OnItemCompleted?.Invoke(item, null, 0);
                     }
                 }
+
+                // Sub-batch selesai: tidak ada item aktif sampai sub-batch berikutnya.
+                OnSubBatchActiveChanged?.Invoke(null);
             }
         }
+
+        // Tidak ada sub-batch aktif lagi setelah seluruh batch selesai.
+        OnSubBatchActiveChanged?.Invoke(null);
 
         if (failed > 0 && failed == total)
         {

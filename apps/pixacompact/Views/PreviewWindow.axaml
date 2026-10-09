@@ -138,7 +138,7 @@
                                   FontSize="11" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right"
                                   ToolTip.Tip="{DynamicResource Tip_CompareOptions}"/>
                     <!-- ScrollViewer mencegah grup tool menimpa toggle saat jendela sempit -->
-                    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                                   VerticalAlignment="Center" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
                     <!-- Selection Mode (Replace/Add/Subtract/Intersect): Grid 4 kolom sama lebar.
@@ -236,7 +236,7 @@
                 <Border x:Name="DockTopHost" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" IsVisible="False"
                         MaxHeight="280" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
                         BorderThickness="0,0,0,1" Padding="6">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden">
                         <StackPanel x:Name="DockTopPanel" Orientation="Horizontal" Spacing="8"/>
                     </ScrollViewer>
                 </Border>
@@ -245,7 +245,7 @@
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
                         BorderThickness="0,0,1,0" Padding="0"
                         MinWidth="70" MinHeight="100">
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
                         <StackPanel x:Name="DockLeftPanel" Orientation="Vertical" Spacing="8"/>
                     </ScrollViewer>
                 </Border>
@@ -260,7 +260,7 @@
                                 ToolTip.Tip="Opsi panel (cabut / pasang / tutup)">
                             <PathIcon Data="M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z" Width="16" Height="16" Foreground="{StaticResource EditorTextSecondary}"/>
                         </Button>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="PanelToolContentGrid" ColumnDefinitions="Auto,Auto" HorizontalAlignment="Center">
                             <StackPanel x:Name="ToolColumnLeft" Grid.Column="0" Orientation="Vertical" Spacing="2">
                             <!-- Grup seleksi -->
@@ -484,7 +484,7 @@
                               DragDelta="OnRightDockResizerDragDelta"/>
                 <Border x:Name="PanelRightEditor" Grid.Row="1" Grid.Column="3" IsVisible="False" Width="240"
                         Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="1,0,0,0" Padding="0" Margin="0">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel x:Name="DockRightPanel" Spacing="0">
 
                             <Border x:Name="PanelProperties" Width="240" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}" BorderThickness="0,0,0,1">
@@ -559,7 +559,7 @@
                                         </Button>
                                     </Grid>
                                     <Border Background="{StaticResource EditorBg}" CornerRadius="3" Padding="4" MaxHeight="200">
-                                        <ListBox x:Name="LstHistory" Background="Transparent" BorderThickness="0" FontSize="10" Foreground="{StaticResource EditorTextSecondary}" ScrollViewer.VerticalScrollBarVisibility="Auto" AutoScrollToSelectedItem="False"/>
+                                        <ListBox x:Name="LstHistory" Background="Transparent" BorderThickness="0" FontSize="10" Foreground="{StaticResource EditorTextSecondary}" ScrollViewer.VerticalScrollBarVisibility="Hidden" AutoScrollToSelectedItem="False"/>
                                     </Border>
                                 </StackPanel>
                             </Border>
@@ -604,7 +604,7 @@
                 <Border x:Name="DockBottomHost" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" IsVisible="False"
                         MaxHeight="220" Background="{StaticResource EditorSurface}" BorderBrush="{StaticResource EditorBorder}"
                         BorderThickness="0,1,0,0" Padding="6">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden">
                         <StackPanel x:Name="DockBottomPanel" Orientation="Horizontal" Spacing="8"/>
                     </ScrollViewer>
                 </Border>

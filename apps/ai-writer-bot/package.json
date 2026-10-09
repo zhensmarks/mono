@@ -1,0 +1,13 @@
+{
+  "name": "ai-writer-bot",
+  "version": "0.1.0",
+  "private": true,
+  "main": "bot-launcher.js",
+  "scripts": {
+    "start": "node bot-launcher.js"
+  },
+  "dependencies": {
+    "grammy": "^1.22.0",
+    "dotenv": "^16.4.5"
+  }
+}

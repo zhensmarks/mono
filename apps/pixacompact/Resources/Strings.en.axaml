@@ -159,6 +159,12 @@
     <x:String x:Key="Set_Title">Keyboard shortcuts</x:String>
     <x:String x:Key="Set_BetaMode">Editor Mode (Beta)</x:String>
     <x:String x:Key="Tip_BetaMode">Enable mask and selection editor</x:String>
+    <x:String x:Key="Set_ExternalEditor">External Editor (when Editor Mode OFF)</x:String>
+    <x:String x:Key="Tip_ExternalEditor">App opened when the Edit Mode button is pressed while the built-in editor is OFF</x:String>
+    <x:String x:Key="Set_ExternalEditorPath">Path</x:String>
+    <x:String x:Key="Tip_ExternalEditorPath">Choose the editor executable (e.g. Photoshop.exe, photocraft.exe, or any other app)</x:String>
+    <x:String x:Key="Watermark_ExternalEditorPath">Not selected</x:String>
+    <x:String x:Key="Btn_Browse">Choose…</x:String>
     <x:String x:Key="Set_Language">Language</x:String>
     <x:String x:Key="Set_PreviewNote">Preview shortcuts use one unmodified key; E opens Edit mode. Keys in each mode must be unique.</x:String>
     <x:String x:Key="Set_NextImage">Next Image</x:String>
@@ -322,4 +328,8 @@
     <x:String x:Key="Toast_EditorSessionFailed">Editor session failed: {0}. Retrying...</x:String>
     <x:String x:Key="Toast_EditorNoSession">Editor session is not ready yet.</x:String>
     <x:String x:Key="Toast_EditorBetaOff">Enable Editor (Beta) mode in Preferences → General to edit.</x:String>
+    <x:String x:Key="Toast_NoImageForExternalEditor">No image loaded to open in an external editor.</x:String>
+    <x:String x:Key="Toast_ExternalEditorNotConfigured">External editor is not configured. Open Preferences → General to choose an editor app.</x:String>
+    <x:String x:Key="Toast_ExternalEditorLaunched">Opening {0}…</x:String>
+    <x:String x:Key="Toast_ExternalEditorFailed">Failed to launch external editor: {0}</x:String>
 </ResourceDictionary>

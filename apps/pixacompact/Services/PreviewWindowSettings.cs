@@ -20,7 +20,20 @@ public class PreviewWindowSettings
     public double Height { get; set; } = 600;
     public double Zoom { get; set; } = 1.0;
     public string PhotoshopPath { get; set; } = "";
-    
+
+    /// <summary>
+    /// Aplikasi editor eksternal yang dibuka saat tombol Mode Edit ditekan
+    /// padahal EditorBetaMode (editor bawaan) sedang OFF. Pilihan preset:
+    /// "Photoshop", "Photocraft", atau "Custom". Default "Photocraft".
+    /// </summary>
+    public string ExternalEditorKind { get; set; } = "Photocraft";
+
+    /// <summary>
+    /// Path executable editor eksternal untuk kind "Photoshop"/"Custom".
+    /// Untuk "Photocraft" boleh kosong (auto-detect / build dari source).
+    /// </summary>
+    public string ExternalEditorPath { get; set; } = "";
+
     // Shortcuts
     public string ShortcutNext { get; set; } = DefaultShortcutNext;
     public string ShortcutPrevious { get; set; } = DefaultShortcutPrevious;

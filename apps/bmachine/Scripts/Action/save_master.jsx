@@ -55,6 +55,20 @@ function runAdvancedMode(c){
  var cancel=w.add("button",undefined,"Batal setelah langkah berjalan");
  cancel.onClick=function(){requested=true;status.text="Pembatalan diminta; menunggu langkah aktif selesai...";w.update();};
  w.show();
+
+ function isAbsolutePath(p){return p.indexOf(":")>=0||p.indexOf("\\\\")===0;}
+ function getExportFolder(pathInput,sourceDocPath){
+  if(!pathInput||pathInput.length===0)return sourceDocPath;
+  if(isAbsolutePath(pathInput))return new Folder(pathInput);
+  // Relatif: buat satu level di atas sumber, mirroring subfolder sumber di batch
+  var srcFolder=new Folder(sourceDocPath);
+  var srcName=srcFolder.name;
+  var parentFolder=srcFolder.parent;
+  var relativeBase=parentFolder.fsName+"/"+pathInput;
+  if(batchMode){var relatFolder=new Folder(relativeBase+"/"+srcName);if(!relatFolder.exists)relatFolder.create();return relatFolder;}
+  else{var f=new Folder(relativeBase);if(!f.exists)f.create();return f;}
+ }
+
  try{
   for(var n=0;n<docNames.length;n++){
    if(requested){stop=true;break;}
@@ -66,9 +80,20 @@ function runAdvancedMode(c){
     if(!d){fail.push(docName+" (dokumen tidak ditemukan/sudah ditutup)");continue;}
     app.activeDocument=d;
     var m=docName.match(/\.([^.]+)$/),ext=m?m[1].toLowerCase():"";
+    
+    // Tentukan export folder (untuk PSD dan export file)
+    var exportFolder=null;
+    if(c.saveMaster||c.exportJpg||c.exportPng){
+     if(c.path){
+      exportFolder=getExportFolder(c.path,d.path.fsName);
+      if(!exportFolder||!exportFolder.exists){throw new Error("Tidak bisa membuat/akses folder export.");}
+     }else{exportFolder=d.path;}
+    }
+
+    // SAVE PSD
     if(c.saveMaster){
      if((ext==="jpg"||ext==="jpeg"||ext==="png")&&d.path){
-      var f=new File(d.path.fsName+"/"+base+".psd"),o=new PhotoshopSaveOptions();
+      var f=new File(exportFolder.fsName+"/"+base+".psd"),o=new PhotoshopSaveOptions();
       o.embedColorProfile=true;o.layers=true;o.maximizeCompatibility=true;
       d.saveAs(f,o,true,Extension.LOWERCASE);
      }else if(!d.path){
@@ -79,15 +104,16 @@ function runAdvancedMode(c){
       d.saveAs(sf,so,true,Extension.LOWERCASE);
      }else d.save();
     }
-    var folder=c.path?new Folder(c.path):d.path;
-    if((c.exportJpg||c.exportPng)&&!folder)throw new Error("Pilih folder export.");
+
+    // EXPORT JPG/PNG
     if(c.exportJpg||c.exportPng){
      dup=d.duplicate(base+"_advanced_export");app.activeDocument=dup;dup.flatten();
      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
-     if(!requested&&c.exportJpg)saveJPG(dup,folder.fsName+"/"+base+".jpg",12);
-     if(!requested&&c.exportPng)savePNG(dup,folder.fsName+"/"+base+".png");
+     if(!requested&&c.exportJpg)saveJPG(dup,exportFolder.fsName+"/"+base+".jpg",12);
+     if(!requested&&c.exportPng)savePNG(dup,exportFolder.fsName+"/"+base+".png");
      dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
     }
+
     if(requested){stop=true;break;}
     if(!c.keepOpen){d.close(SaveOptions.DONOTSAVECHANGES);}
     ok.push(docName);

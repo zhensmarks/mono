@@ -715,6 +715,11 @@ try {{
     // ========================
 
     private void OnPreferencesClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => OpenPreferences();
+
+    /// <summary>Buka dialog Preferensi (dipakai dari Ctrl+K, ikon gear, maupun
+    /// jembatan editor eksternal bila editor bawaan OFF).</summary>
+    public void OpenPreferences()
     {
         var dlg = new PreferencesWindow(this);
         _ = dlg.ShowDialog(this);

@@ -13,6 +13,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -41,6 +42,10 @@ public partial class PreferencesWindow : Window
     private readonly string _snapChecker1;
     private readonly string _snapChecker2;
 
+    // Snapshot editor eksternal (untuk Batal).
+    private readonly string _snapExternalEditorKind;
+    private readonly string _snapExternalEditorPath;
+
     private bool _syncingLanguage;
     private readonly List<Button> _penSwatches = new();
     private bool _uiReady;
@@ -61,6 +66,8 @@ public partial class PreferencesWindow : Window
         _snapSolid = _settings.SolidColorHex;
         _snapChecker1 = _settings.CheckerColor1;
         _snapChecker2 = _settings.CheckerColor2;
+        _snapExternalEditorKind = _settings.ExternalEditorKind;
+        _snapExternalEditorPath = _settings.ExternalEditorPath;
 
         InitializeComponent();
         _uiReady = true;
@@ -105,6 +112,22 @@ public partial class PreferencesWindow : Window
 
         var betaToggle = this.FindControl<CheckBox>("ChkEditorBetaMode");
         if (betaToggle != null) betaToggle.IsChecked = _settings.EditorBetaMode;
+
+        // Editor eksternal (jembatan saat Mode Editor OFF).
+        var cboEditor = this.FindControl<ComboBox>("CboExternalEditor");
+        if (cboEditor != null)
+        {
+            var kind = ExternalEditorService.ParseKind(_settings.ExternalEditorKind);
+            cboEditor.SelectedIndex = kind switch
+            {
+                ExternalEditorKind.Photocraft => 0,
+                ExternalEditorKind.Photoshop => 1,
+                _ => 2
+            };
+        }
+        var txtEditorPath = this.FindControl<TextBox>("TxtExternalEditorPath");
+        if (txtEditorPath != null) txtEditorPath.Text = _settings.ExternalEditorPath;
+        UpdateExternalEditorHint();
 
         _syncingLanguage = true;
         try
@@ -204,6 +227,8 @@ public partial class PreferencesWindow : Window
         _settings.SolidColorHex = _snapSolid;
         _settings.CheckerColor1 = _snapChecker1;
         _settings.CheckerColor2 = _snapChecker2;
+        _settings.ExternalEditorKind = _snapExternalEditorKind;
+        _settings.ExternalEditorPath = _snapExternalEditorPath;
         _settings.Save();
         _owner.ApplyBackground();
         _owner.SetPenPathColorPref(_snapPenColor);
@@ -574,5 +599,95 @@ public partial class PreferencesWindow : Window
         btnOk.Click += (_, _) => { SetPenPathColor(chosen); dlg.Close(); };
         btnCancel.Click += (_, _) => dlg.Close();
         await dlg.ShowDialog(this);
+    }
+
+    // ========================
+    // EDITOR EKSTERNAL
+    // ========================
+
+    private ExternalEditorKind CurrentExternalEditorKind()
+    {
+        var cbo = this.FindControl<ComboBox>("CboExternalEditor");
+        return cbo?.SelectedIndex switch
+        {
+            1 => ExternalEditorKind.Photoshop,
+            2 => ExternalEditorKind.Custom,
+            _ => ExternalEditorKind.Photocraft
+        };
+    }
+
+    /// <summary>Petunjuk singkat di bawah kolom path, menyesuaikan jenis editor.</summary>
+    private void UpdateExternalEditorHint()
+    {
+        var kind = CurrentExternalEditorKind();
+        var hint = this.FindControl<TextBlock>("TxtExternalEditorHint");
+        if (hint == null) return;
+
+        var label = kind switch
+        {
+            ExternalEditorKind.Photoshop => "Photoshop.exe",
+            ExternalEditorKind.Photocraft => "photocraft.exe",
+            _ => "executable editor"
+        };
+
+        hint.Text = string.IsNullOrWhiteSpace(_settings.ExternalEditorPath)
+            ? $"Belum diatur. Klik Browse untuk memilih {label}."
+            : $"✓ Diatur: {_settings.ExternalEditorPath}";
+    }
+
+    private void OnExternalEditorKindChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!_uiReady) return;
+        var kind = CurrentExternalEditorKind();
+        _settings.ExternalEditorKind = kind.ToString();
+        _settings.Save();
+        UpdateExternalEditorHint();
+    }
+
+    private async void OnBrowseExternalEditorClick(object? sender, RoutedEventArgs e)
+    {
+        var kind = CurrentExternalEditorKind();
+        var storage = Avalonia.Application.Current?.ApplicationLifetime as
+            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        var topLevel = storage?.MainWindow ?? this;
+
+        // Semua jenis editor (termasuk PhotoCraft) dipilih sebagai file executable.
+        var filter = kind switch
+        {
+            ExternalEditorKind.Photoshop => "Photoshop.exe",
+            ExternalEditorKind.Photocraft => "photocraft.exe",
+            _ => "*.exe"
+        };
+        var title = kind switch
+        {
+            ExternalEditorKind.Photoshop => "Pilih Photoshop.exe",
+            ExternalEditorKind.Photocraft => "Pilih photocraft.exe",
+            _ => "Pilih executable editor"
+        };
+        var typeName = kind switch
+        {
+            ExternalEditorKind.Photoshop => "Photoshop Executable",
+            ExternalEditorKind.Photocraft => "PhotoCraft Executable",
+            _ => "Custom Executable"
+        };
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new Avalonia.Platform.Storage.FilePickerFileType(typeName) { Patterns = new[] { filter } },
+                new Avalonia.Platform.Storage.FilePickerFileType("Any Executable") { Patterns = new[] { "*.exe" } }
+            }
+        });
+        if (files != null && files.Count > 0)
+        {
+            _settings.ExternalEditorPath = files[0].Path.LocalPath;
+            _settings.Save();
+            var txt = this.FindControl<TextBox>("TxtExternalEditorPath");
+            if (txt != null) txt.Text = _settings.ExternalEditorPath;
+            UpdateExternalEditorHint();
+        }
     }
 }

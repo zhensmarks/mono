@@ -159,6 +159,12 @@
     <x:String x:Key="Set_Title">Pintasan keyboard</x:String>
     <x:String x:Key="Set_BetaMode">Mode Editor (Beta)</x:String>
     <x:String x:Key="Tip_BetaMode">Aktifkan editor mask dan seleksi</x:String>
+    <x:String x:Key="Set_ExternalEditor">Editor Eksternal (saat Mode Editor OFF)</x:String>
+    <x:String x:Key="Tip_ExternalEditor">Aplikasi yang dibuka saat tombol Mode Edit ditekan padahal editor bawaan sedang OFF</x:String>
+    <x:String x:Key="Set_ExternalEditorPath">Path</x:String>
+    <x:String x:Key="Tip_ExternalEditorPath">Pilih file executable editor (mis. Photoshop.exe, photocraft.exe, atau aplikasi lain)</x:String>
+    <x:String x:Key="Watermark_ExternalEditorPath">Belum dipilih</x:String>
+    <x:String x:Key="Btn_Browse">Pilih…</x:String>
     <x:String x:Key="Set_Language">Bahasa</x:String>
     <x:String x:Key="Set_PreviewNote">Pintasan pratinjau memakai satu tombol tanpa modifier; E membuka mode Edit. Tombol di tiap mode harus unik.</x:String>
     <x:String x:Key="Set_NextImage">Gambar berikutnya</x:String>
@@ -322,4 +328,8 @@
     <x:String x:Key="Toast_EditorSessionFailed">Sesi editor gagal disiapkan: {0}. Menyiapkan ulang...</x:String>
     <x:String x:Key="Toast_EditorNoSession">Sesi editor belum siap.</x:String>
     <x:String x:Key="Toast_EditorBetaOff">Aktifkan Mode Editor (Beta) di Preferensi → Umum untuk mengedit.</x:String>
+    <x:String x:Key="Toast_NoImageForExternalEditor">Belum ada gambar yang dimuat untuk dibuka di editor eksternal.</x:String>
+    <x:String x:Key="Toast_ExternalEditorNotConfigured">Editor eksternal belum diatur. Buka Preferensi → Umum untuk memilih aplikasi editor.</x:String>
+    <x:String x:Key="Toast_ExternalEditorLaunched">Membuka {0}…</x:String>
+    <x:String x:Key="Toast_ExternalEditorFailed">Gagal membuka editor eksternal: {0}</x:String>
 </ResourceDictionary>

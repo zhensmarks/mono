@@ -196,7 +196,7 @@
 
             <!-- GALLERY GRID -->
             <ScrollViewer Grid.Row="1"
-                          VerticalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Hidden"
                           HorizontalScrollBarVisibility="Disabled">
                 <ListBox ItemsSource="{Binding GalleryItems}"
                          Background="Transparent"

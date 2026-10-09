@@ -28,7 +28,7 @@
                     <ListBoxItem Content="{DynamicResource Pref_Shortcuts}" Padding="10,9"/>
                 </ListBox>
             </Border>
-            <ScrollViewer Grid.Column="1" Padding="18,14" VerticalScrollBarVisibility="Auto"
+            <ScrollViewer Grid.Column="1" Padding="18,14" VerticalScrollBarVisibility="Hidden"
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="0" MaxWidth="500">
                     <StackPanel x:Name="PageGeneral" Spacing="2">
@@ -38,6 +38,43 @@
                             <TextBlock Text="{DynamicResource Set_BetaMode}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="12"/>
                             <CheckBox x:Name="ChkEditorBetaMode" Grid.Column="1" IsCheckedChanged="OnEditorBetaModeToggled" ToolTip.Tip="{DynamicResource Tip_BetaMode}"/>
                         </Grid>
+
+                        <Border Height="1" Background="{StaticResource EditorBorder}" Margin="0,8"/>
+
+                        <!-- === EDITOR EKSTERNAL === -->
+                        <!-- Header: label + pilihan combo di satu baris -->
+                        <Grid ColumnDefinitions="*, Auto" Margin="0,4">
+                            <TextBlock Text="{DynamicResource Set_ExternalEditor}" VerticalAlignment="Center"
+                                       FontWeight="SemiBold" Foreground="{StaticResource EditorTextPrimary}"
+                                       FontSize="12" TextWrapping="Wrap" ToolTip.Tip="{DynamicResource Tip_ExternalEditor}"/>
+                            <ComboBox x:Name="CboExternalEditor" Grid.Column="1" Width="130"
+                                      Background="#10FFFFFF" BorderBrush="#30FFFFFF" CornerRadius="3"
+                                      Foreground="White" SelectionChanged="OnExternalEditorKindChanged">
+                                <ComboBoxItem Content="PhotoCraft"/>
+                                <ComboBoxItem Content="Photoshop"/>
+                                <ComboBoxItem Content="Custom"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <!-- Path executable: label + textbox + tombol browse -->
+                        <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,2">
+                            <TextBlock Grid.Column="0" Text="{DynamicResource Set_ExternalEditorPath}"
+                                       VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}"
+                                       FontSize="12" Margin="0,0,8,0" ToolTip.Tip="{DynamicResource Tip_ExternalEditorPath}"/>
+                            <TextBox x:Name="TxtExternalEditorPath" Grid.Column="1"
+                                     IsReadOnly="True" Background="#10FFFFFF" BorderBrush="#30FFFFFF"
+                                     CornerRadius="3" Foreground="{DynamicResource AccentBlueBrush}"
+                                     FontSize="11" Watermark="{DynamicResource Watermark_ExternalEditorPath}" VerticalAlignment="Center"/>
+                            <Button x:Name="BtnBrowseExternalEditor" Grid.Column="2"
+                                    Content="{DynamicResource Btn_Browse}" Click="OnBrowseExternalEditorClick"
+                                    Margin="6,0,0,0" Padding="10,5" Background="{StaticResource EditorBtnBg}"
+                                    Foreground="White" CornerRadius="3" Cursor="Hand" VerticalAlignment="Center"/>
+                        </Grid>
+                        <TextBlock x:Name="TxtExternalEditorHint" Text=""
+                                   FontSize="10" Foreground="{StaticResource EditorTextSecondary}"
+                                   TextWrapping="Wrap" Margin="0,4,0,4"/>
+
+
                         <!-- Background Type -->
                         <Grid ColumnDefinitions="*, Auto" Margin="0,2">
                             <TextBlock Text="{DynamicResource Set_Background}" VerticalAlignment="Center" Foreground="{StaticResource EditorTextSecondary}" FontSize="12"/>

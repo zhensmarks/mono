@@ -28,6 +28,9 @@ public partial class MainWindowViewModel : ObservableObject
     private CancellationTokenSource? _cts;
     private System.Timers.Timer? _vpnCheckTimer;
 
+    /// <summary>Item yang sedang aktif diproses pada sub-batch berjalan (untuk spinner per-item).</summary>
+    private readonly HashSet<PixelcutFileItem> _currentActiveItems = new();
+
     // Settings dialog state (Save/Close UX)
     [ObservableProperty] private bool _isSettingsDirty;
     private bool _isRevertingSettings;
@@ -391,6 +394,12 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool _isInstallingRembg;
     [ObservableProperty] private double _rembgInstallProgress;
     [ObservableProperty] private string _rembgInstallStatus = "Belum Terpasang";
+    [ObservableProperty] private bool _rembgUpdateAvailable;
+    [ObservableProperty] private string _rembgCurrentVersion = "unknown";
+    [ObservableProperty] private string _rembgLatestVersion = "unknown";
+    [ObservableProperty] private ObservableCollection<string> _availableRembgModels = new();
+    [ObservableProperty] private ObservableCollection<string> _selectedRembgModels = new();
+    [ObservableProperty] private Dictionary<string, bool> _downloadedRembgModels = new();
 
     [RelayCommand]
     private async Task InstallRembgOffline()
@@ -413,10 +422,11 @@ public partial class MainWindowViewModel : ObservableObject
                 }
             });
 
-            await manager.DownloadAndInstallAsync(progress, CancellationToken.None);
+            await manager.DownloadAndInstallAsync(progress, CancellationToken.None, SelectedRembgModels.ToList());
 
             IsRembgInstalled = true;
             RembgInstallStatus = "Terpasang";
+            RefreshDownloadedModelsStatus();
         }
         catch (Exception ex)
         {
@@ -436,6 +446,60 @@ public partial class MainWindowViewModel : ObservableObject
         IsRembgInstalled = false;
         RembgInstallStatus = "Belum Terpasang";
         RembgInstallProgress = 0;
+    }
+
+    private async Task CheckRembgUpdatesAsync()
+    {
+        try
+        {
+            var manager = new RembgResourceManager();
+            var versionInfo = await manager.CheckForUpdatesAsync(CancellationToken.None);
+            
+            Dispatcher.UIThread.Post(() =>
+            {
+                RembgCurrentVersion = versionInfo.CurrentVersion;
+                RembgLatestVersion = versionInfo.LatestVersion;
+                RembgUpdateAvailable = versionInfo.HasUpdate;
+            });
+        }
+        catch { }
+    }
+
+    private async Task LoadAvailableRembgModelsAsync()
+    {
+        try
+        {
+            var manager = new RembgResourceManager();
+            var models = await manager.GetAvailableModelsAsync(CancellationToken.None);
+            
+            Dispatcher.UIThread.Post(() =>
+            {
+                AvailableRembgModels.Clear();
+                foreach (var model in models)
+                {
+                    AvailableRembgModels.Add(model);
+                }
+                
+                // Load downloaded status
+                RefreshDownloadedModelsStatus();
+            });
+        }
+        catch { }
+    }
+
+    private void RefreshDownloadedModelsStatus()
+    {
+        try
+        {
+            var manager = new RembgResourceManager();
+            var downloadStatus = manager.GetDownloadedModels();
+            
+            Dispatcher.UIThread.Post(() =>
+            {
+                DownloadedRembgModels = new Dictionary<string, bool>(downloadStatus);
+            });
+        }
+        catch { }
     }
 
     public MainWindowViewModel()
@@ -478,6 +542,71 @@ public partial class MainWindowViewModel : ObservableObject
         _pixelcutService.BatchSubSize = BatchSubSize;
         AutoCloseBrowser = settings.AutoCloseBrowser;
 
+        // Callback progres per sub-batch: hanya item yang SEDANG diproses yang
+        // menyalakan spinner/progress bar di list. Dipanggil dari thread background,
+        // jadi marshalling ke UI thread di sini. (Lihat bug: sebelumnya semua item
+        // di antrian ditandai IsProcessing=true sekaligus meski BatchSubSize=1.)
+        _pixelcutService.OnSubBatchActiveChanged = active =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                // Clear item aktif sebelumnya yang tidak termasuk sub-batch baru.
+                var newSet = active == null ? null : new HashSet<PixelcutFileItem>(active);
+                lock (_currentActiveItems)
+                {
+                    foreach (var prev in _currentActiveItems)
+                    {
+                        if (newSet == null || !newSet.Contains(prev))
+                        {
+                            // Jangan timpa status Selesai/Gagal di sini — itu di-set
+                            // setelah seluruh batch selesai. Cuma matikan spinner.
+                            if (!prev.IsDone) prev.IsProcessing = false;
+                        }
+                    }
+                    _currentActiveItems.Clear();
+                    if (newSet != null) foreach (var it in newSet) _currentActiveItems.Add(it);
+                }
+                if (active != null)
+                {
+                    foreach (var it in active)
+                    {
+                        it.IsProcessing = true;
+                        it.Status = "Memproses…";
+                        it.Progress = 10;
+                    }
+                }
+            });
+        };
+
+        // Callback real-time saat satu item selesai: update status langsung di UI thread
+        // tanpa menunggu seluruh batch selesai. Ini memastikan item yang sudah selesai
+        // langsung bisa di-preview dan statusnya "Selesai"/"Gagal" bukan "Menunggu".
+        _pixelcutService.OnItemCompleted = (item, resultPath, resultSize) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (resultPath != null && resultSize > 0)
+                {
+                    item.ResultPath = resultPath;
+                    item.ResultSize = resultSize;
+                    item.Progress = 100;
+                    item.Status = "Selesai";
+                    item.IsDone = true;
+                    item.IsFailed = false;
+                }
+                else if (!item.IsDone) // jangan timpa Selesai dengan Gagal
+                {
+                    item.Status = "Gagal";
+                    item.IsFailed = true;
+                    item.ErrorMessage = "Tidak ada hasil";
+                    item.Progress = 0;
+                }
+                item.IsProcessing = false;
+                OnPropertyChanged(nameof(ProcessedCount));
+                OnPropertyChanged(nameof(IsCurrentTabAllDone));
+            });
+        };
+
         // ── Rotasi akun (round-robin) ──
         if (settings.PixaAccounts != null)
         {
@@ -516,6 +645,11 @@ public partial class MainWindowViewModel : ObservableObject
         var resourceManager = new RembgResourceManager();
         IsRembgInstalled = resourceManager.IsInstalled();
         RembgInstallStatus = IsRembgInstalled ? "Terpasang" : "Belum Terpasang";
+        RembgCurrentVersion = resourceManager.GetInstalledVersion();
+
+        // Check for updates & load available models (fire & forget)
+        _ = CheckRembgUpdatesAsync();
+        _ = LoadAvailableRembgModelsAsync();
 
         // BUG FIX: gallery ikut tab aktif. Subscription tidak lagi dicantolkan ke tab
         // pertama saja; lihat RebuildGalleryForTab yang dipanggil saat ganti tab.
@@ -694,6 +828,16 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsNobgSpaceSelected => string.Equals(RemoveBgEngine, "NOBG_SPACE", StringComparison.OrdinalIgnoreCase);
     public bool IsBgEraserSelected => string.Equals(RemoveBgEngine, "BG_ERASER", StringComparison.OrdinalIgnoreCase);
 
+    public string SelectedEngineDisplayName => RemoveBgEngine switch
+    {
+        "PIXA" => "PixaCut",
+        "REMBG" => "RemBG",
+        "REMBG_ONLINE" => "RemBG Online",
+        "NOBG_SPACE" => "NoBG.Space",
+        "BG_ERASER" => "BG Eraser",
+        _ => "Unknown"
+    };
+
     public bool IsAlphaMattingTuningVisible => IsRembgSelected && AlphaMattingEnabled;
 
     [RelayCommand]
@@ -739,6 +883,7 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsRembgOnlineSelected));
         OnPropertyChanged(nameof(IsNobgSpaceSelected));
         OnPropertyChanged(nameof(IsBgEraserSelected));
+        OnPropertyChanged(nameof(SelectedEngineDisplayName));
         OnPropertyChanged(nameof(IsAlphaMattingTuningVisible));
         if (!IsSettingsOpen) SaveSettings();
         MarkSettingsDirty();
@@ -883,6 +1028,29 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(AccentColor)); // Notify UI
         OnPropertyChanged(nameof(TrashButtonBrush));
         MarkSettingsDirty();
+    }
+
+    /// <summary>Set warna aksen dari preset swatch (ringan, tanpa ColorPicker berat).</summary>
+    [RelayCommand]
+    private void SetAccentColor(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        AccentColorHex = hex.Trim();
+    }
+
+    /// <summary>Set warna background dari preset swatch.</summary>
+    [RelayCommand]
+    private void SetBackgroundColor(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        CurrentBackgroundColorHex = hex.Trim();
+    }
+
+    /// <summary>Reset background ke warna default tema (hapus kustom).</summary>
+    [RelayCommand]
+    private void ResetBackgroundColor()
+    {
+        CurrentBackgroundColorHex = "";
     }
 
 
@@ -1694,13 +1862,18 @@ public partial class MainWindowViewModel : ObservableObject
                     int chunkCount = (toProcess.Count + chunkSize - 1) / chunkSize;
                     AppendLog($"{toProcess.Count} file diproses dalam {chunkCount} kelompok (maks {chunkSize}/kelompok).");
 
-                    // Tandai semua sedang menunggu diproses (indikator awal).
+                    // Tandai semua item antrian sebagai "menunggu" TANPA menyalakan
+                    // spinner. Spinner/IsProcessing hanya di-set untuk item yang sedang
+                    // aktif di sub-batch berjalan (lihat callback OnSubBatchActiveChanged
+                    // di konstruktor). Ini memperbaiki bug di mana seluruh antrian tampak
+                    // loading serempak meski BatchSubSize=1.
                     foreach (var bi in toProcess)
                     {
-                        bi.IsProcessing = true;
-                        bi.Status = "Menunggu proses...";
-                        bi.Progress = 5;
+                        if (bi.IsDone) continue;
+                        bi.IsProcessing = false;
                         bi.IsFailed = false;
+                        bi.Status = "Menunggu proses…";
+                        bi.Progress = 0;
                     }
                     ScrollToItemRequested?.Invoke(toProcess[0]);
 
@@ -1715,8 +1888,12 @@ public partial class MainWindowViewModel : ObservableObject
                         }, token);
 
                         // Tandai sukses/gagal per item berdasarkan file hasil.
+                        // Guard IsDone: item yang sudah ditandai Selesai real-time via
+                        // OnItemCompleted tidak di-overwrite; hanya item yang belum
+                        // selesai (mis. gagal tanpa callback) yang perlu di-update di sini.
                         foreach (var bi in toProcess)
                         {
+                            if (bi.IsDone) { bi.IsProcessing = false; continue; }
                             var rp = !string.IsNullOrEmpty(bi.ExpectedResultPath)
                                 ? bi.ExpectedResultPath
                                 : GetResultPath(bi.FilePath, job);

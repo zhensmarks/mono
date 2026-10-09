@@ -134,6 +134,33 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private async void OnDashboardPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed ||
+            DataContext is not MainWindowViewModel vm)
+            return;
+
+        e.Handled = true;
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Pilih gambar untuk diproses",
+            AllowMultiple = true,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Gambar")
+                {
+                    Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp", "*.tif", "*.tiff" }
+                }
+            }
+        });
+
+        var paths = new System.Collections.Generic.List<string>();
+        foreach (var file in files)
+            if (file.Path.IsAbsoluteUri) paths.Add(file.Path.LocalPath);
+        if (paths.Count > 0)
+            await vm.DropFilesCommand.ExecuteAsync(paths.ToArray());
+    }
+
     private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)

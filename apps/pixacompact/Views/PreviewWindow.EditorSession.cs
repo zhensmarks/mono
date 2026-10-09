@@ -184,7 +184,10 @@ public partial class PreviewWindow
         // masuk editor WAJIB memberi feedback (Toast) ke user.
         if (!_settings.EditorBetaMode)
         {
-            Toast(T("Toast_EditorBetaOff"), warning: true);
+            // Mode editor bawaan OFF: alihkan ke editor eksternal (Photoshop /
+            // PhotoCraft / custom) sebagai jembatan agar user tetap bisa mengedit
+            // hasil di editor profesional. Bila belum ada path, buka Preferensi.
+            LaunchExternalEditor();
             return;
         }
         if (_sessionPreparing)
@@ -410,6 +413,41 @@ public partial class PreviewWindow
         if (this.FindControl<MenuItem>("MiCompare") is { } mi && mi.IsChecked != _compareOriginal)
             mi.IsChecked = _compareOriginal;
     }
+    /// <summary>
+    /// Buka editor eksternal (Photoshop / PhotoCraft / custom) dengan file hasil
+    /// + file asli. Dipanggil saat tombol Mode Edit ditekan padahal editor
+    /// bawaan (EditorBetaMode) sedang OFF — sebagai jembatan ke editor profesional.
+    /// </summary>
+    private void LaunchExternalEditor()
+    {
+        if (string.IsNullOrEmpty(_resultPath) || string.IsNullOrEmpty(_originalPath))
+        {
+            Toast(T("Toast_NoImageForExternalEditor"), warning: true);
+            return;
+        }
+
+        var kind = ExternalEditorService.ParseKind(_settings.ExternalEditorKind);
+        var path = _settings.ExternalEditorPath;
+
+        // Semua editor (Photoshop, PhotoCraft, Custom) memakai file executable.
+        // PhotoCraft boleh juga diarahkan ke folder repo (kompatibilitas lama).
+        var exe = kind == ExternalEditorKind.Photocraft
+            ? ExternalEditorService.ResolvePhotocraftPath(path)
+            : path;
+
+        if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
+        {
+            Toast(T("Toast_ExternalEditorNotConfigured"), warning: true);
+            OpenPreferences();
+            return;
+        }
+
+        if (ExternalEditorService.Launch(kind, exe, _resultPath, _originalPath, out var err))
+            Toast(T("Toast_ExternalEditorLaunched", kind.ToString()));
+        else
+            Toast(T("Toast_ExternalEditorFailed", err), warning: true);
+    }
+
     private void OnFooterModeClick(object? sender, RoutedEventArgs e)
     {
         if (_editMode)

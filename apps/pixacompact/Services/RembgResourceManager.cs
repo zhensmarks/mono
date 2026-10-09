@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,18 +17,95 @@ public struct InstallProgressInfo
     public string Message { get; set; }
 }
 
+public struct RembgVersionInfo
+{
+    public string CurrentVersion { get; set; }
+    public string LatestVersion { get; set; }
+    public bool HasUpdate { get; set; }
+}
+
 public class RembgResourceManager
 {
-    private const string PythonUrl = "https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip";
+    private const string PythonUrl = "https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd64.zip";
     private const string PipUrl = "https://bootstrap.pypa.io/get-pip.py";
+    private const string PyPiApiUrl = "https://pypi.org/pypi/rembg/json";
     
     public string ResourcesDirectory { get; }
     public string PythonExecutablePath { get; }
+    public string PythonVersionFile { get; }
 
     public RembgResourceManager()
     {
         ResourcesDirectory = Path.Combine(AppContext.BaseDirectory, "Resources", "Rembg");
         PythonExecutablePath = Path.Combine(ResourcesDirectory, "python.exe");
+        PythonVersionFile = Path.Combine(ResourcesDirectory, ".version");
+    }
+
+    /// <summary>Get current installed rembg version from version file.</summary>
+    public string GetInstalledVersion()
+    {
+        if (File.Exists(PythonVersionFile))
+        {
+            try { return File.ReadAllText(PythonVersionFile).Trim(); }
+            catch { }
+        }
+        return "unknown";
+    }
+
+    /// <summary>Check PyPI for latest rembg version.</summary>
+    public async Task<RembgVersionInfo> CheckForUpdatesAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            var response = await client.GetStringAsync(PyPiApiUrl, ct);
+            using var doc = JsonDocument.Parse(response);
+            var latestVersion = doc.RootElement.GetProperty("info").GetProperty("version").GetString() ?? "unknown";
+            var currentVersion = GetInstalledVersion();
+            
+            return new RembgVersionInfo
+            {
+                CurrentVersion = currentVersion,
+                LatestVersion = latestVersion,
+                HasUpdate = currentVersion != "unknown" && currentVersion != latestVersion
+            };
+        }
+        catch
+        {
+            return new RembgVersionInfo { CurrentVersion = GetInstalledVersion(), LatestVersion = "unknown", HasUpdate = false };
+        }
+    }
+
+    /// <summary>Get list of available rembg models from GitHub (model catalog).</summary>
+    public async Task<List<string>> GetAvailableModelsAsync(CancellationToken ct)
+    {
+        var models = new List<string>
+        {
+            "u2net", "u2netp", "u2net_human_seg", "u2net_cloth_seg",
+            "isnet-general-use", "isnet-anime", "sam", "birefnet-general",
+            "birefnet-portrait", "birefnet-dis", "birefnet-hd", "birefnet-anime",
+            "bria-rmbg-1.4"
+        };
+        return await Task.FromResult(models);
+    }
+
+    /// <summary>Check which models are already downloaded.</summary>
+    public Dictionary<string, bool> GetDownloadedModels()
+    {
+        var modelCacheDir = Path.Combine(ResourcesDirectory, "Lib", "site-packages", "rembg", "data");
+        var result = new Dictionary<string, bool>();
+        
+        var models = new[] { "u2net", "u2netp", "u2net_human_seg", "u2net_cloth_seg",
+            "isnet-general-use", "isnet-anime", "sam", "birefnet-general",
+            "birefnet-portrait", "birefnet-dis", "birefnet-hd", "birefnet-anime", "bria-rmbg-1.4" };
+        
+        foreach (var model in models)
+        {
+            var modelFile = Path.Combine(modelCacheDir, $"{model}.onnx");
+            result[model] = File.Exists(modelFile);
+        }
+        
+        return result;
     }
 
     public bool IsInstalled()
@@ -34,7 +114,7 @@ public class RembgResourceManager
         return File.Exists(PythonExecutablePath) && Directory.Exists(Path.Combine(ResourcesDirectory, "Lib", "site-packages", "rembg"));
     }
 
-    public async Task DownloadAndInstallAsync(IProgress<InstallProgressInfo>? progress, CancellationToken ct)
+    public async Task DownloadAndInstallAsync(IProgress<InstallProgressInfo>? progress, CancellationToken ct, List<string>? selectedModels = null)
     {
         if (Directory.Exists(ResourcesDirectory))
         {
@@ -83,7 +163,7 @@ public class RembgResourceManager
 
             // 3. Modifikasi file _pth agar pip berfungsi
             progress?.Report(new InstallProgressInfo { Percentage = 30, Message = "Mengkonfigurasi Python..." });
-            string pthFile = Path.Combine(ResourcesDirectory, "python310._pth");
+            string pthFile = Path.Combine(ResourcesDirectory, "python312._pth");
             if (File.Exists(pthFile))
             {
                 var lines = File.ReadAllLines(pthFile);
@@ -111,6 +191,21 @@ public class RembgResourceManager
             var rembgResult = await RunProcessAsync(PythonExecutablePath, "-m pip install onnxruntime-gpu \"rembg[cli]\" --no-warn-script-location", ResourcesDirectory,
                 msg => progress?.Report(new InstallProgressInfo { Percentage = 75, Message = $"Install: {msg}" }), ct);
             if (!rembgResult) throw new Exception("Instalasi paket REMBG gagal.");
+
+            // 7. Save installed version
+            try
+            {
+                var versionOutput = new System.Text.StringBuilder();
+                await RunProcessAsync(PythonExecutablePath, "-m pip show rembg", ResourcesDirectory,
+                    msg => {
+                        if (msg.StartsWith("Version:")) versionOutput.Append(msg.Replace("Version:", "").Trim());
+                    }, ct);
+                
+                var version = versionOutput.ToString();
+                if (string.IsNullOrWhiteSpace(version)) version = "1.0.0"; // fallback
+                await File.WriteAllTextAsync(PythonVersionFile, version, ct);
+            }
+            catch { }
 
             progress?.Report(new InstallProgressInfo { Percentage = 100, Message = "Terpasang" }); // Selesai
         }
