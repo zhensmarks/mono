@@ -44,7 +44,9 @@ public partial class PreferencesWindow : Window
 
     // Snapshot editor eksternal (untuk Batal).
     private readonly string _snapExternalEditorKind;
-    private readonly string _snapExternalEditorPath;
+    private readonly string _snapPhotoshopPath;
+    private readonly string _snapPhotocraftPath;
+    private readonly string _snapCustomEditorPath;
 
     private bool _syncingLanguage;
     private readonly List<Button> _penSwatches = new();
@@ -67,7 +69,9 @@ public partial class PreferencesWindow : Window
         _snapChecker1 = _settings.CheckerColor1;
         _snapChecker2 = _settings.CheckerColor2;
         _snapExternalEditorKind = _settings.ExternalEditorKind;
-        _snapExternalEditorPath = _settings.ExternalEditorPath;
+        _snapPhotoshopPath = _settings.PhotoshopPath;
+        _snapPhotocraftPath = _settings.PhotocraftPath;
+        _snapCustomEditorPath = _settings.CustomEditorPath;
 
         InitializeComponent();
         _uiReady = true;
@@ -125,9 +129,7 @@ public partial class PreferencesWindow : Window
                 _ => 2
             };
         }
-        var txtEditorPath = this.FindControl<TextBox>("TxtExternalEditorPath");
-        if (txtEditorPath != null) txtEditorPath.Text = _settings.ExternalEditorPath;
-        UpdateExternalEditorHint();
+        SyncExternalEditorPath();
 
         _syncingLanguage = true;
         try
@@ -228,7 +230,9 @@ public partial class PreferencesWindow : Window
         _settings.CheckerColor1 = _snapChecker1;
         _settings.CheckerColor2 = _snapChecker2;
         _settings.ExternalEditorKind = _snapExternalEditorKind;
-        _settings.ExternalEditorPath = _snapExternalEditorPath;
+        _settings.PhotoshopPath = _snapPhotoshopPath;
+        _settings.PhotocraftPath = _snapPhotocraftPath;
+        _settings.CustomEditorPath = _snapCustomEditorPath;
         _settings.Save();
         _owner.ApplyBackground();
         _owner.SetPenPathColorPref(_snapPenColor);
@@ -622,6 +626,7 @@ public partial class PreferencesWindow : Window
         var kind = CurrentExternalEditorKind();
         var hint = this.FindControl<TextBlock>("TxtExternalEditorHint");
         if (hint == null) return;
+        var path = _settings.GetExternalEditorPath(kind);
 
         var label = kind switch
         {
@@ -630,9 +635,17 @@ public partial class PreferencesWindow : Window
             _ => "executable editor"
         };
 
-        hint.Text = string.IsNullOrWhiteSpace(_settings.ExternalEditorPath)
+        hint.Text = string.IsNullOrWhiteSpace(path)
             ? $"Belum diatur. Klik Browse untuk memilih {label}."
-            : $"✓ Diatur: {_settings.ExternalEditorPath}";
+            : $"✓ Diatur: {path}";
+    }
+
+    private void SyncExternalEditorPath()
+    {
+        var txtEditorPath = this.FindControl<TextBox>("TxtExternalEditorPath");
+        if (txtEditorPath != null)
+            txtEditorPath.Text = _settings.GetExternalEditorPath(CurrentExternalEditorKind());
+        UpdateExternalEditorHint();
     }
 
     private void OnExternalEditorKindChanged(object? sender, SelectionChangedEventArgs e)
@@ -640,8 +653,8 @@ public partial class PreferencesWindow : Window
         if (!_uiReady) return;
         var kind = CurrentExternalEditorKind();
         _settings.ExternalEditorKind = kind.ToString();
+        SyncExternalEditorPath();
         _settings.Save();
-        UpdateExternalEditorHint();
     }
 
     private async void OnBrowseExternalEditorClick(object? sender, RoutedEventArgs e)
@@ -683,10 +696,11 @@ public partial class PreferencesWindow : Window
         });
         if (files != null && files.Count > 0)
         {
-            _settings.ExternalEditorPath = files[0].Path.LocalPath;
+            var path = files[0].Path.LocalPath;
+            _settings.SetExternalEditorPath(kind, path);
             _settings.Save();
             var txt = this.FindControl<TextBox>("TxtExternalEditorPath");
-            if (txt != null) txt.Text = _settings.ExternalEditorPath;
+            if (txt != null) txt.Text = path;
             UpdateExternalEditorHint();
         }
     }

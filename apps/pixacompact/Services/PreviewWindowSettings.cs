@@ -20,6 +20,8 @@ public class PreviewWindowSettings
     public double Height { get; set; } = 600;
     public double Zoom { get; set; } = 1.0;
     public string PhotoshopPath { get; set; } = "";
+    public string PhotocraftPath { get; set; } = "";
+    public string CustomEditorPath { get; set; } = "";
 
     /// <summary>
     /// Aplikasi editor eksternal yang dibuka saat tombol Mode Edit ditekan
@@ -29,10 +31,50 @@ public class PreviewWindowSettings
     public string ExternalEditorKind { get; set; } = "Photocraft";
 
     /// <summary>
-    /// Path executable editor eksternal untuk kind "Photoshop"/"Custom".
-    /// Untuk "Photocraft" boleh kosong (auto-detect / build dari source).
+    /// Properti kompatibilitas untuk membaca setting versi lama. Path aktif
+    /// kini disimpan terpisah per editor melalui Get/SetExternalEditorPath.
     /// </summary>
     public string ExternalEditorPath { get; set; } = "";
+
+    public string GetExternalEditorPath(ExternalEditorKind kind) => kind switch
+    {
+        global::PixelcutCompact.Services.ExternalEditorKind.Photoshop => PhotoshopPath,
+        global::PixelcutCompact.Services.ExternalEditorKind.Photocraft => PhotocraftPath,
+        _ => CustomEditorPath
+    };
+
+    public void SetExternalEditorPath(ExternalEditorKind kind, string? path)
+    {
+        var value = path ?? "";
+        switch (kind)
+        {
+            case global::PixelcutCompact.Services.ExternalEditorKind.Photoshop:
+                PhotoshopPath = value;
+                break;
+            case global::PixelcutCompact.Services.ExternalEditorKind.Photocraft:
+                PhotocraftPath = value;
+                break;
+            default:
+                CustomEditorPath = value;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Pindahkan path bersama dari versi lama ke editor yang sedang dipilih.
+    /// Path Photoshop yang telah disimpan lewat integrasi Photoshop tidak ditimpa.
+    /// </summary>
+    public bool MigrateLegacyExternalEditorPath()
+    {
+        if (string.IsNullOrWhiteSpace(ExternalEditorPath)) return false;
+
+        var kind = ExternalEditorService.ParseKind(ExternalEditorKind);
+        if (string.IsNullOrWhiteSpace(GetExternalEditorPath(kind)))
+            SetExternalEditorPath(kind, ExternalEditorPath);
+
+        ExternalEditorPath = "";
+        return true;
+    }
 
     // Shortcuts
     public string ShortcutNext { get; set; } = DefaultShortcutNext;
@@ -120,7 +162,9 @@ public class PreviewWindowSettings
             {
                 var json = File.ReadAllText(path);
                 var settings = JsonSerializer.Deserialize<PreviewWindowSettings>(json) ?? new PreviewWindowSettings();
+                var migratedLegacyPath = settings.MigrateLegacyExternalEditorPath();
                 settings.EditorShortcuts = EditorShortcutMap.MergeWithDefaults(settings.EditorShortcuts);
+                if (migratedLegacyPath) settings.Save();
                 return settings;
             }
         }
