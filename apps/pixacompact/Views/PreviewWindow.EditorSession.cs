@@ -427,22 +427,22 @@ public partial class PreviewWindow
         }
 
         var kind = ExternalEditorService.ParseKind(_settings.ExternalEditorKind);
-        var path = _settings.ExternalEditorPath;
+        var path = _settings.GetExternalEditorPath(kind);
 
         // Semua editor (Photoshop, PhotoCraft, Custom) memakai file executable.
         // PhotoCraft boleh juga diarahkan ke folder repo (kompatibilitas lama).
-        var exe = kind == ExternalEditorKind.Photocraft
+        var executable = kind == ExternalEditorKind.Photocraft
             ? ExternalEditorService.ResolvePhotocraftPath(path)
             : path;
 
-        if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
+        if (string.IsNullOrEmpty(executable) || !File.Exists(executable))
         {
             Toast(T("Toast_ExternalEditorNotConfigured"), warning: true);
             OpenPreferences();
             return;
         }
 
-        if (ExternalEditorService.Launch(kind, exe, _resultPath, _originalPath, out var err))
+        if (ExternalEditorService.Launch(kind, path, _resultPath, _originalPath, out var err))
             Toast(T("Toast_ExternalEditorLaunched", kind.ToString()));
         else
             Toast(T("Toast_ExternalEditorFailed", err), warning: true);
