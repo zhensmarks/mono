@@ -50,10 +50,8 @@ public partial class LogPanelSidebar : UserControl
                         DataContext = sidebar.DataContext
                     };
                     sidebar._docFloatingWindow.Closed += (s, e) => sidebar._docFloatingWindow = null;
-                    if (TopLevel.GetTopLevel(sidebar) is Window owner)
-                        sidebar._docFloatingWindow.Show(owner);
-                    else
-                        sidebar._docFloatingWindow.Show();
+                    // Top-level window (no owner) so Windows snap layouts / FancyZones can place it like the main app.
+                    sidebar._docFloatingWindow.Show();
                 }
                 else
                 {
