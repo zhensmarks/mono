@@ -61,6 +61,11 @@ public partial class EditingCardListView : UserControl
              if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
              {
                  vm.IsDetailPanelOpen = false;
+                 if (vm.SelectedCard != null)
+                 {
+                     vm.SelectedCard.IsActive = false;
+                     vm.SelectedCard = null;
+                 }
                  e.Handled = true;
              }
          }

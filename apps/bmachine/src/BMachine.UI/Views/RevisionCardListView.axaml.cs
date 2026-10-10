@@ -53,6 +53,11 @@ public partial class RevisionCardListView : UserControl
              if (DataContext is RevisionCardListViewModel vm)
              {
                  vm.IsDetailPanelOpen = false;
+                 if (vm.SelectedCard != null)
+                 {
+                     vm.SelectedCard.IsActive = false;
+                     vm.SelectedCard = null;
+                 }
                  e.Handled = true;
              }
          }

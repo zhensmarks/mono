@@ -113,10 +113,39 @@
 
                         <StackPanel Spacing="8">
                             <TextBlock Text="Description" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
-                            <SelectableTextBlock Text="{Binding SelectedCard.Description}"
-                                                 TextWrapping="Wrap"
-                                                 Background="Transparent"
-                                                 Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" LineHeight="18" Padding="0"/>
+                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <TextBox Text="{Binding SelectedCard.Description}"
+                                         TextWrapping="Wrap"
+                                         IsReadOnly="True"
+                                         Focusable="False"
+                                         BorderThickness="0"
+                                         Background="Transparent"
+                                         Foreground="{DynamicResource TextSecondaryBrush}" 
+                                         FontSize="12" 
+                                         Padding="0"
+                                         AcceptsReturn="True"
+                                         Cursor="Arrow"
+                                         IsHitTestVisible="True">
+                                    <TextBox.Styles>
+                                        <Style Selector="TextBox">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                        </Style>
+                                        <Style Selector="TextBox:pointerover">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                        </Style>
+                                        <Style Selector="TextBox:readonly">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                        </Style>
+                                        <Style Selector="TextBox:pointerover /template/ Border">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                        </Style>
+                                        <Style Selector="TextBox /template/ Border">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                        </Style>
+                                    </TextBox.Styles>
+                                </TextBox>
+                            </ScrollViewer>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
@@ -200,8 +229,37 @@
                                             </Grid>
 
                                             <Grid Grid.Row="1">
-                                                <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"
-                                                                             IsVisible="{Binding !IsEditing}"/>
+                                                <TextBox Text="{Binding Text}" 
+                                                         Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                         FontSize="13"
+                                                         IsVisible="{Binding !IsEditing}"
+                                                         IsReadOnly="True"
+                                                         Focusable="False"
+                                                         BorderThickness="0"
+                                                         Background="Transparent"
+                                                         TextWrapping="Wrap"
+                                                         AcceptsReturn="True"
+                                                         Cursor="Arrow"
+                                                         Padding="0">
+                                                    <TextBox.Styles>
+                                                        <Style Selector="TextBox">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                        </Style>
+                                                        <Style Selector="TextBox:pointerover">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                        </Style>
+                                                        <Style Selector="TextBox:readonly">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                        </Style>
+                                                        <Style Selector="TextBox:pointerover /template/ Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                                        </Style>
+                                                        <Style Selector="TextBox /template/ Border">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                        </Style>
+                                                    </TextBox.Styles>
+                                                </TextBox>
 
                                                 <StackPanel IsVisible="{Binding IsEditing}" Spacing="6" Margin="0,8,0,0">
                                                     <TextBox Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
