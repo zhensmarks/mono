@@ -24,6 +24,15 @@ public partial class FileTaskItem : ObservableObject
     public string SourcePath { get; set; } = "";
     public string DestinationPath { get; set; } = "";
 
+    /// <summary>Badge text shown in the monitor: COPY / MOVE / DELETE.</summary>
+    public string TypeLabel => Type switch
+    {
+        FileTaskType.Copy => "COPY",
+        FileTaskType.Move => "MOVE",
+        FileTaskType.Delete => "DELETE",
+        _ => ""
+    };
+
     /// <summary>Short display path for "From: ..." (e.g. folder name or path).</summary>
     public string SourceFolderDisplay
     {

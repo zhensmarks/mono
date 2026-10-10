@@ -813,14 +813,67 @@ public partial class OutputExplorerViewModel : ObservableObject
 
         _taskMonitorWindow = new TaskMonitorWindow();
         _taskMonitorWindow.DataContext = this;
+        _taskMonitorWindow.LoadPositionAsync = LoadTaskMonitorPositionAsync;
+        _taskMonitorWindow.SavePositionAsync = SaveTaskMonitorPositionAsync;
         _taskMonitorWindow.Closed += (s, e) =>
         {
             _taskMonitorWindow = null;
             s_sharedTaskMonitorWindow = null;
         };
         s_sharedTaskMonitorWindow = _taskMonitorWindow;
-        PositionTaskMonitorWindow(_taskMonitorWindow);
+        _ = RestoreTaskMonitorPositionAsync(_taskMonitorWindow);
         _taskMonitorWindow.Show();
+    }
+
+    private const string TaskMonitorPositionKey = "Configs.FileOperations.WindowPosition";
+
+    /// <summary>Simpan posisi terakhir window File Operations (x,y) ke database.</summary>
+    private async System.Threading.Tasks.Task SaveTaskMonitorPositionAsync(Avalonia.PixelPoint pos)
+    {
+        try { await _database.SetAsync(TaskMonitorPositionKey, $"{pos.X},{pos.Y}"); }
+        catch { /* best-effort */ }
+    }
+
+    /// <summary>Baca posisi tersimpan. Null jika belum ada atau format rusak.</summary>
+    private async System.Threading.Tasks.Task<Avalonia.PixelPoint?> LoadTaskMonitorPositionAsync()
+    {
+        try
+        {
+            var raw = await _database.GetAsync<string>(TaskMonitorPositionKey);
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+            var parts = raw.Split(',');
+            if (parts.Length != 2) return null;
+            if (!int.TryParse(parts[0], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var x)) return null;
+            if (!int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var y)) return null;
+            return new Avalonia.PixelPoint(x, y);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Pakai posisi tersimpan bila masih ada di salah satu layar; kalau tidak, pojok kanan-bawah.
+    /// </summary>
+    private async System.Threading.Tasks.Task RestoreTaskMonitorPositionAsync(TaskMonitorWindow window)
+    {
+        var saved = await LoadTaskMonitorPositionAsync();
+        if (saved is { } p && IsPointOnAnyScreen(window, p))
+        {
+            window.Position = p;
+            return;
+        }
+        PositionTaskMonitorWindow(window);
+    }
+
+    private static bool IsPointOnAnyScreen(TaskMonitorWindow window, Avalonia.PixelPoint p)
+    {
+        var screens = window.Screens?.All;
+        if (screens == null) return false;
+        foreach (var s in screens)
+        {
+            var a = s.WorkingArea;
+            if (p.X >= a.X && p.X + 40 <= a.X + a.Width && p.Y >= a.Y && p.Y + 40 <= a.Y + a.Height) return true;
+        }
+        return false;
     }
 
     /// <summary>Place the File Operations window at the bottom-right of the primary screen (TeraCopy-style).</summary>
@@ -1434,7 +1487,7 @@ try {{
     /// Handles files/folders dropped from external applications (e.g. Windows Explorer).
     /// Copies them to the current folder.
     /// </summary>
-    public void HandleDroppedFiles(System.Collections.Generic.IEnumerable<string> paths)
+    public void HandleDroppedFiles(System.Collections.Generic.IEnumerable<string> paths, bool isMove = false)
     {
         if (string.IsNullOrEmpty(CurrentPath) || !Directory.Exists(CurrentPath)) return;
 
@@ -1463,7 +1516,8 @@ try {{
                 }
             }
 
-            _fileManager.CopyFileBackground(sourcePath, dest);
+            if (isMove) _fileManager.MoveFileBackground(sourcePath, dest);
+            else _fileManager.CopyFileBackground(sourcePath, dest);
             count++;
         }
 

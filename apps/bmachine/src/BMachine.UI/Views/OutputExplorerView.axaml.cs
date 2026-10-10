@@ -1032,10 +1032,10 @@ public partial class OutputExplorerView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        // Show copy cursor when files are dragged over
+        // Shift = move (potong), default = copy. Label cursor mengikuti effect.
         if (e.Data.Contains(Avalonia.Input.DataFormats.Files) || e.Data.Contains(Avalonia.Input.DataFormats.FileNames))
         {
-            e.DragEffects = DragDropEffects.Copy;
+            e.DragEffects = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? DragDropEffects.Move : DragDropEffects.Copy;
         }
         else
         {
@@ -1047,6 +1047,7 @@ public partial class OutputExplorerView : UserControl
     private void OnDrop(object? sender, DragEventArgs e)
     {
         if (DataContext is not OutputExplorerViewModel vm) return;
+        bool isMove = e.KeyModifiers.HasFlag(KeyModifiers.Shift) || e.DragEffects == DragDropEffects.Move;
 
         var paths = new System.Collections.Generic.List<string>();
 
@@ -1076,7 +1077,7 @@ public partial class OutputExplorerView : UserControl
 
         if (paths.Count > 0)
         {
-            vm.HandleDroppedFiles(paths);
+            vm.HandleDroppedFiles(paths, isMove);
         }
 
         e.Handled = true;
@@ -1194,7 +1195,9 @@ public partial class OutputExplorerView : UserControl
                 
                 dataObject.Set(Avalonia.Input.DataFormats.Text, string.Join("\n", filePaths));
 
-                await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+                // Shift = drag move, default = drag copy. Effect menentukan label cursor.
+                var effect = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? DragDropEffects.Move : DragDropEffects.Copy;
+                await DragDrop.DoDragDrop(e, dataObject, effect);
                 _isDragging = false;
             }
         }
