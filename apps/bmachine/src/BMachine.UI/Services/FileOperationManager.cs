@@ -24,6 +24,10 @@ public partial class FileTaskItem : ObservableObject
     public string SourcePath { get; set; } = "";
     public string DestinationPath { get; set; } = "";
 
+    public bool IsCopy => Type == FileTaskType.Copy;
+    public bool IsMove => Type == FileTaskType.Move;
+    public bool IsDelete => Type == FileTaskType.Delete;
+
     /// <summary>Badge text shown in the monitor: COPY / MOVE / DELETE.</summary>
     public string TypeLabel => Type switch
     {
@@ -32,6 +36,17 @@ public partial class FileTaskItem : ObservableObject
         FileTaskType.Delete => "DELETE",
         _ => ""
     };
+
+    /// <summary>Trimmed destination path for "To: ...".</summary>
+    public string DestinationDisplay
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(DestinationPath)) return "";
+            try { var d = Path.GetDirectoryName(DestinationPath); if (string.IsNullOrEmpty(d)) return DestinationPath; return d.Length > 50 ? "..." + d.Substring(d.Length - 47) : d; }
+            catch { return ""; }
+        }
+    }
 
     /// <summary>Short display path for "From: ..." (e.g. folder name or path).</summary>
     public string SourceFolderDisplay
@@ -57,6 +72,7 @@ public partial class FileTaskItem : ObservableObject
     [ObservableProperty] private string _errorMessage = "";
     [ObservableProperty] private double _speed; // MB/s
     [ObservableProperty] private string _eta = "Calculating..."; // "00:00:00" or "Calculating..."
+    [ObservableProperty] private string _sizeInfo = ""; // "12.4 MB / 180.0 MB"
 
     /// <summary>Last time progress UI was pushed (throttling; UI-thread only).</summary>
     public DateTime LastProgressUpdate { get; set; }
@@ -191,7 +207,7 @@ public class FileOperationManager
         var task = new FileTaskItem
         {
             Type = FileTaskType.Move,
-            Name = $"Move {Path.GetFileName(sourcePath)}",
+            Name = Path.GetFileName(sourcePath),
             SourcePath = sourcePath,
             DestinationPath = destPath,
             Status = "Pending"
@@ -204,7 +220,7 @@ public class FileOperationManager
         var task = new FileTaskItem
         {
             Type = FileTaskType.Copy,
-            Name = $"Copy {Path.GetFileName(sourcePath)}",
+            Name = Path.GetFileName(sourcePath),
             SourcePath = sourcePath,
             DestinationPath = destPath,
             Status = "Pending"
@@ -217,7 +233,7 @@ public class FileOperationManager
         var task = new FileTaskItem
         {
             Type = FileTaskType.Delete,
-            Name = $"Delete {Path.GetFileName(path)}",
+            Name = Path.GetFileName(path),
             SourcePath = path,
             DestinationPath = "",
             Status = "Pending"
@@ -427,6 +443,14 @@ public class FileOperationManager
         else Dispatcher.UIThread.Post(() => task.Status = value);
     }
 
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes >= 1024L * 1024 * 1024) return (bytes / 1024.0 / 1024.0 / 1024.0).ToString("0.#") + " GB";
+        if (bytes >= 1024L * 1024) return (bytes / 1024.0 / 1024.0).ToString("0.#") + " MB";
+        if (bytes >= 1024) return (bytes / 1024.0).ToString("0.#") + " KB";
+        return bytes + " B";
+    }
+
     private void UpdateCopyProgress(FileTaskItem task, long totalBytes, long copiedBytes, DateTime startTime)
     {
         if (totalBytes <= 0) return;
@@ -437,6 +461,8 @@ public class FileOperationManager
         if ((now - task.LastProgressUpdate).TotalMilliseconds < 125 && copiedBytes < totalBytes)
             return;
         task.LastProgressUpdate = now;
+
+        string sizeInfo = FormatBytes(copiedBytes) + " / " + FormatBytes(totalBytes);
 
         double progress = (double)copiedBytes / totalBytes * 100;
         double clamped = Math.Min(100, progress);
@@ -468,6 +494,7 @@ public class FileOperationManager
             task.Progress = clamped;
             task.Speed = speed;
             task.Eta = eta;
+            task.SizeInfo = sizeInfo;
         }
         else
         {
@@ -476,6 +503,7 @@ public class FileOperationManager
                 task.Progress = clamped;
                 task.Speed = speed;
                 task.Eta = eta;
+                task.SizeInfo = sizeInfo;
             });
         }
     }

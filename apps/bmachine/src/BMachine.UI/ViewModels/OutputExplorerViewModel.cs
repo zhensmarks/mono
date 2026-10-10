@@ -823,6 +823,18 @@ public partial class OutputExplorerViewModel : ObservableObject
         s_sharedTaskMonitorWindow = _taskMonitorWindow;
         _ = RestoreTaskMonitorPositionAsync(_taskMonitorWindow);
         _taskMonitorWindow.Show();
+
+        // SizeToContent="Height": tinggi aktual baru diketahui setelah layout pertama.
+        // Hitung ulang posisi dock kanan-bawah sekali, hanya bila user belum sempat memindah.
+        var shownWindow = _taskMonitorWindow;
+        var shownPos = shownWindow.Position;
+        System.EventHandler? relayout = null;
+        relayout = (_, _) =>
+        {
+            shownWindow.LayoutUpdated -= relayout;
+            if (shownWindow.Position == shownPos) PositionTaskMonitorWindow(shownWindow);
+        };
+        shownWindow.LayoutUpdated += relayout;
     }
 
     private const string TaskMonitorPositionKey = "Configs.FileOperations.WindowPosition";

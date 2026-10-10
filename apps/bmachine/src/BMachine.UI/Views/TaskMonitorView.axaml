@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BMachine.UI.ViewModels"
              xmlns:svc="using:BMachine.UI.Services"
-             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="280"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="280"
              x:Class="BMachine.UI.Views.TaskMonitorView">
 
     <UserControl.Styles>
@@ -15,36 +15,54 @@
             <Setter Property="CornerRadius" Value="2"/>
             <Setter Property="MinHeight" Value="4"/>
         </Style>
+
+        <Style Selector="Border.taskCard">
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <Style Selector="Border.pill">
+            <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusPill}"/>
+            <Setter Property="Padding" Value="6,1"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
     </UserControl.Styles>
 
     <Border Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource BorderDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="10"
+            CornerRadius="{DynamicResource RadiusMd}"
             Padding="0"
             ClipToBounds="True">
 
         <Grid RowDefinitions="Auto, *, Auto">
 
-            <!-- Header: drag area + title + count + toggle + close -->
+            <!-- ═══ Header: drag handle + judul + count + toggle + close ═══ -->
             <Border Grid.Row="0" Padding="12,9"
                     Background="{DynamicResource AppBackgroundBrush}"
                     BorderBrush="{DynamicResource SeparatorBrush}"
                     BorderThickness="0,0,0,1"
                     PointerPressed="OnHeaderPointerPressed"
                     Cursor="SizeAll">
-                <Grid ColumnDefinitions="Auto, Auto, *, Auto, Auto">
-                    <TextBlock Grid.Column="0" Text="File Operations"
-                               VerticalAlignment="Center"
-                               FontWeight="SemiBold" FontSize="12"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <Border Grid.Column="1" Margin="8,0,0,0" Padding="6,1"
-                            CornerRadius="8" VerticalAlignment="Center"
-                            Background="{DynamicResource AccentLowOpacityBrush}">
-                        <TextBlock Text="{Binding ActiveTasks.Count}"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AccentBlueBrush}"/>
-                    </Border>
+                <Grid ColumnDefinitions="Auto, *, Auto, Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14"
+                                  Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="File Operations"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold" FontSize="12"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Border Classes="pill">
+                            <TextBlock Text="{Binding ActiveTasks.Count}"
+                                       FontSize="10" FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBlueBrush}"/>
+                        </Border>
+                    </StackPanel>
 
                     <Button Grid.Column="3" Classes="IconBtn" Margin="4,0" Click="OnToggleClick"
                             ToolTip.Tip="Tampilkan / sembunyikan daftar"
@@ -66,45 +84,59 @@
                 </Grid>
             </Border>
 
-            <!-- Task list -->
-            <ScrollViewer Grid.Row="1" MaxHeight="260" VerticalScrollBarVisibility="Auto"
+            <!-- ═══ Daftar tugas ═══ -->
+            <ScrollViewer Grid.Row="1" MaxHeight="340" VerticalScrollBarVisibility="Auto"
                           IsVisible="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=UserControl}}">
-                <ItemsControl ItemsSource="{Binding ActiveTasks}">
+                <ItemsControl ItemsSource="{Binding ActiveTasks}" Margin="8,8,8,2">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="svc:FileTaskItem">
-                            <Border Padding="12,9" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
-                                <Grid RowDefinitions="Auto, Auto" ColumnDefinitions="Auto, *, Auto">
+                            <Border Classes="taskCard">
+                                <Grid RowDefinitions="Auto, Auto, Auto, Auto" ColumnDefinitions="Auto, *, Auto">
 
-                                    <!-- Badge: COPY / MOVE / DELETE -->
-                                    <Border Grid.Row="0" Grid.Column="0" Padding="6,1" CornerRadius="4"
-                                            VerticalAlignment="Center" Margin="0,0,8,0"
-                                            Background="{DynamicResource AccentLowOpacityBrush}">
-                                        <TextBlock FontSize="9" FontWeight="Bold"
-                                                   Foreground="{DynamicResource AccentBlueBrush}"
-                                                   Text="{Binding TypeLabel}"/>
+                                    <!-- Baris 0: badge tipe + nama + status pill | aksi -->
+                                    <Border Grid.Row="0" Grid.Column="0" Classes="pill" Margin="0,0,8,0">
+                                        <Panel>
+                                            <Border IsVisible="{Binding IsCopy}">
+                                            <TextBlock Text="COPY" FontSize="9" FontWeight="Bold"
+                                                       Foreground="{DynamicResource AccentBlueBrush}"/>
+                                        </Border>
+                                        <Border IsVisible="{Binding IsMove}">
+                                            <TextBlock Text="MOVE" FontSize="9" FontWeight="Bold"
+                                                       Foreground="{DynamicResource AccentOrangeBrush}"/>
+                                        </Border>
+                                        <Border IsVisible="{Binding IsDelete}">
+                                            <TextBlock Text="DELETE" FontSize="9" FontWeight="Bold"
+                                                       Foreground="{DynamicResource AccentRedBrush}"/>
+                                        </Border>
+                                        </Panel>
                                     </Border>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}"
-                                               FontSize="12" FontWeight="Medium" TextTrimming="CharacterEllipsis"
-                                               VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="Medium"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="200"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <Border Classes="pill" IsVisible="{Binding IsRunning}">
+                                            <TextBlock Text="Berjalan" FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource AccentBlueBrush}"/>
+                                        </Border>
+                                        <Border Classes="pill" IsVisible="{Binding IsCompleted}">
+                                            <TextBlock Text="Selesai" FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource AccentGreenBrush}"/>
+                                        </Border>
+                                        <Border Classes="pill" IsVisible="{Binding IsFailed}">
+                                            <TextBlock Text="Gagal" FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource AccentRedBrush}"/>
+                                        </Border>
+                                        <Border Classes="pill" IsVisible="{Binding IsCancelled}">
+                                            <TextBlock Text="Dibatalkan" FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </Border>
+                                    </StackPanel>
 
-                                    <!-- Right: status / cancel / remove / retry -->
-                                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="6"
-                                                VerticalAlignment="Center" Margin="8,0,0,0">
-                                        <TextBlock Text="Berjalan" FontSize="11" VerticalAlignment="Center"
-                                                   IsVisible="{Binding IsRunning}"
-                                                   Foreground="{DynamicResource AccentBlueBrush}"/>
-                                        <TextBlock Text="Selesai" FontSize="11" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource AccentGreenBrush}"
-                                                   IsVisible="{Binding IsCompleted}"/>
-                                        <TextBlock Text="Gagal" FontSize="11" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource AccentRedBrush}"
-                                                   IsVisible="{Binding IsFailed}"/>
-                                        <TextBlock Text="Dibatalkan" FontSize="11" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   IsVisible="{Binding IsCancelled}"/>
-
+                                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="2"
+                                                VerticalAlignment="Center">
                                         <Button Classes="IconBtn" VerticalAlignment="Center" ToolTip.Tip="Batalkan"
                                                 Command="{Binding $parent[UserControl].DataContext.CancelTaskCommand}"
                                                 CommandParameter="{Binding}"
@@ -128,36 +160,53 @@
                                         </Button>
                                     </StackPanel>
 
-                                    <!-- Row 1: progress + persen + speed + ETA (running) -->
-                                    <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0"
-                                          ColumnDefinitions="*, Auto" IsVisible="{Binding IsRunning}">
-                                        <ProgressBar Grid.Column="0" Value="{Binding Progress}" Maximum="100"
-                                                     VerticalAlignment="Center"/>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10"
-                                                    Margin="10,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Progress, StringFormat='{}{0:F0}%'}"
-                                                       FontSize="11" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{Binding Speed, StringFormat='{}{0:F1} MB/s'}"
-                                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                            <TextBlock Text="{Binding Eta, StringFormat='sisa {0}'}"
-                                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        </StackPanel>
+                                    <!-- Baris 1: dari → ke (semua status kecuali gagal) | error (gagal) -->
+                                    <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,3,0,0"
+                                          ColumnDefinitions="Auto, Auto, *"
+                                          IsVisible="{Binding !IsFailed}">
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding SourceFolderDisplay, StringFormat='dari {0}'}"
+                                                   FontSize="10" TextTrimming="CharacterEllipsis" MaxWidth="150"
+                                                   ToolTip.Tip="{Binding SourcePath}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBlock Grid.Column="1" Text="→" Margin="5,0"
+                                                   FontSize="10"
+                                                   Foreground="{DynamicResource TextFaintBrush}"/>
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding DestinationDisplay, StringFormat='ke {0}'}"
+                                                   FontSize="10" TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding DestinationPath}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Grid>
 
-                                    <!-- Row 1: source (completed) -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,4,0,0"
-                                               Text="{Binding SourceFolderDisplay, StringFormat='Dari: {0}'}"
-                                               FontSize="11" TextTrimming="CharacterEllipsis"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"
-                                               IsVisible="{Binding IsCompleted}"/>
-
-                                    <!-- Row 1: error (failed) -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,4,0,0"
-                                               Text="{Binding ErrorMessage}" FontSize="11"
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,3,0,0"
+                                               Text="{Binding ErrorMessage}" FontSize="10"
                                                Foreground="{DynamicResource AccentRedBrush}"
                                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding IsFailed}"/>
+
+                                    <!-- Baris 2: progress bar selebar kartu (berjalan) -->
+                                    <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0"
+                                                 Value="{Binding Progress}" Maximum="100"
+                                                 IsVisible="{Binding IsRunning}"/>
+
+                                    <!-- Baris 3: info berjalan | sumber asal (selesai) -->
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,5,0,0"
+                                                Orientation="Horizontal" Spacing="12"
+                                                IsVisible="{Binding IsRunning}">
+                                        <TextBlock Text="{Binding Progress, StringFormat='{}{0:F0}%'}"
+                                                   FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding SizeInfo}"
+                                                   FontSize="10"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBlock Text="{Binding Speed, StringFormat='{}{0:F1} MB/s'}"
+                                                   FontSize="10"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBlock Text="{Binding Eta, StringFormat='sisa {0}'}"
+                                                   FontSize="10"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -165,13 +214,13 @@
                 </ItemsControl>
             </ScrollViewer>
 
-            <!-- Footer -->
+            <!-- ═══ Footer ═══ -->
             <Border Grid.Row="2" Padding="12,7"
                     Background="{DynamicResource AppBackgroundBrush}"
                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
                 <Button HorizontalAlignment="Right" Content="Bersihkan yang selesai"
                         Command="{Binding ClearCompletedCommand}"
-                        Classes="Secondary" FontSize="11" Padding="10,4"/>
+                        Classes="secondary" Padding="12,6"/>
             </Border>
         </Grid>
     </Border>
