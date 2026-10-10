@@ -819,8 +819,8 @@ public partial class OutputExplorerViewModel : ObservableObject
             s_sharedTaskMonitorWindow = null;
         };
         s_sharedTaskMonitorWindow = _taskMonitorWindow;
-        _taskMonitorWindow.Show();
         PositionTaskMonitorWindow(_taskMonitorWindow);
+        _taskMonitorWindow.Show();
     }
 
     /// <summary>Place the File Operations window at the bottom-right of the primary screen (TeraCopy-style).</summary>
