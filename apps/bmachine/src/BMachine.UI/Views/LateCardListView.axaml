@@ -205,7 +205,7 @@
                  </Border>
 
                  <!-- Scrollable Content -->
-                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                 <ScrollViewer x:Name="Part_DetailScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
                      <StackPanel Spacing="24">
                           <!-- Header: Title + Close -->
                           <Grid ColumnDefinitions="*, Auto">

@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.ViewModels;
 using System.Collections.Generic;
 using System.Linq;
+using Avalonia.VisualTree;
 
 namespace BMachine.UI.Views;
 
@@ -274,7 +275,22 @@ public partial class EditingCardListView : UserControl
             window.Deactivated += OnWindowDeactivated;
             window.Activated += OnWindowActivated;
         }
+
+        // Cegah lompatan scroll saat klik biasa di panel detail/komentar.
+        // Auto-scroll saat drag-select tetap bekerja (lihat PointerScrollGuard).
+        if (!_scrollGuardAttached)
+        {
+            _scrollGuardAttached = true;
+            Loaded += (_, _) =>
+            {
+                foreach (var sv in this.GetVisualDescendants().OfType<ScrollViewer>())
+                    if (sv.Name is "Part_DetailScrollViewer" or "Part_CommentScrollViewer")
+                        BMachine.UI.Controls.PointerScrollGuard.Attach(this, sv);
+            };
+        }
     }
+
+    private bool _scrollGuardAttached;
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {

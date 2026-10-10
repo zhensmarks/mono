@@ -12,7 +12,7 @@
                 IsVisible="{Binding IsDetailPanelOpen}"
                 PointerPressed="OnDetailPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer x:Name="Part_DetailScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="12" Margin="0">
                         <Grid ColumnDefinitions="*, Auto">
                             <StackPanel Spacing="4">

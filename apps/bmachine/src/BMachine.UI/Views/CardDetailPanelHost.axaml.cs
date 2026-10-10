@@ -52,12 +52,27 @@ public partial class CardDetailPanelHost : UserControl
         var moveBoardBox = this.FindControl<AutoCompleteBox>("Part_MoveBoardBox");
         if (moveBoardBox != null) BMachine.UI.Controls.AutoCompleteBoxHelper.Hook(moveBoardBox);
 
+        var checklistBox = this.FindControl<AutoCompleteBox>("Part_ChecklistSourceBox");
+        if (checklistBox != null) BMachine.UI.Controls.AutoCompleteBoxHelper.Hook(checklistBox);
+
         var moveListBox = this.FindControl<AutoCompleteBox>("Part_MoveListBox");
         if (moveListBox != null) BMachine.UI.Controls.AutoCompleteBoxHelper.Hook(moveListBox);
 
-        var checklistBox = this.FindControl<AutoCompleteBox>("Part_ChecklistSourceBox");
-        if (checklistBox != null) BMachine.UI.Controls.AutoCompleteBoxHelper.Hook(checklistBox);
+        // Cegah lompatan scroll saat klik biasa di panel detail/komentar.
+        // Auto-scroll saat drag-select tetap bekerja (lihat PointerScrollGuard).
+        if (!_scrollGuardAttached)
+        {
+            _scrollGuardAttached = true;
+            Loaded += (_, _) =>
+            {
+                foreach (var sv in this.GetVisualDescendants().OfType<ScrollViewer>())
+                    if (sv.Name is "Part_DetailScrollViewer" or "Part_CommentScrollViewer")
+                        BMachine.UI.Controls.PointerScrollGuard.Attach(this, sv);
+            };
+        }
     }
+
+    private bool _scrollGuardAttached;
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
