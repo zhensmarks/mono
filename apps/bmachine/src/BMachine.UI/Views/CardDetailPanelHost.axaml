@@ -7,8 +7,8 @@
              x:DataType="vm:BaseTrelloListViewModel">
     <Grid>
         <!-- Side Panel: Card Details -->
-        <Border x:Name="Part_DetailPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource AppBackgroundBrush}"
-                BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1,0,0,0"
+        <Border x:Name="Part_DetailPanel" HorizontalAlignment="Stretch"  Background="{DynamicResource AppBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelDividerBrush}" BorderThickness="1,0,0,0"
                 IsVisible="{Binding IsDetailPanelOpen}"
                 PointerPressed="OnDetailPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
@@ -77,7 +77,7 @@
                         </WrapPanel>
 
                         <!-- ACTION BUTTONS -->
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}" Opacity="0.4" Margin="0,4,0,10"/>
+                        <Border Height="1" Background="{DynamicResource PanelDividerBrush}" Margin="0,4,0,10"/>
                         <WrapPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <!-- Comment Button -->
                             <Button Command="{Binding $parent[UserControl].DataContext.ShowCommentsCommand}" CommandParameter="{Binding SelectedCard}"
@@ -109,7 +109,7 @@
                             </Button>
                         </WrapPanel>
 
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}" Opacity="0.3" Margin="0"/>
+                        <Border Height="1" Background="{DynamicResource PanelDividerBrush}" Margin="0,6,0,0"/>
 
                         <StackPanel Spacing="8">
                             <TextBlock Text="Description" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
@@ -124,7 +124,7 @@
         </Border>
 
         <!-- Side Panel: Comments -->
-        <Border x:Name="Part_CommentPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource AppBackgroundBrush}"
+        <Border x:Name="Part_CommentPanel" HorizontalAlignment="Stretch"  Background="{DynamicResource AppBackgroundBrush}"
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsCommentPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -382,7 +382,7 @@
         </Border>
 
         <!-- Side Panel: Checklist -->
-        <Border x:Name="Part_ChecklistPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource AppBackgroundBrush}"
+        <Border x:Name="Part_ChecklistPanel" HorizontalAlignment="Stretch"  Background="{DynamicResource AppBackgroundBrush}"
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsChecklistPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -500,7 +500,7 @@
         </Border>
 
         <!-- Side Panel: Move Card -->
-        <Border x:Name="Part_MovePanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource AppBackgroundBrush}"
+        <Border x:Name="Part_MovePanel" HorizontalAlignment="Stretch"  Background="{DynamicResource AppBackgroundBrush}"
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsMovePanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
@@ -562,7 +562,7 @@
         </Border>
 
         <!-- Side Panel: Attachments -->
-        <Border x:Name="Part_AttachmentPanel" HorizontalAlignment="Stretch" MaxWidth="500" Background="{DynamicResource AppBackgroundBrush}"
+        <Border x:Name="Part_AttachmentPanel" HorizontalAlignment="Stretch"  Background="{DynamicResource AppBackgroundBrush}"
                 BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0"
                 IsVisible="{Binding IsAttachmentPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">

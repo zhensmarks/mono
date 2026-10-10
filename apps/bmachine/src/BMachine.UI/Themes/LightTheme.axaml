@@ -26,6 +26,7 @@
     <SolidColorBrush x:Key="BackgroundBrush" Color="#F1F3F5"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#E5E7EB"/>
     <SolidColorBrush x:Key="NavigationDividerBrush" Color="#737D8B"/>
+    <SolidColorBrush x:Key="PanelDividerBrush" Color="#737D8B"/>
     <SolidColorBrush x:Key="RadialMenuHoverForegroundBrush" Color="#121212"/>
 
     <!-- Shared presentation tokens (resolved by the active theme). -->

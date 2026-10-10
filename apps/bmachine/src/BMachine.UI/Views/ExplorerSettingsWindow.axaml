@@ -200,8 +200,8 @@
         </ScrollViewer>
 
         <Grid ZIndex="10" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0">
-            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="3" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
-                <StackPanel Orientation="Horizontal" Spacing="2">
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" Padding="4" BorderThickness="1" BorderBrush="{DynamicResource NavigationDividerBrush}">
+                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ExplorerSettingsTabs" IsChecked="{Binding ExplorerSettingsVM.IsGeneralTabVisible}">
                         <TextBlock Text="GENERAL" Foreground="{Binding $parent[RadioButton].Foreground}" FontSize="12" FontWeight="SemiBold"/>
                     </RadioButton>

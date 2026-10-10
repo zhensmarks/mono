@@ -1131,7 +1131,7 @@
         </Grid>
 
         <!-- ═══ NAV (FLOATING) — Trello board pill (card bordered, short indicator) ═══ -->
-        <Border ZIndex="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,20,0,0"
+        <Border ZIndex="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1" CornerRadius="8" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,20,0,0"
                 IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
             <StackPanel Orientation="Horizontal" Spacing="2">
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsPsdBucinVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}">

@@ -163,23 +163,24 @@
                 <Border Name="PART_Root"
                         Background="{TemplateBinding Background}"
                         CornerRadius="{TemplateBinding CornerRadius}"
-                        Padding="{TemplateBinding Padding}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}">
-                    <Grid>
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="Stretch"
-                                          HorizontalContentAlignment="Center"
-                                          VerticalAlignment="Center" />
+                    <Panel>
+                        <Grid Margin="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Stretch"
+                                              HorizontalContentAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Grid>
                         <Border Name="PART_Indicator"
                                 Width="20" Height="2"
                                 CornerRadius="1"
                                 Background="{DynamicResource AccentBlueBrush}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Bottom"
-                                Margin="0,0,0,1"
+                                Margin="0,0,0,0"
                                 Opacity="0" />
-                    </Grid>
+                    </Panel>
                 </Border>
             </ControlTemplate>
         </Setter>

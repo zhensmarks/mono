@@ -13,6 +13,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
         <!-- Main Content -->
@@ -190,7 +191,17 @@
             <!-- FAB Refresh Button Removed -->
         </Grid>
 
-        <views:CardDetailPanelHost Grid.Column="1" IsVisible="{Binding !IsPanelHostedExternally}"/>
+        <!-- Separator list | panel (hanya di tampilan yang menampilkan list + panel) -->
+        <Border Grid.Column="1" Width="1" Background="{DynamicResource NavigationDividerBrush}" IsHitTestVisible="False">
+            <Border.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                    <Binding Path="IsAnyPanelOpen"/>
+                    <Binding Path="!IsPanelHostedExternally"/>
+                </MultiBinding>
+            </Border.IsVisible>
+        </Border>
+
+        <views:CardDetailPanelHost Grid.Column="2" IsVisible="{Binding !IsPanelHostedExternally}"/>
     </Grid>
 </UserControl>
 

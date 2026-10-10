@@ -104,6 +104,16 @@ public partial class UnifiedTrelloView : UserControl
         var movePanel = this.FindControl<Border>("Part_MovePanel");
         var splitter = this.FindControl<GridSplitter>("Part_DetailSplitter");
 
+        // Panel card detail: MaxWidth 500 di desktop, tanpa batas di compact (mengisi window)
+        if (rightContainer != null)
+        {
+            foreach (var name in new[] { "Part_DetailPanel", "Part_CommentPanel", "Part_ChecklistPanel", "Part_MovePanel", "Part_AttachmentPanel" })
+            {
+                var panel = rightContainer.FindControl<Border>(name);
+                if (panel != null) panel.MaxWidth = isCompact ? double.PositiveInfinity : 500;
+            }
+        }
+
         if (DataContext is UnifiedTrelloViewModel vm)
             vm.IsCompactMode = isCompact;
 
@@ -123,8 +133,11 @@ public partial class UnifiedTrelloView : UserControl
             if (movePanel != null)
             {
                 movePanel.Width = double.NaN;
+                movePanel.MaxWidth = double.PositiveInfinity;
                 movePanel.HorizontalAlignment = HorizontalAlignment.Stretch;
             }
+            var panelContent = this.FindControl<Grid>("Part_PanelContent");
+            if (panelContent != null) panelContent.HorizontalAlignment = HorizontalAlignment.Stretch;
             if (splitter != null) splitter.IsVisible = false;
         }
         else
@@ -156,6 +169,8 @@ public partial class UnifiedTrelloView : UserControl
                 movePanel.Width = double.NaN;
                 movePanel.HorizontalAlignment = HorizontalAlignment.Stretch;
             }
+            var panelContentD = this.FindControl<Grid>("Part_PanelContent");
+            if (panelContentD != null) panelContentD.HorizontalAlignment = HorizontalAlignment.Stretch;
             if (splitter != null) splitter.IsVisible = showPanel;
         }
     }

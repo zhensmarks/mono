@@ -151,7 +151,7 @@
     </UserControl.DataTemplates>
 
         <Border x:Name="LogPanelDropZone" Background="{DynamicResource TerminalBackgroundBrush}" 
-            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,0,0,0"
+            BorderBrush="{DynamicResource PanelDividerBrush}" BorderThickness="1,0,0,0"
             DragDrop.AllowDrop="True"
             DragDrop.DragOver="OnDragOver"
             DragDrop.Drop="OnDrop"
@@ -527,13 +527,6 @@
         <Style Selector="TextBox.console:focus-within /template/ Border">
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-        </Style>
-
-        <Style Selector="RadioButton.LogPanelTab">
-            <Setter Property="Padding" Value="2,6"/>
-            <Setter Property="MinWidth" Value="0"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
 
         <!-- Log Color Styles -->

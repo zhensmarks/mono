@@ -26,6 +26,7 @@
             </GridSplitter.Styles>
         </GridSplitter>
         
+        
         <!-- LEFT COLUMN / LIST SCREEN: Status + Tabs + Card List + Bottom (compact: hidden when panel open) -->
         <Grid x:Name="Part_ListScreen" Grid.Column="0" IsVisible="{Binding IsListScreenVisible}">
             <Grid.RowDefinitions>
@@ -109,13 +110,13 @@
             
             <!-- Trello Board Tabs - card bordered, no icon (sesuai editing list yang benar) -->
             <Border Background="{DynamicResource CardBackgroundBrush}"
-                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                    BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1"
                     CornerRadius="8"
                     Padding="4"
                     HorizontalAlignment="Center"
                     Margin="0,0,0,10"
                     IsVisible="{Binding !ActiveViewModel.HasSelectedCards}">
-                <StackPanel Orientation="Horizontal" Spacing="2">
+                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                     <!-- EDITING Tab -->
                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="TrelloBoardTabs" IsChecked="{Binding IsEditingSelected}" Command="{Binding SwitchToEditingCommand}">
                         <TextBlock Text="EDITING" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -357,9 +358,9 @@
         <!-- RIGHT COLUMN / PANEL SCREEN: Detail and side panel host -->
         <Grid x:Name="Part_RightColumnContainer" Grid.Column="2" IsVisible="{Binding IsPanelScreenVisible}">
             <Grid x:Name="Part_PanelContent">
-        <Border x:Name="Part_MainPanelBorder" IsVisible="{Binding ShouldShowRightPanel}" HorizontalAlignment="Stretch" MinWidth="320" MaxWidth="650"
+        <Border x:Name="Part_MainPanelBorder" IsVisible="{Binding ShouldShowRightPanel}" HorizontalAlignment="Stretch" MinWidth="0" MaxWidth="650"
                 Background="{DynamicResource AppBackgroundBrush}"
-                BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0">
+                BorderBrush="{DynamicResource PanelDividerBrush}" BorderThickness="1,0,0,0">
         <Grid>
             <!-- Add Manual Panel (Editing tab only) -->
             <Border IsVisible="{Binding EditingVM.IsAddManualPanelOpen}" Background="{DynamicResource AppBackgroundBrush}">
