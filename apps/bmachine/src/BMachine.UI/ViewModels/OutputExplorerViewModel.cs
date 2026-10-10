@@ -796,11 +796,15 @@ public partial class OutputExplorerViewModel : ObservableObject
     public void ShowTaskMonitor()
     {
         // One File Operations window for the whole app (main + any New Explorer Window).
+        // TeraCopy-style: show it without stealing focus from the current app/window.
         if (s_sharedTaskMonitorWindow != null)
         {
             try
             {
-                s_sharedTaskMonitorWindow.Activate();
+                // Do NOT Activate() — that would steal focus every time a new task starts.
+                // Just make sure the window is visible.
+                if (!s_sharedTaskMonitorWindow.IsVisible)
+                    s_sharedTaskMonitorWindow.Show();
                 return;
             }
             catch { /* window may be closed */ }
@@ -816,6 +820,28 @@ public partial class OutputExplorerViewModel : ObservableObject
         };
         s_sharedTaskMonitorWindow = _taskMonitorWindow;
         _taskMonitorWindow.Show();
+        PositionTaskMonitorWindow(_taskMonitorWindow);
+    }
+
+    /// <summary>Place the File Operations window at the bottom-right of the primary screen (TeraCopy-style).</summary>
+    private static void PositionTaskMonitorWindow(TaskMonitorWindow window)
+    {
+        try
+        {
+            var screen = window.Screens?.Primary ?? window.Screens?.All?.FirstOrDefault();
+            if (screen == null) return;
+
+            var area = screen.WorkingArea;
+            int w = (int)(window.Width > 0 ? window.Width : 400);
+            int h = (int)(window.Height > 0 ? window.Height : 200);
+            int margin = 16;
+
+            int x = area.X + area.Width - w - margin;
+            int y = area.Y + area.Height - h - margin;
+
+            window.Position = new Avalonia.PixelPoint(x, y);
+        }
+        catch { /* positioning is best-effort */ }
     }
     private async void SaveViewSettings()
     {
@@ -1602,9 +1628,7 @@ try {{
                 }
                 else
                 {
-                    bool isActuallyFile = File.Exists(item.FullPath);
-                    if (!isActuallyFile && item.IsDirectory) Directory.Delete(item.FullPath, true);
-                    else if (isActuallyFile) File.Delete(item.FullPath);
+                    _fileManager.DeleteFileBackground(item.FullPath);
                     deletedCount++;
                 }
             }
@@ -2489,16 +2513,8 @@ try {{
                 {
                      string newName = $"{name} - Copy ({i}){ext}";
                      string newPath = Path.Combine(dir, newName);
-                     if (item.IsDirectory)
-                     {
-                         // Directory Copy (Recursive) - simplified for now
-                         // Directory.CreateDirectory(newPath);
-                         // CopyRecursive(item.FullPath, newPath);
-                     }
-                     else
-                     {
-                         File.Copy(item.FullPath, newPath);
-                     }
+                     // Background queue handles both files and folders (recursive copy).
+                     _fileManager.CopyFileBackground(item.FullPath, newPath);
                 }
             }
             catch {}

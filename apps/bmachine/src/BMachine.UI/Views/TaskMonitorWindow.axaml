@@ -10,6 +10,8 @@
         WindowStartupLocation="Manual"
         Topmost="False"
         ShowInTaskbar="False"
+        ShowActivated="False"
+        Focusable="False"
         SystemDecorations="BorderOnly">
     
     <views:TaskMonitorView />

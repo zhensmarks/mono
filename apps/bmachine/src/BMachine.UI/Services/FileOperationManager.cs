@@ -34,7 +34,6 @@ public partial class FileTaskItem : ObservableObject
             {
                 var dir = Path.GetDirectoryName(SourcePath);
                 if (string.IsNullOrEmpty(dir)) return SourcePath;
-                // Prefer short name for display; could use Path.GetFileName(dir) for just folder name
                 return dir.Length > 50 ? "..." + dir.Substring(dir.Length - 47) : dir;
             }
             catch { return ""; }
@@ -47,10 +46,14 @@ public partial class FileTaskItem : ObservableObject
     [ObservableProperty] private bool _isFailed;
     [ObservableProperty] private bool _isCancelled;
     [ObservableProperty] private string _errorMessage = "";
+    [ObservableProperty] private double _speed; // MB/s
+    [ObservableProperty] private string _eta = "Calculating..."; // "00:00:00" or "Calculating..."
+
+    /// <summary>Last time progress UI was pushed (throttling; UI-thread only).</summary>
+    public DateTime LastProgressUpdate { get; set; }
 
     public System.Threading.CancellationTokenSource? Cts { get; set; }
 
-    /// <summary>True when task is still running (not completed, failed, or cancelled).</summary>
     public bool IsRunning => !IsCompleted && !IsFailed && !IsCancelled;
 
     partial void OnIsCompletedChanged(bool value) => OnPropertyChanged(nameof(IsRunning));
@@ -64,6 +67,7 @@ public class FileOperationManager
     public ObservableCollection<FileTaskItem> ActiveTasks { get; } = new();
     
     private bool _isProcessing;
+    private readonly object _lock = new();
     
     public void QueueTask(FileTaskItem task)
     {
@@ -95,7 +99,6 @@ public class FileOperationManager
         }
     }
 
-    /// <summary>Remove a single task from the list (e.g. completed/failed item).</summary>
     public void RemoveTask(FileTaskItem task)
     {
         if (task == null) return;
@@ -106,7 +109,6 @@ public class FileOperationManager
         });
     }
 
-    /// <summary>Re-queue a failed (or completed) task with same source and destination.</summary>
     public void RetryTask(FileTaskItem task)
     {
         if (task == null || string.IsNullOrEmpty(task.SourcePath) || string.IsNullOrEmpty(task.DestinationPath)) return;
@@ -128,7 +130,6 @@ public class FileOperationManager
         
         while (_taskQueue.TryDequeue(out var task))
         {
-            // Add to Active UI list
             Dispatcher.UIThread.Post(() => ActiveTasks.Insert(0, task));
             
             task.Status = "Running...";
@@ -144,9 +145,9 @@ public class FileOperationManager
                 
                 if (!task.IsCancelled)
                 {
-                    task.Status = "Completed";
+                    SetProgress(task, 100);
+                    SetStatus(task, "Completed");
                     task.IsCompleted = true;
-                    task.Progress = 100;
                 }
                 else
                 {
@@ -165,9 +166,6 @@ public class FileOperationManager
                 task.ErrorMessage = ex.Message;
             }
             
-            // Remove from active list after delay? Or keep them?
-            // User might want to see history.
-            // For now, keep them. Maybe limit count?
             if (ActiveTasks.Count > 50)
             {
                 Dispatcher.UIThread.Post(() => {
@@ -204,31 +202,48 @@ public class FileOperationManager
         };
         QueueTask(task);
     }
+    
+    public void DeleteFileBackground(string path)
+    {
+        var task = new FileTaskItem
+        {
+            Type = FileTaskType.Delete,
+            Name = $"Delete {Path.GetFileName(path)}",
+            SourcePath = path,
+            DestinationPath = "",
+            Status = "Pending"
+        };
+        QueueTask(task);
+    }
 
     private async Task RunTaskAsync(FileTaskItem task, System.Threading.CancellationToken token)
     {
         await Task.Run(async () => 
         {
-            bool isDir = Directory.Exists(task.SourcePath);
-            
             if (task.Type == FileTaskType.Copy)
             {
+                bool isDir = Directory.Exists(task.SourcePath);
                 if (isDir)
                     await CopyDirectoryAsync(task.SourcePath, task.DestinationPath, task, token);
                 else
-                    CopyFile(task.SourcePath, task.DestinationPath, task, token);
+                    await CopyFileAsync(task.SourcePath, task.DestinationPath, task, token);
             }
             else if (task.Type == FileTaskType.Move)
             {
+                bool isDir = Directory.Exists(task.SourcePath);
                 if (isDir)
                     await MoveDirectoryAsync(task.SourcePath, task.DestinationPath, task, token);
                 else
-                    MoveFile(task.SourcePath, task.DestinationPath, task, token);
+                    await MoveFileAsync(task.SourcePath, task.DestinationPath, task, token);
+            }
+            else if (task.Type == FileTaskType.Delete)
+            {
+                await DeleteItemAsync(task.SourcePath, task, token);
             }
         });
     }
 
-    private void CopyFile(string source, string dest, FileTaskItem task, System.Threading.CancellationToken token)
+    private async Task CopyFileAsync(string source, string dest, FileTaskItem task, System.Threading.CancellationToken token)
     {
         if (token.IsCancellationRequested) throw new OperationCanceledException();
         
@@ -236,21 +251,36 @@ public class FileOperationManager
         
         string dir = Path.GetDirectoryName(dest)!;
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+        long totalBytes = new FileInfo(source).Length;
+        long copiedBytes = 0;
+        DateTime startTime = DateTime.Now;
         
-        // Simple file copy doesn't support cancellation well without stream copying
-        // But for small files it's atomic. For large files we'd need streams.
-        // For MVP, we check before copy.
-        // If user wants PAUSE, we really need streams.
+        using (var sourceStream = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, useAsync: true))
+        using (var destStream = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+        {
+            byte[] buffer = new byte[65536];
+            int bytesRead;
+            
+            while ((bytesRead = await sourceStream.ReadAsync(buffer.AsMemory(0, buffer.Length), token)) > 0)
+            {
+                if (token.IsCancellationRequested) throw new OperationCanceledException();
+                
+                await destStream.WriteAsync(buffer.AsMemory(0, bytesRead), token);
+                copiedBytes += bytesRead;
+                
+                UpdateCopyProgress(task, totalBytes, copiedBytes, startTime);
+            }
+        }
         
-        File.Copy(source, dest, true);
-        task.Progress = 100;
+        SetProgress(task, 100);
     }
     
-    private void MoveFile(string source, string dest, FileTaskItem task, System.Threading.CancellationToken token)
+    private async Task MoveFileAsync(string source, string dest, FileTaskItem task, System.Threading.CancellationToken token)
     {
         if (token.IsCancellationRequested) throw new OperationCanceledException();
 
-         if (!File.Exists(source)) throw new FileNotFoundException("Source file not found", source);
+        if (!File.Exists(source)) throw new FileNotFoundException("Source file not found", source);
         string dir = Path.GetDirectoryName(dest)!;
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
@@ -259,24 +289,24 @@ public class FileOperationManager
         if (token.IsCancellationRequested) throw new OperationCanceledException();
         
         File.Move(source, dest);
-        task.Progress = 100;
+        SetProgress(task, 100);
     }
-
 
     private async Task CopyDirectoryAsync(string sourceDir, string destinationDir, FileTaskItem task, System.Threading.CancellationToken token)
     {
-        // Get subdirectories and files
         var dir = new DirectoryInfo(sourceDir);
         if (!dir.Exists) throw new DirectoryNotFoundException($"Source directory not found: {sourceDir}");
         
         if (!Directory.Exists(destinationDir)) Directory.CreateDirectory(destinationDir);
 
-        // Count total bytes for progress
         long totalBytes = dir.EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
         long copiedBytes = 0;
-        
-        // Copy files
-        foreach (FileInfo file in dir.EnumerateFiles("*", SearchOption.AllDirectories))
+        DateTime startTime = DateTime.Now;
+        var files = dir.EnumerateFiles("*", SearchOption.AllDirectories).ToList();
+        int totalFiles = files.Count;
+        int processedFiles = 0;
+
+        foreach (FileInfo file in files)
         {
             if (token.IsCancellationRequested) throw new OperationCanceledException();
 
@@ -285,24 +315,40 @@ public class FileOperationManager
             
             if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
             
-            file.CopyTo(tempPath, true);
+            long fileLen = file.Length;
+            using (var sourceStream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, useAsync: true))
+            using (var destStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            {
+                byte[] buffer = new byte[65536];
+                int bytesRead;
+                long fileCopied = 0;
+                
+                while ((bytesRead = await sourceStream.ReadAsync(buffer.AsMemory(0, buffer.Length), token)) > 0)
+                {
+                    if (token.IsCancellationRequested) throw new OperationCanceledException();
+                    
+                    await destStream.WriteAsync(buffer.AsMemory(0, bytesRead), token);
+                    fileCopied += bytesRead;
+                    
+                    long globalCopied = copiedBytes + fileCopied;
+                    UpdateCopyProgress(task, totalBytes, globalCopied, startTime);
+                }
+            }
             
-            copiedBytes += file.Length;
-            task.Progress = (double)copiedBytes / totalBytes * 100;
+            copiedBytes += fileLen;
+            processedFiles++;
         }
+        
+        SetProgress(task, 100);
     }
     
     private async Task MoveDirectoryAsync(string sourceDir, string destinationDir, FileTaskItem task, System.Threading.CancellationToken token)
     {
-        // DestinationDir is the FULL target path (e.g., .../#OKE/bahan)
-        
-        // Simple Move if on same drive
         if (Path.GetPathRoot(sourceDir) == Path.GetPathRoot(destinationDir))
         {
             if (Directory.Exists(destinationDir))
             {
-                // Merge needed (Copy + Delete)
-                task.Status = "Merging...";
+                SetStatus(task, "Merging...");
                 await CopyDirectoryAsync(sourceDir, destinationDir, task, token);
                 
                 if (!token.IsCancellationRequested)
@@ -314,18 +360,114 @@ public class FileOperationManager
             {
                 if (token.IsCancellationRequested) throw new OperationCanceledException();
                 Directory.Move(sourceDir, destinationDir);
-                task.Progress = 100;
+                SetProgress(task, 100);
             }
         }
         else
         {
-            // Different drive: Copy + Delete
             await CopyDirectoryAsync(sourceDir, destinationDir, task, token);
             
             if (!token.IsCancellationRequested)
             {
                  Directory.Delete(sourceDir, true);
             }
+        }
+    }
+    
+    private async Task DeleteItemAsync(string path, FileTaskItem task, System.Threading.CancellationToken token)
+    {
+        if (token.IsCancellationRequested) throw new OperationCanceledException();
+
+        if (Directory.Exists(path))
+        {
+            var dir = new DirectoryInfo(path);
+            long totalBytes = dir.EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
+            long deletedBytes = 0;
+            DateTime startTime = DateTime.Now;
+            
+            foreach (FileInfo file in dir.EnumerateFiles("*", SearchOption.AllDirectories))
+            {
+                if (token.IsCancellationRequested) throw new OperationCanceledException();
+                
+                File.Delete(file.FullName);
+                deletedBytes += file.Length;
+                UpdateCopyProgress(task, totalBytes, deletedBytes, startTime);
+            }
+            
+            Directory.Delete(path, true);
+        }
+        else if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+        
+        SetProgress(task, 100);
+    }
+
+    // ---- UI-thread-safe setters (progress callbacks run on the background worker) ----
+
+    private static void SetProgress(FileTaskItem task, double value)
+    {
+        if (Dispatcher.UIThread.CheckAccess()) task.Progress = value;
+        else Dispatcher.UIThread.Post(() => task.Progress = value);
+    }
+
+    private static void SetStatus(FileTaskItem task, string value)
+    {
+        if (Dispatcher.UIThread.CheckAccess()) task.Status = value;
+        else Dispatcher.UIThread.Post(() => task.Status = value);
+    }
+
+    private void UpdateCopyProgress(FileTaskItem task, long totalBytes, long copiedBytes, DateTime startTime)
+    {
+        if (totalBytes <= 0) return;
+
+        // Throttle: push to UI at most ~8x/sec (every 125ms). Reading progress from the
+        // bound properties happens on the UI thread, so we marshal the writes there.
+        var now = DateTime.Now;
+        if ((now - task.LastProgressUpdate).TotalMilliseconds < 125 && copiedBytes < totalBytes)
+            return;
+        task.LastProgressUpdate = now;
+
+        double progress = (double)copiedBytes / totalBytes * 100;
+        double clamped = Math.Min(100, progress);
+
+        TimeSpan elapsed = now - startTime;
+        double speed = 0;
+        string eta = "Calculating...";
+
+        if (elapsed.TotalSeconds >= 1)
+        {
+            double bytesPerSec = copiedBytes / elapsed.TotalSeconds;
+            speed = Math.Round(bytesPerSec / 1024.0 / 1024.0, 2);
+
+            double remainingBytes = totalBytes - copiedBytes;
+            if (bytesPerSec > 0 && remainingBytes > 0)
+            {
+                double remainingSeconds = remainingBytes / bytesPerSec;
+                if (double.IsFinite(remainingSeconds) && remainingSeconds >= 0)
+                    eta = TimeSpan.FromSeconds(remainingSeconds).ToString(@"hh\:mm\:ss");
+            }
+            else if (remainingBytes <= 0)
+            {
+                eta = "00:00:00";
+            }
+        }
+
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            task.Progress = clamped;
+            task.Speed = speed;
+            task.Eta = eta;
+        }
+        else
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                task.Progress = clamped;
+                task.Speed = speed;
+                task.Eta = eta;
+            });
         }
     }
 }
