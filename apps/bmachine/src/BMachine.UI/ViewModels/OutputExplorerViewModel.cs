@@ -1492,8 +1492,12 @@ try {{
         if (string.IsNullOrEmpty(CurrentPath) || !Directory.Exists(CurrentPath)) return;
 
         int count = 0;
-        foreach (var sourcePath in paths)
+        foreach (var sourcePathRaw in paths)
         {
+            // Folder dari drag sering punya trailing backslash -> GetFileName() kosong -> skip.
+            var sourcePath = sourcePathRaw.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (string.IsNullOrEmpty(sourcePath)) continue;
+
             if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath)) continue;
 
             string fileName = Path.GetFileName(sourcePath);
