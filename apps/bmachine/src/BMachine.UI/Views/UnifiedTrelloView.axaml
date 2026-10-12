@@ -106,7 +106,7 @@
         </Border>
 
         <!-- ROW 1: Tabs & Header Area -->
-        <Panel Grid.Row="1" Margin="20,10,40,10">
+        <Panel Grid.Row="1" Margin="20,10,20,10">
             
             <!-- Trello Board Tabs - card bordered, no icon (sesuai editing list yang benar) -->
             <Border Background="{DynamicResource CardBackgroundBrush}"

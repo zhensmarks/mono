@@ -196,9 +196,10 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
             </ListBox>
+        </Grid>
 
         <!-- Garis posisi sisip: satu overlay global, selalu di atas kartu mana pun -->
-        <Border x:Name="Part_DropLine" Height="5" CornerRadius="2.5"
+        <Border x:Name="Part_DropLine" Height="5" CornerRadius="2.5" Grid.ColumnSpan="2"
                 HorizontalAlignment="Stretch" VerticalAlignment="Top"
                 Margin="6,-9999,6,0" IsVisible="False" ZIndex="950" IsHitTestVisible="False">
             <Border.Background>
@@ -210,21 +211,20 @@
         </Border>
 
         <!-- Ghost kartu yang di-drag (mengikuti kursor seperti Trello) -->
-        <Border x:Name="Part_DragGhost" IsVisible="False" ZIndex="999" IsHitTestVisible="False"
-                CornerRadius="10" Background="{DynamicResource CardBackgroundBrush}"
-                BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
-                Padding="0,2" MinHeight="44">
-            <Border.Effect>
-                <DropShadowEffect Color="#000000" BlurRadius="18" OffsetX="0" OffsetY="4" Opacity="0.55"/>
-            </Border.Effect>
-            <Border.RenderTransform>
-                <TranslateTransform/>
-            </Border.RenderTransform>
-            <Image x:Name="Part_DragGhostImage" Stretch="Uniform"/>
-        </Border>
-
-            <!-- FAB Refresh Button Removed -->
-        </Grid>
+        <Panel Grid.Column="0" Grid.ColumnSpan="2" IsHitTestVisible="False" ZIndex="900">
+            <Border x:Name="Part_DragGhost" IsVisible="False" CornerRadius="10"
+                    HorizontalAlignment="Left" VerticalAlignment="Top"
+                    Margin="-9999,-9999,0,0" Opacity="0.95"
+                    BorderBrush="{DynamicResource AccentEditingBrush}" BorderThickness="1">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="18" OffsetX="0" OffsetY="4" Opacity="0.55"/>
+                </Border.Effect>
+                <Border.Background>
+                    <SolidColorBrush Color="#F0111113"/>
+                </Border.Background>
+                <Image x:Name="Part_DragGhostImage" Stretch="Uniform"/>
+            </Border>
+        </Panel>
 
         <!-- Side Panels Container (hidden when panel is hosted by UnifiedTrelloView) -->
         <Grid Grid.Column="1" IsVisible="{Binding !IsPanelHostedExternally}" x:Name="Part_PanelsContainer">
