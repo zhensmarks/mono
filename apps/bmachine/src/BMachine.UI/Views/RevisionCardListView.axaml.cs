@@ -1,8 +1,10 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia;
 using BMachine.UI.ViewModels;
 using System.Collections.Generic;
@@ -225,6 +227,11 @@ public partial class RevisionCardListView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        this.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, OnCardDragPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(Avalonia.Input.InputElement.PointerMovedEvent, OnCardDragPointerMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, OnCardDragPointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(Avalonia.Input.InputElement.PointerCaptureLostEvent, OnCardDragPointerCaptureLost, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(Avalonia.Input.InputElement.KeyDownEvent, OnCardDragKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
         var textBox = this.FindControl<TextBox>("Part_CommentTextBox");
         if (textBox != null)
         {
@@ -404,80 +411,215 @@ public partial class RevisionCardListView : UserControl
         catch { /* Ignore clipboard errors */ }
     }
 
-    private async void OnCardPointerPressed(object? sender, PointerPressedEventArgs e)
+    // Drag dari seluruh kartu: tekan kiri lalu geser 6px. Klik tanpa geser tetap ke Button.
+    private Point? _cardPressPoint;
+    private BMachine.UI.Models.TrelloCard? _pressedCard;
+    private BMachine.UI.Models.TrelloCard? _dropCard;
+    private bool _dropBefore;
+    private Border? _draggedContainer;
+    private RenderTargetBitmap? _ghostBitmap;
+    private TranslateTransform? _ghostTransform;
+    private bool _dragActive;
+    private bool _dragCancelled;
+
+    private BMachine.UI.Models.TrelloCard? FindCardFrom(Visual? from)
     {
-        if (sender is Control control && control.DataContext is BMachine.UI.Models.TrelloCard card)
+        Visual? v = from;
+        while (v != null && !ReferenceEquals(v, this))
         {
-            var dragData = new DataObject();
-            dragData.Set("TrelloCard", card);
-            
-            var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+            if (v is Control c && c.DataContext is BMachine.UI.Models.TrelloCard card)
+                return card;
+            v = v.GetVisualParent();
         }
+        return null;
+    }
+
+    private Border? FindCardContainer(Visual? from)
+    {
+        Visual? v = from;
+        while (v != null && !ReferenceEquals(v, this))
+        {
+            if (v is Border b && b.Name == "CardContainer")
+                return b;
+            v = v.GetVisualParent();
+        }
+        return null;
+    }
+
+    private void OnCardDragPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        var card = FindCardFrom(e.Source as Visual);
+        if (card == null) { return; }
+        _pressedCard = card;
+        _cardPressPoint = e.GetPosition(this);
+    }
+
+    private async void OnCardDragPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_cardPressPoint is not Point start || _pressedCard == null) return;
+        var pos = e.GetPosition(this);
+        if (System.Math.Abs(pos.X - start.X) < 6 && System.Math.Abs(pos.Y - start.Y) < 6) return;
+
+        var card = _pressedCard;
+        _cardPressPoint = null;
+        _pressedCard = null;
+        var dragData = new DataObject();
+        dragData.Set("TrelloCard", card);
+
+        // Ghost: render kartu jadi gambar, kartu asli memudar.
+        _draggedContainer = FindCardContainer(e.Source as Visual);
+        if (_draggedContainer != null && _draggedContainer.Bounds.Width > 0 && _draggedContainer.Bounds.Height > 0)
+        {
+            var gw = _draggedContainer.Bounds.Width;
+            var gh = _draggedContainer.Bounds.Height;
+            var bmp = new RenderTargetBitmap(new PixelSize((int)gw, (int)gh), new Vector(96, 96));
+            bmp.Render(_draggedContainer);
+            _ghostBitmap?.Dispose();
+            _ghostBitmap = bmp;
+            Part_DragGhost.Width = gw;
+            Part_DragGhost.Height = gh;
+            Part_DragGhostImage.Source = bmp;
+            var startPt = e.GetPosition(Part_RootGrid);
+            _ghostTransform = new TranslateTransform(startPt.X - gw / 2, startPt.Y - gh / 2);
+            Part_DragGhost.RenderTransform = _ghostTransform;
+            Part_DragGhost.IsVisible = true;
+            _draggedContainer.Classes.Add("dragging");
+        }
+
+        _dragActive = true;
+        _dragCancelled = false;
+        var res = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+        _dragActive = false;
+        Part_DragGhost.IsVisible = false;
+        _draggedContainer?.Classes.Remove("dragging");
+        _draggedContainer = null;
+
+        // Windows/OLE tidak selalu memanggil event Drop (efek terakhir None saat release).
+        // Kalau indikator tujuan masih aktif dan user tidak menekan Escape, pindahkan manual.
+        if (res == DragDropEffects.None && !_dragCancelled && _dropCard != null)
+        {
+            MoveCardToDropTarget(card, _dropCard, _dropBefore);
+        }
+        ClearDropIndicator();
+    }
+
+    private void OnCardDragKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_dragActive && e.Key == Key.Escape)
+            _dragCancelled = true;
+    }
+
+    private void OnCardDragPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        _cardPressPoint = null;
+        _pressedCard = null;
+    }
+
+    private void OnCardDragPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        _cardPressPoint = null;
+        _pressedCard = null;
+    }
+
+    private void OnCardDragLeave(object? sender, DragEventArgs e)
+    {
+    }
+
+    private void ClearDropIndicator()
+    {
+        _dropCard = null;
+        Part_DropLine.IsVisible = false;
+    }
+
+    private void ShowDropLine(BMachine.UI.Models.TrelloCard targetCard, bool before)
+    {
+        // Cari visual CardContainer untuk kartu target.
+        if (DataContext is not BMachine.UI.ViewModels.RevisionCardListViewModel vm) return;
+        var container = FindCardContainerFor(targetCard);
+        if (container == null) return;
+        var pt = container.TranslatePoint(default, Part_RootGrid);
+        if (pt == null) return;
+        double y = before ? pt.Value.Y - 4 : pt.Value.Y + container.Bounds.Height - 1;
+        Part_DropLine.Margin = new Thickness(6, y, 6, 0);
+        Part_DropLine.IsVisible = true;
+    }
+
+    private Border? FindCardContainerFor(BMachine.UI.Models.TrelloCard card)
+    {
+        // Cari semua CardContainer, cocokkan DataContext-nya.
+        foreach (var c in this.GetVisualDescendants())
+        {
+            if (c is Border b && b.Name == "CardContainer" && ReferenceEquals(b.DataContext, card))
+                return b;
+        }
+        return null;
     }
 
     private void OnCardDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = DragDropEffects.None;
-        
-        if (e.Data.Contains("TrelloCard") && sender is Control targetControl && targetControl.DataContext is BMachine.UI.Models.TrelloCard targetCard)
+        if (!e.Data.Contains("TrelloCard")) { return; }
+        if (sender is not Control target || target.DataContext is not BMachine.UI.Models.TrelloCard targetCard) { return; }
+        if (DataContext is not BMachine.UI.ViewModels.RevisionCardListViewModel vm) { return; }
+        if (e.Data.Get("TrelloCard") is not BMachine.UI.Models.TrelloCard dragged) { return; }
+        if (dragged == targetCard) { return; }
+        if (!vm.Cards.Contains(dragged)) { return; }
+
+        var pos = e.GetPosition(target);
+        bool before = pos.Y < target.Bounds.Height / 2;
+        e.DragEffects = DragDropEffects.Move;
+
+        if (_ghostTransform != null)
         {
-             if (DataContext is BMachine.UI.ViewModels.RevisionCardListViewModel vm)
-             {
-                 var draggedCard = e.Data.Get("TrelloCard") as BMachine.UI.Models.TrelloCard;
-                 if (draggedCard != null && draggedCard != targetCard && vm.Cards.Contains(draggedCard))
-                 {
-                     e.DragEffects = DragDropEffects.Move;
-                 }
-             }
+            var pt = e.GetPosition(Part_RootGrid);
+            _ghostTransform.X = pt.X - Part_DragGhost.Width / 2;
+            _ghostTransform.Y = pt.Y - Part_DragGhost.Height / 2;
+        }
+
+        if (_dropCard != targetCard || _dropBefore != before)
+        {
+            ClearDropIndicator();
+            _dropCard = targetCard;
+            _dropBefore = before;
+            ShowDropLine(targetCard, before);
         }
     }
 
     private void OnCardDrop(object? sender, DragEventArgs e)
     {
-        if (sender is not Control targetControl || 
-            targetControl.DataContext is not BMachine.UI.Models.TrelloCard targetCard ||
-            DataContext is not BMachine.UI.ViewModels.RevisionCardListViewModel vm) return;
+        var target = _dropCard;
+        bool before = _dropBefore;
+        ClearDropIndicator();
+        if (target == null) return;
+        if (e.Data.Get("TrelloCard") is not BMachine.UI.Models.TrelloCard dragged) return;
+        MoveCardToDropTarget(dragged, target, before);
+    }
 
-        if (e.Data.Contains("TrelloCard") && e.Data.Get("TrelloCard") is BMachine.UI.Models.TrelloCard draggedCard)
-        {
-             if (vm.Cards.Contains(draggedCard))
-             {
-                 int oldIndex = vm.Cards.IndexOf(draggedCard);
-                 int newIndex = vm.Cards.IndexOf(targetCard);
-                 
-                 if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex)
-                 {
-                     vm.Cards.Move(oldIndex, newIndex);
-                     
-                     // Calculate new Pos for Trello
-                     double newPos = 10000;
-                     if (newIndex == 0)
-                     {
-                         if (vm.Cards.Count > 1) {
-                             newPos = vm.Cards[1].Pos / 2.0; 
-                         }
-                     }
-                     else if (newIndex == vm.Cards.Count - 1)
-                     {
-                         if (vm.Cards.Count > 1) {
-                             newPos = vm.Cards[newIndex - 1].Pos + 10000;
-                         } 
-                     }
-                     else
-                     {
-                         double prevPos = vm.Cards[newIndex - 1].Pos;
-                         double nextPos = vm.Cards[newIndex + 1].Pos;
-                         newPos = (prevPos + nextPos) / 2.0;
-                     }
-                     
-                     draggedCard.Pos = newPos;
-                     
-                     if (vm.UpdateCardPositionCommand.CanExecute(draggedCard))
-                     {
-                         vm.UpdateCardPositionCommand.Execute(draggedCard);
-                     }
-                 }
-             }
-        }
+    private void MoveCardToDropTarget(BMachine.UI.Models.TrelloCard dragged, BMachine.UI.Models.TrelloCard target, bool before)
+    {
+        if (DataContext is not BMachine.UI.ViewModels.RevisionCardListViewModel vm) return;
+        if (!vm.Cards.Contains(dragged) || !vm.Cards.Contains(target)) return;
+
+        int oldIndex = vm.Cards.IndexOf(dragged);
+        int targetIndex = vm.Cards.IndexOf(target);
+        int newIndex = before ? targetIndex : targetIndex + 1;
+        if (oldIndex < newIndex) newIndex--;
+        if (oldIndex == newIndex || newIndex < 0 || newIndex >= vm.Cards.Count) return;
+
+        vm.Cards.Move(oldIndex, newIndex);
+
+        // Hitung Pos Trello dari tetangga (logika sama dengan versi sebelumnya).
+        double newPos;
+        if (newIndex == 0)
+            newPos = vm.Cards.Count > 1 ? vm.Cards[1].Pos / 2.0 : 10000;
+        else if (newIndex == vm.Cards.Count - 1)
+            newPos = vm.Cards[newIndex - 1].Pos + 10000;
+        else
+            newPos = (vm.Cards[newIndex - 1].Pos + vm.Cards[newIndex + 1].Pos) / 2.0;
+
+        dragged.Pos = newPos;
+        if (vm.UpdateCardPositionCommand.CanExecute(dragged))
+            vm.UpdateCardPositionCommand.Execute(dragged);
     }
 }

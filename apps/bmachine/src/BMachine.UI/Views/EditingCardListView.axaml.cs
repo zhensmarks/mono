@@ -1,13 +1,14 @@
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
-using Avalonia.Media;
-using Avalonia;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia;
 using BMachine.UI.ViewModels;
 using System.Collections.Generic;
 using System.Linq;
-using Avalonia.VisualTree;
 
 namespace BMachine.UI.Views;
 
@@ -16,24 +17,20 @@ public partial class EditingCardListView : UserControl
     public EditingCardListView()
     {
         InitializeComponent();
-        this.PointerPressed += EditingCardListView_PointerPressed;
-        
-        // Fix Scrolling Issue: Focus on Hover
-        this.Focusable = true;
-        this.PointerEntered += (s, e) => this.Focus(); 
+        this.PointerPressed += OnRootPointerPressed;
     }
 
-    private void EditingCardListView_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    private void OnRootPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
         var props = e.GetCurrentPoint(this).Properties;
         if (props.IsRightButtonPressed)
         {
-            if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
+            if (DataContext is EditingCardListViewModel vm)
             {
                 // If any panel is open, close it first
                 if (vm.IsDetailPanelOpen || vm.IsCommentPanelOpen || vm.IsChecklistPanelOpen || vm.IsMovePanelOpen || vm.IsAttachmentPanelOpen)
                 {
-                    vm.IsDetailPanelOpen = false; // Close detail panel too if user right clicks main area
+                    vm.IsDetailPanelOpen = false;
                     vm.IsCommentPanelOpen = false;
                     vm.IsChecklistPanelOpen = false;
                     vm.IsMovePanelOpen = false;
@@ -41,11 +38,8 @@ public partial class EditingCardListView : UserControl
                     e.Handled = true;
                     return;
                 }
-
-                // If no panels open, Navigate Back (DashboardViewModel handles this if we send a message or call a command?)
-                // Since this view is now embedded, we need to talk to the navigation controller (DashboardVM).
-                // DashboardVM isn't the DataContext here (EditingCardListViewModel is).
-                // We should use Messenger to signal Back.
+                
+                // Navigate Back using Message
                 CommunityToolkit.Mvvm.Messaging.IMessenger messenger = CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default;
                 messenger.Send(new BMachine.UI.Messages.NavigateBackMessage());
                 e.Handled = true;
@@ -58,7 +52,7 @@ public partial class EditingCardListView : UserControl
          var props = e.GetCurrentPoint(sender as Visual).Properties;
          if (props.IsRightButtonPressed)
          {
-             if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
+             if (DataContext is EditingCardListViewModel vm)
              {
                  vm.IsDetailPanelOpen = false;
                  if (vm.SelectedCard != null)
@@ -76,7 +70,7 @@ public partial class EditingCardListView : UserControl
          var props = e.GetCurrentPoint(sender as Visual).Properties;
          if (props.IsRightButtonPressed)
          {
-             if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
+             if (DataContext is EditingCardListViewModel vm)
              {
                  // Close the sub-panel and return to Card Detail
                  vm.IsCommentPanelOpen = false;
@@ -98,7 +92,6 @@ public partial class EditingCardListView : UserControl
         var movePanel = this.FindControl<Border>("Part_MovePanel");
         var attachmentPanel = this.FindControl<Border>("Part_AttachmentPanel");
         var detailPanel = this.FindControl<Border>("Part_DetailPanel");
-        var addManualPanel = this.FindControl<Border>("Part_AddManualPanel");
         var mainContent = this.FindControl<Grid>("Part_MainContent");
 
         if (commentPanel == null || mainContent == null) return;
@@ -113,7 +106,6 @@ public partial class EditingCardListView : UserControl
             UpdatePanelForMobile(movePanel);
             UpdatePanelForMobile(attachmentPanel);
             UpdatePanelForMobile(detailPanel);
-            UpdatePanelForMobile(addManualPanel);
         }
         else
         {
@@ -122,7 +114,6 @@ public partial class EditingCardListView : UserControl
             UpdatePanelForDesktop(movePanel);
             UpdatePanelForDesktop(attachmentPanel);
             UpdatePanelForDesktop(detailPanel);
-            UpdatePanelForDesktop(addManualPanel);
         }
     }
 
@@ -146,7 +137,6 @@ public partial class EditingCardListView : UserControl
         panel.Width = 400;
         panel.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
         panel.Margin = new Avalonia.Thickness(0);
-        
         // Ensure solid background for embedded view
         if (Application.Current!.TryGetResource("AppBackgroundBrush", out var res) && res is IBrush brush)
         {
@@ -154,17 +144,12 @@ public partial class EditingCardListView : UserControl
         }
     }
 
-    private void AutoCompleteBox_GotFocus(object? sender, Avalonia.Input.GotFocusEventArgs e)
+    private void AutoCompleteBox_GotFocus(object? sender, GotFocusEventArgs e)
     {
         if (sender is AutoCompleteBox acb)
         {
             BMachine.UI.Controls.AutoCompleteBoxHelper.OnGotFocus(acb, e);
         }
-    }
-
-    private void OnRequestBringIntoView(object? sender, Avalonia.Controls.RequestBringIntoViewEventArgs e)
-    {
-        e.Handled = true;
     }
 
     private void OnNextViewClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -186,6 +171,11 @@ public partial class EditingCardListView : UserControl
                 DataContext = vm
             };
             win.Show();
+            
+            // Optional: Close the inline panel if desired. 
+            // For now, let's keep it open or maybe close it to avoid confusion?
+            // "saat saya sedang kerjakan yang ada di komentar saya bisa langsung scroll tanpa harus di klik dulu untuk fokus atau dia kehilangan fokus setelah beberapa lama membuatnya menjadi harus ke atas lagi"
+            // The user wants a persistent window. Closing the panel seems appropriate to avoid clutter.
             vm.IsCommentPanelOpen = false;
         }
     }
@@ -200,11 +190,7 @@ public partial class EditingCardListView : UserControl
         {
             vm.PropertyChanged -= ViewModel_PropertyChanged;
             vm.PropertyChanged += ViewModel_PropertyChanged;
-            
-            // Wire file picker for attachments
             vm.PickAttachmentFilesFunc = PickAttachmentFilesAsync;
-            
-            // Load board members for @mention
             _ = vm.LoadBoardMembers();
         }
     }
@@ -238,24 +224,24 @@ public partial class EditingCardListView : UserControl
              }
         }
     }
-
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        this.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, OnCardDragPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(Avalonia.Input.InputElement.PointerMovedEvent, OnCardDragPointerMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(Avalonia.Input.InputElement.PointerReleasedEvent, OnCardDragPointerReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(Avalonia.Input.InputElement.PointerCaptureLostEvent, OnCardDragPointerCaptureLost, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(Avalonia.Input.InputElement.KeyDownEvent, OnCardDragKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
         var textBox = this.FindControl<TextBox>("Part_CommentTextBox");
         if (textBox != null)
         {
             textBox.AddHandler(Avalonia.Input.InputElement.KeyDownEvent, CommentTextBox_KeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             textBox.PropertyChanged -= CommentTextBox_PropertyChanged;
             textBox.PropertyChanged += CommentTextBox_PropertyChanged;
-            
-            // Allow drag-drop on textbox
             DragDrop.SetAllowDrop(textBox, true);
             textBox.AddHandler(DragDrop.DragOverEvent, OnAttachDragOver);
             textBox.AddHandler(DragDrop.DropEvent, OnAttachDrop);
         }
-
-        // Allow drag-drop on attach button
         var attachButton = this.FindControl<Button>("Part_InlineAttachButton");
         if (attachButton != null)
         {
@@ -264,15 +250,12 @@ public partial class EditingCardListView : UserControl
             attachButton.AddHandler(DragDrop.DropEvent, OnAttachDrop);
         }
 
-        // Block ALL RequestBringIntoView events at the UserControl level.
-        // Using Tunnel ensures we catch it BEFORE any ScrollViewer processes it.
         this.AddHandler(
             Avalonia.Controls.Control.RequestBringIntoViewEvent,
             OnRequestBringIntoView,
             Avalonia.Interactivity.RoutingStrategies.Tunnel,
             true);
 
-        // Save/restore scroll position on window switch
         if (TopLevel.GetTopLevel(this) is Window window)
         {
             window.Deactivated -= OnWindowDeactivated;
@@ -280,22 +263,7 @@ public partial class EditingCardListView : UserControl
             window.Deactivated += OnWindowDeactivated;
             window.Activated += OnWindowActivated;
         }
-
-        // Cegah lompatan scroll saat klik biasa di panel detail/komentar.
-        // Auto-scroll saat drag-select tetap bekerja (lihat PointerScrollGuard).
-        if (!_scrollGuardAttached)
-        {
-            _scrollGuardAttached = true;
-            Loaded += (_, _) =>
-            {
-                foreach (var sv in this.GetVisualDescendants().OfType<ScrollViewer>())
-                    if (sv.Name is "Part_DetailScrollViewer" or "Part_CommentScrollViewer")
-                        BMachine.UI.Controls.PointerScrollGuard.Attach(this, sv);
-            };
-        }
     }
-
-    private bool _scrollGuardAttached;
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -308,6 +276,11 @@ public partial class EditingCardListView : UserControl
             window.Activated -= OnWindowActivated;
         }
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnRequestBringIntoView(object? sender, Avalonia.Controls.RequestBringIntoViewEventArgs e)
+    {
+        e.Handled = true;
     }
 
     private void OnWindowDeactivated(object? sender, EventArgs e)
@@ -342,29 +315,23 @@ public partial class EditingCardListView : UserControl
                  if (topLevel?.Clipboard != null)
                  {
                      await topLevel.Clipboard.SetTextAsync(tb.SelectedText);
-                     // Stop the event from bubbling up and causing UI side-effects (scroll jump).
                      e.Handled = true;
                  }
              }
          }
-         // Ctrl+V or Cmd+V: Paste image from clipboard
          else if (isCmdOrCtrl && e.Key == Key.V)
          {
              _ = HandleClipboardPaste();
          }
     }
 
-    // --- @Mention detection ---
     private void CommentTextBox_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property != TextBox.TextProperty) return;
         if (sender is not TextBox tb || DataContext is not BaseTrelloListViewModel vm) return;
-        var text = tb.Text ?? "";
-        var caret = tb.CaretIndex;
-        vm.HandleCommentTextChanged(text, caret);
+        vm.HandleCommentTextChanged(tb.Text ?? "", tb.CaretIndex);
     }
 
-    // --- File Picker for Attachments ---
     private async System.Threading.Tasks.Task<IReadOnlyList<string>> PickAttachmentFilesAsync()
     {
         var topLevel = TopLevel.GetTopLevel(this);
@@ -382,7 +349,6 @@ public partial class EditingCardListView : UserControl
         return files.Select(f => f.Path.LocalPath).ToList();
     }
 
-    // --- Drag-and-Drop for Attachments ---
     private void OnAttachDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = e.Data.Contains(DataFormats.Files) ? DragDropEffects.Copy : DragDropEffects.None;
@@ -398,7 +364,6 @@ public partial class EditingCardListView : UserControl
             vm.AddAttachmentFromPath(file.Path.LocalPath);
     }
 
-    // --- Clipboard Paste for Images ---
     private async System.Threading.Tasks.Task HandleClipboardPaste()
     {
         try
@@ -446,80 +411,215 @@ public partial class EditingCardListView : UserControl
         catch { /* Ignore clipboard errors */ }
     }
 
-    private async void OnCardPointerPressed(object? sender, PointerPressedEventArgs e)
+    // Drag dari seluruh kartu: tekan kiri lalu geser 6px. Klik tanpa geser tetap ke Button.
+    private Point? _cardPressPoint;
+    private BMachine.UI.Models.TrelloCard? _pressedCard;
+    private BMachine.UI.Models.TrelloCard? _dropCard;
+    private bool _dropBefore;
+    private Border? _draggedContainer;
+    private RenderTargetBitmap? _ghostBitmap;
+    private TranslateTransform? _ghostTransform;
+    private bool _dragActive;
+    private bool _dragCancelled;
+
+    private BMachine.UI.Models.TrelloCard? FindCardFrom(Visual? from)
     {
-        if (sender is Control control && control.DataContext is BMachine.UI.Models.TrelloCard card)
+        Visual? v = from;
+        while (v != null && !ReferenceEquals(v, this))
         {
-            var dragData = new DataObject();
-            dragData.Set("TrelloCard", card);
-            
-            var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+            if (v is Control c && c.DataContext is BMachine.UI.Models.TrelloCard card)
+                return card;
+            v = v.GetVisualParent();
         }
+        return null;
+    }
+
+    private Border? FindCardContainer(Visual? from)
+    {
+        Visual? v = from;
+        while (v != null && !ReferenceEquals(v, this))
+        {
+            if (v is Border b && b.Name == "CardContainer")
+                return b;
+            v = v.GetVisualParent();
+        }
+        return null;
+    }
+
+    private void OnCardDragPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        var card = FindCardFrom(e.Source as Visual);
+        if (card == null) { return; }
+        _pressedCard = card;
+        _cardPressPoint = e.GetPosition(this);
+    }
+
+    private async void OnCardDragPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_cardPressPoint is not Point start || _pressedCard == null) return;
+        var pos = e.GetPosition(this);
+        if (System.Math.Abs(pos.X - start.X) < 6 && System.Math.Abs(pos.Y - start.Y) < 6) return;
+
+        var card = _pressedCard;
+        _cardPressPoint = null;
+        _pressedCard = null;
+        var dragData = new DataObject();
+        dragData.Set("TrelloCard", card);
+
+        // Ghost: render kartu jadi gambar, kartu asli memudar.
+        _draggedContainer = FindCardContainer(e.Source as Visual);
+        if (_draggedContainer != null && _draggedContainer.Bounds.Width > 0 && _draggedContainer.Bounds.Height > 0)
+        {
+            var gw = _draggedContainer.Bounds.Width;
+            var gh = _draggedContainer.Bounds.Height;
+            var bmp = new RenderTargetBitmap(new PixelSize((int)gw, (int)gh), new Vector(96, 96));
+            bmp.Render(_draggedContainer);
+            _ghostBitmap?.Dispose();
+            _ghostBitmap = bmp;
+            Part_DragGhost.Width = gw;
+            Part_DragGhost.Height = gh;
+            Part_DragGhostImage.Source = bmp;
+            var startPt = e.GetPosition(Part_RootGrid);
+            _ghostTransform = new TranslateTransform(startPt.X - gw / 2, startPt.Y - gh / 2);
+            Part_DragGhost.RenderTransform = _ghostTransform;
+            Part_DragGhost.IsVisible = true;
+            _draggedContainer.Classes.Add("dragging");
+        }
+
+        _dragActive = true;
+        _dragCancelled = false;
+        var res = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+        _dragActive = false;
+        Part_DragGhost.IsVisible = false;
+        _draggedContainer?.Classes.Remove("dragging");
+        _draggedContainer = null;
+
+        // Windows/OLE tidak selalu memanggil event Drop (efek terakhir None saat release).
+        // Kalau indikator tujuan masih aktif dan user tidak menekan Escape, pindahkan manual.
+        if (res == DragDropEffects.None && !_dragCancelled && _dropCard != null)
+        {
+            MoveCardToDropTarget(card, _dropCard, _dropBefore);
+        }
+        ClearDropIndicator();
+    }
+
+    private void OnCardDragKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_dragActive && e.Key == Key.Escape)
+            _dragCancelled = true;
+    }
+
+    private void OnCardDragPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        _cardPressPoint = null;
+        _pressedCard = null;
+    }
+
+    private void OnCardDragPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        _cardPressPoint = null;
+        _pressedCard = null;
+    }
+
+    private void OnCardDragLeave(object? sender, DragEventArgs e)
+    {
+    }
+
+    private void ClearDropIndicator()
+    {
+        _dropCard = null;
+        Part_DropLine.IsVisible = false;
+    }
+
+    private void ShowDropLine(BMachine.UI.Models.TrelloCard targetCard, bool before)
+    {
+        // Cari visual CardContainer untuk kartu target.
+        if (DataContext is not BMachine.UI.ViewModels.EditingCardListViewModel vm) return;
+        var container = FindCardContainerFor(targetCard);
+        if (container == null) return;
+        var pt = container.TranslatePoint(default, Part_RootGrid);
+        if (pt == null) return;
+        double y = before ? pt.Value.Y - 4 : pt.Value.Y + container.Bounds.Height - 1;
+        Part_DropLine.Margin = new Thickness(6, y, 6, 0);
+        Part_DropLine.IsVisible = true;
+    }
+
+    private Border? FindCardContainerFor(BMachine.UI.Models.TrelloCard card)
+    {
+        // Cari semua CardContainer, cocokkan DataContext-nya.
+        foreach (var c in this.GetVisualDescendants())
+        {
+            if (c is Border b && b.Name == "CardContainer" && ReferenceEquals(b.DataContext, card))
+                return b;
+        }
+        return null;
     }
 
     private void OnCardDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = DragDropEffects.None;
-        
-        if (e.Data.Contains("TrelloCard") && sender is Control targetControl && targetControl.DataContext is BMachine.UI.Models.TrelloCard targetCard)
+        if (!e.Data.Contains("TrelloCard")) { return; }
+        if (sender is not Control target || target.DataContext is not BMachine.UI.Models.TrelloCard targetCard) { return; }
+        if (DataContext is not BMachine.UI.ViewModels.EditingCardListViewModel vm) { return; }
+        if (e.Data.Get("TrelloCard") is not BMachine.UI.Models.TrelloCard dragged) { return; }
+        if (dragged == targetCard) { return; }
+        if (!vm.Cards.Contains(dragged)) { return; }
+
+        var pos = e.GetPosition(target);
+        bool before = pos.Y < target.Bounds.Height / 2;
+        e.DragEffects = DragDropEffects.Move;
+
+        if (_ghostTransform != null)
         {
-             if (DataContext is BMachine.UI.ViewModels.EditingCardListViewModel vm)
-             {
-                 var draggedCard = e.Data.Get("TrelloCard") as BMachine.UI.Models.TrelloCard;
-                 if (draggedCard != null && draggedCard != targetCard && vm.Cards.Contains(draggedCard))
-                 {
-                     e.DragEffects = DragDropEffects.Move;
-                 }
-             }
+            var pt = e.GetPosition(Part_RootGrid);
+            _ghostTransform.X = pt.X - Part_DragGhost.Width / 2;
+            _ghostTransform.Y = pt.Y - Part_DragGhost.Height / 2;
+        }
+
+        if (_dropCard != targetCard || _dropBefore != before)
+        {
+            ClearDropIndicator();
+            _dropCard = targetCard;
+            _dropBefore = before;
+            ShowDropLine(targetCard, before);
         }
     }
 
     private void OnCardDrop(object? sender, DragEventArgs e)
     {
-        if (sender is not Control targetControl || 
-            targetControl.DataContext is not BMachine.UI.Models.TrelloCard targetCard ||
-            DataContext is not BMachine.UI.ViewModels.EditingCardListViewModel vm) return;
+        var target = _dropCard;
+        bool before = _dropBefore;
+        ClearDropIndicator();
+        if (target == null) return;
+        if (e.Data.Get("TrelloCard") is not BMachine.UI.Models.TrelloCard dragged) return;
+        MoveCardToDropTarget(dragged, target, before);
+    }
 
-        if (e.Data.Contains("TrelloCard") && e.Data.Get("TrelloCard") is BMachine.UI.Models.TrelloCard draggedCard)
-        {
-             if (vm.Cards.Contains(draggedCard))
-             {
-                 int oldIndex = vm.Cards.IndexOf(draggedCard);
-                 int newIndex = vm.Cards.IndexOf(targetCard);
-                 
-                 if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex)
-                 {
-                     vm.Cards.Move(oldIndex, newIndex);
-                     
-                     // Calculate new Pos for Trello
-                     double newPos = 10000;
-                     if (newIndex == 0)
-                     {
-                         if (vm.Cards.Count > 1) {
-                             newPos = vm.Cards[1].Pos / 2.0; // Half of the previous top item
-                         }
-                     }
-                     else if (newIndex == vm.Cards.Count - 1)
-                     {
-                         if (vm.Cards.Count > 1) {
-                             newPos = vm.Cards[newIndex - 1].Pos + 10000;
-                         } 
-                     }
-                     else
-                     {
-                         double prevPos = vm.Cards[newIndex - 1].Pos;
-                         double nextPos = vm.Cards[newIndex + 1].Pos;
-                         newPos = (prevPos + nextPos) / 2.0;
-                     }
-                     
-                     draggedCard.Pos = newPos;
-                     
-                     if (vm.UpdateCardPositionCommand.CanExecute(draggedCard))
-                     {
-                         vm.UpdateCardPositionCommand.Execute(draggedCard);
-                     }
-                 }
-             }
-        }
+    private void MoveCardToDropTarget(BMachine.UI.Models.TrelloCard dragged, BMachine.UI.Models.TrelloCard target, bool before)
+    {
+        if (DataContext is not BMachine.UI.ViewModels.EditingCardListViewModel vm) return;
+        if (!vm.Cards.Contains(dragged) || !vm.Cards.Contains(target)) return;
+
+        int oldIndex = vm.Cards.IndexOf(dragged);
+        int targetIndex = vm.Cards.IndexOf(target);
+        int newIndex = before ? targetIndex : targetIndex + 1;
+        if (oldIndex < newIndex) newIndex--;
+        if (oldIndex == newIndex || newIndex < 0 || newIndex >= vm.Cards.Count) return;
+
+        vm.Cards.Move(oldIndex, newIndex);
+
+        // Hitung Pos Trello dari tetangga (logika sama dengan versi sebelumnya).
+        double newPos;
+        if (newIndex == 0)
+            newPos = vm.Cards.Count > 1 ? vm.Cards[1].Pos / 2.0 : 10000;
+        else if (newIndex == vm.Cards.Count - 1)
+            newPos = vm.Cards[newIndex - 1].Pos + 10000;
+        else
+            newPos = (vm.Cards[newIndex - 1].Pos + vm.Cards[newIndex + 1].Pos) / 2.0;
+
+        dragged.Pos = newPos;
+        if (vm.UpdateCardPositionCommand.CanExecute(dragged))
+            vm.UpdateCardPositionCommand.Execute(dragged);
     }
 }

@@ -31,6 +31,17 @@
                      Background="Transparent"
                      BorderThickness="0"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                                <ListBox.Styles>
+                            <Style Selector="CheckBox">
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="MinHeight" Value="0"/>
+                                <Setter Property="Padding" Value="0"/>
+                            </Style>
+                            <Style Selector="CheckBox /template/ Border#PART_Border">
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="Margin" Value="0"/>
+                            </Style>
+                        </ListBox.Styles>
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Vertical"/>
@@ -39,7 +50,7 @@
                         <ListBox.ItemContainerTheme>
                             <ControlTheme TargetType="ListBoxItem">
                                 <Setter Property="Padding" Value="0"/>
-                                <Setter Property="Margin" Value="0,0,0,4"/>
+                                <Setter Property="Margin" Value="0,0,0,8"/>
                                 <Setter Property="Background" Value="Transparent"/>
                                 <Setter Property="BorderThickness" Value="0"/>
                             </ControlTheme>
@@ -56,136 +67,148 @@
                                 </Border>
 
                                 <!-- Normal Card View -->
-                                <Button Command="{Binding $parent[UserControl].DataContext.SelectCardCommand}" 
+                                <Button Command="{Binding $parent[UserControl].DataContext.SelectCardCommand}"
                                         CommandParameter="{Binding}"
                                         IsVisible="{Binding !IsSeparator}"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                         Padding="0" BorderThickness="0" Background="Transparent"
-                                        Margin="0,0,0,1" CornerRadius="6">
+                                        Margin="0" CornerRadius="8"
+                                        MinHeight="60">
                                     <Button.Styles>
                                         <Style Selector="Button:pointerover /template/ ContentPresenter">
                                             <Setter Property="Background" Value="Transparent"/>
                                         </Style>
-                                        <!-- Hover state shows drag handle -->
-                                        <Style Selector="Button:pointerover PathIcon#DragHandle">
-                                            <Setter Property="Opacity" Value="0.6"/>
-                                        </Style>
-                                        <!-- Hover state slight background tint -->
-                                        <Style Selector="Button:pointerover Border#CardContainer">
-                                            <Setter Property="Background" Value="#05FFFFFF"/>
-                                        </Style>
                                     </Button.Styles>
-                                    
-                                    <Border x:Name="CardContainer" ClipToBounds="True" CornerRadius="6" 
-                                            BorderThickness="0,0,0,1"
+
+                                    <Border x:Name="CardContainer" CornerRadius="8"
+                                            Background="{DynamicResource CardBackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderDefaultBrush}"
+                                            BorderThickness="1"
+                                            Padding="14,10" MinHeight="60"
+                                            BoxShadow="0 1 3 0 #20000000"
                                             Classes.selected="{Binding IsActive}"
-                                            DragDrop.AllowDrop="True" DragDrop.DragOver="OnCardDragOver" DragDrop.Drop="OnCardDrop">
+                                            DragDrop.AllowDrop="True" DragDrop.DragOver="OnCardDragOver" DragDrop.Drop="OnCardDrop" DragDrop.DragLeave="OnCardDragLeave">
+                                        <Border.Transitions>
+                                            <Transitions>
+                                                <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                                                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.15"/>
+                                            </Transitions>
+                                        </Border.Transitions>
                                         <Border.Styles>
                                             <Style Selector="Border.selected">
-                                                <Setter Property="Background" Value="#0AFFFFFF"/>
-                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentLateBrush}"/>
+                                                <Setter Property="BorderThickness" Value="1.5"/>
+                                                <Setter Property="Background" Value="#101D4ED8"/>
                                             </Style>
-                                            <Style Selector="Border">
-                                                <Setter Property="Background" Value="Transparent"/>
-                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+                                            <Style Selector="Border:pointerover">
+                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+                                                <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
+                                                <Setter Property="BoxShadow" Value="0 3 8 0 #40000000"/>
+                                            </Style>
+                                            <Style Selector="Border.dragging">
+                                                <Setter Property="Opacity" Value="0.25"/>
                                             </Style>
                                         </Border.Styles>
-                                        
-                                        <Grid RowDefinitions="Auto, *">
-                                            <!-- Cover Overlay (Thin line on top instead of full background) -->
-                                            <Border Grid.Row="0" Height="2" CornerRadius="6" HorizontalAlignment="Stretch"
-                                                    IsVisible="{Binding HasCover}">
-                                                <Panel>
-                                                    <Border Background="{Binding CoverColor}" IsVisible="{Binding !IsCoverImage}" Opacity="0.8"/>
-                                                    <Border Background="{Binding CoverColor}" Opacity="0.8"/>
-                                                </Panel>
-                                            </Border>
 
-                                            <!-- Content Grid -->
-                                            <Grid Grid.Row="1" ColumnDefinitions="Auto, Auto, *, Auto" MinHeight="48" Margin="0,0">
-                                            
-                                            <!-- Selected Glow / Drag Handle Container -->
-                                            <Grid Grid.Column="0" Width="32" Background="Transparent">
-                                                <!-- Neon Accent Line when selected -->
-                                                <Border Background="{DynamicResource AccentLateBrush}" 
-                                                        Width="2" HorizontalAlignment="Left" VerticalAlignment="Stretch"
-                                                        IsVisible="{Binding IsActive}">
-                                                    <Border.Effect>
-                                                        <DropShadowEffect Color="{DynamicResource AccentLateColor}" BlurRadius="8" Opacity="0.5"/>
-                                                    </Border.Effect>
-                                                </Border>
-                                                
-                                                <!-- Hidden Drag Handle (Visible on hover) -->
-                                                <PathIcon x:Name="DragHandle" Data="{StaticResource IconGripVertical}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="SizeAll" Opacity="0"
-                                                          ToolTip.Tip="Drag to Reorder" PointerPressed="OnCardPointerPressed">
-                                                    <PathIcon.Transitions>
-                                                        <Transitions>
-                                                            <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
-                                                        </Transitions>
-                                                    </PathIcon.Transitions>
-                                                </PathIcon>
-                                            </Grid>
-                                            
-                                            <!-- Checkbox -->
-                                            <CheckBox Grid.Column="1" IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                      Margin="4,0,8,0" VerticalAlignment="Center"
-                                                      Command="{Binding $parent[UserControl].DataContext.SelectionChangedCommand}">
-                                            </CheckBox>
-                                            
-                                            <!-- Name & Meta -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="4,8,12,8" Spacing="4" HorizontalAlignment="Stretch">
-                                                <TextBlock Text="{Binding Name}"
-                                                           FontWeight="Black" FontSize="13" LetterSpacing="0"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                                           TextWrapping="Wrap" MaxLines="3"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           HorizontalAlignment="Stretch"/>
-                                            </StackPanel>
-                                            
+                                        <Grid>
+                                            <!-- Cover Line (Top edge line when card has cover) -->
+                                            <Border Height="2" VerticalAlignment="Top" Margin="-14,-10,-14,0" CornerRadius="8,8,0,0"
+                                                    Background="{Binding CoverColor}" Opacity="0.9"
+                                                    IsVisible="{Binding HasCover}"/>
+
+                                            <!-- Content Grid: Col 0 (Indicator) + Col 1 (Checkbox) + Col 2 (Title) + Col 3 (Badges) -->
+                                            <Grid ColumnDefinitions="Auto, Auto, *, Auto" VerticalAlignment="Stretch">
+                                                <!-- Active Indicator Bar -->
+                                                <Border Grid.Column="0" Width="3" Height="14" CornerRadius="1.5"
+                                                        Background="{DynamicResource AccentLateBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Center"
+                                                        IsVisible="{Binding IsActive}"/>
+
+                                                <!-- Checkbox -->
+                                                <CheckBox Grid.Column="1"
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          Margin="0,0,10,0" VerticalAlignment="Center"
+                                                          Command="{Binding $parent[UserControl].DataContext.SelectionChangedCommand}"/>
+
+                                                <!-- Title -->
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding Name}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,1"/>
+
                                             <!-- Status Badges (Right Side) -->
-                                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0" Spacing="8">
-                                                
-                                                  <!-- Checklist status -->
-                                              <Border CornerRadius="5" Padding="5,2" BorderThickness="1" IsVisible="{Binding HasChecklist}" ToolTip.Tip="{Binding ChecklistTooltip}">
-                                                  <Border.BorderBrush>
-                                                      <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="border">
-                                                          <Binding Path="IsChecklistDone"/>
-                                                      </MultiBinding>
-                                                  </Border.BorderBrush>
-                                                  <Border.Background>
-                                                      <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="bg">
-                                                          <Binding Path="IsChecklistDone"/>
-                                                      </MultiBinding>
-                                                  </Border.Background>
-                                                  <StackPanel Orientation="Horizontal" Spacing="4">
-                                                      <Ellipse Width="6" Height="6">
-                                                          <Ellipse.Fill>
-                                                              <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="dot">
-                                                                  <Binding Path="IsChecklistDone"/>
-                                                              </MultiBinding>
-                                                          </Ellipse.Fill>
-                                                      </Ellipse>
-                                                      <TextBlock Text="{Binding ChecklistStatusLabel}" FontSize="8" FontWeight="SemiBold">
-                                                          <TextBlock.Foreground>
-                                                              <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="text">
-                                                                  <Binding Path="IsChecklistDone"/>
-                                                              </MultiBinding>
-                                                          </TextBlock.Foreground>
-                                                      </TextBlock>
-                                                  </StackPanel>
-                                              </Border>
-
+                                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0" Spacing="6">
+                                                <!-- Checklist status -->
+                                                <Border CornerRadius="6" Padding="6,3" BorderThickness="1"
+                                                        VerticalAlignment="Center"
+                                                        IsVisible="{Binding HasChecklist}"
+                                                        ToolTip.Tip="{Binding ChecklistTooltip}">
+                                                    <Border.BorderBrush>
+                                                        <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="border">
+                                                            <Binding Path="IsChecklistDone"/>
+                                                        </MultiBinding>
+                                                    </Border.BorderBrush>
+                                                    <Border.Background>
+                                                        <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="bg">
+                                                            <Binding Path="IsChecklistDone"/>
+                                                        </MultiBinding>
+                                                    </Border.Background>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                        <Ellipse Width="6" Height="6" VerticalAlignment="Center">
+                                                            <Ellipse.Fill>
+                                                                <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="dot">
+                                                                    <Binding Path="IsChecklistDone"/>
+                                                                </MultiBinding>
+                                                            </Ellipse.Fill>
+                                                        </Ellipse>
+                                                        <TextBlock Text="{Binding ChecklistStatusLabel}" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center">
+                                                            <TextBlock.Foreground>
+                                                                <MultiBinding Converter="{StaticResource BoolToColorConverter}" ConverterParameter="text">
+                                                                    <Binding Path="IsChecklistDone"/>
+                                                                </MultiBinding>
+                                                            </TextBlock.Foreground>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </Border>
                                             </StackPanel>
-
-                                            </Grid> <!-- End Content Grid -->
-                                        </Grid> <!-- End Row Grid -->
+                                            </Grid>
+                                        </Grid>
                                     </Border>
                                 </Button>
                                 </Panel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
             </ListBox>
+
+        <!-- Garis posisi sisip: satu overlay global, selalu di atas kartu mana pun -->
+        <Border x:Name="Part_DropLine" Height="5" CornerRadius="2.5"
+                HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                Margin="6,-9999,6,0" IsVisible="False" ZIndex="950" IsHitTestVisible="False">
+            <Border.Background>
+                <SolidColorBrush Color="{DynamicResource AccentLateColor}"/>
+            </Border.Background>
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" BlurRadius="6" OffsetX="0" OffsetY="1" Opacity="0.6"/>
+            </Border.Effect>
+        </Border>
+
+        <!-- Ghost kartu yang di-drag (mengikuti kursor seperti Trello) -->
+        <Border x:Name="Part_DragGhost" IsVisible="False" ZIndex="999" IsHitTestVisible="False"
+                CornerRadius="10" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
+                Padding="0,2" MinHeight="44">
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" BlurRadius="18" OffsetX="0" OffsetY="4" Opacity="0.55"/>
+            </Border.Effect>
+            <Border.RenderTransform>
+                <TranslateTransform/>
+            </Border.RenderTransform>
+            <Image x:Name="Part_DragGhostImage" Stretch="Uniform"/>
+        </Border>
 
             <!-- FAB Refresh Button Removed -->
         </Grid>

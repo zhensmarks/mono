@@ -15,6 +15,7 @@ public partial class TrelloCard : ObservableObject
     [ObservableProperty]
     private double _pos;
 
+
     // ...
 
     // Computed property for logic ID (prefix before _)
