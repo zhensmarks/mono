@@ -346,16 +346,26 @@ def _split_csv_numbers(group_text):
 
 
 def find_candidate_codes(folder_path, prefer_tag=None):
-    prefer_tag = (prefer_tag or "").upper()
-    cand, seen = [], set()
+    """Kumpulkan kandidat kode dari semua .txt di folder.
 
-    def push(x):
-        if x is None: return
-        x = str(x)
-        # Filter out 8 if it looks like 8R, or 10 if 10RP
-        if x not in seen:
-            seen.add(x)
-            cand.append(x)
+    PRIORITAS: kode eksplisit (MSK-001, 10RP 001, BML-002) didahulukan di atas
+    angka polos. Angka polos sering hanya catatan seperti "-4 SUSULAN.txt" yang
+    BUKAN kode master; kalau didahulukan, ia salah menang atas kode eksplisit
+    seperti "MSK-001 (KOLASE).txt" dan memilih master yang keliru.
+    """
+    prefer_tag = (prefer_tag or "").upper()
+    candidates_map = {}  # code -> high_priority (True/False)
+
+    def register(val, high_priority=False):
+        if val is None:
+            return
+        val = str(val).strip()
+        if not val:
+            return
+        if val not in candidates_map:
+            candidates_map[val] = high_priority
+        elif high_priority:
+            candidates_map[val] = True
 
     try:
         for filename in os.listdir(folder_path):
@@ -370,31 +380,34 @@ def find_candidate_codes(folder_path, prefer_tag=None):
 
             # Gabung nama file dan isi untuk pencarian
             search_text = f"{filename}\n{content}"
-            
-            # Strategi: Ambil semua angka 1-3 digit
-            raw_nums = re.findall(r'(?<!\d)(\d{1,3})(?!\d)', search_text)
-            
-            # A. Explicit MSK pattern: MSK[- ]?(\d{1,3})
-            for m in re.finditer(r'MSK[\s-]*(\d{1,3})', search_text, re.IGNORECASE):
-                push(m.group(1))
 
-            # B. Explicit Type pattern: (10RP|8R)[\s-]*(\d{1,3})
-            for m in re.finditer(r'(?:10RP|8R)[\s-]*(\d{1,3})', search_text, re.IGNORECASE):
-                push(m.group(1))
+            # A. Kode eksplisit MSK: MSK-001 / MSK 001 / MSK_001 -> prioritas tinggi
+            for m in re.finditer(r'MSK[\s_-]*(\d{1,3})', search_text, re.IGNORECASE):
+                register(m.group(1), high_priority=True)
 
-            # C. Fallback: Ambil semua angka, tapi validasi
-            for num_str in raw_nums:
-                # Cek apakah angka ini adalah '8' dan di teks aslinya diikuti 'R'
+            # B. Kode eksplisit tipe: 10RP 001 / 8R 001 -> prioritas tinggi
+            for m in re.finditer(r'(?:10RP|8R)[\s_-]*(\d{1,3})', search_text, re.IGNORECASE):
+                register(m.group(1), high_priority=True)
+
+            # C. Kode berprefix umum: BML-002 / KML_003 / FRS-014 -> prioritas tinggi
+            for m in re.finditer(r'\b[A-Za-z]+[\s_-]+(\d{1,3})(?!\d)', search_text):
+                register(m.group(1), high_priority=True)
+
+            # D. Fallback angka polos -> prioritas rendah (buang noise 8 / 10)
+            for num_str in re.findall(r'(?<!\d)(\d{1,3})(?!\d)', search_text):
                 if num_str == '8' and '8R' in search_text.upper():
-                    continue 
+                    continue
                 if num_str == '10' and '10RP' in search_text.upper():
-                    continue 
-                push(num_str)
+                    continue
+                register(num_str, high_priority=False)
 
     except Exception as e:
         print(f"[ERROR] Gagal scan .txt di {folder_path}: {e}", file=sys.stderr)
 
-    return cand
+    # Kode eksplisit dulu (urutan kemunculan), baru angka polos.
+    high_prio = [k for k, v in candidates_map.items() if v]
+    low_prio = [k for k, v in candidates_map.items() if not v]
+    return high_prio + low_prio
 
 
 def find_master_file(master_folder, code):
