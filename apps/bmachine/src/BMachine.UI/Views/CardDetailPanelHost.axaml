@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:views="using:BMachine.UI.Views"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:BMachine.UI.ViewModels"
              xmlns:models="using:BMachine.UI.Models"
@@ -113,38 +113,10 @@
 
                         <StackPanel Spacing="8">
                             <TextBlock Text="Description" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
-                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                <TextBox Text="{Binding SelectedCard.Description}"
-                                         TextWrapping="Wrap"
-                                         IsReadOnly="True"
-                                         Focusable="False"
-                                         BorderThickness="0"
-                                         Background="Transparent"
-                                         Foreground="{DynamicResource TextSecondaryBrush}" 
-                                         FontSize="12" 
-                                         Padding="0"
-                                         AcceptsReturn="True"
-                                         Cursor="Arrow"
-                                         IsHitTestVisible="True">
-                                    <TextBox.Styles>
-                                        <Style Selector="TextBox">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                        </Style>
-                                        <Style Selector="TextBox:pointerover">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                        </Style>
-                                        <Style Selector="TextBox:readonly">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                        </Style>
-                                        <Style Selector="TextBox:pointerover /template/ Border">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="BorderBrush" Value="Transparent"/>
-                                        </Style>
-                                        <Style Selector="TextBox /template/ Border">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                        </Style>
-                                    </TextBox.Styles>
-                                </TextBox>
+                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" BringIntoViewOnFocusChange="False">
+                                <controls:FormattedTextBlock Text="{Binding SelectedCard.Description}"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             FontSize="12"/>
                             </ScrollViewer>
                         </StackPanel>
                     </StackPanel>
@@ -160,10 +132,20 @@
             <Grid RowDefinitions="Auto, *, Auto" Margin="20">
                 <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20">
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Comments" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                        <TextBlock Text="Comments" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Left" HorizontalAlignment="Left"/>
+                        <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" TextAlignment="Left" HorizontalAlignment="Left"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+                        <Button Command="{Binding $parent[UserControl].DataContext.ToggleShowActivityCommand}"
+                                Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Cursor="Hand" VerticalAlignment="Center"
+                                ToolTip.Tip="Show / hide activity">
+                            <Grid>
+                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Text="Hide details" VerticalAlignment="Center"
+                                           IsVisible="{Binding $parent[UserControl].DataContext.ShowActivity}"/>
+                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Text="Show details" VerticalAlignment="Center"
+                                           IsVisible="{Binding !$parent[UserControl].DataContext.ShowActivity}"/>
+                            </Grid>
+                        </Button>
                         <Button Click="OnOpenCommentWindowClicked"
                                 Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Open in New Window" VerticalAlignment="Center">
                             <Button.Styles>
@@ -180,106 +162,7 @@
                     </StackPanel>
                 </Grid>
 
-                <ScrollViewer x:Name="Part_CommentScrollViewer" Grid.Row="1">
-                    <StackPanel Spacing="15">
-                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingComments}" Height="2" Margin="0,20" Foreground="{DynamicResource AccentBlueBrush}"/>
-                        <TextBlock Text="No comments yet." IsVisible="{Binding !Comments.Count}"
-                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
-
-                        <ListBox ItemsSource="{Binding Comments}"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Padding="0"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                            <ListBox.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Vertical"/>
-                                </ItemsPanelTemplate>
-                            </ListBox.ItemsPanel>
-                            <ListBox.ItemContainerTheme>
-                                <ControlTheme TargetType="ListBoxItem">
-                                    <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="Margin" Value="0"/>
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                </ControlTheme>
-                            </ListBox.ItemContainerTheme>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,12" BoxShadow="0 2 10 0 #05000000">
-                                        <Grid RowDefinitions="Auto, *">
-                                            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,8">
-                                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding MemberCreatorName}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,0,0"/>
-                                                </StackPanel>
-
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsMine}">
-                                                    <Button Command="{Binding $parent[UserControl].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
-                                                            Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
-                                                            IsVisible="{Binding !IsEditing}">
-                                                        <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    </Button>
-                                                    <Button Command="{Binding $parent[UserControl].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
-                                                            Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
-                                                            IsVisible="{Binding !IsEditing}">
-                                                        <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
-                                                    </Button>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <Grid Grid.Row="1">
-                                                <TextBox Text="{Binding Text}" 
-                                                         Foreground="{DynamicResource TextSecondaryBrush}" 
-                                                         FontSize="13"
-                                                         IsVisible="{Binding !IsEditing}"
-                                                         IsReadOnly="True"
-                                                         Focusable="False"
-                                                         BorderThickness="0"
-                                                         Background="Transparent"
-                                                         TextWrapping="Wrap"
-                                                         AcceptsReturn="True"
-                                                         Cursor="Arrow"
-                                                         Padding="0">
-                                                    <TextBox.Styles>
-                                                        <Style Selector="TextBox">
-                                                            <Setter Property="Background" Value="Transparent"/>
-                                                        </Style>
-                                                        <Style Selector="TextBox:pointerover">
-                                                            <Setter Property="Background" Value="Transparent"/>
-                                                        </Style>
-                                                        <Style Selector="TextBox:readonly">
-                                                            <Setter Property="Background" Value="Transparent"/>
-                                                        </Style>
-                                                        <Style Selector="TextBox:pointerover /template/ Border">
-                                                            <Setter Property="Background" Value="Transparent"/>
-                                                            <Setter Property="BorderBrush" Value="Transparent"/>
-                                                        </Style>
-                                                        <Style Selector="TextBox /template/ Border">
-                                                            <Setter Property="Background" Value="Transparent"/>
-                                                        </Style>
-                                                    </TextBox.Styles>
-                                                </TextBox>
-
-                                                <StackPanel IsVisible="{Binding IsEditing}" Spacing="6" Margin="0,8,0,0">
-                                                    <TextBox Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
-                                                             Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12" BorderThickness="1"
-                                                             Padding="12" FontSize="13"/>
-                                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                                                        <Button Content="Cancel" Command="{Binding $parent[UserControl].DataContext.CancelEditCommentCommand}" CommandParameter="{Binding}"
-                                                                Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="8" Cursor="Hand" FontSize="12" FontWeight="Medium"/>
-                                                        <Button Content="Save" Command="{Binding $parent[UserControl].DataContext.SaveEditCommentCommand}" CommandParameter="{Binding}"
-                                                                Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="8" Cursor="Hand" FontSize="12" FontWeight="SemiBold"/>
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </StackPanel>
-                </ScrollViewer>
+                <views:CommentListView Grid.Row="1"/>
 
                 <Grid Grid.Row="2" Margin="0,20,0,0">
                     <StackPanel VerticalAlignment="Bottom" Spacing="8">

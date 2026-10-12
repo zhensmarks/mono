@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:views="using:BMachine.UI.Views"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -21,75 +21,25 @@
     <Grid RowDefinitions="Auto, *, Auto" Margin="20">
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,20" Background="Transparent" PointerPressed="Header_PointerPressed">
-            <StackPanel Spacing="4">
-                <TextBlock Text="Comments" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <TextBlock Text="{Binding SelectedCard.Name}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+            <StackPanel Spacing="4" HorizontalAlignment="Left">
+                <TextBlock Text="Comments" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Left" HorizontalAlignment="Left"/>
+                <TextBlock Text="{Binding SelectedCard.Name}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" TextAlignment="Left" HorizontalAlignment="Left"/>
             </StackPanel>
-            <Button Grid.Column="1" Classes="WindowClose" Click="CloseButton_Click" VerticalAlignment="Top" ToolTip.Tip="Close">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Top">
+                <Button Command="{Binding ToggleShowActivityCommand}" Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Cursor="Hand" VerticalAlignment="Center" ToolTip.Tip="Show / hide activity">
+                    <Grid>
+                        <TextBlock Text="Hide details" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" IsVisible="{Binding ShowActivity}"/>
+                        <TextBlock Text="Show details" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" IsVisible="{Binding !ShowActivity}"/>
+                    </Grid>
+                </Button>
+            <Button Classes="WindowClose" Click="CloseButton_Click" ToolTip.Tip="Close">
                 <PathIcon Data="{StaticResource IconX}"/>
             </Button>
+            </StackPanel>
         </Grid>
 
         <!-- Comments List -->
-        <ScrollViewer Grid.Row="1" x:Name="CommentScrollViewer">
-            <StackPanel Spacing="15">
-                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingComments}" Margin="0,20"/>
-                <TextBlock Text="No comments yet." IsVisible="{Binding !Comments.Count}" 
-                           Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" HorizontalAlignment="Center"/>
-                
-                <ItemsControl ItemsSource="{Binding Comments}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,0,12" BoxShadow="0 2 10 0 #05000000">
-                                <Grid RowDefinitions="Auto, *">
-                                    <!-- Header (Name, Date, Actions) -->
-                                    <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,4">
-                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding MemberCreatorName}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,0,0"/>
-                                        </StackPanel>
-                                        
-                                        <!-- Action Bar -->
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsMine}">
-                                            <Button Command="{Binding $parent[Window].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
-                                                    Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
-                                                    IsVisible="{Binding !IsEditing}">
-                                                <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                            </Button>
-                                            <Button Command="{Binding $parent[Window].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
-                                                    Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
-                                                    IsVisible="{Binding !IsEditing}">
-                                                <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
-                                            </Button>
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- Body -->
-                                    <Grid Grid.Row="1">
-                                        <!-- Read Mode -->
-                                        <controls:FormattedTextBlock Text="{Binding Text}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"
-                                                                     IsVisible="{Binding !IsEditing}"/>
-                                        
-                                        <!-- Edit Mode -->
-                                        <StackPanel IsVisible="{Binding IsEditing}" Spacing="6" Margin="0,4,0,0">
-                                            <TextBox Text="{Binding EditText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
-                                                     Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="12"
-                                                     Padding="12" FontSize="13"/>
-                                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                                                <Button Content="Cancel" Command="{Binding $parent[Window].DataContext.CancelEditCommentCommand}" CommandParameter="{Binding}"
-                                                        Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="12,6" CornerRadius="8" Cursor="Hand" FontSize="12" FontWeight="Medium"/>
-                                                <Button Content="Save" Command="{Binding $parent[Window].DataContext.SaveEditCommentCommand}" CommandParameter="{Binding}"
-                                                        Background="{DynamicResource AccentColorBrush}" Foreground="White" Padding="12,6" CornerRadius="8" Cursor="Hand" FontSize="12" FontWeight="SemiBold"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Grid>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </ScrollViewer>
+        <views:CommentListView Grid.Row="1"/>
 
         <!-- Input Area -->
         <Grid Grid.Row="2" Margin="0,20,0,0">

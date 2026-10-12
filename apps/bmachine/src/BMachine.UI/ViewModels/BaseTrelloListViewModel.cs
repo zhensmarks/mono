@@ -579,7 +579,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 try
                 {
                     using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token, TimeSpan.FromSeconds(15));
-                    var url = $"https://api.trello.com/1/cards/{cardId}/actions?filter=commentCard&memberCreator=true&memberCreator_fields=fullName,initials,avatarHash";
+                    var url = $"https://api.trello.com/1/cards/{cardId}/actions?filter=commentCard,updateCard:idList,updateCard:closed,updateCard:name,updateCard:desc,updateCard:due,copyCard,moveCardToBoard,addMemberToCard,removeMemberFromCard,addAttachmentToCard,deleteAttachmentFromCard,addChecklistToCard,updateCheckItemStateOnCard,createCard&memberCreator=true&memberCreator_fields=fullName,initials,avatarHash";
                     json = await client.GetStringAsync(url);
                     break;
                 }
@@ -598,10 +598,13 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
             foreach (var element in doc.RootElement.EnumerateArray())
             {
+                var actionType = element.TryGetProperty("type", out var typeProp) ? typeProp.GetString() ?? "" : "";
                 var comment = new TrelloComment
                 {
                     Id = element.GetProperty("id").GetString() ?? "",
-                    Date = element.GetProperty("date").GetDateTime().ToLocalTime()
+                    Date = element.GetProperty("date").GetDateTime().ToLocalTime(),
+                    IsActivity = actionType != "commentCard",
+                    ActivityText = actionType == "commentCard" ? "" : BuildActivityText(actionType, element)
                 };
 
                 if (element.TryGetProperty("data", out var data))
@@ -724,6 +727,50 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         {
             IsLoadingComments = false;
         }
+    }
+
+    // --- Activity visibility (hide/show details seperti move/transfer/completed) ---
+    [ObservableProperty]
+    private bool _showActivity = true;
+
+    [RelayCommand]
+    public void ToggleShowActivity()
+    {
+        ShowActivity = !ShowActivity;
+    }
+
+    private static string BuildActivityText(string type, System.Text.Json.JsonElement element)
+    {
+        string who = element.TryGetProperty("memberCreator", out var mc) && mc.TryGetProperty("fullName", out var fn)
+            ? fn.GetString() ?? "" : "";
+        string card = element.TryGetProperty("data", out var d) && d.TryGetProperty("card", out var c) && c.TryGetProperty("name", out var cn)
+            ? cn.GetString() ?? "" : "";
+        string Str(System.Text.Json.JsonElement parent, string prop) =>
+            parent.ValueKind == System.Text.Json.JsonValueKind.Object && parent.TryGetProperty(prop, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String
+                ? v.GetString() ?? "" : "";
+
+        var data = element.TryGetProperty("data", out var dd) ? dd : default;
+        string listAfter = Str(data, "listAfter") is var la && la != "" ? la : (data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("list", out var l1) ? Str(l1, "name") : "");
+        string listBefore = data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("listBefore", out var lb) ? Str(lb, "name") : "";
+        string member = data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("member", out var mem) ? Str(mem, "fullName") : "";
+        string check = data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("checkItem", out var ci) ? Str(ci, "name") : "";
+
+        return type switch
+        {
+            "updateCard" when listBefore != "" && listAfter != "" => $"{who} moved this card from {listBefore} to {listAfter}",
+            "updateCard" when data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("closed", out _) => $"{who} archived/unarchived this card",
+            "updateCard" => $"{who} updated this card",
+            "copyCard" => $"{who} copied this card",
+            "moveCardToBoard" => $"{who} moved this card to another board",
+            "addMemberToCard" => $"{who} added {member} to this card",
+            "removeMemberFromCard" => $"{who} removed {member} from this card",
+            "addAttachmentToCard" => $"{who} added an attachment to this card",
+            "deleteAttachmentFromCard" => $"{who} removed an attachment from this card",
+            "addChecklistToCard" => $"{who} added a checklist to this card",
+            "updateCheckItemStateOnCard" => $"{who} completed \"{check}\" on this card",
+            "createCard" => $"{who} created this card",
+            _ => $"{who} {type}"
+        };
     }
 
     // --- Comment Edit & Delete Commands ---

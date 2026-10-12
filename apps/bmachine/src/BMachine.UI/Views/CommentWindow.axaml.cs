@@ -16,8 +16,6 @@ public partial class CommentWindow : Window
         InitializeComponent();
     }
 
-    private Vector _savedScrollOffset;
-
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
@@ -35,11 +33,7 @@ public partial class CommentWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        this.Activated += OnWindowActivated;
-        this.Deactivated += OnWindowDeactivated;
-        
-        this.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, OnPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        
+
         var textBox = this.FindControl<TextBox>("Part_CommentTextBox");
         if (textBox != null)
         {
@@ -47,12 +41,6 @@ public partial class CommentWindow : Window
             textBox.PropertyChanged += CommentTextBox_PropertyChanged;
         }
 
-        var scrollViewer = this.FindControl<ScrollViewer>("CommentScrollViewer");
-        if (scrollViewer != null)
-        {
-            scrollViewer.AddHandler(Avalonia.Controls.Control.RequestBringIntoViewEvent, OnRequestBringIntoView, Avalonia.Interactivity.RoutingStrategies.Bubble, true);
-        }
-        
         // Set up Drag-and-Drop on the attach button area
         var attachButton = this.FindControl<Button>("Part_AttachButton");
         if (attachButton != null)
@@ -71,17 +59,8 @@ public partial class CommentWindow : Window
         }
     }
 
-    private void OnRequestBringIntoView(object? sender, Avalonia.Controls.RequestBringIntoViewEventArgs e)
-    {
-        e.Handled = true;
-    }
-
     protected override void OnClosed(EventArgs e)
     {
-        this.Activated -= OnWindowActivated;
-        this.Deactivated -= OnWindowDeactivated;
-        this.RemoveHandler(Avalonia.Input.InputElement.PointerPressedEvent, OnPointerPressed);
-        
         var textBox = this.FindControl<TextBox>("Part_CommentTextBox");
         if (textBox != null)
         {
@@ -90,40 +69,6 @@ public partial class CommentWindow : Window
         }
 
         base.OnClosed(e);
-    }
-
-    private void OnWindowDeactivated(object? sender, EventArgs e)
-    {
-        SaveScrollOffset();
-    }
-
-    private void OnWindowActivated(object? sender, EventArgs e)
-    {
-        if (_savedScrollOffset.Y > 0)
-        {
-             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
-             {
-                 var scrollViewer = this.FindControl<ScrollViewer>("CommentScrollViewer");
-                 if (scrollViewer != null)
-                 {
-                     scrollViewer.Offset = _savedScrollOffset;
-                 }
-             }, Avalonia.Threading.DispatcherPriority.Loaded);
-        }
-    }
-
-    private void OnPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
-    {
-        SaveScrollOffset();
-    }
-
-    private void SaveScrollOffset()
-    {
-        var scrollViewer = this.FindControl<ScrollViewer>("CommentScrollViewer");
-        if (scrollViewer != null)
-        {
-            _savedScrollOffset = scrollViewer.Offset;
-        }
     }
 
     private void Header_PointerPressed(object? sender, PointerPressedEventArgs e)

@@ -27,4 +27,8 @@ public partial class TrelloComment : ObservableObject
 
     [ObservableProperty]
     private string _editText = "";
+
+    // --- Activity (move/transfer/complete/dll) dari Trello action selain commentCard ---
+    public bool IsActivity { get; set; }
+    public string ActivityText { get; set; } = "";
 }

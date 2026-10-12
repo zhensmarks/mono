@@ -13,8 +13,6 @@ namespace BMachine.UI.Views;
 
 public partial class CardDetailPanelHost : UserControl
 {
-    private Vector _savedCommentScrollOffset;
-
     public CardDetailPanelHost()
     {
         InitializeComponent();
@@ -23,11 +21,6 @@ public partial class CardDetailPanelHost : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        this.AddHandler(
-            Avalonia.Controls.Control.RequestBringIntoViewEvent,
-            OnRequestBringIntoView,
-            RoutingStrategies.Tunnel,
-            true);
 
         var textBox = this.FindControl<TextBox>("Part_CommentTextBox");
         if (textBox != null)
@@ -58,26 +51,10 @@ public partial class CardDetailPanelHost : UserControl
         var moveListBox = this.FindControl<AutoCompleteBox>("Part_MoveListBox");
         if (moveListBox != null) BMachine.UI.Controls.AutoCompleteBoxHelper.Hook(moveListBox);
 
-        // Cegah lompatan scroll saat klik biasa di panel detail/komentar.
-        // Auto-scroll saat drag-select tetap bekerja (lihat PointerScrollGuard).
-        if (!_scrollGuardAttached)
-        {
-            _scrollGuardAttached = true;
-            Loaded += (_, _) =>
-            {
-                foreach (var sv in this.GetVisualDescendants().OfType<ScrollViewer>())
-                    if (sv.Name is "Part_DetailScrollViewer" or "Part_CommentScrollViewer")
-                        BMachine.UI.Controls.PointerScrollGuard.Attach(this, sv);
-            };
-        }
     }
-
-    private bool _scrollGuardAttached;
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        this.RemoveHandler(Avalonia.Controls.Control.RequestBringIntoViewEvent, OnRequestBringIntoView);
-
         var textBox = this.FindControl<TextBox>("Part_CommentTextBox");
         if (textBox != null)
         {
@@ -98,11 +75,6 @@ public partial class CardDetailPanelHost : UserControl
             vm.PropertyChanged -= ViewModel_PropertyChanged;
 
         base.OnDetachedFromVisualTree(e);
-    }
-
-    private void OnRequestBringIntoView(object? sender, RequestBringIntoViewEventArgs e)
-    {
-        e.Handled = true;
     }
 
     private void OnDetailPanelPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -160,24 +132,6 @@ public partial class CardDetailPanelHost : UserControl
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (DataContext is not BaseTrelloListViewModel vm) return;
-
-        if (e.PropertyName == nameof(BaseTrelloListViewModel.IsLoadingComments))
-        {
-            var scrollViewer = this.FindControl<ScrollViewer>("Part_CommentScrollViewer");
-            if (scrollViewer == null) return;
-
-            if (vm.IsLoadingComments)
-            {
-                _savedCommentScrollOffset = scrollViewer.Offset;
-            }
-            else if (_savedCommentScrollOffset.Y > 0)
-            {
-                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    scrollViewer.Offset = _savedCommentScrollOffset;
-                }, Avalonia.Threading.DispatcherPriority.Loaded);
-            }
-        }
 
         // Reset teks AutoCompleteBox saat SelectedItem berubah ke null
         if (e.PropertyName == nameof(BaseTrelloListViewModel.SelectedMoveBoard))
