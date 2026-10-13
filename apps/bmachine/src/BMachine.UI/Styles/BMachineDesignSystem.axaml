@@ -520,11 +520,7 @@
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
-    <Style Selector="Button.IconBtn:pointerover, Button.iconBtn:pointerover">
-        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-    </Style>
+    <!-- Tombol ikon borderless: tanpa efek hover background/border/foreground. -->
     <Style Selector="Button.IconBtn:pressed, Button.iconBtn:pressed">
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}" />
     </Style>

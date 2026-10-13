@@ -22,6 +22,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         _activityService = database as IActivityService; // Attempt to cast, or we could inject explicitly if refactored
         _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
         Cards = new ObservableCollection<TrelloCard>();
+        RegisterActivityInstance();
     }
 
     // Design-time constructor support
@@ -31,6 +32,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         _activityService = null;
         _platformService = BMachine.Core.Platform.PlatformServiceFactory.Get();
         Cards = new ObservableCollection<TrelloCard>();
+        RegisterActivityInstance();
     }
     
     // Customize Accent Color
@@ -730,8 +732,33 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     }
 
     // --- Activity visibility (hide/show details seperti move/transfer/completed) ---
-    [ObservableProperty]
-    private bool _showActivity = true;
+    // Global: satu state untuk semua card di semua list VM. Toggle di satu card
+    // berlaku untuk card lain juga.
+    private static bool _globalShowActivity = true;
+    private static readonly System.Collections.Generic.List<WeakReference<BaseTrelloListViewModel>> _activityInstances = new();
+
+    public bool ShowActivity
+    {
+        get => _globalShowActivity;
+        private set
+        {
+            if (_globalShowActivity == value) return;
+            _globalShowActivity = value;
+            lock (_activityInstances)
+            {
+                _activityInstances.RemoveAll(w => !w.TryGetTarget(out _));
+                foreach (var w in _activityInstances)
+                {
+                    if (w.TryGetTarget(out var vm)) vm.OnPropertyChanged(nameof(ShowActivity));
+                }
+            }
+        }
+    }
+
+    private void RegisterActivityInstance()
+    {
+        lock (_activityInstances) _activityInstances.Add(new WeakReference<BaseTrelloListViewModel>(this));
+    }
 
     [RelayCommand]
     public void ToggleShowActivity()

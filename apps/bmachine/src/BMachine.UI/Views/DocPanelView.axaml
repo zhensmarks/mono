@@ -99,7 +99,7 @@
                             <PathIcon Data="{StaticResource IconCirclePlus}" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
                         </Button>
                         <Button Grid.Column="4" Command="{Binding BatchVM.ResetDocCommand}" ToolTip.Tip="Reset Semua (Nama, Alamat, Logo)"
-                                Classes="danger" Padding="4" CornerRadius="6" Cursor="Hand">
+                                Classes="docTool danger">
                             <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
                         </Button>
                     </Grid>
@@ -211,7 +211,8 @@
         <!-- ========================================== -->
         <Grid IsVisible="{Binding BatchVM.IsDocFloating}" RowDefinitions="*" Margin="14">
             
-            <!-- Logo + Text Content Row -->
+            <!-- Logo + Text Content Row (scrollable agar window bisa dikecilkan) -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <Grid Grid.Row="0">
                 <!-- 1 Logo Mode (Left/Right) -->
                 <Grid ColumnDefinitions="Auto, *" IsVisible="{Binding !BatchVM.IsSecondLogoVisible}">
@@ -331,6 +332,7 @@
                     </Grid>
                 </Grid>
             </Grid>
+            </ScrollViewer>
 
         </Grid>
 
