@@ -146,13 +146,8 @@
                                            IsVisible="{Binding !$parent[UserControl].DataContext.ShowActivity}"/>
                             </Grid>
                         </Button>
-                        <Button Click="OnOpenCommentWindowClicked"
+                        <Button Classes="ghostIcon" Click="OnOpenCommentWindowClicked"
                                 Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Open in New Window" VerticalAlignment="Center">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover">
-                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
-                                </Style>
-                            </Button.Styles>
                             <PathIcon Data="{StaticResource IconOpenWindow}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </Button>
                         <Button Command="{Binding $parent[UserControl].DataContext.CloseCommentsPanelCommand}"
@@ -219,7 +214,7 @@
                                                         Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand">
                                                     <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 </Button>
-                                                <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
+                                                <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
                                                         Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
                                                     <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
                                                 </Button>
@@ -235,7 +230,7 @@
                                             <KeyBinding Gesture="Enter" Command="{Binding $parent[UserControl].DataContext.AddCommentPresetCommand}"/>
                                         </TextBox.KeyBindings>
                                     </TextBox>
-                                    <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.AddCommentPresetCommand}"
+                                    <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.AddCommentPresetCommand}"
                                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Save Preset">
                                         <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" Foreground="#22C55E"/>
                                     </Button>
@@ -278,7 +273,7 @@
                                 <KeyBinding Gesture="Enter" Command="{Binding $parent[UserControl].DataContext.SendCommentCommand}"/>
                             </TextBox.KeyBindings>
                             <TextBox.InnerLeftContent>
-                                <Button x:Name="Part_InlineAttachButton"
+                                <Button Classes="ghostIcon" x:Name="Part_InlineAttachButton"
                                         Command="{Binding $parent[UserControl].DataContext.AddAttachmentCommand}"
                                         Background="Transparent" BorderThickness="0" Padding="8,0,0,0" Margin="0" Cursor="Hand"
                                         ToolTip.Tip="Attach Image">
@@ -287,28 +282,16 @@
                             </TextBox.InnerLeftContent>
                                 <TextBox.InnerRightContent>
                                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,8,0" VerticalAlignment="Bottom">
-                                        <Button Command="{Binding $parent[UserControl].DataContext.TogglePresetPanelCommand}"
+                                        <Button Classes="ghostIcon" Command="{Binding $parent[UserControl].DataContext.TogglePresetPanelCommand}"
                                                 Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Quick Replies"
                                                 Width="32" Height="32" Margin="0,0,0,4">
-                                            <Button.Styles>
-                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                                    <Setter Property="Opacity" Value="0.8"/>
-                                                    <Setter Property="Background" Value="Transparent"/>
-                                                </Style>
-                                            </Button.Styles>
                                             <Border Background="{DynamicResource SeparatorBrush}" CornerRadius="16" Width="32" Height="32">
                                                 <PathIcon Data="{StaticResource IconChevronUp}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </Border>
                                         </Button>
-                                        <Button Command="{Binding $parent[UserControl].DataContext.SendCommentCommand}"
+                                        <Button Classes="ghostIcon" Command="{Binding $parent[UserControl].DataContext.SendCommentCommand}"
                                                 Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Send Comment"
                                                 Width="32" Height="32" Margin="0,0,0,4">
-                                            <Button.Styles>
-                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                                    <Setter Property="Opacity" Value="0.8"/>
-                                                    <Setter Property="Background" Value="Transparent"/>
-                                                </Style>
-                                            </Button.Styles>
                                             <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="16" Width="32" Height="32">
                                                 <PathIcon Data="{StaticResource IconSend}" Width="14" Height="14" Foreground="White" Margin="2,0,0,0"/>
                                             </Border>
@@ -371,7 +354,7 @@
                                                       Foreground="{DynamicResource TextPrimaryBrush}" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
 
-                                            <Button Grid.Column="2"
+                                            <Button Classes="ghostIcon" Grid.Column="2"
                                                     Command="{Binding $parent[UserControl].DataContext.DeleteChecklistCommand}"
                                                     CommandParameter="{Binding}"
                                                     Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand" ToolTip.Tip="Delete Checklist">
@@ -547,7 +530,7 @@
                                 <DataTemplate>
                                     <Border Margin="5" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" ClipToBounds="True">
                                         <Grid RowDefinitions="*, Auto">
-                                            <Button Grid.Row="0" Command="{Binding $parent[UserControl].DataContext.OpenAttachmentCommand}" CommandParameter="{Binding}"
+                                            <Button Classes="ghostIcon" Grid.Row="0" Command="{Binding $parent[UserControl].DataContext.OpenAttachmentCommand}" CommandParameter="{Binding}"
                                                     Background="Transparent" BorderThickness="0" Padding="0" Margin="0">
                                                 <Panel>
                                                     <Image Source="{Binding Thumbnail}" IsVisible="{Binding IsImage}" Stretch="UniformToFill"/>

@@ -244,16 +244,10 @@
                                   </Grid>
                                   <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Black" FontSize="20" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
                               </StackPanel>
-                              <Button Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Padding="8,0" CornerRadius="6"
+                              <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Padding="8,0" CornerRadius="6"
                                       Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextSecondaryBrush}"
                                       Cursor="Hand" VerticalAlignment="Top" HorizontalAlignment="Center">
                                   <PathIcon Data="{StaticResource IconX}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                  <Button.Styles>
-                                      <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                          <Setter Property="Background" Value="Transparent"/>
-                                          <Setter Property="Foreground" Value="White"/>
-                                      </Style>
-                                  </Button.Styles>
                               </Button>
                           </Grid>
 
@@ -429,15 +423,9 @@
                             <TextBlock Text="ADD MANUAL CARD" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                             <TextBlock Text="PASTE TRELLO LINKS BELOW" FontSize="11" FontWeight="Bold" LetterSpacing="1" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}"
+                        <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}"
                                 Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Top">
                             <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </Style>
-                                </Button.Styles>
                         </Button>
                     </Grid>
                 </Border>
@@ -481,19 +469,13 @@
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
-                        <Button Click="OnOpenCommentWindowClicked" 
+                        <Button Classes="ghostIcon" Click="OnOpenCommentWindowClicked"
                                 Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Open in New Window">
                             <PathIcon Data="{StaticResource IconOpenWindow}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </Button>
-                        <Button Command="{Binding CloseCommentsPanelCommand}"
+                        <Button Classes="ghostIcon" Command="{Binding CloseCommentsPanelCommand}"
                                 Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
                             <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                </Style>
-                            </Button.Styles>
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -518,12 +500,12 @@
                                                 
                                                 <!-- Action Bar -->
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsMine}">
-                                                    <Button Command="{Binding $parent[UserControl].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
+                                                    <Button Classes="ghostIcon" Command="{Binding $parent[UserControl].DataContext.BeginEditCommentCommand}" CommandParameter="{Binding}"
                                                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Edit Comment"
                                                             IsVisible="{Binding !IsEditing}">
                                                         <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     </Button>
-                                                    <Button Command="{Binding $parent[UserControl].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
+                                                    <Button Classes="ghostIcon" Command="{Binding $parent[UserControl].DataContext.DeleteCommentCommand}" CommandParameter="{Binding}"
                                                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Delete Comment"
                                                             IsVisible="{Binding !IsEditing}">
                                                         <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#EF4444"/>
@@ -615,7 +597,7 @@
                                                          Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand">
                                                     <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="Bold"/>
                                                  </Button>
-                                                 <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
+                                                 <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
                                                          Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand">
                                                      <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#EF4444"/>
                                                  </Button>
@@ -632,7 +614,7 @@
                                               <KeyBinding Gesture="Enter" Command="{Binding AddCommentPresetCommand}"/>
                                           </TextBox.KeyBindings>
                                       </TextBox>
-                                      <Button Grid.Column="1" Command="{Binding AddCommentPresetCommand}"
+                                      <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding AddCommentPresetCommand}"
                                               Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand" ToolTip.Tip="Save Preset">
                                           <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" Foreground="#22C55E"/>
                                       </Button>
@@ -677,7 +659,7 @@
                                  <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
                              </TextBox.KeyBindings>
                              <TextBox.InnerLeftContent>
-                                 <Button x:Name="Part_InlineAttachButton"
+                                 <Button Classes="ghostIcon" x:Name="Part_InlineAttachButton"
                                          Command="{Binding AddAttachmentCommand}"
                                          Background="Transparent" BorderThickness="0" Padding="12,0,4,0" Margin="0" Cursor="Hand"
                                          ToolTip.Tip="Attach Image">
@@ -685,7 +667,7 @@
                                  </Button>
                              </TextBox.InnerLeftContent>
                              <TextBox.InnerRightContent>
-                                  <Button Command="{Binding TogglePresetPanelCommand}" 
+                                  <Button Classes="ghostIcon" Command="{Binding TogglePresetPanelCommand}"
                                           Background="Transparent" BorderThickness="0" Padding="8" Margin="0,0,4,0" Cursor="Hand" ToolTip.Tip="Quick Replies">
                                       <PathIcon Data="{StaticResource IconChevronUp}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                   </Button>
@@ -716,15 +698,9 @@
                          <TextBlock Text="CHECKLISTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}"
+                    <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}"
                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
                         <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <Button.Styles>
-                             <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                 <Setter Property="Background" Value="Transparent"/>
-                                 <Setter Property="Foreground" Value="White"/>
-                             </Style>
-                         </Button.Styles>
                     </Button>
                 </Grid>
 
@@ -744,7 +720,7 @@
                                                   Foreground="{DynamicResource TextPrimaryBrush}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,12,0"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Black" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
                                             
-                                            <Button Grid.Column="2" 
+                                            <Button Classes="ghostIcon" Grid.Column="2"
                                                     Command="{Binding $parent[UserControl].DataContext.DeleteChecklistCommand}" 
                                                     CommandParameter="{Binding}"
                                                     Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand" ToolTip.Tip="Delete Checklist">
@@ -834,15 +810,9 @@
                          <TextBlock Text="ATTACHMENTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Command="{Binding CloseAttachmentPanelCommand}"
+                    <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseAttachmentPanelCommand}"
                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
                         <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                         <Button.Styles>
-                             <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                 <Setter Property="Background" Value="Transparent"/>
-                                 <Setter Property="Foreground" Value="White"/>
-                             </Style>
-                         </Button.Styles>
                     </Button>
                 </Grid>
 
@@ -863,7 +833,7 @@
                                     <Border Margin="8" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" ClipToBounds="True" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                         <Grid RowDefinitions="*, Auto">
                                             <!-- Preview: Clickable to Open -->
-                                            <Button Grid.Row="0" Command="{Binding $parent[UserControl].DataContext.OpenAttachmentCommand}" CommandParameter="{Binding}"
+                                            <Button Classes="ghostIcon" Grid.Row="0" Command="{Binding $parent[UserControl].DataContext.OpenAttachmentCommand}" CommandParameter="{Binding}"
                                                     Background="Transparent" BorderThickness="0" Padding="0" Margin="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                                 <Panel>
                                                     <Image Source="{Binding Thumbnail}" IsVisible="{Binding IsImage}" Stretch="UniformToFill"/>

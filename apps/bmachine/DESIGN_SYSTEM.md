@@ -183,3 +183,16 @@ Classes: `PathIcon.xs` / `.sm` / `.lg` / `.xl`. Icon di dalam Button otomatis ik
 - Beda radius untuk komponen sejenis (misal button 6 vs 7 vs 10).
 - Icon beda ukuran tanpa alasan (12 vs 14 vs 18 random).
 - Hover beda warna per View (harus #22272B untuk pill, #27272B untuk secondary button, #10FFFFFF untuk ghost).
+
+## 14. Scrollbar
+
+- Scrollbar di semua ScrollViewer disembunyikan permanen lewat ControlTheme global (`BMachineDesignSystem.axaml`, ScrollBar `IsVisible="False"`).
+- Scroll tetap bisa lewat mouse wheel / gesture.
+- Jangan tambah scrollbar per-view.
+
+## 15. Tombol ikon borderless (ghostIcon)
+
+- Tombol ikon tanpa border/background (ikon toolbar: +, refresh, copy, trash, close X, send, dll) WAJIB pakai `Classes="ghostIcon"`.
+- `ghostIcon` (di `BMachineDesignSystem.axaml`) memakai template minimal + setter Transparent eksplisit untuk state `:pointerover`/`:pressed`, sehingga tema Semi.Avalonia tidak menyuntikkan hover background/border.
+- JANGAN sekadar menghapus blok `<Button.Styles>` hover dari satu view: style lokal itu juga yang menahan tema; setelah dihapus, tema default malah menampilkan hover lagi. Override eksplisit (template minimal) yang benar.
+- Tombol ber-label/ber-border (Action, primary, Muted, statusBtn, badge) TIDAK pakai ghostIcon.

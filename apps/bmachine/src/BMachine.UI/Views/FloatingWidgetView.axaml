@@ -54,13 +54,5 @@
                 </ControlTemplate>
             </Setter>
         </Style>
-        <Style Selector="Button.SidebarIcon:pointerover /template/ ContentPresenter">
-             <!-- Ensure Foreground (Icon Fill) follows Theme Primary Text on Hover -->
-             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        </Style>
-        <Style Selector="Button.SidebarIcon:pointerover">
-             <!-- Slight dim for hover effect -->
-             <Setter Property="Opacity" Value="0.7"/> 
-        </Style>
     </Window.Styles>
 </Window>

@@ -169,7 +169,7 @@
                     </StackPanel>
 
                     <!-- Options Button (Far Right) -->
-                    <Button Command="{Binding EnterSetupCommand}" 
+                    <Button Classes="ghostIcon" Command="{Binding EnterSetupCommand}"
                             HorizontalAlignment="Right" VerticalAlignment="Center"
                             Background="Transparent" BorderThickness="0" Padding="0"
                             CornerRadius="6" Height="32" Width="32"

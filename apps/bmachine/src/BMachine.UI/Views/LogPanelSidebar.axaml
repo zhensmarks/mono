@@ -458,8 +458,14 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="CornerRadius" Value="0"/>
         </Style>
+
+        <!-- Neutralkan hover bawaan Semi.Avalonia: iconBtn tanpa efek hover. -->
+        <Style Selector="Button.iconBtn:pointerover">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
         <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
-             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
 
         <!-- Status Action Buttons (Futuristic Pill) -->
@@ -478,12 +484,14 @@
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="Button.statusBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
-        </Style>
+        <!-- Neutralkan hover bawaan Semi.Avalonia: statusBtn tanpa efek hover. -->
         <Style Selector="Button.statusBtn:pointerover">
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="RenderTransform" Value="scale(1.05)"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="RenderTransform" Value="none"/>
+        </Style>
+        <Style Selector="Button.statusBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="Button.statusBtn:pressed">
             <Setter Property="RenderTransform" Value="scale(0.95)"/>

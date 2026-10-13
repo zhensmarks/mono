@@ -825,7 +825,7 @@
                                                                      <Path Data="{Binding IconGeometry}" Fill="Transparent" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                                                  </Viewbox>
                                                                  <PathIcon Data="{StaticResource IconScript}" Width="14" Height="14" Foreground="{DynamicResource TextFaintBrush}" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
-                                                                 <Button IsVisible="{Binding IsEditing}" Command="{Binding PickIconCommand}"
+                                                                 <Button Classes="ghostIcon" IsVisible="{Binding IsEditing}" Command="{Binding PickIconCommand}"
                                                                          Background="Transparent" BorderThickness="0" Padding="0"
                                                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Cursor="Hand" ToolTip.Tip="Select Icon">
                                                                      <Panel>

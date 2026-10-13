@@ -104,7 +104,7 @@
                                                 Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand">
                                             <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                         </Button>
-                                        <Button Grid.Column="1" Command="{Binding $parent[Window].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
+                                        <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding $parent[Window].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
                                                 Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
                                             <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
                                         </Button>
@@ -121,7 +121,7 @@
                                         <KeyBinding Gesture="Enter" Command="{Binding AddCommentPresetCommand}"/>
                                     </TextBox.KeyBindings>
                                 </TextBox>
-                                <Button Grid.Column="1" Command="{Binding AddCommentPresetCommand}" 
+                                <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding AddCommentPresetCommand}"
                                         Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Save Preset">
                                     <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" Foreground="#22C55E"/>
                                 </Button>
@@ -165,7 +165,7 @@
                     <KeyBinding Gesture="Enter" Command="{Binding SendCommentCommand}"/>
                 </TextBox.KeyBindings>
                 <TextBox.InnerLeftContent>
-                    <Button x:Name="Part_AttachButton"
+                    <Button Classes="ghostIcon" x:Name="Part_AttachButton"
                             Command="{Binding AddAttachmentCommand}"
                             Background="Transparent" BorderThickness="0" Padding="10,0,0,0" Margin="0" Cursor="Hand"
                             ToolTip.Tip="Attach Image" DragDrop.AllowDrop="True">
@@ -174,28 +174,16 @@
                 </TextBox.InnerLeftContent>
                 <TextBox.InnerRightContent>
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,8,0" VerticalAlignment="Bottom">
-                        <Button Command="{Binding TogglePresetPanelCommand}"
+                        <Button Classes="ghostIcon" Command="{Binding TogglePresetPanelCommand}"
                                 Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Quick Replies"
                                 Width="32" Height="32" Margin="0,0,0,4">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                    <Setter Property="Opacity" Value="0.8"/>
-                                    <Setter Property="Background" Value="Transparent"/>
-                                </Style>
-                            </Button.Styles>
                             <Border Background="{DynamicResource SeparatorBrush}" CornerRadius="16" Width="32" Height="32">
                                 <PathIcon Data="{StaticResource IconChevronUp}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Border>
                         </Button>
-                        <Button Command="{Binding SendCommentCommand}" 
+                        <Button Classes="ghostIcon" Command="{Binding SendCommentCommand}"
                                 Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Send Comment"
                                 Width="32" Height="32" Margin="0,0,0,4">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                    <Setter Property="Opacity" Value="0.8"/>
-                                    <Setter Property="Background" Value="Transparent"/>
-                                </Style>
-                            </Button.Styles>
                             <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="16" Width="32" Height="32">
                                 <PathIcon Data="{StaticResource IconSend}" Width="14" Height="14" Foreground="White" Margin="2,0,0,0"/>
                             </Border>

@@ -622,7 +622,7 @@
                                                            </ContextMenu>
                                                        </StackPanel.ContextMenu>
                                                        <!-- MENU BUTTON -->
-                                                       <Button Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,4,0" IsVisible="False">
+                                                       <Button Classes="ghostIcon" Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,4,0" IsVisible="False">
                                                            <PathIcon Data="{StaticResource IconDotsVertical}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            <Button.Flyout>
                                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">

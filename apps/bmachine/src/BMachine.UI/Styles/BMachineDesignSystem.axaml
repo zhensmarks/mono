@@ -545,6 +545,65 @@
         <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}" />
     </Style>
 
+    <!-- ================================================================ -->
+    <!-- ghostIcon — tombol ikon borderless TANPA efek hover.             -->
+    <!-- Style aplikasi prioritasnya di atas ControlTheme tema           -->
+    <!-- (Semi.Avalonia), jadi setter Transparent di sini menang.         -->
+    <!-- Pasang Classes="ghostIcon" pada tombol ikon yang tak ber-border. -->
+    <!-- ================================================================ -->
+    <Style Selector="Button.ghostIcon">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <!-- Template minimal: tidak ada state :pointerover sama sekali, jadi
+             tema Semi.Avalonia tidak bisa menyuntikkan hover background. -->
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid Background="{TemplateBinding Background}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.ghostIcon:pointerover">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="RenderTransform" Value="none" />
+    </Style>
+    <Style Selector="Button.ghostIcon:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.ghostIcon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.ghostIcon:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.ghostIcon:pressed">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="RenderTransform" Value="none" />
+    </Style>
+    <Style Selector="Button.ghostIcon:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.ghostIcon:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <!-- Ikon di dalam ghostIcon tidak berubah warna/posisi saat hover. -->
+    <Style Selector="Button.ghostIcon:pointerover PathIcon">
+        <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
+    </Style>
+
     <!-- Custom window-close buttons share one compact hit target and glyph size. -->
     <Style Selector="Button.WindowClose">
         <Setter Property="Width" Value="32" />
@@ -682,19 +741,17 @@
     </Style>
 
     <!-- ================================================================ -->
-    <!-- SCROLLBAR — selalu tampil di kolomnya sendiri (tidak overlay)     -->
-    <!-- Konten tidak tertutup scrollbar. Tidak hidden.                    -->
+    <!-- SCROLLBAR — selalu disembunyikan di semua ScrollViewer (permanen)   -->
+    <!-- Scroll tetap jalan lewat mouse wheel / gesture.                   -->
     <!-- ================================================================ -->
-    <!-- ScrollViewer override: scrollbar di gutter sendiri (bukan overlay),
-         auto-hide: invisible saat diam, muncul saat pointer masuk. -->
+    <!-- ScrollViewer override: scrollbar tidak ditampilkan (mouse wheel/gesture tetap aktif). -->
     <Styles.Resources>
     <ControlTheme x:Key="{x:Type ScrollViewer}" TargetType="ScrollViewer">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Grid ColumnDefinitions="*,Auto" RowDefinitions="*,Auto">
+                <Grid>
                     <ScrollContentPresenter Name="PART_ContentPresenter"
-                                            Grid.Row="0" Grid.Column="0"
                                             Background="{TemplateBinding Background}"
                                             Padding="{TemplateBinding Padding}"
                                             HorizontalSnapPointsType="{TemplateBinding HorizontalSnapPointsType}"
@@ -707,20 +764,20 @@
                         </ScrollContentPresenter.GestureRecognizers>
                     </ScrollContentPresenter>
                     <ScrollBar Name="PART_VerticalScrollBar"
-                               Orientation="Vertical" Grid.Column="1"
-                               Width="8" Margin="8,6,0,6" Opacity="0" />
+                               Orientation="Vertical"
+                               IsVisible="False" />
                     <ScrollBar Name="PART_HorizontalScrollBar"
-                               Orientation="Horizontal" Grid.Row="1"
-                               Height="8" Margin="6,8,6,0" Opacity="0" />
+                               Orientation="Horizontal"
+                               IsVisible="False" />
                 </Grid>
             </ControlTemplate>
         </Setter>
-        <Style Selector="^:pointerover /template/ ScrollBar#PART_VerticalScrollBar">
-            <Setter Property="Opacity" Value="1" />
-        </Style>
-        <Style Selector="^:pointerover /template/ ScrollBar#PART_HorizontalScrollBar">
-            <Setter Property="Opacity" Value="1" />
-        </Style>
+
     </ControlTheme>
 </Styles.Resources>
+
+    <!-- Style global: sembunyikan semua ScrollBar visual, scroll tetap jalan -->
+    <Style Selector="ScrollBar">
+        <Setter Property="Opacity" Value="0" />
+    </Style>
 </Styles>

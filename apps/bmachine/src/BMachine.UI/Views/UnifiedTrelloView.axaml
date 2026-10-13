@@ -70,34 +70,16 @@
                     <!-- Add Manual Card Icon -->
                     <Button Command="{Binding AddManualCardCommand}"
                             IsVisible="{Binding IsEditingSelected}"
-                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
+                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
                             ToolTip.Tip="Add Manual Cards">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Background" Value="#22FFFFFF"/>
-                                <Setter Property="BorderBrush" Value="#44FFFFFF"/>
-                            </Style>
-                            <Style Selector="Button:pointerover PathIcon">
-                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                            </Style>
-                        </Button.Styles>
                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
 
                     <!-- Refresh Icon -->
                     <Button Command="{Binding RefreshActiveListCommand}"
                             IsEnabled="{Binding !ActiveViewModel.IsRefreshing}"
-                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
+                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
                             ToolTip.Tip="Refresh Data">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Background" Value="#22FFFFFF"/>
-                                <Setter Property="BorderBrush" Value="#44FFFFFF"/>
-                            </Style>
-                            <Style Selector="Button:pointerover PathIcon">
-                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                            </Style>
-                        </Button.Styles>
                         <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </StackPanel>
@@ -320,33 +302,15 @@
                     <!-- Add Manual Card -->
                     <Button Command="{Binding AddManualCardCommand}"
                             IsVisible="{Binding IsEditingSelected}"
-                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
+                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
                             ToolTip.Tip="Add Manual Cards">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Background" Value="#22FFFFFF"/>
-                                <Setter Property="BorderBrush" Value="#44FFFFFF"/>
-                            </Style>
-                            <Style Selector="Button:pointerover PathIcon">
-                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                            </Style>
-                        </Button.Styles>
                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                     <!-- Refresh -->
                     <Button Command="{Binding RefreshActiveListCommand}"
                             IsEnabled="{Binding !ActiveViewModel.IsRefreshing}"
-                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
+                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
                             ToolTip.Tip="Refresh Data">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover">
-                                <Setter Property="Background" Value="#22FFFFFF"/>
-                                <Setter Property="BorderBrush" Value="#44FFFFFF"/>
-                            </Style>
-                            <Style Selector="Button:pointerover PathIcon">
-                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                            </Style>
-                        </Button.Styles>
                         <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </StackPanel>
