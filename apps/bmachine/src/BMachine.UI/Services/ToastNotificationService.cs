@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -51,12 +52,54 @@ public class ToastNotificationService : INotificationService
         EnqueueToast(message, ToastType.Error);
     }
 
-    public Task<bool> ShowConfirmAsync(string message, string? title = null)
+    /// <summary>
+    /// Real modal confirmation (was a stub that always returned true, which made confirmations
+    /// meaningless — dangerous for irreversible actions such as a permanent delete).
+    /// Fail-safe: if no window can host the dialog we return FALSE, so the caller does nothing.
+    /// </summary>
+    public async Task<bool> ShowConfirmAsync(string message, string? title = null)
     {
-        // Confirmation dialog belum diimplementasi (butuh modal dialog, bukan toast)
-        // Untuk sementara, log ke console dan return true
-        System.Diagnostics.Debug.WriteLine($"[Confirm] {title}: {message}");
-        return Task.FromResult(true);
+        try
+        {
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                return await ShowConfirmCoreAsync(message, title);
+
+            var task = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                () => ShowConfirmCoreAsync(message, title));
+            return await task;
+        }
+        catch (System.Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Confirm] failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static async Task<bool> ShowConfirmCoreAsync(string message, string? title)
+    {
+        var dialog = new Views.Dialogs.MantraData.MantraConfirmDialog(title ?? "Konfirmasi", message);
+
+        var owner = ResolveOwnerWindow();
+        if (owner == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[Confirm] no owner window - refusing to guess an answer");
+            return false;
+        }
+
+        return await dialog.ShowDialog<bool>(owner);
+    }
+
+    private static Avalonia.Controls.Window? ResolveOwnerWindow()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is
+            Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            return desktop.Windows.FirstOrDefault(w => w.IsActive && w.IsVisible)
+                ?? desktop.Windows.FirstOrDefault(w => w.IsVisible)
+                ?? desktop.MainWindow;
+        }
+
+        return null;
     }
 
     private void EnqueueToast(string message, ToastType type)

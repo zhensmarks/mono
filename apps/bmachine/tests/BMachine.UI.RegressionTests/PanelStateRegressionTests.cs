@@ -219,10 +219,13 @@ public class NavigationVisualRegressionTests
         Assert.Contains("Text=\"MASTER\" FontSize=\"11\"", sidebar);
         Assert.Contains("Text=\"DOC\" FontSize=\"11\"", sidebar);
         Assert.Contains("Classes=\"TrelloBoardTab CompactTab\"", dashboard);
-        Assert.Contains("Background=\"{DynamicResource NavigationDividerBrush}\"", dashboard);
+        Assert.Contains("BorderBrush=\"{DynamicResource NavigationDividerBrush}\"", dashboard);
         Assert.Contains("Width=\"2\" HorizontalAlignment=\"Center\" VerticalAlignment=\"Stretch\"", dashboard);
         Assert.Contains("RadioButton.TrelloBoardTab:checked /template/ Border#PART_Indicator", navigationStyles);
-        Assert.Contains("Margin=\"0,0,0,-8\"", navigationStyles);
+        // Indicator sits on the bottom edge inside the template (was an overflow margin of -8 before).
+        Assert.Contains("Name=\"PART_Indicator\"", navigationStyles);
+        Assert.Contains("VerticalAlignment=\"Bottom\"", navigationStyles);
+        Assert.Contains("Margin=\"0,0,0,0\"", navigationStyles);
     }
 
     [Fact]

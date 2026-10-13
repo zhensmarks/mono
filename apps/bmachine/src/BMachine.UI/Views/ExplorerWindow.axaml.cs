@@ -184,6 +184,8 @@ public partial class ExplorerWindow : Window
 
         // Standard shortcuts (not customizable)
         TryAdd(keyBindings, "Ctrl+A", vm.SelectAllCommand!, null);
+        TryAdd(keyBindings, "Ctrl+Z", vm.UndoCommand!, null);
+        TryAdd(keyBindings, "Delete", vm.DeleteItemCommand!, null);
         TryAdd(keyBindings, "Ctrl+C", vm.CopyItemCommand!, null);
         TryAdd(keyBindings, "Ctrl+X", vm.CutItemCommand!, null);
         TryAdd(keyBindings, "Ctrl+V", vm.PasteItemCommand!, null);
@@ -194,7 +196,7 @@ public partial class ExplorerWindow : Window
         if (string.IsNullOrWhiteSpace(gestureStr)) return;
         try
         {
-            var wrappedCommand = new FocusAwareCommand(command, this);
+            var wrappedCommand = new FocusAwareCommand(command, this, gestureStr);
             var kb = new KeyBinding { Gesture = KeyGesture.Parse(gestureStr), Command = wrappedCommand, CommandParameter = parameter };
             keyBindings.Add(kb);
             _windowExplorerKeyBindings.Add(kb);
@@ -206,11 +208,13 @@ public partial class ExplorerWindow : Window
     {
         private readonly System.Windows.Input.ICommand _inner;
         private readonly Control _root;
+        private readonly string? _gesture;
 
-        public FocusAwareCommand(System.Windows.Input.ICommand inner, Control root)
+        public FocusAwareCommand(System.Windows.Input.ICommand inner, Control root, string? gesture)
         {
             _inner = inner;
             _root = root;
+            _gesture = gesture;
             _inner.CanExecuteChanged += (s, e) => CanExecuteChanged?.Invoke(this, e);
         }
 
@@ -219,7 +223,9 @@ public partial class ExplorerWindow : Window
         public bool CanExecute(object? parameter)
         {
             var focusManager = TopLevel.GetTopLevel(_root)?.FocusManager;
-            if (focusManager?.GetFocusedElement() is TextBox)
+            bool textBoxFocused = focusManager?.GetFocusedElement() is TextBox;
+            // Only text-editing gestures yield to the TextBox; refresh/navigation stay alive.
+            if (Services.ExplorerShortcutGate.ShouldBlock(_gesture, textBoxFocused))
             {
                 return false;
             }

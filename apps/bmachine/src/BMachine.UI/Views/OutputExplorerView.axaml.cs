@@ -434,6 +434,8 @@ public partial class OutputExplorerView : UserControl
 
         // Standard shortcuts (not customizable via Settings) -> Now Customizable!
         TryAddKeyBinding(keyBindings, "Ctrl+A", vm.SelectAllCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, "Ctrl+Z", vm.UndoCommand!, null, _explorerKeyBindings);
+        TryAddKeyBinding(keyBindings, "Delete", vm.DeleteItemCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutCopyGesture, vm.CopyItemCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutCutGesture, vm.CutItemCommand!, null, _explorerKeyBindings);
         TryAddKeyBinding(keyBindings, vm.ShortcutPasteGesture, vm.PasteItemCommand!, null, _explorerKeyBindings);
@@ -453,7 +455,7 @@ public partial class OutputExplorerView : UserControl
         if (string.IsNullOrWhiteSpace(gestureStr) || keyBindings == null) return;
         try
         {
-            var wrappedCommand = new FocusAwareCommand(command, this);
+            var wrappedCommand = new FocusAwareCommand(command, this, gestureStr);
             var kb = new KeyBinding { Gesture = KeyGesture.Parse(gestureStr), Command = wrappedCommand, CommandParameter = commandParameter };
             keyBindings.Add(kb);
             trackList?.Add(kb);
@@ -465,11 +467,13 @@ public partial class OutputExplorerView : UserControl
     {
         private readonly ICommand _inner;
         private readonly Control _root;
+        private readonly string? _gesture;
 
-        public FocusAwareCommand(ICommand inner, Control root)
+        public FocusAwareCommand(ICommand inner, Control root, string? gesture)
         {
             _inner = inner;
             _root = root;
+            _gesture = gesture;
             _inner.CanExecuteChanged += (s, e) => CanExecuteChanged?.Invoke(this, e);
         }
 
@@ -478,7 +482,9 @@ public partial class OutputExplorerView : UserControl
         public bool CanExecute(object? parameter)
         {
             var focusManager = TopLevel.GetTopLevel(_root)?.FocusManager;
-            if (focusManager?.GetFocusedElement() is TextBox)
+            bool textBoxFocused = focusManager?.GetFocusedElement() is TextBox;
+            // Only text-editing gestures yield to the TextBox; refresh/navigation stay alive.
+            if (Services.ExplorerShortcutGate.ShouldBlock(_gesture, textBoxFocused))
             {
                 return false;
             }
@@ -658,7 +664,7 @@ public partial class OutputExplorerView : UserControl
         if (DataContext is not OutputExplorerViewModel vm) return;
         if ((e.KeyModifiers & KeyModifiers.Control) != KeyModifiers.Control) return;
         if (e.Delta.Y == 0) return;
-        vm.CycleViewModeCommand.Execute(e.Delta.Y > 0);
+        vm.ZoomIconsCommand.Execute(e.Delta.Y > 0);
         e.Handled = true;
     }
 
@@ -1232,6 +1238,27 @@ public partial class OutputExplorerView : UserControl
         }
     }
 
+    /// <summary>Focus the rename box and select only the name (not the extension), like Explorer.</summary>
+    private static void FocusAndSelectNamePart(TextBox tb)
+    {
+        tb.Focus();
+
+        var item = tb.DataContext as ExplorerItemViewModel;
+        var name = item?.Name ?? tb.Text ?? string.Empty;
+        if (item is { IsDirectory: false })
+        {
+            var baseName = System.IO.Path.GetFileNameWithoutExtension(name);
+            if (baseName.Length > 0 && baseName.Length < name.Length)
+            {
+                tb.SelectionStart = 0;
+                tb.SelectionEnd = baseName.Length;
+                return;
+            }
+        }
+
+        tb.SelectAll();
+    }
+
     private void OnRenameTextBoxLoaded(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is TextBox tb && tb.IsVisible)
@@ -1239,8 +1266,7 @@ public partial class OutputExplorerView : UserControl
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 await System.Threading.Tasks.Task.Delay(50);
-                tb.Focus();
-                tb.SelectAll();
+                FocusAndSelectNamePart(tb);
             }, Avalonia.Threading.DispatcherPriority.Input);
         }
     }
@@ -1254,8 +1280,7 @@ public partial class OutputExplorerView : UserControl
                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     await System.Threading.Tasks.Task.Delay(50); // Wait for DataContext text binding to apply
-                    tb.Focus();
-                    tb.SelectAll();
+                    FocusAndSelectNamePart(tb);
                 }, Avalonia.Threading.DispatcherPriority.Input);
             }
             else

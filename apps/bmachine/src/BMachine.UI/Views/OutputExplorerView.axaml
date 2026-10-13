@@ -91,6 +91,8 @@
             </MenuItem>
         </MenuItem>
         
+        <MenuItem Header="Undo" Command="{Binding UndoCommand}" InputGesture="Ctrl+Z" IsEnabled="{Binding CanUndo}"/>
+        <Separator/>
         <MenuItem Header="Paste" Command="{Binding PasteItemCommand}" InputGesture="Ctrl+V"/>
         
         <Separator/>
@@ -191,11 +193,15 @@
                         </Panel>
                     </Border>
 
-                    <!-- Right: Search toggle -->
-                    <Button Grid.Column="2" Command="{Binding ToggleSearchCommand}" Classes="Clear"
-                            ToolTip.Tip="Search (Ctrl+F)" Padding="5,4">
-                        <PathIcon Data="{StaticResource IconSearch}" Width="14" Height="14"/>
-                    </Button>
+                    <!-- Right: item count (Explorer status) + Search toggle -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding StatusSummary}" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,2,0"/>
+                        <Button Command="{Binding ToggleSearchCommand}" Classes="Clear"
+                                ToolTip.Tip="Search (Ctrl+F)" Padding="5,4">
+                            <PathIcon Data="{StaticResource IconSearch}" Width="14" Height="14"/>
+                        </Button>
+                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -283,9 +289,14 @@
                              <!-- 1. Normal Empty -->
                              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" 
                                          IsVisible="{Binding IsEmpty}">
-                                  <PathIcon Data="{StaticResource IconFolder}" Width="40" Height="40" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.5" IsVisible="{Binding !IsRootPathMissing}"/>
-                                  <TextBlock Text="Folder kosong." Foreground="{DynamicResource TextSecondaryBrush}" 
-                                         IsVisible="{Binding !IsRootPathMissing}" HorizontalAlignment="Center"/>
+                                  <Panel IsVisible="{Binding !IsRootPathMissing}">
+                                      <PathIcon Data="{StaticResource IconSearch}" Width="40" Height="40" Foreground="{DynamicResource AccentColorBrush}" Opacity="0.5"
+                                                IsVisible="{Binding IsSearchActive}"/>
+                                      <PathIcon Data="{StaticResource IconFolder}" Width="40" Height="40" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.5"
+                                                IsVisible="{Binding !IsSearchActive}"/>
+                                  </Panel>
+                                  <TextBlock Text="{Binding EmptyStateText}" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                         IsVisible="{Binding !IsRootPathMissing}" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="420"/>
                                   
                              </StackPanel>
                              
@@ -332,7 +343,9 @@
                             
                             <!-- ITEM TEMPLATE — Details style with name + size + date -->
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                 <Grid ColumnDefinitions="Auto, *, Auto, Auto" MinWidth="0" Background="Transparent" Height="26" DoubleTapped="OnItemDoubleTapped"
+                                 <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto" MinWidth="0" Background="Transparent" Height="26" DoubleTapped="OnItemDoubleTapped"
+                                       ToolTip.Tip="{Binding DisplayTooltip}"
+                                       Opacity="{Binding RowOpacity}"
                                        PointerPressed="OnItemPointerPressed"
                                        PointerMoved="OnItemPointerMoved"
                                        PointerReleased="OnItemPointerReleased">
@@ -404,6 +417,17 @@
                                                      Margin="0,0,16,0" MinWidth="56" TextAlignment="Right"/>
                                       </Panel>
 
+                                      <!-- Folder location: only for recursive search results -->
+                                      <Panel Grid.Column="4" IsVisible="{Binding ShowLocation}">
+                                          <TextBlock Text="{Binding LocationDisplay}"
+                                                     FontSize="10" Opacity="0.7"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                                     IsVisible="{Binding !IsEditing}"
+                                                     Margin="0,0,8,0" MinWidth="120" MaxWidth="280"
+                                                     TextTrimming="CharacterEllipsis"/>
+                                      </Panel>
+
                                       <!-- Date Modified -->
                                       <Panel Grid.Column="3" IsVisible="{Binding #ExplorerRoot.ShowDetailsColumns}">
                                           <TextBlock Text="{Binding DateModified, StringFormat='{}{0:dd MMM yyyy}'}"
@@ -467,7 +491,8 @@
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
                                 <!-- Item: Fixed Size Card (Compact) -->
-                                 <Grid MinWidth="60" MaxWidth="150" MinHeight="20" ColumnDefinitions="Auto, *" Background="Transparent" DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
+                                 <Grid MinWidth="60" MaxWidth="150" MinHeight="20" ColumnDefinitions="Auto, *" Background="Transparent" DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding DisplayTooltip}"
+                                       Opacity="{Binding RowOpacity}"
                                        PointerPressed="OnItemPointerPressed"
                                        PointerMoved="OnItemPointerMoved"
                                        PointerReleased="OnItemPointerReleased">
@@ -550,12 +575,12 @@
                             </DataTemplate>
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                <Border Width="{Binding #ExplorerRoot.DataContext.ThumbnailSize}" 
+                                <Border Opacity="{Binding RowOpacity}" Width="{Binding #ExplorerRoot.DataContext.ThumbnailSize}"
                                         Height="{Binding #ExplorerRoot.DataContext.ThumbnailHeight}" 
                                         CornerRadius="8" ClipToBounds="True"
                                         Background="{DynamicResource CardBackgroundBrush}"
                                         BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                                        DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
+                                        DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding DisplayTooltip}"
                                         PointerPressed="OnItemPointerPressed"
                                         PointerMoved="OnItemPointerMoved"
                                         PointerReleased="OnItemPointerReleased">
@@ -649,9 +674,9 @@
                             </DataTemplate>
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                <Border CornerRadius="6" ClipToBounds="True"
+                                <Border Opacity="{Binding RowOpacity}" CornerRadius="6" ClipToBounds="True"
                                         Background="Transparent" 
-                                        DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding Name}"
+                                        DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding DisplayTooltip}"
                                         PointerPressed="OnItemPointerPressed"
                                         PointerMoved="OnItemPointerMoved"
                                         PointerReleased="OnItemPointerReleased">
@@ -725,6 +750,7 @@
                                 <ListBox.DataTemplates>
                                     <DataTemplate x:DataType="vm:ExplorerItemViewModel">
                                          <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="20" DoubleTapped="OnItemDoubleTapped"
+                                               Opacity="{Binding RowOpacity}"
                                                PointerPressed="OnItemPointerPressed"
                                                PointerMoved="OnItemPointerMoved"
                                                PointerReleased="OnItemPointerReleased">
@@ -800,6 +826,7 @@
                                 <ListBox.DataTemplates>
                                     <DataTemplate x:DataType="vm:ExplorerItemViewModel">
                                          <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="20" DoubleTapped="OnItemDoubleTapped"
+                                               Opacity="{Binding RowOpacity}"
                                                PointerPressed="OnItemPointerPressed"
                                                PointerMoved="OnItemPointerMoved"
                                                PointerReleased="OnItemPointerReleased">
@@ -892,27 +919,51 @@
             </Grid>
         </Grid>
 
-        <!-- 3. STATUS BAR (Bottom) -->
-        <!-- FLOATING SEARCH BAR (Bottom Right) -->
-        <Border Grid.Row="0" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" 
-                Margin="0,0,24,24" 
-                IsVisible="{Binding IsSearchVisible}"
-                BoxShadow="0 4 12 0 #40000000"
-                CornerRadius="6"
-                BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
-                
-                Padding="6,4" Width="240">
-             <Grid ColumnDefinitions="*, Auto">
-                 <TextBox x:Name="SearchBox" Text="{Binding SearchText, Mode=TwoWay}" Watermark="Search..." 
-                          FontSize="12" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="0" Height="20"
+        <!-- SEARCH PILL (bottom centre) - THE search input, in every host (explorer window + inline
+             panel). Ctrl+F opens it; Esc / X closes it. Compact pill, same language as the
+             selection statusbar. -->
+        <Border Grid.Row="1"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="0,2,0,8"
+                Padding="10,4"
+                CornerRadius="16"
+                MaxWidth="420"
+                IsVisible="{Binding ShowFloatingSearch}"
+                BoxShadow="0 4 16 0 #55000000"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource SeparatorBrush}">
+             <Grid ColumnDefinitions="Auto, Auto, Auto, Auto" VerticalAlignment="Center">
+                 <!-- Magnifier drawn as a stroked ring + handle in a fixed 16x16 box: no scaling, no
+                      glyph metrics, so nothing can clip it at any DPI. -->
+                 <Grid Grid.Column="0" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center">
+                     <Ellipse Width="9.5" Height="9.5"
+                              Stroke="{DynamicResource AccentColorBrush}" StrokeThickness="1.6"
+                              HorizontalAlignment="Left" VerticalAlignment="Top"
+                              Margin="1,1,0,0"/>
+                     <Border Width="5.5" Height="1.6" CornerRadius="1"
+                             Background="{DynamicResource AccentColorBrush}"
+                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                             Margin="0,0,1.2,1.2"
+                             RenderTransform="rotate(45deg)" RenderTransformOrigin="0.5,0.5"/>
+                 </Grid>
+                 <TextBox Grid.Column="1" x:Name="SearchBox" Text="{Binding SearchText, Mode=TwoWay}"
+                          Watermark="Cari file..."
+                          FontSize="12" BorderThickness="0" Background="Transparent" Padding="4,0,2,0"
+                          MinHeight="0" Height="20" MinWidth="96"
                           VerticalAlignment="Center">
                      <TextBox.KeyBindings>
                          <KeyBinding Gesture="Escape" Command="{Binding CloseSearchCommand}"/>
+                         <KeyBinding Gesture="Enter" Command="{Binding OpenFirstSearchResultCommand}"/>
                      </TextBox.KeyBindings>
                  </TextBox>
-                 <Button Grid.Column="1" Command="{Binding CloseSearchCommand}" 
-                         Background="Transparent" BorderThickness="0" Padding="4" Margin="4,0,0,0" Cursor="Hand">
-                     <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                 <TextBlock Grid.Column="2" Text="{Binding SearchResultSummary}"
+                            FontSize="10" Margin="9,0,0,0"
+                            Foreground="{DynamicResource TextSecondaryBrush}"
+                            VerticalAlignment="Center"/>
+                 <Button Grid.Column="3" Command="{Binding CloseSearchCommand}" ToolTip.Tip="Tutup (Esc)"
+                         Background="Transparent" BorderThickness="0" Padding="3" Margin="6,0,0,0" Cursor="Hand">
+                     <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                  </Button>
              </Grid>
         </Border>
