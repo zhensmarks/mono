@@ -3575,7 +3575,9 @@ public partial class SidebarItemViewModel : ObservableObject
     private bool _systemIconLoaded;
 
     public bool ShowSystemIcon => ExplorerItemViewModel.SystemIconsEnabled && _systemIcon != null;
-    public bool ShowFolderFallback => !ShowSystemIcon;
+    public bool IsDirectoryPath => System.IO.Directory.Exists(Path);
+    public bool ShowFolderFallback => !ShowSystemIcon && IsDirectoryPath;
+    public bool ShowFileFallback => !ShowSystemIcon && !IsDirectoryPath;
     public Avalonia.Media.Imaging.Bitmap? SystemIcon
     {
         get
@@ -3596,6 +3598,7 @@ public partial class SidebarItemViewModel : ObservableObject
         OnPropertyChanged(nameof(SystemIcon));
         OnPropertyChanged(nameof(ShowSystemIcon));
         OnPropertyChanged(nameof(ShowFolderFallback));
+        OnPropertyChanged(nameof(ShowFileFallback));
     }
 
     private async void LoadSystemIconAsync()
@@ -3604,12 +3607,13 @@ public partial class SidebarItemViewModel : ObservableObject
         {
             var targetPath = IsDynamic ? Path : Path;
             var bitmap = await Task.Run(() => Services.SystemIconService.ResolveIcon(
-                targetPath, true, ExplorerItemViewModel.CustomIconPathSetting, 32));
+                targetPath, System.IO.Directory.Exists(targetPath), ExplorerItemViewModel.CustomIconPathSetting, 32));
             if (bitmap == null) return;
             _systemIcon = bitmap;
             OnPropertyChanged(nameof(SystemIcon));
             OnPropertyChanged(nameof(ShowSystemIcon));
             OnPropertyChanged(nameof(ShowFolderFallback));
+            OnPropertyChanged(nameof(ShowFileFallback));
         }
         catch { }
     }

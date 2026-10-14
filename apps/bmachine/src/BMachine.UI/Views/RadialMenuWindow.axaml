@@ -115,7 +115,7 @@
     <Border Background="Transparent">
         <Grid>
              <!-- 1. Main background plate: circular clip (ring + wedges), not a square card -->
-             <Border Width="200" Height="200" CornerRadius="100"
+             <Border Width="200" Height="200" CornerRadius="{DynamicResource RadiusPill}"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      Background="{DynamicResource AppBackgroundBrush}"
                      ClipToBounds="True">
@@ -152,7 +152,7 @@
                                 IsHitTestVisible="False"/>
 
              <!-- 5. Solid central hub (circular to match inner ring) -->
-             <Border Width="88" Height="88" CornerRadius="44"
+             <Border Width="88" Height="88" CornerRadius="{DynamicResource RadiusPill}"
                      Background="{DynamicResource CardBackgroundBrush}"
                      HorizontalAlignment="Center" VerticalAlignment="Center">
                  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,0">

@@ -6,7 +6,7 @@
         <Border Background="{DynamicResource SurfaceElevatedBrush}"
                 BorderBrush="{DynamicResource BorderDefaultBrush}"
                 BorderThickness="1"
-                CornerRadius="12"
+                CornerRadius="{DynamicResource RadiusXl}"
                 Padding="32,24"
                 MaxWidth="360"
                 HorizontalAlignment="Center"
@@ -17,7 +17,7 @@
                 <Border Width="48" Height="48" 
                         BorderBrush="{DynamicResource AccentBlueBrush}"
                         BorderThickness="4"
-                        CornerRadius="24"
+                        CornerRadius="{DynamicResource RadiusPill}"
                         HorizontalAlignment="Center">
                     <Border.Styles>
                         <Style Selector="Border">

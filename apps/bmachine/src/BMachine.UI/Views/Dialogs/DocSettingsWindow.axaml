@@ -21,7 +21,7 @@
             <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="Padding" Value="18,8"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -30,7 +30,7 @@
         </Style>
         <Style Selector="Button.Action /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
@@ -47,7 +47,7 @@
             <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="Padding" Value="14,8"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="FontSize" Value="12.5"/>
@@ -57,7 +57,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
@@ -85,14 +85,14 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="Padding" Value="10,8"/>
         </Style>
     </Window.Styles>
 
     <Border Background="{DynamicResource AppBackgroundBrush}"
-            BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+            BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
 
             <!-- ═══ TITLE BAR ═══ -->
@@ -111,7 +111,7 @@
                     <PathIcon Data="{StaticResource IconX}"/>
                 </Button>
 
-                <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+                <Rectangle Grid.ColumnSpan="2" Height="1" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Bottom"/>
             </Grid>
 
             <Grid Grid.Row="1" RowDefinitions="*,Auto" Margin="16">
@@ -148,7 +148,7 @@
                         </StackPanel>
 
                         <Border Background="#10181F26" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
-                                CornerRadius="6" Padding="12,10">
+                                CornerRadius="{DynamicResource RadiusSm}" Padding="12,10">
                             <StackPanel Spacing="3">
                                 <TextBlock Classes="FieldLabel" Text="Catatan"/>
                                 <TextBlock Classes="Hint"
@@ -165,7 +165,7 @@
                             ToolTip.Tip="Kembalikan daftar teks sumber ke bawaan"/>
 
                     <TextBlock x:Name="StatusText" Grid.Column="1" Text=""
-                               Foreground="#60A5FA" FontSize="11.5" VerticalAlignment="Center"
+                               Foreground="{DynamicResource StatusInfoBrush}" FontSize="11.5" VerticalAlignment="Center"
                                TextWrapping="Wrap" Margin="12,0"/>
 
                     <Button Grid.Column="2" Classes="Muted" Content="Batal" MinWidth="90" Click="OnCancelClick"/>

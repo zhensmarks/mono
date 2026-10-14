@@ -18,7 +18,7 @@
         Background="{DynamicResource AppBackgroundBrush}">
     <Border Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource SeparatorBrush}"
-            BorderThickness="1" CornerRadius="8">
+            BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}">
         <Grid RowDefinitions="Auto,*">
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" MinHeight="58" Margin="14,8,14,0">
                 <!-- Only the header background starts a move drag; Doc fields and buttons remain clickable. -->

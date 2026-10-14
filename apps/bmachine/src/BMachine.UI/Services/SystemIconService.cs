@@ -159,6 +159,31 @@ internal static class SystemIconService
     }
 
     /// <summary>Wraps raw BGRA bytes into an Avalonia bitmap. Must run on the UI thread.</summary>
+    private static Bitmap? LoadImageFile(string path, int size)
+    {
+        try
+        {
+            return new Bitmap(path);
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            using var image = new ImageMagick.MagickImage(path);
+            image.Format = ImageMagick.MagickFormat.Png32;
+            image.Resize((uint)size, (uint)size);
+            using var stream = new System.IO.MemoryStream();
+            image.Write(stream);
+            stream.Position = 0;
+            return new Bitmap(stream);
+        }
+        catch
+        {
+            return null;
+        }
+    }
     public static WriteableBitmap? CreateBitmap(byte[] bgra, int size)
     {
         if (bgra == null || size <= 0 || bgra.Length < size * size * 4) return null;
@@ -268,7 +293,7 @@ internal static class SystemIconService
 
             if (!string.IsNullOrEmpty(foundFile) && System.IO.File.Exists(foundFile))
             {
-                return new Bitmap(foundFile);
+                return LoadImageFile(foundFile, size);
             }
 
             // Also check for embedded library in folder (e.g. imageres.dll, imageres.dll.res, shell32.dll)
@@ -293,7 +318,7 @@ internal static class SystemIconService
             var ext = System.IO.Path.GetExtension(customPath).ToLowerInvariant();
             if (ext is ".ico" or ".png" or ".jpg" or ".jpeg" or ".bmp" or ".webp")
             {
-                return new Bitmap(customPath);
+                return LoadImageFile(customPath, size);
             }
             else if (ext is ".dll" or ".exe" or ".res" or ".icl")
             {

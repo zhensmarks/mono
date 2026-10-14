@@ -18,7 +18,7 @@
     <Grid>
         <!-- Content Wrapper -->
         <Border Margin="0" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="6" BorderThickness="0"
+                CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                 PointerPressed="OnHeaderPointerPressed">
             <Grid>
                 <!-- Title Bar / Header -->

@@ -74,12 +74,12 @@ public partial class ExplorerSettingsViewModel : ObservableObject
     [ObservableProperty] private string _customIconPath = ""; // Custom 7tsp icon pack path
     [ObservableProperty] private string _explorerFontFamily = "";
 
-    public string ExplorerFontFamilyDisplayLabel => $"Current: {(string.IsNullOrWhiteSpace(ExplorerFontFamily) ? "System default" : ExplorerFontFamily)}";
+    public Avalonia.Media.FontFamily ExplorerFontPreview => Services.AppFonts.TryCreate(ExplorerFontFamily, out var font) ? font : Services.AppFonts.Primary;
+
+    public string ExplorerFontFamilyDisplayLabel => $"Current: {(string.IsNullOrWhiteSpace(ExplorerFontFamily) ? "Inter (default)" : ExplorerFontFamily)}";
 
     public System.Collections.ObjectModel.ObservableCollection<string> AvailableFontFamilies { get; } =
-        new(Avalonia.Media.FontManager.Current.SystemFonts
-            .Select(x => x.Name)
-            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
+        new(Services.AppFonts.Families);
 
     [RelayCommand]
     private async Task BrowseCustomIconFolder()

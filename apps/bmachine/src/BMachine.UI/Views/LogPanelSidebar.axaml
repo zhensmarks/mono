@@ -125,7 +125,7 @@
                                   IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"
                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
-                        <Border VerticalAlignment="Bottom" Background="#CC000000" Padding="6,3">
+                        <Border VerticalAlignment="Bottom" Background="{DynamicResource OverlayBrush}" Padding="6,3">
                             <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="Normal" Foreground="White"
                                        TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
                         </Border>
@@ -164,7 +164,7 @@
                 <StackPanel Spacing="6">
                     <!-- Navigation Tab Buttons - compact text labels -->
                     <Border Background="{DynamicResource CardBackgroundBrush}"
-                            CornerRadius="8" Padding="3"
+                            CornerRadius="{DynamicResource RadiusMd}" Padding="3"
                             BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1">
                         <Panel>
                             <Grid x:Name="PanelTabsGrid" HorizontalAlignment="Stretch" ColumnDefinitions="*,Auto,*,*,*">
@@ -172,7 +172,7 @@
                                                  IsChecked="{Binding IsExplorerPanelSelected}" IsVisible="{Binding IsOutputExplorerVisible}"
                                                  Click="OnExplorerTabClick" ToolTip.Tip="Explorer">
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="EXPLORER" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                            <TextBlock Text="EXPLORER" Classes="navLabel" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
                                     <Border x:Name="ExplorerLogSeparator" Grid.Column="1" Classes="navigationSeparator"
@@ -185,7 +185,7 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="LOG" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                            <TextBlock Text="LOG" Classes="navLabel" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
                                     <RadioButton Grid.Column="3" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0" Click="OnMasterTabClick" ToolTip.Tip="Master">
@@ -196,7 +196,7 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="MASTER" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                            <TextBlock Text="MASTER" Classes="navLabel" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
                                     <RadioButton x:Name="DocPanelTab" Grid.Column="4" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0"
@@ -208,7 +208,7 @@
                                             </MultiBinding>
                                         </RadioButton.IsChecked>
                                         <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="DOC" FontSize="11" FontWeight="SemiBold" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                                            <TextBlock Text="DOC" Classes="navLabel" TextWrapping="NoWrap" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </RadioButton>
                             </Grid>
@@ -221,7 +221,7 @@
                     <!-- Integrated Compact Search -->
                     <Border Background="{DynamicResource CardBackgroundBrush}"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                            CornerRadius="6" Height="26">
+                            CornerRadius="{DynamicResource RadiusSm}" Height="26">
                         <Border.IsVisible>
                             <MultiBinding Converter="{x:Static BoolConverters.And}">
                                 <Binding Path="BatchVM.IsSearchVisible"/>
@@ -332,7 +332,7 @@
             
             <!-- FOOTER (Row 2) : Floating Minimalist Status Bar -->
             <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" Margin="10,2,10,10" Padding="10,4"
-                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6">
+                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}">
                 <Border.IsVisible>
                     <MultiBinding Converter="{x:Static BoolConverters.And}">
                         <Binding Path="BatchVM.IsStatusVisible"/>
@@ -427,7 +427,7 @@
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="VerticalAlignment" Value="Stretch"/>
@@ -473,7 +473,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}"/>
             <Setter Property="Padding" Value="4"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Transitions">
@@ -501,7 +501,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>

@@ -30,7 +30,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
             <Setter Property="Padding" Value="4"/>
         </Style>
 
@@ -71,7 +71,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
             <Setter Property="Padding" Value="24,20"/>
             <Setter Property="ClipToBounds" Value="True"/>
         </Style>
@@ -206,7 +206,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
             <Setter Property="Height" Value="3"/>
-            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXxs}"/>
         </Style>
 
         <!-- LISTBOX (Preview) -->
@@ -260,7 +260,7 @@
             <Setter Property="Background" Value="{DynamicResource BgInputBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
             <Setter Property="Padding" Value="10,6"/>
             <Setter Property="Transitions">
                 <Transitions>
@@ -291,7 +291,7 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
             <Setter Property="Padding" Value="16,7"/>
             <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="FontWeight" Value="Medium"/>
@@ -379,7 +379,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Background">
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                    <GradientStop Color="#3B82F6" Offset="0"/>
+                    <GradientStop Color="{DynamicResource AccentBlue}" Offset="0"/>
                     <GradientStop Color="#6366F1" Offset="1"/>
                 </LinearGradientBrush>
             </Setter>
@@ -566,7 +566,7 @@
                         </Grid>
                         <!-- File Panels (fluid, scroll internal) -->
                         <Grid Grid.Row="2" ColumnDefinitions="*,10,*">
-                            <Border Grid.Column="0" x:Name="NamaAdvancedReferencePanel" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" DragDrop.AllowDrop="True">
+                            <Border Grid.Column="0" x:Name="NamaAdvancedReferencePanel" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="10" DragDrop.AllowDrop="True">
                                 <Grid RowDefinitions="Auto,Auto,*">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -585,7 +585,7 @@
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,2">
+                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="8,5" Margin="0,2">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                                         <TextBlock Text="&#x1F4C1;" FontSize="12" VerticalAlignment="Center"/>
                                                         <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
@@ -605,7 +605,7 @@
                                         </ItemsPanelTemplate></ListBox.ItemsPanel>
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Grid Margin="3">
-                                                <Border IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
+                                                <Border IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="8,6" VerticalAlignment="Top">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="{DynamicResource TextFaintBrush}"/>
@@ -613,7 +613,7 @@
                                                 </Border>
                                                 <StackPanel IsVisible="{Binding !IsHeader}" Spacing="4">
                                                     <Viewbox Stretch="Uniform">
-                                                        <Border Width="150" Height="200" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True">
+                                                        <Border Width="150" Height="200" CornerRadius="{DynamicResource RadiusSm}" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True">
                                                             <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
                                                         </Border>
                                                     </Viewbox>
@@ -624,7 +624,7 @@
                                     </ListBox>
                                 </Grid>
                             </Border>
-                            <Border Grid.Column="2" x:Name="NamaAdvancedTargetPanel" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" DragDrop.AllowDrop="True">
+                            <Border Grid.Column="2" x:Name="NamaAdvancedTargetPanel" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="10" DragDrop.AllowDrop="True">
                                 <Grid RowDefinitions="Auto,Auto,*">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -643,7 +643,7 @@
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,2">
+                                                <Border Grid.ColumnSpan="2" IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="8,5" Margin="0,2">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                                         <TextBlock Text="&#x1F4C1;" FontSize="12" VerticalAlignment="Center"/>
                                                         <TextBlock Text="{Binding FolderLabel}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
@@ -663,7 +663,7 @@
                                         </ItemsPanelTemplate></ListBox.ItemsPanel>
                                         <ListBox.ItemTemplate><DataTemplate>
                                             <Grid Margin="3">
-                                                <Border IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" VerticalAlignment="Top">
+                                                <Border IsVisible="{Binding IsHeader}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="8,6" VerticalAlignment="Top">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding FolderLabel}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Text="{Binding NewName}" FontSize="9" Foreground="{DynamicResource TextFaintBrush}"/>
@@ -671,7 +671,7 @@
                                                 </Border>
                                                 <StackPanel IsVisible="{Binding !IsHeader}" Spacing="4">
                                                     <Viewbox Stretch="Uniform">
-                                                        <Border Width="150" Height="200" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True">
+                                                        <Border Width="150" Height="200" CornerRadius="{DynamicResource RadiusSm}" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True">
                                                             <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
                                                         </Border>
                                                     </Viewbox>
@@ -684,7 +684,7 @@
                             </Border>
                         </Grid>
                         <!-- Pair review list (bounded, scroll internal) -->
-                        <Border Grid.Row="3" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="96">
+                        <Border Grid.Row="3" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="10" MinHeight="96">
                             <Grid RowDefinitions="Auto,*">
                                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,6">
                                     <StackPanel Spacing="3">
@@ -706,7 +706,7 @@
                                         <DataTemplate>
                                             <Grid ColumnDefinitions="42,*,16,42,190,*,Auto,Auto,Auto" ColumnSpacing="7" Margin="0,3"
                                                   Background="Transparent" DragDrop.AllowDrop="True">
-                                                <Border Grid.Column="0" Width="38" Height="48" CornerRadius="4" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" VerticalAlignment="Center">
+                                                <Border Grid.Column="0" Width="38" Height="48" CornerRadius="{DynamicResource RadiusXs}" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" VerticalAlignment="Center">
                                                     <Image Source="{Binding ReferencePreview.Thumbnail}" Stretch="Uniform"/>
                                                 </Border>
                                                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
@@ -714,7 +714,7 @@
                                                     <TextBlock Text="REFERENSI" FontSize="9" Foreground="{DynamicResource TextFaintBrush}"/>
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="2" Text="&#x2192;" HorizontalAlignment="Center" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
-                                                <Border Grid.Column="3" Width="38" Height="48" CornerRadius="4" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" VerticalAlignment="Center">
+                                                <Border Grid.Column="3" Width="38" Height="48" CornerRadius="{DynamicResource RadiusXs}" Background="{DynamicResource CardBackgroundBrush}" ClipToBounds="True" VerticalAlignment="Center">
                                                     <Image Source="{Binding SelectedTargetItem.Thumbnail}" Stretch="Uniform"/>
                                                 </Border>
                                                 <ComboBox Grid.Column="4" ItemsSource="{Binding TargetOptions}" SelectedItem="{Binding SelectedTargetItem}"
@@ -836,8 +836,8 @@
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"
                                                        FontFamily="{DynamicResource FontMono}"/>
-                                            <Button Grid.Column="3" Content="X" Width="24" Height="24" 
-                                                    Padding="0" Background="Transparent" Foreground="{DynamicResource TextMutedBrush}"
+                                            <Button Classes="ghost" Grid.Column="3" Content="X" Width="24" Height="24" 
+                                                    Padding="0"  Foreground="{DynamicResource TextMutedBrush}"
                                                     Cursor="Hand" VerticalAlignment="Center" Margin="8,0,0,0"
                                                     Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveItemCommand}"
                                                     CommandParameter="{Binding}"/>
@@ -1042,9 +1042,9 @@
             <!-- Image & Loading Overlay -->
             <Border Grid.Row="1"
                     Background="#000000"
-                    BorderBrush="#1A1A1D"
+                    BorderBrush="{DynamicResource SeparatorBrush}"
                     BorderThickness="1"
-                    CornerRadius="10"
+                    CornerRadius="{DynamicResource RadiusLg}"
                     ClipToBounds="True"
                     Margin="0,0,0,14">
                 <Grid>
@@ -1060,7 +1060,7 @@
                         <TextBlock Text="Membuka gambar..." Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                     </StackPanel>
 
-                    <Border Background="#99000000" IsVisible="{Binding PsdBucinVM.IsProcessing}">
+                    <Border Background="{DynamicResource ScrimSoftBrush}" IsVisible="{Binding PsdBucinVM.IsProcessing}">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
                             <TextBlock Text="Menyimpan..." Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="16" HorizontalAlignment="Center"/>
                         </StackPanel>
@@ -1080,7 +1080,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:ManualPsdButton">
-                                <Button Background="Transparent" Padding="0" Cursor="Hand" Margin="4"
+                                <Button Classes="ghost"  Padding="0" Cursor="Hand" Margin="4"
                                         x:CompileBindings="False"
                                         Command="{Binding $parent[Window].DataContext.PsdBucinVM.ProcessSingleManualCommand}"
                                         CommandParameter="{Binding Path}">
@@ -1093,7 +1093,7 @@
                                             <!-- Editable KBD key badge -->
                                             <Border Background="#00000030"
                                                     BorderBrush="#FFFFFF22" BorderThickness="1"
-                                                    CornerRadius="4" Padding="4,0">
+                                                    CornerRadius="{DynamicResource RadiusXs}" Padding="4,0">
                                                 <TextBox Text="{Binding ShortcutKey, Mode=TwoWay}"
                                                          Foreground="#FFFFFFBB" FontSize="12"
                                                          FontFamily="{DynamicResource FontMono}"
@@ -1131,7 +1131,7 @@
         </Grid>
 
         <!-- ═══ NAV (FLOATING) — Trello board pill (card bordered, short indicator) ═══ -->
-        <Border ZIndex="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1" CornerRadius="8" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,20,0,0"
+        <Border ZIndex="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,20,0,0"
                 IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
             <StackPanel Orientation="Horizontal" Spacing="2">
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsPsdBucinVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}">

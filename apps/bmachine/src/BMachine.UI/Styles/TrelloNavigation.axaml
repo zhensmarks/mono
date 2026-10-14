@@ -66,7 +66,7 @@
         <Setter Property="Height" Value="32" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
@@ -100,7 +100,7 @@
     <Style Selector="RadioButton.TrelloNavButton:checked">
         <Setter Property="Background" Value="{StaticResource TrelloTabActiveBg}" />
         <Setter Property="Foreground" Value="{StaticResource TrelloBlueBrush}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Bold" />
     </Style>
     <Style Selector="RadioButton.TrelloNavButton:checked /template/ Border#PART_Border">
         <Setter Property="Background" Value="{StaticResource TrelloTabActiveBg}" />
@@ -152,11 +152,11 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Padding" Value="12,7" />
         <Setter Property="Margin" Value="2,0" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <ControlTemplate>
@@ -192,7 +192,7 @@
     <Style Selector="RadioButton.TrelloBoardTab:checked">
         <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Bold" />
     </Style>
     <Style Selector="RadioButton.TrelloBoardTab:focus /template/ Border#PART_Root">
         <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
@@ -218,7 +218,7 @@
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="10" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -226,7 +226,7 @@
     <Style Selector="RadioButton.LogPanelTab">
         <Setter Property="Padding" Value="0,5" />
         <Setter Property="FontSize" Value="11" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="1" />
     </Style>
@@ -274,7 +274,7 @@
         <Setter Property="Padding" Value="12,6" />
         <Setter Property="Height" Value="32" />
         <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Transitions">
             <Transitions>
@@ -305,7 +305,7 @@
     <Style Selector="Button.TrelloHeaderButton.primary">
         <Setter Property="Background" Value="White" />
         <Setter Property="Foreground" Value="{StaticResource TrelloBlueBrush}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Bold" />
     </Style>
     <Style Selector="Button.TrelloHeaderButton.primary:pointerover /template/ Border">
         <Setter Property="Background" Value="#F0F0F0" />
@@ -317,7 +317,7 @@
     <!-- ================================================================ -->
     <Style Selector="Border.TrelloPillContainer">
         <Setter Property="Background" Value="#0F1A2E" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Padding" Value="4" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="BorderBrush" Value="#1E2D4A" />

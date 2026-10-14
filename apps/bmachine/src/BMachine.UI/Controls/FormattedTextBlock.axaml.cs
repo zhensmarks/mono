@@ -1,3 +1,4 @@
+using BMachine.UI.Services;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
@@ -134,7 +135,7 @@ public partial class FormattedTextBlock : UserControl
             else if ((content.StartsWith("*") && content.EndsWith("*")) || (content.StartsWith("_") && content.EndsWith("_")))
                 tb.Inlines!.Add(new Run { Text = content.Substring(1, content.Length - 2), FontStyle = FontStyle.Italic });
             else if (content.StartsWith("`") && content.EndsWith("`"))
-                tb.Inlines!.Add(new Run { Text = content.Substring(1, content.Length - 2), FontFamily = "Consolas, Monospace", Background = SolidColorBrush.Parse("#20FFFFFF") });
+                tb.Inlines!.Add(new Run { Text = content.Substring(1, content.Length - 2), FontFamily = AppFonts.Mono, Background = SolidColorBrush.Parse("#20FFFFFF") });
             else if (content.StartsWith("~~") && content.EndsWith("~~"))
                 tb.Inlines!.Add(new Run { Text = content.Substring(2, content.Length - 4), TextDecorations = TextDecorations.Strikethrough });
             

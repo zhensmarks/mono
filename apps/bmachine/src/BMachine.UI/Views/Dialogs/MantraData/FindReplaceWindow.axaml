@@ -15,65 +15,9 @@
         Foreground="{DynamicResource TextPrimaryBrush}">
 
     <Window.Styles>
-
-        <Style Selector="Button.Action">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="18,8"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.Action /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-
-        <Style Selector="Button.Muted">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="18,8"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.Muted /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
-        </Style>
     </Window.Styles>
 
-    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
 
             <!-- ═══ WINDOW TITLE BAR ═══ -->
@@ -91,10 +35,10 @@
                     <PathIcon Data="{StaticResource IconX}"/>
                 </Button>
 
-                <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+                <Rectangle Grid.ColumnSpan="2" Height="1" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Bottom"/>
             </Grid>
 
-            <Border Grid.Row="1" Margin="16" Padding="20" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="10">
+            <Border Grid.Row="1" Margin="16" Padding="20" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLg}">
                 <Grid RowDefinitions="Auto, *, Auto">
                     <StackPanel Grid.Row="0" Margin="0,0,0,16">
                         <TextBlock Text="Cari dan Ganti" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -104,16 +48,16 @@
                     <StackPanel Grid.Row="1" Spacing="8">
                         <TextBlock Text="Cari" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <TextBox x:Name="TxtFind" Height="34" FontSize="12.5" VerticalContentAlignment="Center"
-                                 Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="10,0"/>
+                                 Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="10,0"/>
 
                         <TextBlock Text="Ganti dengan" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
                         <TextBox x:Name="TxtReplace" Height="34" FontSize="12.5" VerticalContentAlignment="Center"
-                                 Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="10,0"/>
+                                 Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="10,0"/>
 
                         <TextBlock Text="Lingkup kolom" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
                         <ComboBox x:Name="CmbColumn" HorizontalAlignment="Stretch" Height="34" FontSize="12"
                                   VerticalContentAlignment="Center" Padding="10,0,8,0"
-                                  Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6"/>
+                                  Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}"/>
 
                         <CheckBox x:Name="ChkMatchCase" Content="Cocokkan huruf besar/kecil" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,6,0,0"/>
                     </StackPanel>

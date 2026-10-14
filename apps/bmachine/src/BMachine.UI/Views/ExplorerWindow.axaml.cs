@@ -1,3 +1,4 @@
+using BMachine.UI.Services;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -131,17 +132,8 @@ public partial class ExplorerWindow : Window
             return;
 
         var font = wvm.SelectedTab.ExplorerViewModel.ExplorerFontFamily;
-        if (string.IsNullOrWhiteSpace(font))
-            return;
-
-        try
-        {
-            Resources["FontPrimary"] = new Avalonia.Media.FontFamily(font);
-        }
-        catch
-        {
-            // Invalid font name, skip
-        }
+        if (AppFonts.TryCreate(font, out var fontFamily))
+            Resources["FontPrimary"] = fontFamily;
     }
 
 

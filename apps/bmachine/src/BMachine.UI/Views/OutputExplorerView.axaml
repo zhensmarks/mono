@@ -26,7 +26,7 @@
                   
                  BorderThickness="1" 
                  BorderBrush="{DynamicResource SeparatorBrush}" 
-                 CornerRadius="10" 
+                 CornerRadius="{DynamicResource RadiusLg}" 
                  Padding="5">
         <MenuItem Header="Sort by">
             <MenuItem Header="Name" 
@@ -220,7 +220,7 @@
                             <DataTemplate x:DataType="models:SidebarItemViewModel">
                                 <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="28" ToolTip.Tip="{Binding Name}">
                                     <Grid.ContextMenu>
-                                        <ContextMenu BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
+                                        <ContextMenu BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusLg}" Padding="5">
                                             <MenuItem Header="Remove Pin" Command="{Binding #ExplorerRoot.DataContext.RemoveFromQuickAccessCommand}" CommandParameter="{Binding}"/>
                                         </ContextMenu>
                                     </Grid.ContextMenu>
@@ -232,7 +232,8 @@
 
                                     <Grid Grid.Column="0" Width="28" VerticalAlignment="Center">
                                         <Image Source="{Binding SystemIcon}" IsVisible="{Binding ShowSystemIcon}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="15" Height="15" HorizontalAlignment="Center" Foreground="#E8A447"/>
+                                        <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="15" Height="15" HorizontalAlignment="Center" Foreground="{DynamicResource StatusWarningBrush}"/>
+                                        <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="14" Height="14" HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.75"/>
                                     </Grid>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                 </Grid>
@@ -350,7 +351,7 @@
                                        PointerMoved="OnItemPointerMoved"
                                        PointerReleased="OnItemPointerReleased">
                                       <Grid.ContextMenu>
-                                          <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
+                                          <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusLg}" Padding="5">
                                               <!-- Open actions -->
                                               <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
                                               <MenuItem Header="Open in New Tab" Command="{Binding #ExplorerRoot.DataContext.OpenItemInNewTabCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
@@ -367,7 +368,7 @@
                                               <MenuItem Header="Cut" Command="{Binding #ExplorerRoot.DataContext.CutItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+X"/>
                                               <MenuItem Header="Paste" Command="{Binding #ExplorerRoot.DataContext.PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding #ExplorerRoot.DataContext.HasFileClipboard}"/>
                                               <Separator/>
-                                              <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
+                                              <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                           </ContextMenu>
                                       </Grid.ContextMenu>
 
@@ -378,7 +379,7 @@
                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                           <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="15" Height="15"
                                                     HorizontalAlignment="Center"
-                                                    Foreground="#E8A447"/>
+                                                    Foreground="{DynamicResource StatusWarningBrush}"/>
                                           <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="14" Height="14"
                                                     HorizontalAlignment="Center"
                                                     Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.75"/>
@@ -497,7 +498,7 @@
                                        PointerMoved="OnItemPointerMoved"
                                        PointerReleased="OnItemPointerReleased">
                                        <Grid.ContextMenu>
-                                          <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
+                                          <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusLg}" Padding="5">
 
                                               <!-- Batch Scripts injected dynamically -->
                                               <Separator Tag="BatchMarker"/>
@@ -513,12 +514,12 @@
                                               <!-- REMOVED New Folder/File per request -->
                                               <MenuItem Header="Refresh" Command="{Binding #ExplorerRoot.DataContext.RefreshCommand}"/>
                                               <Separator/>
-                                              <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
+                                              <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                           </ContextMenu>
                                        </Grid.ContextMenu>
                                        <Grid Grid.Column="0" Width="28" VerticalAlignment="Center">
                                            <Image Source="{Binding SystemIcon}" IsVisible="{Binding ShowSystemIcon}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                           <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="15" Height="15" Margin="6,0" Foreground="#E8A447"/>
+                                           <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="15" Height="15" Margin="6,0" Foreground="{DynamicResource StatusWarningBrush}"/>
                                            <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="14" Height="14" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0.75"/>
                                        </Grid>
                                        <Panel Grid.Column="1" VerticalAlignment="Center">
@@ -577,7 +578,7 @@
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
                                 <Border Opacity="{Binding RowOpacity}" Width="{Binding #ExplorerRoot.DataContext.ThumbnailSize}"
                                         Height="{Binding #ExplorerRoot.DataContext.ThumbnailHeight}" 
-                                        CornerRadius="8" ClipToBounds="True"
+                                        CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True"
                                         Background="{DynamicResource CardBackgroundBrush}"
                                         BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding DisplayTooltip}"
@@ -596,7 +597,7 @@
                                         <!-- Fallback icon for folders (amber) -->
                                         <PathIcon Grid.Row="0" Data="{StaticResource IconFolder}" 
                                                   IsVisible="{Binding ShowFolderFallback}" 
-                                                  Width="44" Height="44" Foreground="#E8A447"
+                                                  Width="44" Height="44" Foreground="{DynamicResource StatusWarningBrush}"
                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         <!-- Fallback icon for non-image files -->
                                         <Panel Grid.Row="0" IsVisible="{Binding !IsDirectory}">
@@ -674,7 +675,7 @@
                             </DataTemplate>
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                <Border Opacity="{Binding RowOpacity}" CornerRadius="6" ClipToBounds="True"
+                                <Border Opacity="{Binding RowOpacity}" CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True"
                                         Background="Transparent" 
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding DisplayTooltip}"
                                         PointerPressed="OnItemPointerPressed"
@@ -689,7 +690,7 @@
                                             <!-- Thumbnail or Folder Icon -->
                                              <Image Source="{Binding ThumbnailImage}" Stretch="UniformToFill" IsVisible="{Binding IsImageFile}"/>
                                              <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" 
-                                                       Foreground="#E8A447" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                                       Foreground="{DynamicResource StatusWarningBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                                              <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowIconViewFileFallback}" 
                                                        Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                                         </Grid>
@@ -755,7 +756,7 @@
                                                PointerMoved="OnItemPointerMoved"
                                                PointerReleased="OnItemPointerReleased">
                                               <Grid.ContextMenu>
-                                                  <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
+                                                  <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusLg}" Padding="5">
                                                       <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
                                                       <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
                                                       <Separator/>
@@ -770,12 +771,12 @@
                                                       <MenuItem Header="Cut" Command="{Binding #ExplorerRoot.DataContext.CutItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+X"/>
                                                       <MenuItem Header="Paste" Command="{Binding #ExplorerRoot.DataContext.PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding #ExplorerRoot.DataContext.HasFileClipboard}"/>
                                                       <Separator/>
-                                                      <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
+                                                      <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                                   </ContextMenu>
                                               </Grid.ContextMenu>
                                               <Grid Grid.Column="0" Width="26" VerticalAlignment="Center">
                                                   <Image Source="{Binding SystemIcon}" IsVisible="{Binding ShowSystemIcon}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                  <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="14" Height="14" Margin="6,0" Foreground="#E8A447"/>
+                                                  <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="14" Height="14" Margin="6,0" Foreground="{DynamicResource StatusWarningBrush}"/>
                                                   <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="14" Height="14" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                               </Grid>
                                               <Panel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,4,0">
@@ -831,7 +832,7 @@
                                                PointerMoved="OnItemPointerMoved"
                                                PointerReleased="OnItemPointerReleased">
                                               <Grid.ContextMenu>
-                                                  <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="10" Padding="5">
+                                                  <ContextMenu  BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusLg}" Padding="5">
                                                       <MenuItem Header="Open" Command="{Binding #ExplorerRoot.DataContext.OpenItemCommand}" CommandParameter="{Binding}" FontWeight="Bold"/>
                                                       <MenuItem Header="Open with..." Command="{Binding #ExplorerRoot.DataContext.OpenWithCommand}" CommandParameter="{Binding}" IsVisible="{Binding !IsDirectory}"/>
                                                       <Separator/>
@@ -846,12 +847,12 @@
                                                       <MenuItem Header="Cut" Command="{Binding #ExplorerRoot.DataContext.CutItemCommand}" CommandParameter="{Binding}" InputGesture="Ctrl+X"/>
                                                       <MenuItem Header="Paste" Command="{Binding #ExplorerRoot.DataContext.PasteItemCommand}" InputGesture="Ctrl+V" IsVisible="{Binding #ExplorerRoot.DataContext.HasFileClipboard}"/>
                                                       <Separator/>
-                                                      <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="#FF453A"/>
+                                                      <MenuItem Header="Delete" Command="{Binding #ExplorerRoot.DataContext.DeleteItemCommand}" CommandParameter="{Binding}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                                   </ContextMenu>
                                               </Grid.ContextMenu>
                                               <Grid Grid.Column="0" Width="26" VerticalAlignment="Center">
                                                   <Image Source="{Binding SystemIcon}" IsVisible="{Binding ShowSystemIcon}" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                  <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="14" Height="14" Margin="6,0" Foreground="#E8A447"/>
+                                                  <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding ShowFolderFallback}" Width="14" Height="14" Margin="6,0" Foreground="{DynamicResource StatusWarningBrush}"/>
                                                   <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding ShowFileFallback}" Width="14" Height="14" Margin="7,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                               </Grid>
                                               <Panel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,4,0">
@@ -926,7 +927,7 @@
             <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
                     Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource SeparatorBrush}"
-                    BorderThickness="1" CornerRadius="12"
+                    BorderThickness="1" CornerRadius="{DynamicResource RadiusXl}"
                     MaxWidth="500"
                     BoxShadow="0 25 50 -12 #80000000"
                     ClipToBounds="True">
@@ -966,7 +967,7 @@
             <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
                     Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource SeparatorBrush}"
-                    BorderThickness="1" CornerRadius="12"
+                    BorderThickness="1" CornerRadius="{DynamicResource RadiusXl}"
                     MaxWidth="500"
                     BoxShadow="0 25 50 -12 #80000000"
                     ClipToBounds="True">
@@ -1002,7 +1003,7 @@
         </Grid>
         
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsDuplicateVisible}">
-            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" MinWidth="320" BoxShadow="0 8 32 0 #80000000">
+            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" MinWidth="320" BoxShadow="0 8 32 0 #80000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Duplicate Items" FontWeight="Bold" FontSize="16"/>
                      <StackPanel Orientation="Horizontal" Spacing="10">

@@ -21,7 +21,7 @@
             <!-- Tab Bar - Trello style (card bordered, no icon) -->
             <Border Grid.Row="1" HorizontalAlignment="Center" 
                     Background="{DynamicResource CardBackgroundBrush}" 
-                    CornerRadius="8" 
+                    CornerRadius="{DynamicResource RadiusMd}" 
                     BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1"
                     Padding="4" Margin="20,0,20,8">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
@@ -31,7 +31,7 @@
             </Border>
 
             <!-- List Content -->
-            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" ClipToBounds="True" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+            <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                 <Grid>
                     <TextBlock Text="Loading..." HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLoading}"/>
                     
@@ -41,7 +41,7 @@
                                 <Grid ColumnDefinitions="30, *, Auto" Margin="5">
                                     <TextBlock Text="{Binding Rank}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <Border Grid.Column="2" Background="{DynamicResource AccentPointsBrush}" CornerRadius="6" Padding="8,2">
+                                    <Border Grid.Column="2" Background="{DynamicResource AccentPointsBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="8,2">
                                         <TextBlock Text="{Binding FormattedPoints, StringFormat='{}{0} Pts'}" FontSize="12" FontWeight="Bold" Foreground="White"/>
                                     </Border>
                                 </Grid>

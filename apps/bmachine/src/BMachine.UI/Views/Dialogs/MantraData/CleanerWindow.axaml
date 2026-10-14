@@ -19,7 +19,7 @@
             <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="Padding" Value="18,8"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -27,7 +27,7 @@
         </Style>
         <Style Selector="Button.Apply /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Apply:pointerover /template/ ContentPresenter">
@@ -44,7 +44,7 @@
             <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="Padding" Value="18,8"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -54,7 +54,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.Cancel:pointerover /template/ ContentPresenter">
@@ -67,7 +67,7 @@
         </Style>
     </Window.Styles>
 
-    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
 
         <!-- ═══ WINDOW TITLE BAR ═══ -->
@@ -85,7 +85,7 @@
                 <PathIcon Data="{StaticResource IconX}"/>
             </Button>
 
-            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Bottom"/>
         </Grid>
 
     <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto">
@@ -98,7 +98,7 @@
         </StackPanel>
 
         <!-- Suggestions List -->
-        <Border Grid.Row="1" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+        <Border Grid.Row="1" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="12">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <Grid>
                     <ItemsControl x:Name="SuggestionsListBox" ItemsSource="{Binding Suggestions}"
@@ -111,7 +111,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
-                                        CornerRadius="6" Padding="14" HorizontalAlignment="Stretch">
+                                        CornerRadius="{DynamicResource RadiusSm}" Padding="14" HorizontalAlignment="Stretch">
                                     <StackPanel Spacing="6">
                                         <CheckBox IsChecked="{Binding IsSelected}"
                                                   IsEnabled="{Binding Applicable}"

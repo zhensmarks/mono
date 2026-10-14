@@ -139,7 +139,7 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXl}"/>
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="Margin" Value="0"/>
         </Style>
@@ -152,16 +152,16 @@
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.profileMenuItem /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
         </Style>
         <Style Selector="ToggleButton.profileMenuItem /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}"/>
         </Style>
         <Style Selector="Button.profileMenuItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
@@ -193,19 +193,19 @@
             <!-- NAVIGATION BAR - CARD BORDERED, NO ICON (sesuai editing list yang benar) -->
             <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1"
-                    CornerRadius="8" Padding="4"
+                    CornerRadius="{DynamicResource RadiusMd}" Padding="4"
                     HorizontalAlignment="Center" Margin="12,12,12,12">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                     <!-- PROFILE (Left End) -->
-                     <Button x:Name="Part_ProfileNavButton"
-                             Padding="7,0" Background="Transparent"
+                     <Button Classes="ghost" x:Name="Part_ProfileNavButton"
+                             Padding="7,0" 
                              BorderBrush="Transparent" BorderThickness="0"
-                             CornerRadius="6" Cursor="Hand" MinWidth="64" Height="36" MinHeight="36"
+                             CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" MinWidth="64" Height="36" MinHeight="36"
                              ToolTip.Tip="Account">
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient"
                                     HorizontalOffset="-5" VerticalOffset="9">
-                                <Border Width="256" CornerRadius="12"
+                                <Border Width="256" CornerRadius="{DynamicResource RadiusXl}"
                                         Background="{DynamicResource CardBackgroundBrush}"
                                         BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                         BoxShadow="0 12 30 -12 #40000000"
@@ -216,14 +216,14 @@
                                             <TextBlock Text="{Binding UserName}" FontSize="14" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <Border Width="6" Height="6" CornerRadius="3" Background="#22C55E"
+                                                <Border Width="6" Height="6" CornerRadius="3" Background="{DynamicResource StatusSuccessBrush}"
                                                         VerticalAlignment="Center" IsVisible="{Binding IsOnline}"/>
                                                 <TextBlock Text="{Binding Greeting}" FontSize="11"
                                                            Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                         </StackPanel>
 
-                                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                                        <Separator/>
                                         <!-- Menu (no icons) -->
                                         <StackPanel Margin="6,6" Spacing="1">
                                             <ToggleButton Classes="profileMenuItem" Click="OnTerminalToggleClick" IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}">
@@ -234,12 +234,12 @@
                                                             Background="{DynamicResource SeparatorBrush}" VerticalAlignment="Center">
                                                         <Panel>
                                                             <Border CornerRadius="9" Background="{DynamicResource AccentBlueBrush}" IsVisible="{Binding IsLogPanelOpen}"/>
-                                                            <Border Width="12" Height="12" CornerRadius="6" Background="#FFFFFF"
+                                                            <Border Width="12" Height="12" CornerRadius="{DynamicResource RadiusSm}" Background="#FFFFFF"
                                                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                                                     BoxShadow="0 1 2 0 #30000000"
                                                                     HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"
                                                                     IsVisible="{Binding !IsLogPanelOpen}"/>
-                                                            <Border Width="12" Height="12" CornerRadius="6" Background="#FFFFFF"
+                                                            <Border Width="12" Height="12" CornerRadius="{DynamicResource RadiusSm}" Background="#FFFFFF"
                                                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                                                     BoxShadow="0 1 2 0 #30000000"
                                                                     HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,3,0"
@@ -253,16 +253,16 @@
                                                            Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                             </Button>
                                             <Button Classes="profileMenuItem" Click="OnSettingsClick">
-                                                <TextBlock Text="Settings" FontSize="12.5" Margin="10,0"
+                                                <TextBlock Text="Settings" FontFamily="{DynamicResource FontPrimary}" FontWeight="Bold" FontSize="12.5" Margin="10,0"
                                                            Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                             </Button>
                                             <Button Classes="profileMenuItem" Click="OnLogoutClick">
-                                                <TextBlock Text="Log Out" FontSize="12.5" Margin="10,0"
+                                                <TextBlock Text="Log Out" FontFamily="{DynamicResource FontPrimary}" FontWeight="Bold" FontSize="12.5" Margin="10,0"
                                                            Foreground="{DynamicResource AccentRedBrush}" VerticalAlignment="Center"/>
                                             </Button>
                                         </StackPanel>
 
-                                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                                        <Separator/>
 
                                         <!-- Footer -->
                                         <TextBlock Text="{Binding AppVersion, StringFormat='BMACHINE · {0}'}" FontSize="9" LetterSpacing="0.6"
@@ -273,7 +273,7 @@
                         </Button.Flyout>
                         <!-- User name (plain label, same style as nav tabs) -->
                         <TextBlock Text="{Binding UserName}"
-                                   FontSize="12" FontWeight="SemiBold"
+                                   Classes="navLabel"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                    TextTrimming="CharacterEllipsis"
                                    MaxWidth="120"
@@ -284,13 +284,13 @@
                      <!-- Separator between Profile and Nav -->
                      <Border Classes="navigationSeparator"/>
                       <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsDashboardTabSelected, Mode=TwoWay}">
-                          <TextBlock Text="HOME" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                          <TextBlock Text="HOME" Classes="navLabel" VerticalAlignment="Center"/>
                       </RadioButton>
                      <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsBatchTabSelected}" IsVisible="{Binding IsBatchVisible}">
-                         <TextBlock Text="BATCH" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                         <TextBlock Text="BATCH" Classes="navLabel" VerticalAlignment="Center"/>
                      </RadioButton>
                      <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="NavTabs" IsChecked="{Binding IsLockerTabSelected}" IsVisible="{Binding IsFolderLockerVisible}">
-                         <TextBlock Text="LOCKER" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                         <TextBlock Text="LOCKER" Classes="navLabel" VerticalAlignment="Center"/>
                      </RadioButton>
                 </StackPanel>
             </Border>
@@ -327,7 +327,7 @@
                     <Border Grid.Row="0" x:Name="BatchDropZone"
                             IsVisible="{Binding BatchVM.ShowDropZone}"
                             Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="6" Padding="40"
+                            CornerRadius="{DynamicResource RadiusSm}" Padding="40"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="2"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             MinHeight="200"
@@ -350,7 +350,7 @@
                             <!-- Header Area -->
                             <TextBlock Grid.Row="0" Text="SOURCE / INPUT" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="10,0,0,5"/>
                             
-                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
@@ -369,7 +369,7 @@
                                                               <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceAutoCommand}" CommandParameter="{Binding}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Copy Source Path" Command="{Binding CopyPathCommand}"/>
-                                                              <MenuItem Header="Delete Source Folder" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
+                                                              <MenuItem Header="Delete Source Folder" Command="{Binding DeleteCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                                           </ContextMenu>
                                                       </StackPanel.ContextMenu>
                                                       <TextBlock Text="{Binding DisplayName}" Classes="Bold" FontSize="11" FontWeight="Bold"
@@ -380,8 +380,8 @@
                                                           <TextBox Grid.Column="0" Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="Subfolder name" FontSize="11" Height="22" MinHeight="0" Padding="4,2">
                                                               <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding CreateSubFolderCommand}"/></TextBox.KeyBindings>
                                                           </TextBox>
-                                                          <Button Grid.Column="1" Content="Add" Command="{Binding CreateSubFolderCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
-                                                          <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelNewFolderInputCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
+                                                          <Button Classes="small" Grid.Column="1" Content="Add" Command="{Binding CreateSubFolderCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
+                                                          <Button Classes="small" Grid.Column="2" Content="Cancel" Command="{Binding CancelNewFolderInputCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
                                                       </Grid>
                                                   </StackPanel>
                                               </TreeDataTemplate>
@@ -396,16 +396,16 @@
                                                               <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceAutoCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Copy Path" Command="{Binding CopyPathCommand}" IsVisible="{Binding IsDirectory}"/>
-                                                              <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
+                                                              <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                                           </ContextMenu>
                                                       </StackPanel.ContextMenu>
                                                        <!-- INLINE ACTION BAR & TOGGLE -->
                                                        <Panel VerticalAlignment="Center" Margin="0,0,4,0" IsVisible="False">
                                                            <!-- 1. TOGGLE BUTTON (Visible when Action Bar CLOSED and Input CLOSED) -->
-                                                           <Button Command="{Binding ToggleActionBarCommand}"
+                                                           <Button Classes="ghost" Command="{Binding ToggleActionBarCommand}"
                                                                    IsVisible="{Binding !IsActionBarOpen}"
                                                                    Width="20" Height="20" MinHeight="0" Padding="0" 
-                                                                   Background="Transparent" BorderThickness="0" 
+                                                                    BorderThickness="0" 
                                                                    Cursor="Hand">
                                                                <Button.IsVisible>
                                                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -414,7 +414,7 @@
                                                                    </MultiBinding>
                                                                </Button.IsVisible>
                                                                <PathIcon Data="{StaticResource IconDotsVertical}"
-                                                                         Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                         Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            </Button>
     
                                                            <!-- 2. ACTION BAR (Visible when OPEN) -->
@@ -441,9 +441,9 @@
                                                                <Button Command="{Binding CancelActionCommand}"
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="{DynamicResource ButtonSecondaryBackgroundBrush}" CornerRadius="6" BorderThickness="0"
+                                                                       Background="{DynamicResource ButtonSecondaryBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Cancel">
-                                                                   <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconX}" Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                </Button>
                                                                
                                                                <!-- NEW FOLDER (Only for Directories) -->
@@ -451,10 +451,10 @@
                                                                        Classes="actionBtn"
                                                                        IsVisible="{Binding IsDirectory}"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="{DynamicResource ButtonSecondaryBackgroundBrush}" CornerRadius="6" BorderThickness="0"
+                                                                       Background="{DynamicResource ButtonSecondaryBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="New Subfolder">
                                                                    <Grid>
-                                                                       <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                                       <PathIcon Data="{StaticResource IconFolder}" Classes="sm" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                                        <PathIcon Data="{StaticResource IconPlus}" Width="6" Height="6" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                                                                    </Grid>
                                                                </Button>
@@ -463,18 +463,18 @@
                                                                <Button Command="{Binding DeleteCommand}"
                                                                        Classes="actionBtn danger"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="{DynamicResource ButtonDangerBackgroundBrush}" CornerRadius="6" BorderThickness="0"
+                                                                       Background="{DynamicResource ButtonDangerBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Delete Item">
-                                                                   <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconTrash}" Classes="sm" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
                                                                </Button>
     
                                                                <Button Command="{Binding ShowMasterBrowserCommand}"
                                                                        CommandParameter="Left" 
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="{DynamicResource AccentSubtleBrush}" CornerRadius="6" BorderThickness="0"
+                                                                       Background="{DynamicResource AccentSubtleBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Buka Master File Browser">
-                                                                   <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconFolder}" Classes="sm" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                                </Button>
                                                                <!-- MASTER FILE BROWSER (Removed) -->
                                                            </StackPanel>
@@ -503,10 +503,10 @@
                                                                </TextBox.KeyBindings>
                                                            </TextBox>
                                                            <Button Grid.Column="1" Command="{Binding ConfirmNewFolderCommand}" Classes="IconBtn primary" Margin="2,0" ToolTip.Tip="Create folder">
-                                                               <PathIcon Data="{StaticResource IconCheck2}" Width="14" Height="14"/>
+                                                               <PathIcon Data="{StaticResource IconCheck2}" Classes="sm"/>
                                                            </Button>
                                                            <Button Grid.Column="2" Command="{Binding CancelActionCommand}" Classes="IconBtn" ToolTip.Tip="Cancel">
-                                                               <PathIcon Data="{StaticResource IconX2}" Width="14" Height="14"/>
+                                                               <PathIcon Data="{StaticResource IconX2}" Classes="sm"/>
                                                            </Button>
                                                        </Grid>
                                                   </StackPanel>
@@ -547,7 +547,7 @@
                                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                             <Button Grid.Column="1" Command="{Binding BatchVM.CloseMasterBrowserCommand}" Classes="Clear" Padding="5">
-                                                <PathIcon Data="{StaticResource IconX}" Width="14" Height="14"/>
+                                                <PathIcon Data="{StaticResource IconX}" Classes="sm"/>
                                             </Button>
                                         </Grid>
                                         
@@ -575,7 +575,7 @@
                                                         <PathIcon Data="{StaticResource IconFile}"
                                                                   Classes.file="{Binding !IsDirectory}"
                                                                   IsVisible="{Binding !IsDirectory}"
-                                                                  Width="14" Height="14" Margin="0,1,6,0"
+                                                                  Classes="sm" Margin="0,1,6,0"
                                                                   VerticalAlignment="Center"/>
                                                         
                                                         <!-- Name -->
@@ -596,7 +596,7 @@
 
                             <!-- Add Folder Button (Source) - Left Aligned -->
                             <Button Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,0"
-                                    Width="28" Height="28" CornerRadius="6" Padding="0"
+                                    Width="28" Height="28" CornerRadius="{DynamicResource RadiusSm}" Padding="0"
                                     Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Source Folder"
@@ -611,7 +611,7 @@
                                         <Setter Property="Foreground" Value="White"/>
                                     </Style>
                                 </Button.Styles>
-                                <PathIcon Data="{StaticResource IconFilePlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <PathIcon Data="{StaticResource IconFilePlus}" Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
                         </Grid>
                         
@@ -621,7 +621,7 @@
                             <TextBlock Grid.Row="0" Text="OUTPUT / MASTER" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="0,0,10,5" HorizontalAlignment="Right"/>
 
                             <!-- Main Output Area -->
-                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                            <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
@@ -640,25 +640,25 @@
                                                                <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputAutoCommand}" CommandParameter="{Binding}"/>
                                                                <Separator/>
                                                                <MenuItem Header="Copy Output Path" Command="{Binding CopyOutputPathCommand}"/>
-                                                               <MenuItem Header="Delete Output Folder" Command="{Binding DeleteOutputCommand}" Foreground="#FF453A"/>
+                                                               <MenuItem Header="Delete Output Folder" Command="{Binding DeleteOutputCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                                            </ContextMenu>
                                                        </StackPanel.ContextMenu>
                                                        <!-- MENU BUTTON -->
                                                        <Button Classes="ghostIcon" Width="20" Height="20" MinHeight="0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Margin="0,0,4,0" IsVisible="False">
-                                                           <PathIcon Data="{StaticResource IconDotsVertical}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                           <PathIcon Data="{StaticResource IconDotsVertical}" Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            <Button.Flyout>
                                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="TransientWithDismissOnPointerMoveAway">
-                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                                                                   <Border Background="{DynamicResource CardBackgroundBrush}" Padding="8" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                                                        <StackPanel Spacing="8" Width="160">
                                                                            <TextBlock Text="Folder Options" FontWeight="Bold" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                            <!-- Create Subfolder -->
                                                                            <StackPanel Spacing="4">
-                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder Name..." FontSize="11" CornerRadius="6"/>
-                                                                               <Button Content="Add Subfolder" Command="{Binding CreateSubFolderCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11"/>
+                                                                               <TextBox Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="New Subfolder Name..." FontSize="11" CornerRadius="{DynamicResource RadiusSm}"/>
+                                                                               <Button Classes="small" Content="Add Subfolder" Command="{Binding CreateSubFolderCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11"/>
                                                                            </StackPanel>
-                                                                           <Separator Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                                                                           <Separator/>
                                                                            <!-- Delete -->
-                                                                           <Button Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="6"/>
+                                                                           <Button Classes="small" Content="Delete Folder" Command="{Binding DeleteCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontSize="11" Foreground="Red" Background="#1AFF0000" BorderBrush="Red" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}"/>
                                                                        </StackPanel>
                                                                    </Border>
                                                                </Flyout>
@@ -670,8 +670,8 @@
                                                            <TextBox Grid.Column="0" Text="{Binding OutputNewSubFolderName, Mode=TwoWay}" Watermark="Subfolder name" FontSize="11" Height="22" MinHeight="0" Padding="4,2">
                                                                <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding CreateOutputSubFolderCommand}"/></TextBox.KeyBindings>
                                                            </TextBox>
-                                                           <Button Grid.Column="1" Content="Add" Command="{Binding CreateOutputSubFolderCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
-                                                           <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelOutputNewFolderInputCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
+                                                           <Button Classes="small" Grid.Column="1" Content="Add" Command="{Binding CreateOutputSubFolderCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
+                                                           <Button Classes="small" Grid.Column="2" Content="Cancel" Command="{Binding CancelOutputNewFolderInputCommand}" FontSize="10" Padding="6,2" Margin="3,0,0,0"/>
                                                        </Grid>
                                                        <TextBlock Text="(pending)" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center">
                                                            <TextBlock.IsVisible>
@@ -694,16 +694,16 @@
                                                               <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputAutoCommand}" CommandParameter="{Binding}" IsVisible="{Binding IsDirectory}"/>
                                                               <Separator/>
                                                               <MenuItem Header="Copy Path" Command="{Binding CopyPathCommand}" IsVisible="{Binding IsDirectory}"/>
-                                                              <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="#FF453A"/>
+                                                              <MenuItem Header="Delete" Command="{Binding DeleteCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                                           </ContextMenu>
                                                       </StackPanel.ContextMenu>
                                                        <!-- INLINE ACTION BAR & TOGGLE -->
                                                        <Panel VerticalAlignment="Center" Margin="0,0,4,0" IsVisible="False">
                                                            <!-- 1. TOGGLE BUTTON (Visible when Action Bar CLOSED and Input CLOSED) -->
-                                                           <Button Command="{Binding ToggleActionBarCommand}"
+                                                           <Button Classes="ghost" Command="{Binding ToggleActionBarCommand}"
                                                                    IsVisible="{Binding !IsActionBarOpen}"
                                                                    Width="20" Height="20" MinHeight="0" Padding="0" 
-                                                                   Background="Transparent" BorderThickness="0" 
+                                                                    BorderThickness="0" 
                                                                    Cursor="Hand">
                                                                <Button.IsVisible>
                                                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -712,7 +712,7 @@
                                                                    </MultiBinding>
                                                                </Button.IsVisible>
                                                                <PathIcon Data="{StaticResource IconDotsVertical}"
-                                                                         Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                         Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                            </Button>
     
                                                            <!-- 2. ACTION BAR (Visible when OPEN) -->
@@ -739,9 +739,9 @@
                                                                <Button Command="{Binding CancelActionCommand}"
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="{DynamicResource ButtonSecondaryBackgroundBrush}" CornerRadius="6" BorderThickness="0"
+                                                                       Background="{DynamicResource ButtonSecondaryBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Cancel">
-                                                                   <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconX}" Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                </Button>
                                                                
                                                                <!-- NEW FOLDER (Only for Directories) -->
@@ -749,10 +749,10 @@
                                                                        Classes="actionBtn"
                                                                        IsVisible="{Binding IsDirectory}"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="{DynamicResource ButtonSecondaryBackgroundBrush}" CornerRadius="6" BorderThickness="0"
+                                                                       Background="{DynamicResource ButtonSecondaryBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="New Subfolder">
                                                                    <Grid>
-                                                                       <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                                       <PathIcon Data="{StaticResource IconFolder}" Classes="sm" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                                        <PathIcon Data="{StaticResource IconPlus}" Width="6" Height="6" Foreground="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                                                                    </Grid>
                                                                </Button>
@@ -761,18 +761,18 @@
                                                                <Button Command="{Binding DeleteCommand}"
                                                                        Classes="actionBtn danger"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="{DynamicResource ButtonDangerBackgroundBrush}" CornerRadius="6" BorderThickness="0"
+                                                                       Background="{DynamicResource ButtonDangerBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Delete Item">
-                                                                   <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconTrash}" Classes="sm" Foreground="{DynamicResource ButtonDangerForegroundBrush}"/>
                                                                </Button>
     
                                                                <Button Command="{Binding ShowMasterBrowserCommand}"
                                                                        CommandParameter="Right" 
                                                                        Classes="actionBtn"
                                                                        Width="20" Height="20" MinHeight="0" Padding="0"
-                                                                       Background="{DynamicResource AccentSubtleBrush}" CornerRadius="6" BorderThickness="0"
+                                                                       Background="{DynamicResource AccentSubtleBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderThickness="0"
                                                                        Cursor="Hand" ToolTip.Tip="Buka Master File Browser">
-                                                                   <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                                                   <PathIcon Data="{StaticResource IconFolder}" Classes="sm" Foreground="{DynamicResource AccentBlueBrush}"/>
                                                                </Button>
                                                                <!-- MASTER FILE BROWSER (Removed) -->
                                                            </StackPanel>
@@ -797,10 +797,10 @@
                                                            <TextBox Grid.Column="0" Text="{Binding NewSubFolderName, Mode=TwoWay}" 
                                                                     Watermark="Name..." FontSize="11" VerticalAlignment="Center" MinHeight="0" Height="22" Padding="4,2"/>
                                                            <Button Grid.Column="1" Command="{Binding ConfirmNewFolderCommand}" Classes="IconBtn primary" Margin="2,0" ToolTip.Tip="Create folder">
-                                                               <PathIcon Data="{StaticResource IconCheck2}" Width="14" Height="14"/>
+                                                               <PathIcon Data="{StaticResource IconCheck2}" Classes="sm"/>
                                                            </Button>
                                                            <Button Grid.Column="2" Command="{Binding CancelActionCommand}" Classes="IconBtn" ToolTip.Tip="Cancel">
-                                                               <PathIcon Data="{StaticResource IconX2}" Width="14" Height="14"/>
+                                                               <PathIcon Data="{StaticResource IconX2}" Classes="sm"/>
                                                            </Button>
                                                        </Grid>
                                                   </StackPanel>
@@ -841,7 +841,7 @@
                                                 <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                             <Button Grid.Column="1" Command="{Binding BatchVM.CloseMasterBrowserCommand}" Classes="Clear" Padding="5">
-                                                <PathIcon Data="{StaticResource IconX}" Width="14" Height="14"/>
+                                                <PathIcon Data="{StaticResource IconX}" Classes="sm"/>
                                             </Button>
                                         </Grid>
                                         
@@ -868,7 +868,7 @@
                                                         <PathIcon Data="{StaticResource IconFile}"
                                                                   Classes.file="{Binding !IsDirectory}"
                                                                   IsVisible="{Binding !IsDirectory}"
-                                                                  Width="14" Height="14" Margin="0,1,6,0"
+                                                                  Classes="sm" Margin="0,1,6,0"
                                                                   VerticalAlignment="Center"/>
                                                         
                                                         <!-- Name -->
@@ -889,7 +889,7 @@
 
                             <!-- Add Folder Button (Output) - Right Aligned Overlapping Bottom -->
                             <Button Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,0"
-                                    Width="32" Height="32" CornerRadius="6" Padding="0"
+                                    Width="32" Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="0"
                                     Background="{DynamicResource CardBackgroundBrush}"
                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Output Folder"
@@ -913,7 +913,7 @@
                     <!-- NEW FOOTER LAYOUT (REDESIGNED) -->
                     <Border Grid.Row="1" Margin="0,10,0,0" 
                             Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="6" Padding="15,10"
+                            CornerRadius="{DynamicResource RadiusSm}" Padding="15,10"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,1,1,0"
                             IsVisible="{Binding BatchVM.HasFolders}">
                             <Grid ColumnDefinitions="*, Auto">
@@ -932,8 +932,8 @@
                                                 <DataTemplate>
                                                     <Button Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
                                                             CommandParameter="{Binding}"
-                                                            Width="32" Height="32" Padding="0" CornerRadius="6" Cursor="Hand"
-                                                            Background="#2A2A2A" BorderThickness="0"
+                                                            Width="32" Height="32" Padding="0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand"
+                                                            Background="{DynamicResource ButtonSecondaryBackgroundBrush}" BorderThickness="0"
                                                             ToolTip.Tip="{Binding Name}"
                                                             Margin="0,0,6,0">
                                                         <Button.Styles>
@@ -959,19 +959,19 @@
                                 <!-- Utility Buttons (Right) -->
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                     <!-- Scripts Path Button -->
-                                    <Button Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
+                                    <Button Classes="ghost" Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
                                             Width="32" Height="32" Padding="0"
-                                            Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                                            CornerRadius="6" ToolTip.Tip="Set Scripts Folder">
+                                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                            CornerRadius="{DynamicResource RadiusSm}" ToolTip.Tip="Set Scripts Folder">
                                         <shapes:Path Data="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" 
                                                      Width="14" Height="14" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
                                     </Button>
                                     
                                     <!-- Clear Button -->
-                                    <Button Command="{Binding BatchVM.ClearCommand}" 
+                                    <Button Classes="ghost" Command="{Binding BatchVM.ClearCommand}" 
                                             Width="32" Height="32" Padding="0"
-                                            Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                                            CornerRadius="6" ToolTip.Tip="Clear All">
+                                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                            CornerRadius="{DynamicResource RadiusSm}" ToolTip.Tip="Clear All">
                                         <PathIcon Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="{DynamicResource AccentRedBrush}"/>
                                     </Button>
                                 </StackPanel>
@@ -993,7 +993,7 @@
                 <!-- NEW FOLDER OVERLAY -->
                 <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="500" ColumnDefinitions="*,*">
                     <!-- A transparent hit target dismisses the editor without dimming either folder list. -->
-                    <Button Grid.ColumnSpan="2" Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    <Button Classes="ghost" Grid.ColumnSpan="2"  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             Height="NaN" MinHeight="0" Padding="0"
                             Command="{Binding BatchVM.CloseFolderOverlayCommand}" BorderThickness="0"/>
 
@@ -1014,7 +1014,7 @@
                                 <Button Grid.Column="1" Command="{Binding BatchVM.CloseFolderOverlayCommand}"
                                         Classes="ghost" Width="28" Height="28" MinHeight="0" Padding="0"
                                         ToolTip.Tip="Close folder editor">
-                                    <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <PathIcon Data="{StaticResource IconX}" Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Button>
                             </Grid>
 
@@ -1035,7 +1035,7 @@
                                             Command="{Binding BatchVM.AddFolderTemplateCommand}"
                                             Classes="secondary" Width="36" Height="36" MinHeight="0" Padding="0"
                                             ToolTip.Tip="Save this name as a template">
-                                        <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <PathIcon Data="{StaticResource IconPlus}" Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
 
                                     <Button Grid.Column="2"
@@ -1043,10 +1043,10 @@
                                             Classes="secondary" Width="36" Height="36" MinHeight="0" Padding="0"
                                             ToolTip.Tip="Show or hide saved templates">
                                         <Grid>
-                                            <PathIcon Data="{StaticResource IconChevronDown}" Width="14" Height="14"
+                                            <PathIcon Data="{StaticResource IconChevronDown}" Classes="sm"
                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                       IsVisible="{Binding !BatchVM.IsFolderTemplatesVisible}"/>
-                                            <PathIcon Data="{StaticResource IconChevronUp}" Width="14" Height="14"
+                                            <PathIcon Data="{StaticResource IconChevronUp}" Classes="sm"
                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                       IsVisible="{Binding BatchVM.IsFolderTemplatesVisible}"/>
                                         </Grid>
@@ -1074,7 +1074,7 @@
                                                             CommandParameter="{Binding}"
                                                             Classes="ghost" Width="28" Height="28" MinHeight="0" Padding="0"
                                                             ToolTip.Tip="Remove template">
-                                                        <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource AccentRedBrush}"/>
+                                                        <PathIcon Data="{StaticResource IconX}" Classes="sm" Foreground="{DynamicResource AccentRedBrush}"/>
                                                     </Button>
                                                 </StackPanel>
                                             </DataTemplate>
@@ -1139,8 +1139,8 @@
         </ExperimentalAcrylicBorder>
 
         <!-- Clickable background to close -->
-        <Button HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
-                Background="Transparent" BorderThickness="0"
+        <Button Classes="ghost" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
+                 BorderThickness="0"
                 Command="{Binding ToggleProfileViewerCommand}"
                 Cursor="Arrow">
             <Button.Styles>
@@ -1151,7 +1151,7 @@
         </Button>
         
         <!-- Large Profile Picture -->
-        <Border Width="300" Height="300" CornerRadius="150" 
+        <Border Width="300" Height="300" CornerRadius="{DynamicResource RadiusPill}" 
                 Background="{DynamicResource BackgroundBrush}" 
                 ClipToBounds="True" 
                 BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"

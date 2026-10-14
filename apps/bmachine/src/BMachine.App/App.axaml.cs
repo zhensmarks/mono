@@ -38,6 +38,8 @@ public partial class App : Application,
             try 
             {
                 // 1. Show Splash Screen
+                ApplySavedThemeBeforeSplash();
+                ApplySavedDensityBeforeSplash();
                 var splashVm = new SplashViewModel();
                 var splashWindow = new SplashWindow
                 {
@@ -72,6 +74,37 @@ public partial class App : Application,
         base.OnFrameworkInitializationCompleted();
     }
 
+    private void ApplySavedThemeBeforeSplash()
+    {
+        try
+        {
+            var themeStr = Task.Run(async () =>
+            {
+                var db = new DatabaseService();
+                return await db.GetAsync<string>("Settings.Theme");
+            }).GetAwaiter().GetResult();
+            RequestedThemeVariant = themeStr switch
+            {
+                "Light" => Avalonia.Styling.ThemeVariant.Light,
+                "System" => Avalonia.Styling.ThemeVariant.Default,
+                _ => Avalonia.Styling.ThemeVariant.Dark
+            };
+        }
+        catch { }
+    }
+    private void ApplySavedDensityBeforeSplash()
+    {
+        try
+        {
+            var value = Task.Run(async () =>
+            {
+                var db = new DatabaseService();
+                return await db.GetAsync<string>(BMachine.UI.Services.UiDensityService.SettingKey);
+            }).GetAwaiter().GetResult();
+            BMachine.UI.Services.UiDensityService.Apply(BMachine.UI.Services.UiDensityService.Parse(value));
+        }
+        catch { }
+    }
     private void Log(string message)
     {
         try
@@ -282,7 +315,8 @@ public partial class App : Application,
                 if (double.IsNaN(h)) h = 300;
     
                 Console.WriteLine($"[App] Positioning at {screenPos.X - w/2}, {screenPos.Y - h/2}");
-                _radialMenuWindow.Position = new PixelPoint((int)(screenPos.X - w/2), (int)(screenPos.Y - h/2));
+                var scaling = _radialMenuWindow.Screens.ScreenFromPoint(new PixelPoint((int)screenPos.X, (int)screenPos.Y))?.Scaling ?? 1.0;
+                _radialMenuWindow.Position = new PixelPoint((int)Math.Round(screenPos.X - w * scaling / 2), (int)Math.Round(screenPos.Y - h * scaling / 2));
                 _radialMenuWindow.Show();
                 _radialMenuWindow.Activate(); // Focus
                 
@@ -320,7 +354,8 @@ public partial class App : Application,
                 // Calculate position relative to window top-left
                 // Window Position is Top-Left of window in Screen Coords.
                 var winPos = _radialMenuWindow.Position;
-                Point relPos = new Point(screenPos.X - winPos.X, screenPos.Y - winPos.Y);
+                double scaling = _radialMenuWindow.RenderScaling;
+                Point relPos = new Point((screenPos.X - winPos.X) / scaling, (screenPos.Y - winPos.Y) / scaling);
                 vm.UpdateHighlight(relPos, _radialMenuWindow.Bounds.Size);
             }
         });

@@ -8,24 +8,49 @@ Aturan design terpusat agar semua komponen selaras. File token & style: [`BMachi
 
 ## 1. Typography
 
-| Token | Value |
-|-------|-------|
-| `FontPrimary` | `'Segoe UI Variable', 'SF Pro Text', 'Helvetica Neue', system-ui, -apple-system, sans-serif` |
-| `FontMono` | `'Cascadia Code', 'JetBrains Mono', Consolas, monospace` |
+**Font hanya dari bundle aplikasi.** Tidak boleh memakai font sistem OS (Segoe UI, Arial, Consolas, dll).
+
+| Token | Value | Sumber |
+|-------|-------|--------|
+| `FontPrimary` | `avares://BMachine.UI/Assets/Fonts#Inter` | Inter (`Avalonia.Fonts.Inter`, `WithInterFont()`) |
+| `FontMono` | `avares://BMachine.UI/Assets/Fonts#JetBrains Mono` | `Assets/Fonts/JetBrainsMono-*.ttf` |
+
+Font yang dipakai (wajib tersedia sebagai file):
+- Inter: Regular, Medium, SemiBold, Bold, ExtraBold (ExtraBold hanya untuk `navLabel`, file `Inter-ExtraBold.ttf`, family `Inter ExtraBold`) (Italic jika dibutuhkan)
+- JetBrains Mono: Regular, Medium, SemiBold, Bold
+
+**Skala weight (satu-satunya yang boleh dipakai):**
+
+| Weight | Pakai untuk |
+|--------|-------------|
+| `Light` | Subjudul branding (`MACHINE` di splash) |
+| `Normal` | Body, isi teks panjang, input |
+| `Medium` | Label menu/nav, caption yang perlu dibaca |
+| `SemiBold` | Button, judul kecil (h2/h3), header kolom, label aktif |
+| `Bold` | Judul utama (h1), nilai penting, eyebrow |
+| `Black` | Dilarang di UI. Hanya untuk logo |
+| `ExtraBold` | Hanya untuk label navigasi (`navLabel`, family `Inter ExtraBold`). Lain dilarang |
+
+Aturan:
+- Jangan pakai `Black` untuk teks UI; ganti `Bold`.
+- `ExtraBold` hanya untuk `navLabel`. Dilarang di teks lain.
+- Jangan pakai angka weight ad hoc. Gunakan salah satu di tabel.
+- `Italic` hanya untuk teks placeholder/catatan/kutipan. Jangan dipakai untuk penekanan judul atau label.
+
+**Skala ukuran:** `11` caption, `12` body kecil/button/menu, `13` body, `14` h3, `18` h2, `24` h1. Angka lain (9, 9.5, 10.5, 11.5, 12.5, 13.5, 15, 20, 22, 26, 28) jangan dipakai baru, kecuali icon/badge yang diatur ukuran khusus.
 
 **Classes TextBlock:**
 - `h1` — 24 Bold, tracking 0.3
 - `h2` — 18 SemiBold
 - `h3` — 14 SemiBold
-- `body` — 13, TextSecondary
-- `caption` — 11, muted #71717A
+- `body` — 13 Normal, TextSecondary
+- `caption` — 11 Medium, muted #71717A
 - `eyebrow` — 10.5 SemiBold, mono, tracking 1.2, #52525B
-- `mono` — mono 12
+- `mono` — mono 12 Normal
 
-Default `TextBlock` = FontPrimary Regular, TextPrimary, line-height 20.
+Default `TextBlock` = FontPrimary Normal, TextPrimary, line-height 20.
 
 ---
-
 ## 2. Warna (semantic)
 
 | Token | Dark | Light | Pakai untuk |
@@ -43,6 +68,14 @@ Default `TextBlock` = FontPrimary Regular, TextPrimary, line-height 20.
 | `BorderDefaultBrush` | #232326 | #232326 | input border |
 | `BorderHoverBrush` | #3F3F46 | #3F3F46 | hover border |
 | `BorderFocusBrush` | #4B4B52 | #4B4B52 | focus border |
+| `OverlayBrush` | #CC000000 | #99000000 | scrim/backdrop |
+| `ScrimStrongBrush` | #E6000000 | #E6000000 | scrim kuat (lightbox, loading) |
+| `ScrimSoftBrush` | #99000000 | #99000000 | scrim lembut |
+| `TintHoverBrush` | #0AFFFFFF | #0AFFFFFF | hover tint putih |
+| `StatusDangerBrush` / `StatusSuccessBrush` | merah / hijau status | sama | dot/indikator status |
+| `SurfaceElevatedBrush` | #202226 | #F1F3F5 | panel detail, comment, checklist |
+| `PrimaryBrush` | #3b82f6 | #2563EB | accent primer (sidebar log) |
+| `AccentEditingColor` / `AccentLateColor` / `AccentRevisionColor` | #3b82f6 / #ef4444 / #f97316 | sama | warna kategori kartu list |
 
 Jangan pakai hex random. Jika butuh warna baru, tambah sebagai token di `BMachineDesignSystem.axaml`.
 
@@ -52,11 +85,13 @@ Jangan pakai hex random. Jika butuh warna baru, tambah sebagai token di `BMachin
 
 | Token | Value | Pakai untuk |
 |-------|-------|-------------|
+| `RadiusXxs` | 2 | garis/indikator kecil |
+| `RadiusXs` | 4 | badge, chip kecil, tombol inline |
 | `RadiusSm` | 6 | button, input, checkbox, tooltip |
 | `RadiusMd` | 8 | card kecil, search box |
 | `RadiusLg` | 10 | card/bento |
 | `RadiusXl` | 12 | modal/dialog |
-| `RadiusPill` | 999 | pill/avatar |
+| `RadiusPill` | 999 | pill/avatar. Lingkaran murni (Width = Height = 2×radius) pakai `RadiusPill` |
 
 Spacing: `SpaceXs 4`, `SpaceSm 8`, `SpaceMd 12`, `SpaceLg 16`, `SpaceXl 20`.
 
@@ -106,14 +141,19 @@ Box 16×16, radius 4, border #3F3F46, transparent bg. Hover border #52525B + bg 
 
 ## 8. Icon (PathIcon)
 
-Default 16×16, foreground TextSecondary, transition 0.15s. Token ukuran: `IconXs 12`, `IconSm 14`, `IconMd 16`, `IconLg 18`, `IconXl 24`.
+Semua icon UI memakai outline Tabler melalui `PathIcon` + `StreamGeometry` dari `TablerIcons.axaml`. Jangan pakai emoji/unicode glyph sebagai icon UI.
 
-Classes: `PathIcon.xs` / `.sm` / `.lg` / `.xl`. Icon di dalam Button otomatis ikut `Foreground` button.
+**Ukuran (token, wajib):** `IconXs 12`, `IconSm 14`, `IconMd 16` (default), `IconLg 18`, `IconXl 24`. Classes: `PathIcon.xs` / `.sm` / `.lg` / `.xl`.
 
-**Aturan:** Semua icon UI memakai outline Tabler melalui `PathIcon` + `StreamGeometry` dari `TablerIcons.axaml`. Alias key lama dipertahankan untuk konfigurasi script tersimpan. Jangan pakai emoji/unicode icon sebagai glyph UI; ukuran mengikuti token di atas, bukan angka ad hoc.
+**Aturan agar icon tidak terpotong:**
+- Icon WAJIB berada di kotak persegi (`Width` = `Height`) dan memakai `Stretch="Uniform"`.
+- Ukuran kontainer (button/grid) minimal `IconSize + 8` (contoh icon 16 → kontainer minimal 24). Jangan set `Width`/`Height` kontainer lebih kecil dari itu.
+- Jangan set `ClipToBounds="True"` pada button/grid yang membungkus icon kecuali kontainernya sudah cukup besar.
+- Stroke `1.8` di `PathIcon` default. Jika icon dipakai di ukuran `xs` (12), boleh turun ke `1.5` agar tidak penuh.
+- Icon di dalam Button otomatis ikut `Foreground` button.
+- Icon tanpa teks: beri `ToolTip.Tip` agar label tetap terbaca saat hover.
 
 ---
-
 ## 9. Card / Bento
 
 `Border.card` — Bg CardBackgroundBrush, border SeparatorBrush 1px, radius 10, padding 16, ClipToBounds True. `Border.cardSm` — radius 8, padding 12. Tanpa shadow/glow.
@@ -122,7 +162,7 @@ Classes: `PathIcon.xs` / `.sm` / `.lg` / `.xl`. Icon di dalam Button otomatis ik
 
 ## 10. Navigation Pill (Trello style)
 
-`RadioButton.TrelloBoardTab` — card bordered (CardBackground + Separator 1px, radius 8, padding 4) berisi pill. Pill: transparent, radius 6, padding 12,7, font 13 Medium, hover #22272B, active #263B82F6 + indicator 20×3 Accent, opacity 0→1 (reserve space). Hover inactive tetap abu #22272B, bukan Accent. Lihat [`TrelloNavigation.axaml`](src/BMachine.UI/Styles/TrelloNavigation.axaml).
+`RadioButton.TrelloBoardTab` — card bordered (CardBackground + Separator 1px, radius 8, padding 4) berisi pill. Pill: transparent, radius 6, padding 12,7, label `TextBlock.navLabel` (family `Inter ExtraBold`, 12), hover #22272B, active #263B82F6 + indicator 20×3 Accent, opacity 0→1 (reserve space). Hover inactive tetap abu #22272B, bukan Accent. Lihat [`TrelloNavigation.axaml`](src/BMachine.UI/Styles/TrelloNavigation.axaml).
 
 ---
 
@@ -190,9 +230,65 @@ Classes: `PathIcon.xs` / `.sm` / `.lg` / `.xl`. Icon di dalam Button otomatis ik
 - Scroll tetap bisa lewat mouse wheel / gesture.
 - Jangan tambah scrollbar per-view.
 
+## 16. Border, Separator & Divider
+
+Tiga jenis garis, masing-masing punya peran dan token sendiri. Jangan campur.
+
+| Jenis | Peran | Token | Cara tulis |
+|-------|-------|-------|------------|
+| **Border** | Batas kontainer/komponen interaktif (card, input, dropdown, dialog) | `BorderDefaultBrush` (input), `SeparatorBrush` (card) | `BorderBrush="{DynamicResource ...}"` `BorderThickness="1"` |
+| **Separator** | Garis pemisah antar item dalam satu kelompok (list, menu, form) | `SeparatorBrush` | `<Separator/>` (style global, tinggi 1) |
+| **PanelDivider** | Pemisah antar panel yang tampil berdampingan | `PanelDividerBrush` | `Classes="panel-divider"` |
+
+**Aturan:**
+- Card/bento: `Border` + `SeparatorBrush` 1px, radius 10 (`Classes="card"`). Tanpa shadow.
+- Input (TextBox, ComboBox, dropdown): `BorderDefaultBrush` 1px, berubah ke `BorderHoverBrush` saat hover dan `BorderFocusBrush` saat focus.
+- Separator antar baris/item: selalu `<Separator/>`. Jangan buat `Border Height="1"` atau `Rectangle Height="1"` manual.
+- Panel berdampingan: `Classes="panel-divider"`. Panel tunggal yang mengisi window tidak boleh diberi divider.
+- Dilarang: `BorderBrush="#hex"`, `Stroke="#hex"`, `Fill="#hex"` untuk garis. Pakai token tema agar light mode ikut berubah.
+- Dilarang: `Background="#1A1A1D"` atau warna card hardcoded. Pakai `CardBackgroundBrush`.
+- Ketebalan standar: 1px. Ketebalan 2px hanya untuk indikator aktif (mis. tab underline).
+- Garis tebal/glow (DropShadow) pada border dilarang, kecuali accent pada splash.
+
+---
+**Status penerapan:** garis manual `Border Height="1"` pada list/detail sudah diganti `<Separator/>`. Sisa `Rectangle Height="1"` sebagai footer divider pada dialog (Grid, `ColumnSpan`) dibiarkan dan dianggap pola sah.
+**Button tanpa class dilarang.** Setiap `<Button>` wajib punya `Classes`:
+- `primary` / `Action`: aksi utama.
+- `secondary` / `Muted`: aksi sekunder/batal.
+- `ghost` / `Clear`: tanpa border, background transparan (inline, toolbar teks).
+- `ghostIcon`: tombol ikon borderless.
+- `danger` / `Warn`: aksi hapus/destruktif.
+- `accent` / `Accent`: aksi outline aksen.
+- `small`: varian kompak (tinggi 24, font 11, padding 8,2) untuk aksi inline di baris/list.
+
+Button tanpa `Classes` hanya boleh bila memang tampil sebagai tombol default dari style global (tinggi 36, font 12.5 SemiBold, radius 6).
 ## 15. Tombol ikon borderless (ghostIcon)
 
 - Tombol ikon tanpa border/background (ikon toolbar: +, refresh, copy, trash, close X, send, dll) WAJIB pakai `Classes="ghostIcon"`.
 - `ghostIcon` (di `BMachineDesignSystem.axaml`) memakai template minimal + setter Transparent eksplisit untuk state `:pointerover`/`:pressed`, sehingga tema Semi.Avalonia tidak menyuntikkan hover background/border.
 - JANGAN sekadar menghapus blok `<Button.Styles>` hover dari satu view: style lokal itu juga yang menahan tema; setelah dihapus, tema default malah menampilkan hover lagi. Override eksplisit (template minimal) yang benar.
 - Tombol ber-label/ber-border (Action, primary, Muted, statusBtn, badge) TIDAK pakai ghostIcon.
+
+## 17. Density (Compact / Normal / Comfortable)
+
+- Ukuran tombol, ikon, dan teks diambil dari token `Density*` (`UiDensityService`), bukan angka lokal di View.
+- Mode: Compact (tombol 24, font 11), Normal (36, 12.5), Comfortable (40, 13.5).
+- Pilihan disimpan di `Settings.UiDensity` dan diterapkan sebelum splash.
+- View tidak boleh memakai `Height`/`FontSize` tetap untuk tombol atau ikon.
+
+## 18. Aturan Font
+
+- Hanya `Inter` (teks) dan `JetBrains Mono` (kode/log), dimuat dari `avares://BMachine.UI/Assets/Fonts`.
+- Dilarang memakai font sistem. Explorer hanya menerima dua font ini.
+- Bold untuk navigasi header dan judul; SemiBold untuk label tombol; Regular untuk isi.
+- Label navigasi (HOME, BATCH, LOCKER, EXPLORER, LOG, MASTER, DOC, nama profil) memakai style `TextBlock.navLabel` (family `Inter ExtraBold`, 12). Isi popup profil (Settings, Log Out) memakai `FontPrimary` weight Bold, bukan `navLabel`. Jangan set FontSize/FontWeight lokal pada teks navigasi.
+
+## 19. Tooltip & Splash
+
+- Tooltip memakai token tema (`CardBackgroundBrush`, `SeparatorBrush`, `TextPrimaryBrush`) pada `ToolTip` dan `ToolTip /template/ Border`.
+- Splash memakai `AppBackgroundBrush` solid, tanpa gradient, mengikuti tema tersimpan.
+
+## 20. Shadow Pembatas
+
+- Pembatas panel memakai `Border.panel-divider` dengan `BoxShadow` tipis (`0 0 6 0 #14000000`), bukan garis keras saja.
+- Hanya dipakai pada panel yang berdampingan dengan konten lain.

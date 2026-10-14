@@ -26,7 +26,7 @@
                 <TextBlock Text="{Binding SelectedCard.Name}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" TextAlignment="Left" HorizontalAlignment="Left"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Top">
-                <Button Command="{Binding ToggleShowActivityCommand}" Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" Cursor="Hand" VerticalAlignment="Center" ToolTip.Tip="Show / hide activity">
+                <Button Command="{Binding ToggleShowActivityCommand}" Classes="Muted" Height="32" Padding="12,0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" VerticalAlignment="Center" ToolTip.Tip="Show / hide activity">
                     <Grid>
                         <TextBlock Text="Hide details" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" IsVisible="{Binding ShowActivity}"/>
                         <TextBlock Text="Show details" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" IsVisible="{Binding !ShowActivity}"/>
@@ -47,7 +47,7 @@
 
              <!-- Pending Attachments Preview Panel -->
              <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                     CornerRadius="12" Padding="12" Margin="0,0,0,8"
+                     CornerRadius="{DynamicResource RadiusXl}" Padding="12" Margin="0,0,0,8"
                      IsVisible="{Binding HasPendingAttachments}">
                  <StackPanel Spacing="6">
                      <TextBlock Text="Attachments" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -59,7 +59,7 @@
                          </ItemsControl.ItemsPanel>
                          <ItemsControl.ItemTemplate>
                              <DataTemplate x:DataType="models:PendingAttachmentItem">
-                                 <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="4" Margin="0,0,6,6"
+                                 <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="4" Margin="0,0,6,6"
                                          Width="80" Height="80" ClipToBounds="True">
                                      <Grid>
                                          <!-- Image Thumbnail -->
@@ -74,7 +74,7 @@
                                          </StackPanel>
                                          <!-- Remove Button -->
                                          <Button Classes="IconBtn" Command="{Binding $parent[Window].DataContext.RemoveAttachmentCommand}" CommandParameter="{Binding}"
-                                                 Width="32" Height="32" CornerRadius="6" Padding="6"
+                                                 Width="32" Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="6"
                                                  Foreground="{DynamicResource ButtonDangerForegroundBrush}" Cursor="Hand"
                                                  HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0">
                                              <PathIcon Data="{StaticResource IconX2}" Width="14" Height="14"/>
@@ -90,7 +90,7 @@
              <!-- Presets Overlay (Above Textbox) -->
             <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
                     Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                    CornerRadius="12" Padding="12" Margin="0,0,0,8"
+                    CornerRadius="{DynamicResource RadiusXl}" Padding="12" Margin="0,0,0,8"
                     IsVisible="{Binding IsPresetPanelOpen}">
                 <StackPanel Spacing="8">
                         <TextBlock Text="Quick Replies (Max 5)" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -99,14 +99,14 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,4">
-                                        <Button Command="{Binding $parent[Window].DataContext.UsePresetCommand}" CommandParameter="{Binding}"
+                                        <Button Classes="ghost" Command="{Binding $parent[Window].DataContext.UsePresetCommand}" CommandParameter="{Binding}"
                                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                Background="Transparent" BorderThickness="0" Padding="8,4" Cursor="Hand">
+                                                 BorderThickness="0" Padding="8,4" Cursor="Hand">
                                             <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                         </Button>
                                         <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding $parent[Window].DataContext.DeleteCommentPresetCommand}" CommandParameter="{Binding}"
                                                 Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
-                                            <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#ef4444"/>
+                                            <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="{DynamicResource StatusDangerBrush}"/>
                                         </Button>
                                     </Grid>
                                 </DataTemplate>
@@ -116,14 +116,14 @@
                         <!-- Add New Preset -->
                         <Grid ColumnDefinitions="*, Auto" IsVisible="{Binding CommentPresets.Count, Converter={x:Static ObjectConverters.IsNotNull}}"> 
                                 <TextBox Text="{Binding NewPresetText}" Watermark="New preset... (Enter to save)" 
-                                        Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,0,8,0">
+                                        Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="8" Margin="0,0,8,0">
                                     <TextBox.KeyBindings>
                                         <KeyBinding Gesture="Enter" Command="{Binding AddCommentPresetCommand}"/>
                                     </TextBox.KeyBindings>
                                 </TextBox>
                                 <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding AddCommentPresetCommand}"
                                         Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" ToolTip.Tip="Save Preset">
-                                    <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" Foreground="#22C55E"/>
+                                    <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" Foreground="{DynamicResource StatusSuccessBrush}"/>
                                 </Button>
                         </Grid>
                 </StackPanel>
@@ -131,17 +131,17 @@
 
             <!-- @Mention Popup (Above Textbox) -->
             <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                    CornerRadius="12" Padding="8" Margin="0,0,0,8" MaxHeight="160"
+                    CornerRadius="{DynamicResource RadiusXl}" Padding="8" Margin="0,0,0,8" MaxHeight="160"
                     IsVisible="{Binding IsMentionPopupOpen}">
                 <ScrollViewer>
                     <ItemsControl ItemsSource="{Binding FilteredMembers}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:TrelloMember">
-                                <Button Command="{Binding $parent[Window].DataContext.SelectMentionCommand}" CommandParameter="{Binding}"
+                                <Button Classes="ghost" Command="{Binding $parent[Window].DataContext.SelectMentionCommand}" CommandParameter="{Binding}"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Background="Transparent" BorderThickness="0" Padding="8,5" Cursor="Hand">
+                                         BorderThickness="0" Padding="8,5" Cursor="Hand">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Border Width="24" Height="24" CornerRadius="12" Background="{DynamicResource AccentColorBrush}">
+                                        <Border Width="24" Height="24" CornerRadius="{DynamicResource RadiusXl}" Background="{DynamicResource AccentColorBrush}">
                                             <TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" 
                                                        Foreground="White" FontWeight="SemiBold" FontSize="10"/>
                                         </Border>
@@ -177,14 +177,14 @@
                         <Button Classes="ghostIcon" Command="{Binding TogglePresetPanelCommand}"
                                 Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Quick Replies"
                                 Width="32" Height="32" Margin="0,0,0,4">
-                            <Border Background="{DynamicResource SeparatorBrush}" CornerRadius="16" Width="32" Height="32">
+                            <Border Background="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusPill}" Width="32" Height="32">
                                 <PathIcon Data="{StaticResource IconChevronUp}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Border>
                         </Button>
                         <Button Classes="ghostIcon" Command="{Binding SendCommentCommand}"
                                 Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Send Comment"
                                 Width="32" Height="32" Margin="0,0,0,4">
-                            <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="16" Width="32" Height="32">
+                            <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusPill}" Width="32" Height="32">
                                 <PathIcon Data="{StaticResource IconSend}" Width="14" Height="14" Foreground="White" Margin="2,0,0,0"/>
                             </Border>
                         </Button>

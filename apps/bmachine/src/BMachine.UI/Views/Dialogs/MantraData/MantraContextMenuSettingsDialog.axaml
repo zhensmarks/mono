@@ -18,68 +18,12 @@
 
     <Window.Styles>
 
-        <Style Selector="Button.Action">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="18,8"/>
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.Action /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-
-        <Style Selector="Button.Muted">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="18,8"/>
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.Muted /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
-        </Style>
-
         <Style Selector="Button.ToolBtn">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}"/>
             <Setter Property="Padding" Value="8,4"/>
             <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -92,7 +36,7 @@
         </Style>
     </Window.Styles>
 
-    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True">
         <Grid RowDefinitions="Auto, *, Auto">
 
             <!-- Title Bar -->
@@ -120,7 +64,7 @@
                                FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" LineHeight="16"/>
                 </StackPanel>
 
-                <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True">
                     <Grid RowDefinitions="Auto, *">
                         <!-- Table Column Headers -->
                         <Border Grid.Row="0" Background="{DynamicResource ButtonSecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,0,1" Padding="12,8">
@@ -155,7 +99,7 @@
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                                     <TextBox Width="130" Height="28" FontSize="11"
                                                              Background="{DynamicResource CardBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
-                                                             BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="4"
+                                                             BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusXs}"
                                                              VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
                                                              IsReadOnly="True" Cursor="Hand"
                                                              Watermark="Klik &amp; tekan key..."

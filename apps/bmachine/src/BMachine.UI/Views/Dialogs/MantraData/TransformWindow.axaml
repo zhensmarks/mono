@@ -17,75 +17,12 @@
 
     <Window.Styles>
 
-        <Style Selector="Button.Action">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="18,8"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.Action /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:disabled">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:disabled /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="#52525B"/>
-        </Style>
-
-        <Style Selector="Button.Muted">
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="18,8"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.Muted /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Muted:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}"/>
-        </Style>
-
         <Style Selector="Button.AiBtn">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="FontSize" Value="12"/>
@@ -95,7 +32,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
         </Style>
         <Style Selector="Button.AiBtn:pointerover /template/ ContentPresenter">
@@ -125,7 +62,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="FontSize" Value="12.5"/>
         </Style>
         <Style Selector="TextBox">
@@ -133,7 +70,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="FontSize" Value="12.5"/>
         </Style>
 
@@ -168,7 +105,7 @@
         </Style>
     </Window.Styles>
 
-    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
 
         <!-- ═══ WINDOW TITLE BAR ═══ -->
@@ -186,10 +123,10 @@
                 <PathIcon Data="{StaticResource IconX}"/>
             </Button>
 
-            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="#232326" VerticalAlignment="Bottom"/>
+            <Rectangle Grid.ColumnSpan="2" Height="1" Fill="{DynamicResource SeparatorBrush}" VerticalAlignment="Bottom"/>
         </Grid>
 
-        <Border Grid.Row="1" Margin="16" Padding="20" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="10">
+        <Border Grid.Row="1" Margin="16" Padding="20" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLg}">
             <Grid RowDefinitions="Auto, Auto, *, Auto">
 
                 <!-- 1. Header -->
@@ -209,7 +146,7 @@
 
                 <!-- 3. Splitter: left layer list / right editor -->
                 <Grid Grid.Row="2" ColumnDefinitions="230, 6, *" MinHeight="160">
-                    <Border Grid.Column="0" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                    <Border Grid.Column="0" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="10">
                         <Grid RowDefinitions="Auto, *, Auto">
                             <TextBlock Grid.Row="0" Text="Kolom hasil:" Classes="FieldLabel" Margin="0,0,0,6"/>
                             <ListBox x:Name="LstLayers" Grid.Row="1" Background="Transparent" BorderThickness="0"
@@ -231,14 +168,14 @@
 
                     <GridSplitter Grid.Column="1" Background="Transparent" Width="6" ResizeDirection="Columns" HorizontalAlignment="Stretch"/>
 
-                    <Border Grid.Column="2" x:Name="RightPanel" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="12,10">
+                    <Border Grid.Column="2" x:Name="RightPanel" Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="12,10">
                         <Grid RowDefinitions="Auto, *, Auto">
                             <!-- Layer editor form -->
                             <Grid Grid.Row="0" ColumnDefinitions="150, *" RowDefinitions="Auto, Auto" Margin="0,0,0,10">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Nama header hasil:" Classes="FieldLabel" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" x:Name="TxtLayerName" Height="32" VerticalContentAlignment="Center" Padding="10,0"
                                          Text="{Binding Name, Mode=TwoWay}"
-                                         Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6"/>
+                                         Background="{DynamicResource BgInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}"/>
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Pemisah default:" Classes="FieldLabel" VerticalAlignment="Center" Margin="0,8,0,0"/>
                                 <ComboBox Grid.Row="1" Grid.Column="1" x:Name="CmbDefaultSeparator" Height="32" Margin="0,8,0,0" HorizontalAlignment="Stretch"
                                           VerticalContentAlignment="Center" Padding="10,0,8,0">

@@ -11,7 +11,7 @@
     <Grid RowDefinitions="Auto, *, Auto" PointerPressed="OnRootPointerPressed" Background="Transparent">
         <!-- Tab Bar - Trello style (card bordered, no icon) -->
         <Border Grid.Row="0" Margin="20,15,20,10" Background="{DynamicResource CardBackgroundBrush}" 
-                CornerRadius="8" Padding="4" BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1"
+                CornerRadius="{DynamicResource RadiusMd}" Padding="4" BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1"
                 HorizontalAlignment="Center">
             <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                 <RadioButton Classes="TrelloBoardTab CompactTab" Content="HARIAN" IsChecked="{Binding IsHarianSelected}" Command="{Binding SwitchToHarianCommand}"/>
@@ -27,7 +27,7 @@
                 <ItemsControl ItemsSource="{Binding ActiveItems}" IsVisible="{Binding !IsLoading}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="15" Margin="0,0,0,10"
+                            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="15" Margin="0,0,0,10"
                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid ColumnDefinitions="Auto, *, Auto">
                                     <TextBlock Text="{Binding Rank}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" 
@@ -57,7 +57,7 @@
                 
                 <!-- Refresh FAB (Right) -->
                 <Button Grid.Column="1" Command="{Binding LoadDataCommand}" ToolTip.Tip="Refresh"
-                        Width="30" Height="30" CornerRadius="6"
+                        Width="30" Height="30" CornerRadius="{DynamicResource RadiusSm}"
                         Background="{DynamicResource AccentBlueBrush}" BorderThickness="0" Padding="0" Cursor="Hand">
                     <PathIcon Data="{StaticResource IconReload}"
                               Width="14" Height="14" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>

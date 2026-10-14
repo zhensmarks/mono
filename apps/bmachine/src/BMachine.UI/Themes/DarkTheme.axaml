@@ -7,6 +7,9 @@
     <Color x:Key="AccentOrange">#f97316</Color>
     <Color x:Key="AccentPurple">#1d4ed8</Color>
     <Color x:Key="AccentPoints">#f97316</Color>
+    <Color x:Key="AccentEditingColor">#3b82f6</Color>
+    <Color x:Key="AccentLateColor">#ef4444</Color>
+    <Color x:Key="AccentRevisionColor">#f97316</Color>
     <Color x:Key="TextPrimary">#FFFFFF</Color>
     <Color x:Key="TextSecondary">#99FFFFFF</Color>
 
@@ -17,12 +20,22 @@
     <SolidColorBrush x:Key="AccentOrangeBrush" Color="{DynamicResource AccentOrange}"/>
     <SolidColorBrush x:Key="AccentPointsBrush" Color="{DynamicResource AccentPoints}"/>
     <SolidColorBrush x:Key="AccentLowOpacityBrush" Color="#263B82F6"/>
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="#22C55E"/>
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="#E8A447"/>
+    <SolidColorBrush x:Key="StatusDangerBrush" Color="#EF4444"/>
+    <SolidColorBrush x:Key="StatusInfoBrush" Color="#3B82F6"/>
+    <SolidColorBrush x:Key="OverlayBrush" Color="#CC000000"/>
     <SolidColorBrush x:Key="HoverOverlayBrush" Color="#CC000000"/>
+    <SolidColorBrush x:Key="TintHoverBrush" Color="#0AFFFFFF"/>
+    <SolidColorBrush x:Key="ScrimStrongBrush" Color="#E6000000"/>
+    <SolidColorBrush x:Key="ScrimSoftBrush" Color="#99000000"/>
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimary}"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondary}"/>
     <SolidColorBrush x:Key="TextOnPrimaryBrush" Color="White"/>
     <!-- Subtle elevated surface (popup stat strip, avatar viewer) -->
     <SolidColorBrush x:Key="BackgroundBrush" Color="#202226"/>
+    <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#202226"/>
+    <SolidColorBrush x:Key="PrimaryBrush" Color="#3b82f6"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#26282C"/>
     <SolidColorBrush x:Key="NavigationDividerBrush" Color="#656A73"/>
     <SolidColorBrush x:Key="PanelDividerBrush" Color="#656A73"/>

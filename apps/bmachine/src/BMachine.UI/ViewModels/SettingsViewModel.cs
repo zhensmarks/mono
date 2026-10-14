@@ -425,6 +425,15 @@ public partial class SettingsViewModel : ObservableObject
     private int _selectedThemeIndex = 0; // 0=Light, 1=Dark, 2=System
 
     
+    [ObservableProperty] private int _selectedDensityIndex = 1; // 0=Compact, 1=Normal, 2=Comfortable
+
+    partial void OnSelectedDensityIndexChanged(int value)
+    {
+        if (_isInitializing) return;
+        var density = value switch { 0 => Services.UiDensity.Compact, 2 => Services.UiDensity.Comfortable, _ => Services.UiDensity.Normal };
+        Services.UiDensityService.Apply(density);
+        _ = _database?.SetAsync(Services.UiDensityService.SettingKey, density.ToString());
+    }
     partial void OnSelectedThemeIndexChanged(int value)
     {
          if (value == 2) UpdateTheme(false, true); // System
@@ -1232,6 +1241,9 @@ public partial class SettingsViewModel : ObservableObject
             var speedStr = await _database.GetAsync<string>("Settings.StatSpeed");
             if (int.TryParse(speedStr, out int speedIdx)) SelectedStatSpeedIndex = speedIdx;
             
+            var densityStr = await _database.GetAsync<string>(Services.UiDensityService.SettingKey);
+            SelectedDensityIndex = Services.UiDensityService.Parse(densityStr) switch { Services.UiDensity.Compact => 0, Services.UiDensity.Comfortable => 2, _ => 1 };
+
             // Load Theme
             var themeStr = await _database.GetAsync<string>("Settings.Theme"); 
             // "Light", "Dark", "System"

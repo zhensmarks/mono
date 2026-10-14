@@ -9,10 +9,12 @@
 
     <Styles.Resources>
         <!-- ── Typography ── -->
-        <FontFamily x:Key="FontPrimary">Inter, Segoe UI Variable, Segoe UI, SF Pro Text, Helvetica Neue, Arial, sans-serif</FontFamily>
-        <FontFamily x:Key="FontMono">Cascadia Code, JetBrains Mono, Consolas, monospace</FontFamily>
+        <FontFamily x:Key="FontPrimary">avares://BMachine.UI/Assets/Fonts#Inter</FontFamily>
+        <FontFamily x:Key="FontMono">avares://BMachine.UI/Assets/Fonts#JetBrains Mono</FontFamily>
 
         <!-- ── Radius scale (selaras) ── -->
+        <CornerRadius x:Key="RadiusXxs">2</CornerRadius>
+        <CornerRadius x:Key="RadiusXs">4</CornerRadius>
         <CornerRadius x:Key="RadiusSm">6</CornerRadius>
         <CornerRadius x:Key="RadiusMd">8</CornerRadius>
         <CornerRadius x:Key="RadiusLg">10</CornerRadius>
@@ -25,6 +27,24 @@
         <Thickness x:Key="SpaceMd">12</Thickness>
         <Thickness x:Key="SpaceLg">16</Thickness>
         <Thickness x:Key="SpaceXl">20</Thickness>
+
+        <!-- ── Density (Compact / Normal / Comfortable) ──
+             Nilai di sini = mode Normal. App.axaml.cs / UiDensityService menimpa via DynamicResource. -->
+        <x:Double x:Key="DensityBtnHeight">36</x:Double>
+        <x:Double x:Key="DensityBtnFont">12.5</x:Double>
+        <Thickness x:Key="DensityBtnPadding">16,8</Thickness>
+        <x:Double x:Key="DensityIconBtn">28</x:Double>
+        <x:Double x:Key="DensityIcon">16</x:Double>
+        <x:Double x:Key="DensityIconStroke">1.8</x:Double>
+        <x:Double x:Key="DensityTextBody">13</x:Double>
+        <x:Double x:Key="DensityTextCaption">11</x:Double>
+        <!-- ── Font weight & size scale (lihat DESIGN_SYSTEM.md §1) ── -->
+        <x:Double x:Key="FontSizeCaption">11</x:Double>
+        <x:Double x:Key="FontSizeBody">13</x:Double>
+        <x:Double x:Key="FontSizeBodySm">12</x:Double>
+        <x:Double x:Key="FontSizeH3">14</x:Double>
+        <x:Double x:Key="FontSizeH2">18</x:Double>
+        <x:Double x:Key="FontSizeH1">24</x:Double>
 
         <!-- ── Icon sizes (selaras) ── -->
         <x:Double x:Key="IconXs">12</x:Double>
@@ -127,11 +147,11 @@
     <!-- ================================================================ -->
     <Style Selector="Button">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
-        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontSize" Value="{DynamicResource DensityBtnFont}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
-        <Setter Property="Padding" Value="16,8" />
-        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="{DynamicResource DensityBtnPadding}" />
+        <Setter Property="Height" Value="{DynamicResource DensityBtnHeight}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Transitions">
             <Transitions>
@@ -142,6 +162,12 @@
         </Setter>
     </Style>
 
+    <!-- Button kompak (toolbar kecil, aksi inline): tinggi 24, font 11 -->
+    <Style Selector="Button.small">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Padding" Value="8,2" />
+    </Style>
     <!-- StatWidget exception: allow auto height, not 36 -->
     <Style Selector="Button.StatBtn">
         <Setter Property="Height" Value="NaN" />
@@ -158,7 +184,7 @@
     </Style>
     <Style Selector="Button.primary /template/ ContentPresenter, Button.Action /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}" />
     </Style>
     <Style Selector="Button.primary:pointerover /template/ ContentPresenter, Button.Action:pointerover /template/ ContentPresenter">
@@ -186,7 +212,7 @@
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}" />
     </Style>
     <Style Selector="Button.secondary:pointerover /template/ ContentPresenter, Button.Muted:pointerover /template/ ContentPresenter">
@@ -209,7 +235,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="6" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="Button.docTool:pointerover">
@@ -292,9 +318,9 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Background" Value="{DynamicResource BgInputBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Padding" Value="10,0" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -306,6 +332,11 @@
                 <BrushTransition Property="Background" Duration="0:0:0.15" />
             </Transitions>
         </Setter>
+    </Style>
+    <Style Selector="TextBox /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
     </Style>
     <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
         <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
@@ -350,7 +381,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Padding" Value="10,0,8,0" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -366,7 +397,7 @@
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Padding" Value="10,6" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Margin" Value="2" />
     </Style>
     <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
@@ -384,7 +415,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Padding" Value="10,0" />
         <Setter Property="MinHeight" Value="36" />
     </Style>
@@ -396,7 +427,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="Padding" Value="8,0" />
     </Style>
@@ -461,17 +492,18 @@
     <!-- Ukuran pakai token: IconXs 12, IconSm 14, IconMd 16, IconLg 18  -->
     <!-- ================================================================ -->
     <Style Selector="PathIcon">
-        <Setter Property="Width" Value="{StaticResource IconMd}" />
-        <Setter Property="Height" Value="{StaticResource IconMd}" />
+        <Setter Property="Width" Value="{DynamicResource DensityIcon}" />
+        <Setter Property="Height" Value="{DynamicResource DensityIcon}" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Path Data="{TemplateBinding Data}"
                       Fill="Transparent"
                       Stroke="{TemplateBinding Foreground}"
-                      StrokeThickness="1.8"
+                      StrokeThickness="{DynamicResource DensityIconStroke}"
                       StrokeLineCap="Round"
                       StrokeJoin="Round"
+                      Margin="1"
                       Stretch="Uniform"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch" />
@@ -514,7 +546,7 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -613,7 +645,7 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
         <Setter Property="Cursor" Value="Hand" />
@@ -634,11 +666,11 @@
     </Style>
     <Style Selector="Button.WindowClose:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
     </Style>
     <Style Selector="Button.WindowClose:pressed /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
     </Style>
     <Style Selector="Button.WindowClose PathIcon">
         <Setter Property="Width" Value="{StaticResource IconSm}" />
@@ -713,17 +745,40 @@
     </Style>
 
     <!-- ================================================================ -->
+    <!-- DEFAULT FONT — cegah fallback ke font sistem (Window, popup, menu) -->
+    <!-- ================================================================ -->
+    <Style Selector="Window">
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
+    </Style>
+    <Style Selector="UserControl">
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
+    </Style>
+    <Style Selector="ContextMenu">
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
+    </Style>
+    <Style Selector="MenuItem">
+        <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
+    </Style>
+
+    <!-- ================================================================ -->
     <!-- TOOLTIP — selaras                                                -->
     <!-- ================================================================ -->
     <Style Selector="ToolTip">
-        <Setter Property="Background" Value="#0A0A0A" />
-        <Setter Property="Foreground" Value="#E4E4E7" />
-        <Setter Property="BorderBrush" Value="#232326" />
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Padding" Value="8,6" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
+    </Style>
+    <Style Selector="ToolTip /template/ Border">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}" />
+    </Style>
+    <Style Selector="ToolTip ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
     <!-- ================================================================ -->
@@ -738,6 +793,7 @@
         <Setter Property="MinWidth" Value="1" />
         <Setter Property="Background" Value="{DynamicResource NavigationDividerBrush}" />
         <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="BoxShadow" Value="0 0 6 0 #14000000" />
     </Style>
 
     <!-- ================================================================ -->
@@ -779,5 +835,10 @@
     <!-- Style global: sembunyikan semua ScrollBar visual, scroll tetap jalan -->
     <Style Selector="ScrollBar">
         <Setter Property="Opacity" Value="0" />
+    </Style>
+    <Style Selector="TextBlock.navLabel">
+        <Setter Property="FontFamily" Value="avares://BMachine.UI/Assets/Fonts#Inter ExtraBold" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Normal" />
     </Style>
 </Styles>

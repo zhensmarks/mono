@@ -24,7 +24,7 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Height" Value="34"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="Padding" Value="14,0"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
@@ -47,7 +47,7 @@
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="MinHeight" Value="30"/>
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -134,13 +134,13 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <!-- Back button (mobile) -->
-            <Button Grid.Column="0" Click="OnMobileBackClick"
+            <Button Classes="ghost" Grid.Column="0" Click="OnMobileBackClick"
                     IsVisible="{Binding IsMobileContentOpen}"
-                    Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand" Margin="0,0,6,0">
+                     BorderThickness="0" Padding="4" Cursor="Hand" Margin="0,0,6,0">
                 <TextBlock Text="{Binding Language[Nav.Back]}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </Button>
             <!-- Accent dot -->
-            <Border Grid.Column="1" Width="4" Height="4" CornerRadius="2"
+            <Border Grid.Column="1" Width="4" Height="4" CornerRadius="{DynamicResource RadiusXxs}"
                     Background="{DynamicResource AccentBlueBrush}"
                     VerticalAlignment="Center" Margin="0,0,8,0"
                     IsVisible="{Binding !IsMobileContentOpen}"/>
@@ -151,7 +151,7 @@
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        VerticalAlignment="Center"/>
             <!-- Version pill -->
-            <Border Grid.Column="3" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="7,3"
+            <Border Grid.Column="3" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="7,3"
                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                 <TextBlock Text="{Binding CurrentVersion, StringFormat='v{0}'}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Medium"/>
             </Border>
@@ -163,14 +163,14 @@
 
         <!-- SIDEBAR -->
         <Border x:Name="Part_Sidebar" Grid.Row="1" Grid.Column="0" ZIndex="2" Margin="0,0,18,0" IsVisible="{Binding IsSidebarVisible}"
-                Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="10" Padding="10,12">
+                Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLg}" Padding="10,12">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <!-- Profile card anchors settings like a mobile account screen. -->
-                <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,18">
+                <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="12" Margin="0,0,0,18">
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="10">
-                            <Border Width="44" Height="44" CornerRadius="22" Background="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" ClipToBounds="True">
+                            <Border Width="44" Height="44" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource AccentBlueBrush}" VerticalAlignment="Center" ClipToBounds="True">
                                 <Panel>
                                     <PathIcon Data="{StaticResource IconUser}" Width="18" Height="18" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding AvatarImage, Converter={x:Static ObjectConverters.IsNull}}"/>
                                     <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" IsVisible="{Binding AvatarImage, Converter={x:Static ObjectConverters.IsNotNull}}"/>
@@ -180,9 +180,9 @@
                                 <TextBlock Text="{Binding UserName}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Text="Profile" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0"/>
                             </StackPanel>
-                            <Border Grid.Column="2" Width="8" Height="8" CornerRadius="4" Background="#45C982" VerticalAlignment="Center" ToolTip.Tip="Online"/>
+                            <Border Grid.Column="2" Width="8" Height="8" CornerRadius="{DynamicResource RadiusXs}" Background="#45C982" VerticalAlignment="Center" ToolTip.Tip="Online"/>
                         </Grid>
-                        <Border Height="1" Background="{DynamicResource SeparatorBrush}"/>
+                        <Separator/>
                         <TextBlock Text="Manage your account and app preferences" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -195,7 +195,7 @@
                             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
                             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
                             <Setter Property="BorderThickness" Value="1"/>
-                            <Setter Property="CornerRadius" Value="6"/>
+                            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                             <Setter Property="Cursor" Value="Hand"/>
                             <Setter Property="Template">
@@ -368,7 +368,7 @@
                                 <TextBlock Text="{Binding Language[Appearance.Mode]}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBlock Text="{Binding Language[Appearance.ModeDesc]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
-                            <Border Grid.Column="1" Background="{DynamicResource AppBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2" Width="165" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Border Grid.Column="1" Background="{DynamicResource AppBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2" Width="165" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <Grid ColumnDefinitions="*,*">
                                     <RadioButton Grid.Column="0" GroupName="ThemeGroup"
                                                  IsChecked="{Binding SelectedThemeIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=0}"
@@ -390,7 +390,25 @@
                             </Border>
                         </Grid>
                     </Border>
-                    <TextBlock Classes="SL" Text="BACKGROUNDS" Margin="0,24,0,6"/>
+                    <TextBlock Classes="SL" Text="KEPADATAN (DENSITY)" Margin="0,24,0,6"/>
+                    <Border Classes="SR">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <StackPanel Spacing="2" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <TextBlock Text="Ukuran Tombol &amp; Ikon" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Compact untuk layar kecil, Comfortable untuk sentuhan yang lebih longgar." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                            <Border Grid.Column="1" Background="{DynamicResource AppBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="2" Width="240" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Grid ColumnDefinitions="*,*,*">
+                                    <RadioButton Grid.Column="0" GroupName="DensityGroup" Content="Compact" FontSize="12"
+                                                 IsChecked="{Binding SelectedDensityIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=0}" Classes="Segmented"/>
+                                    <RadioButton Grid.Column="1" GroupName="DensityGroup" Content="Normal" FontSize="12"
+                                                 IsChecked="{Binding SelectedDensityIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=1}" Classes="Segmented"/>
+                                    <RadioButton Grid.Column="2" GroupName="DensityGroup" Content="Comfort" FontSize="12"
+                                                 IsChecked="{Binding SelectedDensityIndex, Converter={x:Static converters:IndexToBoolConverter.Instance}, ConverterParameter=2}" Classes="Segmented"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>                    <TextBlock Classes="SL" Text="BACKGROUNDS" Margin="0,24,0,6"/>
                     <Border Classes="SR">
                         <StackPanel Spacing="8">
                             <StackPanel Spacing="2">
@@ -421,7 +439,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Border Width="10" Height="10" CornerRadius="6" Background="{Binding Brush}"/>
+                                            <Border Width="10" Height="10" CornerRadius="{DynamicResource RadiusSm}" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -453,7 +471,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Border Width="10" Height="10" CornerRadius="6" Background="{Binding Brush}"/>
+                                            <Border Width="10" Height="10" CornerRadius="{DynamicResource RadiusSm}" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -472,7 +490,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Border Width="10" Height="10" CornerRadius="6" Background="{Binding Brush}"/>
+                                            <Border Width="10" Height="10" CornerRadius="{DynamicResource RadiusSm}" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -491,7 +509,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Border Width="10" Height="10" CornerRadius="6" Background="{Binding Brush}"/>
+                                            <Border Width="10" Height="10" CornerRadius="{DynamicResource RadiusSm}" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -510,7 +528,7 @@
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Border Width="10" Height="10" CornerRadius="6" Background="{Binding Brush}"/>
+                                            <Border Width="10" Height="10" CornerRadius="{DynamicResource RadiusSm}" Background="{Binding Brush}"/>
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -628,10 +646,10 @@
                         </StackPanel>
                         <Grid Grid.Column="1" ColumnDefinitions="*, Auto" VerticalAlignment="Center">
                             <TextBox Grid.Column="0" Width="130" Text="{Binding UserName}" Watermark="Nama Anda" HorizontalContentAlignment="Center"/>
-                            <Button Grid.Column="1" Command="{Binding OpenAvatarSelectionCommand}"
-                                    Width="36" Height="36" CornerRadius="6" Padding="0" Margin="8,0,0,0"
-                                    Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Cursor="Hand" ToolTip.Tip="Change Avatar">
-                                <Border CornerRadius="6" ClipToBounds="True">
+                            <Button Classes="ghost" Grid.Column="1" Command="{Binding OpenAvatarSelectionCommand}"
+                                    Width="36" Height="36" CornerRadius="{DynamicResource RadiusSm}" Padding="0" Margin="8,0,0,0"
+                                     BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" Cursor="Hand" ToolTip.Tip="Change Avatar">
+                                <Border CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True">
                                      <Panel>
                                          <PathIcon Data="{StaticResource IconUser}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                           IsVisible="{Binding AvatarImage, Converter={x:Static ObjectConverters.IsNull}}"/>
@@ -726,7 +744,7 @@
                                 </Grid>
                             </Grid>
                         </StackPanel>
-                        <Border IsVisible="{Binding !IsTrelloConnected}" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="14" Margin="0,4,0,0" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                        <Border IsVisible="{Binding !IsTrelloConnected}" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="14" Margin="0,4,0,0" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                              <StackPanel Spacing="6" HorizontalAlignment="Center">
                                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
                                      <PathIcon Data="{StaticResource IconAlertTriangle}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -801,11 +819,11 @@
 
         <!-- SCRIPT MANAGER -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsScriptsManagerSelected}" Margin="0,0,14,20">
-            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" ClipToBounds="True">
+            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True">
                 <Grid RowDefinitions="Auto, *">
                     <Border Grid.Row="0" HorizontalAlignment="Center" 
                             Background="{DynamicResource CardBackgroundBrush}" 
-                            CornerRadius="8" 
+                            CornerRadius="{DynamicResource RadiusMd}" 
                             BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1"
                             Padding="4" Margin="16,14,16,8">
                         <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
@@ -821,7 +839,7 @@
                         <Grid Margin="16,0,16,16">
                             <!-- MASTER SCRIPTS -->
                             <Grid IsVisible="{Binding IsScriptMasterSelected}" RowDefinitions="Auto, *" Margin="0,0,0,20">
-                                <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                                <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                      <ItemsControl ItemsSource="{Binding MasterScripts}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -834,7 +852,7 @@
                                                         PointerCaptureLost="OnHamburgerPointerCaptureLost">
                                                     <Grid>
                                                         <Grid ColumnDefinitions="Auto, *, Auto">
-                                                        <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6" Margin="0,0,12,0"
+                                                        <Border Grid.Column="0" Width="32" Height="32" CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,12,0"
                                                                 Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Top">
                                                              <Panel>
                                                                  <Viewbox Width="16" Height="16" IsVisible="{Binding !IsEditing}">
@@ -857,7 +875,7 @@
                                                         <Grid Grid.Column="1" IsVisible="{Binding !IsEditing}" RowDefinitions="Auto, Auto">
                                                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="5,2" VerticalAlignment="Center" IsVisible="{Binding ShortCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                                                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="5,2" VerticalAlignment="Center" IsVisible="{Binding ShortCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                                                     <TextBlock Text="{Binding ShortCode}" FontSize="11" Foreground="#AAA" FontWeight="Bold"/>
                                                                 </Border>
                                                             </StackPanel>
@@ -899,14 +917,14 @@
                             </Grid>
                             <!-- ACTION SCRIPTS (RADIAL) -->
                             <Grid IsVisible="{Binding IsScriptActionSelected}" ColumnDefinitions="Auto, *" RowDefinitions="Auto">
-                                <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
+                                <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
                                     <Grid RowDefinitions="Auto">
                                         <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,16">
                                             <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,16">
                                                 <Button Grid.Column="0" Command="{Binding SwitchToRadialPage1Command}" Classes="Clear" VerticalAlignment="Center" Margin="0,0,24,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 1" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
                                                     <PathIcon Data="{StaticResource IconChevronLeft}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Button>
-                                                <Border Grid.Column="1" Width="200" Height="200" CornerRadius="100" Background="{DynamicResource AppBackgroundBrush}" ClipToBounds="True">
+                                                <Border Grid.Column="1" Width="200" Height="200" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource AppBackgroundBrush}" ClipToBounds="True">
                                                 <Grid>
                                                     <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.35">
                                                         <Line StartPoint="116.84,59.35" EndPoint="138.27,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"/>
@@ -918,7 +936,7 @@
                                                         <Line StartPoint="59.35,83.16" EndPoint="7.61,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"/>
                                                         <Line StartPoint="83.16,59.35" EndPoint="61.73,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"/>
                                                     </Canvas>
-                                                    <Border Width="88" Height="88" CornerRadius="44" Background="{DynamicResource CardBackgroundBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    <Border Width="88" Height="88" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource CardBackgroundBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     <Ellipse Width="200" Height="200" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Opacity="0.35" IsHitTestVisible="False"/>
                                                     <Ellipse Width="88" Height="88" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Opacity="0.35" IsHitTestVisible="False"/>
                                                     <ItemsControl x:Name="RadialSlotsControl" ItemsSource="{Binding RadialSlots}" ClipToBounds="False">
@@ -951,7 +969,7 @@
 
                                                                             Cursor="SizeAll">
                                                                         <Grid>
-                                                                            <Border IsVisible="{Binding IsSelected}" Width="44" Height="44" CornerRadius="22" BorderBrush="White" BorderThickness="2" Margin="-4"/>
+                                                                            <Border IsVisible="{Binding IsSelected}" Width="44" Height="44" CornerRadius="{DynamicResource RadiusPill}" BorderBrush="White" BorderThickness="2" Margin="-4"/>
                                                                             <Viewbox Width="18" Height="18" IsVisible="{Binding Script.IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                                                  <Path Data="{Binding Script.IconGeometry}" Fill="Transparent" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
                                                                             </Viewbox>
@@ -964,30 +982,30 @@
                                                     </ItemsControl>
                                                     <Canvas Width="200" Height="200" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">
                                                         <Ellipse x:Name="RadialDropHighlight" Width="44" Height="44" IsVisible="False" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="2" Fill="#334A9EFF"/>
-                                                        <Border x:Name="RadialDragGhost" IsVisible="False" Width="36" Height="36" CornerRadius="18" Opacity="0.8" Background="{DynamicResource AccentBlueBrush}" IsHitTestVisible="False"><TextBlock x:Name="RadialDragGhostText" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10" FontWeight="Bold" Foreground="White"/></Border>
+                                                        <Border x:Name="RadialDragGhost" IsVisible="False" Width="36" Height="36" CornerRadius="{DynamicResource RadiusPill}" Opacity="0.8" Background="{DynamicResource AccentBlueBrush}" IsHitTestVisible="False"><TextBlock x:Name="RadialDragGhostText" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10" FontWeight="Bold" Foreground="White"/></Border>
                                                     </Canvas>
                                                 </Grid>
                                                 </Border>
-                                                <Button Grid.Column="2" Command="{Binding SwitchToRadialPage2Command}" Classes="Clear" VerticalAlignment="Center" Margin="24,0,0,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 2" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
+                                                <Button Grid.Column="2" Command="{Binding SwitchToRadialPage2Command}" Classes="ghostIcon" VerticalAlignment="Center" Margin="24,0,0,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 2" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
                                                     <PathIcon Data="{StaticResource IconChevronRight}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Button>
                                             </Grid>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
-                                <Border Grid.Column="1" Margin="16,0,0,0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <Border Grid.Column="1" Margin="16,0,0,0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
                                         <!-- Selected Slot Detail -->
-                                        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="20" Margin="0,8,0,0">
+                                        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="20" Margin="0,8,0,0">
                                             <Grid>
                                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNull}}" Spacing="8">
-                                                    <PathIcon Data="{StaticResource IconScript}" Width="36" Height="36" Foreground="#252525"/>
+                                                    <PathIcon Data="{StaticResource IconScript}" Width="36" Height="36" Foreground="{DynamicResource CardBackgroundBrush}"/>
                                                     <TextBlock Text="Pilih shortcut di sebelah kiri untuk mengedit," Foreground="{DynamicResource TextFaintBrush}" TextAlignment="Center" FontSize="12"/>
                                                     <TextBlock Text="atau klik tombol (+) untuk menambah baru." Foreground="{DynamicResource TextFaintBrush}" TextAlignment="Center" FontSize="12"/>
                                                 </StackPanel>
                                                 <Grid RowDefinitions="Auto, Auto, Auto, *, Auto" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
                                                     <TextBlock Grid.Row="0" Classes="eyebrow" Text="SLOT DETAILS" Margin="0,0,0,16"/>
                                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" Margin="0,0,0,24">
-                                                        <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                                                        <Border Width="56" Height="56" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
                                                             <Button Classes="Clear" Command="{Binding SelectedRadialSlot.Script.PickIconCommand}" ToolTip.Tip="Change Icon" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="28" Padding="0">
                                                                 <Panel>
                                                                      <Viewbox Width="28" Height="28" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -1027,7 +1045,7 @@
 
         <!-- PATHS -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsPathsSelected}" Margin="0,0,14,20">
-             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" ClipToBounds="True">
+             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True">
                  <views:PathSettingsView DataContext="{Binding PathSettingsVM}"/>
              </Border>
         </Grid>
@@ -1036,9 +1054,9 @@
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsAboutSelected}" Margin="0,0,14,20">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="760" Margin="0,0,0,20" HorizontalAlignment="Stretch" Spacing="14">
-                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="24">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="24">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="18">
-                            <Border Width="58" Height="58" CornerRadius="6" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource AccentColorBrush}" BorderThickness="1">
+                            <Border Width="58" Height="58" CornerRadius="{DynamicResource RadiusSm}" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource AccentColorBrush}" BorderThickness="1">
                                 <Viewbox Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Grid>
                                         <Path Data="M12 2L2 7l10 5 10-5-10-5z" Fill="{DynamicResource AccentColorBrush}"/>
@@ -1051,31 +1069,31 @@
                                 <TextBlock Text="BMACHINE" FontSize="20" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBlock Text="Photo editing workflow desktop" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
-                            <Border Grid.Column="2" Background="{DynamicResource AccentColorBrush}" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                            <Border Grid.Column="2" Background="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusXs}" Padding="8,4" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding CurrentVersion, StringFormat='v{0}'}" Foreground="White" FontWeight="SemiBold" FontSize="11"/>
                             </Border>
                         </Grid>
                     </Border>
 
-                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="20">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="20">
                         <StackPanel Spacing="14">
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Spacing="3">
                                     <TextBlock Text="Software update" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <TextBlock Text="Periksa rilis terbaru dan catatan perubahan sebelum memperbarui aplikasi." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                                 </StackPanel>
-                                <Border Grid.Column="1" Background="{DynamicResource AccentSubtleBrush}" CornerRadius="4" Padding="8,4" VerticalAlignment="Top">
+                                <Border Grid.Column="1" Background="{DynamicResource AccentSubtleBrush}" CornerRadius="{DynamicResource RadiusXs}" Padding="8,4" VerticalAlignment="Top">
                                     <TextBlock Text="Installed" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentColorBrush}"/>
                                 </Border>
                             </Grid>
                             <Button Command="{Binding CheckForUpdatesCommand}" IsEnabled="{Binding !IsCheckingUpdate}"
                                     HorizontalAlignment="Left" Height="34" Padding="14,0"
-                                    Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="6">
+                                    Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="{DynamicResource RadiusSm}">
                                 <Button.Styles>
                                     <Style Selector="Button /template/ ContentPresenter">
                                         <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
                                         <Setter Property="TextElement.Foreground" Value="White"/>
-                                        <Setter Property="CornerRadius" Value="6"/>
+                                        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
                                     </Style>
                                 </Button.Styles>
                                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -1085,7 +1103,7 @@
                                 </StackPanel>
                             </Button>
                             <Border IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                    Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
+                                    Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="12">
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="{Binding UpdateStatusText}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="SemiBold"/>
                                     <Button Command="{Binding OpenDownloadPageCommand}" IsVisible="{Binding IsUpdateAvailable}" Classes="Action" HorizontalAlignment="Left" Height="32" Padding="12,0">
@@ -1101,7 +1119,7 @@
                     </Border>
 
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
-                        <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="16">
+                        <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="16">
                             <StackPanel Spacing="8">
                                 <PathIcon Data="{StaticResource IconBrandGithub}" Width="18" Height="18" Foreground="{DynamicResource AccentColorBrush}"/>
                                 <TextBlock Text="Source &amp; releases" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1114,7 +1132,7 @@
                                 </Button>
                             </StackPanel>
                         </Border>
-                        <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="16">
+                        <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="16">
                             <StackPanel Spacing="8">
                                 <PathIcon Data="{StaticResource IconBug}" Width="18" Height="18" Foreground="{DynamicResource AccentColorBrush}"/>
                                 <TextBlock Text="Need help?" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1136,7 +1154,7 @@
         <!-- STATUS TOAST -->
         <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Grid.ColumnSpan="2"
                 HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,40"
-                Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="14,9"
+                Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="14,9"
                 BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                 IsVisible="{Binding IsStatusVisible}"
                 ZIndex="99">

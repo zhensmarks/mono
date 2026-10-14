@@ -44,10 +44,10 @@
                     <Ellipse Width="6" Height="6" VerticalAlignment="Center" ToolTip.Tip="{Binding ActiveViewModel.ConnectionStatusText, StringFormat='{}Status: {0}'}">
                         <Ellipse.Styles>
                             <Style Selector="Ellipse">
-                                <Setter Property="Fill" Value="#EF4444"/> <!-- Red (Offline) -->
+                                <Setter Property="Fill" Value="{DynamicResource StatusDangerBrush}"/> <!-- Red (Offline) -->
                             </Style>
                             <Style Selector="Ellipse.online">
-                                <Setter Property="Fill" Value="#22C55E"/> <!-- Green (Online) -->
+                                <Setter Property="Fill" Value="{DynamicResource StatusSuccessBrush}"/> <!-- Green (Online) -->
                             </Style>
                         </Ellipse.Styles>
                         <Classes.online>
@@ -70,7 +70,7 @@
                     <!-- Add Manual Card Icon -->
                     <Button Command="{Binding AddManualCardCommand}"
                             IsVisible="{Binding IsEditingSelected}"
-                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
+                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="{DynamicResource RadiusMd}" Cursor="Hand"
                             ToolTip.Tip="Add Manual Cards">
                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
@@ -78,7 +78,7 @@
                     <!-- Refresh Icon -->
                     <Button Command="{Binding RefreshActiveListCommand}"
                             IsEnabled="{Binding !ActiveViewModel.IsRefreshing}"
-                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
+                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="{DynamicResource RadiusMd}" Cursor="Hand"
                             ToolTip.Tip="Refresh Data">
                         <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
@@ -93,7 +93,7 @@
             <!-- Trello Board Tabs - card bordered, no icon (sesuai editing list yang benar) -->
             <Border Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{DynamicResource RadiusMd}"
                     Padding="4"
                     HorizontalAlignment="Center"
                     Margin="0,0,0,10"
@@ -117,7 +117,7 @@
              <!-- OVERLAY: Top Header Action Bar (Shows when cards are selected) -->
              <Border Background="{DynamicResource CardBackgroundBrush}"
                      BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                     CornerRadius="8" HorizontalAlignment="Center" Padding="8,6"
+                     CornerRadius="{DynamicResource RadiusMd}" HorizontalAlignment="Center" Padding="8,6"
                      Margin="0,0,0,10"
                      IsVisible="{Binding ActiveViewModel.HasSelectedCards}"
                      BoxShadow="0 4 16 0 #30000000, 0 0 0 1 #10FFFFFF inset" ZIndex="10">
@@ -133,7 +133,7 @@
                           <ToggleButton IsChecked="{Binding ActiveViewModel.IsAllSelected, Mode=TwoWay}"
                                         Command="{Binding ActiveViewModel.ToggleSelectAllCardsCommand}"
                                         Classes="Clear" Padding="4" Background="Transparent" 
-                                        CornerRadius="6" Cursor="Hand" ToolTip.Tip="Select All">
+                                        CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" ToolTip.Tip="Select All">
                               <ToggleButton.Styles>
                                   <Style Selector="ToggleButton">
                                       <Setter Property="Transitions">
@@ -181,7 +181,7 @@
                             <Button Command="{Binding ActiveViewModel.BatchUnlinkCommand}"
                                     IsVisible="{Binding ActiveViewModel.HasSelectedManualCards}"
                                     ToolTip.Tip="Putus Tautan"
-                                    Classes="danger" Padding="8,4" CornerRadius="6"
+                                    Classes="danger" Padding="8,4" CornerRadius="{DynamicResource RadiusSm}"
                                     Cursor="Hand" FontSize="11" Height="24">
                                 <Button.Styles>
                                     <Style Selector="Button">
@@ -209,11 +209,11 @@
                             </Button>
                                 
                                 <!-- Batch ACC for Regular Cards -->
-                                <Button Command="{Binding ActiveViewModel.BatchAccCommand}"
+                                <Button Classes="small" Command="{Binding ActiveViewModel.BatchAccCommand}"
                                         IsVisible="{Binding ActiveViewModel.HasSelectedRegularCards}"
                                         ToolTip.Tip="ACC Marketing"
-                                        Background="#180078D7" BorderBrush="#400078D7" BorderThickness="1" 
-                                        Foreground="#0078D7" Padding="8,4" CornerRadius="6" 
+                                        Background="{DynamicResource AccentLowOpacityBrush}" BorderBrush="{DynamicResource AccentSubtleHoverBrush}" BorderThickness="1" 
+                                        Foreground="{DynamicResource StatusInfoBrush}" Padding="8,4" CornerRadius="{DynamicResource RadiusSm}" 
                                         Cursor="Hand" FontSize="11" Height="24">
                                     <Button.Styles>
                                         <Style Selector="Button">
@@ -238,7 +238,7 @@
                             <Button Command="{Binding ActiveViewModel.ShowBatchMovePanelCommand}"
                                     ToolTip.Tip="Pindah Massal"
                                     IsEnabled="{Binding ActiveViewModel.IsOnline}"
-                                    Classes="Muted" Height="32" Padding="12,0" CornerRadius="6" 
+                                    Classes="Muted" Height="32" Padding="12,0" CornerRadius="{DynamicResource RadiusSm}" 
                                     Cursor="Hand" FontSize="12">
                                 <TextBlock Text="Move" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             </Button>
@@ -271,17 +271,17 @@
                      Foreground="{DynamicResource AccentColorBrush}"/>
 
         <!-- ROW 3: Bottom Status Bar (Embedded/Dashboard mode only) -->
-        <Border Grid.Row="3" Margin="20,10,20,10" Padding="12,8" Background="{DynamicResource AppBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12" IsVisible="{Binding IsEmbedded}">
+        <Border Grid.Row="3" Margin="20,10,20,10" Padding="12,8" Background="{DynamicResource AppBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusXl}" IsVisible="{Binding IsEmbedded}">
             <Grid ColumnDefinitions="*, Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <!-- Status Dot -->
                     <Ellipse Width="6" Height="6" VerticalAlignment="Center" ToolTip.Tip="{Binding ActiveViewModel.ConnectionStatusText, StringFormat='{}Status: {0}'}">
                         <Ellipse.Styles>
                             <Style Selector="Ellipse">
-                                <Setter Property="Fill" Value="#EF4444"/>
+                                <Setter Property="Fill" Value="{DynamicResource StatusDangerBrush}"/>
                             </Style>
                             <Style Selector="Ellipse.online">
-                                <Setter Property="Fill" Value="#22C55E"/>
+                                <Setter Property="Fill" Value="{DynamicResource StatusSuccessBrush}"/>
                             </Style>
                         </Ellipse.Styles>
                         <Classes.online>
@@ -302,14 +302,14 @@
                     <!-- Add Manual Card -->
                     <Button Command="{Binding AddManualCardCommand}"
                             IsVisible="{Binding IsEditingSelected}"
-                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
+                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="{DynamicResource RadiusMd}" Cursor="Hand"
                             ToolTip.Tip="Add Manual Cards">
                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                     <!-- Refresh -->
                     <Button Command="{Binding RefreshActiveListCommand}"
                             IsEnabled="{Binding !ActiveViewModel.IsRefreshing}"
-                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8" Cursor="Hand"
+                            Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="{DynamicResource RadiusMd}" Cursor="Hand"
                             ToolTip.Tip="Refresh Data">
                         <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
@@ -345,7 +345,7 @@
                     <ScrollViewer Grid.Row="1">
                         <StackPanel Spacing="16" Margin="20">
                             <!-- Input -->
-                            <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="12" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                            <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="{DynamicResource RadiusXl}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <TextBox Text="{Binding ManualCardLinkInput}" AcceptsReturn="True" 
                                          Watermark="https://trello.com/c/..."
                                          Background="Transparent" BorderThickness="0" 
@@ -356,7 +356,7 @@
                                     IsEnabled="{Binding !IsLoadingManualAdd}"
                                     Classes="Action"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                    Height="38" CornerRadius="6" Cursor="Hand">
+                                    Height="38" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource ButtonPrimaryForegroundBrush}"/>
                                     <TextBlock Text="Import Cards" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource ButtonPrimaryForegroundBrush}"/>
@@ -401,11 +401,11 @@
                 </Grid>
 
                 <StackPanel Grid.Row="1" Spacing="20">
-                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding ActiveViewModel.IsLoadingMoveData}" Height="4" Margin="0,0,0,10" Foreground="{DynamicResource AccentColorBrush}" CornerRadius="2"/>
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding ActiveViewModel.IsLoadingMoveData}" Height="4" Margin="0,0,0,10" Foreground="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusXxs}"/>
 
                     <StackPanel Spacing="8">
                         <TextBlock Text="Destination Board" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12">
+                        <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusXl}">
                             <AutoCompleteBox x:Name="Part_BatchMoveBoardBox" ItemsSource="{Binding ActiveViewModel.AvailableBoards}"
                                              SelectedItem="{Binding ActiveViewModel.SelectedMoveBoard}"
                                              ValueMemberBinding="{Binding Name}"
@@ -420,7 +420,7 @@
 
                     <StackPanel Spacing="8">
                         <TextBlock Text="Destination List" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="12">
+                        <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusXl}">
                             <AutoCompleteBox x:Name="Part_BatchMoveListBox" ItemsSource="{Binding ActiveViewModel.AvailableLists}"
                                              SelectedItem="{Binding ActiveViewModel.SelectedMoveList}"
                                              ValueMemberBinding="{Binding Name}"

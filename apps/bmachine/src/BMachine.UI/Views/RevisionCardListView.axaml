@@ -67,12 +67,12 @@
                                 </Border>
 
                                 <!-- Normal Card View -->
-                                <Button Command="{Binding $parent[UserControl].DataContext.SelectCardCommand}"
+                                <Button Classes="ghost" Command="{Binding $parent[UserControl].DataContext.SelectCardCommand}"
                                         CommandParameter="{Binding}"
                                         IsVisible="{Binding !IsSeparator}"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                        Padding="0" BorderThickness="0" Background="Transparent"
-                                        Margin="0" CornerRadius="8"
+                                        Padding="0" BorderThickness="0" 
+                                        Margin="0" CornerRadius="{DynamicResource RadiusMd}"
                                         MinHeight="60">
                                     <Button.Styles>
                                         <Style Selector="Button:pointerover /template/ ContentPresenter">
@@ -80,7 +80,7 @@
                                         </Style>
                                     </Button.Styles>
 
-                                    <Border x:Name="CardContainer" CornerRadius="8"
+                                    <Border x:Name="CardContainer" CornerRadius="{DynamicResource RadiusMd}"
                                             Background="{DynamicResource CardBackgroundBrush}"
                                             BorderBrush="{DynamicResource BorderDefaultBrush}"
                                             BorderThickness="1"
@@ -144,7 +144,7 @@
                                             <!-- Status Badges (Right Side) -->
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0" Spacing="6">
                                                 <!-- Checklist status -->
-                                                <Border CornerRadius="6" Padding="6,3" BorderThickness="1"
+                                                <Border CornerRadius="{DynamicResource RadiusSm}" Padding="6,3" BorderThickness="1"
                                                         VerticalAlignment="Center"
                                                         IsVisible="{Binding HasChecklist}"
                                                         ToolTip.Tip="{Binding ChecklistTooltip}">
@@ -214,7 +214,7 @@
 
         <!-- Ghost kartu yang di-drag (mengikuti kursor seperti Trello) -->
         <Panel Grid.Column="0" Grid.ColumnSpan="3" IsHitTestVisible="False" ZIndex="900">
-            <Border x:Name="Part_DragGhost" IsVisible="False" CornerRadius="10"
+            <Border x:Name="Part_DragGhost" IsVisible="False" CornerRadius="{DynamicResource RadiusLg}"
                     HorizontalAlignment="Left" VerticalAlignment="Top"
                     Margin="-9999,-9999,0,0" Opacity="0.95"
                     BorderBrush="{DynamicResource AccentRevisionBrush}" BorderThickness="1">

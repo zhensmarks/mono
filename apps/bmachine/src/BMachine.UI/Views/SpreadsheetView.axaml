@@ -182,14 +182,14 @@
             <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.DateBtn /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentColorBrush}"/>
         </Style>
         <Style Selector="Button.DateBtn:pointerover /template/ ContentPresenter">
@@ -238,7 +238,7 @@
                             Height="26" Padding="8,0">
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedRight">
-                                <Border CornerRadius="8" Padding="6"
+                                <Border CornerRadius="{DynamicResource RadiusMd}" Padding="6"
                                         Background="{DynamicResource CardBackgroundBrush}"
                                         BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                     <Calendar SelectedDate="{Binding SelectedDateFilter, Mode=TwoWay}"/>
@@ -267,7 +267,7 @@
                 <!-- Right: Search -->
                 <Border Grid.Column="3" Background="{DynamicResource AppBackgroundBrush}"
                         BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                        CornerRadius="6" Padding="2,0" MinWidth="112" VerticalAlignment="Center">
+                        CornerRadius="{DynamicResource RadiusSm}" Padding="2,0" MinWidth="112" VerticalAlignment="Center">
                     <Grid ColumnDefinitions="Auto, *">
                         <PathIcon Grid.Column="0" Data="{StaticResource IconSearch}" Width="14" Height="14"
                                   Margin="8,0,4,0" VerticalAlignment="Center"
@@ -328,7 +328,7 @@
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="6,2" Height="26">
                         <Button.Flyout>
                             <Flyout Placement="TopEdgeAlignedRight">
-                                <Border CornerRadius="8" Padding="5"
+                                <Border CornerRadius="{DynamicResource RadiusMd}" Padding="5"
                                         Background="{DynamicResource CardBackgroundBrush}"
                                         BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                     <ScrollViewer MaxHeight="300">

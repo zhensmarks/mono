@@ -203,11 +203,11 @@
                                             </Style>
                                             <Style Selector="Border.tabHeader Button.tabClose:pressed /template/ ContentPresenter">
                                                 <Setter Property="Background" Value="{DynamicResource ButtonDangerPressedBrush}"/>
-                                                <Setter Property="CornerRadius" Value="6"/>
+                                                <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
                                             </Style>
                                             <Style Selector="Border.tabHeader Button.tabClose:focus /template/ ContentPresenter">
                                                 <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
-                                                <Setter Property="CornerRadius" Value="6"/>
+                                                <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
                                             </Style>
                                             <!-- Label colors -->
                                             <Style Selector="Border.tabHeader TextBlock.tabLabel">

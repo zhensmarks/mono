@@ -1,3 +1,4 @@
+using BMachine.UI.Services;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
@@ -345,17 +346,8 @@ public partial class OutputExplorerView : UserControl
 
     private void ApplyExplorerFont(string fontFamily)
     {
-        if (string.IsNullOrWhiteSpace(fontFamily))
-            return;
-
-        try
-        {
-            Resources["FontPrimary"] = new Avalonia.Media.FontFamily(fontFamily);
-        }
-        catch
-        {
-            // Invalid font name, skip
-        }
+        if (AppFonts.TryCreate(fontFamily, out var font))
+            Resources["FontPrimary"] = font;
     }
 
 
