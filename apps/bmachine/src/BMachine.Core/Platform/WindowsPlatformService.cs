@@ -139,7 +139,11 @@ public class WindowsPlatformService : IPlatformService
 
     public string GetAppDataDirectory()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        // Dev runs can isolate settings/database without changing daily-use data.
+        var appData = Environment.GetEnvironmentVariable("BMACHINE_APPDATA_ROOT");
+        if (string.IsNullOrWhiteSpace(appData))
+            appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
         var path = System.IO.Path.Combine(appData, "BMachine");
         if (!System.IO.Directory.Exists(path))
         {

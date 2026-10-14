@@ -3192,10 +3192,7 @@ try {{
         WeakReferenceMessenger.Default.Send(new FocusExplorerPathBarMessage());
     }
 
-    /// <summary>
-    /// Ctrl+F — opens the search UI and focuses it. When the path bar is hidden the search shows
-    /// up as the floating pill instead (the header — and its search box — are hidden).
-    /// </summary>
+    /// <summary>Ctrl+F membuka input pencarian di header Explorer.</summary>
     [RelayCommand]
     public void FocusSearchBox()
     {

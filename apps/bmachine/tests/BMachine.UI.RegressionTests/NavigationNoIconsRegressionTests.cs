@@ -113,7 +113,9 @@ public class NavigationNoIconsRegressionTests
         Assert.Contains("ListBoxItem:pointerover", source);
         Assert.Contains("ListBoxItem:selected", source);
         Assert.Contains("ListBoxItem:focus", source);
-        Assert.Contains("Height\" Value=\"22\"", source);
+        // Active marker is the same 3x14 accent bar used by every other list in the app.
+        Assert.Contains("Height\" Value=\"14\"", source);
+        Assert.Contains("ListBoxItem:selected /template/ Border#PART_Root", source);
 
         var back = document.Descendants(Avalonia + "Button").Single(button => Attribute(button, "Click") == "OnMobileBackClick");
         Assert.False(ContainsVisualIcon(back));

@@ -36,3 +36,8 @@ Hybrid Minimalist Dark (Bento). Token set:
   `App.axaml` defines a global `Button.Primary` with a **custom template** whose
   `ContentPresenter` does not inherit a font family reliably, which caused the "block text /
   blok pada teks" rendering issue on the Ganti Semua button.
+
+## Workflow wajib
+
+- Setelah selesai mengubah kode, selalu jalankan dev run (dotnet run --no-restore --project src\BMachine.App\BMachine.App.csproj) untuk test instansi baru.
+- Dev run tetap memakai database harian: jangan set BMACHINE_APPDATA_ROOT (DB harian: %AppData%\BMachine\BMachine.db).

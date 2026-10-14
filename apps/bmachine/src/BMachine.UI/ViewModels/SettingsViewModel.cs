@@ -561,19 +561,19 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _googleCredsPath = "";
     [ObservableProperty] private string _googleSheetId = "";
     [ObservableProperty] private string _sheetName = "";
-    [ObservableProperty] private string _sheetColumn = "C";
-    [ObservableProperty] private string _sheetRow = "3";
+    [ObservableProperty] private string _sheetColumn = "";
+    [ObservableProperty] private string _sheetRow = "";
     
     // Spreadsheet Config
-    [ObservableProperty] private string _spreadsheetSheetName = "ALL DATA REGULER";
-    [ObservableProperty] private string _spreadsheetRange = "A1:Z";
+    [ObservableProperty] private string _spreadsheetSheetName = "";
+    [ObservableProperty] private string _spreadsheetRange = "";
     
     partial void OnSpreadsheetSheetNameChanged(string value) => _database?.SetAsync("Spreadsheet.SheetName", value);
     partial void OnSpreadsheetRangeChanged(string value) => _database?.SetAsync("Spreadsheet.Range", value);
 
     // Leaderboard
-    [ObservableProperty] private string _leaderboardRange = "A2:C10"; // Default Range
-    [ObservableProperty] private string _leaderboardMonthlyRange = ""; // Monthly Range
+    [ObservableProperty] private string _leaderboardRange = "";
+    [ObservableProperty] private string _leaderboardMonthlyRange = "";
     
     // Trello Config
     [ObservableProperty] private string _editingBoardId = "";
@@ -1032,7 +1032,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _updateReleaseNotes = "";
     [ObservableProperty] private string _updateDownloadUrl = "";
     [ObservableProperty] private bool _isCheckingUpdate = false;
-    [ObservableProperty] private string _updateStatusText = "";
+    [ObservableProperty] private string _updateStatusText = "Belum diperiksa pada sesi ini.";
 
     [RelayCommand]
     private async Task CheckForUpdates()
@@ -1337,11 +1337,11 @@ public partial class SettingsViewModel : ObservableObject
             GoogleCredsPath = await _database.GetAsync<string>("Google.CredsPath") ?? "";
             GoogleSheetId = await _database.GetAsync<string>("Google.SheetId") ?? "";
             SheetName = await _database.GetAsync<string>("Google.SheetName") ?? "";
-            SheetColumn = await _database.GetAsync<string>("Google.SheetColumn") ?? "C";
-            SheetRow = await _database.GetAsync<string>("Google.SheetRow") ?? "3";
+            SheetColumn = await _database.GetAsync<string>("Google.SheetColumn") ?? "";
+            SheetRow = await _database.GetAsync<string>("Google.SheetRow") ?? "";
 
-            SpreadsheetSheetName = await _database.GetAsync<string>("Spreadsheet.SheetName") ?? "ALL DATA REGULER";
-            SpreadsheetRange = await _database.GetAsync<string>("Spreadsheet.Range") ?? "A1:Z";
+            SpreadsheetSheetName = await _database.GetAsync<string>("Spreadsheet.SheetName") ?? "";
+            SpreadsheetRange = await _database.GetAsync<string>("Spreadsheet.Range") ?? "";
 
             var lbRange = await _database.GetAsync<string>("Leaderboard.Range");
             if (!string.IsNullOrEmpty(lbRange)) LeaderboardRange = lbRange;
@@ -2305,6 +2305,68 @@ public partial class SettingsViewModel : ObservableObject
         RebuildRadialSlots();
     }
 
+    private Dictionary<string, int>? _radialDragSnapshot;
+
+    public void BeginRadialPreview()
+    {
+        NormalizeAllOrders();
+        _radialDragSnapshot = _scriptAliases.ToDictionary(kv => kv.Key, kv => kv.Value.Order);
+    }
+
+    /// <summary>Live preview: susun ulang urutan di memori seolah script dipindah ke target.</summary>
+    public void PreviewRadialMove(RadialSlotViewModel source, RadialSlotViewModel? target)
+    {
+        if (_radialDragSnapshot == null || source.Script == null) return;
+
+        foreach (var kv in _radialDragSnapshot)
+            if (_scriptAliases.ContainsKey(kv.Key)) _scriptAliases[kv.Key].Order = kv.Value;
+
+        if (target != null && !target.IsNavigationReserved)
+            ApplyRadialMove(source.Script, target.AbsoluteIndex);
+        UpdateRadialPositions();
+    }
+
+    private void UpdateRadialPositions()
+    {
+        var sorted = ActionScripts
+            .OrderBy(s => _scriptAliases.ContainsKey(s.OriginalName) ? _scriptAliases[s.OriginalName].Order : 9999)
+            .ThenBy(s => s.Name)
+            .ToList();
+        int startIndex = RadialEditorPage * 7;
+        foreach (var slot in RadialSlots)
+        {
+            if (slot.IsNavigationReserved) continue;
+            slot.Script = slot.AbsoluteIndex < sorted.Count ? sorted[slot.AbsoluteIndex] : null;
+        }
+    }
+
+    public void CommitRadialPreview()
+    {
+        if (_radialDragSnapshot == null) return;
+        _radialDragSnapshot = null;
+        SaveMetadata();
+        RebuildRadialSlots();
+    }
+
+    public void CancelRadialPreview()
+    {
+        if (_radialDragSnapshot == null) return;
+        foreach (var kv in _radialDragSnapshot)
+            if (_scriptAliases.ContainsKey(kv.Key)) _scriptAliases[kv.Key].Order = kv.Value;
+        _radialDragSnapshot = null;
+        RebuildRadialSlots();
+    }
+
+    private void ApplyRadialMove(ScriptItem script, int targetIndex)
+    {
+        var ordered = ActionScripts
+            .OrderBy(s => _scriptAliases[s.OriginalName].Order)
+            .ToList();
+        ordered.Remove(script);
+        ordered.Insert(Math.Clamp(targetIndex, 0, ordered.Count), script);
+        for (int i = 0; i < ordered.Count; i++)
+            _scriptAliases[ordered[i].OriginalName].Order = i;
+    }
     /// <summary>Assign explicit unique sequential order values to all action scripts based on current sort order.</summary>
     private void NormalizeAllOrders()
     {

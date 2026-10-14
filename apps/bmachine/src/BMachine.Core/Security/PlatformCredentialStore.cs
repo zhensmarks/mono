@@ -134,7 +134,14 @@ internal sealed class WindowsCredentialStore : ISecureCredentialStore
         return Task.CompletedTask;
     }
 
-    private static string Target(string key) => $"BMachine/{key}";
+    private static string Target(string key)
+    {
+        // Dev runs use a distinct vault namespace so they cannot read or alter daily credentials.
+        var scope = Environment.GetEnvironmentVariable("BMACHINE_CREDENTIAL_SCOPE");
+        return string.IsNullOrWhiteSpace(scope)
+            ? $"BMachine/{key}"
+            : $"BMachine/{scope}/{key}";
+    }
 }
 
 internal sealed class MacKeychainCredentialStore : ISecureCredentialStore

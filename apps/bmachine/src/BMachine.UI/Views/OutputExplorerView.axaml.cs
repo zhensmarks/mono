@@ -135,7 +135,7 @@ public partial class OutputExplorerView : UserControl
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                var sb = this.FindControl<TextBox>("SearchBox");
+                var sb = TopLevel.GetTopLevel(this)?.FindControl<TextBox>("HeaderSearchBox");
                 sb?.Focus();
             });
         });

@@ -1,9 +1,12 @@
+using Avalonia.Threading;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia;
 using BMachine.UI.ViewModels;
 using Avalonia.VisualTree;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 
 namespace BMachine.UI.Views;
 
@@ -41,6 +44,9 @@ public partial class SettingsView : UserControl
         // Handle PointerPressed (Right-Click) at Tunnel phase to ensure we catch it before controls swallow it
         // This fixes the issue where right-clicking an item selects it instead of going back.
         this.AddHandler(PointerPressedEvent, OnRootPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(PointerPressedEvent, OnRadialRootPointerPressed, Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
+        this.AddHandler(PointerMovedEvent, OnRadialRootPointerMoved, Avalonia.Interactivity.RoutingStrategies.Bubble, true);
+        this.AddHandler(PointerReleasedEvent, OnRadialRootPointerReleased, Avalonia.Interactivity.RoutingStrategies.Bubble, true);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -440,27 +446,66 @@ public partial class SettingsView : UserControl
 
     // --- Drag-and-Drop for Script Reordering ---
 
-    public async void OnHamburgerPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Control control || control.DataContext is not ScriptItem item) return;
+    private ScriptItem? _pressedMasterScript;
+    private Point? _masterScriptPressPoint;
+    private Control? _masterDropTarget;
+    private bool _masterDropBefore;
+    private bool _masterDragActive;
 
-        // Prevent click from bubbling if we want to consume it, but for DnD we usually don't need to consume until drag starts.
-        // However, since this is a drag handle, we can start drag immediately.
-        
+    public void OnHamburgerPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control control || control.DataContext is not ScriptItem item ||
+            !e.GetCurrentPoint(control).Properties.IsLeftButtonPressed)
+            return;
+
+        _pressedMasterScript = item;
+        _masterScriptPressPoint = e.GetPosition(this);
+        e.Pointer.Capture(control);
+    }
+
+    public async void OnHamburgerPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_masterScriptPressPoint is not Point start || _pressedMasterScript is null || sender is not Control control)
+            return;
+
+        var position = e.GetPosition(this);
+        if (Math.Abs(position.X - start.X) < 6 && Math.Abs(position.Y - start.Y) < 6)
+            return;
+
+        var draggedItem = _pressedMasterScript;
+        _pressedMasterScript = null;
+        _masterScriptPressPoint = null;
+        e.Pointer.Capture(null);
+
         var dragData = new DataObject();
-        dragData.Set("ScriptItem", item);
-        dragData.Set("OriginType", "Script"); // Origin check is handled by Drop handler via Contains 
-        // We can infer IsMaster from the collection it belongs to, but ScriptItem doesn't know. 
-        // Actually, we can check the parent ItemsControl? Harder.
-        // Easier: The Drop handler checks if Source Item matches Target Collection type.
-        // Let's just pass the item.
-        
-        // Visual trick: To prevent the pointer press from being "click", we might invalid command execution.
-        // But the hamburger has no command.
-        
-        // Start Drag
-        // Use "Move" effect
+        dragData.Set("ScriptItem", draggedItem);
+        _masterDragActive = true;
         var result = await DragDrop.DoDragDrop(e, dragData, DragDropEffects.Move);
+        _masterDragActive = false;
+
+        // Windows/OLE kadang tidak mengirim Drop walau target masih aktif saat mouse dilepas.
+        if (result == DragDropEffects.None && _masterDropTarget?.DataContext is ScriptItem targetItem &&
+            DataContext is SettingsViewModel vm && vm.MasterScripts.Contains(draggedItem))
+        {
+            MoveMasterScriptToTarget(vm, draggedItem, targetItem, _masterDropBefore);
+        }
+
+        ClearMasterDropIndicator();
+    }
+
+    public void OnHamburgerPointerReleased(object? sender, PointerReleasedEventArgs e) => ClearMasterDragCandidate(e);
+
+    public void OnHamburgerPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (!_masterDragActive)
+            ClearMasterDragCandidate();
+    }
+
+    private void ClearMasterDragCandidate(PointerReleasedEventArgs? e = null)
+    {
+        e?.Pointer.Capture(null);
+        _pressedMasterScript = null;
+        _masterScriptPressPoint = null;
     }
 
     public void OnItemDragOver(object? sender, DragEventArgs e)
@@ -493,6 +538,9 @@ public partial class SettingsView : UserControl
                  if (belongs && draggedItem != targetItem)
                  {
                      e.DragEffects = DragDropEffects.Move;
+                     // Arah drag menentukan sisi celah tempat item disisipkan.
+                     var before = vm.MasterScripts.IndexOf(draggedItem) > vm.MasterScripts.IndexOf(targetItem);
+                     ShowMasterDropIndicator(targetControl, before);
                  }
              }
         }
@@ -516,15 +564,57 @@ public partial class SettingsView : UserControl
 
              if (belongs)
              {
-                 var collection = isTargetMaster ? vm.MasterScripts : vm.ActionScripts;
-                 int newIndex = collection.IndexOf(targetItem);
-                 
-                 if (newIndex >= 0)
-                 {
-                     vm.MoveScript(draggedItem, newIndex, isTargetMaster);
-                 }
+                 if (isTargetMaster)
+                     MoveMasterScriptToTarget(vm, draggedItem, targetItem, _masterDropBefore);
+                 else
+                     vm.MoveScript(draggedItem, vm.ActionScripts.IndexOf(targetItem), false);
              }
         }
+
+        ClearMasterDropIndicator();
+    }
+
+    private void MoveMasterScriptToTarget(SettingsViewModel vm, ScriptItem draggedItem, ScriptItem targetItem, bool before)
+    {
+        var oldIndex = vm.MasterScripts.IndexOf(draggedItem);
+        var targetIndex = vm.MasterScripts.IndexOf(targetItem);
+        if (oldIndex < 0 || targetIndex < 0) return;
+
+        var newIndex = before ? targetIndex : targetIndex + 1;
+        if (oldIndex < newIndex) newIndex--;
+        if (newIndex != oldIndex)
+            vm.MoveScript(draggedItem, newIndex, true);
+    }
+
+    private void ShowMasterDropIndicator(Control target, bool before)
+    {
+        if (_masterDropTarget == target && _masterDropBefore == before) return;
+
+        ClearMasterDropIndicator();
+        _masterDropTarget = target;
+        _masterDropBefore = before;
+
+        var indicator = target.GetVisualDescendants().OfType<Border>()
+            .FirstOrDefault(border => border.Name == "MasterDropIndicator");
+        if (indicator == null) return;
+
+        // Grid berada di dalam padding 12 px; tambah 6 px untuk mencapai pusat celah 12 px.
+        indicator.VerticalAlignment = before ? Avalonia.Layout.VerticalAlignment.Top : Avalonia.Layout.VerticalAlignment.Bottom;
+        indicator.Margin = new Thickness(0);
+        indicator.RenderTransform = new Avalonia.Media.TranslateTransform(0, before ? -18 : 18);
+        indicator.IsVisible = true;
+    }
+
+    private void ClearMasterDropIndicator()
+    {
+        if (_masterDropTarget != null)
+        {
+            var indicator = _masterDropTarget.GetVisualDescendants().OfType<Border>()
+                .FirstOrDefault(border => border.Name == "MasterDropIndicator");
+            if (indicator != null) indicator.IsVisible = false;
+        }
+
+        _masterDropTarget = null;
     }
 
     private void AutoCompleteBox_GotFocus(object? sender, GotFocusEventArgs e)
@@ -537,88 +627,174 @@ public partial class SettingsView : UserControl
 
     // ─── Radial Slot Drag & Drop ──────────────────────────────────────────────
     
-    private RadialSlotViewModel? _dragSourceSlot;
-    private bool _isDraggingRadial;
-    private Avalonia.Point _dragStartPoint;
-    private const double DragThreshold = 8.0;
+    private const double RadialDragThreshold = 8.0;
+    private const double RadialDropRadius = 25.0;
+    private const double RadialSlotHalf = 18.0;
+    private const double RadialHitRadius = 20.0;
+    private const int RadialPageSwitchDelayMs = 600;
+    private RadialSlotViewModel? _pressedRadialSlot;
+    private Button? _pressedRadialButton;
+    private int _pressedRadialClickCount;
+    private Avalonia.Point _radialPressPoint;
+    private RadialSlotViewModel? _radialDragSource;
+    private RadialSlotViewModel? _radialDropTarget;
+    private (int Page, int Index)? _radialPreviewKey;
+    private Button? _radialDragButton;
+    private DispatcherTimer? _radialPageTimer;
+    private bool _radialNavArmed = true;
 
-    private void OnRadialSlotPointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OnRadialRootPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Button btn || btn.Tag is not RadialSlotViewModel slot || slot.IsEmpty) return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || DataContext is not SettingsViewModel vm) return;
 
-        _dragSourceSlot = slot;
-        _isDraggingRadial = false;
-        _dragStartPoint = e.GetPosition(this);
-        e.Pointer.Capture(btn);
+        var local = e.GetPosition(RadialSlotsControl);
+        var slot = vm.RadialSlots.FirstOrDefault(s =>
+            !s.IsEmpty && !s.IsNavigationReserved &&
+            Math.Sqrt(Math.Pow(local.X - (s.X + RadialSlotHalf), 2) + Math.Pow(local.Y - (s.Y + RadialSlotHalf), 2)) <= RadialHitRadius);
+        if (slot == null) return;
+
+        _pressedRadialSlot = slot;
+        _pressedRadialButton = RadialSlotsControl.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => ReferenceEquals(b.Tag, slot));
+        _radialPressPoint = e.GetPosition(this);
+        _pressedRadialClickCount = e.ClickCount;
+    }
+    private void OnRadialRootPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_radialDragSource == null)
+        {
+            if (_pressedRadialSlot == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+            var pos = e.GetPosition(this);
+            double dx = pos.X - _radialPressPoint.X;
+            double dy = pos.Y - _radialPressPoint.Y;
+            if (Math.Sqrt(dx * dx + dy * dy) < RadialDragThreshold) return;
+
+            StartRadialDrag(_pressedRadialSlot, _pressedRadialButton, e);
+        }
+
+        UpdateRadialDrag(e);
     }
 
-    private void OnRadialSlotPointerMoved(object? sender, PointerEventArgs e)
+    private void OnRadialRootPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_dragSourceSlot == null) return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        var clickedSlot = _pressedRadialSlot;
+        _pressedRadialSlot = null;
+        _pressedRadialButton = null;
+        if (_radialDragSource == null)
         {
-            _dragSourceSlot = null;
-            e.Pointer.Capture(null);
+            if (clickedSlot != null && _pressedRadialClickCount == 2 && DataContext is SettingsViewModel doubleVm)
+                doubleVm.SelectRadialSlotCommand.Execute(clickedSlot);
             return;
         }
 
-        var pos = e.GetPosition(this);
-        if (!_isDraggingRadial)
-        {
-            double dx = pos.X - _dragStartPoint.X;
-            double dy = pos.Y - _dragStartPoint.Y;
-            if (Math.Sqrt(dx * dx + dy * dy) > DragThreshold)
-                _isDraggingRadial = true;
-        }
-    }
-
-    private void OnRadialSlotPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
         e.Pointer.Capture(null);
-        var source = _dragSourceSlot;
-        _dragSourceSlot = null;
+        var target = _radialDropTarget;
+        ResetRadialDrag();
 
-        if (source == null || !_isDraggingRadial)
+        if (DataContext is SettingsViewModel vm)
         {
-            _isDraggingRadial = false;
-            return;
+            if (target != null) vm.CommitRadialPreview();
+            else vm.CancelRadialPreview();
         }
-        _isDraggingRadial = false;
+    }
 
-        if (DataContext is not SettingsViewModel vm) return;
+    private void StartRadialDrag(RadialSlotViewModel slot, Button? button, PointerEventArgs e)
+    {
+        _pressedRadialSlot = null;
+        _pressedRadialButton = null;
+        _radialDragSource = slot;
+        _radialDragButton = button;
+        _radialNavArmed = true;
+        if (DataContext is SettingsViewModel vmStart) vmStart.BeginRadialPreview();
 
-        // Find closest filled slot under the pointer using ViewModel slot positions
-        // RadialSlots hold X,Y in canvas coordinates (200x200 canvas)
-        // Find the canvas in the visual tree to get its screen position
-        var slotsControl = this.FindControl<ItemsControl>("RadialSlotsControl");
-        if (slotsControl == null) return;
+        if (button != null)
+        {
+            RadialDragGhostText.Text = slot.Script?.ShortCode ?? "";
+            button.Opacity = 0.35;
+        }
 
-        var releasePos = e.GetPosition(slotsControl);
+        RadialDragGhost.IsVisible = true;
+        e.Pointer.Capture(this);
+    }
 
-        RadialSlotViewModel? targetSlot = null;
-        double bestDist = 25; // px threshold — must be within 25px of center
+    private void UpdateRadialDrag(PointerEventArgs e)
+    {
+        if (DataContext is not SettingsViewModel vm || _radialDragSource == null) return;
 
+        var pos = e.GetPosition(RadialSlotsControl);
+        Canvas.SetLeft(RadialDragGhost, pos.X - RadialSlotHalf);
+        Canvas.SetTop(RadialDragGhost, pos.Y - RadialSlotHalf);
+
+        RadialSlotViewModel? target = null;
+        double best = RadialDropRadius;
         foreach (var slot in vm.RadialSlots)
         {
-            if (slot.IsEmpty || slot.IsNavigationReserved || slot == source) continue;
-            // slot.X and slot.Y are Canvas.Left and Canvas.Top → center is (X+18, Y+18)
-            double cx = slot.X + 18;
-            double cy = slot.Y + 18;
-            double dist = Math.Sqrt(Math.Pow(releasePos.X - cx, 2) + Math.Pow(releasePos.Y - cy, 2));
-            if (dist < bestDist)
+            if (slot.Script != null && slot.Script == _radialDragSource.Script) continue;
+            double dist = Math.Sqrt(Math.Pow(pos.X - (slot.X + RadialSlotHalf), 2) + Math.Pow(pos.Y - (slot.Y + RadialSlotHalf), 2));
+            if (dist < best)
             {
-                bestDist = dist;
-                targetSlot = slot;
+                best = dist;
+                target = slot;
             }
         }
 
-        if (targetSlot != null)
+        _radialDropTarget = target;
+        var key = target == null ? ((int, int)?)null : (target.PageIndex, target.AbsoluteIndex);
+        if (key != _radialPreviewKey)
         {
-            vm.SwapRadialSlots(source, targetSlot);
+            _radialPreviewKey = key;
+            vm.PreviewRadialMove(_radialDragSource, target);
         }
+        RadialDropHighlight.IsVisible = target != null;
+        if (target != null)
+        {
+            Canvas.SetLeft(RadialDropHighlight, target.X + RadialSlotHalf - 22);
+            Canvas.SetTop(RadialDropHighlight, target.Y + RadialSlotHalf - 22);
+        }
+
+        UpdateRadialNavHover(vm, target);
     }
 
+    private void UpdateRadialNavHover(SettingsViewModel vm, RadialSlotViewModel? target)
+    {
+        bool onNav = target is { IsNavigationReserved: true } && !string.IsNullOrEmpty(target.NavigationLabel);
+        if (!onNav)
+        {
+            _radialNavArmed = true;
+            StopRadialPageTimer();
+            return;
+        }
+
+        if (!_radialNavArmed || _radialPageTimer != null) return;
+
+        _radialPageTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(RadialPageSwitchDelayMs) };
+        _radialPageTimer.Tick += (_, _) =>
+        {
+            StopRadialPageTimer();
+            _radialNavArmed = false;
+            if (vm.RadialEditorPage == 0) vm.SwitchToRadialPage2Command.Execute(null);
+            else vm.SwitchToRadialPage1Command.Execute(null);
+        };
+        _radialPageTimer.Start();
+    }
+
+    private void ResetRadialDrag()
+    {
+        StopRadialPageTimer();
+        RadialDragGhost.IsVisible = false;
+        RadialDropHighlight.IsVisible = false;
+        if (_radialDragButton != null) _radialDragButton.Opacity = 1;
+        _radialDragButton = null;
+        _radialDragSource = null;
+        _radialDropTarget = null;
+        _radialPreviewKey = null;
+    }
+
+    private void StopRadialPageTimer()
+    {
+        _radialPageTimer?.Stop();
+        _radialPageTimer = null;
+    }
     // Buka dialog "Lapork Bug". Event-handler code-behind (bukan ViewModel)
     // karena ini murni interaksi UI: menampilkan dialog modal. Logika kirim
     // ada di ReportBugDialog + shared BugReporter.

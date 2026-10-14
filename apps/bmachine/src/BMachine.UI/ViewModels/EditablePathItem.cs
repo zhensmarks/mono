@@ -45,6 +45,12 @@ public partial class EditablePathItem : ObservableObject
     [ObservableProperty]
     private bool _isEditingPath;
 
+    [ObservableProperty]
+    private bool _isEditingName;
+
+    [ObservableProperty]
+    private bool _isAppearanceOpen;
+
     /// <summary>Hex warna root folder di tree browser. Kosong = pakai default.</summary>
     [ObservableProperty]
     private string _color = "";

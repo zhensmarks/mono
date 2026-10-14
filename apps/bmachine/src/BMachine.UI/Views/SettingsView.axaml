@@ -200,14 +200,23 @@
                             <Setter Property="Cursor" Value="Hand"/>
                             <Setter Property="Template">
                                 <ControlTemplate>
-                                    <Border Background="{TemplateBinding Background}"
+                                    <Border x:Name="PART_Root"
+                                            Background="{TemplateBinding Background}"
                                             BorderBrush="{TemplateBinding BorderBrush}"
                                             BorderThickness="{TemplateBinding BorderThickness}"
                                             CornerRadius="{TemplateBinding CornerRadius}">
                                         <Grid>
                                             <Border x:Name="HoverBg" Background="Transparent" CornerRadius="5"/>
-                                            <Border x:Name="Indicator" Width="2" Height="0" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                    CornerRadius="6" Background="{DynamicResource TextPrimaryBrush}">
+                                            <!-- Divider marks a new settings group without changing item size. -->
+                                            <Border x:Name="GroupDivider" Height="1"
+                                                    Margin="8,0"
+                                                    HorizontalAlignment="Stretch"
+                                                    VerticalAlignment="Top"
+                                                    Background="{DynamicResource SeparatorBrush}"
+                                                    IsVisible="False"/>
+                                            <!-- Same small active marker used by Batch folder nodes. -->
+                                            <Border x:Name="Indicator" Width="3" Height="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    CornerRadius="1.5" Background="{DynamicResource AccentColorBrush}">
                                                 <Border.Transitions>
                                                     <Transitions>
                                                         <DoubleTransition Property="Height" Duration="0:0:0.3">
@@ -236,12 +245,15 @@
                             </Setter>
                         </Style>
 
-                        <!-- Separator: thin top line, no gap indent -->
+                        <!-- Grouped items keep same card dimensions as every sidebar item. -->
                         <Style Selector="ListBoxItem.sep">
                             <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
-                            <Setter Property="BorderThickness" Value="0,1,0,0"/>
-                            <Setter Property="Padding" Value="16,14"/>
-                            <Setter Property="Margin" Value="0,4,0,0"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="Padding" Value="12,10"/>
+                            <Setter Property="Margin" Value="0,3,0,3"/>
+                        </Style>
+                        <Style Selector="ListBoxItem.sep /template/ Border#GroupDivider">
+                            <Setter Property="IsVisible" Value="True"/>
                         </Style>
 
                         <Style Selector="ListBoxItem TextBlock">
@@ -273,15 +285,15 @@
                         <Style Selector="ListBoxItem:selected /template/ Border#HoverBg">
                             <Setter Property="Background" Value="Transparent"/>
                         </Style>
-                        <Style Selector="ListBoxItem:selected /template/ Border">
-                            <Setter Property="BorderThickness" Value="0"/>
+                        <Style Selector="ListBoxItem:selected /template/ Border#PART_Root">
+                            <Setter Property="BorderThickness" Value="1"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected /template/ Border#Indicator">
-                            <Setter Property="Height" Value="22"/>
+                            <Setter Property="Height" Value="14"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected">
                             <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
-                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected TextBlock">
@@ -813,12 +825,16 @@
                                      <ItemsControl ItemsSource="{Binding MasterScripts}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Padding="12" Margin="0,0,0,1" Background="Transparent" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1"
-                                                        DragDrop.AllowDrop="True" DragDrop.DragOver="OnItemDragOver" DragDrop.Drop="OnItemDrop" Tag="Master">
-                                                    <Grid ColumnDefinitions="Auto, Auto, *, Auto">
-                                                        <PathIcon Grid.Column="0" Data="{StaticResource IconMenu}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Top" Margin="0,4,12,0"
-                                                                  ToolTip.Tip="Drag to Reorder" Cursor="Hand" PointerPressed="OnHamburgerPointerPressed"/>
-                                                        <Border Grid.Column="1" Width="32" Height="32" CornerRadius="6" Margin="0,0,12,0"
+                                                <Border Padding="12" Margin="0,0,0,12" Background="Transparent" BorderThickness="0"
+                                                        DragDrop.AllowDrop="True" DragDrop.DragOver="OnItemDragOver" DragDrop.Drop="OnItemDrop" Tag="Master"
+                                                        Cursor="Hand"
+                                                        PointerPressed="OnHamburgerPointerPressed"
+                                                        PointerMoved="OnHamburgerPointerMoved"
+                                                        PointerReleased="OnHamburgerPointerReleased"
+                                                        PointerCaptureLost="OnHamburgerPointerCaptureLost">
+                                                    <Grid>
+                                                        <Grid ColumnDefinitions="Auto, *, Auto">
+                                                        <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6" Margin="0,0,12,0"
                                                                 Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Top">
                                                              <Panel>
                                                                  <Viewbox Width="16" Height="16" IsVisible="{Binding !IsEditing}">
@@ -838,7 +854,7 @@
                                                              </Panel>
                                                         </Border>
                                                         <!-- View mode -->
-                                                        <Grid Grid.Column="2" IsVisible="{Binding !IsEditing}" RowDefinitions="Auto, Auto">
+                                                        <Grid Grid.Column="1" IsVisible="{Binding !IsEditing}" RowDefinitions="Auto, Auto">
                                                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                                 <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="5,2" VerticalAlignment="Center" IsVisible="{Binding ShortCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -848,7 +864,7 @@
                                                             <TextBlock Grid.Row="1" Text="{Binding OriginalName}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0"/>
                                                         </Grid>
                                                         <!-- Edit mode -->
-                                                        <Grid Grid.Column="2" IsVisible="{Binding IsEditing}" ColumnDefinitions="*, 80" RowDefinitions="Auto, Auto, Auto">
+                                                        <Grid Grid.Column="1" IsVisible="{Binding IsEditing}" ColumnDefinitions="*, 80" RowDefinitions="Auto, Auto, Auto">
                                                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Display Name" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
                                                             <TextBlock Grid.Row="0" Grid.Column="1" Text="Short Code" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="5,0,0,2"/>
                                                             <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding EditName}" Watermark="Main Text" Margin="0,0,8,0" FontSize="13" Padding="7">
@@ -866,9 +882,14 @@
                                                                 <Button Content="Save Changes" Command="{Binding SaveRenameCommand}" Classes="Action" FontSize="12" Height="30" Padding="12,0"/>
                                                             </StackPanel>
                                                         </Grid>
-                                                        <Button Grid.Column="3" Command="{Binding ToggleEditCommand}" Classes="Clear" IsVisible="{Binding !IsEditing}" Margin="8,0,0,0" ToolTip.Tip="Edit Script">
+                                                        <Button Grid.Column="2" Command="{Binding ToggleEditCommand}" Classes="Clear" IsVisible="{Binding !IsEditing}" Margin="8,0,0,0" ToolTip.Tip="Edit Script">
                                                             <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                         </Button>
+                                                        </Grid>
+                                                        <Border x:Name="MasterDropIndicator" Height="3"
+                                                                Background="{DynamicResource AccentBlueBrush}" CornerRadius="1.5"
+                                                                HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                                                                IsVisible="False" IsHitTestVisible="False"/>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
@@ -877,9 +898,9 @@
                                 </Border>
                             </Grid>
                             <!-- ACTION SCRIPTS (RADIAL) -->
-                            <Grid IsVisible="{Binding IsScriptActionSelected}" RowDefinitions="Auto, *">
-                                <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16">
-                                    <Grid RowDefinitions="Auto, *">
+                            <Grid IsVisible="{Binding IsScriptActionSelected}" ColumnDefinitions="Auto, *" RowDefinitions="Auto">
+                                <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
+                                    <Grid RowDefinitions="Auto">
                                         <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,16">
                                             <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,16">
                                                 <Button Grid.Column="0" Command="{Binding SwitchToRadialPage1Command}" Classes="Clear" VerticalAlignment="Center" Margin="0,0,24,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 1" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
@@ -922,16 +943,12 @@
                                                                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                                     </Button>
                                                                     <Button Classes="Clear" IsVisible="{Binding !IsEmpty}"
-                                                                            Command="{Binding DataContext.SelectRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                            CommandParameter="{Binding}"
                                                                             Width="36" Height="36" CornerRadius="18"
                                                                             Background="{DynamicResource AccentBlueBrush}"
                                                                             BorderBrush="{DynamicResource AccentBlueBrush}" BorderThickness="1"
                                                                             ToolTip.Tip="{Binding Script.Name}" Padding="0"
                                                                             Tag="{Binding}"
-                                                                            PointerPressed="OnRadialSlotPointerPressed"
-                                                                            PointerMoved="OnRadialSlotPointerMoved"
-                                                                            PointerReleased="OnRadialSlotPointerReleased"
+
                                                                             Cursor="SizeAll">
                                                                         <Grid>
                                                                             <Border IsVisible="{Binding IsSelected}" Width="44" Height="44" CornerRadius="22" BorderBrush="White" BorderThickness="2" Margin="-4"/>
@@ -945,6 +962,10 @@
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
+                                                    <Canvas Width="200" Height="200" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">
+                                                        <Ellipse x:Name="RadialDropHighlight" Width="44" Height="44" IsVisible="False" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="2" Fill="#334A9EFF"/>
+                                                        <Border x:Name="RadialDragGhost" IsVisible="False" Width="36" Height="36" CornerRadius="18" Opacity="0.8" Background="{DynamicResource AccentBlueBrush}" IsHitTestVisible="False"><TextBlock x:Name="RadialDragGhostText" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10" FontWeight="Bold" Foreground="White"/></Border>
+                                                    </Canvas>
                                                 </Grid>
                                                 </Border>
                                                 <Button Grid.Column="2" Command="{Binding SwitchToRadialPage2Command}" Classes="Clear" VerticalAlignment="Center" Margin="24,0,0,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 2" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
@@ -952,6 +973,9 @@
                                                 </Button>
                                             </Grid>
                                         </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <Border Grid.Column="1" Margin="16,0,0,0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
                                         <!-- Selected Slot Detail -->
                                         <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="20" Margin="0,8,0,0">
                                             <Grid>
@@ -961,7 +985,7 @@
                                                     <TextBlock Text="atau klik tombol (+) untuk menambah baru." Foreground="{DynamicResource TextFaintBrush}" TextAlignment="Center" FontSize="12"/>
                                                 </StackPanel>
                                                 <Grid RowDefinitions="Auto, Auto, Auto, *, Auto" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                                    <TextBlock Grid.Row="0" Text="SLOT DETAILS" FontSize="10" FontWeight="Medium" Foreground="{DynamicResource TextFaintBrush}" LetterSpacing="2" Margin="0,0,0,20"/>
+                                                    <TextBlock Grid.Row="0" Classes="eyebrow" Text="SLOT DETAILS" Margin="0,0,0,16"/>
                                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" Margin="0,0,0,24">
                                                         <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
                                                             <Button Classes="Clear" Command="{Binding SelectedRadialSlot.Script.PickIconCommand}" ToolTip.Tip="Change Icon" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="28" Padding="0">
@@ -985,15 +1009,14 @@
                                                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRadialSlot.Script.EditShortCode}" Watermark="CODE" MaxLength="4" FontSize="13" HorizontalContentAlignment="Center" Padding="10"/>
                                                     </Grid>
                                                     <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-                                                        <Button Classes="Clear" Content="Mundur" Command="{Binding DataContext.MoveRadialSlotUpCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi berlawanan jarum jam" Margin="0,4,4,0"/>
-                                                        <Button Classes="Clear" Content="Maju" Command="{Binding DataContext.MoveRadialSlotDownCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi searah jarum jam" Margin="0,4,4,0"/>
-                                                        <Button Classes="Clear" Content="Hapus" Foreground="#ef4444" Command="{Binding DataContext.RemoveFromRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" FontWeight="SemiBold" Margin="0,4,4,0"/>
-                                                        <Button Classes="Action" Content="Simpan" Command="{Binding SelectedRadialSlot.Script.SaveRenameCommand}" Height="32" Padding="14,0" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                        <Button Classes="secondary" Content="Mundur" Command="{Binding DataContext.MoveRadialSlotUpCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi berlawanan jarum jam" Margin="0,4,4,0"/>
+                                                        <Button Classes="secondary" Content="Maju" Command="{Binding DataContext.MoveRadialSlotDownCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi searah jarum jam" Margin="0,4,4,0"/>
+                                                        <Button Classes="danger" Content="Hapus" Command="{Binding DataContext.RemoveFromRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" FontWeight="SemiBold" Margin="0,4,4,0"/>
+                                                        <Button Classes="primary" Content="Simpan" Command="{Binding SelectedRadialSlot.Script.SaveRenameCommand}" Height="32" Padding="14,0" FontWeight="SemiBold" Margin="0,4,0,0"/>
                                                     </WrapPanel>
                                                 </Grid>
                                             </Grid>
                                         </Border>
-                                    </Grid>
                                 </Border>
                             </Grid>
                         </Grid>
@@ -1011,76 +1034,103 @@
 
         <!-- ABOUT -->
         <Grid Grid.Row="1" Grid.Column="1" IsVisible="{Binding IsAboutSelected}" Margin="0,0,14,20">
-             <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" ClipToBounds="True">
-                 <ScrollViewer>
-                     <StackPanel Spacing="24" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center">
-                     <!-- Vector Icon (Stylized abstract layers / B) -->
-                     <StackPanel Spacing="10" HorizontalAlignment="Center">
-                         <Viewbox Width="56" Height="56" HorizontalAlignment="Center">
-                             <Grid>
-                                 <Path Data="M12 2L2 7l10 5 10-5-10-5z" Fill="{DynamicResource AccentBlueBrush}" Opacity="0.9"/>
-                                 <Path Data="M2 12l10 5 10-5" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"/>
-                                 <Path Data="M2 17l10 5 10-5" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" Opacity="0.6"/>
-                             </Grid>
-                             <!-- Removed DropShadowEffect for minimalist-ui compatibility -->
-                         </Viewbox>
-                         <!-- Typographic Logo -->
-                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0">
-                             <TextBlock Text="B" 
-                                        FontSize="24" 
-                                        FontWeight="Black"
-                                        FontFamily="{DynamicResource FontPrimary}"
-                                        Foreground="{DynamicResource AccentBlueBrush}"
-                                        LetterSpacing="1"/>
-                             <TextBlock Text="MACHINE" 
-                                        FontSize="24" 
-                                        FontWeight="Light"
-                                        FontFamily="{DynamicResource FontPrimary}"
-                                        Foreground="{DynamicResource TextPrimaryBrush}" 
-                                        LetterSpacing="4"/>
-                         </StackPanel>
-                     </StackPanel>
-                     <StackPanel Spacing="6" HorizontalAlignment="Center">
-                         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                              <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="4" Padding="6,2">
-                                  <TextBlock Text="{Binding CurrentVersion, StringFormat='v{0}'}" Foreground="White" FontWeight="SemiBold" FontSize="11"/>
-                              </Border>
-                              <TextBlock Text="Photo Editing Workflow" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="12"/>
-                         </StackPanel>
-                     </StackPanel>
-                     <StackPanel Spacing="12" HorizontalAlignment="Center" Width="280">
-                         <Button Command="{Binding CheckForUpdatesCommand}" IsEnabled="{Binding !IsCheckingUpdate}" Classes="Action" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Height="36">
-                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                 <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" IsVisible="{Binding !IsCheckingUpdate}"/>
-                                 <TextBlock Text="Check for Updates" IsVisible="{Binding !IsCheckingUpdate}" FontSize="13"/>
-                                 <TextBlock Text="Checking..." IsVisible="{Binding IsCheckingUpdate}" FontSize="13"/>
-                             </StackPanel>
-                         </Button>
-                         <StackPanel Spacing="8" IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                             <TextBlock Text="{Binding UpdateStatusText}" HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                             <Button Command="{Binding OpenDownloadPageCommand}" IsVisible="{Binding IsUpdateAvailable}" Classes="Action" HorizontalAlignment="Stretch" Content="Download Update" Height="34"/>
-                             <TextBlock Text="{Binding UpdateReleaseNotes}" IsVisible="{Binding IsUpdateAvailable}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" MaxHeight="80" TextTrimming="CharacterEllipsis"/>
-                         </StackPanel>
-                     </StackPanel>
-                     <Border Height="1" Background="{DynamicResource CardBackgroundBrush}" Width="300"/>
-                     <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center">
-                         <Button Classes="Clear" Command="{Binding OpenUrlCommand}" CommandParameter="https://github.com/zhensmarks/BMachine.v2">
-                             <StackPanel Orientation="Horizontal" Spacing="5">
-                                 <PathIcon Data="{StaticResource IconBrandGithub}" Width="14" Height="14"/>
-                                 <TextBlock Text="GitHub" FontSize="12"/>
-                             </StackPanel>
-                         </Button>
-                         <Button Classes="Clear" Command="{Binding OpenUrlCommand}" CommandParameter="https://github.com/zhensmarks/BMachine.v2/issues">
-                             <StackPanel Orientation="Horizontal" Spacing="5">
-                                 <PathIcon Data="{StaticResource IconBug}" Width="14" Height="14"/>
-                                 <TextBlock Text="Report Issue" FontSize="12"/>
-                             </StackPanel>
-                         </Button>
-                     </StackPanel>
-                     <TextBlock Text="Copyright © 2024-2026 Antigravity. All rights reserved." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Center" LetterSpacing="0.5"/>
-                 </StackPanel>
-             </ScrollViewer>
-             </Border>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="760" Margin="0,0,0,20" HorizontalAlignment="Stretch" Spacing="14">
+                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="24">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="18">
+                            <Border Width="58" Height="58" CornerRadius="6" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource AccentColorBrush}" BorderThickness="1">
+                                <Viewbox Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid>
+                                        <Path Data="M12 2L2 7l10 5 10-5-10-5z" Fill="{DynamicResource AccentColorBrush}"/>
+                                        <Path Data="M2 12l10 5 10-5" Stroke="{DynamicResource AccentColorBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"/>
+                                        <Path Data="M2 17l10 5 10-5" Stroke="{DynamicResource AccentColorBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" Opacity="0.65"/>
+                                    </Grid>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="BMACHINE" FontSize="20" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Photo editing workflow desktop" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                            <Border Grid.Column="2" Background="{DynamicResource AccentColorBrush}" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding CurrentVersion, StringFormat='v{0}'}" Foreground="White" FontWeight="SemiBold" FontSize="11"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="20">
+                        <StackPanel Spacing="14">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Software update" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Periksa rilis terbaru dan catatan perubahan sebelum memperbarui aplikasi." FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Border Grid.Column="1" Background="{DynamicResource AccentSubtleBrush}" CornerRadius="4" Padding="8,4" VerticalAlignment="Top">
+                                    <TextBlock Text="Installed" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentColorBrush}"/>
+                                </Border>
+                            </Grid>
+                            <Button Command="{Binding CheckForUpdatesCommand}" IsEnabled="{Binding !IsCheckingUpdate}"
+                                    HorizontalAlignment="Left" Height="34" Padding="14,0"
+                                    Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="6">
+                                <Button.Styles>
+                                    <Style Selector="Button /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+                                        <Setter Property="TextElement.Foreground" Value="White"/>
+                                        <Setter Property="CornerRadius" Value="6"/>
+                                    </Style>
+                                </Button.Styles>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="White" IsVisible="{Binding !IsCheckingUpdate}"/>
+                                    <TextBlock Text="Check for updates" Foreground="White" FontSize="12" FontWeight="SemiBold" IsVisible="{Binding !IsCheckingUpdate}"/>
+                                    <TextBlock Text="Checking update..." Foreground="White" FontSize="12" FontWeight="SemiBold" IsVisible="{Binding IsCheckingUpdate}"/>
+                                </StackPanel>
+                            </Button>
+                            <Border IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                    Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="{Binding UpdateStatusText}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="SemiBold"/>
+                                    <Button Command="{Binding OpenDownloadPageCommand}" IsVisible="{Binding IsUpdateAvailable}" Classes="Action" HorizontalAlignment="Left" Height="32" Padding="12,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <PathIcon Data="{StaticResource IconDownload}" Width="14" Height="14"/>
+                                            <TextBlock Text="Download update" FontSize="12"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBlock Text="{Binding UpdateReleaseNotes}" IsVisible="{Binding IsUpdateAvailable}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" MaxHeight="96" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                        <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="16">
+                            <StackPanel Spacing="8">
+                                <PathIcon Data="{StaticResource IconBrandGithub}" Width="18" Height="18" Foreground="{DynamicResource AccentColorBrush}"/>
+                                <TextBlock Text="Source &amp; releases" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Lihat rilis, changelog, dan source code." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                <Button Classes="Muted" Command="{Binding OpenUrlCommand}" CommandParameter="https://github.com/zhensmarks/BMachine.v2" HorizontalAlignment="Left" Height="30" Padding="10,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Open GitHub" FontSize="11"/>
+                                        <PathIcon Data="{StaticResource IconExternalLink}" Width="13" Height="13"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="6" Padding="16">
+                            <StackPanel Spacing="8">
+                                <PathIcon Data="{StaticResource IconBug}" Width="18" Height="18" Foreground="{DynamicResource AccentColorBrush}"/>
+                                <TextBlock Text="Need help?" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Laporkan bug dengan langkah reproduksi dan hasil yang diharapkan." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                <Button Classes="Muted" Command="{Binding OpenUrlCommand}" CommandParameter="https://github.com/zhensmarks/BMachine.v2/issues" HorizontalAlignment="Left" Height="30" Padding="10,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Report issue" FontSize="11"/>
+                                        <PathIcon Data="{StaticResource IconExternalLink}" Width="13" Height="13"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <TextBlock Text="Copyright © 2024-2026 Antigravity. All rights reserved." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" Margin="2,2,0,0"/>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <!-- STATUS TOAST -->

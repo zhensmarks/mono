@@ -36,6 +36,31 @@
                            Foreground="{DynamicResource TextPrimaryBrush}"
                            TextTrimming="CharacterEllipsis" Margin="60,0"/>
 
+                <!-- Ctrl+F replaces the title with the active search query. -->
+                <Border IsVisible="{Binding ShowHeaderSearch}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Width="320" Height="24" Padding="8,0" CornerRadius="5"
+                        Background="{DynamicResource AppBackgroundBrush}"
+                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <TextBox x:Name="HeaderSearchBox" Grid.Column="0"
+                                 Text="{Binding SelectedTab.ExplorerViewModel.SearchText, Mode=TwoWay}"
+                                 Watermark="Cari file..." FontFamily="{DynamicResource FontPrimary}"
+                                 FontSize="12" FontWeight="SemiBold"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 BorderThickness="0" Background="Transparent" Padding="2,0"
+                                 MinHeight="0" Height="20" VerticalAlignment="Center"
+                                 VerticalContentAlignment="Center"
+                                 HorizontalContentAlignment="Center"
+                                 TextAlignment="Center">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Escape" Command="{Binding SelectedTab.ExplorerViewModel.CloseSearchCommand}"/>
+                                <KeyBinding Gesture="Enter" Command="{Binding SelectedTab.ExplorerViewModel.OpenFirstSearchResultCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                    </Grid>
+                </Border>
+
                 <!-- Multi-tab mode: StackPanel with pinned zone + separator + normal tabs -->
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                               IsVisible="{Binding ShowTabBar}"

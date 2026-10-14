@@ -17,7 +17,7 @@
         <converters:BoolToFolderIconConverter x:Key="BoolToFolderIconConverter"/>
         <converters:RootFontWeightConverter x:Key="FolderFontWeightConverter"/>
 
-        <!-- Keep a compact disclosure gutter and flatten Batch hierarchy indentation. -->
+        <!-- Keep a compact selection gutter and flatten Batch hierarchy indentation. -->
         <ControlTheme x:Key="FlatBatchTreeItem" TargetType="TreeViewItem"
                       BasedOn="{StaticResource {x:Type TreeViewItem}}">
             <Setter Property="Template">
@@ -33,13 +33,32 @@
                                 MinHeight="{TemplateBinding MinHeight}"
                                 TemplatedControl.IsTemplateFocusTarget="True">
                             <Grid Name="PART_Header" ColumnDefinitions="Auto, *" Margin="0">
-                                <Panel Name="PART_ExpandCollapseChevronContainer"
-                                       Width="16" Margin="0">
+                                <Grid Name="PART_ExpandCollapseChevronContainer"
+                                      Width="12" Margin="0">
                                     <ToggleButton Name="PART_ExpandCollapseChevron"
                                                   Focusable="False" IsVisible="True"
-                                                  Width="6" MinWidth="6"
-                                                  IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}" />
-                                </Panel>
+                                                  HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Stretch"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="0"
+                                                  IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}">
+                                        <!-- Preserve click target for expand/collapse without a second visual marker. -->
+                                        <ToggleButton.Template>
+                                            <ControlTemplate>
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <!-- Shown only for selected nodes, matching card-list active marker. -->
+                                    <Border Name="PART_SelectionIndicator"
+                                            Width="3" Height="14"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            CornerRadius="1.5"
+                                            Background="{DynamicResource AccentColorBrush}"
+                                            IsVisible="False"/>
+                                </Grid>
                                 <ContentPresenter Name="PART_HeaderPresenter"
                                                   Grid.Column="1"
                                                   Focusable="False"
@@ -101,6 +120,9 @@
         <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
             <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="TreeViewItem:selected /template/ Border#PART_SelectionIndicator">
+            <Setter Property="IsVisible" Value="True"/>
         </Style>
         <Style Selector="TreeViewItem:focus /template/ Border#PART_LayoutRoot">
             <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>

@@ -35,13 +35,17 @@ public partial class ExplorerWindowViewModel : ObservableObject
     {
         foreach (var tab in Tabs)
             tab.IsSelected = tab == value;
+        NotifyHeaderStateChanged();
     }
 
+    /// <summary>True while the active tab is using the title-bar search input.</summary>
+    public bool ShowHeaderSearch => SelectedTab?.ExplorerViewModel.IsSearchVisible == true;
+
     /// <summary>True when more than one tab (show tab bar).</summary>
-    public bool ShowTabBar => Tabs.Count > 1 || Tabs.Any(t => t.IsPinned);
+    public bool ShowTabBar => !ShowHeaderSearch && (Tabs.Count > 1 || Tabs.Any(t => t.IsPinned));
 
     /// <summary>True when single unpinned tab (show folder name in title bar).</summary>
-    public bool ShowSingleTabTitle => Tabs.Count == 1 && !Tabs.Any(t => t.IsPinned);
+    public bool ShowSingleTabTitle => !ShowHeaderSearch && Tabs.Count == 1 && !Tabs.Any(t => t.IsPinned);
 
     /// <summary>True when single tab (show content without tab strip).</summary>
     public bool ShowSingleTabContent => Tabs.Count == 1 && !Tabs.Any(t => t.IsPinned);
@@ -64,24 +68,45 @@ public partial class ExplorerWindowViewModel : ObservableObject
         if (initialExplorer != null)
         {
             initialExplorer.RequestOpenNewTab += OpenTabWithPath;
-            Tabs.Add(new ExplorerTabItemViewModel(initialExplorer, this));
+            AddTabItem(new ExplorerTabItemViewModel(initialExplorer, this));
         }
         else
         {
             var vm = new OutputExplorerViewModel(database, notificationService, fileManager, platformService);
             vm.RequestOpenNewTab += OpenTabWithPath;
-            Tabs.Add(new ExplorerTabItemViewModel(vm, this));
+            AddTabItem(new ExplorerTabItemViewModel(vm, this));
         }
         _ = LoadPinnedTabsAsync();
 
         SelectedTab = Tabs[0];
         Tabs.CollectionChanged += (_, _) =>
         {
-            OnPropertyChanged(nameof(ShowTabBar));
-            OnPropertyChanged(nameof(ShowSingleTabTitle));
-            OnPropertyChanged(nameof(ShowSingleTabContent));
-            OnPropertyChanged(nameof(HasPinnedTabs));
+            NotifyHeaderStateChanged();
         };
+    }
+
+    private void AddTabItem(ExplorerTabItemViewModel tab)
+    {
+        ObserveTab(tab);
+        Tabs.Add(tab);
+    }
+
+    private void ObserveTab(ExplorerTabItemViewModel tab)
+    {
+        tab.ExplorerViewModel.PropertyChanged += (_, e) =>
+        {
+            if (tab == SelectedTab && e.PropertyName == nameof(OutputExplorerViewModel.IsSearchVisible))
+                NotifyHeaderStateChanged();
+        };
+    }
+
+    private void NotifyHeaderStateChanged()
+    {
+        OnPropertyChanged(nameof(ShowHeaderSearch));
+        OnPropertyChanged(nameof(ShowTabBar));
+        OnPropertyChanged(nameof(ShowSingleTabTitle));
+        OnPropertyChanged(nameof(ShowSingleTabContent));
+        OnPropertyChanged(nameof(HasPinnedTabs));
     }
 
     private async Task LoadPinnedTabsAsync()
@@ -110,6 +135,7 @@ public partial class ExplorerWindowViewModel : ObservableObject
                     // Restore custom color if any
                     if (state.CustomColors != null && state.CustomColors.TryGetValue(path, out var color) && !string.IsNullOrEmpty(color))
                         tabVm.PinnedTabColor = color;
+                    ObserveTab(tabVm);
                     Tabs.Insert(insertAt++, tabVm);
                 }
 
@@ -176,7 +202,7 @@ public partial class ExplorerWindowViewModel : ObservableObject
     {
         var vm = new OutputExplorerViewModel(_database, _notificationService, _fileManager, _platformService);
         vm.RequestOpenNewTab += OpenTabWithPath;
-        Tabs.Add(new ExplorerTabItemViewModel(vm, this));
+        AddTabItem(new ExplorerTabItemViewModel(vm, this));
         SelectedTab = Tabs[^1];
     }
 
@@ -193,6 +219,7 @@ public partial class ExplorerWindowViewModel : ObservableObject
         {
             insertIndex = Tabs.IndexOf(SelectedTab) + 1;
         }
+        ObserveTab(tab);
         Tabs.Insert(insertIndex, tab);
         SelectedTab = tab;
     }

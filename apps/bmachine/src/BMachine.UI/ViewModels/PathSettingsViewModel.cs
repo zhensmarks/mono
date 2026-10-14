@@ -197,6 +197,16 @@ public partial class PathSettingsViewModel : ObservableObject
         }
     }
 
+    public async Task MoveAdditionalMasterPathAsync(EditablePathItem item, int newIndex)
+    {
+        var oldIndex = AdditionalMasterPaths.IndexOf(item);
+        if (oldIndex < 0 || newIndex < 0 || newIndex >= AdditionalMasterPaths.Count || oldIndex == newIndex)
+            return;
+
+        AdditionalMasterPaths.Move(oldIndex, newIndex);
+        await SaveAdditionalPaths();
+    }
+
     [RelayCommand]
     private async Task BrowseEditMasterPath(EditablePathItem item)
     {

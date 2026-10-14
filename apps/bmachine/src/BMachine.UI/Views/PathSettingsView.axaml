@@ -5,7 +5,7 @@
              xmlns:vm="using:BMachine.UI.ViewModels"
              xmlns:converters="using:BMachine.UI.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
-             x:Class="BMachine.UI.Views.PathSettingsView"
+             x:Class="BMachine.UI.Views.PathSettingsView" Focusable="True"
              x:DataType="vm:PathSettingsViewModel">
 
     <UserControl.Resources>
@@ -14,7 +14,7 @@
         <converters:HexToColorConverter x:Key="HexToColorConverter"/>
     </UserControl.Resources>
 
-    <ScrollViewer>
+    <ScrollViewer x:Name="PathScrollViewer">
         <StackPanel Spacing="20" Margin="20">
             <TextBlock Text="Explorer &amp; Paths Configuration" FontSize="20" FontWeight="Bold" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
             <TextBlock Text="Set default locations for Local Output, Photoshop, and Master Design assets." 
@@ -69,26 +69,16 @@
                         <ItemsControl ItemsSource="{Binding AdditionalMasterPaths}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:EditablePathItem">
-                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,0,8" BoxShadow="0 2 4 0 #1A000000">
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,0,12" BoxShadow="0 2 4 0 #1A000000"
+                                            DragDrop.AllowDrop="True" DragDrop.DragOver="OnMasterPathDragOver" DragDrop.DragLeave="OnMasterPathDragLeave" DragDrop.Drop="OnMasterPathDrop"
+                                            PointerPressed="OnMasterPathPointerPressed" PointerMoved="OnMasterPathPointerMoved"
+                                            PointerReleased="OnMasterPathPointerReleased" Tapped="OnMasterPathTapped" DoubleTapped="OnMasterPathDoubleTapped">
+                                        <Grid>
                                         <Grid RowDefinitions="Auto, Auto, Auto">
                                             <!-- Row 0: Name and Main Actions (No raw link displayed) -->
-                                            <Grid Grid.Row="0" ColumnDefinitions="Auto, Auto, *, Auto, Auto, Auto" Margin="0">
-                                                <!-- Up/Down Buttons -->
-                                                <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="0,0,8,0" Spacing="2">
-                                                    <Button Command="{Binding $parent[UserControl].DataContext.MoveMasterPathUpCommand}" 
-                                                            CommandParameter="{Binding}"
-                                                            Classes="Clear" Padding="3" ToolTip.Tip="Move Up">
-                                                          <PathIcon Data="{StaticResource IconChevronUp}" Classes="xs" />
-                                                    </Button>
-                                                    <Button Command="{Binding $parent[UserControl].DataContext.MoveMasterPathDownCommand}" 
-                                                            CommandParameter="{Binding}"
-                                                            Classes="Clear" Padding="3" ToolTip.Tip="Move Down">
-                                                          <PathIcon Data="{StaticResource IconChevronDown}" Classes="xs" />
-                                                    </Button>
-                                                </StackPanel>
-
+                                            <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto, Auto, Auto" Margin="0">
                                                 <!-- Root Icon PREVIEW (ikut pilihan warna + ikon user) -->
-                                                <Panel Grid.Column="1" Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                <Panel Grid.Column="0" Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,8,0">
                                                     <PathIcon Data="{Binding EffectiveIcon, Converter={StaticResource IconConverter}}"
                                                               Width="15" Height="15"
                                                               Foreground="{Binding EffectiveColor, Converter={StaticResource HexToBrushConverter}}"/>
@@ -98,15 +88,21 @@
                                                 </Panel>
 
                                                 <!-- Custom / Auto-Detected Name TextBox -->
-                                                <TextBox Grid.Column="2" Text="{Binding Name, Mode=TwoWay}" 
-                                                         Watermark="{Binding AutoDetectedName}" 
-                                                         FontWeight="SemiBold" FontSize="13" 
-                                                         VerticalAlignment="Center" 
-                                                         Background="Transparent" BorderThickness="0" Padding="4,4" Margin="0"
-                                                         ToolTip.Tip="{Binding Path, StringFormat='Path: {0}'}"/>
+                                                <Grid Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13"
+                                                               VerticalAlignment="Center" Padding="4,4" TextTrimming="CharacterEllipsis"
+                                                               IsVisible="{Binding !IsEditingName}"
+                                                               ToolTip.Tip="{Binding Path, StringFormat='Path: {0}'}"/>
+                                                    <TextBox Text="{Binding Name, Mode=TwoWay}" Watermark="{Binding AutoDetectedName}"
+                                                             FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"
+                                                             Background="Transparent" BorderThickness="0" Padding="4,4" Margin="0"
+                                                             IsVisible="{Binding IsEditingName}"
+                                                             LostFocus="OnMasterNameLostFocus" KeyDown="OnMasterNameKeyDown"
+                                                             ToolTip.Tip="{Binding Path, StringFormat='Path: {0}'}"/>
+                                                </Grid>
 
                                                 <!-- Toggle Edit Link Button -->
-                                                <Button Grid.Column="3" Command="{Binding ToggleEditPathCommand}"
+                                                <Button Grid.Column="2" Command="{Binding ToggleEditPathCommand}"
                                                         Classes="secondary" Margin="4,0" Padding="6,4" CornerRadius="6"
                                                         ToolTip.Tip="Tampilkan / Edit Link Path Manual">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -116,14 +112,14 @@
                                                 </Button>
 
                                                 <!-- Browse Button -->
-                                                <Button Grid.Column="4" Command="{Binding $parent[UserControl].DataContext.BrowseEditMasterPathCommand}" 
+                                                <Button Grid.Column="3" Command="{Binding $parent[UserControl].DataContext.BrowseEditMasterPathCommand}"
                                                         CommandParameter="{Binding}"
                                                         Classes="secondary" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Pilih Folder Baru (Browse)">
                                                      <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource AccentBlueBrush}" Opacity="0.9"/>
                                                 </Button>
                                                 
                                                 <!-- Remove Button -->
-                                                <Button Grid.Column="5" Command="{Binding $parent[UserControl].DataContext.RemoveMasterPathCommand}" 
+                                                <Button Grid.Column="4" Command="{Binding $parent[UserControl].DataContext.RemoveMasterPathCommand}"
                                                         CommandParameter="{Binding}"
                                                         Classes="danger" Margin="2,0" Padding="6,4" CornerRadius="6" ToolTip.Tip="Hapus Folder">
                                                      <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" Foreground="#FF5555"/>
@@ -131,13 +127,10 @@
                                             </Grid>
 
                                             <!-- Row 1: Icon + Colour picker for this root folder -->
-                                            <Border Grid.Row="1"
-                                                    Background="{DynamicResource AppBackgroundBrush}"
+                                            <Border Grid.Row="1" IsVisible="{Binding IsAppearanceOpen}" Margin="23,4,0,0">
+                                            <Border Background="{DynamicResource AppBackgroundBrush}"
                                                     BorderBrush="{DynamicResource SeparatorBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="6"
-                                                    Padding="10,6"
-                                                    Margin="26,6,0,0">
+                                                    BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,4,0,0">
                                                 <Grid ColumnDefinitions="Auto, *, Auto">
                                                     <!-- Icon palette (klik untuk pilih) -->
                                                     <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,10,0">
@@ -181,6 +174,7 @@
                                                     </Button>
                                                 </Grid>
                                             </Border>
+                                            </Border>
 
                                             <!-- Row 2: Expandable Manual Path Editor -->
                                             <Border Grid.Row="2" IsVisible="{Binding IsEditingPath}" 
@@ -189,7 +183,7 @@
                                                     BorderThickness="1" 
                                                     CornerRadius="6" 
                                                     Padding="10,6" 
-                                                    Margin="26,6,0,2">
+                                                    Margin="23,4,0,2">
                                                 <Grid ColumnDefinitions="Auto, *, Auto">
                                                     <TextBlock Grid.Column="0" Text="Lokasi Path:" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                     <TextBox Grid.Column="1" Text="{Binding Path, Mode=TwoWay}" FontSize="12" VerticalAlignment="Center" 
@@ -201,6 +195,10 @@
                                                     </Button>
                                                 </Grid>
                                             </Border>
+                                        </Grid>
+                                        <Border x:Name="MasterPathDropIndicator" Height="3" Background="{DynamicResource AccentBlueBrush}"
+                                                CornerRadius="1.5" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                                                IsVisible="False" IsHitTestVisible="False"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

@@ -117,22 +117,23 @@
                                                     Background="{Binding CoverColor}" Opacity="0.9"
                                                     IsVisible="{Binding HasCover}"/>
 
-                                            <!-- Content Grid: Col 0 (Indicator) + Col 1 (Checkbox) + Col 2 (Title) + Col 3 (Badges) -->
-                                            <Grid ColumnDefinitions="Auto, Auto, *, Auto" VerticalAlignment="Stretch">
-                                                <!-- Active Indicator Bar -->
-                                                <Border Grid.Column="0" Width="3" Height="14" CornerRadius="1.5"
-                                                        Background="{DynamicResource AccentLateBrush}"
-                                                        Margin="0,0,8,0" VerticalAlignment="Center"
-                                                        IsVisible="{Binding IsActive}"/>
+                                            <!-- Indicator berada di sela border dan konten, tanpa menggeser layout. -->
+                                            <Border Width="3" Height="14" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    CornerRadius="1.5"
+                                                    Background="{DynamicResource AccentLateBrush}"
+                                                    Margin="-13,0,0,0"
+                                                    IsVisible="{Binding IsActive}"/>
+
+                                            <Grid ColumnDefinitions="Auto, *, Auto" VerticalAlignment="Stretch">
 
                                                 <!-- Checkbox -->
-                                                <CheckBox Grid.Column="1"
+                                                <CheckBox Grid.Column="0"
                                                           IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                                           Margin="0,0,10,0" VerticalAlignment="Center"
                                                           Command="{Binding $parent[UserControl].DataContext.SelectionChangedCommand}"/>
 
                                                 <!-- Title -->
-                                            <TextBlock Grid.Column="2"
+                                            <TextBlock Grid.Column="1"
                                                        Text="{Binding Name}"
                                                        FontSize="13" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource TextPrimaryBrush}"
@@ -141,7 +142,7 @@
                                                        Margin="0,1"/>
 
                                             <!-- Status Badges (Right Side) -->
-                                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0" Spacing="6">
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0" Spacing="6">
                                                 <!-- Checklist status -->
                                                 <Border CornerRadius="6" Padding="6,3" BorderThickness="1"
                                                         VerticalAlignment="Center"

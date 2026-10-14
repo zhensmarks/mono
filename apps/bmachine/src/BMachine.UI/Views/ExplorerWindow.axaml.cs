@@ -19,6 +19,7 @@ public partial class ExplorerWindow : Window
     public ExplorerWindow()
     {
         InitializeComponent();
+        AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         WeakReferenceMessenger.Default.Register<RequestCloseExplorerWindowMessage>(this, (_, m) =>
         {
             if (m.Value != this) return;
@@ -37,6 +38,15 @@ public partial class ExplorerWindow : Window
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(HandleSwitchTab);
         });
+    }
+
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F || !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
+        if (DataContext is not ExplorerWindowViewModel { SelectedTab: not null } windowVm) return;
+
+        windowVm.SelectedTab.ExplorerViewModel.FocusSearchBoxCommand.Execute(null);
+        e.Handled = true;
     }
 
     /// <summary>Ctrl+W: close active tab only when there is more than one tab; do not close window when only one tab.</summary>

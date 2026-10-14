@@ -1127,32 +1127,27 @@ public class ExplorerLogicTests : IDisposable
     }
 
     // ------------------------------------------------------------------
-    // T43 - Ctrl+F opens the search UI; the pill is the input in every case
+    // T43 - Ctrl+F opens the search UI; the Explorer window renders it in its header
     // ------------------------------------------------------------------
     [AvaloniaFact]
-    public void T43_CtrlF_OpensSearchPill_AndEscClosesIt()
+    public void T43_CtrlF_OpensHeaderSearch_AndEscClosesIt()
     {
         Assert.False(_vm.IsSearchVisible);
 
         _vm.IsShowPathBar = false;
         _vm.FocusSearchBoxCommand.Execute(null);
         Assert.True(_vm.IsSearchVisible, "Ctrl+F must actually open the search UI.");
-        Assert.True(_vm.ShowFloatingSearch, "With the path bar hidden the pill is the search input.");
-
-        // Path bar visible: the pill is STILL the input (there is no second search box)
+        // The header search is independent from the path-bar visibility.
         _vm.IsShowPathBar = true;
-        Assert.True(_vm.ShowFloatingSearch);
         Assert.True(_vm.IsSearchVisible);
 
         _vm.SearchText = "zzz";
         _vm.CloseSearchCommand.Execute(null);
         Assert.False(_vm.IsSearchVisible);
         Assert.Equal("", _vm.SearchText);
-        Assert.False(_vm.ShowFloatingSearch);
-
         _vm.FocusSearchBoxCommand.Execute(null);
         Assert.True(_vm.IsSearchVisible);
-        _output.WriteLine("T43 PASS: Ctrl+F opens the pill; Esc closes and clears it.");
+        _output.WriteLine("T43 PASS: Ctrl+F opens header search; Esc closes and clears it.");
     }
 
     // ------------------------------------------------------------------

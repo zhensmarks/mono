@@ -177,22 +177,21 @@ public partial class SpreadsheetViewModel : ObservableObject
         {
             // Load Config
             _sheetId = await _database.GetAsync<string>("Google.SheetId");
-            // Use separate config for Spreadsheet sheet name, fallback to "ALL DATA REGULER"
-            _sheetName = await _database.GetAsync<string>("Spreadsheet.SheetName"); 
-            if (string.IsNullOrEmpty(_sheetName)) _sheetName = "ALL DATA REGULER";
-
-            _range = await _database.GetAsync<string>("Spreadsheet.Range");
-            if (string.IsNullOrEmpty(_range)) _range = "A1:Z";
-            ParseRangeStart(_range);
-
             var credsPath = await _database.GetAsync<string>("Google.CredsPath");
+            _sheetName = await _database.GetAsync<string>("Spreadsheet.SheetName");
+            _range = await _database.GetAsync<string>("Spreadsheet.Range");
 
-            if (string.IsNullOrEmpty(_sheetId) || string.IsNullOrEmpty(credsPath))
+            if (string.IsNullOrEmpty(_sheetId) ||
+                string.IsNullOrEmpty(credsPath) ||
+                string.IsNullOrEmpty(_sheetName) ||
+                string.IsNullOrEmpty(_range))
             {
-                StatusText = "Error: Missing Google Credentials or Sheet ID in Settings.";
+                StatusText = "Error: Google integration is not configured in Settings.";
                 IsLoading = false;
                 return;
             }
+
+            ParseRangeStart(_range);
 
             // Init Service
             GoogleCredential credential;
