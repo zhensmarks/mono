@@ -101,15 +101,15 @@
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                     <!-- EDITING Tab -->
                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="TrelloBoardTabs" IsChecked="{Binding IsEditingSelected}" Command="{Binding SwitchToEditingCommand}">
-                        <TextBlock Text="EDITING" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="EDITING" Classes="navLabel" VerticalAlignment="Center"/>
                     </RadioButton>
                     <!-- REVISI Tab -->
                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="TrelloBoardTabs" IsChecked="{Binding IsRevisionSelected}" Command="{Binding SwitchToRevisionCommand}">
-                        <TextBlock Text="REVISI" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="REVISI" Classes="navLabel" VerticalAlignment="Center"/>
                     </RadioButton>
                     <!-- SUSULAN Tab -->
                     <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="TrelloBoardTabs" IsChecked="{Binding IsLateSelected}" Command="{Binding SwitchToLateCommand}">
-                        <TextBlock Text="SUSULAN" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="SUSULAN" Classes="navLabel" VerticalAlignment="Center"/>
                     </RadioButton>
                 </StackPanel>
             </Border>

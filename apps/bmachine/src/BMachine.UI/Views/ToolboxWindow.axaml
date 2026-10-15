@@ -135,52 +135,9 @@
             <Setter Property="FontSize" Value="12.5"/>
         </Style>
 
-        <!-- PRIMARY BUTTON — always visible, explicitly targets Avalonia template border -->
-        <Style Selector="Button.Action">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-            <Setter Property="CornerRadius" Value="7"/>
-            <Setter Property="Padding" Value="20,10"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.Action /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonPrimaryPressedBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}"/>
-        </Style>
-        <Style Selector="Button.Action:focus /template/ ContentPresenter">
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
+        <!-- PRIMARY BUTTON — always visible, explicitly targets Avalonia template border -->
 
-        <!-- SECONDARY / OUTLINED BUTTON -->
-        <Style Selector="Button.Muted">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="CornerRadius" Value="7"/>
-            <Setter Property="Padding" Value="16,10"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.Muted /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        </Style>
-        <Style Selector="Button.Muted:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
-            <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}"/>
-        </Style>
+        <!-- SECONDARY / OUTLINED BUTTON -->
 
         <!-- DANGER -->
         <Style Selector="Button.Warn">
@@ -358,48 +315,7 @@
             <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 
-        <!-- ADVANCED MODE ENTRY BUTTON (accent gradient pill) -->
-        <Style Selector="Button.AdvEntry">
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="9"/>
-            <Setter Property="Padding" Value="16,9"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.AdvEntry /template/ ContentPresenter">
-            <Setter Property="TextElement.Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#FFFFFF33"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Background">
-                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                    <GradientStop Color="{DynamicResource AccentBlue}" Offset="0"/>
-                    <GradientStop Color="#6366F1" Offset="1"/>
-                </LinearGradientBrush>
-            </Setter>
-        </Style>
-        <Style Selector="Button.AdvEntry:pointerover /template/ ContentPresenter">
-            <Setter Property="Background">
-                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                    <GradientStop Color="#4F8FF7" Offset="0"/>
-                    <GradientStop Color="#7C7CF5" Offset="1"/>
-                </LinearGradientBrush>
-            </Setter>
-        </Style>
-        <Style Selector="Button.AdvEntry:pressed /template/ ContentPresenter">
-            <Setter Property="Background">
-                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                    <GradientStop Color="#2F6FD6" Offset="0"/>
-                    <GradientStop Color="#5252D9" Offset="1"/>
-                </LinearGradientBrush>
-            </Setter>
-        </Style>
+        <!-- ADVANCED MODE ENTRY BUTTON (accent gradient pill) -->
 
     </Window.Styles>
 
@@ -732,7 +648,7 @@
                                                               ToolTip.Tip="Tandai hanya setelah membandingkan thumbnail referensi dan target."/>
                                                     <TextBlock Text="{Binding ReviewStateLabel}" FontSize="8" Foreground="{DynamicResource TextFaintBrush}"/>
                                                 </StackPanel>
-                                                <Button Grid.Column="8" Content="Hapus" Classes="Muted" Padding="10,3" FontSize="11" VerticalAlignment="Center"
+                                                <Button Grid.Column="8" Content="Hapus" Classes="Muted" Padding="10,3" VerticalAlignment="Center"
                                                         Command="{Binding $parent[Window].DataContext.MantraNamaVM.RemoveAdvancedPairCommand}" CommandParameter="{Binding}"/>
                                             </Grid>
                                         </DataTemplate>
@@ -799,7 +715,7 @@
                             <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
                                     <TextBlock Classes="Section" Text="PREVIEW HASIL (Drag &amp; Drop Folder Kesini)" VerticalAlignment="Center"/>
-                                    <Button Classes="AdvEntry" Command="{Binding MantraNamaVM.ToggleAdvancedModeCommand}" VerticalAlignment="Center">
+                                    <Button Classes="Muted" Command="{Binding MantraNamaVM.ToggleAdvancedModeCommand}" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="7">
                                             <TextBlock Text="Advanced Mode" VerticalAlignment="Center"/>
                                         </StackPanel>
@@ -1135,16 +1051,16 @@
                 IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
             <StackPanel Orientation="Horizontal" Spacing="2">
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsPsdBucinVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}">
-                    <TextBlock Text="MANTRA BUCIN" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Classes="navLabel" Text="MANTRA BUCIN"/>
                 </RadioButton>
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraNamaVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraNama}">
-                    <TextBlock Text="MANTRA NAMA" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Classes="navLabel" Text="MANTRA NAMA"/>
                 </RadioButton>
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraGandaVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}">
-                    <TextBlock Text="MANTRA GANDA" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Classes="navLabel" Text="MANTRA GANDA"/>
                 </RadioButton>
                 <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraDataVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraData}">
-                    <TextBlock Text="MANTRA DATA" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Classes="navLabel" Text="MANTRA DATA"/>
                 </RadioButton>
             </StackPanel>
         </Border>

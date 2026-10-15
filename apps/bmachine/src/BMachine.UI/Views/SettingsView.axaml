@@ -828,10 +828,10 @@
                             Padding="4" Margin="16,14,16,8">
                         <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                             <RadioButton Classes="TrelloBoardTab CompactTab" IsChecked="{Binding IsScriptMasterSelected}" Command="{Binding SwitchToScriptMasterCommand}">
-                                <TextBlock Text="MASTER SCRIPT" FontSize="12" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Classes="navLabel" Text="MASTER SCRIPT" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </RadioButton>
                             <RadioButton Classes="TrelloBoardTab CompactTab" IsChecked="{Binding IsScriptActionSelected}" Command="{Binding SwitchToScriptActionCommand}">
-                                <TextBlock Text="RADIAL MENU" FontSize="12" FontWeight="SemiBold" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Classes="navLabel" Text="RADIAL MENU" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </RadioButton>
                         </StackPanel>
                     </Border>
