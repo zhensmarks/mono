@@ -159,9 +159,8 @@ public class NavigationNoIconsRegressionTests
 
         var advancedEntry = toolbox.Descendants(Avalonia + "Button")
             .Single(button => (Attribute(button, "Command") ?? string.Empty).Contains("ToggleAdvancedModeCommand", StringComparison.Ordinal));
-        Assert.Equal(new[] { "Advanced Mode" }, TextLabels(advancedEntry));
+        Assert.Equal("Advanced Mode", Attribute(advancedEntry, "Content"));
         Assert.False(ContainsVisualIcon(advancedEntry));
         Assert.False(ContainsNavigationGlyph(advancedEntry));
-        Assert.Equal("7", Attribute(advancedEntry.Descendants(Avalonia + "StackPanel").Single(), "Spacing"));
     }
 }

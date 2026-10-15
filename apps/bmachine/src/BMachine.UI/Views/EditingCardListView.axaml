@@ -221,7 +221,7 @@
                     <DropShadowEffect Color="#000000" BlurRadius="18" OffsetX="0" OffsetY="4" Opacity="0.55"/>
                 </Border.Effect>
                 <Border.Background>
-                    <SolidColorBrush Color="#F0111113"/>
+                    <SolidColorBrush Color="{DynamicResource CardBackground}"/>
                 </Border.Background>
                 <Image x:Name="Part_DragGhostImage" Stretch="Uniform"/>
             </Border>
@@ -857,7 +857,7 @@
                                             </Button>
                                             
                                             <!-- Download Overlay (Top Right) -->
-                                            <Button Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Right" Background="#AA000000" CornerRadius="{DynamicResource RadiusSm}" Margin="8" Padding="6"
+                                            <Button Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Right" Background="{DynamicResource OverlayBrush}" CornerRadius="{DynamicResource RadiusSm}" Margin="8" Padding="6"
                                                     Command="{Binding $parent[UserControl].DataContext.DownloadAttachmentCommand}" CommandParameter="{Binding}"
                                                     ToolTip.Tip="Download File">
                                                  <PathIcon Data="{StaticResource IconDownload}" Foreground="White" Width="14" Height="14"/>

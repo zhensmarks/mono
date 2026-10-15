@@ -923,7 +923,7 @@
         <!-- PREMIUM SPOTLIGHT-STYLE OVERLAYS -->
         
         <!-- NEW FOLDER SPOTLIGHT -->
-        <Grid Grid.Row="0" Grid.RowSpan="3" Background="#40000000" IsVisible="{Binding IsNewFolderVisible}" ZIndex="200">
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="{DynamicResource OverlayBrush}" IsVisible="{Binding IsNewFolderVisible}" ZIndex="200">
             <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
                     Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource SeparatorBrush}"
@@ -963,7 +963,7 @@
         </Grid>
 
         <!-- NEW FILE SPOTLIGHT -->
-        <Grid Grid.Row="0" Grid.RowSpan="3" Background="#40000000" IsVisible="{Binding IsNewFileVisible}" ZIndex="200">
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="{DynamicResource OverlayBrush}" IsVisible="{Binding IsNewFileVisible}" ZIndex="200">
             <Border HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
                     Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource SeparatorBrush}"
@@ -1002,7 +1002,7 @@
             </Border>
         </Grid>
         
-        <Grid Grid.Row="0" Grid.RowSpan="3" Background="#80000000" IsVisible="{Binding IsDuplicateVisible}">
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="{DynamicResource OverlayBrush}" IsVisible="{Binding IsDuplicateVisible}">
             <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" MinWidth="320" BoxShadow="0 8 32 0 #80000000">
                 <StackPanel Spacing="15">
                     <TextBlock Text="Duplicate Items" FontWeight="Bold" FontSize="16"/>

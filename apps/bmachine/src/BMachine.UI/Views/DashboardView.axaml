@@ -1129,7 +1129,7 @@
     <Grid Grid.ColumnSpan="3"
           IsVisible="{Binding IsProfileViewerOpen}"
           ZIndex="1000"
-          Background="#A0000000"> <!-- Semi-transparent background -->
+          Background="{DynamicResource OverlayBrush}"> <!-- Semi-transparent background -->
         
         <!-- Acrylic Blur Background -->
         <ExperimentalAcrylicBorder IsHitTestVisible="False">

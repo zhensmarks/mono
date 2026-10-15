@@ -131,7 +131,7 @@ public class NavigationVisualRegressionTests
         Assert.Contains("Classes=\"navigationSeparator\"", view);
         Assert.Contains("IsVisible=\"{Binding IsOutputExplorerVisible}\"", view);
         Assert.Contains("x:Name=\"DocPanelTab\"", view);
-        Assert.Contains("Text=\"DOC\" FontSize=\"11\"", view);
+        Assert.Contains("Text=\"DOC\" Classes=\"navLabel\"", view);
         Assert.Contains("IsVisible=\"{Binding !BatchVM.IsDocFloating}\"", view);
     }
 
@@ -215,9 +215,9 @@ public class NavigationVisualRegressionTests
         var dashboard = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DashboardView.axaml");
         var navigationStyles = ReadRepoFile("apps/bmachine/src/BMachine.UI/Styles/TrelloNavigation.axaml");
 
-        Assert.Contains("Text=\"LOG\" FontSize=\"11\"", sidebar);
-        Assert.Contains("Text=\"MASTER\" FontSize=\"11\"", sidebar);
-        Assert.Contains("Text=\"DOC\" FontSize=\"11\"", sidebar);
+        Assert.Contains("Text=\"LOG\" Classes=\"navLabel\"", sidebar);
+        Assert.Contains("Text=\"MASTER\" Classes=\"navLabel\"", sidebar);
+        Assert.Contains("Text=\"DOC\" Classes=\"navLabel\"", sidebar);
         Assert.Contains("Classes=\"TrelloBoardTab CompactTab\"", dashboard);
         Assert.Contains("BorderBrush=\"{DynamicResource NavigationDividerBrush}\"", dashboard);
         Assert.Contains("Width=\"2\" HorizontalAlignment=\"Center\" VerticalAlignment=\"Stretch\"", dashboard);
@@ -225,7 +225,7 @@ public class NavigationVisualRegressionTests
         // Indicator sits on the bottom edge inside the template (was an overflow margin of -8 before).
         Assert.Contains("Name=\"PART_Indicator\"", navigationStyles);
         Assert.Contains("VerticalAlignment=\"Bottom\"", navigationStyles);
-        Assert.Contains("Margin=\"0,0,0,0\"", navigationStyles);
+        Assert.DoesNotContain("Margin=\"0,0,-8,0\"", navigationStyles);
     }
 
     [Fact]

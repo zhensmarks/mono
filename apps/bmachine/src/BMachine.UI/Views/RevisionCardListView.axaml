@@ -222,7 +222,7 @@
                     <DropShadowEffect Color="#000000" BlurRadius="18" OffsetX="0" OffsetY="4" Opacity="0.55"/>
                 </Border.Effect>
                 <Border.Background>
-                    <SolidColorBrush Color="#F0111113"/>
+                    <SolidColorBrush Color="{DynamicResource CardBackground}"/>
                 </Border.Background>
                 <Image x:Name="Part_DragGhostImage" Stretch="Uniform"/>
             </Border>

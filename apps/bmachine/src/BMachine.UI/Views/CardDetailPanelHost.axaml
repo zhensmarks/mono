@@ -539,13 +539,13 @@
                                                 </Panel>
                                             </Button>
 
-                                            <Button Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Right" Background="#AA000000" CornerRadius="{DynamicResource RadiusSm}" Margin="5" Padding="4"
+                                            <Button Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Right" Background="{DynamicResource OverlayBrush}" CornerRadius="{DynamicResource RadiusSm}" Margin="5" Padding="4"
                                                     Command="{Binding $parent[UserControl].DataContext.DownloadAttachmentCommand}" CommandParameter="{Binding}"
                                                     ToolTip.Tip="Download File">
                                                 <PathIcon Data="{StaticResource IconDownload}" Foreground="White" Width="14" Height="14"/>
                                             </Button>
 
-                                            <Grid Grid.Row="0" Background="#66000000" IsVisible="{Binding IsDownloading}">
+                                            <Grid Grid.Row="0" Background="{DynamicResource ScrimSoftBrush}" IsVisible="{Binding IsDownloading}">
                                                 <ProgressBar IsIndeterminate="True" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                             </Grid>
 
