@@ -48,6 +48,11 @@ public partial class DashboardView : UserControl
             this.InvalidateArrange();
             this.UpdateLayout();
         }, TimeSpan.FromMilliseconds(100));
+
+        Avalonia.Threading.DispatcherTimer.RunOnce(() =>
+        {
+            UpdateNavDensityClasses(Bounds.Width);
+        }, TimeSpan.FromMilliseconds(150));
     }
 
     private void OnDashboardSizeChanged(object? sender, SizeChangedEventArgs e)
@@ -58,6 +63,19 @@ public partial class DashboardView : UserControl
 
         if (DataContext is DashboardViewModel vm && vm.IsLogPanelOpen)
             UpdateLogPanelMaxWidth(e.NewSize.Width);
+
+        UpdateNavDensityClasses(e.NewSize.Width);
+    }
+
+    // Subset nav tab height/padding/font to the available width so buttons
+    // never dominate small layouts (640x480 test VM) and stay stable on resize.
+    private void UpdateNavDensityClasses(double hostWidth)
+    {
+        if (double.IsNaN(hostWidth) || double.IsInfinity(hostWidth) || hostWidth <= 0) return;
+        var root = this.FindControl<Control>("Root");
+        if (root is null) return;
+        root.Classes.Set("NavXs", hostWidth < 760);
+        root.Classes.Set("NavSm", hostWidth >= 760 && hostWidth < 1000);
     }
 
     private void UpdateLogPanelMaxWidth(double hostWidth)

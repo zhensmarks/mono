@@ -11,7 +11,7 @@
         SystemDecorations="None"
         Background="{DynamicResource AppBackgroundBrush}">
 
-        <Grid Background="Transparent" ClipToBounds="True">
+        <Grid Background="Transparent" ClipToBounds="True" Cursor="SizeAll" PointerPressed="OnBackgroundPointerPressed">
         <Image x:Name="FullScreenImage"
                Stretch="Uniform"
                Margin="20"

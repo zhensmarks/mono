@@ -89,6 +89,26 @@ public partial class ImageLightboxWindow : Window
             this.Height = _lastWindowHeight.Value;
         }
 
+        // Fixed 800x600 overflows small displays (640x480 / 815x336 VM): the image
+        // ends up outside the screen and the preview looks empty. Fit the window to
+        // the working area and clamp the remembered position back inside it.
+        var screen = Screens.ScreenFromVisual(this) ?? Screens.Primary;
+        if (screen != null)
+        {
+            var area = screen.WorkingArea;
+            var scale = screen.Scaling <= 0 ? 1.0 : screen.Scaling;
+            var maxWidth = area.Width / scale - 16;
+            var maxHeight = area.Height / scale - 16;
+            if (maxWidth > 200 && this.Width > maxWidth) this.Width = maxWidth;
+            if (maxHeight > 160 && this.Height > maxHeight) this.Height = maxHeight;
+
+            var pixelWidth = (int)Math.Round(this.Width * scale);
+            var pixelHeight = (int)Math.Round(this.Height * scale);
+            this.Position = new Avalonia.PixelPoint(
+                Math.Clamp(this.Position.X, area.X, Math.Max(area.X, area.X + area.Width - pixelWidth)),
+                Math.Clamp(this.Position.Y, area.Y, Math.Max(area.Y, area.Y + area.Height - pixelHeight)));
+        }
+
     }
 
     public ImageLightboxWindow(Bitmap image) : this()
@@ -241,6 +261,23 @@ public partial class ImageLightboxWindow : Window
         if (point.Properties.IsRightButtonPressed) { Close(); e.Handled = true; return; }
         if (point.Properties.IsLeftButtonPressed)
         {
+            // Image fits the window (no zoom): dragging it moves the window, which is
+            // what users expect - there is no title bar on this borderless viewer.
+            var scale = 1.0;
+            if (imgControl.RenderTransform is Avalonia.Media.TransformGroup group)
+            {
+                foreach (var t in group.Children)
+                    if (t is Avalonia.Media.ScaleTransform scaleT) scale = scaleT.ScaleX;
+            }
+
+            if (scale <= 1.001)
+            {
+                try { BeginMoveDrag(e); }
+                catch (Exception moveEx) { System.Diagnostics.Debug.WriteLine($"[Lightbox] BeginMoveDrag failed: {moveEx.GetType().Name}"); }
+                e.Handled = true;
+                return;
+            }
+
             _isDragging = true;
             _lastDragPoint = e.GetPosition(this);
             e.Pointer.Capture(imgControl);

@@ -66,8 +66,8 @@ public class DocPanelStatePolicyTests
 public class PanelNavigationLayoutTests
 {
     [Theory]
-    [InlineData(true, true, 4)]
-    [InlineData(true, false, 3)]
+    [InlineData(true, true, 3)]
+    [InlineData(true, false, 2)]
     [InlineData(false, true, 3)]
     [InlineData(false, false, 2)]
     public void HiddenTabsCollapseAndRemainingSlotsKeepEqualStarWidths(
@@ -80,6 +80,8 @@ public class PanelNavigationLayoutTests
         Assert.Equal(PanelNavigationLayout.ColumnCount, widths.Length);
         Assert.Equal(expectedVisibleTabs, widths.Count(width => width.IsStar && width.Value == 1));
         Assert.Equal(explorerVisible, widths[1].IsAuto);
+        // Explorer is an icon-only tab: its own column hugs the icon (Auto), not a star slot.
+        Assert.Equal(explorerVisible, widths[0].IsAuto);
         Assert.Equal(!explorerVisible, widths[1].IsAbsolute && widths[1].Value == 0);
         Assert.Equal(!explorerVisible, widths[0].IsAbsolute && widths[0].Value == 0);
         Assert.Equal(!docVisible, widths[4].IsAbsolute && widths[4].Value == 0);
@@ -124,7 +126,7 @@ public class NavigationVisualRegressionTests
         var view = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/LogPanelSidebar.axaml");
 
         Assert.Contains("BorderBrush=\"{DynamicResource NavigationDividerBrush}\"", view);
-        Assert.Contains("ColumnDefinitions=\"*,Auto,*,*,*\"", view);
+        Assert.Contains("ColumnDefinitions=\"Auto,Auto,*,*,*\"", view);
         Assert.DoesNotContain("MinWidth=\"336\"", view);
         Assert.DoesNotContain("ScrollViewer HorizontalScrollBarVisibility=\"Auto\"", view);
         Assert.Contains("x:Name=\"ExplorerLogSeparator\"", view);

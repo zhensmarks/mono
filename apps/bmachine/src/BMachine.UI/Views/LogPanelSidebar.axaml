@@ -160,20 +160,19 @@
         <Grid RowDefinitions="Auto, *, Auto">
             
             <!-- HEADER: Navigation Bar (Row 0) -->
-            <Border Grid.Row="0" Padding="12,8,12,4">
+            <Border Grid.Row="0" Padding="12,12,12,4">
                 <StackPanel Spacing="6">
                     <!-- Navigation Tab Buttons - compact text labels -->
                     <Border Background="{DynamicResource CardBackgroundBrush}"
-                            CornerRadius="{DynamicResource RadiusMd}" Padding="3"
+                            CornerRadius="{DynamicResource RadiusMd}"
+                            Classes="navBand"
                             BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1">
                         <Panel>
-                            <Grid x:Name="PanelTabsGrid" HorizontalAlignment="Stretch" ColumnDefinitions="*,Auto,*,*,*">
-                                    <RadioButton x:Name="ExplorerPanelTab" Grid.Column="0" Classes="TrelloBoardTab LogPanelTab" GroupName="LogPanelTabs" Margin="0"
+                            <Grid x:Name="PanelTabsGrid" HorizontalAlignment="Stretch" ColumnDefinitions="Auto,Auto,*,*,*">
+                                    <RadioButton x:Name="ExplorerPanelTab" Grid.Column="0" Classes="TrelloBoardTab navIconTab LogPanelTab" GroupName="LogPanelTabs" Margin="0"
                                                  IsChecked="{Binding IsExplorerPanelSelected}" IsVisible="{Binding IsOutputExplorerVisible}"
                                                  Click="OnExplorerTabClick" ToolTip.Tip="Explorer">
-                                        <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="EXPLORER" Classes="navLabel" TextWrapping="NoWrap" VerticalAlignment="Center"/>
-                                        </StackPanel>
+                                        <PathIcon Classes="navIcon" Data="{StaticResource IconFolder}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </RadioButton>
                                     <Border x:Name="ExplorerLogSeparator" Grid.Column="1" Classes="navigationSeparator"
                                             IsVisible="{Binding IsOutputExplorerVisible}"/>
@@ -219,9 +218,7 @@
                     </Border>
                     
                     <!-- Integrated Compact Search -->
-                    <Border Background="{DynamicResource CardBackgroundBrush}"
-                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusSm}" Height="26">
+                    <Border Classes="searchBar">
                         <Border.IsVisible>
                             <MultiBinding Converter="{x:Static BoolConverters.And}">
                                 <Binding Path="BatchVM.IsSearchVisible"/>

@@ -17,7 +17,7 @@ public static class PanelNavigationLayout
 
         return
         [
-            explorerVisible ? tab : collapsed,
+            explorerVisible ? GridLength.Auto : collapsed,
             explorerVisible ? GridLength.Auto : collapsed,
             tab,
             tab,

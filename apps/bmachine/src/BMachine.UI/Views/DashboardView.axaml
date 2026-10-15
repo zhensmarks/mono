@@ -193,14 +193,15 @@
             <!-- NAVIGATION BAR - CARD BORDERED, NO ICON (sesuai editing list yang benar) -->
             <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1"
-                    CornerRadius="{DynamicResource RadiusMd}" Padding="4"
+                    CornerRadius="{DynamicResource RadiusMd}"
+                    Classes="navBand"
                     HorizontalAlignment="Center" Margin="12,12,12,12">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                     <!-- PROFILE (Left End) -->
-                     <Button Classes="ghost" x:Name="Part_ProfileNavButton"
+                     <Button Classes="ghost navChip" x:Name="Part_ProfileNavButton"
                              Padding="7,0" 
                              BorderBrush="Transparent" BorderThickness="0"
-                             CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" MinWidth="64" Height="36" MinHeight="36"
+                             CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" MinWidth="64"
                              ToolTip.Tip="Account">
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient"

@@ -24,9 +24,10 @@ function loadSettings() {
 }
 
 function saveSettings(x, y) { var settings=loadSettings(); settings.x=x; settings.y=y; saveSettingsData(settings); }
+function saveSettingsCenter(cx, cy) { var settings=loadSettings(); settings.cx=cx; settings.cy=cy; saveSettingsData(settings); }
 function saveSettingsData(settings) {
     var file=new File(Folder.userData+"/save_master_settings.json");
-    try { file.open("w"); file.write('{"x":'+(settings.x||-1)+',"y":'+(settings.y||-1)+',"advancedX":'+(settings.advancedX||-1)+',"advancedY":'+(settings.advancedY||-1)+',"selX":'+(settings.selX||-1)+',"selY":'+(settings.selY||-1)+'}'); file.close(); }
+    try { file.open("w"); file.write('{"x":'+(settings.x||-1)+',"y":'+(settings.y||-1)+',"cx":'+(settings.cx||-1)+',"cy":'+(settings.cy||-1)+',"advancedX":'+(settings.advancedX||-1)+',"advancedY":'+(settings.advancedY||-1)+',"selX":'+(settings.selX||-1)+',"selY":'+(settings.selY||-1)+'}'); file.close(); }
     catch(e) { try { file.close(); } catch(ex) {} }
 }
 
@@ -304,16 +305,60 @@ function main() {
 
     btnCancel.onClick = function () { dlg.close(0); };
 
-    // Restore Location
-    if (settings.x > 0 && settings.y > 0) {
-        dlg.location = [settings.x, settings.y];
+    // Restore Location - anchored to the dialog CENTER so it opens at the same spot
+    // whether or not the ARTBOARD column is present. That column makes the dialog
+    // wider, and a left-anchored position used to push it off to the right.
+    // NOTE: Window.bounds is undefined before show() in ScriptUI - probe preferredSize
+    // as a fallback and re-center inside onShow where the real size is known.
+    function probeSize(target) {
+        var w = 0, h = 0;
+        try { var b = target.bounds; if (b && b.width > 0 && b.height > 0) { w = b.width; h = b.height; } } catch (eB) {}
+        if (w <= 0 || h <= 0) {
+            try { var p = target.preferredSize; if (p && p.width > 0 && p.height > 0) { w = p.width; h = p.height; } } catch (eP) {}
+        }
+        return { width: w, height: h };
+    }
+
+    function centerFromSaved(size) {
+        if (!(settings.cx > 0 && settings.cy > 0) || size.width <= 0 || size.height <= 0) return null;
+        var nx = Math.round(settings.cx - size.width / 2);
+        var ny = Math.round(settings.cy - size.height / 2);
+        var scr = ($.screens && $.screens.length) ? $.screens[0] : null;
+        if (scr) {
+            nx = Math.max(scr.left, Math.min(nx, scr.right - size.width));
+            ny = Math.max(scr.top, Math.min(ny, scr.bottom - size.height));
+        }
+        return [nx, ny];
+    }
+
+    dlg.layout.layout(true); // finalize size (includes the ARTBOARD column when present)
+    var preSize = probeSize(dlg);
+    var prePos = centerFromSaved(preSize);
+    if (prePos) {
+        dlg.location = prePos;
+    } else if (settings.x > 0 && settings.y > 0) {
+        dlg.location = [settings.x, settings.y]; // legacy top-left, migrates on close
     } else {
         dlg.center();
     }
 
+    dlg.onShow = function () {
+        // Real size is only known now: re-center so a width change (ARTBOARD column)
+        // cannot push the dialog off to one side.
+        var shown = centerFromSaved(probeSize(this));
+        if (shown) this.location = shown;
+    };
+
     var choice = dlg.show();
 
-    // Save Location
+    // Save Location - store the CENTER so the next open stays centered even when the
+    // dialog width changes (artboard column on/off).
+    var closedSize = probeSize(dlg);
+    var cw = closedSize.width > 0 ? closedSize.width : preSize.width;
+    var chh = closedSize.height > 0 ? closedSize.height : preSize.height;
+    if (cw > 0 && chh > 0) {
+        saveSettingsCenter(Math.round(dlg.location.x + cw / 2), Math.round(dlg.location.y + chh / 2));
+    }
     saveSettings(dlg.location.x, dlg.location.y);
 
     if (choice == 0) return; // Cancelled

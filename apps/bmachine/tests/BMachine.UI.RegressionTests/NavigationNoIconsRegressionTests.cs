@@ -55,21 +55,23 @@ public class NavigationNoIconsRegressionTests
             .Where(tab => Attribute(tab, "GroupName") == "LogPanelTabs" && Attribute(tab, "IsVisible") != "False")
             .ToArray();
 
-        Assert.Equal(new[] { "EXPLORER", "LOG", "MASTER", "DOC" }, tabs.Select(tab => Assert.Single(TextLabels(tab))));
+        Assert.Equal(new[] { "LOG", "MASTER", "DOC" }, tabs.Where(tab => TextLabels(tab).Any()).Select(tab => Assert.Single(TextLabels(tab))));
+        Assert.Single(tabs.Where(tab => !TextLabels(tab).Any()));
         foreach (var tab in tabs)
         {
-            Assert.False(ContainsVisualIcon(tab));
-            Assert.False(ContainsNavigationGlyph(tab));
             Assert.Equal("LogPanelTab", Attribute(tab, "Classes")?.Split(' ').Last());
-            Assert.Equal("2", Attribute(tab.Descendants(Avalonia + "StackPanel").Single(), "Spacing"));
-            Assert.Equal("NoWrap", Attribute(tab.Descendants(Avalonia + "TextBlock").Single(), "TextWrapping"));
+            if (TextLabels(tab).Any())
+            {
+                Assert.False(ContainsVisualIcon(tab));
+                Assert.Equal("NoWrap", Attribute(tab.Descendants(Avalonia + "TextBlock").Single(), "TextWrapping"));
+            }
         }
 
-        Assert.Equal("*,Auto,*,*,*", Attribute(FindNamed(document, "PanelTabsGrid"), "ColumnDefinitions"));
-        Assert.Equal(4, PanelNavigationLayout.GetColumnWidths(explorerVisible: true, docVisible: true).Count(width => width.IsStar));
+        Assert.Equal("Auto,Auto,*,*,*", Attribute(FindNamed(document, "PanelTabsGrid"), "ColumnDefinitions"));
+        Assert.Equal(3, PanelNavigationLayout.GetColumnWidths(explorerVisible: true, docVisible: true).Count(width => width.IsStar));
 
         var styles = ReadRepoFile("apps/bmachine/src/BMachine.UI/Styles/TrelloNavigation.axaml");
-        Assert.Contains("<Setter Property=\"Height\" Value=\"36\" />", styles);
+        Assert.Contains("<Setter Property=\"MinHeight\" Value=\"26\" />", styles);
         Assert.Contains("<Setter Property=\"MinWidth\" Value=\"0\" />", styles);
         Assert.Contains("RadioButton.LogPanelTab:checked", styles);
         Assert.Contains("RadioButton.LogPanelTab:pointerover", styles);

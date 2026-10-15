@@ -371,6 +371,22 @@
         <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
     </Style>
 
+    <!-- Compact search bar wrapper (log panel sidebar): same tokens as TextBox.search,
+         shorter height. SeparatorBrush here was invisible on the panel background. -->
+    <Style Selector="Border.searchBar">
+        <Setter Property="Background" Value="{DynamicResource BgInputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+        <Setter Property="Height" Value="28" />
+    </Style>
+    <Style Selector="Border.searchBar:pointerover">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+    </Style>
+    <Style Selector="Border.searchBar:focus-within">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
+    </Style>
+
     <!-- ================================================================ -->
     <!-- COMBOBOX / AUTOCOMPLETEBOX / NUMERICUPDOWN — selaras dengan TextBox -->
     <!-- ================================================================ -->

@@ -26,8 +26,6 @@
                 <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center" IsHitTestVisible="False">
                     <TextBlock Text="INSTAN REDAKSI" FontSize="11" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="Nama, alamat, dan logo" FontSize="10"
-                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <Button Classes="danger" Command="{Binding BatchVM.ResetDocCommand}" ToolTip.Tip="Reset Semua (Nama, Alamat, Logo)"
