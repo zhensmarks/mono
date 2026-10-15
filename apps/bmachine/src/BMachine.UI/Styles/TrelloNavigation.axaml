@@ -315,6 +315,21 @@
         <Setter Property="Height" Value="24" />
     </Style>
 
+    <!-- Icon-only nav chip (profile): content-sized like the explorer icon tab, so the
+         gap on both sides of the icon matches (MinWidth here left dead space that made
+         the icon look pushed to the left). -->
+    <Style Selector="Button.navIconChip">
+        <Setter Property="Padding" Value="10,0,6,0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector=".NavSm Button.navIconChip">
+        <Setter Property="Padding" Value="9,0,5,0" />
+    </Style>
+    <Style Selector=".NavXs Button.navIconChip">
+        <Setter Property="Padding" Value="8,0,4,0" />
+    </Style>
+
     <!-- Icon-only tab keeps its own tight width instead of a full star slot -->
     <Style Selector="RadioButton.navIconTab">
         <Setter Property="Padding" Value="8,0" />

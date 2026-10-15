@@ -198,11 +198,10 @@
                     HorizontalAlignment="Center" Margin="12,12,12,12">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                     <!-- PROFILE (Left End) -->
-                     <Button Classes="ghost navChip" x:Name="Part_ProfileNavButton"
-                             Padding="7,0" 
+                     <Button Classes="ghost navChip navIconChip" x:Name="Part_ProfileNavButton"
                              BorderBrush="Transparent" BorderThickness="0"
-                             CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" MinWidth="64"
-                             ToolTip.Tip="Account">
+                             CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand"
+                             ToolTip.Tip="{Binding UserName}">
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient"
                                     HorizontalOffset="-5" VerticalOffset="9">
@@ -272,15 +271,13 @@
                                 </Border>
                             </Flyout>
                         </Button.Flyout>
-                        <!-- User name (plain label, same style as nav tabs) -->
-                        <TextBlock Text="{Binding UserName}"
-                                   Classes="navLabel"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   TextTrimming="CharacterEllipsis"
-                                   MaxWidth="120"
-                                   VerticalAlignment="Center"
-                                   HorizontalAlignment="Center"
-                                   Margin="7,0"/> 
+                        <!-- Account icon (replaces the user name label; name stays in the tooltip) -->
+                        <!-- Glyph bounds ikon bust ~2 px lebih lebar ke kiri (arc bahu) sehingga
+                             ink-nya tidak center; digeser lewat padding chip (kiri +2, kanan -2),
+                             bukan transform/margin. -->
+                        <PathIcon Classes="navIcon" Data="{StaticResource IconUserPlain}"
+                                  Foreground="{DynamicResource TextPrimaryBrush}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
                      </Button>
                      <!-- Separator between Profile and Nav -->
                      <Border Classes="navigationSeparator"/>
