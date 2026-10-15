@@ -368,7 +368,7 @@
                                      </MultiBinding>
                                  </StackPanel.IsVisible>
                                 <TextBlock Text="TARGET:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1" VerticalAlignment="Center" Margin="0,1,0,0"/>
-                                <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Black" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0" ToolTip.Tip="{Binding BatchVM.MasterBrowserTargetPath}"/>
+                                <TextBlock Text="{Binding BatchVM.MasterBrowserTargetName}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1" TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0" ToolTip.Tip="{Binding BatchVM.MasterBrowserTargetPath}"/>
                              </StackPanel>
  
                              <!-- BUSY INDICATOR -->

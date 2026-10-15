@@ -62,7 +62,7 @@
                                 <Border IsVisible="{Binding IsSeparator}" Margin="0,24,0,8" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
                                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
                                          <PathIcon Data="{StaticResource IconCheckSquare}" Width="14" Height="14" Foreground="{DynamicResource AccentEditingBrush}"/>
-                                         <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                         <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </StackPanel>
                                 </Border>
 
@@ -238,7 +238,7 @@
                  
                  <!-- Offline Banner -->
                  <Border Grid.Row="0" Background="{DynamicResource ButtonDangerBackgroundBrush}" Margin="-24,-24,-24,24" Padding="12" IsVisible="{Binding !IsOnline}" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ButtonDangerHoverBrush}">
-                     <TextBlock Text="SYSTEM OFFLINE [READ ONLY]" Foreground="White" FontWeight="Black" LetterSpacing="2" HorizontalAlignment="Center" FontSize="11"/>
+                     <TextBlock Text="SYSTEM OFFLINE [READ ONLY]" Foreground="White" FontWeight="Bold" LetterSpacing="2" HorizontalAlignment="Center" FontSize="11"/>
                  </Border>
 
                  <!-- Scrollable Content -->
@@ -248,7 +248,7 @@
                           <Grid ColumnDefinitions="*, Auto">
                               <StackPanel>
                                   <Grid ColumnDefinitions="*, Auto">
-                                      <TextBlock Text="{Binding SelectedCard.CoverDisplayName}" FontWeight="Black" FontSize="11" LetterSpacing="2" 
+                                      <TextBlock Text="{Binding SelectedCard.CoverDisplayName}" FontWeight="Bold" FontSize="11" LetterSpacing="2" 
                                                  Foreground="{DynamicResource AccentEditingBrush}"
                                                  IsVisible="{Binding SelectedCard.HasCoverDisplayName}"/>
                                       <TextBlock Grid.Column="1" Text="{Binding SelectedCard.EventDateText}" FontWeight="Bold" FontSize="10" 
@@ -256,7 +256,7 @@
                                                  VerticalAlignment="Center"
                                                  IsVisible="{Binding SelectedCard.HasEventDate}"/>
                                   </Grid>
-                                  <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Black" FontSize="20" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
+                                  <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Bold" FontSize="20" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,0,0"/>
                               </StackPanel>
                               <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseDetailPanelCommand}" Padding="8,0" CornerRadius="{DynamicResource RadiusSm}"
                                       Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextSecondaryBrush}"
@@ -283,7 +283,7 @@
                                    </Button.Styles>
                                    <Border Classes="badge" BorderBrush="{DynamicResource AccentEditingBrush}" BorderThickness="1" Background="Transparent" CornerRadius="{DynamicResource RadiusSm}" Height="26" Padding="12,0">
                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                           <TextBlock Text="ID" FontSize="10" FontWeight="Black" Foreground="{DynamicResource AccentEditingBrush}" LetterSpacing="2"/>
+                                           <TextBlock Text="ID" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentEditingBrush}" LetterSpacing="2"/>
                                            <TextBlock Text="{Binding SelectedCard.DisplayId}" FontSize="11" FontWeight="Bold" Foreground="White"/>
                                        </StackPanel>
                                    </Border>
@@ -353,7 +353,7 @@
                                        </Style>
                                    </Button.Styles>
                                    <Border Classes="action" BorderBrush="{DynamicResource AccentEditingBrush}" BorderThickness="1" Background="Transparent" CornerRadius="{DynamicResource RadiusSm}" Height="32" Padding="16,0">
-                                        <TextBlock Text="COMMENT" FontSize="11" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource AccentEditingBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="COMMENT" FontSize="11" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource AccentEditingBrush}" VerticalAlignment="Center"/>
                                    </Border>
                                </Button>
                                <!-- Checklist -->
@@ -368,7 +368,7 @@
                                        </Style>
                                    </Button.Styles>
                                    <Border Classes="action" BorderBrush="{DynamicResource AccentEditingBrush}" BorderThickness="1" Background="Transparent" CornerRadius="{DynamicResource RadiusSm}" Height="32" Padding="16,0">
-                                        <TextBlock Text="CHECKLIST" FontSize="11" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource AccentEditingBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="CHECKLIST" FontSize="11" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource AccentEditingBrush}" VerticalAlignment="Center"/>
                                    </Border>
                                </Button>
                                <!-- Move -->
@@ -384,10 +384,10 @@
                                    </Button.Styles>
                                    <Panel>
                                        <Border Classes="action" BorderBrush="{DynamicResource AccentEditingBrush}" BorderThickness="1" Background="Transparent" CornerRadius="{DynamicResource RadiusSm}" Height="32" Padding="16,0" IsVisible="{Binding !SelectedCard.IsAcc}">
-                                            <TextBlock Text="MOVE" FontSize="11" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource AccentEditingBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="MOVE" FontSize="11" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource AccentEditingBrush}" VerticalAlignment="Center"/>
                                        </Border>
                                        <Border Classes="action" BorderBrush="{DynamicResource StatusInfoBrush}" BorderThickness="1" Background="Transparent" CornerRadius="{DynamicResource RadiusSm}" Height="32" Padding="16,0" IsVisible="{Binding SelectedCard.IsAcc}">
-                                            <TextBlock Text="MOVE (ACC)" FontSize="11" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="MOVE (ACC)" FontSize="11" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center"/>
                                        </Border>
                                    </Panel>
                                </Button>
@@ -404,7 +404,7 @@
                                        </Style>
                                    </Button.Styles>
                                    <Border Classes="action" BorderBrush="{DynamicResource StatusDangerBrush}" BorderThickness="1" Background="Transparent" CornerRadius="{DynamicResource RadiusSm}" Height="32" Padding="16,0">
-                                        <TextBlock Text="UNLINK" FontSize="11" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="UNLINK" FontSize="11" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center"/>
                                    </Border>
                                </Button>
                            </StackPanel>
@@ -413,7 +413,7 @@
 
                            <!-- Description -->
                            <StackPanel Spacing="12">
-                               <TextBlock Text="DESCRIPTION" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
+                               <TextBlock Text="DESCRIPTION" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
                                <SelectableTextBlock Text="{Binding SelectedCard.Description}" 
                                                     TextWrapping="Wrap"
                                                     Background="Transparent" 
@@ -434,7 +434,7 @@
                 <Border Grid.Row="0" Padding="24" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource BorderSubtleBrush}">
                     <Grid ColumnDefinitions="*, Auto">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="ADD MANUAL CARD" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
+                            <TextBlock Text="ADD MANUAL CARD" FontSize="18" FontWeight="Bold" LetterSpacing="2" Foreground="White"/>
                             <TextBlock Text="PASTE TRELLO LINKS BELOW" FontSize="11" FontWeight="Bold" LetterSpacing="1" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>
                         <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseAddManualPanelCommand}"
@@ -465,7 +465,7 @@
                                 IsEnabled="{Binding !IsLoadingManualAdd}"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                 CornerRadius="{DynamicResource RadiusSm}" Padding="16"
-                                FontWeight="Black" FontSize="14" Cursor="Hand"/>
+                                FontWeight="Bold" FontSize="14" Cursor="Hand"/>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
@@ -479,7 +479,7 @@
             <Grid RowDefinitions="Auto, *, Auto" Margin="24">
                 <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,24">
                     <StackPanel Spacing="4">
-                         <TextBlock Text="COMMENTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
+                         <TextBlock Text="COMMENTS" FontSize="18" FontWeight="Bold" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
@@ -498,7 +498,7 @@
                     <StackPanel Spacing="16">
                         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingComments}" Margin="0,24"/>
                         <TextBlock Text="NO LOGS FOUND." IsVisible="{Binding !Comments.Count}" 
-                                   Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Black" LetterSpacing="2" HorizontalAlignment="Center"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Bold" LetterSpacing="2" HorizontalAlignment="Center"/>
                         
                         <ItemsControl ItemsSource="{Binding Comments}">
                             <ItemsControl.ItemTemplate>
@@ -508,7 +508,7 @@
                                             <!-- Header (Name, Date, Actions) -->
                                             <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,8">
                                                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Black" FontSize="12" Foreground="White" VerticalAlignment="Center" LetterSpacing="1"/>
+                                                    <TextBlock Text="{Binding MemberCreatorName}" FontWeight="Bold" FontSize="12" Foreground="White" VerticalAlignment="Center" LetterSpacing="1"/>
                                                     <TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM HH:mm}'}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,0,0"/>
                                                 </StackPanel>
                                                 
@@ -540,9 +540,9 @@
                                                              Padding="8" FontSize="13" Foreground="White"/>
                                                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                                                         <Button Classes="small" Content="CANCEL" Command="{Binding $parent[UserControl].DataContext.CancelEditCommentCommand}" CommandParameter="{Binding}"
-                                                                Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="16,8" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" FontSize="11" FontWeight="Black"/>
+                                                                Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" Padding="16,8" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" FontSize="11" FontWeight="Bold"/>
                                                         <Button Classes="small" Content="SAVE" Command="{Binding $parent[UserControl].DataContext.SaveEditCommentCommand}" CommandParameter="{Binding}"
-                                                                Background="{DynamicResource AccentEditingBrush}" Foreground="White" Padding="16,8" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" FontSize="11" FontWeight="Black"/>
+                                                                Background="{DynamicResource AccentEditingBrush}" Foreground="White" Padding="16,8" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" FontSize="11" FontWeight="Bold"/>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Grid>
@@ -562,7 +562,7 @@
                                 CornerRadius="{DynamicResource RadiusSm}" Padding="12" Margin="0,0,0,8"
                                 IsVisible="{Binding HasPendingAttachments}">
                             <StackPanel Spacing="8">
-                                <TextBlock Text="ATTACHMENTS" FontSize="10" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Text="ATTACHMENTS" FontSize="10" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <ItemsControl ItemsSource="{Binding PendingAttachments}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -600,7 +600,7 @@
                                 CornerRadius="{DynamicResource RadiusSm}" Padding="16" Margin="0,0,0,8"
                                 IsVisible="{Binding IsPresetPanelOpen}">
                             <StackPanel Spacing="12">
-                                 <TextBlock Text="QUICK REPLIES (MAX 5)" FontSize="10" FontWeight="Black" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                 <TextBlock Text="QUICK REPLIES (MAX 5)" FontSize="10" FontWeight="Bold" LetterSpacing="2" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                  
                                  <ItemsControl ItemsSource="{Binding CommentPresets}">
                                      <ItemsControl.ItemTemplate>
@@ -650,7 +650,7 @@
                                                 <StackPanel Orientation="Horizontal" Spacing="12">
                                                     <Border Width="24" Height="24" CornerRadius="{DynamicResource RadiusSm}" Background="{DynamicResource AccentEditingBrush}">
                                                         <TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                                                   Foreground="White" FontWeight="Black" FontSize="10" LetterSpacing="1"/>
+                                                                   Foreground="White" FontWeight="Bold" FontSize="10" LetterSpacing="1"/>
                                                     </Border>
                                                     <TextBlock Text="{Binding DisplayText}" VerticalAlignment="Center" FontSize="12" FontWeight="Bold"
                                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -709,7 +709,7 @@
             <Grid RowDefinitions="Auto, *, Auto" Margin="24">
                 <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,24">
                     <StackPanel Spacing="4">
-                         <TextBlock Text="CHECKLISTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
+                         <TextBlock Text="CHECKLISTS" FontSize="18" FontWeight="Bold" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
                     <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}"
@@ -722,7 +722,7 @@
                     <StackPanel Spacing="24">
                         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingChecklists}" Margin="0,24"/>
                         <TextBlock Text="NO CHECKLISTS FOUND." IsVisible="{Binding !Checklists.Count}" 
-                                   Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Black" LetterSpacing="2" HorizontalAlignment="Center"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Bold" LetterSpacing="2" HorizontalAlignment="Center"/>
                         
                         <ItemsControl ItemsSource="{Binding Checklists}">
                             <ItemsControl.ItemTemplate>
@@ -732,7 +732,7 @@
                                             <Grid ColumnDefinitions="Auto, *, Auto">
                                             <PathIcon Data="{StaticResource IconCheckSquare}" 
                                                   Foreground="{DynamicResource TextPrimaryBrush}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Black" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
                                             
                                             <Button Classes="ghostIcon" Grid.Column="2"
                                                     Command="{Binding $parent[UserControl].DataContext.DeleteChecklistCommand}" 
@@ -773,7 +773,7 @@
                 <StackPanel Grid.Row="2" Margin="0,16,0,0">
                      <Border Background="{DynamicResource BgInputBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="20" IsVisible="{Binding IsDuplicateMode}" Margin="0,0,0,12">
                          <StackPanel Spacing="16">
-                             <TextBlock Text="DUPLICATE CHECKLIST" FontWeight="Black" LetterSpacing="2" Foreground="White" FontSize="11"/>
+                             <TextBlock Text="DUPLICATE CHECKLIST" FontWeight="Bold" LetterSpacing="2" Foreground="White" FontSize="11"/>
                              <StackPanel Spacing="8">
                                   <TextBlock Text="NEW NAME" FontSize="10" FontWeight="Bold" LetterSpacing="1" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                   <TextBox Text="{Binding DuplicateChecklistName}" Watermark="Name" IsReadOnly="True" Background="Transparent" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource SeparatorBrush}" Padding="8" Foreground="White" CornerRadius="{DynamicResource RadiusSm}"/>
@@ -793,9 +793,9 @@
                              </StackPanel>
                              <Grid ColumnDefinitions="*, *" Margin="0,8,0,0">
                                  <Button Classes="ghost" Grid.Column="0" Content="CANCEL" Command="{Binding ToggleDuplicateModeCommand}" 
-                                          Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Left" Padding="12,8" FontWeight="Black"/>
+                                          Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Left" Padding="12,8" FontWeight="Bold"/>
                                  <Button Grid.Column="1" Content="CREATE COPY" Command="{Binding DuplicateChecklistCommand}" 
-                                         Background="{DynamicResource AccentEditingBrush}" Foreground="White" HorizontalAlignment="Right" Padding="12,8" FontWeight="Black" CornerRadius="{DynamicResource RadiusSm}"/>
+                                         Background="{DynamicResource AccentEditingBrush}" Foreground="White" HorizontalAlignment="Right" Padding="12,8" FontWeight="Bold" CornerRadius="{DynamicResource RadiusSm}"/>
                              </Grid>
                          </StackPanel>
                      </Border>
@@ -806,7 +806,7 @@
                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" CornerRadius="{DynamicResource RadiusSm}" Padding="12" Cursor="Hand">
                          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
                              <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="{DynamicResource AccentEditingBrush}"/>
-                             <TextBlock Text="DUPLICATE CHECKLIST" FontWeight="Black" LetterSpacing="2" FontSize="12"/>
+                             <TextBlock Text="DUPLICATE CHECKLIST" FontWeight="Bold" LetterSpacing="2" FontSize="12"/>
                          </StackPanel>
                      </Button>
                 </StackPanel>
@@ -821,7 +821,7 @@
             <Grid RowDefinitions="Auto, *, Auto" Margin="24">
                 <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,24">
                     <StackPanel Spacing="4">
-                         <TextBlock Text="ATTACHMENTS" FontSize="18" FontWeight="Black" LetterSpacing="2" Foreground="White"/>
+                         <TextBlock Text="ATTACHMENTS" FontSize="18" FontWeight="Bold" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
                     <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseAttachmentPanelCommand}"
@@ -834,7 +834,7 @@
                     <StackPanel Spacing="24">
                         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoadingAttachments}" Margin="0,24"/>
                         <TextBlock Text="NO ATTACHMENTS." IsVisible="{Binding !Attachments.Count}" 
-                                   Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Black" LetterSpacing="2" HorizontalAlignment="Center"/>
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Bold" LetterSpacing="2" HorizontalAlignment="Center"/>
                         
                         <ItemsControl ItemsSource="{Binding Attachments}">
                              <ItemsControl.ItemsPanel>

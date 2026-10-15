@@ -1134,7 +1134,7 @@
         <!-- Acrylic Blur Background -->
         <ExperimentalAcrylicBorder IsHitTestVisible="False">
             <ExperimentalAcrylicBorder.Material>
-                <ExperimentalAcrylicMaterial BackgroundSource="Digger" TintColor="Black" TintOpacity="0.7" MaterialOpacity="0.8"/>
+                <ExperimentalAcrylicMaterial BackgroundSource="Digger" TintColor="{DynamicResource AppBackground}" TintOpacity="0.7" MaterialOpacity="0.8"/>
             </ExperimentalAcrylicBorder.Material>
         </ExperimentalAcrylicBorder>
 
