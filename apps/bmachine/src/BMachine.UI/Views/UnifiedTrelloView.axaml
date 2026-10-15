@@ -408,6 +408,7 @@
                         <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusXl}">
                             <AutoCompleteBox x:Name="Part_BatchMoveBoardBox" ItemsSource="{Binding ActiveViewModel.AvailableBoards}"
                                              SelectedItem="{Binding ActiveViewModel.SelectedMoveBoard}"
+                                             Text="{Binding ActiveViewModel.MoveBoardSearchText, Mode=TwoWay}"
                                              ValueMemberBinding="{Binding Name}"
                                              Watermark="Search board..."
                                              HorizontalAlignment="Stretch"
@@ -423,6 +424,7 @@
                         <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusXl}">
                             <AutoCompleteBox x:Name="Part_BatchMoveListBox" ItemsSource="{Binding ActiveViewModel.AvailableLists}"
                                              SelectedItem="{Binding ActiveViewModel.SelectedMoveList}"
+                                             Text="{Binding ActiveViewModel.MoveListSearchText, Mode=TwoWay}"
                                              ValueMemberBinding="{Binding Name}"
                                              Watermark="Search list..."
                                              HorizontalAlignment="Stretch"

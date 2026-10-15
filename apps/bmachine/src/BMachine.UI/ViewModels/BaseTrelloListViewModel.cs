@@ -444,6 +444,85 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
     }
 
+    /// <summary>Copy the Trello card link (https://trello.com/c/&lt;id&gt;) to the clipboard.</summary>
+    [RelayCommand]
+    protected async Task CopyCardLink(TrelloCard? card)
+    {
+        var target = card ?? SelectedCard;
+        var link = target?.Url ?? "";
+        if (string.IsNullOrEmpty(link))
+        {
+            StatusMessage = "Card link unavailable.";
+            BMachine.UI.Services.ToastNotificationService.Instance.ShowWarning("Card link tidak tersedia.");
+            return;
+        }
+
+        var clipboard = GetClipboard();
+        if (clipboard != null)
+        {
+            try
+            {
+                await clipboard.SetTextAsync(link);
+                StatusMessage = "Card link copied!";
+                BMachine.UI.Services.ToastNotificationService.Instance.ShowSuccess("Link kartu dicopy", link);
+                await LogActivity("System", "CopiedCardLink", link);
+                return;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CopyCardLink] Avalonia clipboard failed: {ex.Message}");
+            }
+        }
+
+        // Fallback: native Windows clipboard via PowerShell (Avalonia clipboard bisa gagal).
+        try
+        {
+            var escaped = link.Replace("'", "''");
+            var psScript = $"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::SetText('{escaped}');";
+            var ps = new Process();
+            ps.StartInfo.FileName = "powershell";
+            ps.StartInfo.Arguments = $"-NoProfile -NonInteractive -Command \"{psScript}\"";
+            ps.StartInfo.UseShellExecute = false;
+            ps.StartInfo.CreateNoWindow = true;
+            ps.Start();
+            await ps.WaitForExitAsync();
+            ps.Dispose();
+            StatusMessage = "Card link copied!";
+            BMachine.UI.Services.ToastNotificationService.Instance.ShowSuccess("Link kartu dicopy", link);
+        }
+        catch (Exception fallbackEx)
+        {
+            StatusMessage = $"Copy link failed: {fallbackEx.Message}";
+            BMachine.UI.Services.ToastNotificationService.Instance.ShowError("Gagal copy link kartu.");
+        }
+    }
+
+    /// <summary>Buka kartu Trello di browser default user.</summary>
+    [RelayCommand]
+    protected void OpenCardInBrowser(TrelloCard? card)
+    {
+        var target = card ?? SelectedCard;
+        var link = target?.Url ?? "";
+        if (string.IsNullOrEmpty(link))
+        {
+            StatusMessage = "Card link unavailable.";
+            BMachine.UI.Services.ToastNotificationService.Instance.ShowWarning("Card link tidak tersedia.");
+            return;
+        }
+
+        try
+        {
+            _platformService.OpenUrl(link);
+            StatusMessage = "Opening card in browser...";
+            BMachine.UI.Services.ToastNotificationService.Instance.ShowInfo("Membuka kartu di browser", link);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Open card failed: {ex.Message}";
+            BMachine.UI.Services.ToastNotificationService.Instance.ShowError("Gagal membuka browser.");
+        }
+    }
+
     [RelayCommand]
     protected virtual void OpenSpreadsheetAndSearch(string searchId)
     {

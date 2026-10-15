@@ -26,10 +26,22 @@
                                 </WrapPanel>
                                 <TextBlock Text="{Binding SelectedCard.Name}" FontWeight="Bold" FontSize="24" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" LineHeight="32"/>
                             </StackPanel>
-                            <Button Grid.Column="1" Command="{Binding $parent[UserControl].DataContext.CloseDetailPanelCommand}"
-                                    Classes="PanelClose" VerticalAlignment="Top">
-                                <PathIcon Data="{StaticResource IconX}"/>
-                            </Button>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Top">
+                                <Button Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,6,0" Cursor="Hand"
+                                        Command="{Binding $parent[UserControl].DataContext.CopyCardLinkCommand}"
+                                        CommandParameter="{Binding SelectedCard}" ToolTip.Tip="Copy Trello card link">
+                                    <PathIcon Data="{StaticResource IconLink}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                                <Button Classes="ghostIcon" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,6,0" Cursor="Hand"
+                                        Command="{Binding $parent[UserControl].DataContext.OpenCardInBrowserCommand}"
+                                        CommandParameter="{Binding SelectedCard}" ToolTip.Tip="Open card in browser">
+                                    <PathIcon Data="{StaticResource IconExternalLink}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                                <Button Command="{Binding $parent[UserControl].DataContext.CloseDetailPanelCommand}"
+                                        Classes="PanelClose" VerticalAlignment="Top">
+                                    <PathIcon Data="{StaticResource IconX}"/>
+                                </Button>
+                            </StackPanel>
                         </Grid>
 
                         <WrapPanel Orientation="Horizontal">
@@ -448,6 +460,7 @@
                         <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusXl}">
                             <AutoCompleteBox x:Name="Part_MoveBoardBox" ItemsSource="{Binding AvailableBoards}"
                                              SelectedItem="{Binding SelectedMoveBoard}"
+                                             Text="{Binding MoveBoardSearchText, Mode=TwoWay}"
                                              ValueMemberBinding="{Binding Name}"
                                              Watermark="Search board..."
                                              HorizontalAlignment="Stretch"
@@ -463,6 +476,7 @@
                         <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusXl}">
                             <AutoCompleteBox x:Name="Part_MoveListBox" ItemsSource="{Binding AvailableLists}"
                                              SelectedItem="{Binding SelectedMoveList}"
+                                             Text="{Binding MoveListSearchText, Mode=TwoWay}"
                                              ValueMemberBinding="{Binding Name}"
                                              Watermark="Search list..."
                                              HorizontalAlignment="Stretch"
