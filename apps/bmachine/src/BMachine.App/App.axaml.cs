@@ -208,6 +208,15 @@ public partial class App : Application,
             Log("Showing MainWindow and closing SplashWindow...");
             desktop.MainWindow = mainWindow; // FIX: Update MainWindow reference
             mainWindow.Show();
+            #if DEBUG
+            // Dev-only harness (Debug builds only, stripped from publish).
+            // BMACHINE_DEV_OPEN=toolbox opens the named window for headless UI capture.
+            var devOpen = Environment.GetEnvironmentVariable("BMACHINE_DEV_OPEN");
+            if (devOpen == "toolbox")
+            {
+                new BMachine.UI.Views.ToolboxWindow().Show();
+            }
+            #endif
             splashWindow.Close();
             Log("MainWindow.Show() called.");
             
