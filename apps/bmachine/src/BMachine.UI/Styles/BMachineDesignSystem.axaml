@@ -750,7 +750,11 @@
         <Setter Property="Background" Value="{DynamicResource NavigationDividerBrush}" />
         <Setter Property="Width" Value="2" />
         <Setter Property="Height" Value="20" />
-        <Setter Property="Margin" Value="8,0" />
+        <!-- Margin kiri 3 (bukan 8): elemen ikon di kiri separator (chip profil, tab explorer)
+             sudah punya padding 7 sendiri, jadi jaraknya ke garis jadi 7+8=15 px padahal ke tepi
+             band hanya 13-14 px, sehingga ikon terlihat tidak center. 3 menyeimbangkan keduanya
+             (terukur di VM: chip profil 13/14 px, tab explorer 14/13 px). -->
+        <Setter Property="Margin" Value="3,0,8,0" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
