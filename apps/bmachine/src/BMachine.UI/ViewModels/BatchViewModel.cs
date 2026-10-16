@@ -65,6 +65,13 @@ namespace BMachine.UI.ViewModels;
             // Ensure HasFolders updates when items are added/removed
             SourceFolders.CollectionChanged += (s, e) =>
             {
+                if (e.NewItems is not null)
+                {
+                    foreach (var r in e.NewItems)
+                    {
+                        if (r is BatchFolderRoot root) HookRootForTree(root);
+                    }
+                }
                 OnPropertyChanged(nameof(HasFolders));
                 OnPropertyChanged(nameof(ShowDropZone));
                 UpdateRootRowVisibility();
@@ -295,6 +302,9 @@ namespace BMachine.UI.ViewModels;
         SourceFolders = newCollection;
 
         // Koleksi baru = subscription CollectionChanged lama hilang, jadi update manual.
+        _hookedRoots.Clear();
+        foreach (var root in newCollection) HookRootForTree(root);
+
         if (SelectedBatchItem is not BatchFolderRoot current || !newCollection.Contains(current))
         {
             SelectedBatchItem = newCollection.FirstOrDefault();
@@ -1499,6 +1509,50 @@ if ($img -ne $null) {{
         [ObservableProperty]
         private object? _selectedBatchItem;
 
+        /// <summary>Root yang sudah di-hook PropertyChanged-nya (biar tidak dobel subscribe).</summary>
+        private readonly System.Collections.Generic.HashSet<BatchFolderRoot> _hookedRoots = new();
+
+        /// <summary>
+        /// Isi tree kolom SOURCE. Kalau cuma satu source, baris root tidak ditampilkan
+        /// dan isi foldernya langsung jadi baris teratas (nama folder sudah ada di header).
+        /// </summary>
+        public System.Collections.IEnumerable SourceTreeItems => BuildTreeItems(r => r.SourceRoot?.Children);
+
+        /// <summary>Isi tree kolom OUTPUT / MASTER.</summary>
+        public System.Collections.IEnumerable OutputTreeItems => BuildTreeItems(r => r.OutputRoot?.Children);
+
+        /// <summary>True kalau folder output belum ada (dipakai chip "(pending)" di header).</summary>
+        public bool IsOutputPending => SourceFolders.Count == 1 && SourceFolders[0]?.OutputRoot is null;
+
+        private System.Collections.IEnumerable BuildTreeItems(System.Func<BatchFolderRoot, System.Collections.IEnumerable?> childrenSelector)
+        {
+            if (SourceFolders.Count == 1)
+            {
+                return childrenSelector(SourceFolders[0]) ?? System.Linq.Enumerable.Empty<BatchNodeItem>();
+            }
+            return SourceFolders;
+        }
+
+        /// <summary>Pantau root supaya tree ikut update saat folder source/output di-rescan.</summary>
+        private void HookRootForTree(BatchFolderRoot root)
+        {
+            if (!_hookedRoots.Add(root)) return;
+            root.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(BatchFolderRoot.SourceRoot) or nameof(BatchFolderRoot.OutputRoot))
+                {
+                    NotifyTreeItemsChanged();
+                }
+            };
+        }
+
+        private void NotifyTreeItemsChanged()
+        {
+            OnPropertyChanged(nameof(SourceTreeItems));
+            OnPropertyChanged(nameof(OutputTreeItems));
+            OnPropertyChanged(nameof(IsOutputPending));
+        }
+
         /// <summary>
         /// Baris root pada tree hanya perlu tampil kalau ada lebih dari satu source.
         /// Untuk satu folder, namanya sudah ditampilkan di header kolom.
@@ -1525,6 +1579,7 @@ if ($img -ne $null) {{
             ShowRootRows = SourceFolders.Count > 1;
             OnPropertyChanged(nameof(HeaderSourceName));
             OnPropertyChanged(nameof(HeaderOutputName));
+            NotifyTreeItemsChanged();
         }
 
         partial void OnSelectedBatchItemChanged(object? value)

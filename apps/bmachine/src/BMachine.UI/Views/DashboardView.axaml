@@ -355,13 +355,13 @@
                                         <MenuItem Header="Delete Source Folder" Command="{Binding DeleteCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                     </ContextMenu>
                                 </StackPanel.ContextMenu>
-                                <TextBlock Text="SOURCE" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="2" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding BatchVM.HeaderSourceName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.SourcePath}"/>
+                                <TextBlock Text="SOURCE" Classes="Bold" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding BatchVM.HeaderSourceName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.SourcePath}"/>
                             </StackPanel>
                             
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
-                                    <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
+                                    <TreeView ItemsSource="{Binding BatchVM.SourceTreeItems}"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
                                               IsVisible="{Binding !BatchVM.IsMasterBrowserOpenLeft}"
                                               SelectionMode="Single"
@@ -638,14 +638,15 @@
                                         <MenuItem Header="Delete" Command="{Binding DeleteOutputCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                     </ContextMenu>
                                 </StackPanel.ContextMenu>
-                                <TextBlock Text="OUTPUT" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="2" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding BatchVM.HeaderOutputName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.OutputPath}"/>
+                                <TextBlock Text="OUTPUT" Classes="Bold" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding BatchVM.HeaderOutputName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.OutputPath}"/>
+                                <TextBlock Text="(pending)" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsVisible="{Binding BatchVM.IsOutputPending}"/>
                             </StackPanel>
 
                             <!-- Main Output Area -->
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
-                                    <TreeView ItemsSource="{Binding BatchVM.SourceFolders}"
+                                    <TreeView ItemsSource="{Binding BatchVM.OutputTreeItems}"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
                                               IsVisible="{Binding !BatchVM.IsMasterBrowserOpenRight}"
                                               SelectionMode="Single"
