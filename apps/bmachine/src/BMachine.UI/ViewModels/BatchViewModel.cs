@@ -255,12 +255,13 @@ namespace BMachine.UI.ViewModels;
                     
                     if (folderName.Equals("PILIHAN", System.StringComparison.OrdinalIgnoreCase))
                     {
-                        displayName = $"...\\{parentName}";
+                        // Label source = label output (tanpa prefix "...\") agar sejajar dengan kolom OUTPUT
+                        displayName = parentName;
                         outputHeader = parentName;
                     }
                     else
                     {
-                        displayName = string.IsNullOrEmpty(parentName) ? folderName : $"{folderName}\\{parentName}";
+                        displayName = folderName;
                         outputHeader = folderName;
                     }
 
@@ -329,12 +330,13 @@ namespace BMachine.UI.ViewModels;
         string displayName, outputHeader;
         if (folderName.Equals("PILIHAN", StringComparison.OrdinalIgnoreCase))
         {
-            displayName = $"...\\{parentName}";
+            // Label source = label output (tanpa prefix "...\") agar sejajar dengan kolom OUTPUT
+            displayName = parentName;
             outputHeader = parentName;
         }
         else
         {
-            displayName = string.IsNullOrEmpty(parentName) ? folderName : $"{folderName}\\{parentName}";
+            displayName = folderName;
             outputHeader = folderName;
         }
         var item = new BatchFolderRoot

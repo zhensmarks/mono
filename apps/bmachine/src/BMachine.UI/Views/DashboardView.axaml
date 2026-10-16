@@ -929,20 +929,26 @@
                                                     <Button Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
                                                             CommandParameter="{Binding}"
                                                             Width="32" Height="32" Padding="0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand"
-                                                            Background="{DynamicResource ButtonSecondaryBackgroundBrush}" BorderThickness="0"
+                                                            Background="{DynamicResource ButtonSecondaryBackgroundBrush}" BorderThickness="1"
+                                                            BorderBrush="{DynamicResource SeparatorBrush}"
+                                                            Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"
                                                             ToolTip.Tip="{Binding Name}"
-                                                            Margin="0,0,6,0">
+                                                            Margin="0,0,6,6">
                                                         <Button.Styles>
                                                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                                                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                                                            </Style>
+                                                            <Style Selector="Button:pointerover">
+                                                                <Setter Property="Foreground" Value="White"/>
                                                             </Style>
                                                         </Button.Styles>
                                                         <Panel>
-                                                            <!-- Icon -->
-                                                            <PathIcon Data="{Binding IconGeometry}" Width="16" Height="16" Foreground="White"
+                                                            <!-- Icon: warna ikut Foreground button (adaptif dark/light) -->
+                                                            <PathIcon Data="{Binding IconGeometry}" Width="16" Height="16"
                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                                             <!-- Failover Generic Icon if null -->
-                                                            <PathIcon Data="{StaticResource IconScript}" Width="16" Height="16" Foreground="White"
+                                                            <PathIcon Data="{StaticResource IconScript}" Width="16" Height="16"
                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
                                                         </Panel>
                                                     </Button>
@@ -953,7 +959,16 @@
                                 </ScrollViewer>
                                 
                                 <!-- Utility Buttons (Right) -->
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <!-- Refresh Source & Output -->
+                                    <Button Classes="ghost" Command="{Binding BatchVM.RefreshCommand}"
+                                            Width="32" Height="32" Padding="0"
+                                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                            CornerRadius="{DynamicResource RadiusSm}" ToolTip.Tip="Refresh Source &amp; Output">
+                                        <PathIcon Data="{StaticResource IconRefresh}" Width="16" Height="16"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </Button>
+
                                     <!-- Scripts Path Button -->
                                     <Button Classes="ghost" Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
                                             Width="32" Height="32" Padding="0"
