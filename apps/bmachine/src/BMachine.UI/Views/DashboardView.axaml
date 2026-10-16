@@ -627,7 +627,7 @@
                         <!-- OUTPUT PANEL -->
                         <Grid Grid.Column="1" Margin="5,0,0,0" RowDefinitions="Auto, *">
                             <!-- Header Area -->
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="7" Margin="0,0,10,5" HorizontalAlignment="Right" Background="Transparent">
+                            <StackPanel Grid.Row="0" Margin="0,0,10,5" HorizontalAlignment="Right" Background="Transparent">
                                 <StackPanel.ContextMenu>
                                     <ContextMenu DataContext="{Binding BatchVM.SelectedBatchItem}">
                                         <MenuItem Header="New Subfolder..." Command="{Binding ShowOutputNewFolderInputCommand}"/>
@@ -638,9 +638,11 @@
                                         <MenuItem Header="Delete" Command="{Binding DeleteOutputCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
                                     </ContextMenu>
                                 </StackPanel.ContextMenu>
-                                <TextBlock Text="OUTPUT" Classes="Bold" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding BatchVM.HeaderOutputName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.OutputPath}"/>
-                                <TextBlock Text="(pending)" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsVisible="{Binding BatchVM.IsOutputPending}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="7" HorizontalAlignment="Right" Background="Transparent">
+                                    <TextBlock Text="OUTPUT" Classes="Bold" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding BatchVM.HeaderOutputName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.OutputPath}"/>
+                                </StackPanel>
+                                <TextBlock Text="(pending)" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Right" Margin="0,2,0,0" IsVisible="{Binding BatchVM.IsOutputPending}"/>
                             </StackPanel>
 
                             <!-- Main Output Area -->
