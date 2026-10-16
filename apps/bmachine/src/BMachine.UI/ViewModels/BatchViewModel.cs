@@ -67,6 +67,7 @@ namespace BMachine.UI.ViewModels;
             {
                 OnPropertyChanged(nameof(HasFolders));
                 OnPropertyChanged(nameof(ShowDropZone));
+                UpdateRootRowVisibility();
             };
     
 
@@ -130,6 +131,7 @@ namespace BMachine.UI.ViewModels;
                 if (rootMatch != null)
                 {
                     SourceFolders.Remove(rootMatch);
+                    UpdateRootRowVisibility();
                 }
                 else
                 {
@@ -291,10 +293,17 @@ namespace BMachine.UI.ViewModels;
 
         // 3. Atomic Assignment on UI Thread
         SourceFolders = newCollection;
-        
+
+        // Koleksi baru = subscription CollectionChanged lama hilang, jadi update manual.
+        if (SelectedBatchItem is not BatchFolderRoot current || !newCollection.Contains(current))
+        {
+            SelectedBatchItem = newCollection.FirstOrDefault();
+        }
+
         OnPropertyChanged(nameof(SourceFolders));
         OnPropertyChanged(nameof(HasFolders));
         OnPropertyChanged(nameof(ShowDropZone));
+        UpdateRootRowVisibility();
     }
 
     private void AddFolderAndSelect(string path)
@@ -351,6 +360,7 @@ namespace BMachine.UI.ViewModels;
         item.SetupOutputWatcher();
         SourceFolders.Add(item);
         SelectedBatchItem = item;
+        UpdateRootRowVisibility();
         SelectedActivityMode = 1;
         _ = LoadMasterNodes();
     }
@@ -431,6 +441,7 @@ namespace BMachine.UI.ViewModels;
     private void Clear()
     {
         SourceFolders.Clear();
+        UpdateRootRowVisibility();
         OnPropertyChanged(nameof(HasFolders));
         OnPropertyChanged(nameof(ShowDropZone));
     }
@@ -444,6 +455,7 @@ namespace BMachine.UI.ViewModels;
         if (SourceFolders.Contains(item))
         {
             SourceFolders.Remove(item);
+            UpdateRootRowVisibility();
             OnPropertyChanged(nameof(HasFolders));
             OnPropertyChanged(nameof(ShowDropZone));
         }
@@ -1487,8 +1499,37 @@ if ($img -ne $null) {{
         [ObservableProperty]
         private object? _selectedBatchItem;
 
+        /// <summary>
+        /// Baris root pada tree hanya perlu tampil kalau ada lebih dari satu source.
+        /// Untuk satu folder, namanya sudah ditampilkan di header kolom.
+        /// </summary>
+        [ObservableProperty]
+        private bool _showRootRows = true;
+
+        /// <summary>Nama folder yang tampil di header kolom SOURCE (bukan lagi label "SOURCE / INPUT").</summary>
+        public string HeaderSourceName =>
+            (SelectedBatchItem as BatchFolderRoot)?.DisplayName
+            ?? SourceFolders.FirstOrDefault()?.DisplayName
+            ?? SourceFolders.FirstOrDefault()?.FolderName
+            ?? "SOURCE";
+
+        /// <summary>Nama folder yang tampil di header kolom OUTPUT/MASTER.</summary>
+        public string HeaderOutputName =>
+            (SelectedBatchItem as BatchFolderRoot)?.OutputHeader
+            ?? SourceFolders.FirstOrDefault()?.OutputHeader
+            ?? SourceFolders.FirstOrDefault()?.FolderName
+            ?? "OUTPUT";
+
+        private void UpdateRootRowVisibility()
+        {
+            ShowRootRows = SourceFolders.Count > 1;
+            OnPropertyChanged(nameof(HeaderSourceName));
+            OnPropertyChanged(nameof(HeaderOutputName));
+        }
+
         partial void OnSelectedBatchItemChanged(object? value)
         {
+            UpdateRootRowVisibility();
             if (value is BatchNodeItem node)
             {
                 // Update Target

@@ -344,7 +344,18 @@
                         <!-- SOURCE PANEL -->
                         <Grid Grid.Column="0" Margin="0,0,5,0" RowDefinitions="Auto, *">
                             <!-- Header Area -->
-                            <TextBlock Grid.Row="0" Text="SOURCE / INPUT" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="10,0,0,5"/>
+                            <TextBlock Grid.Row="0" Text="{Binding BatchVM.HeaderSourceName}" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="10,0,0,5" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.SourcePath}">
+                                <TextBlock.ContextMenu>
+                                    <ContextMenu DataContext="{Binding BatchVM.SelectedBatchItem}">
+                                        <MenuItem Header="New Subfolder..." Command="{Binding ShowNewFolderInputCommand}"/>
+                                        <Separator/>
+                                        <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceSourceAutoCommand}" CommandParameter="{Binding}"/>
+                                        <Separator/>
+                                        <MenuItem Header="Copy Source Path" Command="{Binding CopyPathCommand}"/>
+                                        <MenuItem Header="Delete Source Folder" Command="{Binding DeleteCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
+                                    </ContextMenu>
+                                </TextBlock.ContextMenu>
+                            </TextBlock>
                             
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
@@ -370,8 +381,14 @@
                                                       </StackPanel.ContextMenu>
                                                       <TextBlock Text="{Binding DisplayName}" Classes="Bold" FontSize="11" FontWeight="Bold"
                                                                  Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
-                                                                 PointerPressed="OnNodePointerPressed" Tag="Source" Cursor="Hand" ToolTip.Tip="{Binding SourcePath}"
-                                                                 IsVisible="{Binding !IsNewFolderInputVisible}"/>
+                                                                 PointerPressed="OnNodePointerPressed" Tag="Source" Cursor="Hand" ToolTip.Tip="{Binding SourcePath}">
+                                                          <TextBlock.IsVisible>
+                                                              <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                                  <Binding Path="!IsNewFolderInputVisible"/>
+                                                                  <Binding Path="DataContext.BatchVM.ShowRootRows" ElementName="Root"/>
+                                                              </MultiBinding>
+                                                          </TextBlock.IsVisible>
+                                                      </TextBlock>
                                                       <Grid IsVisible="{Binding IsNewFolderInputVisible}" ColumnDefinitions="100,Auto,Auto" Margin="0,-3,0,-3">
                                                           <TextBox Grid.Column="0" Text="{Binding NewSubFolderName, Mode=TwoWay}" Watermark="Subfolder name" FontSize="11" Height="22" MinHeight="0" Padding="4,2">
                                                               <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding CreateSubFolderCommand}"/></TextBox.KeyBindings>
@@ -614,7 +631,18 @@
                         <!-- OUTPUT PANEL -->
                         <Grid Grid.Column="1" Margin="5,0,0,0" RowDefinitions="Auto, *">
                             <!-- Header Area -->
-                            <TextBlock Grid.Row="0" Text="OUTPUT / MASTER" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="0,0,10,5" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Row="0" Text="{Binding BatchVM.HeaderOutputName}" Classes="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" LetterSpacing="2" Margin="0,0,10,5" HorizontalAlignment="Right" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.OutputPath}">
+                                <TextBlock.ContextMenu>
+                                    <ContextMenu DataContext="{Binding BatchVM.SelectedBatchItem}">
+                                        <MenuItem Header="New Subfolder..." Command="{Binding ShowOutputNewFolderInputCommand}"/>
+                                        <Separator/>
+                                        <MenuItem Header="Replace (Auto)" Command="{Binding #Root.DataContext.BatchVM.ReplaceOutputAutoCommand}" CommandParameter="{Binding}"/>
+                                        <Separator/>
+                                        <MenuItem Header="Copy Path" Command="{Binding CopyOutputPathCommand}"/>
+                                        <MenuItem Header="Delete" Command="{Binding DeleteOutputCommand}" Foreground="{DynamicResource StatusDangerBrush}"/>
+                                    </ContextMenu>
+                                </TextBlock.ContextMenu>
+                            </TextBlock>
 
                             <!-- Main Output Area -->
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
@@ -629,7 +657,7 @@
                                               <!-- ROOT LEVEL TEMPLATE -->
                                               <TreeDataTemplate DataType="{x:Type vm:BatchFolderRoot}" ItemsSource="{Binding OutputRoot.Children}">
                                                   <StackPanel Orientation="Horizontal" Spacing="4" Background="Transparent">
-                                                       <StackPanel.ContextMenu>
+                                                      <StackPanel.ContextMenu>
                                                            <ContextMenu DataContext="{Binding}">
                                                                <MenuItem Header="New Subfolder..." Command="{Binding ShowOutputNewFolderInputCommand}"/>
                                                                <Separator/>
@@ -661,7 +689,14 @@
                                                            </Button.Flyout>
                                                        </Button>
                                                        
-                                                       <TextBlock Text="{Binding OutputHeader}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Tag="Output" Cursor="Hand" ToolTip.Tip="{Binding OutputPath}" IsVisible="{Binding !IsOutputNewFolderInputVisible}"/>
+                                                       <TextBlock Text="{Binding OutputHeader}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" PointerPressed="OnNodePointerPressed" Tag="Output" Cursor="Hand" ToolTip.Tip="{Binding OutputPath}">
+                                                           <TextBlock.IsVisible>
+                                                               <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                                   <Binding Path="!IsOutputNewFolderInputVisible"/>
+                                                                   <Binding Path="DataContext.BatchVM.ShowRootRows" ElementName="Root"/>
+                                                               </MultiBinding>
+                                                           </TextBlock.IsVisible>
+                                                       </TextBlock>
                                                        <Grid IsVisible="{Binding IsOutputNewFolderInputVisible}" ColumnDefinitions="100,Auto,Auto" Margin="0,-3,0,-3">
                                                            <TextBox Grid.Column="0" Text="{Binding OutputNewSubFolderName, Mode=TwoWay}" Watermark="Subfolder name" FontSize="11" Height="22" MinHeight="0" Padding="4,2">
                                                                <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding CreateOutputSubFolderCommand}"/></TextBox.KeyBindings>
