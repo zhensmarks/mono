@@ -19,6 +19,9 @@ public partial class SpreadsheetView : UserControl
     private DataGrid? _dataGrid;
     private int? _focusedColumnIndex = null;
     private bool _isExtendingSelection = false;
+    // Set true sesaat sebelum BeginEdit pada sel dropdown, supaya ComboBox yang baru
+    // dibuat langsung membuka daftar pilihannya (perilaku klik tunggal).
+    private bool _openDropdownOnNextEdit = false;
 
     public SpreadsheetView()
     {
@@ -221,6 +224,21 @@ public partial class SpreadsheetView : UserControl
                     comboBox.ItemsSource = items;
                     comboBox.Bind(ComboBox.SelectedItemProperty, new Binding($"Cells[{col.Index}].Value") { Mode = BindingMode.TwoWay });
 
+                    // Klik tunggal pada sel dropdown langsung membuka daftar pilihan
+                    // (dulu harus klik ganda, jadi terasa "tidak bisa diklik").
+                    if (_openDropdownOnNextEdit)
+                    {
+                        _openDropdownOnNextEdit = false;
+                        comboBox.AttachedToVisualTree += (_, _) =>
+                        {
+                            try { comboBox.IsDropDownOpen = true; } catch { }
+                        };
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            try { comboBox.IsDropDownOpen = true; } catch { }
+                        }, Avalonia.Threading.DispatcherPriority.Loaded);
+                    }
+
                     return comboBox;
                 });
             }
@@ -396,6 +414,10 @@ public partial class SpreadsheetView : UserControl
         {
             // Wrap in Border to capture clicks on full cell area and store Tag
             var border = new Border { Tag = col.Index };
+            // Sel dropdown / tanggal: kursor Hand (dan buka editor sekali klik),
+            // supaya terasa seperti kontrol yang bisa diklik.
+            if (col.IsDropdown || col.IsDate)
+                border.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
             border.Bind(Border.BackgroundProperty, new Binding($"Cells[{col.Index}].Background") { FallbackValue = Avalonia.Media.Brushes.Transparent });
 
             var grid = new Grid();
@@ -434,6 +456,25 @@ public partial class SpreadsheetView : UserControl
             if (Application.Current?.TryFindResource("TextOnPrimaryBrush", out var onPrimary) == true && onPrimary is Avalonia.Media.IBrush onPrimaryBrush)
                 handle.BorderBrush = onPrimaryBrush;
             grid.Children.Add(handle);
+
+            // Penanda ▾ kecil di sel dropdown supaya jelas sel itu punya pilihan
+            // (kolom "combobox"). Tidak menghalangi klik: IsHitTestVisible=false.
+            if (col.IsDropdown)
+            {
+                var chevron = new TextBlock
+                {
+                    Text = "\u25BE",
+                    FontSize = 9,
+                    Opacity = 0.6,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                    Margin = new Thickness(0, 0, 3, 0),
+                    IsHitTestVisible = false
+                };
+                if (Application.Current?.TryFindResource("TextSecondaryBrush", out var secBrush) == true && secBrush is Avalonia.Media.IBrush sb)
+                    chevron.Foreground = sb;
+                grid.Children.Add(chevron);
+            }
 
             border.Child = grid;
             return border;
@@ -560,6 +601,7 @@ public partial class SpreadsheetView : UserControl
         // This fixes the issue where Shift+Click doesn't update CurrentCell/FocusedColumn as expected
         // Walk up from source to find a Control with Tag = colIndex
         var visual = e.Source as Avalonia.Visual;
+        int? clickedColumnIndex = null;
         while (visual != null)
         {
             if (visual is Control control && control.Tag is int tagIndex)
@@ -567,6 +609,7 @@ public partial class SpreadsheetView : UserControl
                 if (DataContext is SpreadsheetViewModel vm && tagIndex >= 0 && tagIndex < vm.Columns.Count)
                 {
                     _focusedColumnIndex = tagIndex;
+                    clickedColumnIndex = tagIndex;
                     System.Diagnostics.Debug.WriteLine($"PointerPressed: Forced Focus to Column {tagIndex}");
                     break;
                 }
@@ -583,6 +626,27 @@ public partial class SpreadsheetView : UserControl
                              || e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control);
 
         Avalonia.Threading.Dispatcher.UIThread.Post(UpdateCellSelectionVisuals, Avalonia.Threading.DispatcherPriority.Render);
+
+        // Sel dropdown / tanggal: KLIK TUNGGAL langsung buka editornya (daftar pilihan
+        // atau tombol tanggal). Sebelumnya semua sel wajib klik ganda, jadi klik tunggal
+        // pada sel yang ada combobox-nya terasa "tidak bisa diklik".
+        if (e.ClickCount == 1 && !_isExtendingSelection && clickedColumnIndex is int singleClickCol
+            && _dataGrid != null && DataContext is SpreadsheetViewModel singleVm
+            && singleClickCol >= 0 && singleClickCol < singleVm.Columns.Count)
+        {
+            var clickedColumn = singleVm.Columns[singleClickCol];
+            if (clickedColumn.IsDropdown || clickedColumn.IsDate)
+            {
+                if (clickedColumn.IsDropdown) _openDropdownOnNextEdit = true;
+                _dataGrid.IsReadOnly = false;
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    try { _dataGrid?.BeginEdit(); }
+                    catch { _openDropdownOnNextEdit = false; }
+                }, Avalonia.Threading.DispatcherPriority.Input);
+                singleVm.StatusText = clickedColumn.IsDropdown ? "Pilih dari daftar..." : "Editing...";
+            }
+        }
 
         // Only handle double-click (ClickCount >= 2)
         // Skip if Shift or Ctrl held (those are for selection)
@@ -606,6 +670,7 @@ public partial class SpreadsheetView : UserControl
 
     private void OnDataGridCellEditEnded(object? sender, DataGridCellEditEndedEventArgs e)
     {
+        _openDropdownOnNextEdit = false;
         if (DataContext is SpreadsheetViewModel vm)
         {
             vm.StatusText = "Ready";

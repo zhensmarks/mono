@@ -69,7 +69,7 @@
                         <ItemsControl ItemsSource="{Binding AdditionalMasterPaths}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:EditablePathItem">
-                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="10,6" Margin="0,0,0,12" BoxShadow="0 2 4 0 #1A000000"
+                                    <Border Cursor="Hand" Classes="rowHover" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="10,6" Margin="0,0,0,12" BoxShadow="0 2 4 0 #1A000000"
                                             DragDrop.AllowDrop="True" DragDrop.DragOver="OnMasterPathDragOver" DragDrop.DragLeave="OnMasterPathDragLeave" DragDrop.Drop="OnMasterPathDrop"
                                             PointerPressed="OnMasterPathPointerPressed" PointerMoved="OnMasterPathPointerMoved"
                                             PointerReleased="OnMasterPathPointerReleased" Tapped="OnMasterPathTapped" DoubleTapped="OnMasterPathDoubleTapped">

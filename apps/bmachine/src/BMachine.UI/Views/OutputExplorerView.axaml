@@ -273,7 +273,7 @@
                     
                     <!-- File list area (left) -->
                     <Border Grid.Column="0" Padding="8,2,8,2" Background="Transparent" ContextMenu="{StaticResource BackgroundMenu}">
-                    <Grid x:Name="FileAreaGrid"
+                    <Grid Cursor="Hand" x:Name="FileAreaGrid"
                           PointerPressed="OnFileAreaPointerPressed"
                           PointerMoved="OnFileAreaPointerMoved"
                           PointerReleased="OnFileAreaPointerReleased"
@@ -344,7 +344,7 @@
                             
                             <!-- ITEM TEMPLATE — Details style with name + size + date -->
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                 <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto" MinWidth="0" Background="Transparent" Height="26" DoubleTapped="OnItemDoubleTapped"
+                                 <Grid Cursor="Hand" Classes="rowHover" ColumnDefinitions="Auto, *, Auto, Auto, Auto" MinWidth="0" Background="Transparent" Height="26" DoubleTapped="OnItemDoubleTapped"
                                        ToolTip.Tip="{Binding DisplayTooltip}"
                                        Opacity="{Binding RowOpacity}"
                                        PointerPressed="OnItemPointerPressed"
@@ -492,7 +492,7 @@
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
                                 <!-- Item: Fixed Size Card (Compact) -->
-                                 <Grid MinWidth="60" MaxWidth="150" MinHeight="20" ColumnDefinitions="Auto, *" Background="Transparent" DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding DisplayTooltip}"
+                                 <Grid Cursor="Hand" Classes="rowHover" MinWidth="60" MaxWidth="150" MinHeight="20" ColumnDefinitions="Auto, *" Background="Transparent" DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding DisplayTooltip}"
                                        Opacity="{Binding RowOpacity}"
                                        PointerPressed="OnItemPointerPressed"
                                        PointerMoved="OnItemPointerMoved"
@@ -576,7 +576,7 @@
                             </DataTemplate>
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                <Border Opacity="{Binding RowOpacity}" Width="{Binding #ExplorerRoot.DataContext.ThumbnailSize}"
+                                <Border Cursor="Hand" Classes="rowHover" Opacity="{Binding RowOpacity}" Width="{Binding #ExplorerRoot.DataContext.ThumbnailSize}"
                                         Height="{Binding #ExplorerRoot.DataContext.ThumbnailHeight}" 
                                         CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True"
                                         Background="{DynamicResource CardBackgroundBrush}"
@@ -675,7 +675,7 @@
                             </DataTemplate>
 
                             <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                <Border Opacity="{Binding RowOpacity}" CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True"
+                                <Border Cursor="Hand" Classes="rowHover" Opacity="{Binding RowOpacity}" CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True"
                                         Background="Transparent" 
                                         DoubleTapped="OnItemDoubleTapped" ToolTip.Tip="{Binding DisplayTooltip}"
                                         PointerPressed="OnItemPointerPressed"
@@ -750,7 +750,7 @@
                                 </ListBox.Styles>
                                 <ListBox.DataTemplates>
                                     <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                         <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="20" DoubleTapped="OnItemDoubleTapped"
+                                         <Grid Cursor="Hand" Classes="rowHover" ColumnDefinitions="Auto, *" Background="Transparent" Height="20" DoubleTapped="OnItemDoubleTapped"
                                                Opacity="{Binding RowOpacity}"
                                                PointerPressed="OnItemPointerPressed"
                                                PointerMoved="OnItemPointerMoved"
@@ -826,7 +826,7 @@
                                 </ListBox.Styles>
                                 <ListBox.DataTemplates>
                                     <DataTemplate x:DataType="vm:ExplorerItemViewModel">
-                                         <Grid ColumnDefinitions="Auto, *" Background="Transparent" Height="20" DoubleTapped="OnItemDoubleTapped"
+                                         <Grid Cursor="Hand" Classes="rowHover" ColumnDefinitions="Auto, *" Background="Transparent" Height="20" DoubleTapped="OnItemDoubleTapped"
                                                Opacity="{Binding RowOpacity}"
                                                PointerPressed="OnItemPointerPressed"
                                                PointerMoved="OnItemPointerMoved"
