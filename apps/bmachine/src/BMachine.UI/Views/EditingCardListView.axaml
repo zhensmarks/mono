@@ -788,7 +788,6 @@
                                                     FilterMode="Contains"
                                                     MinimumPrefixLength="0"
                                                     GotFocus="AutoCompleteBox_GotFocus"
-                                                    MaxDropDownHeight="160"
                                                     Background="{DynamicResource CardBackgroundBrush}" BorderThickness="0" CornerRadius="{DynamicResource RadiusSm}" Foreground="{DynamicResource TextPrimaryBrush}" Padding="8"/>
                              </StackPanel>
                              <Grid ColumnDefinitions="*, *" Margin="0,8,0,0">

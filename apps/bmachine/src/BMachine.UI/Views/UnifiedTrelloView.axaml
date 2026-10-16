@@ -414,7 +414,6 @@
                                              HorizontalAlignment="Stretch"
                                              FilterMode="Contains"
                                              MinimumPrefixLength="0"
-                                             MaxDropDownHeight="160"
                                              Background="Transparent" BorderThickness="0" Padding="12,10" FontSize="13"/>
                         </Border>
                     </StackPanel>
@@ -431,7 +430,6 @@
                                              FilterMode="Contains"
                                              MinimumPrefixLength="0"
                                              IsEnabled="{Binding ActiveViewModel.SelectedMoveBoard, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                             MaxDropDownHeight="160"
                                              Background="Transparent" BorderThickness="0" Padding="12,10" FontSize="13"/>
                         </Border>
                     </StackPanel>

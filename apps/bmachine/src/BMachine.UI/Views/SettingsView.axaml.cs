@@ -70,6 +70,13 @@ public partial class SettingsView : UserControl
             };
 
             vm.OpenAvatarSelectionRequested += () => OpenAvatarSelection(vm);
+            // Mode edit radial: layout baris (roda + panel detail) dihitung ulang saat panel
+            // dibuka/ditutup, supaya panel tidak pernah keluar dari lebar jendela.
+            vm.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(SettingsViewModel.IsSlotDetailsOpen))
+                    Avalonia.Threading.Dispatcher.UIThread.Post(UpdateRadialRowLayout);
+            };
             vm.IsMobileContentOpen = false;
             _hasAppliedResponsiveLayout = false;
 
@@ -214,6 +221,15 @@ public partial class SettingsView : UserControl
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+
+        // Esc menutup mode edit radial (panel SLOT DETAILS) SEBELUM handler lain
+        // (mis. KeyBinding Escape di DashboardView) sempat jalan.
+        if (e.Key == Avalonia.Input.Key.Escape && DataContext is SettingsViewModel escVm && escVm.IsSlotDetailsOpen)
+        {
+            escVm.CloseSlotDetailsCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
 
         // 1. Check for Recording Mode
         if (DataContext is SettingsViewModel vm && vm.IsRecordingShortcut)
@@ -441,7 +457,59 @@ public partial class SettingsView : UserControl
         }
 
         _hasAppliedResponsiveLayout = true;
+        UpdateRadialRowLayout();
         InvalidateSettingsSurface();
+    }
+
+    /// <summary>
+    /// Layout baris radial (roda + panel SLOT DETAILS) dihitung dari lebar nyata:
+    /// - panel tertutup  -> roda di TENGAH
+    /// - panel terbuka & lebar cukup -> roda kiri + panel kanan, kolom panel "*" (fleksibel)
+    ///   sehingga panel ikut menyusut dan TIDAK pernah terpotong di tepi jendela
+    /// - panel terbuka tapi terlalu sempit -> panel turun ke baris bawah (fallback)
+    /// </summary>
+    private void UpdateRadialRowLayout()
+    {
+        var row = this.FindControl<Grid>("RadialRowGrid");
+        var wheel = this.FindControl<Control>("RadialWheelCard");
+        var details = this.FindControl<Control>("RadialDetailsCard");
+        if (row == null || wheel == null || details == null) return;
+
+        bool open = DataContext is SettingsViewModel vm && vm.IsSlotDetailsOpen;
+        double avail = row.Bounds.Width;
+        if (avail <= 0) avail = Math.Max(Bounds.Width - 330, 0);
+        if (avail <= 0) return;
+
+        const double wheelW = 234;   // 200 (roda) + padding 16*2 + border 2
+        const double panelMin = 280; // MinWidth panel detail
+        const double gap = 16;
+
+        if (!open)
+        {
+            row.ColumnDefinitions = new ColumnDefinitions("*, Auto, *");
+            row.RowDefinitions = new RowDefinitions("Auto");
+            Grid.SetColumn(wheel, 1);
+            Grid.SetColumn(details, 2);
+        }
+        else if (avail >= wheelW + gap + panelMin + 8)
+        {
+            row.ColumnDefinitions = new ColumnDefinitions("Auto, *");
+            row.RowDefinitions = new RowDefinitions("Auto");
+            Grid.SetColumn(wheel, 0);
+            Grid.SetColumn(details, 1);
+        }
+        else
+        {
+            row.ColumnDefinitions = new ColumnDefinitions("*");
+            row.RowDefinitions = new RowDefinitions("Auto, Auto");
+            Grid.SetColumn(wheel, 0);
+            Grid.SetColumn(details, 0);
+            Grid.SetRow(details, 1);
+        }
+
+        Grid.SetRow(wheel, 0);
+        wheel.Margin = new Thickness(0, 0, gap, 16);
+        details.Margin = new Thickness(0, 0, 0, 16);
     }
 
     // --- Drag-and-Drop for Script Reordering ---
@@ -648,8 +716,10 @@ public partial class SettingsView : UserControl
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || DataContext is not SettingsViewModel vm) return;
 
         var local = e.GetPosition(RadialSlotsControl);
+        // Slot navigasi (MORE/BACK) IKUT dicatat supaya klik-nya bisa dipakai pindah halaman;
+        // drag-nya diblokir terpisah di OnRadialRootPointerMoved.
         var slot = vm.RadialSlots.FirstOrDefault(s =>
-            !s.IsEmpty && !s.IsNavigationReserved &&
+            !s.IsEmpty &&
             Math.Sqrt(Math.Pow(local.X - (s.X + RadialSlotHalf), 2) + Math.Pow(local.Y - (s.Y + RadialSlotHalf), 2)) <= RadialHitRadius);
         if (slot == null) return;
 
@@ -663,6 +733,8 @@ public partial class SettingsView : UserControl
         if (_radialDragSource == null)
         {
             if (_pressedRadialSlot == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            // Slot navigasi tidak bisa di-drag (hanya diklik untuk pindah halaman).
+            if (_pressedRadialSlot.IsNavigationReserved) return;
 
             var pos = e.GetPosition(this);
             double dx = pos.X - _radialPressPoint.X;
@@ -682,8 +754,29 @@ public partial class SettingsView : UserControl
         _pressedRadialButton = null;
         if (_radialDragSource == null)
         {
-            if (clickedSlot != null && _pressedRadialClickCount == 2 && DataContext is SettingsViewModel doubleVm)
-                doubleVm.SelectRadialSlotCommand.Execute(clickedSlot);
+            if (clickedSlot != null && DataContext is SettingsViewModel clickVm)
+            {
+                // Slot navigasi (MORE / BACK): KLIK = pindah halaman radial.
+                // Chevron < > sudah dihapus, dan sebelumnya slot ini hanya bereaksi ke dwell hover —
+                // jadi klik di MORE/BACK tidak melakukan apa-apa.
+                if (clickedSlot.IsNavigationReserved)
+                {
+                    var label = clickedSlot.NavigationLabel;
+                    if (!string.IsNullOrEmpty(label))
+                    {
+                        StopRadialPageTimer();
+                        _radialNavArmed = false;
+                        if (string.Equals(label, "BACK", StringComparison.OrdinalIgnoreCase))
+                            clickVm.SwitchToRadialPage1Command.Execute(null);
+                        else
+                            clickVm.SwitchToRadialPage2Command.Execute(null);
+                    }
+                }
+                else if (_pressedRadialClickCount == 2)
+                {
+                    clickVm.SelectRadialSlotCommand.Execute(clickedSlot);
+                }
+            }
             return;
         }
 

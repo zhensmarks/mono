@@ -9,6 +9,12 @@
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
              x:Class="BMachine.UI.Views.SettingsView">
     
+    <UserControl.KeyBindings>
+        <!-- Esc menutup mode edit radial (panel SLOT DETAILS) dan mengembalikan
+             radial menu ke tengah. -->
+        <KeyBinding Gesture="Escape" Command="{Binding CloseSlotDetailsCommand}"/>
+    </UserControl.KeyBindings>
+
     <UserControl.Resources>
         <converters:BoolToTextConverter x:Key="BoolToInstallText" TrueText="Uninstall" FalseText="Install" />
         <converters:BoolToTextConverter x:Key="BoolToInstallStyle" TrueText="Clear" FalseText="Primary" />
@@ -700,8 +706,8 @@
                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SheetName}" Watermark="e.g. Sheet1" Margin="0,0,0,8"/>
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Column / Row" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,8">
-                            <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding SheetColumns}" SelectedItem="{Binding SheetColumn}" Watermark="Col" HorizontalAlignment="Stretch" Margin="0,0,4,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
-                            <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding SheetRows}" SelectedItem="{Binding SheetRow}" Watermark="Row" HorizontalAlignment="Stretch" Margin="4,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                            <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding SheetColumns}" SelectedItem="{Binding SheetColumn}" Watermark="Col" HorizontalAlignment="Stretch" Margin="0,0,4,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
+                            <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding SheetRows}" SelectedItem="{Binding SheetRow}" Watermark="Row" HorizontalAlignment="Stretch" Margin="4,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
                         </Grid>
                         <TextBlock Grid.Row="4" Grid.Column="0" Text="Spreadsheet Sheet" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                         <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SpreadsheetSheetName}" Watermark="e.g. ALL DATA REGULER" Margin="0,0,0,8"/>
@@ -720,27 +726,27 @@
                             <Grid ColumnDefinitions="140, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Editing Board/List" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                 <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,8">
-                                    <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedEditingBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
-                                    <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding EditingLists}" SelectedItem="{Binding SelectedEditingList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="8,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                    <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedEditingBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
+                                    <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding EditingLists}" SelectedItem="{Binding SelectedEditingList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="8,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
                                 </Grid>
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Revisi Board/List" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                 <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,8">
-                                    <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedRevisionBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
-                                    <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding RevisionLists}" SelectedItem="{Binding SelectedRevisionList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="8,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                    <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedRevisionBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
+                                    <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding RevisionLists}" SelectedItem="{Binding SelectedRevisionList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="8,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
                                 </Grid>
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Susulan Board/List" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                 <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*, *" Margin="0,0,0,8">
-                                    <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedLateBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
-                                    <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding LateLists}" SelectedItem="{Binding SelectedLateList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="8,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                    <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedLateBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
+                                    <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding LateLists}" SelectedItem="{Binding SelectedLateList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="8,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
                                 </Grid>
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Target Move Board" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                 <Grid Grid.Row="3" Grid.Column="1" Margin="0,0,0,8">
-                                    <AutoCompleteBox ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedQcBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Auto-Move Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                    <AutoCompleteBox ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedQcBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Auto-Move Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
                                 </Grid>
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Marketing ACC Board/List" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                 <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*, *">
-                                    <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedAccBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
-                                    <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding AccLists}" SelectedItem="{Binding SelectedAccList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="8,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus" MaxDropDownHeight="160"/>
+                                    <AutoCompleteBox Grid.Column="0" ItemsSource="{Binding MockBoards}" SelectedItem="{Binding SelectedAccBoard}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select Board" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
+                                    <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding AccLists}" SelectedItem="{Binding SelectedAccList}" ValueMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" Watermark="Select List" Margin="8,0,0,0" FilterMode="Contains" MinimumPrefixLength="0" GotFocus="AutoCompleteBox_GotFocus"/>
                                 </Grid>
                             </Grid>
                         </StackPanel>
@@ -916,15 +922,16 @@
                                 </Border>
                             </Grid>
                             <!-- ACTION SCRIPTS (RADIAL) -->
-                            <Grid IsVisible="{Binding IsScriptActionSelected}" ColumnDefinitions="Auto, *" RowDefinitions="Auto">
-                                <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
+                            <!-- Kolom baris ini diatur dari code-behind (UpdateRadialRowLayout):
+                                 tidak ada panel -> roda center; panel buka & lebar cukup -> roda kiri + panel kanan;
+                                 panel buka tapi sempit -> panel turun ke baris bawah (tidak terpotong). -->
+                            <Grid x:Name="RadialRowGrid" IsVisible="{Binding IsScriptActionSelected}" ColumnDefinitions="*, Auto, *" RowDefinitions="Auto">
+                                <Border x:Name="RadialWheelCard" Grid.Column="1" Margin="0,0,16,16" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
                                     <Grid RowDefinitions="Auto">
                                         <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,16">
-                                            <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,16">
-                                                <Button Grid.Column="0" Command="{Binding SwitchToRadialPage1Command}" Classes="Clear" VerticalAlignment="Center" Margin="0,0,24,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 1" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
-                                                    <PathIcon Data="{StaticResource IconChevronLeft}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Button>
-                                                <Border Grid.Column="1" Width="200" Height="200" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource AppBackgroundBrush}" ClipToBounds="True">
+                                            <!-- Chevron < > DIHAPUS: pindah halaman lewat slot MORE/BACK di roda sendiri. -->
+                                            <Grid ColumnDefinitions="*" Margin="0,0,0,16">
+                                                <Border Width="200" Height="200" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource AppBackgroundBrush}" ClipToBounds="True">
                                                 <Grid>
                                                     <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.35">
                                                         <Line StartPoint="116.84,59.35" EndPoint="138.27,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"/>
@@ -986,51 +993,76 @@
                                                     </Canvas>
                                                 </Grid>
                                                 </Border>
-                                                <Button Grid.Column="2" Command="{Binding SwitchToRadialPage2Command}" Classes="ghostIcon" VerticalAlignment="Center" Margin="24,0,0,0" Width="36" Height="36" CornerRadius="18" ToolTip.Tip="Ke Halaman 2" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
-                                                    <PathIcon Data="{StaticResource IconChevronRight}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Button>
                                             </Grid>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
-                                <Border Grid.Column="1" Margin="16,0,0,0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                        <!-- Selected Slot Detail -->
-                                        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSm}" Padding="20" Margin="0,8,0,0">
+                                <Border x:Name="RadialDetailsCard" IsVisible="{Binding IsSlotDetailsOpen}" MinWidth="280" ClipToBounds="True" Margin="0,0,0,16" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
+                                         <!-- Selected Slot Detail -->
+                                        <!-- wrapper tanpa gaya: dulu kartu bersarang (border ganda + margin 8 px) yang bikin isi panel
+                                                 turun ~11-15 px dari roda di kirinya. Sekarang konten mulai dari padding panel saja. -->
+                                        <Border Grid.Row="1" Background="Transparent" BorderThickness="0" Padding="0" Margin="0">
                                             <Grid>
                                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNull}}" Spacing="8">
                                                     <PathIcon Data="{StaticResource IconScript}" Width="36" Height="36" Foreground="{DynamicResource CardBackgroundBrush}"/>
                                                     <TextBlock Text="Pilih shortcut di sebelah kiri untuk mengedit," Foreground="{DynamicResource TextFaintBrush}" TextAlignment="Center" FontSize="12"/>
                                                     <TextBlock Text="atau klik tombol (+) untuk menambah baru." Foreground="{DynamicResource TextFaintBrush}" TextAlignment="Center" FontSize="12"/>
                                                 </StackPanel>
-                                                <Grid RowDefinitions="Auto, Auto, Auto, *, Auto" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                                    <TextBlock Grid.Row="0" Classes="eyebrow" Text="SLOT DETAILS" Margin="0,0,0,16"/>
-                                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" Margin="0,0,0,24">
-                                                        <Border Width="56" Height="56" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
-                                                            <Button Classes="Clear" Command="{Binding SelectedRadialSlot.Script.PickIconCommand}" ToolTip.Tip="Change Icon" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="28" Padding="0">
-                                                                <Panel>
-                                                                     <Viewbox Width="28" Height="28" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                          <Path Data="{Binding SelectedRadialSlot.Script.EditIconGeometry}" Fill="Transparent" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
-                                                                     </Viewbox>
-                                                                     <PathIcon Data="{StaticResource IconPlus}" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNull}}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                </Panel>
-                                                            </Button>
-                                                        </Border>
-                                                        <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding SelectedRadialSlot.Script.OriginalName}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,5"/>
-                                                            <TextBlock Text="{Binding SelectedRadialSlot.Script.FullPath}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" MaxWidth="280"/>
+                                                <Grid RowDefinitions="Auto, Auto, Auto, Auto" IsVisible="{Binding SelectedRadialSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                    <!-- Header: judul + subjudul + tombol tutup -->
+                                                    <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,12">
+                                                        <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                                                            <TextBlock Classes="eyebrow" Text="SLOT DETAILS" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                            <TextBlock Text="Atur script, nama, dan posisi slot radial ini" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                                                         </StackPanel>
-                                                    </StackPanel>
-                                                    <Grid Grid.Row="2" ColumnDefinitions="*, 90" RowDefinitions="Auto, Auto" Margin="0,0,0,16">
-                                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Display Name" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
-                                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Short Code" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" Margin="12,0,0,6"/>
-                                                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding SelectedRadialSlot.Script.EditName}" Watermark="Name" Margin="0,0,12,0" FontSize="13" Padding="10"/>
-                                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRadialSlot.Script.EditShortCode}" Watermark="CODE" MaxLength="4" FontSize="13" HorizontalContentAlignment="Center" Padding="10"/>
+                                                        <Button Grid.Column="1" Command="{Binding CloseSlotDetailsCommand}" Classes="ghost"
+                                                                Width="28" Height="28" Padding="0" Cursor="Hand" VerticalAlignment="Top"
+                                                                ToolTip.Tip="Tutup mode edit (Esc)">
+                                                            <PathIcon Data="{StaticResource IconX}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        </Button>
                                                     </Grid>
-                                                    <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-                                                        <Button Classes="secondary" Content="Mundur" Command="{Binding DataContext.MoveRadialSlotUpCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi berlawanan jarum jam" Margin="0,4,4,0"/>
-                                                        <Button Classes="secondary" Content="Maju" Command="{Binding DataContext.MoveRadialSlotDownCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" ToolTip.Tip="Geser posisi searah jarum jam" Margin="0,4,4,0"/>
-                                                        <Button Classes="danger" Content="Hapus" Command="{Binding DataContext.RemoveFromRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Padding="10,7" FontWeight="SemiBold" Margin="0,4,4,0"/>
-                                                        <Button Classes="primary" Content="Simpan" Command="{Binding SelectedRadialSlot.Script.SaveRenameCommand}" Height="32" Padding="14,0" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                    <!-- Kartu file: ikon (bisa diklik ganti ikon) + nama + path -->
+                                                    <Border Grid.Row="1" Margin="0,0,0,12" Padding="10" CornerRadius="{DynamicResource RadiusSm}"
+                                                            Background="{DynamicResource BgHoverBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                                                        <Grid ColumnDefinitions="Auto, *">
+                                                            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="{DynamicResource RadiusSm}"
+                                                                    Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource ButtonSecondaryBorderBrush}" BorderThickness="1">
+                                                                <Button Classes="Clear" Command="{Binding SelectedRadialSlot.Script.PickIconCommand}" ToolTip.Tip="Ganti ikon"
+                                                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="{DynamicResource RadiusSm}" Padding="0" Cursor="Hand">
+                                                                    <Panel>
+                                                                        <Viewbox Width="22" Height="22" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                            <Path Data="{Binding SelectedRadialSlot.Script.EditIconGeometry}" Fill="Transparent" Stroke="{DynamicResource AccentBlueBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
+                                                                        </Viewbox>
+                                                                        <PathIcon Data="{StaticResource IconPlus}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding SelectedRadialSlot.Script.EditIconGeometry, Converter={x:Static ObjectConverters.IsNull}}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                    </Panel>
+                                                                </Button>
+                                                            </Border>
+                                                            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="3">
+                                                                <TextBlock Text="{Binding SelectedRadialSlot.Script.OriginalName}" FontSize="13" FontWeight="SemiBold"
+                                                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Text="{Binding SelectedRadialSlot.Script.FullPath}" FontSize="11"
+                                                                           Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"
+                                                                           ToolTip.Tip="{Binding SelectedRadialSlot.Script.FullPath}"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                    <!-- Field: dua kolom sama lebar, label di atas input -->
+                                                    <Grid Grid.Row="2" ColumnDefinitions="*, *" Margin="0,0,0,12">
+                                                        <StackPanel Grid.Column="0" Spacing="6">
+                                                            <TextBlock Text="Display Name" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                            <TextBox Text="{Binding SelectedRadialSlot.Script.EditName}" Watermark="Name" FontSize="13" Padding="10"/>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="6">
+                                                            <TextBlock Text="Short Code" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                            <TextBox Text="{Binding SelectedRadialSlot.Script.EditShortCode}" Watermark="CODE" MaxLength="4" FontSize="13" HorizontalContentAlignment="Center" Padding="10"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <!-- Aksi: Hapus + Simpan saja. Tombol Mundur/Maju dihapus
+                                                         (pindah posisi slot dilakukan dengan drag di roda).
+                                                         WrapPanel supaya kalau panel sempit tombol turun baris. -->
+                                                    <WrapPanel Grid.Row="3" Orientation="Horizontal">
+                                                        <Button Classes="danger" Content="Hapus" FontSize="12" Command="{Binding DataContext.RemoveFromRadialSlotCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" CommandParameter="{Binding SelectedRadialSlot}" Height="32" Padding="10,0" FontWeight="SemiBold" Margin="0,0,6,8"/>
+                                                        <Button Classes="primary" Content="Simpan" FontSize="12" Command="{Binding SelectedRadialSlot.Script.SaveRenameCommand}" Height="32" Padding="12,0" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                                     </WrapPanel>
                                                 </Grid>
                                             </Grid>

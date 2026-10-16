@@ -91,7 +91,6 @@
                                              Watermark="Type font name"
                                              FilterMode="Contains"
                                              MinimumPrefixLength="0"
-                                             MaxDropDownHeight="220"
                                              HorizontalAlignment="Stretch"
                                              Foreground="{DynamicResource TextPrimaryBrush}"
                                              FontSize="12"/>

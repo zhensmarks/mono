@@ -9,8 +9,10 @@ using BMachine.Core.Database;
 using BMachine.UI.Messages;
 using CommunityToolkit.Mvvm.Messaging;
 using System; 
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 namespace BMachine.App;
 
 public partial class App : Application, 
@@ -33,6 +35,77 @@ public partial class App : Application,
     public override void OnFrameworkInitializationCompleted()
     {
         Console.WriteLine("[App] Framework Initialization Started");
+
+        // ATURAN: AutoCompleteBox (kolom pencarian board/list, filter, dsb) harus
+        // terbuka dengan SATU KLIK di mana pun di dalam kotaknya — dulu hanya klik
+        // pada chevron kecil yang membuka daftar, sehingga klik di tengah kotak
+        // terasa "tidak bisa diklik". Berlaku global untuk semua AutoCompleteBox.
+        // ATURAN: semua context menu seragam. Semi.Avalonia menempelkan menu bawaan
+        // (Cut/Copy/Paste) dengan tema + teks BAHASA MANDARIN ("复制") di setiap
+        // TextBox, jadi menu di kotak komentar tampil beda dari menu aplikasi.
+        // Di sini menu bawaan itu diganti menu kita sendiri: bahasa Inggris,
+        // tema aplikasi (ControlTheme ContextMenu/MenuItem di App.axaml).
+        // Teks yang bisa diblok (SelectableTextBlock: deskripsi kartu, log) juga
+        // dipasangi menu bawaan Semi (Mandarin). Diganti menu kita: Copy + Select All.
+        Control.ContextRequestedEvent.AddClassHandler<SelectableTextBlock>((block, e) =>
+        {
+            try
+            {
+                if (e.Handled) return;
+                var menu = new ContextMenu();
+                var items = new List<object>();
+                var copy = new MenuItem { Header = "Copy", InputGesture = new KeyGesture(Key.C, KeyModifiers.Control), IsEnabled = !string.IsNullOrEmpty(block.SelectedText) };
+                copy.Click += (_, _) => block.Copy();
+                var selAll = new MenuItem { Header = "Select All", InputGesture = new KeyGesture(Key.A, KeyModifiers.Control) };
+                selAll.Click += (_, _) => block.SelectAll();
+                items.Add(copy);
+                items.Add(new Separator());
+                items.Add(selAll);
+                menu.ItemsSource = items;
+                menu.Open(block);
+                e.Handled = true;
+            }
+            catch { }
+        }, RoutingStrategies.Tunnel);
+
+        Control.ContextRequestedEvent.AddClassHandler<TextBox>((box, e) =>
+        {
+            try
+            {
+                if (e.Handled) return;
+                var menu = new ContextMenu();
+                var items = new List<object>();
+                bool ro = box.IsReadOnly;
+                var cut = new MenuItem { Header = "Cut", InputGesture = new KeyGesture(Key.X, KeyModifiers.Control), IsEnabled = !ro };
+                cut.Click += (_, _) => box.Cut();
+                var copy = new MenuItem { Header = "Copy", InputGesture = new KeyGesture(Key.C, KeyModifiers.Control) };
+                copy.Click += (_, _) => box.Copy();
+                var paste = new MenuItem { Header = "Paste", InputGesture = new KeyGesture(Key.V, KeyModifiers.Control), IsEnabled = !ro };
+                paste.Click += (_, _) => box.Paste();
+                var selAll = new MenuItem { Header = "Select All", InputGesture = new KeyGesture(Key.A, KeyModifiers.Control) };
+                selAll.Click += (_, _) => box.SelectAll();
+                items.Add(cut); items.Add(copy); items.Add(paste);
+                items.Add(new Separator());
+                items.Add(selAll);
+                menu.ItemsSource = items;
+                menu.Open(box);
+                e.Handled = true;
+            }
+            catch { }
+        }, RoutingStrategies.Tunnel);
+
+        InputElement.PointerPressedEvent.AddClassHandler<AutoCompleteBox>((box, e) =>
+        {
+            try
+            {
+                if (!box.IsDropDownOpen && e.GetCurrentPoint(box).Properties.IsLeftButtonPressed)
+                {
+                    box.IsDropDownOpen = true;
+                }
+            }
+            catch { }
+        }, RoutingStrategies.Tunnel);
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             try 

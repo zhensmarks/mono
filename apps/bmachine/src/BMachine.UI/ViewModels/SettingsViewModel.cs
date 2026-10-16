@@ -2143,6 +2143,10 @@ public partial class SettingsViewModel : ObservableObject
     // Script Tab Selection (Master vs Action)
     [ObservableProperty] private bool _isScriptMasterSelected = true;
     [ObservableProperty] private bool _isScriptActionSelected = false;
+    // Mode edit radial: true = panel SLOT DETAILS terbuka (layout kiri-kanan).
+    // false = radial menu tampil di TENGAH (tampilan awal). Esc / tombol tutup
+    // memanggil CloseSlotDetails untuk kembali ke tengah.
+    [ObservableProperty] private bool _isSlotDetailsOpen = false;
     
     // Radial Editor Properties
     [ObservableProperty] private int _radialEditorPage = 0; // 0 = Page 1, 1 = Page 2
@@ -2172,6 +2176,7 @@ public partial class SettingsViewModel : ObservableObject
         RadialEditorPage = 0;
         RebuildRadialSlots();
         SelectedRadialSlot = null;
+        IsSlotDetailsOpen = false;
     }
 
     [RelayCommand]
@@ -2180,6 +2185,7 @@ public partial class SettingsViewModel : ObservableObject
         RadialEditorPage = 1;
         RebuildRadialSlots();
         SelectedRadialSlot = null;
+        IsSlotDetailsOpen = false;
     }
     
     [RelayCommand]
@@ -2190,6 +2196,20 @@ public partial class SettingsViewModel : ObservableObject
         if (SelectedRadialSlot != null) SelectedRadialSlot.IsSelected = false;
         SelectedRadialSlot = slot;
         if (SelectedRadialSlot != null) SelectedRadialSlot.IsSelected = true;
+        // Mode edit: panel SLOT DETAILS dibuka (tampilan kiri-kanan). Menutupnya
+        // lewat Esc / tombol tutup mengembalikan radial menu ke tengah.
+        IsSlotDetailsOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseSlotDetails()
+    {
+        if (SelectedRadialSlot != null)
+        {
+            SelectedRadialSlot.IsSelected = false;
+            SelectedRadialSlot = null;
+        }
+        IsSlotDetailsOpen = false;
     }
     
     [RelayCommand]

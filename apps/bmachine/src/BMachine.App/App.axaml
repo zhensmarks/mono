@@ -372,6 +372,29 @@
             <!-- Fix for DataGrid Fluent Theme Crash: Missing SystemControlTransparentBrush -->
             <SolidColorBrush x:Key="SystemControlTransparentBrush" Color="Transparent" />
 
+            <!-- ======================================================================== -->
+            <!-- TOP LEVEL MENU ITEM — ContextMenu bawaan kotak teks (Cut/Copy/Paste)     -->
+            <!-- Semi.Avalonia memasang ItemContainerTheme="TopLevelMenuItem" pada menu    -->
+            <!-- bawaan TextBox, jadi tanpa override ini menu di kotak komentar tampil     -->
+            <!-- beda dari menu aplikasi. Ikut gaya MenuItem aplikasi (pola Explorer).     -->
+            <!-- ======================================================================== -->
+            <ControlTheme x:Key="TopLevelMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" />
+
+            <!-- ======================================================================== -->
+            <!-- UKURAN DAFTAR PILIHAN ComboBox / AutoCompleteBox (pola ContextMenu)      -->
+            <!-- Semi.Avalonia membaca resource ini di template popup-nya. Nilai ukuran   -->
+            <!-- dilarang di-set per view (lihat DESIGN_SYSTEM.md §5).                    -->
+            <!-- ======================================================================== -->
+            <Thickness x:Key="ComboBoxPopupBorderThickness">1</Thickness>
+            <Thickness x:Key="ComboBoxPopupBorderPadding">5</Thickness>
+            <CornerRadius x:Key="ComboBoxPopupBoxCornerRadius">10</CornerRadius>
+            <BoxShadows x:Key="ComboBoxPopupBoxShadow">0 6 16 0 #80000000</BoxShadows>
+            <x:Double x:Key="ComboBoxPopupMaxDropDownHeight">240</x:Double>
+            <Thickness x:Key="AutoCompleteBoxPopupBorderThickness">1</Thickness>
+            <Thickness x:Key="AutoCompleteBoxPopupPadding">5</Thickness>
+            <CornerRadius x:Key="AutoCompleteBoxPopupCornerRadius">10</CornerRadius>
+            <BoxShadows x:Key="AutoCompleteBoxPopupBoxShadow">0 6 16 0 #80000000</BoxShadows>
+
             <!-- Card Border Brush (Dynamic) -->
             <SolidColorBrush x:Key="CardBorderBrush" Color="Transparent"/>
             

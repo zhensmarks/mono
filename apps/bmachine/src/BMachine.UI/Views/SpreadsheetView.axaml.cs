@@ -207,8 +207,7 @@ public partial class SpreadsheetView : UserControl
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                         VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch,
                         MinHeight = 0,
-                        FontSize = 12,
-                        MaxDropDownHeight = 220
+                        FontSize = 12
                     };
 
                     var items = new List<string>(col.DropdownItems);

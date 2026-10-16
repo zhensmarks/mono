@@ -121,7 +121,13 @@ Selaras: `Bg #0C0C0E`, `Border #232326`, `Radius 6`, `MinHeight 36`, `Padding 10
 - **Focus:** Border #4B4B52
 - **Disabled:** opacity 0.4
 
-`ComboBoxItem`: padding 10,6, radius 6, margin 2, hover #22272B, selected AccentSubtle.
+`ComboBoxItem`: padding 10,6, radius 6, margin 2, **MinHeight 32**, hover #22272B, selected AccentSubtle.
+
+**Ukuran daftar pilihan (aturan wajib):** `MaxDropDownHeight 240` dan lebar minimum daftar `160` — HANYA di `BMachineDesignSystem.axaml` (style `ComboBox` + `ComboBox /template/ Border#PART_PopupBorder`; AutoCompleteBox juga 240).
+- Dilarang menulis `MaxDropDownHeight` (atau lebar daftar) langsung di view/code-behind.
+- Alasannya nyata: dulu nilainya campur — 160 di panel kartu & list, 220 di explorer dan sel spreadsheet, sisanya default tema — sehingga daftar yang isinya sama tinggi/lebarnya berubah begitu pindah tampilan atau kolom. Ukuran daftar harus sama di mana pun.
+
+**Perilaku buka daftar (aturan wajib):** satu klik di MANA PUN pada ComboBox/AutoCompleteBox harus membuka daftarnya, bukan cuma klik chevron kecil. Untuk ComboBox otomatis; untuk AutoCompleteBox dijaga handler global di `BMachine.App/App.axaml.cs` (`InputElement.PointerPressedEvent.AddClassHandler<AutoCompleteBox>` → `IsDropDownOpen = true`). Item daftar saran distyle lewat selector terbatas `AutoCompleteBox ListBoxItem` (hover/selected/padding) supaya item ListBox lain tidak ikut berubah.
 
 Varian: `TextBox.mono` (mono 12), `TextBox.search` (radius 8).
 
@@ -223,6 +229,7 @@ Semua icon UI memakai outline Tabler melalui `PathIcon` + `StreamGeometry` dari 
 - Beda radius untuk komponen sejenis (misal button 6 vs 7 vs 10).
 - Icon beda ukuran tanpa alasan (12 vs 14 vs 18 random).
 - Hover beda warna per View (harus #22272B untuk pill, #27272B untuk secondary button, #10FFFFFF untuk ghost).
+- Set ukuran daftar pilihan (`MaxDropDownHeight`, lebar minimum daftar) di view/code-behind — ukuran daftar ComboBox/AutoCompleteBox hanya dari style global (§5).
 
 ## 14. Scrollbar
 
@@ -292,3 +299,101 @@ Button tanpa `Classes` hanya boleh bila memang tampil sebagai tombol default dar
 
 - Pembatas panel memakai `Border.panel-divider` dengan `BoxShadow` tipis (`0 0 6 0 #14000000`), bukan garis keras saja.
 - Hanya dipakai pada panel yang berdampingan dengan konten lain.
+
+## 21. Wrap — mana yang boleh, mana yang dilarang
+
+Prinsip: **wrap hanya untuk konten yang panjangnya tak terbatas dan tidak dipakai mengukur kontrol lain.** Yang menentukan ukuran (daftar pilihan, baris tombol) tidak boleh wrap, karena tinggi/lebar jadi berubah-ubah dan terlihat "tiba-tiba membesar".
+
+WAJIB wrap (kalau tidak, terpotong di panel sempit):
+- Judul/nama kartu: `TextWrapping="Wrap"` di TextBlock judul.
+- Badge & label (ID, Attachments, Due, Labels): `WrapPanel`.
+- Baris tombol aksi panel detail (Comment/Checklist/Move + 2 tombol ikon): `WrapPanel` — boleh turun baris, tapi ukuran tombolnya tetap 32 px.
+
+DILARANG wrap:
+- Item daftar pilihan ComboBox/AutoCompleteBox: satu baris, `TextTrimming="CharacterEllipsis"`, `MinWidth` 150 (lihat §5). Teks panjang jadi elipsis, BUKAN item dua baris.
+- Teks di dalam tombol: `NoWrap` supaya tombol tidak menggemuk dan mengubah tinggi baris.
+- Angka/nilai di kartu statistik dan kolom tabel: `NoWrap`.
+
+Kalau sebuah elemen butuh ruang lebih: beri ruangnya dari awal (`MinWidth`, lebar kolom, atau ukuran tetap) — jangan biarkan dia "kecil dulu lalu membesar" setelah render.
+
+
+## 22. Context Menu — wajib seragam di seluruh aplikasi
+
+SEMUA permukaan teks wajib memakai context menu aplikasi (tema ContextMenu/MenuItem
+sendiri), BUKAN bawaan Semi.Avalonia:
+
+- `TextBox` (kotak komentar, field, AutoCompleteBox di dalamnya)
+- `SelectableTextBlock` (deskripsi kartu, log) — di sini menu bawaan muncul saat teks DIBLOK
+- Kontrol lain yang menempelkan `ContextMenu` di ControlTheme-nya
+
+Kenapa: Semi.Avalonia menempelkan menu bawaan berbahasa Mandarin (`剪切`/`复制`/`粘贴`) dengan
+tema Semi di setiap ControlTheme TextBox/SelectableTextBlock. Override resource
+(`TopLevelMenuItem`, `ItemContainerTheme`) TIDAK berpengaruh karena Semi mendefinisikan
+resource itu di dictionary-nya sendiri. Satu-satunya cara andal: ganti `ContextMenu`-nya.
+
+Cara pasang (sudah ada di `src/BMachine.App/App.axaml.cs`):
+```csharp
+Control.ContextRequestedEvent.AddClassHandler<TextBox>((c, e) => { ... menu.Open(c); e.Handled = true; },
+                                                        RoutingStrategies.Tunnel);
+```
+- Tunnel class handler: jalan lebih dulu dari handler ContextMenu bawaan sehingga bisa
+  dibatalkan dengan `e.Handled = true`.
+- Item TextBox: Cut / Copy / Paste / Select All (Inggris, pakai `InputGesture` Ctrl+X/C/V/A;
+  Cut & Paste di-disable saat `IsReadOnly`).
+- Item SelectableTextBlock: Copy / Select All (Copy disabled kalau tidak ada `SelectedText`).
+- Muncul permukaan teks baru (mis. kontrol teks pihak ketiga): tambahkan handler tipe itu
+  di file yang sama, JANGAN biarkan terpasang menu bawaan.
+
+## 23. Panel Edit Slot Radial (Settings → Script Manager → RADIAL MENU)
+
+Dua mode, satu panel:
+
+| Mode | Layout |
+|------|--------|
+| Awal (belum ada slot dipilih) | Roda radial di **tengah** area konten, panel SLOT DETAILS **tersembunyi** |
+| Edit (slot dipilih / slot baru ditambah) | Panel SLOT DETAILS di kolom kanan, roda bergeser ke kiri (layout kiri-kanan) |
+
+Keluar dari mode edit: tombol tutup (X) di header panel atau tombol **Esc**
+(`KeyBinding Gesture="Escape"` → `CloseSlotDetailsCommand`) → roda kembali ke tengah.
+
+Implementasi layout: satu `Grid x:Name="RadialRowGrid"` yang **kolomnya diatur code-behind**
+(`UpdateRadialRowLayout()` di `SettingsView.axaml.cs`, dipanggil saat resize + saat
+`IsSlotDetailsOpen` berubah):
+
+| Kondisi | Kolom | Hasil |
+|---------|-------|-------|
+| panel tertutup | `*, Auto, *` (roda di kolom 1) | roda **center** |
+| panel buka, lebar cukup | `Auto, *` (roda kiri, panel kanan) | **kiri-kanan**, panel fleksibel |
+| panel buka, terlalu sempit | `*` + baris `Auto, Auto` | panel turun baris (fallback, tidak terpotong) |
+
+Kunci "tidak terpotong": kolom panel memakai `*` (bukan `Auto`, bukan lebar tetap) sehingga panel
+ikut menyusut mengisi sisa lebar. `MinWidth` panel dipakai sebagai ambang keputusan di code-behind
+(roda 234 + gap 16 + panel 280 + 8), bukan sebagai pemaksa lebar.
+
+Chevron `<` `>` di kiri/kanan roda **tidak dipakai lagi** — pindah halaman pakai slot navigasi
+`MORE`/`BACK` di roda itu sendiri (`IsNavigationReserved`).
+
+Kenapa tidak boleh `ColumnDefinitions="*, Auto, *"` dengan panel lebar tetap: di jendela kecil
+isi panel KELUAR dari tepi kanan jendela (field "Short Code" hilang separuh, tombol Hapus
+terpangkas) karena kolom Auto tidak bisa menyusut.
+
+Aturan tambahan untuk panel yang bisa muncul di samping konten lain:
+- Panel detail wajib punya `MinWidth` (mis. 348) + `ClipToBounds="True"`.
+- Baris tombol di dalam panel pakai `WrapPanel` (lebar alami tombol, turun baris kalau sempit) —
+  JANGAN Grid `*, Auto, Auto`; kolom Auto tidak bisa menyusut sehingga label tombol saling menimpa.
+- Beri `Margin` kanan/bawah pada anak WrapPanel supaya jarak antar-item tetap ada saat turun baris.
+
+Struktur panel (urutan tetap):
+1. Header: judul (eyebrow, `TextPrimaryBrush`) + subjudul 11 px + tombol X 28x28 (`ghost`).
+2. Kartu file: permukaan `BgHoverBrush` + border 1 px; ikon 44x44 (bisa diklik ganti ikon);
+   nama file 13 px SemiBold; path 11 px `TextSecondaryBrush` + `TextTrimming="CharacterEllipsis"`
+   + tooltip berisi path penuh (path TIDAK boleh di-wrap sampai panel melar).
+3. Field: dua kolom **sama lebar** (`*, *`), label 11 px Medium di atas input.
+4. Baris aksi: tinggi tombol **seragam 32 px** — hanya `danger` (Hapus) + `primary` (Simpan).
+   Tombol Mundur/Maju **dihapus**: memindahkan posisi slot dilakukan dengan **drag** slot di roda,
+   bukan tombol. Jangan tambahkan tombol geser posisi lagi di panel.
+
+DILARANG di panel ini:
+- Baris spacer `*` di `RowDefinitions` (bikin jarak mati besar antar-elemen).
+- Kolom field lebar tetap kecil (mis. 90 px) untuk input pendek — pakai `*, *`.
+- Tombol aksi beda tinggi / beda padding antar tombol.

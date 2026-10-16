@@ -402,6 +402,26 @@
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
+        <!-- ATURAN UKURAN DAFTAR (jangan diubah per pemakaian):
+             MaxDropDownHeight TIDAK BOLEH di-set lokal di view. Dulu nilainya
+             campur (160 di panel kartu/list, 220 di explorer & sel spreadsheet,
+             sisanya default tema), sehingga tinggi daftar berubah tiap pindah
+             tampilan untuk konten yang sama. Satu nilai global di sini. -->
+        <Setter Property="MaxDropDownHeight" Value="240" />
+    </Style>
+    <!-- Lebar minimum daftar pilihan: dipasang di ITEM-nya (bukan di Popup —
+         nama part template Semi.Avalonia berbeda, `PART_PopupBorder` tidak ada).
+         Popup selalu selebar kontennya, jadi item dengan MinWidth ini memaksa
+         daftar tidak tercekik saat ComboBox-nya sempit (mis. sel spreadsheet). -->
+    <Style Selector="ComboBoxItem">
+        <Setter Property="MinWidth" Value="150" />
+    </Style>
+    <!-- Teks item TIDAK boleh wrap: teks panjang di daftar sempit bikin item
+         jadi 2 baris, tinggi daftar berubah-ubah dan terlihat "tiba-tiba
+         membesar". Satu baris + lebar minimum = ukuran selalu sama. -->
+    <Style Selector="ComboBoxItem TextBlock, AutoCompleteBox ListBoxItem TextBlock">
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
     <Style Selector="ComboBox:pointerover /template/ Border#PART_BorderElement">
         <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
@@ -411,18 +431,65 @@
     </Style>
     <Style Selector="ComboBoxItem">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="MinHeight" Value="32" />
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
-        <Setter Property="Margin" Value="2" />
+        <Setter Property="Margin" Value="0,1" />
     </Style>
     <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
+        <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}" />
     </Style>
     <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
+    <!-- Umpan balik hover/selected daftar ComboBox disetel di ITEM-nya sendiri.
+         Setter ke /template/ ContentPresenter di atas tidak berefek pada tema
+         Semi.Avalonia: diukur di VM, memindah pointer antar item tidak mengubah
+         satu piksel pun (user: "tidak ada efek hover"). -->
+    <Style Selector="ComboBoxItem:pointerover">
+        <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}" />
+    </Style>
+    <Style Selector="ComboBoxItem:selected">
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+    <!-- Cadangan: tema Semi.Avalonia melukis latar item lewat Border template
+         bernama PART_LayoutRoot (pola sama seperti style MenuItem di App.axaml).
+         Dua-duanya dipasang supaya hover/selected pasti terlihat. -->
+    <Style Selector="ComboBoxItem:pointerover /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
+    </Style>
+    <Style Selector="ComboBoxItem:selected /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+    </Style>
+
+    <!-- Item daftar saran AutoCompleteBox: sebelumnya hover/selected cuma ikut tema
+         Semi sehingga umpan baliknya nyaris tidak terlihat (user: "tidak ada efek
+         hover"). Selector sengaja dibatasi ke AutoCompleteBox supaya item ListBox
+         lain (mis. baris kartu) tidak ikut berubah padding/tingginya. -->
+    <Style Selector="AutoCompleteBox ListBoxItem">
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="MinWidth" Value="150" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="AutoCompleteBox ListBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BgHoverBrush}" />
+    </Style>
+    <Style Selector="AutoCompleteBox ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- ================================================================ -->
+    <!-- DAFTAR PILIHAN (ComboBox / AutoCompleteBox): permukaan, border,    -->
+    <!-- radius, padding, bayangan diambil dari resource tema              -->
+    <!-- (ComboBoxPopup* / AutoCompleteBoxPopup* di Themes + App.axaml),    -->
+    <!-- pola sama dengan ContextMenu supaya terasa seperti context menu    -->
+    <!-- Explorer. Jangan set ukuran daftar per view (DESIGN_SYSTEM §5).    -->
+    <!-- ================================================================ -->
 
     <Style Selector="AutoCompleteBox">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
@@ -434,6 +501,9 @@
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="Padding" Value="10,0" />
         <Setter Property="MinHeight" Value="36" />
+        <!-- Sama seperti ComboBox: tinggi daftar saran TIDAK BOLEH di-set lokal
+             di view (dulu 160 di beberapa tempat) — pakai nilai global ini. -->
+        <Setter Property="MaxDropDownHeight" Value="240" />
     </Style>
 
     <Style Selector="NumericUpDown">
@@ -876,6 +946,11 @@
     <!-- Style global: sembunyikan semua ScrollBar visual, scroll tetap jalan -->
     <Style Selector="ScrollBar">
         <Setter Property="Opacity" Value="0" />
+        <!-- Bar yang disembunyikan TIDAK BOLEH menelan klik: sebelumnya
+             (Opacity 0 saja) dia tetap hit-test, jadi strip tipis di tepi panel
+             terasa mati / "menghalangi" dan klik di situ tidak sampai ke konten.
+             Scroll roda/gesture tetap jalan karena diproses ScrollViewer. -->
+        <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
     <Style Selector="TextBlock.navLabel">
         <Setter Property="FontFamily" Value="avares://BMachine.UI/Assets/Fonts#Inter ExtraBold" />

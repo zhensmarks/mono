@@ -38,6 +38,12 @@
     <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#F1F3F5"/>
     <SolidColorBrush x:Key="PrimaryBrush" Color="#2563EB"/>
     <SolidColorBrush x:Key="SeparatorBrush" Color="#E5E7EB"/>
+    <!-- Daftar pilihan ComboBox/AutoCompleteBox: sepola ContextMenu (pola Explorer) -->
+    <Color x:Key="PopupSurfaceBorder">#CBD5E1</Color>
+    <SolidColorBrush x:Key="ComboBoxPopupBackground" Color="{DynamicResource AppBackground}"/>
+    <SolidColorBrush x:Key="ComboBoxPopupBorderBrush" Color="{DynamicResource PopupSurfaceBorder}"/>
+    <SolidColorBrush x:Key="AutoCompleteBoxPopupBackground" Color="{DynamicResource AppBackground}"/>
+    <SolidColorBrush x:Key="AutoCompleteBoxPopupBorderBrush" Color="{DynamicResource PopupSurfaceBorder}"/>
     <SolidColorBrush x:Key="NavigationDividerBrush" Color="#737D8B"/>
     <SolidColorBrush x:Key="PanelDividerBrush" Color="#737D8B"/>
     <SolidColorBrush x:Key="RadialMenuHoverForegroundBrush" Color="#121212"/>
