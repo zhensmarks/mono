@@ -148,7 +148,7 @@ public class NavigationNoIconsRegressionTests
         // Profil sengaja ikon saja (user minta ikon user, bukan teks nama).
         var profile = FindNamed(dashboard, "Part_ProfileNavButton");
         Assert.True(ContainsVisualIcon(profile));
-        Assert.Equal("IconUserPlain", Attribute(profile.Descendants(Avalonia + "PathIcon").Single(), "Data")?.Trim('{', '}', ' ').Replace("StaticResource ", string.Empty));
+        Assert.Equal("IconUserCircle", Attribute(profile.Descendants(Avalonia + "PathIcon").Single(), "Data")?.Trim('{', '}', ' ').Replace("StaticResource ", string.Empty));
         var settingsEntry = dashboard.Descendants(Avalonia + "Button").Single(button => Attribute(button, "Click") == "OnSettingsClick");
         Assert.Contains("Settings", TextLabels(settingsEntry));
         Assert.False(ContainsVisualIcon(settingsEntry));
