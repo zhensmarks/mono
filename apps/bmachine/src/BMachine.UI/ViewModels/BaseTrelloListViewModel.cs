@@ -23,6 +23,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
         Cards = new ObservableCollection<TrelloCard>();
         RegisterActivityInstance();
+        _ = LoadShowActivityAsync();   // ingat state show/hide details terakhir
     }
 
     // Design-time constructor support
@@ -814,7 +815,37 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     // Global: satu state untuk semua card di semua list VM. Toggle di satu card
     // berlaku untuk card lain juga.
     private static bool _globalShowActivity = true;
+    private static bool _showActivityLoadedFromDb;
+    private const string ShowActivitySettingKey = "Settings.Comment.ShowActivity";
     private static readonly System.Collections.Generic.List<WeakReference<BaseTrelloListViewModel>> _activityInstances = new();
+
+    /// <summary>Simpan state show/hide details ke DB supaya diingat saat app dijalankan ulang.</summary>
+    private async Task PersistShowActivityAsync(bool value)
+    {
+        try
+        {
+            if (_database is null) return;
+            await _database.SetAsync(ShowActivitySettingKey, value ? "true" : "false");
+        }
+        catch { }
+    }
+
+    /// <summary>Muat state show/hide details terakhir dari DB (sekali per sesi app).</summary>
+    private async Task LoadShowActivityAsync()
+    {
+        if (_showActivityLoadedFromDb) return;
+        _showActivityLoadedFromDb = true;
+        try
+        {
+            if (_database is null) return;
+            var stored = await _database.GetAsync<string>(ShowActivitySettingKey);
+            if (!string.IsNullOrWhiteSpace(stored) && bool.TryParse(stored, out var saved) && saved != _globalShowActivity)
+            {
+                ShowActivity = saved;   // setter akan broadcast ke semua instance
+            }
+        }
+        catch { }
+    }
 
     public bool ShowActivity
     {
@@ -823,6 +854,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         {
             if (_globalShowActivity == value) return;
             _globalShowActivity = value;
+            _ = PersistShowActivityAsync(value);
             lock (_activityInstances)
             {
                 _activityInstances.RemoveAll(w => !w.TryGetTarget(out _));

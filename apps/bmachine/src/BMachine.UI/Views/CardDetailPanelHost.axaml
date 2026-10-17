@@ -70,7 +70,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="{Binding BgColorHex}" BorderBrush="{Binding BorderColorHex}" BorderThickness="1"
-                                                CornerRadius="{DynamicResource RadiusSm}" Padding="10,5" Margin="0,0,8,6" VerticalAlignment="Center">
+                                                CornerRadius="{DynamicResource RadiusSm}" Height="30" Padding="10,0" Margin="0,0,8,6" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" Foreground="{Binding TextColorHex}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
                                         </Border>
                                     </DataTemplate>
@@ -96,11 +96,45 @@
                         <!-- ACTION BUTTONS -->
                         <Separator Margin="0,4,0,10"/>
                         <WrapPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <!-- Comment Button -->
-                            <Button Command="{Binding $parent[UserControl].DataContext.ShowCommentsCommand}" CommandParameter="{Binding SelectedCard}"
-                                    Classes="Muted" Height="32" Padding="12,0" CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Comments">
-                                <TextBlock Text="Comment" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                            </Button>
+                            <!-- Comment Button (dengan tombol kecil: buka di jendela baru) -->
+                            <!-- Split button: satu border luar, satu garis pemisah; segmen kanan = buka di jendela baru -->
+                            <Border Margin="0,0,8,6" Height="32" CornerRadius="{DynamicResource RadiusSm}"
+                                    Background="{DynamicResource ButtonSecondaryBackgroundBrush}"
+                                    BorderBrush="{DynamicResource ButtonSecondaryBorderBrush}" BorderThickness="1"
+                                    VerticalAlignment="Top" ClipToBounds="True">
+                                <StackPanel Orientation="Horizontal" Spacing="0">
+                                    <Button Command="{Binding $parent[UserControl].DataContext.ShowCommentsCommand}" CommandParameter="{Binding SelectedCard}"
+                                            Height="30" Padding="12,0" CornerRadius="0" BorderThickness="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Comments">
+                                        <Button.Styles>
+                                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                                <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+                                            </Style>
+                                            <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                            </Style>
+                                        </Button.Styles>
+                                        <TextBlock Text="Comment" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    </Button>
+                                    <Border Width="1" Background="{DynamicResource ButtonSecondaryBorderBrush}"/>
+                                    <Button Width="16" Height="30" Padding="0" CornerRadius="0" BorderThickness="0" Background="Transparent" Cursor="Hand"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                            Click="OnOpenCommentWindowClicked" ToolTip.Tip="Buka comment di jendela baru">
+                                        <Button.Styles>
+                                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                                <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+                                            </Style>
+                                            <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                            </Style>
+                                        </Button.Styles>
+                                        <!-- Segitiga solid (bukan chevron garis) -->
+                                        <PathIcon Data="M0,0 L9,5 L0,10 Z" Width="9" Height="10" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
                             
                             <!-- Checklist Button -->
                             <Button Command="{Binding $parent[UserControl].DataContext.ShowChecklistsCommand}" CommandParameter="{Binding SelectedCard}"
@@ -151,21 +185,20 @@
                     <StackPanel Spacing="4">
                         <TextBlock Text="Comments" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Left" HorizontalAlignment="Left"/>
                         <TextBlock Text="{Binding SelectedCard.Name}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" TextAlignment="Left" HorizontalAlignment="Left"/>
+                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="0,2" Margin="0,1,0,0" HorizontalAlignment="Left" IsVisible="{Binding SelectedCard.HasEventDate}">
+                                <TextBlock Text="{Binding SelectedCard.EventDateText}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                            </Border>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                         <Button Command="{Binding $parent[UserControl].DataContext.ToggleShowActivityCommand}"
-                                Classes="Muted" Height="32" Padding="12,0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" VerticalAlignment="Center"
-                                ToolTip.Tip="Show / hide activity">
+                                Classes="Muted" Height="32" Width="32" Padding="0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" VerticalAlignment="Center"
+                                ToolTip.Tip="Tampilkan / sembunyikan detail aktivitas">
                             <Grid>
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Text="Hide details" VerticalAlignment="Center"
-                                           IsVisible="{Binding $parent[UserControl].DataContext.ShowActivity}"/>
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Text="Show details" VerticalAlignment="Center"
-                                           IsVisible="{Binding !$parent[UserControl].DataContext.ShowActivity}"/>
+                                <PathIcon Data="{StaticResource IconEye}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}"
+                                          IsVisible="{Binding $parent[UserControl].DataContext.ShowActivity}"/>
+                                <PathIcon Data="{StaticResource IconEyeOff}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}"
+                                          IsVisible="{Binding !$parent[UserControl].DataContext.ShowActivity}"/>
                             </Grid>
-                        </Button>
-                        <Button Classes="ghostIcon" Click="OnOpenCommentWindowClicked"
-                                Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip.Tip="Open in New Window" VerticalAlignment="Center">
-                            <PathIcon Data="{StaticResource IconOpenWindow}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </Button>
                         <Button Command="{Binding $parent[UserControl].DataContext.CloseCommentsPanelCommand}"
                                 Classes="PanelClose" VerticalAlignment="Center">

@@ -48,6 +48,9 @@ public class SettingsPreloadService
             
             // Leaderboard
             "Leaderboard.Range",
+
+            // Panel komentar (ingat show/hide details)
+            "Settings.Comment.ShowActivity",
             
             // Theme & Appearance (already loaded by ThemeService, but included for completeness)
             "Settings.Theme",

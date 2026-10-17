@@ -24,12 +24,15 @@
             <StackPanel Spacing="4" HorizontalAlignment="Left">
                 <TextBlock Text="Comments" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Left" HorizontalAlignment="Left"/>
                 <TextBlock Text="{Binding SelectedCard.Name}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" TextAlignment="Left" HorizontalAlignment="Left"/>
+                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="0,2" Margin="0,1,0,0" HorizontalAlignment="Left" IsVisible="{Binding SelectedCard.HasEventDate}">
+                        <TextBlock Text="{Binding SelectedCard.EventDateText}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    </Border>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Top">
-                <Button Command="{Binding ToggleShowActivityCommand}" Classes="Muted" Height="32" Padding="12,0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" VerticalAlignment="Center" ToolTip.Tip="Show / hide activity">
+                <Button Command="{Binding ToggleShowActivityCommand}" Classes="Muted" Height="32" Width="32" Padding="0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand" VerticalAlignment="Center" ToolTip.Tip="Tampilkan / sembunyikan detail aktivitas">
                     <Grid>
-                        <TextBlock Text="Hide details" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" IsVisible="{Binding ShowActivity}"/>
-                        <TextBlock Text="Show details" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" IsVisible="{Binding !ShowActivity}"/>
+                        <PathIcon Data="{StaticResource IconEye}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding ShowActivity}"/>
+                        <PathIcon Data="{StaticResource IconEyeOff}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !ShowActivity}"/>
                     </Grid>
                 </Button>
             <Button Classes="WindowClose" Click="CloseButton_Click" ToolTip.Tip="Close">

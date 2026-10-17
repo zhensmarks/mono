@@ -74,6 +74,29 @@ _MANASIK_KEYWORDS   = ["MANASIK", "MSK"]
 _WISUDA_KEYWORDS    = ["WISUDA", "WSD"]
 
 
+def iter_txt_files(root, max_depth=4):
+    r"""Semua file .txt di dalam root sampai kedalaman max_depth.
+
+    NOTE.txt tidak selalu ada langsung di bawah PILIHAN. Contoh nyata:
+      ...\05_SDIT DARUL QURAN\PILIHAN\1. PAS FOTO\NOTE.txt
+    Isinya bisa "PFM_005" / "PAS FOTO" / "2X3 = 6 LEMBAR" yang menandakan pas foto.
+    Karena itu pencarian .txt harus rekursif (perilaku sama seperti pasfoto.py/manasik.py
+    yang memakai os.walk), bukan cuma 1 level.
+    """
+    root = os.path.abspath(root)
+    base = root.rstrip(os.sep).count(os.sep)
+    try:
+        for cur, dirs, files in os.walk(root):
+            depth = cur.rstrip(os.sep).count(os.sep) - base
+            if depth >= max_depth:
+                dirs[:] = []
+            for f in files:
+                if f.lower().endswith(".txt"):
+                    yield os.path.join(cur, f)
+    except Exception:
+        return
+
+
 def detect_folder_types(pilihan_path):
     found = set()
     if not os.path.isdir(pilihan_path):
@@ -108,30 +131,21 @@ def detect_folder_types(pilihan_path):
         except Exception:
             pass
 
+    # 1) Nama folder level-1: hanya PROFESI yang dicek dari nama (perilaku lama).
     for entry in entries:
         full = os.path.join(pilihan_path, entry)
-        
         if os.path.isdir(full):
-            # Cek nama folder HANYA untuk PROFESI
             entry_upper = entry.upper()
             for kw in _PROFESI_KEYWORDS:
                 if kw in entry_upper:
                     found.add('profesi')
                     break
-                    
-            # Cari file .txt di dalam subfolder untuk Pas Foto, Manasik, Wisuda
-            try:
-                sub_entries = os.listdir(full)
-                for sub in sub_entries:
-                    if sub.lower().endswith('.txt'):
-                        check_txt(os.path.join(full, sub))
-            except Exception:
-                pass
-                
-        elif entry.lower().endswith('.txt'):
-            # Jika ada .txt langsung di folder pilihan
-            check_txt(full)
-            
+
+    # 2) Semua file .txt (NOTE.txt) sampai beberapa level di dalam PILIHAN,
+    #    karena NOTE.txt bisa berada di dalam sub-folder (mis. PILIHAN\1. PAS FOTO\NOTE.txt).
+    for txt_path in iter_txt_files(pilihan_path, max_depth=4):
+        check_txt(txt_path)
+
     return found
 
 

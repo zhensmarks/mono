@@ -388,16 +388,50 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
 
         print(f"  - Template PSD: {os.path.basename(psd_template_path)}")
 
-        # Kumpulkan JPG/JPEG sumber (urutan natural)
-        source_images = [
-            f for f in os.listdir(item_path)
-            if f.lower().endswith(ALLOWED_EXTS)
-            and not f.startswith(".")
-            and not f.startswith("._")
-        ]
-        source_images.sort(key=natural_sort_key)
+        # Kumpulkan JPG/JPEG sumber: telusuri SEMUA subfolder (mis. per KELAS),
+        # lalu duplikasi PSD per folder sambil mempertahankan struktur folder
+        # (pola sama seperti manasik.py: os.walk + rel_dir).
+        any_images = False
+        for root_dir, sub_dirs, files in os.walk(item_path):
+            sub_dirs[:] = [d for d in sub_dirs if not d.startswith(".")]
+            source_images = sorted(
+                [
+                    f for f in files
+                    if f.lower().endswith(ALLOWED_EXTS)
+                    and not f.startswith(".")
+                    and not f.startswith("._")
+                ],
+                key=natural_sort_key,
+            )
+            if not source_images:
+                continue
 
-        if not source_images:
+            any_images = True
+            rel_dir = os.path.relpath(root_dir, item_path)
+            target_folder = item_output_folder if rel_dir == "." else os.path.join(item_output_folder, rel_dir)
+            try:
+                os.makedirs(target_folder, exist_ok=True)
+            except Exception as e:
+                print(f"    - [ERROR] Gagal membuat folder '{target_folder}': {e}", file=sys.stderr)
+                continue
+
+            label = item if rel_dir == "." else rel_dir
+            print(f"  - [{label}] {len(source_images)} gambar. Duplikasi & rename.")
+            for idx, img_file in enumerate(source_images, start=1):
+                base_name, _ = os.path.splitext(img_file)
+                dest_filename = compute_dest_filename(base_name, idx)
+                dest_path = os.path.join(target_folder, dest_filename)
+                if os.path.exists(dest_path):
+                    print(f"    - SKIP_EXISTING: '{dest_filename}' sudah ada.")
+                    continue
+
+                try:
+                    shutil.copy2(psd_template_path, dest_path)
+                    print(f"    - [OK] {idx}/{len(source_images)} {dest_filename}")
+                except Exception as e:
+                    print(f"    - [ERROR] Gagal menyalin ke '{os.path.basename(dest_path)}': {e}", file=sys.stderr)
+
+        if not any_images:
             print("  - [INFO] Tidak ada file JPG/JPEG sumber. Akan tetap menyalin satu PSD sebagai '1.psd'.")
             dest_path = os.path.join(item_output_folder, "1.psd")
             try:
@@ -405,24 +439,6 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
                 print("    - [SUCCESS] Membuat 1.psd")
             except Exception as e:
                 print(f"    - [ERROR] Gagal menyalin PSD: {e}", file=sys.stderr)
-            continue
-
-        # Duplikasi PSD → penamaan cerdas
-        print(f"  - Ditemukan {len(source_images)} file gambar. Memulai duplikasi & rename.")
-        for idx, img_file in enumerate(source_images, start=1):
-            base_name, _ = os.path.splitext(img_file)
-            dest_filename = compute_dest_filename(base_name, idx)
-            dest_path = os.path.join(item_output_folder, dest_filename)
-            if os.path.exists(dest_path):
-                print(f"    - SKIP_EXISTING: '{dest_filename}' sudah ada.")
-                continue
-
-            try:
-                shutil.copy2(psd_template_path, dest_path)
-                total = len(source_images)
-                print(f"    - [OK] {idx}/{total} {os.path.basename(dest_path)}")
-            except Exception as e:
-                print(f"    - [ERROR] Gagal menyalin ke '{os.path.basename(dest_path)}': {e}", file=sys.stderr)
 
     if processed_count == 0:
         print("[INFO] Tidak ada folder yang cocok dengan kriteria yang ditemukan untuk diproses.")
