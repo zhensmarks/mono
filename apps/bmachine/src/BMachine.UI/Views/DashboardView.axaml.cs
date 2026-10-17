@@ -24,7 +24,9 @@ public partial class DashboardView : UserControl
         }
         
         // Wire up Batch Drop Zone drag-drop handlers
-        AddHandler(DragDrop.DropEvent, OnBatchDrop);
+        // handledEventsToo: drop harus tetap sampai ke handler walau ada kontrol di dalamnya
+        // (TreeView/Border) yang ikut menangani event drag-drop.
+        AddHandler(DragDrop.DropEvent, OnBatchDrop, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(DragDrop.DragOverEvent, OnBatchDragOver);
 
         this.SizeChanged += OnDashboardSizeChanged;

@@ -317,7 +317,8 @@
                 </Grid>
 
                 <!-- BATCH TAB CONTENT (REDESIGNED) -->
-                <Grid IsVisible="{Binding IsBatchTabSelected}" RowDefinitions="*, Auto" Margin="20,0,20,0">
+                <Grid IsVisible="{Binding IsBatchTabSelected}" RowDefinitions="*, Auto" Margin="20,0,20,0"
+                      DragDrop.AllowDrop="True">
                     
                     <!-- DROP ZONE (Visible when no folders) -->
                     <Border Grid.Row="0" x:Name="BatchDropZone"
@@ -339,7 +340,8 @@
                     </Border>
                     
                     <!-- EXPLORER VIEW (Visible when folders exist) -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,*" IsVisible="{Binding BatchVM.HasFolders}">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,*" IsVisible="{Binding BatchVM.HasFolders}"
+                          DragDrop.AllowDrop="True">
                          
                         <!-- SOURCE PANEL -->
                         <Grid Grid.Column="0" Margin="0,0,5,0" RowDefinitions="Auto, *">
@@ -362,6 +364,7 @@
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceTreeItems}"
+                                              DragDrop.AllowDrop="True"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
                                               IsVisible="{Binding !BatchVM.IsMasterBrowserOpenLeft}"
                                               SelectionMode="Single"
@@ -649,6 +652,7 @@
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.OutputTreeItems}"
+                                              DragDrop.AllowDrop="True"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"
                                               IsVisible="{Binding !BatchVM.IsMasterBrowserOpenRight}"
                                               SelectionMode="Single"
