@@ -69,6 +69,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
         
         SetAccentColor(accentStr);
         SetFontFamily(fontStr);
+        AppearancePaletteService.Select(await _database.GetAsync<string>(AppearancePaletteService.SettingKey));
     }
     
     // ... Existing Fields ...
@@ -77,6 +78,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     {
         if (Application.Current == null) return;
         
+        AppearancePaletteService.RemoveOverrides();
         if (hexColor == "RANDOM") hexColor = "#FFFFFF"; // Fallback
         
         if (Color.TryParse(hexColor, out var color))
@@ -98,6 +100,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
                 Application.Current.Resources[$"Accent{type}Color"] = color;
             }
         }
+        AppearancePaletteService.ApplyCurrent();
     }
 
 
@@ -108,6 +111,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     {
         if (Application.Current == null) return;
 
+        AppearancePaletteService.RemoveOverrides();
         Application.Current.RequestedThemeVariant = theme switch
         {
             ThemeVariantType.Light => ThemeVariant.Light,
@@ -115,6 +119,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
             _ => ThemeVariant.Default
         };
 
+        AppearancePaletteService.RemoveOverrides();
         // Resolve actual theme to apply correct manual colors (Border, CardBg)
         // If System/Default, we check ActualThemeVariant.
         // Note: This only sets the initial colors. Fully dynamic system switching 
@@ -142,15 +147,18 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
         UpdateLogColors(isLight);
 
         // Fire and forget save
+        AppearancePaletteService.ApplyCurrent();
         _database.SetAsync("Settings.Theme", theme.ToString());
     }
 
     public void Receive(ThemeSettingsChangedMessage message)
     {
+        AppearancePaletteService.RemoveOverrides();
         if (!string.IsNullOrEmpty(message.DarkBackgroundColor)) _darkBgColor = message.DarkBackgroundColor;
         if (!string.IsNullOrEmpty(message.LightBackgroundColor)) _lightBgColor = message.LightBackgroundColor;
         bool isLight = Application.Current?.ActualThemeVariant == ThemeVariant.Light;
         UpdateBackgroundBrush(isLight);
+        AppearancePaletteService.ApplyCurrent();
     }
 
     private void UpdateBackgroundBrush(bool isLight)
@@ -193,6 +201,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     {
         if (Application.Current == null) return;
         
+        AppearancePaletteService.RemoveOverrides();
         if (isDark)
         {
             _darkBorderColor = hexColor;
@@ -217,6 +226,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
                 Application.Current.Resources["SeparatorBrush"] = SolidColorBrush.Parse(hexColor);
             }
         }
+        AppearancePaletteService.ApplyCurrent();
     }
 
 
@@ -225,6 +235,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     {
         if (Application.Current == null) return;
         
+        AppearancePaletteService.RemoveOverrides();
         if (Color.TryParse(hexColor, out var color))
         {
             // Update Core Accent Resources
@@ -243,6 +254,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
             
              _database.SetAsync("Settings.Accent", hexColor);
         }
+        AppearancePaletteService.ApplyCurrent();
     }
 
     public void SetFontFamily(string fontFamily)

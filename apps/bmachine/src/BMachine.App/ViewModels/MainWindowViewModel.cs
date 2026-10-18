@@ -144,6 +144,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
 
     private void UpdateBackground()
     {
+        BMachine.UI.Services.AppearancePaletteService.RemoveOverrides();
         var isDark = Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
         var hex = isDark ? _cachedDarkBg : _cachedLightBg;
         
@@ -164,6 +165,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             }
         }
         catch { }
+        BMachine.UI.Services.AppearancePaletteService.ApplyCurrent();
     }
 
     // Update State

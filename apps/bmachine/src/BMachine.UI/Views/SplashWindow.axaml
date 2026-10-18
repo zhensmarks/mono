@@ -32,11 +32,11 @@
                 <StackPanel Spacing="10" HorizontalAlignment="Center">
                     <!-- Vector Icon (Stylized abstract layers / B) -->
                     <Viewbox Width="56" Height="56" HorizontalAlignment="Center">
-                        <Grid>
+                        <Canvas Width="24" Height="24">
                             <Path Data="M12 2L2 7l10 5 10-5-10-5z" Fill="{DynamicResource StatusInfoBrush}" Opacity="0.9"/>
                             <Path Data="M2 12l10 5 10-5" Stroke="{DynamicResource StatusInfoBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"/>
                             <Path Data="M2 17l10 5 10-5" Stroke="{DynamicResource StatusInfoBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" Opacity="0.6"/>
-                        </Grid>
+                        </Canvas>
                         <Viewbox.Effect>
                             <DropShadowEffect Color="#3B82F6" BlurRadius="25" Opacity="0.6" OffsetX="0" OffsetY="5"/>
                         </Viewbox.Effect>

@@ -4,13 +4,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:BMachine.UI.ViewModels"
         xmlns:views="using:BMachine.UI.Views"
-        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="480" d:DesignHeight="540"
         x:Class="BMachine.UI.Views.ExplorerSettingsWindow"
         x:DataType="vm:OutputExplorerViewModel"
         Title="Explorer Settings"
-        Width="400" Height="450"
+        Width="480" Height="540" MinWidth="440" MinHeight="340"
         WindowStartupLocation="CenterOwner"
-        CanResize="False"
+        CanResize="True"
         SystemDecorations="None"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
@@ -47,14 +47,35 @@
     </Window.Styles>
 
     <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusXl}" ClipToBounds="True">
-        <Grid>
-        <!-- ═══ CONTENT ═══ -->
-        <ScrollViewer ZIndex="0" Padding="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <Grid>
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+            <Grid ColumnDefinitions="*,Auto" Background="{DynamicResource CardBackgroundBrush}">
+                <Border Name="DragHeader" Background="Transparent" Padding="16,12" PointerPressed="OnHeaderPointerPressed">
+                    <TextBlock Text="Explorer Settings" FontSize="14" FontWeight="SemiBold"/>
+                </Border>
+                <Button Grid.Column="1" Classes="Clear" Width="32" Height="32" Padding="8" Margin="0,4,8,4"
+                        Click="Close_Click" ToolTip.Tip="Close" AutomationProperties.Name="Close Explorer Settings">
+                    <PathIcon Data="{DynamicResource IconX}" Width="14" Height="14"/>
+                </Button>
+            </Grid>
+            <Border Grid.Row="1" Margin="16,12,16,0" Background="{DynamicResource CardBackgroundBrush}"
+                    CornerRadius="{DynamicResource RadiusSm}" Padding="3" BorderThickness="1"
+                    BorderBrush="{DynamicResource SeparatorBrush}">
+                <Grid ColumnDefinitions="*,*">
+                    <RadioButton Classes="Segmented" GroupName="ExplorerSettingsTabs" IsChecked="{Binding ExplorerSettingsVM.IsGeneralTabVisible}">
+                        <TextBlock Text="General" Foreground="{Binding $parent[RadioButton].Foreground}"/>
+                    </RadioButton>
+                    <RadioButton Grid.Column="1" Classes="Segmented" GroupName="ExplorerSettingsTabs" IsChecked="{Binding ExplorerSettingsVM.IsShortcutsTabVisible}">
+                        <TextBlock Text="Appearance &amp; Shortcuts" Foreground="{Binding $parent[RadioButton].Foreground}"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+            <Grid Grid.Row="2" Margin="16,12,16,12">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              IsVisible="{Binding ExplorerSettingsVM.IsGeneralTabVisible}">
                 <!-- GENERAL TAB -->
-                <Grid IsVisible="{Binding ExplorerSettingsVM.IsGeneralTabVisible}">
-                    <StackPanel Spacing="16" Margin="24,64,24,32">
-                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusMd}" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                <Grid>
+                    <StackPanel Spacing="12" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusMd}" Padding="14" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
                             <StackPanel Spacing="12">
                                 <Grid RowDefinitions="Auto,Auto">
                                     <TextBlock Grid.Row="0" Text="DEFAULT EXPLORER PATH" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
@@ -66,14 +87,14 @@
                                 </Grid>
                             </StackPanel>
                         </Border>
-                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusMd}" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusMd}" Padding="14" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
                             <StackPanel Spacing="12">
                                 <Grid RowDefinitions="Auto,Auto">
                                     <TextBlock Grid.Row="0" Text="VIEW MODE" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2"/>
                                     <TextBlock Grid.Row="1" Text="Choose how files and folders are displayed by default." FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
                                 </Grid>
-                                <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="3" HorizontalAlignment="Left" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
-                                    <Grid ColumnDefinitions="*,*,*" Width="300">
+                                <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="3" HorizontalAlignment="Stretch" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                                    <Grid ColumnDefinitions="*,*,*">
                                         <RadioButton Grid.Column="0" IsChecked="{Binding IsVerticalLayout}" Classes="Segmented" FontSize="11">
                                             <TextBlock Text="List" Foreground="{Binding $parent[RadioButton].Foreground}" FontSize="11"/>
                                         </RadioButton>
@@ -87,7 +108,7 @@
                                 </Border>
                             </StackPanel>
                         </Border>
-                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusMd}" Padding="16" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+                        <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusMd}" Padding="14" BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
                             <StackPanel Spacing="12">
                                 <TextBlock Text="LAYOUT &amp; NAVIGATION" FontWeight="Bold" FontSize="10" LetterSpacing="1.2" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <Grid ColumnDefinitions="*,Auto">
@@ -102,25 +123,18 @@
                     </StackPanel>
                 </Grid>
 
+                </ScrollViewer>
                 <Grid IsVisible="{Binding ExplorerSettingsVM.IsShortcutsTabVisible}">
-                    <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}" Padding="24,64,24,32" />
+                    <views:ExplorerSettingsView DataContext="{Binding ExplorerSettingsVM}"/>
                 </Grid>
             </Grid>
-        </ScrollViewer>
-
-        <Grid ZIndex="10" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0">
-            <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusMd}" Padding="4" BorderThickness="1" BorderBrush="{DynamicResource NavigationDividerBrush}">
-                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                    <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ExplorerSettingsTabs" IsChecked="{Binding ExplorerSettingsVM.IsGeneralTabVisible}">
-                        <TextBlock Classes="navLabel" Text="GENERAL" Foreground="{Binding $parent[RadioButton].Foreground}"/>
-                    </RadioButton>
-                    <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ExplorerSettingsTabs" IsChecked="{Binding ExplorerSettingsVM.IsShortcutsTabVisible}">
-                        <TextBlock Classes="navLabel" Text="SETTINGS" Foreground="{Binding $parent[RadioButton].Foreground}"/>
-                    </RadioButton>
-                </StackPanel>
+            <Border Grid.Row="3" Padding="16,8" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SeparatorBrush}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Drag the title bar to move this window" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,8,0"/>
+                    <Button Grid.Column="1" Content="Done" Click="Close_Click"/>
+                </Grid>
             </Border>
-        </Grid>
-        
         </Grid>
     </Border>
 </Window>

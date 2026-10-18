@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
@@ -9,7 +10,13 @@ public partial class ExplorerSettingsWindow : Window
     public ExplorerSettingsWindow()
     {
         InitializeComponent();
-        this.AddHandler(InputElement.PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel);
+        AddHandler(InputElement.PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        CompactDialogSizing.FitToScreen(this);
     }
 
     private void OnGlobalPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -17,16 +24,16 @@ public partial class ExplorerSettingsWindow : Window
         if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && e.ClickCount == 2)
         {
             e.Handled = true;
-            this.Close();
+            Close();
         }
     }
 
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        base.OnPointerPressed(e);
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            this.BeginMoveDrag(e);
+            BeginMoveDrag(e);
+            e.Handled = true;
         }
     }
 

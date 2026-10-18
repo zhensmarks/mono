@@ -1,54 +1,50 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
         x:Class="BMachine.UI.Views.IconPickerWindow"
         Title="Select Icon"
-    Width="600" Height="500"
-    WindowStartupLocation="CenterOwner"
-    CanResize="False"
-    SystemDecorations="None"
-    TransparencyLevelHint="Mica"
-    Background="Transparent"
-    ExtendClientAreaToDecorationsHint="True">
-
+        Width="440" Height="380" MinWidth="360" MinHeight="280"
+        WindowStartupLocation="CenterOwner" CanResize="True"
+        SystemDecorations="None" Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        FontFamily="{DynamicResource FontPrimary}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
     <Window.Styles>
         <Style Selector="Button.IconGridItem">
-            <Setter Property="Width" Value="50"/>
-            <Setter Property="Height" Value="50"/>
-            <Setter Property="Margin" Value="6"/>
-            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#404040"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.IconGridItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#353535"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+        <Style Selector="Button.IconGridItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+        </Style>
     </Window.Styles>
-
-    <Border CornerRadius="{DynamicResource RadiusSm}" ClipToBounds="True" 
-            BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}"
-            BoxShadow="0 10 30 0 #80000000">
-        <Border.Background>
-            <SolidColorBrush Color="#1e1e1e" Opacity="0.98"/>
-        </Border.Background>
-        
-        <Grid RowDefinitions="Auto, *, Auto">
-            <!-- Header -->
-            <Border Grid.Row="0" Padding="15" Background="{DynamicResource CardBackgroundBrush}">
-                <TextBlock Text="Select Icon" FontWeight="Bold" FontSize="16" Foreground="White" 
-                           HorizontalAlignment="Center"/>
-            </Border>
-
-            <!-- Scrollable Grid -->
-            <ScrollViewer Grid.Row="1" Padding="15,15,15,0">
-                <ItemsControl Name="IconList" Margin="0,0,0,15">
+    <Border CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True"
+            Background="{DynamicResource AppBackgroundBrush}"
+            BorderThickness="1" BorderBrush="{DynamicResource SeparatorBrush}">
+        <Grid RowDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="*,Auto" Background="{DynamicResource CardBackgroundBrush}">
+                <Border Name="DragHeader" Background="Transparent" Padding="16,12"
+                        PointerPressed="OnHeaderPointerPressed">
+                    <TextBlock Text="Select Icon" FontWeight="SemiBold" FontSize="14"/>
+                </Border>
+                <Button Grid.Column="1" Classes="Clear" Width="32" Height="32" Padding="8"
+                        Margin="0,4,8,4" Click="OnCancelClick" ToolTip.Tip="Close"
+                        AutomationProperties.Name="Close icon picker">
+                    <PathIcon Data="{DynamicResource IconX}" Width="14" Height="14"/>
+                </Button>
+            </Grid>
+            <ScrollViewer Grid.Row="1" Padding="10" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl Name="IconList">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
@@ -56,24 +52,22 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Classes="IconGridItem" Click="OnIconClick" Tag="{Binding Key}">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="{Binding Key}"/>
-                                </ToolTip.Tip>
-                                <PathIcon Data="{Binding Geometry}" Width="24" Height="24" Foreground="White"/>
+                            <Button Classes="IconGridItem" Click="OnIconClick" Tag="{Binding Key}"
+                                    ToolTip.Tip="{Binding Key}" AutomationProperties.Name="{Binding Key}">
+                                <PathIcon Data="{Binding Geometry}" Width="20" Height="20"
+                                          Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
-            
-            <!-- Footer -->
-            <!-- Footer -->
-            <Border Grid.Row="2" Padding="15" Background="{DynamicResource CardBackgroundBrush}">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-                     <Button Classes="Clear" Content="Clear Icon" Foreground="{DynamicResource StatusDangerBrush}" Click="OnClearClick" Margin="0,0,20,0"/>
-                     <Button Content="Cancel" Click="OnCancelClick"/>
-                </StackPanel>
+            <Border Grid.Row="2" Padding="12,8" BorderThickness="0,1,0,0"
+                    BorderBrush="{DynamicResource SeparatorBrush}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Button Classes="Clear" Content="Clear Icon" HorizontalAlignment="Left"
+                            Foreground="{DynamicResource StatusDangerBrush}" Click="OnClearClick"/>
+                    <Button Grid.Column="1" Content="Cancel" Click="OnCancelClick"/>
+                </Grid>
             </Border>
         </Grid>
     </Border>

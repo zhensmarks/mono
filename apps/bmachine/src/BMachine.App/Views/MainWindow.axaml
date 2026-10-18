@@ -18,7 +18,7 @@
         ExtendClientAreaTitleBarHeightHint="40"
         SystemDecorations="Full"
         UseLayoutRounding="True"
-        Background="{Binding WindowBackground}">
+        Background="{DynamicResource AppBackgroundBrush}">
 
     <Grid Name="MainRoot" RenderTransformOrigin="0.5,0.5">
 
@@ -118,7 +118,7 @@
         </Grid>
 
         <!-- Loading overlay (shown while Dashboard is created after splash) -->
-        <Grid IsVisible="{Binding IsLoadingDashboard}" Background="{Binding WindowBackground}" ZIndex="1">
+        <Grid IsVisible="{Binding IsLoadingDashboard}" Background="{DynamicResource AppBackgroundBrush}" ZIndex="1">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
                 <ProgressBar IsIndeterminate="True" Width="200" Height="4"/>
                 <TextBlock Text="Memuat Dashboard..." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>

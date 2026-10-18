@@ -419,6 +419,18 @@ public partial class SettingsViewModel : ObservableObject
     public PathSettingsViewModel? PathSettingsVM { get; private set; }
     public ExplorerSettingsViewModel? ExplorerSettingsVM { get; private set; }
 
+    public IReadOnlyList<AppearancePalette> AppearancePalettes => AppearancePalette.All;
+
+    [ObservableProperty]
+    private AppearancePalette _selectedAppearancePalette = AppearancePalette.All[0];
+
+    partial void OnSelectedAppearancePaletteChanged(AppearancePalette value)
+    {
+        if (_isInitializing) return;
+        AppearancePaletteService.Select(value.Id);
+        _database?.SetAsync(AppearancePaletteService.SettingKey, value.Id);
+    }
+
     // Theme Settings
     // Theme Settings
     [ObservableProperty]
@@ -794,9 +806,6 @@ public partial class SettingsViewModel : ObservableObject
         INotificationService? notificationService = null,
         BMachine.Core.Platform.IPlatformService? platformService = null)
     {
-        _database = database;
-        _navigateBack = navigateBack;
-        _themeService = new ThemeService(database); 
         _database = database;
         _navigateBack = navigateBack;
         _themeService = new ThemeService(database); 
@@ -1244,6 +1253,8 @@ public partial class SettingsViewModel : ObservableObject
             var densityStr = await _database.GetAsync<string>(Services.UiDensityService.SettingKey);
             SelectedDensityIndex = Services.UiDensityService.Parse(densityStr) switch { Services.UiDensity.Compact => 0, Services.UiDensity.Comfortable => 2, _ => 1 };
 
+            SelectedAppearancePalette = AppearancePalette.Find(await _database.GetAsync<string>(AppearancePaletteService.SettingKey));
+
             // Load Theme
             var themeStr = await _database.GetAsync<string>("Settings.Theme"); 
             // "Light", "Dark", "System"
@@ -1439,6 +1450,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             _isInitializing = false;
             SyncThemeOnly();
+            AppearancePaletteService.Select(SelectedAppearancePalette.Id);
             _ = LoadExtensionsAsync();
         }
     }

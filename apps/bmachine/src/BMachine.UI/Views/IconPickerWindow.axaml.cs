@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using System.Collections.Generic;
@@ -19,6 +20,31 @@ public partial class IconPickerWindow : Window
     {
         InitializeComponent();
         LoadIcons();
+    }
+
+    protected override void OnOpened(System.EventArgs e)
+    {
+        base.OnOpened(e);
+        CompactDialogSizing.FitToScreen(this);
+    }
+
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            BeginMoveDrag(e);
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (!e.Handled && e.Key == Key.Escape)
+        {
+            Close(null);
+            e.Handled = true;
+        }
     }
 
     private void LoadIcons()
