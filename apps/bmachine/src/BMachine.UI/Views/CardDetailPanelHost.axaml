@@ -34,8 +34,11 @@
                             </StackPanel>
                         </Grid>
 
-                        <WrapPanel Orientation="Horizontal">
-                            <!-- ID Badge -->
+                        <!-- Baris meta: chip ID/Attachments/Due + label (boleh wrap);
+                                                     tombol link di kolom kanan sendiri supaya tidak pernah turun baris -->
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <WrapPanel Grid.Column="0" Orientation="Horizontal">
+                                                    <!-- ID Badge -->
                             <Button Command="{Binding OpenSpreadsheetAndSearchCommand}" CommandParameter="{Binding SelectedCard.DisplayId}"
                                     IsVisible="{Binding SelectedCard.HasDisplayId}" Cursor="Hand" ToolTip.Tip="Click to Open Sheet &amp; Search ID"
                                     Classes="Muted" Height="30" Padding="10,0" CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,8,6">
@@ -77,23 +80,24 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <!-- Copy link Trello + buka card di browser: ikon saja,
-                                 sebaris dengan chip ID/Attachments/Due -->
-                            <Button Command="{Binding $parent[UserControl].DataContext.CopyCardLinkCommand}" CommandParameter="{Binding SelectedCard}"
-                                    Classes="Muted" Width="30" Height="30" Padding="0" MinWidth="0"
-                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Copy Trello card link">
-                                <PathIcon Data="{StaticResource IconLink}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </Button>
-                            <Button Command="{Binding $parent[UserControl].DataContext.OpenCardInBrowserCommand}" CommandParameter="{Binding SelectedCard}"
-                                    Classes="Muted" Width="30" Height="30" Padding="0" MinWidth="0"
-                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Open card in browser">
-                                <PathIcon Data="{StaticResource IconExternalLink}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </Button>
-                        </WrapPanel>
+                            </WrapPanel>
+
+                                                        <!-- Copy link Trello + buka card di browser (kolom kanan, selalu sebaris dengan baris pertama chip) -->
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+                                                            <Button Command="{Binding $parent[UserControl].DataContext.CopyCardLinkCommand}" CommandParameter="{Binding SelectedCard}"
+                                                                    Classes="Muted" Width="30" Height="30" Padding="0" MinWidth="0"
+                                                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                                    CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,0,6" Cursor="Hand" ToolTip.Tip="Copy Trello card link">
+                                                                <PathIcon Data="{StaticResource IconLink}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                            </Button>
+                                                            <Button Command="{Binding $parent[UserControl].DataContext.OpenCardInBrowserCommand}" CommandParameter="{Binding SelectedCard}"
+                                                                    Classes="Muted" Width="30" Height="30" Padding="0" MinWidth="0"
+                                                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                                    CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,0,6" Cursor="Hand" ToolTip.Tip="Open card in browser">
+                                                                <PathIcon Data="{StaticResource IconExternalLink}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
 
                         <!-- ACTION BUTTONS -->
                         <Separator Margin="0,4,0,10"/>

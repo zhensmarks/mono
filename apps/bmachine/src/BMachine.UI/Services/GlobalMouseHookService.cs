@@ -23,6 +23,16 @@ public class GlobalInputHookService : IDisposable
     private ModifierMask _currentModifiers = ModifierMask.None;
     private Point _lastMousePos = new Point(0, 0); // Track last known cursor position
 
+    // Posisi kursor fisik dari Windows (tidak bergantung event hook, jadi tak pernah basi).
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct WinPoint { public int X; public int Y; }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out WinPoint p);
+
+    private static Point GetCursorScreenPos()
+        => GetCursorPos(out var p) ? new Point(p.X, p.Y) : new Point(0, 0);
+
     // Recording Mode
     public bool IsRecording { get; set; } = false;
     public event Action<Models.TriggerConfig>? OnRecorded;
@@ -166,18 +176,10 @@ public class GlobalInputHookService : IDisposable
             if (!_isInteracting && CheckModifiers(_currentModifiers))
             {
                 _isInteracting = true;
-                // Use current mouse pos?
-                // SharpHook doesn't give mouse pos in Key event data directly used here, 
-                // but we can track it or ignore pos for Init.
-                // Original used GetCursorPos. We can't easily get it here without tracking in Move.
-                // Let's rely on UI to query position if needed, or pass 0,0?
-                // Actually OnTriggerDown expects Point.
-                // We'll pass (0,0) or last known?
-                // Better: UI usually needs screen pos.
-                // Let's ignore pos for Keyboard trigger or fetch via Avalonia if possible?
-                // Or just use (0,0) since it's keyboard.
-                OnTriggerDown?.Invoke(_lastMousePos); // Use last known cursor position
-                e.SuppressEvent = true;
+                                // Posisi trigger keyboard: ambil posisi kursor nyata (tracking _lastMousePos bisa
+                                // basi, mis. saat kursor digerakkan tanpa event hook -> radial muncul di (0,0)).
+                                OnTriggerDown?.Invoke(GetCursorScreenPos()); // Use real cursor position
+                                e.SuppressEvent = true;
             }
         }
     }
@@ -193,7 +195,7 @@ public class GlobalInputHookService : IDisposable
             if (_isInteracting)
             {
                 _isInteracting = false;
-                OnTriggerUp?.Invoke(_lastMousePos);
+                OnTriggerUp?.Invoke(GetCursorScreenPos());
                 e.SuppressEvent = true;
             }
         }
