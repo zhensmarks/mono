@@ -78,14 +78,22 @@ public partial class RadialMenuItem : ObservableObject
     [ObservableProperty] private double _wedgeSweepAngle;
 
     /// <summary>
-    /// Whether this is a special navigation item (More/Back)
-    /// </summary>
-    [ObservableProperty] private bool _isNavigation;
+        /// Whether this is a special navigation item (More/Back)
+        /// </summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsMoreDots))] private bool _isNavigation;
 
-    /// <summary>
-    /// Navigation type: "more" or "back"
-    /// </summary>
-    [ObservableProperty] private string _navigationType = string.Empty;
+        /// <summary>
+        /// Navigation type: "more" or "back"
+        /// </summary>
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsMoreDots))] private string _navigationType = string.Empty;
+
+        /// <summary>
+        /// True hanya untuk tombol "More" (tiga titik).
+        /// Dipakai XAML: PathIcon menempelkan bbox geometri yang pipih ke ATAS kotak ikon
+        /// (terukur -6.5 px dari pusat), jadi tombol More menggambar tiga titik manual
+        /// (Ellipse di StackPanel center) supaya pasti center di lingkaran tombolnya.
+        /// </summary>
+        public bool IsMoreDots => IsNavigation && NavigationType == "more";
 
     /// <summary>
     /// Generate short name from full name automatically.
