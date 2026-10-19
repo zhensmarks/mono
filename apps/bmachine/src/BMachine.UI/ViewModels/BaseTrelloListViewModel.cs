@@ -2015,7 +2015,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
         client.Timeout = TimeSpan.FromSeconds(15); 
         // Added cover to fields, attachments=true to get cover image URL, and pos
-        var url = $"https://api.trello.com/1/lists/{listId}/cards?fields=name,desc,due,labels,idMembers,badges,cover,pos&checklists=all&attachments=true&attachment_fields=url,name";
+        var url = $"https://api.trello.com/1/lists/{listId}/cards?fields=name,desc,due,labels,idMembers,badges,cover,pos,shortUrl&checklists=all&attachments=true&attachment_fields=url,name";
         
         string json = "";
         
@@ -2056,6 +2056,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     Name = element.GetProperty("name").GetString() ?? "",
                     Description = element.GetProperty("desc").GetString() ?? ""
                 };
+
+                if (element.TryGetProperty("shortUrl", out var shortUrlProp) && shortUrlProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    card.ShortUrl = shortUrlProp.GetString() ?? "";
+                }
 
                 if (element.TryGetProperty("pos", out var posProp) && posProp.ValueKind == System.Text.Json.JsonValueKind.Number)
                 {

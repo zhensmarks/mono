@@ -203,7 +203,9 @@
                                     IsVisible="{Binding IsNavigation}"
                                     IsHitTestVisible="False">
                                 <Panel>
-                                    <PathIcon Data="{Binding Icon}" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    <PathIcon Data="{Binding Icon}" Width="16" Height="16" 
+                                              VerticalAlignment="Center" HorizontalAlignment="Center"
+                                              Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                     <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center"
                                                FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"
                                                IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>

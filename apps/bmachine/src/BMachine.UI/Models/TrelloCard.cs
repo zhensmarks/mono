@@ -185,8 +185,9 @@ public partial class TrelloCard : ObservableObject
 
     public bool HasCover => !string.IsNullOrEmpty(CoverColor) || !string.IsNullOrEmpty(CoverUrl);
     public bool IsCoverImage => !string.IsNullOrEmpty(CoverUrl);
-
-    public string Url => !string.IsNullOrEmpty(Id) ? $"https://trello.com/c/{Id}" : "";
+    
+    public string ShortUrl { get; set; } = "";
+    public string Url => !string.IsNullOrEmpty(ShortUrl) ? ShortUrl : (!string.IsNullOrEmpty(Id) ? $"https://trello.com/c/{Id}" : "");
 }
 
 public class TrelloLabel
