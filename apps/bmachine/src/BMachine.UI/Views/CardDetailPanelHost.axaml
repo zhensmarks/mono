@@ -82,12 +82,14 @@
                             <Button Command="{Binding $parent[UserControl].DataContext.CopyCardLinkCommand}" CommandParameter="{Binding SelectedCard}"
                                     Classes="Muted" Width="30" Height="30" Padding="0" MinWidth="0"
                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                    VerticalAlignment="Center"
                                     CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Copy Trello card link">
                                 <PathIcon Data="{StaticResource IconLink}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
                             <Button Command="{Binding $parent[UserControl].DataContext.OpenCardInBrowserCommand}" CommandParameter="{Binding SelectedCard}"
                                     Classes="Muted" Width="30" Height="30" Padding="0" MinWidth="0"
                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                    VerticalAlignment="Center"
                                     CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,8,6" Cursor="Hand" ToolTip.Tip="Open card in browser">
                                 <PathIcon Data="{StaticResource IconExternalLink}" Width="15" Height="15" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Button>
