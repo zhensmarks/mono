@@ -104,9 +104,15 @@ public partial class CardDetailPanelHost : UserControl
         e.Handled = true;
     }
 
-    private void OnOpenCommentWindowClicked(object? sender, RoutedEventArgs e)
+    private async void OnOpenCommentWindowClicked(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not BaseTrelloListViewModel vm) return;
+        var card = vm.SelectedCard;
+        if (card == null) return;
+
+        // Muat comment card yang DIKLIK dulu, baru jendelanya dibuka,
+        // supaya jendela tidak menampilkan comment card lain yang terakhir dimuat.
+        await vm.PrepareCommentsForWindowAsync(card);
 
         var win = new CommentWindow
         {

@@ -345,6 +345,23 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Siapkan comment untuk CARD tertentu TANPA membuka panel inline.
+    /// Dipakai tombol "buka comment di jendela baru" (CardDetailPanelHost): tanpa ini
+    /// jendela menampilkan comment card terakhir yang ke-load, bukan card yang diklik.
+    /// </summary>
+    public async System.Threading.Tasks.Task PrepareCommentsForWindowAsync(TrelloCard card)
+    {
+        if (card == null) return;
+
+        SelectedCard = card;
+        if (_lastLoadedCommentsCardId != card.Id || Comments.Count == 0)
+        {
+            await LoadComments(card.Id);
+            _lastLoadedCommentsCardId = card.Id;
+        }
+    }
+
     // --- Detail Panel Logic (Shared) ---
     /// <summary>When true, the side panel is rendered by the parent (UnifiedTrelloView) at full height; this view should hide its built-in panel.</summary>
     [ObservableProperty] private bool _isPanelHostedExternally;
