@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>XamlPreview</AssemblyName>
+    <RootNamespace>XamlPreview</RootNamespace>
+    <!-- project ini bukan bagian app; hanya tool preview -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Headless" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Skia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
+    <!-- runtime XAML loader (Parse/Load di luar runtime app) -->
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="11.3.22" />
+    <!-- Semi dipakai App.axaml (style kontrol utama) -->
+    <PackageReference Include="Semi.Avalonia" Version="11.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BMachine.UI\BMachine.UI.csproj" />
+  </ItemGroup>
+
+</Project>
