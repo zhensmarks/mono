@@ -64,7 +64,9 @@ public static class AppearancePaletteService
         var elevated = light ? Mix(Colors.White, accent, .025) : Mix(dark, Colors.White, .075);
         var text = light ? Color.Parse("#171717") : Color.Parse("#E8E8E8");
         var muted = Mix(background, text, light ? .70 : .65);
-        var border = Mix(background, text, light ? .22 : .20);
+                // Garis separator/border dibuat tipis dekat kontras tema base (#E5E7EB light / #26282C dark).
+                // Mix .20/.22 membuat garis terlalu terang dan menonjol (terukur 1.78:1 di Gwen Pink vs 1.16:1 tema base).
+                var border = Mix(background, text, light ? .10 : .08);
         var hover = Mix(surface, accent, light ? .09 : .12);
         // In light mode a pale accent remains visible as a swatch/button; text and focus use a darker ink.
         var ink = accent;
