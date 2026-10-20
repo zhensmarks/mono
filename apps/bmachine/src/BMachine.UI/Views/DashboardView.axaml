@@ -345,9 +345,10 @@
                          
                         <!-- SOURCE PANEL -->
                         <Grid Grid.Column="0" Margin="0,0,5,0" RowDefinitions="Auto, *">
-                            <!-- Header Area -->
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="7" Margin="10,0,0,5" Background="Transparent">
-                                <StackPanel.ContextMenu>
+                            <!-- Header Area: SOURCE + nama di kiri, chip (pending) di kanan (kanan = kebalikan OUTPUT) -->
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="10,0,0,5" Background="Transparent">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7">
+                                    <StackPanel.ContextMenu>
                                     <ContextMenu DataContext="{Binding BatchVM.SelectedBatchItem}">
                                         <MenuItem Header="New Subfolder..." Command="{Binding ShowNewFolderInputCommand}"/>
                                         <Separator/>
@@ -360,7 +361,11 @@
                                 <TextBlock Text="SOURCE" Classes="Bold" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding BatchVM.HeaderSourceName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.SourcePath}"/>
                             </StackPanel>
-                            
+                                    <TextBlock Grid.Column="1" Text="(pending)" FontSize="9" Classes="Bold" LetterSpacing="1"
+                                               Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"
+                                               IsVisible="{Binding BatchVM.IsOutputPending}"/>
+                                </Grid>
+
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
                                     <TreeView ItemsSource="{Binding BatchVM.SourceTreeItems}"
@@ -645,12 +650,13 @@
                                     <TextBlock Text="OUTPUT" Classes="Bold" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" LetterSpacing="1" VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding BatchVM.HeaderOutputName}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" MaxWidth="320" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding BatchVM.SelectedBatchItem.OutputPath}"/>
                                 </StackPanel>
-                                <TextBlock Text="(pending)" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Right" Margin="0,2,0,0" IsVisible="{Binding BatchVM.IsOutputPending}"/>
-                            </StackPanel>
+                                </StackPanel>
 
                             <!-- Main Output Area -->
                             <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" Padding="10" Margin="0,0,0,14" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
                                 <Grid>
+                                    <!-- (pending) sekarang pindah ke baris header SOURCE (kanan-atas baris header).
+                                         Panel OUTPUT dibersihkan — tampilan kosong tidak lagi punya teks melayang. -->
                                     <TreeView ItemsSource="{Binding BatchVM.OutputTreeItems}"
                                               DragDrop.AllowDrop="True"
                                               SelectedItem="{Binding BatchVM.SelectedBatchItem, Mode=TwoWay}"

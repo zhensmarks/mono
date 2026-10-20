@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using BMachine.SDK;
 using BMachine.UI.Models;
@@ -657,11 +657,68 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             ".bmp" => "image/bmp",
             ".pdf" => "application/pdf",
             _ => "application/octet-stream"
-        };
+                    };
+                }
+
+                /// <summary>
+                /// Pasangan markdown gambar yang ditambahkan loader ke teks comment
+                /// (foto diunggah sebagai attachment lalu disisipkan ke comment → tampil inline).
+                /// </summary>
+                private static readonly System.Text.RegularExpressions.Regex AttachmentMarkdownRegex = new(
+                    @"\s*!\[attachment\]\((https?://[^)\s]+)\)",
+                    System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                /// <summary>Hapus sisipan markdown gambar — dipakai saat edit supaya tidak ikut tersimpan ke Trello.</summary>
+                private static string StripAttachmentMarkdown(string text)
+                    => AttachmentMarkdownRegex.Replace(text ?? "", "").TrimEnd();
+
+                /// <summary>True kalau URL menuju file gambar (pola sama dengan FormattedTextBlock).</summary>
+                private static bool IsImageUrl(string url)
+                {
+                    if (string.IsNullOrWhiteSpace(url)) return false;
+                    var clean = url.Split('?', '#')[0];
+                    return clean.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                           clean.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                           clean.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                           clean.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ||
+                           clean.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
+                }
+
+            
+    /// <summary>
+    /// Pasangkan foto (action addAttachmentToCard) ke comment yang dikirim bersamanya:
+    /// foto maksimal 5 menit SEBELUM comment (atau 60 detik sesudahnya) dan uploader = penulis comment.
+    /// Hasilnya berupa markdown ![attachment](url) di teks comment → FormattedTextBlock
+    /// merendernya jadi gambar inline (dengan lightbox saat diklik).
+    /// </summary>
+    internal static void LinkAttachmentsToComments(
+        System.Collections.Generic.IList<TrelloComment> comments,
+        System.Collections.Generic.IReadOnlyList<(DateTime Date, string MemberId, string Url)> attachments)
+    {
+        if (comments == null || attachments == null) return;
+        foreach (var att in attachments)
+        {
+            if (string.IsNullOrWhiteSpace(att.Url)) continue;
+            TrelloComment? target = null;
+            double bestGap = double.MaxValue;
+            foreach (var c in comments)
+            {
+                if (c == null || c.IsActivity) continue;
+                var gap = (c.Date - att.Date).TotalSeconds;      // positif = foto sebelum comment
+                if (gap < -60 || gap > 300) continue;            // foto: s/d 5 menit sebelum / 60 dtk sesudah comment
+                if (!string.IsNullOrEmpty(c.MemberCreatorId) && !string.IsNullOrEmpty(att.MemberId) &&
+                    att.MemberId != c.MemberCreatorId) continue;  // uploader harus penulis comment
+                if (Math.Abs(gap) < bestGap) { bestGap = Math.Abs(gap); target = c; }
+            }
+            if (target == null || target.Text.Contains(att.Url)) continue;
+            if (!BMachine.UI.Services.TrelloRequestSecurity.TryNormalizeMediaUri(att.Url, out var safeUrl)) continue;
+            var md = "\n\n![attachment](" + safeUrl.AbsoluteUri + ")";
+            target.Text = string.IsNullOrWhiteSpace(target.Text) ? md.TrimStart('\n') : target.Text + md;
+        }
     }
 
     protected async Task LoadComments(string cardId)
-    {
+                {
         if (Comments.Count == 0) IsLoadingComments = true;
         
         try
@@ -694,6 +751,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             
             var fetchedComments = new List<TrelloComment>();
+            // Foto dari action addAttachmentToCard -> dipasangkan ke comment setelah loop ini
+            var attachActions = new List<(DateTime Date, string MemberId, string Url)>();
 
             foreach (var element in doc.RootElement.EnumerateArray())
             {
@@ -731,6 +790,19 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                             BMachine.UI.Services.TrelloRequestSecurity.TryNormalizeMediaUri(urlStr, out var safeAttachmentUri))
                         {
                             comment.Text += $"\n\n![attachment]({safeAttachmentUri.AbsoluteUri})";
+
+                        }
+
+                        // Kumpulkan foto dari action addAttachmentToCard (urlStr ada di scope ini)
+                        if (actionType == "addAttachmentToCard" && !string.IsNullOrEmpty(urlStr) && IsImageUrl(urlStr))
+                        {
+                            var uploader = "";
+                            if (element.TryGetProperty("memberCreator", out var upEl) &&
+                                upEl.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                                upEl.TryGetProperty("id", out var upId) &&
+                                upId.ValueKind == System.Text.Json.JsonValueKind.String)
+                                uploader = upId.GetString() ?? "";
+                            attachActions.Add((comment.Date, uploader, urlStr));
                         }
                     }
                 }
@@ -771,6 +843,10 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
                 fetchedComments.Add(comment);
             }
+
+            // Pasangkan foto attachment ke comment terdekat (urutan app: upload dulu -> post comment).
+            // FormattedTextBlock merender ![attachment](url) jadi gambar inline + lightbox.
+            LinkAttachmentsToComments(fetchedComments, attachActions);
 
             // Sync/Merge Logic
             // 1. Remove comments that are no longer present
@@ -933,7 +1009,7 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     public void BeginEditComment(TrelloComment comment)
     {
         if (comment == null || !comment.IsMine) return;
-        comment.EditText = comment.Text;
+        comment.EditText = StripAttachmentMarkdown(comment.Text);
         comment.IsEditing = true;
     }
 
