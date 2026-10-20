@@ -337,10 +337,12 @@
                     </MultiBinding>
                 </Border.IsVisible>
                 <Grid ColumnDefinitions="*, Auto">
-                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                         
-                         <!-- Glowing Status Dot -->
-                         <Ellipse Width="6" Height="6" Fill="{Binding StatusColor}" VerticalAlignment="Center" ToolTip.Tip="{Binding ProcessStatusText}">
+                                    <!-- Kolom kiri: dot + teks status. Grid (Auto,*) supaya teks/bar busy
+                                         terbatas lebar kolomnya (trim) dan tidak menabrak tombol ikon di kanan. -->
+                                    <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+
+                                        <!-- Glowing Status Dot -->
+                                        <Ellipse Grid.Column="0" Width="6" Height="6" Fill="{Binding StatusColor}" VerticalAlignment="Center" ToolTip.Tip="{Binding ProcessStatusText}">
                              <Ellipse.Transitions>
                                  <Transitions>
                                      <BrushTransition Property="Fill" Duration="0:0:0.3"/>
@@ -348,13 +350,13 @@
                              </Ellipse.Transitions>
                          </Ellipse>
 
-                         <Grid>
-                             <!-- Normal Status -->
-                             <TextBlock Text="{Binding ProcessStatusText, Converter={StaticResource StringToUpperConverter}}" 
-                                        IsVisible="{Binding !BatchVM.IsMasterVisible}"
-                                        Foreground="{DynamicResource TextSecondaryBrush}" 
-                                        FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1.5"
-                                        TextTrimming="CharacterEllipsis" MaxWidth="150" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                         <Grid Grid.Column="1" Margin="8,0,0,0">
+                                                     <!-- Normal Status -->
+                                                     <TextBlock Text="{Binding ProcessStatusText, Converter={StaticResource StringToUpperConverter}}" 
+                                                                IsVisible="{Binding !BatchVM.IsMasterVisible}"
+                                                                Foreground="{DynamicResource TextSecondaryBrush}" 
+                                                                FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1.5"
+                                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,1,0,0"/>
                              
                              <!-- Master Browser Target -->
                              <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding BatchVM.IsMasterVisible}">
@@ -371,10 +373,10 @@
                              <!-- BUSY INDICATOR -->
                              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding BatchVM.IsBusy}">
                                  <ProgressBar IsIndeterminate="True" Width="20" Height="2" CornerRadius="1" VerticalAlignment="Center" Foreground="{DynamicResource AccentBlueBrush}" Background="{DynamicResource CardBackgroundBrush}"/>
-                                 <TextBlock Text="{Binding BatchVM.BusyMessage, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1.5" TextTrimming="CharacterEllipsis" MaxWidth="110" VerticalAlignment="Center" Margin="0,1,0,0"/>
-                             </StackPanel>
-                         </Grid>
-                     </StackPanel>
+                                                                 <TextBlock Text="{Binding BatchVM.BusyMessage, Converter={StaticResource StringToUpperConverter}}" Foreground="{DynamicResource AccentBlueBrush}" FontSize="9" FontFamily="{DynamicResource FontMono}" FontWeight="Bold" LetterSpacing="1.5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,1,0,0"/>
+                                                             </StackPanel>
+                                                         </Grid>
+                                                     </Grid>
                      
                      <!-- Actions -->
                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -465,11 +467,11 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
 
-        <!-- Status Action Buttons (Futuristic Pill) -->
+        <!-- Status Action Buttons (tanpa border line — ikon polos) -->
         <Style Selector="Button.statusBtn">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}"/>
             <Setter Property="Padding" Value="4"/>
             <Setter Property="Cursor" Value="Hand"/>
