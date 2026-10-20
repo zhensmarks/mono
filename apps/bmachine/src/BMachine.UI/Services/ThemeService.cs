@@ -34,8 +34,15 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
         var fontStr = await _database.GetAsync<string>("Settings.Font") ?? "Inter";
         
         // Load Border Colors
-        var borderLight = await _database.GetAsync<string>("Settings.BorderLight") ?? "#E5E7EB"; // Default Light Gray
-        var borderDark = await _database.GetAsync<string>("Settings.BorderDark") ?? "#333333"; // Default Dark Gray
+                // Normalisasi: nilai border tersimpan pernah ber-alpha 00 (AARRGGBB) -> transparan,
+                // sehingga di tema Classic garis separator/border TIDAK terlihat sama sekali.
+                // Alpha 00 dipaksa FF (border wajib opaque); nilai lama ditulis ulang biar membaik sendiri.
+                var borderLight = await _database.GetAsync<string>("Settings.BorderLight") ?? "#E5E7EB"; // Default Light Gray
+                var borderDark = await _database.GetAsync<string>("Settings.BorderDark") ?? "#333333"; // Default Dark Gray
+                var healedLight = OpaqueIfInvisible(borderLight);
+                var healedDark = OpaqueIfInvisible(borderDark);
+                if (healedLight != borderLight) { borderLight = healedLight; _ = _database.SetAsync("Settings.BorderLight", borderLight); }
+                if (healedDark != borderDark) { borderDark = healedDark; _ = _database.SetAsync("Settings.BorderDark", borderDark); }
         
         // Load Widget Colors
         var editColor = await _database.GetAsync<string>("Settings.Color.Editing") ?? "#3b82f6";
@@ -162,17 +169,29 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     }
 
     private void UpdateBackgroundBrush(bool isLight)
-    {
-        if (Application.Current == null) return;
-        var hex = isLight ? _lightBgColor : _darkBgColor;
-        if (Color.TryParse(hex, out var color))
         {
-            var brush = new SolidColorBrush(color);
-            Application.Current.Resources["AppBackgroundBrush"] = brush;
-            Application.Current.Resources["TerminalBackgroundBrush"] = brush;
-            Application.Current.Resources["BackgroundDarkBrush"] = brush;
+            if (Application.Current == null) return;
+            var hex = isLight ? _lightBgColor : _darkBgColor;
+            if (Color.TryParse(hex, out var color))
+            {
+                var brush = new SolidColorBrush(color);
+                Application.Current.Resources["AppBackgroundBrush"] = brush;
+                Application.Current.Resources["TerminalBackgroundBrush"] = brush;
+                Application.Current.Resources["BackgroundDarkBrush"] = brush;
+            }
         }
-    }
+
+        /// <summary>
+        /// Border/separator wajib opaque. Hex 8 digit AARRGGBB dengan alpha 00 (= transparan)
+        /// menyebabkan tema Classic kehilangan semua garis separator/border.
+        /// Nilai itu berasal dari Color.ToString() picker dengan A=0 (mis. "#00333333").
+        /// </summary>
+        private static string OpaqueIfInvisible(string? hex)
+        {
+            if (string.IsNullOrWhiteSpace(hex)) return hex ?? "";
+            if (!Color.TryParse(hex, out var c)) return hex!;
+            return c.A == 0 ? Color.FromRgb(c.R, c.G, c.B).ToString() : hex;
+        }
 
     private void UpdateLogColors(bool isLight)
     {
@@ -198,10 +217,13 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     }
 
     public void SetBorderColor(string hexColor, bool isDark, bool saveToDb = true)
-    {
-        if (Application.Current == null) return;
-        
-        AppearancePaletteService.RemoveOverrides();
+        {
+            if (Application.Current == null) return;
+
+            // Paksa opaque: border alpha 00 = tak terlihat (dulu bikin tema Classic tanpa garis sama sekali).
+            hexColor = OpaqueIfInvisible(hexColor);
+
+            AppearancePaletteService.RemoveOverrides();
         if (isDark)
         {
             _darkBorderColor = hexColor;

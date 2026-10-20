@@ -254,6 +254,7 @@ Tiga jenis garis, masing-masing punya peran dan token sendiri. Jangan campur.
 - Separator antar baris/item: selalu `<Separator/>`. Jangan buat `Border Height="1"` atau `Rectangle Height="1"` manual.
 - Panel berdampingan: `Classes="panel-divider"`. Panel tunggal yang mengisi window tidak boleh diberi divider.
 - Dilarang: `BorderBrush="#hex"`, `Stroke="#hex"`, `Fill="#hex"` untuk garis. Pakai token tema agar light mode ikut berubah.
+- Warna garis wajib **opaque**: hex AARRGGBB dengan alpha `00` (mis. `#00333333`) = transparan → semua separator/border hilang di tema Classic. `ThemeService` menormalisasi alpha `00`→`FF` saat load & saat simpan; picker border jangan pernah mengirim A=0.
 - Dilarang: `Background="#1A1A1D"` atau warna card hardcoded. Pakai `CardBackgroundBrush`.
 - Ketebalan standar: 1px. Ketebalan 2px hanya untuk indikator aktif (mis. tab underline).
 - Garis tebal/glow (DropShadow) pada border dilarang, kecuali accent pada splash.
