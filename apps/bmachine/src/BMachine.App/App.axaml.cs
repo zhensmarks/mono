@@ -200,7 +200,19 @@ public partial class App : Application,
             _db = new DatabaseService();
             Log("DatabaseService Created.");
 
-            _logService = new ProcessLogService(); 
+            _logService = new ProcessLogService();
+            // Isi cache kredensial Trello untuk unduhan media inline (gambar di bubble comment).
+            // Tanpa cache ini, DownloadMediaAsync dari UI tanpa creds -> foto pribadi gagal unduh (blank).
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var k = await _db.GetAsync<string>("Trello.ApiKey");
+                    var t = await _db.GetAsync<string>("Trello.Token");
+                    BMachine.UI.Services.TrelloRequestSecurity.SetCachedCredentials(k, t);
+                }
+                catch { /* tanpa cache, unduhan media butuh auth akan gagal (sudah ditangani) */ }
+            });
 
             Log("Creating Bootstrapper...");
             var bootstrapper = new Bootstrapper(_db);

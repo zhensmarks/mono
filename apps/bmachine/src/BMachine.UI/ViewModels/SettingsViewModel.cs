@@ -1763,8 +1763,9 @@ public partial class SettingsViewModel : ObservableObject
         {
             await Task.Delay(500, save.Token);
             await _database!.SetAsync("Trello.ApiKey", TrelloApiKey);
-            await _database.SetAsync("Trello.Token", TrelloToken);
-            TrelloCredentialStatus = "Trello credentials are protected by the OS credential vault.";
+                        await _database.SetAsync("Trello.Token", TrelloToken);
+                        BMachine.UI.Services.TrelloRequestSecurity.SetCachedCredentials(TrelloApiKey, TrelloToken);
+                        TrelloCredentialStatus = "Trello credentials are protected by the OS credential vault.";
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -2078,8 +2079,9 @@ public partial class SettingsViewModel : ObservableObject
             await _database.SetAsync("Settings.StatSpeed", SelectedStatSpeedIndex.ToString());
             
             await _database.SetAsync("Trello.ApiKey", TrelloApiKey);
-            await _database.SetAsync("Trello.Token", TrelloToken);
-            await _database.SetAsync("Trello.IsConnected", IsTrelloConnected.ToString());
+                        await _database.SetAsync("Trello.Token", TrelloToken);
+                        BMachine.UI.Services.TrelloRequestSecurity.SetCachedCredentials(TrelloApiKey, TrelloToken);
+                        await _database.SetAsync("Trello.IsConnected", IsTrelloConnected.ToString());
             await _database.SetAsync("Google.CredsPath", GoogleCredsPath);
             await _database.SetAsync("Google.SheetId", GoogleSheetId);
             await _database.SetAsync("Google.SheetName", SheetName);

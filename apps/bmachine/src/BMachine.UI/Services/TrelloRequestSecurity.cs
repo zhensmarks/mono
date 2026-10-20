@@ -11,7 +11,17 @@ public static class TrelloRequestSecurity
     private const int MaxRedirects = 5;
     private const int MaxMediaBytes = 20_000_000;
 
-    public static HttpClient CreateApiClient(string apiKey, string token, TimeSpan? timeout = null)
+        // Kredensial cache untuk unduhan media dari UI (mis. gambar inline di bubble comment):
+        // DownloadMediaAsync tanpa API key/token akan memakai cache ini.
+        // Di-set saat app start dan saat user menyimpan kredensial di Settings.
+        private static (string ApiKey, string Token)? _cachedCredentials;
+
+        public static void SetCachedCredentials(string? apiKey, string? token)
+            => _cachedCredentials = string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)
+                ? null
+                : (apiKey!, token!);
+
+        public static HttpClient CreateApiClient(string apiKey, string token, TimeSpan? timeout = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(token);
@@ -41,7 +51,13 @@ public static class TrelloRequestSecurity
         CancellationToken cancellationToken = default)
     {
         maximumBytes = Math.Clamp(maximumBytes, 1, 250_000_000);
-        if (!TryNormalizeMediaUri(rawUrl, out var current)) return null;
+                // Pakai kredensial cache kalau pemanggil tidak membawa (UI inline: gambar comment).
+                if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token))
+                {
+                    var cached = _cachedCredentials;
+                    if (cached is { } c) { apiKey = c.ApiKey; token = c.Token; }
+                }
+                if (!TryNormalizeMediaUri(rawUrl, out var current)) return null;
 
         using var client = new HttpClient(new HttpClientHandler
         {
