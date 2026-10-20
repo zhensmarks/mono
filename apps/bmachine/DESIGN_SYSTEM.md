@@ -248,6 +248,7 @@ Tiga jenis garis, masing-masing punya peran dan token sendiri. Jangan campur.
 | **PanelDivider** | Pemisah antar panel yang tampil berdampingan | `PanelDividerBrush` | `Classes="panel-divider"` |
 
 **Aturan:**
+- **Satu garis per batas area.** Kalau dua garis berdempetan (jarak < 6px), hapus garis KANAN; garis kiri tetap satu-satunya. Terjadi saat panel punya border sendiri padahal di sebelahnya sudah ada pemisah (mis. `LogPanelResizeHandle` 2px) — border kiri panel (`BorderThickness="1,0,0,0"`) lalu dihilangkan. Berlaku untuk semua tema (light/dark/palette).
 - Card/bento: `Border` + `SeparatorBrush` 1px, radius 10 (`Classes="card"`). Tanpa shadow.
 - Input (TextBox, ComboBox, dropdown): `BorderDefaultBrush` 1px, berubah ke `BorderHoverBrush` saat hover dan `BorderFocusBrush` saat focus.
 - Separator antar baris/item: selalu `<Separator/>`. Jangan buat `Border Height="1"` atau `Rectangle Height="1"` manual.

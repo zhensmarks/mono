@@ -150,8 +150,10 @@
         </TreeDataTemplate>
     </UserControl.DataTemplates>
 
-        <Border x:Name="LogPanelDropZone" Background="{DynamicResource TerminalBackgroundBrush}" 
-            BorderBrush="{DynamicResource PanelDividerBrush}" BorderThickness="1,0,0,0"
+        <!-- LogPanelDropZone: TANPA border kiri — panel ini sudah punya pemisah di sebelahnya
+             (LogPanelResizeHandle 2px). Dua garis berdempetan = duplikat
+             (DESIGN_SYSTEM §16: satu garis per batas area, garis kanan dihapus). -->
+        <Border x:Name="LogPanelDropZone" Background="{DynamicResource TerminalBackgroundBrush}"
             DragDrop.AllowDrop="True"
             DragDrop.DragOver="OnDragOver"
             DragDrop.Drop="OnDrop"
