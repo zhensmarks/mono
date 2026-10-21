@@ -166,37 +166,44 @@ function main() {
             var newText = currentText;
 
             // 1. Teks menyatu tapi angka memiliki titik (contoh: "onta3.retouch" atau "onta 3.")
-            //    SKIP jika yang sebelum titik adalah keyword: "NO." → jangan pecah
-            newText = newText.replace(/([a-zA-Z])\s*(\d+\.)/g, function(match, prefix, numDot) {
+            //    SKIP jika kata sebelum titik adalah keyword: "NO 5." → jangan pecah
+            //    FIX: prefix ditangkap sebagai KATA UTUH ("NO"), bukan 1 huruf ("O")
+            newText = newText.replace(/([a-zA-Z]+)\s*(\d+\.)/g, function(match, prefix, numDot) {
                 var upper = prefix.toUpperCase();
                 if (upper.match(/(?:NO|NOMOR|NUM|REV|ULANG)$/)) return match;
                 return prefix + "\r\n" + numDot;
             });
 
             // 2. Teks menyatu tanpa titik, diikuti aksi (contoh: "anak3 hilangkan" atau "anak 15, 19 hilangkan")
-            //    SKIP jika yang sebelum angka adalah keyword: "NO1" → jangan pecah
-            newText = newText.replace(/([a-zA-Z])\s*(?=\d+(?:[,\s]+\d+)*\s+[a-zA-Z])/g, function(match, prefix) {
+            //    SKIP jika kata sebelum angka adalah keyword: "NO 5 TOLONG" / "NO1" → jangan pecah
+            //    FIX: prefix ditangkap sebagai KATA UTUH ("NO"), guard kemudian cocok.
+            //    Dulu prefix 1 huruf ("O") → guard gagal → "NO 5" terbelah jadi "1. NO" + "5 ..."
+            //    → baris "1. NO" jatuh ke Pola B2 dan angka INDEX (1,2,3..) ikut termasuk.
+            newText = newText.replace(/([a-zA-Z]+)\s*(?=\d+(?:[,\s]+\d+)*\s+[a-zA-Z])/g, function(match, prefix) {
                 var upper = prefix.toUpperCase();
                 if (upper.match(/(?:NO|NOMOR|NUM|REV|ULANG)$/)) return match;
                 return prefix + "\r\n";
             });
 
             // 3. Pisahkan teks yang menyatu dengan strip (contoh: "lagi- 4 serabut")
-            //    SKIP jika yang sebelum strip adalah keyword: "NO- 4" → jangan pecah
-            newText = newText.replace(/([^\s\r\n])\s*-\s*(\d+)/g, function(match, prefix, num) {
+            //    SKIP jika kata sebelum strip adalah keyword: "NO- 4" → jangan pecah
+            //    FIX: prefix kata utuh supaya guard "NO" cocok (dulu 1 huruf, guard selalu gagal)
+            newText = newText.replace(/([^\s\r\n]+)\s*\s*-\s*(\d+)/g, function(match, prefix, num) {
                 var upper = prefix.toUpperCase();
                 if (upper.match(/(?:NO|NOMOR|NUM|REV|ULANG)$/)) return match;
                 return prefix + "\r\n- " + num;
             });
 
 
-            // 5. Merge: "NO" sendirian + baris angka berikut → gabung
+            // 5. Merge: baris yang BERAKHIRAN keyword ("NO", "1. NO", "NOMOR") + baris angka
+            //    berikutnya → gabung (menangani paste yang memecah "1. NO" / "NO" dari angkanya)
             //    Proses baris per baris agar aman (tidak pakai regex global yang salah)
             var arr = newText.split(/\r?\n/);
             var out = [];
             for (var i = 0; i < arr.length; i++) {
                 var t = arr[i].replace(/^\s+/, '').replace(/\s+$/, '');
-                if (/^(NO\.?|NOMOR|NUM|REV|ULANG|PERBAIKI|UBAH)$/i.test(t) && i + 1 < arr.length) {
+                var isKwTail = /(?:NO\.?|NOMOR|NUM|REV|ULANG)$/i.test(t) || /^(?:PERBAIKI|UBAH)$/i.test(t);
+                if (isKwTail && i + 1 < arr.length) {
                     var next = arr[i + 1].replace(/^\s+/, '');
                     if (/^\d/.test(next)) {
                         out.push(t + " " + next);
@@ -355,16 +362,19 @@ function main() {
             var numbersInLine = [];
             var isNumberLine = false;
 
-            // Pola A: ada keyword NO/NOMOR/NUM/# diikuti angka (bisa di tengah baris)
-            var kwMatch = line.match(/(?:NO\.?|NOMOR|NUM|#)\s*([\d\.,\s]+)/i);
-            if (kwMatch && kwMatch[1]) {
+            // Pola A: SEMUA kemunculan keyword NO/NOMOR/NUM/# dalam baris (global),
+            //    bukan hanya yang pertama - "NO 5 dan NO 9" -> dapat 5 DAN 9.
+            var kwRe = /(?:NO\.?|NOMOR|NUM|#)\s*([\d\.,\s]+)/gi;
+            var kwMatch;
+            while ((kwMatch = kwRe.exec(line)) !== null) {
                 var kwParts = kwMatch[1].split(/[\.,\s]+/);
                 for (var p = 0; p < kwParts.length; p++) {
                     var cln = kwParts[p].replace(/\D/g, '');
                     if (cln && cln.length < 5) numbersInLine.push(parseInt(cln, 10));
                 }
-                if (numbersInLine.length > 0) isNumberLine = true;
+                if (kwRe.lastIndex === kwMatch.index) kwRe.lastIndex++;
             }
+            if (numbersInLine.length > 0) isNumberLine = true;
 
             // Pola B: Baris dimulai dengan angka (atau tanda list)
             //   "3.SHADOW DIPIPI" atau "1. NO 7, TOLONG..." atau "- 4 revisi"
@@ -377,8 +387,10 @@ function main() {
                         var cln = subParts[p].replace(/\D/g, '');
                         if (cln && cln.length < 5) numbersInLine.push(parseInt(cln, 10));
                     }
-                } else {
-                    // SUB-POLA B2: "3.SHADOW DIPIPI" → extract 3
+                } else if (!/(?:NO\.?|NOMOR|NUM|#)/i.test(line)) {
+                    // SUB-POLA B2: (SAFETY: baris dgn keyword NO tanpa angka, mis "1. NO",
+                    // jangan pakai angka index-nya)
+                    // SUB-POLA B2 ASLI: "3.SHADOW DIPIPI": "3.SHADOW DIPIPI" -> extract 3  "3.SHADOW DIPIPI" → extract 3
                     var prefixMatch = line.match(/^(?:[-*•]\s*)?([\d\.,\s]+)/);
                     if (prefixMatch && prefixMatch[1]) {
                         var bParts = prefixMatch[1].split(/[\.,\s]+/);
