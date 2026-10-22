@@ -1057,110 +1057,198 @@
 
                 <!-- NEW FOLDER OVERLAY -->
                 <Grid IsVisible="{Binding BatchVM.IsFolderOverlayVisible}" ZIndex="500" ColumnDefinitions="*,*">
-                    <!-- A transparent hit target dismisses the editor without dimming either folder list. -->
-                    <Button Classes="ghost" Grid.ColumnSpan="2"  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Height="NaN" MinHeight="0" Padding="0"
-                            Command="{Binding BatchVM.CloseFolderOverlayCommand}" BorderThickness="0"/>
+                    <!-- Semi-transparent backdrop -->
+                    <Border Grid.ColumnSpan="2" Background="#80000000" 
+                            PointerPressed="OnOverlayBackdropPressed"/>
 
-                    <!-- Keep the editor in its pane, near the lower create control; the other tree stays unobscured. -->
-                    <Border Grid.Column="{Binding BatchVM.FolderOverlayGridColumn}"
-                            Classes="card"
-                            Width="320"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Bottom"
-                            Margin="12,12,20,88"
+                    <!-- Modern dialog card -->
+                    <Border Grid.ColumnSpan="2"
+                            Width="420"
+                            MaxHeight="600"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource SeparatorBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource RadiusMd}"
+                            BoxShadow="0 8 24 0 #40000000"
                             ZIndex="1">
-                        <StackPanel Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <StackPanel Spacing="3">
-                                    <TextBlock Text="{Binding BatchVM.FolderOverlayTitle}" Classes="h3"/>
-                                    <TextBlock Text="{Binding BatchVM.FolderOverlayDescription}" Classes="caption" TextWrapping="Wrap"/>
-                                </StackPanel>
-                                <Button Grid.Column="1" Command="{Binding BatchVM.CloseFolderOverlayCommand}"
-                                        Classes="ghost" Width="28" Height="28" MinHeight="0" Padding="0"
-                                        ToolTip.Tip="Close folder editor">
-                                    <PathIcon Data="{StaticResource IconX}" Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                </Button>
-                            </Grid>
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <!-- Header -->
+                            <Border Grid.Row="0" Padding="24,20,24,16" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,0,0,1">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="{Binding BatchVM.FolderOverlayTitle}" 
+                                                   FontSize="16" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding BatchVM.FolderOverlayDescription}" 
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap"
+                                                   LineHeight="18"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" 
+                                            Command="{Binding BatchVM.CloseFolderOverlayCommand}"
+                                            Classes="ghost" 
+                                            Width="32" Height="32" 
+                                            Padding="0"
+                                            VerticalAlignment="Top"
+                                            ToolTip.Tip="Close">
+                                        <PathIcon Data="{StaticResource IconX}" 
+                                                  Width="16" Height="16"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
 
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="Folder name" Classes="caption" FontWeight="SemiBold"/>
-                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                                    <TextBox Grid.Column="0"
-                                             x:Name="FolderInputBox"
+                            <!-- Content (Scrollable) -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <Border Padding="24,24,24,20">
+                                <StackPanel Spacing="16">
+                                <!-- Input Section -->
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Folder name" 
+                                               FontSize="13" 
+                                               FontWeight="Medium"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBox x:Name="FolderInputBox"
                                              Text="{Binding BatchVM.NewFolderName, Mode=TwoWay}"
-                                             Watermark="Enter folder name...">
+                                             Watermark="Enter folder name..."
+                                             Height="36"
+                                             FontSize="13"
+                                             BorderBrush="{DynamicResource SeparatorBrush}"
+                                             BorderThickness="1.5">
+                                        <TextBox.Styles>
+                                            <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                            </Style>
+                                        </TextBox.Styles>
                                         <TextBox.KeyBindings>
                                             <KeyBinding Gesture="Enter" Command="{Binding BatchVM.CreateFolderCommand}" CommandParameter="{Binding BatchVM.FolderOverlayType}"/>
                                             <KeyBinding Gesture="Escape" Command="{Binding BatchVM.CloseFolderOverlayCommand}"/>
                                         </TextBox.KeyBindings>
                                     </TextBox>
+                                </StackPanel>
 
-                                    <Button Grid.Column="1"
+                                <!-- Quick Templates (Always visible if exists) -->
+                                <StackPanel Spacing="8" IsVisible="{Binding BatchVM.FolderTemplates.Count}">
+                                    <TextBlock Text="Quick templates" 
+                                               FontSize="12" 
+                                               FontWeight="Medium"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <ScrollViewer MaxHeight="80" 
+                                                  VerticalScrollBarVisibility="Auto" 
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl ItemsSource="{Binding BatchVM.FolderTemplates}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{DynamicResource CardBackgroundBrush}"
+                                                            BorderBrush="{DynamicResource SeparatorBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="{DynamicResource RadiusSm}"
+                                                            Padding="6,4"
+                                                            Margin="0,0,6,6">
+                                                        <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="4">
+                                                            <Button Grid.Column="0"
+                                                                    Content="{Binding}"
+                                                                    Command="{Binding DataContext.BatchVM.ApplyFolderTemplateCommand, ElementName=Root}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Classes="ghost"
+                                                                    Height="22" 
+                                                                    Padding="6,0" 
+                                                                    FontSize="11"/>
+                                                            <Button Grid.Column="1"
+                                                                    Command="{Binding DataContext.BatchVM.RemoveFolderTemplateCommand, ElementName=Root}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Classes="ghost" 
+                                                                    Width="18" Height="18" 
+                                                                    Padding="0"
+                                                                    ToolTip.Tip="Remove">
+                                                                <PathIcon Data="{StaticResource IconX}" 
+                                                                          Width="9" Height="9"
+                                                                          Foreground="{DynamicResource AccentRedBrush}"/>
+                                                            </Button>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </StackPanel>
+
+                                <!-- Status Message -->
+                                <Border Background="{DynamicResource StatusInfoBackgroundBrush}"
+                                        BorderBrush="{DynamicResource StatusInfoBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="{DynamicResource RadiusSm}"
+                                        Padding="12,8"
+                                        IsVisible="{Binding BatchVM.IsFolderOverlayStatusVisible}">
+                                    <TextBlock Text="{Binding BatchVM.FolderOverlayStatusMessage}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               TextWrapping="Wrap"
+                                               LineHeight="18"/>
+                                </Border>
+                            </StackPanel>
+                            </Border>
+                            </ScrollViewer>
+
+                            <!-- Footer Actions -->
+                            <Border Grid.Row="2" Padding="20,14,20,18" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                    <!-- Save Template -->
+                                    <Button Grid.Column="0"
                                             Command="{Binding BatchVM.AddFolderTemplateCommand}"
-                                            Classes="secondary" Width="36" Height="36" MinHeight="0" Padding="0"
-                                            ToolTip.Tip="Save this name as a template">
-                                        <PathIcon Data="{StaticResource IconPlus}" Classes="sm" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            Classes="secondary" 
+                                            Height="34"
+                                            Padding="10,0"
+                                            ToolTip.Tip="Save as template">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <PathIcon Data="{StaticResource IconPlus}" 
+                                                      Width="13" Height="13"
+                                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <TextBlock Text="Save" 
+                                                       FontSize="12"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </Button>
-
+                                    
+                                    <!-- Primary Action -->
                                     <Button Grid.Column="2"
-                                            Command="{Binding BatchVM.ToggleFolderTemplatesCommand}"
-                                            Classes="secondary" Width="36" Height="36" MinHeight="0" Padding="0"
-                                            ToolTip.Tip="Show or hide saved templates">
-                                        <Grid>
-                                            <PathIcon Data="{StaticResource IconChevronDown}" Classes="sm"
-                                                      Foreground="{DynamicResource TextSecondaryBrush}"
-                                                      IsVisible="{Binding !BatchVM.IsFolderTemplatesVisible}"/>
-                                            <PathIcon Data="{StaticResource IconChevronUp}" Classes="sm"
-                                                      Foreground="{DynamicResource TextSecondaryBrush}"
-                                                      IsVisible="{Binding BatchVM.IsFolderTemplatesVisible}"/>
-                                        </Grid>
+                                            Command="{Binding BatchVM.CreateFolderCommand}"
+                                            CommandParameter="{Binding BatchVM.FolderOverlayType}"
+                                            Background="{DynamicResource AccentBlueBrush}"
+                                            Foreground="White"
+                                            Height="34"
+                                            Padding="20,0"
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            CornerRadius="{DynamicResource RadiusSm}"
+                                            BorderThickness="0">
+                                        <Button.Styles>
+                                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                                <Setter Property="Background" Value="{DynamicResource AccentBlueHoverBrush}"/>
+                                            </Style>
+                                            <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                                                <Setter Property="Background" Value="{DynamicResource AccentBluePressBrush}"/>
+                                            </Style>
+                                        </Button.Styles>
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <PathIcon Data="{StaticResource IconCheck}" 
+                                                      Width="14" Height="14"
+                                                      Foreground="White"/>
+                                            <TextBlock Text="Create Folder" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </Button>
                                 </Grid>
-                            </StackPanel>
-
-                            <StackPanel IsVisible="{Binding BatchVM.IsFolderTemplatesVisible}" Spacing="6">
-                                <TextBlock Text="Saved templates" Classes="caption" FontWeight="SemiBold"/>
-                                <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <ItemsControl ItemsSource="{Binding BatchVM.FolderTemplates}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel Orientation="Horizontal"/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,6,6">
-                                                    <Button Content="{Binding}"
-                                                            Command="{Binding DataContext.BatchVM.ApplyFolderTemplateCommand, ElementName=Root}"
-                                                            CommandParameter="{Binding}"
-                                                            Classes="secondary" Height="28" Padding="8,4" FontSize="11"/>
-                                                    <Button Command="{Binding DataContext.BatchVM.RemoveFolderTemplateCommand, ElementName=Root}"
-                                                            CommandParameter="{Binding}"
-                                                            Classes="ghost" Width="28" Height="28" MinHeight="0" Padding="0"
-                                                            ToolTip.Tip="Remove template">
-                                                        <PathIcon Data="{StaticResource IconX}" Classes="sm" Foreground="{DynamicResource AccentRedBrush}"/>
-                                                    </Button>
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </StackPanel>
-
-                            <TextBlock Text="{Binding BatchVM.FolderOverlayStatusMessage}"
-                                       Classes="caption"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       TextWrapping="Wrap"
-                                       IsVisible="{Binding BatchVM.IsFolderOverlayStatusVisible}"/>
-
-                            <Button Command="{Binding BatchVM.CreateFolderCommand}"
-                                    CommandParameter="{Binding BatchVM.FolderOverlayType}"
-                                    Content="Create Folder"
-                                    Classes="primary"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"/>
-                        </StackPanel>
+                            </Border>
+                        </Grid>
                     </Border>
                 </Grid>
         </Grid>

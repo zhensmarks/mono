@@ -299,6 +299,19 @@ public partial class DashboardView : UserControl
         }
     }
 
+    private void OnOverlayBackdropPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // Close folder overlay when backdrop clicked
+        if (DataContext is DashboardViewModel vm && vm.BatchVM != null)
+        {
+            if (vm.BatchVM.CloseFolderOverlayCommand?.CanExecute(null) == true)
+            {
+                vm.BatchVM.CloseFolderOverlayCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+    }
+
     private void OnNodePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var point = e.GetCurrentPoint(sender as Visual);
