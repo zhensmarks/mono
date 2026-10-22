@@ -2154,9 +2154,10 @@ if ($img -ne $null) {{
                         // file itu library yang di-import skrip lain, bukan sesuatu yang dijalankan user.
                         // Samakan dengan SettingsViewModel.LoadScriptsForAsync yang sudah menyaringnya.
                         if (fname.StartsWith("_")) continue;
-                        // buat_master.py sekarang punya tombol tersendiri di panel OUTPUT (posisi ditandai user).
+                        // buat_master_duplikat.py punya tombol tersendiri di panel OUTPUT (posisi ditandai user).
                         // Sembunyikan dari daftar MasterScriptOptions di footer agar tidak dobel.
-                        if (fname.StartsWith("buat_master", StringComparison.OrdinalIgnoreCase)) continue;
+                        // Catatan: buat_master.py TETAP ada di deretan tombol footer master.
+                        if (fname.Equals("buat_master_duplikat.py", StringComparison.OrdinalIgnoreCase)) continue;
                         string display = Path.GetFileNameWithoutExtension(fname);
                         int order = 9999;
                         if (_scriptAliases.TryGetValue(fname, out var config))
@@ -2236,6 +2237,29 @@ if ($img -ne $null) {{
             });
         }
         catch { }
+    }
+
+    /// <summary>
+    /// Execute Buat Master Duplikat directly from the dedicated button in the Output panel.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExecuteBuatMasterDuplikat()
+    {
+        if (IsProcessing) return;
+
+        var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
+        if (!string.IsNullOrEmpty(CustomScriptsPath) && Directory.Exists(CustomScriptsPath))
+            baseDir = CustomScriptsPath;
+
+        var scriptPath = Path.Combine(baseDir, "Master", "buat_master_duplikat.py");
+        if (!File.Exists(scriptPath))
+        {
+            _logService?.AddLog("[ERROR] Script buat_master_duplikat.py tidak ditemukan.");
+            return;
+        }
+
+        SelectedMasterScript = scriptPath;
+        await ExecuteMaster();
     }
 
     /// <summary>

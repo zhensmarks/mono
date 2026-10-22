@@ -926,12 +926,12 @@
                             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                         Margin="0,0,10,0" Spacing="6" ZIndex="5">
                                 
-                                <!-- BUAT MASTER Button (Moved to user marked location) -->
+                                <!-- DUPLIKAT MASTER Button (Moved to user marked location) -->
                                 <Button Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="10,0"
                                         Background="{DynamicResource ButtonSecondaryBackgroundBrush}"
                                         BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                                        ToolTip.Tip="Jalankan Buat Master"
-                                        Command="{Binding BatchVM.ExecuteBuatMasterCommand}"
+                                        ToolTip.Tip="Duplikat PSD Master ke Folder Output"
+                                        Command="{Binding BatchVM.ExecuteBuatMasterDuplikatCommand}"
                                         IsEnabled="{Binding !BatchVM.IsProcessing}"
                                         Cursor="Hand">
                                     <Button.Styles>
@@ -947,7 +947,7 @@
                                         </Style>
                                     </Button.Styles>
                                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <PathIcon Data="{StaticResource IconScript}" Width="14" Height="14"
+                                        <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14"
                                                   Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"/>
                                         <TextBlock Text="BUAT MASTER" FontSize="11" FontWeight="Bold"
                                                    Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"
