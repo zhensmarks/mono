@@ -612,10 +612,8 @@
                             </Border>
 
                             <!-- Add Folder Button (Source) - Left Aligned -->
-                            <Button Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,0"
+                            <Button Classes="secondary" Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,0"
                                     Width="28" Height="28" CornerRadius="{DynamicResource RadiusSm}" Padding="0"
-                                    Background="{DynamicResource ButtonSecondaryBackgroundBrush}"
-                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Source Folder"
                                     Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Source"
                                     Cursor="Hand">
@@ -927,9 +925,7 @@
                                         Margin="0,0,10,0" Spacing="6" ZIndex="5">
                                 
                                 <!-- DUPLIKAT MASTER Button (Moved to user marked location) -->
-                                <Button Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="10,0"
-                                        Background="{DynamicResource ButtonSecondaryBackgroundBrush}"
-                                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                <Button Classes="secondary" Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="10,0"
                                         ToolTip.Tip="Duplikat PSD Master ke Folder Output"
                                         Command="{Binding BatchVM.ExecuteBuatMasterDuplikatCommand}"
                                         IsEnabled="{Binding !BatchVM.IsProcessing}"
@@ -956,9 +952,7 @@
                                 </Button>
 
                                 <!-- Add Folder Button (Output) -->
-                                <Button Width="32" Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="0"
-                                        Background="{DynamicResource ButtonSecondaryBackgroundBrush}"
-                                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                <Button Classes="secondary" Width="32" Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="0"
                                         ToolTip.Tip="Create New Output Folder"
                                         Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Output"
                                         Cursor="Hand">
@@ -984,28 +978,27 @@
                             CornerRadius="{DynamicResource RadiusSm}" Padding="15,10"
                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1,1,1,0"
                             IsVisible="{Binding BatchVM.HasFolders}">
-                            <Grid ColumnDefinitions="*, Auto">
+                            <Grid ColumnDefinitions="*, Auto" VerticalAlignment="Center">
                                 <!-- Horizontal Scrollable Master Buttons -->
-                                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled" Margin="0,0,10,0">
-                                    <WrapPanel Orientation="Horizontal">
+                                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         
                                         <!-- Master ItemsControl -->
                                         <ItemsControl ItemsSource="{Binding BatchVM.MasterScriptOrderList}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
-                                                    <WrapPanel Orientation="Horizontal" />
+                                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" />
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Button Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
+                                                    <Button Classes="secondary"
+                                                            Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
                                                             CommandParameter="{Binding}"
                                                             Width="32" Height="32" Padding="0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand"
-                                                            Background="{DynamicResource ButtonSecondaryBackgroundBrush}" BorderThickness="1"
-                                                            BorderBrush="{DynamicResource SeparatorBrush}"
-                                                            Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"
                                                             ToolTip.Tip="{Binding Name}"
-                                                            Margin="0,0,6,6">
+                                                            VerticalAlignment="Center"
+                                                            Margin="0,0,6,0">
                                                         <Button.Styles>
                                                             <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                                                                 <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
@@ -1033,27 +1026,27 @@
                                 <!-- Utility Buttons (Right) -->
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                     <!-- Refresh Source & Output -->
-                                    <Button Classes="ghost" Command="{Binding BatchVM.RefreshCommand}"
+                                    <Button Classes="secondary" Command="{Binding BatchVM.RefreshCommand}"
                                             Width="32" Height="32" Padding="0"
-                                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                            VerticalAlignment="Center"
                                             CornerRadius="{DynamicResource RadiusSm}" ToolTip.Tip="Refresh Source &amp; Output">
                                         <PathIcon Data="{StaticResource IconRefresh}" Width="16" Height="16"
                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
 
                                     <!-- Scripts Path Button -->
-                                    <Button Classes="ghost" Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
+                                    <Button Classes="secondary" Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
                                             Width="32" Height="32" Padding="0"
-                                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                            VerticalAlignment="Center"
                                             CornerRadius="{DynamicResource RadiusSm}" ToolTip.Tip="Set Scripts Folder">
                                         <shapes:Path Data="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" 
                                                      Width="14" Height="14" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
                                     </Button>
                                     
                                     <!-- Clear Button -->
-                                    <Button Classes="ghost" Command="{Binding BatchVM.ClearCommand}" 
+                                    <Button Classes="secondary" Command="{Binding BatchVM.ClearCommand}" 
                                             Width="32" Height="32" Padding="0"
-                                             BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                            VerticalAlignment="Center"
                                             CornerRadius="{DynamicResource RadiusSm}" ToolTip.Tip="Clear All">
                                         <PathIcon Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="{DynamicResource AccentRedBrush}"/>
                                     </Button>

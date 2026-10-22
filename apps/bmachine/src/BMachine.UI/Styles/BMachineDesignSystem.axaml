@@ -208,19 +208,19 @@
         <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
     </Style>
-    <Style Selector="Button.secondary /template/ ContentPresenter, Button.Muted /template/ ContentPresenter">
+    <Style Selector="Button.secondary /template/ ContentPresenter, Button.Muted /template/ ContentPresenter, Button.secondary /template/ ContentPresenter#PART_ContentPresenter, Button.Muted /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}" />
     </Style>
-    <Style Selector="Button.secondary:pointerover /template/ ContentPresenter, Button.Muted:pointerover /template/ ContentPresenter">
+    <Style Selector="Button.secondary:pointerover /template/ ContentPresenter, Button.Muted:pointerover /template/ ContentPresenter, Button.secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.Muted:pointerover /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
         <Setter Property="TextElement.Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}" />
     </Style>
-    <Style Selector="Button.secondary:pressed /template/ ContentPresenter, Button.Muted:pressed /template/ ContentPresenter">
+    <Style Selector="Button.secondary:pressed /template/ ContentPresenter, Button.Muted:pressed /template/ ContentPresenter, Button.secondary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.Muted:pressed /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource ButtonSecondaryPressedBrush}" />
     </Style>
 
