@@ -2150,6 +2150,13 @@ if ($img -ne $null) {{
                     foreach (var f in Directory.GetFiles(masterDir, "*.*").Where(f => f.EndsWith(".py")))
                     {
                         var fname = Path.GetFileName(f);
+                        // Helper internal ber-prefix "_" (mis. _photoshop_utils.py) BUKAN tombol master:
+                        // file itu library yang di-import skrip lain, bukan sesuatu yang dijalankan user.
+                        // Samakan dengan SettingsViewModel.LoadScriptsForAsync yang sudah menyaringnya.
+                        if (fname.StartsWith("_")) continue;
+                        // buat_master.py sekarang punya tombol tersendiri di panel OUTPUT (posisi ditandai user).
+                        // Sembunyikan dari daftar MasterScriptOptions di footer agar tidak dobel.
+                        if (fname.StartsWith("buat_master", StringComparison.OrdinalIgnoreCase)) continue;
                         string display = Path.GetFileNameWithoutExtension(fname);
                         int order = 9999;
                         if (_scriptAliases.TryGetValue(fname, out var config))
@@ -2229,6 +2236,29 @@ if ($img -ne $null) {{
             });
         }
         catch { }
+    }
+
+    /// <summary>
+    /// Execute Buat Master directly from the dedicated button in the Output panel.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExecuteBuatMaster()
+    {
+        if (IsProcessing) return;
+
+        var baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
+        if (!string.IsNullOrEmpty(CustomScriptsPath) && Directory.Exists(CustomScriptsPath))
+            baseDir = CustomScriptsPath;
+
+        var scriptPath = Path.Combine(baseDir, "Master", "buat_master.py");
+        if (!File.Exists(scriptPath))
+        {
+            _logService?.AddLog("[ERROR] Script buat_master.py tidak ditemukan.");
+            return;
+        }
+
+        SelectedMasterScript = scriptPath;
+        await ExecuteMaster();
     }
 
     /// <summary>

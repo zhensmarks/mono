@@ -614,7 +614,7 @@
                             <!-- Add Folder Button (Source) - Left Aligned -->
                             <Button Grid.Row="1" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,0"
                                     Width="28" Height="28" CornerRadius="{DynamicResource RadiusSm}" Padding="0"
-                                    Background="{DynamicResource CardBackgroundBrush}"
+                                    Background="{DynamicResource ButtonSecondaryBackgroundBrush}"
                                     BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
                                     ToolTip.Tip="Create New Source Folder"
                                     Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Source"
@@ -922,26 +922,59 @@
                                 </Grid>
                             </Border>
 
-                            <!-- Add Folder Button (Output) - Right Aligned Overlapping Bottom -->
-                            <Button Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,0"
-                                    Width="32" Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="0"
-                                    Background="{DynamicResource CardBackgroundBrush}"
-                                    BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
-                                    ToolTip.Tip="Create New Output Folder"
-                                    Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Output"
-                                    ZIndex="5" Cursor="Hand">
-                                <Button.Styles>
-                                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
-                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
-                                    </Style>
-                                    <Style Selector="Button:pointerover PathIcon">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </Style>
-                                </Button.Styles>
-                                <PathIcon Data="{StaticResource IconFilePlus}"
-                                          Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </Button>
+                            <!-- Bottom Action Buttons (Output) - Right Aligned Overlapping Bottom -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Margin="0,0,10,0" Spacing="6" ZIndex="5">
+                                
+                                <!-- BUAT MASTER Button (Moved to user marked location) -->
+                                <Button Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="10,0"
+                                        Background="{DynamicResource ButtonSecondaryBackgroundBrush}"
+                                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                        ToolTip.Tip="Jalankan Buat Master"
+                                        Command="{Binding BatchVM.ExecuteBuatMasterCommand}"
+                                        IsEnabled="{Binding !BatchVM.IsProcessing}"
+                                        Cursor="Hand">
+                                    <Button.Styles>
+                                        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                                        </Style>
+                                        <Style Selector="Button:pointerover TextBlock">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Style>
+                                        <Style Selector="Button:pointerover PathIcon">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Style>
+                                    </Button.Styles>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <PathIcon Data="{StaticResource IconScript}" Width="14" Height="14"
+                                                  Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"/>
+                                        <TextBlock Text="BUAT MASTER" FontSize="11" FontWeight="Bold"
+                                                   Foreground="{DynamicResource ButtonSecondaryForegroundBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Add Folder Button (Output) -->
+                                <Button Width="32" Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="0"
+                                        Background="{DynamicResource ButtonSecondaryBackgroundBrush}"
+                                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1"
+                                        ToolTip.Tip="Create New Output Folder"
+                                        Command="{Binding BatchVM.OpenFolderOverlayCommand}" CommandParameter="Output"
+                                        Cursor="Hand">
+                                    <Button.Styles>
+                                        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                                        </Style>
+                                        <Style Selector="Button:pointerover PathIcon">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Style>
+                                    </Button.Styles>
+                                    <PathIcon Data="{StaticResource IconFilePlus}"
+                                              Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </Grid>
                     
