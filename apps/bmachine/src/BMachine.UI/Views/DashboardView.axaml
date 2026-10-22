@@ -926,7 +926,6 @@
                                 
                                 <!-- DUPLIKAT MASTER Button (Moved to user marked location) -->
                                 <Button Classes="secondary" Height="32" CornerRadius="{DynamicResource RadiusSm}" Padding="10,0"
-                                        ToolTip.Tip="Duplikat PSD Master ke Folder Output"
                                         Command="{Binding BatchVM.ExecuteBuatMasterDuplikatCommand}"
                                         IsEnabled="{Binding !BatchVM.IsProcessing}"
                                         Cursor="Hand">
@@ -996,7 +995,6 @@
                                                             Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
                                                             CommandParameter="{Binding}"
                                                             Width="32" Height="32" Padding="0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand"
-                                                            ToolTip.Tip="{Binding Name}"
                                                             VerticalAlignment="Center"
                                                             Margin="0,0,6,0">
                                                         <Button.Styles>
@@ -1032,15 +1030,6 @@
                                             CornerRadius="{DynamicResource RadiusSm}" ToolTip.Tip="Refresh Source &amp; Output">
                                         <PathIcon Data="{StaticResource IconRefresh}" Width="16" Height="16"
                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    </Button>
-
-                                    <!-- Scripts Path Button -->
-                                    <Button Classes="secondary" Command="{Binding BatchVM.BrowseScriptsFolderCommand}" 
-                                            Width="32" Height="32" Padding="0"
-                                            VerticalAlignment="Center"
-                                            CornerRadius="{DynamicResource RadiusSm}" ToolTip.Tip="Set Scripts Folder">
-                                        <shapes:Path Data="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" 
-                                                     Width="14" Height="14" Fill="{DynamicResource AccentBlueBrush}" Stretch="Uniform"/>
                                     </Button>
                                     
                                     <!-- Clear Button -->
