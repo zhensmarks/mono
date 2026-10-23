@@ -91,7 +91,13 @@ public static class AppearancePaletteService
         Set("AccentOrange", secondary);
         Set("PopupSurfaceBorder", border);
         Brushes(background, "AppBackgroundBrush", "BackgroundDarkBrush", "TerminalBackgroundBrush", "BgInputBrush", "ComboBoxPopupBackground", "AutoCompleteBoxPopupBackground");
-        Brushes(surface, "CardBackgroundBrush", "MenuSelectedBrush", "ButtonSecondaryBackgroundBrush");
+        Brushes(surface, "CardBackgroundBrush", "MenuSelectedBrush");
+        // Tombol sekunder HARUS terbaca sebagai kotak terisi, bukan cuma garis border.
+        // Mengikatnya ke `surface` membuat isinya identik dengan latar (terukur 255,255,255 di tema
+        // terang) sehingga tombol tampak transparan dan hanya border 1 px yang terlihat — user
+        // melaporkannya sebagai "background transparan jadi kelihatan ada garisnya".
+        // Nilainya sedikit digeser dari permukaan: lebih gelap di tema terang, lebih terang di gelap.
+        Brushes(light ? Mix(surface, text, .05) : Mix(surface, Colors.White, .06), "ButtonSecondaryBackgroundBrush");
         Brushes(elevated, "BackgroundBrush", "SurfaceElevatedBrush", "BgInputHoverBrush");
         Brushes(text, "TextPrimaryBrush", "TerminalTextBrush", "ButtonSecondaryForegroundBrush");
         Brushes(muted, "TextSecondaryBrush", "TextMutedBrush", "TextFaintBrush");

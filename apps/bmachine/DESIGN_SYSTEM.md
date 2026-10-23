@@ -399,3 +399,36 @@ DILARANG di panel ini:
 - Baris spacer `*` di `RowDefinitions` (bikin jarak mati besar antar-elemen).
 - Kolom field lebar tetap kecil (mis. 90 px) untuk input pendek — pakai `*, *`.
 - Tombol aksi beda tinggi / beda padding antar tombol.
+
+## 24. Baris tombol Master (tab BATCH) & isi tombol sekunder
+
+Baris tombol master di bawah panel SOURCE/OUTPUT dibangun dari isi `Scripts/Master/*.py`
+(`BatchViewModel.LoadScriptsAsync`), jadi nama file = nama tombol.
+
+- **Hanya skrip PUBLIK yang jadi tombol.** Skrip helper yang di-import skrip lain memakai prefix
+  `_` (mis. `_photoshop_utils.py`) dan WAJIB disaring dari baris tombol (`if (fname.StartsWith("_"))
+  continue;`) — jangan tampilkan library sebagai aksi yang bisa diklik user. Skrip yang ingin
+  disembunyikan sementara (mis. `_buat_master_buka_edit.py`) cukup diberi prefix `_`, bukan dihapus.
+- **Label, ikon, dan URUTAN tombol datang dari `Scripts/scripts.json`** (`Name` / `IconKey` /
+  `Order`), bukan dari XAML. Skrip tanpa entri memakai nama file apa adanya + ikon fallback
+  `IconScript`. Tombol aksi manual yang menyertai alur master (mis. `DUPLIKAT PSD`) diletakkan di
+  UJUNG baris — tepat setelah tombol `BUAT MASTER` — supaya urutannya tetap: jenis master
+  (PROFESI, MANASIK, PAS FOTO, WISUDA) lalu aksi manual di ujung.
+- **Skrip baru muncul setelah app dijalankan ulang**; daftar tombol dibangun sekali saat start.
+- **Isi tombol sekunder WAJIB beda dari permukaan di belakangnya.** Token
+  `ButtonSecondaryBackgroundBrush` tidak boleh dipetakan sama dengan `CardBackgroundBrush`/surface
+  (di tema terang keduanya menjadi putih — terukur isi tombol 255,255,255 dengan latar 255,255,255):
+  hasilnya tombol terbaca transparan dan hanya border 1 px yang terlihat ("background transparan,
+  kelihatan ada garisnya"). Aturan palet: nilai tombol sekunder = surface digeser sedikit
+  (lebih gelap di tema terang, lebih terang di tema gelap, `AppearancePaletteService`).
+  DILARANG: menyatukan key tombol dengan key card/surface di `Brushes(...)` mana pun.
+
+## 25. Aksi Image Preview (UnifiedTrello)
+
+Image preview attachment memakai `ImageLightboxWindow`. Toolbar kanan-atas harus tetap satu grup
+berisi ikon 16 px dalam tombol ikon 36x36 dengan tooltip: **Download Image**, **Copy Image**, lalu
+**Close Viewer**. Tombol Copy memakai `IconCopy`, menulis `Bitmap` langsung ke clipboard Avalonia,
+dan tidak menyimpan file sementara. Bitmap itu harus kompatibel dengan tombol **Paste Logo** pada tab
+DOC; user bisa membuka preview Trello → Copy Image → tab DOC → Paste Logo tanpa download lebih dulu.
+
+DILARANG menambah tombol teks, warna lokal, atau varian tombol berbeda di toolbar preview.

@@ -7,10 +7,58 @@ import traceback
 from collections import defaultdict
 import re
 import base64
+import time
 
 # FORCE UNBUFFERED OUTPUT
 sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
 print("PYTHON_SCRIPT_STARTED: profesi_flat.py", flush=True)
+
+# Import helper untuk copy-edit-sync workflow
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _photoshop_utils import (open_psd_files_in_photoshop, wait_for_file_unlock,
+                                  duplicate_psd, watch_documents_closed)
+    HAS_PHOTOSHOP_UTILS = True
+except ImportError:
+    HAS_PHOTOSHOP_UTILS = False
+    print("[WARNING] Tidak bisa import _photoshop_utils. Mode copy-edit tidak tersedia.", file=sys.stderr)
+
+# Util I/O cepat (batch paralel + cache + robocopy)
+try:
+    from _fastio import batch_copy as _fast_batch_copy, cached_listdir as _fast_cached_listdir, fast_copy as _fast_copy
+    HAS_FASTIO = True
+except ImportError:
+    HAS_FASTIO = False
+    def _fast_batch_copy(jobs, workers=4, overwrite=True, on_done=None, on_error=None):
+        done = skipped = failed = 0
+        for s, d in jobs:
+            if os.path.isfile(d) and not overwrite:
+                skipped += 1
+                continue
+            try:
+                os.makedirs(os.path.dirname(os.path.abspath(d)), exist_ok=True)
+                shutil.copy2(s, d)
+                done += 1
+                if on_done:
+                    try: on_done(d)
+                    except Exception: pass
+            except Exception as e:
+                failed += 1
+                if on_error:
+                    try: on_error(d, str(e))
+                    except Exception: pass
+        return done, skipped, failed
+    def _fast_cached_listdir(p):
+        return os.listdir(p)
+    def _fast_copy(s, d, overwrite=True):
+        if os.path.isfile(d) and not overwrite:
+            return True
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(d)), exist_ok=True)
+            shutil.copy2(s, d)
+            return True
+        except Exception:
+            return False
 
 ALLOWED_EXTS = (".jpg", ".jpeg")
 # Regex diperluas: KELAS..., GROUP..., KELOMPOK..., atau folder berawalan angka (misal "1. FOTO")
@@ -445,7 +493,8 @@ def is_8r_path(pilihan_path, rel_dir):
 
 # ---------- Core ----------
 def process_images(master_path_profesi, master_path_sporty, pilihan_path, output_path, config_data,
-                   files_to_reprocess=None, mappings_b64=None, oke_base_path=None, master_path_profesi_8r=None):
+                   files_to_reprocess=None, mappings_b64=None, oke_base_path=None, master_path_profesi_8r=None,
+                   copy_edit=False, manifest_path=None):
     print("--- Memulai Jurus: PROFESI | SPORTY ---")
     print(f"[DEBUG] Master 8R Path: {master_path_profesi_8r}")
     if master_path_profesi_8r:
@@ -486,15 +535,17 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
     os.makedirs(final_event_folder, exist_ok=True)
 
     # Trigger Copy TXT (Mirip Manasik)
-    print("\n[INFO] Menyalin file .txt dari subfolder...")
-    try:
-        for name in os.listdir(pilihan_path):
-            p = os.path.join(pilihan_path, name)
-            if os.path.isdir(p):
-                out_p = os.path.join(final_event_folder, name)
-                copy_txt_files_recursive(p, out_p)
-    except Exception as e:
-        print(f"[WARNING] Gagal salin .txt loop utama: {e}", file=sys.stderr)
+    # Gate copy_edit: fase 1 copy-edit SKIP salin .txt (pindah ke tombol DUPLIKAT PSD).
+    if not copy_edit:
+        print("\n[INFO] Menyalin file .txt dari subfolder...")
+        try:
+            for name in os.listdir(pilihan_path):
+                p = os.path.join(pilihan_path, name)
+                if os.path.isdir(p):
+                    out_p = os.path.join(final_event_folder, name)
+                    copy_txt_files_recursive(p, out_p)
+        except Exception as e:
+            print(f"[WARNING] Gagal salin .txt loop utama: {e}", file=sys.stderr)
 
 
 
@@ -551,6 +602,8 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
     processed_bases = set()
     summary_counts = defaultdict(int)
     unmatched, errors = [], []
+    ce_jobs = {}  # copy_edit: {master_path: [tujuan, ...]}
+    _pending_direct_jobs = []  # direct mode: kumpulkan dulu, salin paralel di akhir
 
     # --- NEW LOGIC: Deep Walk with Smart Folder Detection ---
     total_folders_scanned = 0
@@ -718,13 +771,48 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                      print(f"  [SKIP] '{tgt_name}' sudah ada.")
                      continue
                 
-                shutil.copy2(file_master_path, tujuan_path)
-                summary_counts[os.path.splitext(file_master_name)[0]] += 1
-                print(f"  [OK] '{filename}' -> '{tgt_name}{master_ext}' ({category_mode.upper()}: {file_master_name})")
+                if copy_edit:
+                    ce_jobs.setdefault(file_master_path, []).append(tujuan_path)
+                    summary_counts[os.path.splitext(file_master_name)[0]] += 1
+                    print(f"  [ANTRI] '{filename}' -> '{tgt_name}{master_ext}' ({category_mode.upper()}: {file_master_name})")
+                else:
+                    # Kumpulkan untuk batch paralel
+                    _master_name = os.path.splitext(file_master_name)[0]
+                    _pending_direct_jobs.append((file_master_path, tujuan_path, _master_name, filename, category_mode, _master_name))
 
             except Exception as e:
                 errors.append(f"{full_path}: {e}")
                 print(f"  [ERROR] {filename}: {e}", file=sys.stderr)
+
+    if not copy_edit and _pending_direct_jobs:
+        # Direct mode: salin semua PSD yang sudah dihitung, secara paralel.
+        # Logika [OK] di-setelah scan supaya output terlihat setelah selesai.
+        _direct_items = list(_pending_direct_jobs)
+        _direct_tuples = [(j[0], j[1]) for j in _direct_items]
+        print(f"\n--- MENYALIN {len(_direct_items)} FILE (paralel) ---")
+        _done, _skipped, _failed = _fast_batch_copy(
+            _direct_tuples, workers=4, overwrite=True,
+            on_done=lambda d: print(f"  [OK] {os.path.basename(d)}"),
+            on_error=lambda d, e: print(f"  [ERROR] Gagal salin {os.path.basename(d)}: {e}", file=sys.stderr),
+        )
+        for (_m_path, _tujuan, _master_name, _filename, _cat_mode, _mname) in _direct_items:
+            summary_counts[_master_name] += 1
+        print(f"--- SELESAI SALIN: {_done} ok, {_skipped} skip, {_failed} gagal ---")
+
+    if copy_edit and ce_jobs:
+        # Fase 1 copy-edit: salin 1 template per master untuk DIEDIT user,
+        # seluruh tujuan duplikat tercatat di manifest (dibuka di fase 2).
+        from _photoshop_utils import manifest_add
+        for _m_path, _jobs in ce_jobs.items():
+            _edit_psd = os.path.join(final_event_folder, os.path.basename(_m_path))
+            if not os.path.isfile(_edit_psd):
+                shutil.copy2(_m_path, _edit_psd)
+                print(f"[EDIT] {os.path.basename(_edit_psd)} dibuka untuk diedit.")
+            else:
+                print(f"[EDIT] {os.path.basename(_edit_psd)} sudah ada, dipakai ulang.")
+            manifest_add(manifest_path, _edit_psd,
+                         os.path.splitext(os.path.basename(_m_path))[0], _jobs)
+            print(f"[MANIFEST] {os.path.basename(_m_path)}: {len(_jobs)} tujuan duplikat tercatat.")
 
     print("\n--- RINGKASAN ---")
     if not summary_counts:
@@ -741,12 +829,13 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
             print(err)
     print(f"SUMMARY_JSON:{json.dumps(summary_counts)}")
 
-    # OKE BASE (opsional)
+    # Shortcut OKE BASE: SELALU jalan (fase 1 copy-edit tetap buat).
     if oke_base_path:
         user_name = os.environ.get('BMACHINE_USER_NAME', config_data.get('UserName', 'USER'))
         create_oke_base_links(pilihan_path, oke_base_path, user_name)
-        # Tambahkan shortcut di output lokal
-        create_shortcuts_in_output_local(final_event_folder, pilihan_path, oke_base_path, user_name, output_path)
+        # Shortcut output lokal: skip di fase 1 copy-edit (pindah ke tombol DUPLIKAT PSD).
+        if not copy_edit:
+            create_shortcuts_in_output_local(final_event_folder, pilihan_path, oke_base_path, user_name, output_path)
 
 # ---------- Main ----------
 def main():
@@ -759,8 +848,11 @@ def main():
         # 5: oke_base_path  (opsional)
         # 6: mappings_base64 (opsional)
         # 7: files_to_reprocess (opsional, pisah koma)
+        # 8: master_profesi_8r (opsional)
+        # 9: mode (opsional, default "direct"; atau "copy-edit")
+        
         if len(sys.argv) < 5:
-            print("[USAGE] python profesi.py <master_profesi> <master_sporty_or_empty> <pilihan> <output> [oke_base] [mappings_base64] [files_to_reprocess]", file=sys.stderr)
+            print("[USAGE] python profesi.py <master_profesi> <master_sporty_or_empty> <pilihan> <output> [oke_base] [mappings_base64] [files_to_reprocess] [master_profesi_8r] [--mode=direct|copy-edit]", file=sys.stderr)
             sys.exit(1)
 
         master_profesi = sys.argv[1]
@@ -771,10 +863,38 @@ def main():
         mappings_b64   = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else None
         files_reproc   = sys.argv[7].split(',') if len(sys.argv) > 7 and sys.argv[7] else []
         master_profesi_8r = sys.argv[8] if len(sys.argv) > 8 and sys.argv[8] else None
+        
+        # Flag copy-edit: --mode=copy-edit [--phase=1] [--manifest=<path>]
+        # (dipisah dari argumen posisional supaya argv[5..8] aman)
+        mode, phase, manifest_path = "direct", None, None
+        for arg in sys.argv:
+            if arg.startswith("--mode="): mode = arg.split("=", 1)[1].lower()
+            elif arg.startswith("--phase="): phase = arg.split("=", 1)[1].strip()
+            elif arg.startswith("--manifest="): manifest_path = arg.split("=", 1)[1]
+        if any(a.startswith("--") for a in sys.argv):
+            sys.argv = [a for a in sys.argv if not a.startswith("--")]
+
+        if mode not in ("direct", "copy-edit"):
+            print(f"[WARNING] Mode tidak dikenal: {mode}. Menggunakan 'direct'.", file=sys.stderr)
+            mode = "direct"
+        if mode == "copy-edit" and not manifest_path:
+            import tempfile as _tf
+            manifest_path = os.path.join(_tf.gettempdir(), f"bm_copy_edit_{os.getpid()}.json")
+        print(f"[INFO] Mode: {mode}" + (f" (fase {phase})" if phase else ""), flush=True)
 
         cfg = load_config()
-        process_images(master_profesi, master_sporty, pilihan, output, cfg,
-                       files_to_reprocess=files_reproc, mappings_b64=mappings_b64, oke_base_path=oke_base_path, master_path_profesi_8r=master_profesi_8r)
+        if mode == "copy-edit":
+            process_images(master_profesi, master_sporty, pilihan, output, cfg,
+                           files_to_reprocess=files_reproc, mappings_b64=mappings_b64,
+                           oke_base_path=oke_base_path, master_path_profesi_8r=master_profesi_8r,
+                           copy_edit=True, manifest_path=manifest_path)
+            if phase != "1":
+                from _photoshop_utils import run_copy_edit_phase2
+                ok = run_copy_edit_phase2(manifest_path)
+                sys.exit(0 if ok else 1)
+        else:
+            process_images(master_profesi, master_sporty, pilihan, output, cfg,
+                           files_to_reprocess=files_reproc, mappings_b64=mappings_b64, oke_base_path=oke_base_path, master_path_profesi_8r=master_profesi_8r)
     except Exception as e:
         print(f"[FATAL] Terjadi error yang menyebabkan force-close: {e}", file=sys.stderr)
         traceback.print_exc()

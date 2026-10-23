@@ -143,7 +143,16 @@ def main():
         if not oke_base:
             oke_base = args.output
         
-        cmd = [sys.executable, target_path, args.pilihan, args.output or oke_base, oke_base]
+        cmd = [sys.executable, target_path, args.pilihan, args.output or oke_base, oke_base] + list(unknown)
+    elif args.target in ('buat_master_duplikat.py', 'buat_master_buka_edit.py', '_buat_master_buka_edit.py'):
+        # Tombol MANUAL (penggandaan / buka-edit atas permintaan user):
+        # <script> <pilihan> <output> <oke_base> [flag tambahan, mis. --manifest=...]
+        oke_base = args.okebase
+        if not oke_base:
+            oke_base = get_path_from_config(config, "OKE BASE")
+        if not oke_base:
+            oke_base = args.output
+        cmd = [sys.executable, target_path, args.pilihan, args.output or oke_base, oke_base] + list(unknown)
     else:
         print(f"ERROR: Unknown target script: {args.target}", file=sys.stderr)
         return 4
@@ -154,27 +163,35 @@ def main():
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUNBUFFERED"] = "1"
 
-        print(f"[DEBUG_WRAPPER] Launching subprocess: {cmd}", file=sys.stderr)
-        
-        # Use simple Popen without text=True to avoid buffering issues, handle decoding manually
+        # Baris log yang hanya noise (scan progress, debug detail) — disuppress
+        # agar tidak banjir UI dengan ratusan Dispatcher.Post per detik.
+        _SUPPRESS_PREFIXES = (
+            "[SCAN] Folder ke-",
+            "[DEBUG]",
+            "[DEBUG_",
+            "[SCAN]",
+        )
+
         proc = subprocess.Popen(
-            cmd, 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.STDOUT, # Merge stderr into stdout to avoid deadlock
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr ke stdout
             env=env
         )
 
         while True:
-            # Read byte by byte or line by line
             line = proc.stdout.readline()
             if not line:
                 if proc.poll() is not None:
                     break
                 continue
-            
-            # Decode and print
+
             try:
                 decoded_line = line.decode('utf-8', errors='replace')
+                # Suppress baris noise — tidak dikirim ke UI sama sekali
+                stripped = decoded_line.strip()
+                if any(stripped.startswith(p) for p in _SUPPRESS_PREFIXES):
+                    continue
                 sys.stdout.write(decoded_line)
                 sys.stdout.flush()
             except:

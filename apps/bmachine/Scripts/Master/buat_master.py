@@ -105,7 +105,7 @@ def detect_folder_types(pilihan_path):
         entries = os.listdir(pilihan_path)
     except Exception:
         return found
-        
+
     def check_txt(txt_path):
         try:
             filename = os.path.basename(txt_path).upper()
@@ -115,10 +115,10 @@ def detect_folder_types(pilihan_path):
                     content = f.read().upper()
             except Exception:
                 pass
-                
+
             combined = filename + " " + content
-            
-            # Deteksi kode pas foto eksplisit (termasuk pemisah underscore: PFM_005 / PFB_005)
+
+            # Deteksi kode pas foto eksplisit (termasuk pemisah underscore: PFM-005 / PFM_005)
             if _PASFOTO_CODE_RE.search(combined):
                 found.add('pasfoto')
 
@@ -131,15 +131,59 @@ def detect_folder_types(pilihan_path):
         except Exception:
             pass
 
-    # 1) Nama folder level-1: hanya PROFESI yang dicek dari nama (perilaku lama).
+    # 1) Nama folder level-1 di dalam PILIHAN.
+    #    PROFESI ditentukan dari dua hal:
+    #    a) Keyword profesi (PROFESI, SPORTY, FOTO PROFESI) di nama folder, ATAU
+    #    b) Penanda 10RP / 8R di nama folder. Tapi 10RP/8R juga dipakai manasik &
+    #       wisuda, jadi untuk membedakan: jika ada sub-folder profesi khas
+    #       (ASTRONOT, BRIMOB, CHEF, DAMKAR, DOKTER, MASINIS, PERAWAT, PILOT,
+    #       TENTARA, TNI, POLISI, NURSING, OB, dll), maka folder 10RP/8R itu
+    #       dianggap profesi. Jika sub-foldernya PAS FOTO / MANASIK / WISUDA
+    #       atau kosong, tidak dianggap profesi.
+    #    Contoh nyata: "1. FOTO 10RP OB PROPFESI GRADASI" + sub ASTRONOT, BRIMOB -> profesi.
+    #    Contoh nyata: "1. FOTO 10RP MANASIK" + sub MSK-001 -> manasik (bukan profesi).
+    #
+    #    Daftar sub-folder profesi khas (case-insensitive, partial match):
+    _PROFESI_SUBFOLDER_HINTS = [
+        "ASTRONOT", "BRIMOB", "CHEF", "DAMKAR", "DOKTER", "MASINIS", "PERAWAT",
+        "PILOT", "TENTARA", "TNI", "POLISI", "OB", "BASKET", "ESPORT",
+        "PEMBALAP", "SEPAK", "TAEKWONDO", "TENNIS", "UFC", "SUKU",
+    ]
+
     for entry in entries:
         full = os.path.join(pilihan_path, entry)
-        if os.path.isdir(full):
-            entry_upper = entry.upper()
-            for kw in _PROFESI_KEYWORDS:
-                if kw in entry_upper:
-                    found.add('profesi')
-                    break
+        if not os.path.isdir(full):
+            continue
+        entry_upper = entry.upper()
+
+        # Keyword profesi langsung di nama folder
+        has_profesi_kw = any(kw in entry_upper for kw in _PROFESI_KEYWORDS)
+        has_10rp_8r = ("10RP" in entry_upper or "8R" in entry_upper)
+
+        # Cek sub-folder untuk hint profesi
+        sub_dirs = []
+        try:
+            sub_dirs = [d for d in os.listdir(full) if os.path.isdir(os.path.join(full, d))]
+        except Exception:
+            pass
+        sub_dirs_upper = [d.upper() for d in sub_dirs]
+        has_profesi_subhint = any(
+            hint in s for s in sub_dirs_upper for hint in _PROFESI_SUBFOLDER_HINTS
+        )
+
+        if has_profesi_kw or (has_10rp_8r and has_profesi_subhint):
+            found.add('profesi')
+
+        # Pas foto / manasik / wisuda tetap dari keyword di nama folder level-1.
+        for kw in _PASFOTO_KEYWORDS:
+            if kw in entry_upper:
+                found.add('pasfoto')
+        for kw in _MANASIK_KEYWORDS:
+            if kw in entry_upper:
+                found.add('manasik')
+        for kw in _WISUDA_KEYWORDS:
+            if kw in entry_upper:
+                found.add('wisuda')
 
     # 2) Semua file .txt (NOTE.txt) sampai beberapa level di dalam PILIHAN,
     #    karena NOTE.txt bisa berada di dalam sub-folder (mis. PILIHAN\1. PAS FOTO\NOTE.txt).
@@ -183,9 +227,34 @@ def main():
     print("PYTHON_SCRIPT_STARTED: buat_master.py")
     sys.stdout.flush()
 
+    # Mode: --mode=copy-edit (default) = salin master untuk diedit dulu di Photoshop.
+    # --mode=direct = perilaku lama (langsung duplikasi tanpa Photoshop).
+    #
+    # MANUAL vs OTOMATIS: default = fase 1 saja (salin template + catat tujuan), lalu
+    # user edit PS sesuka hati dan menekan tombol DUPLIKAT PSD. --auto mengembalikan
+    # perilaku lama (fase 2 jalan sendiri: buka + tunggu tab ditutup + langsung
+    # gandakan). --no-open melewati auto-buka template di Photoshop.
+    mode = "copy-edit"
+    auto_duplikat = False
+    auto_open = True
+    for _a in sys.argv:
+        if _a.startswith("--mode="):
+            mode = _a.split("=", 1)[1].lower()
+        elif _a.lower() == "--auto":
+            auto_duplikat = True
+        elif _a.lower() == "--no-open":
+            auto_open = False
+    if any(a.startswith("--") for a in sys.argv):
+        sys.argv = [a for a in sys.argv if not a.startswith("--")]
+    if mode not in ("copy-edit", "direct"):
+        print(f"[WARNING] Mode tidak dikenal: '{mode}'. Dipakai 'copy-edit'.", file=sys.stderr)
+        mode = "copy-edit"
     if len(sys.argv) < 2:
-        print("[ERROR] Usage: buat_master.py <pilihan_path> [output_base] [oke_base]", file=sys.stderr)
+        print("[ERROR] Usage: buat_master.py <pilihan_path> [output_base] [oke_base] "
+              "[--mode=copy-edit|direct] [--auto] [--no-open]", file=sys.stderr)
         sys.exit(1)
+    print(f"[INFO] Mode buat master: {mode}"
+          + (" (auto-duplikat)" if auto_duplikat else " (MANUAL: tekan tombol DUPLIKAT PSD)"))
 
     pilihan_path = sys.argv[1].strip()
     output_base  = sys.argv[2].strip() if len(sys.argv) > 2 else ""
@@ -238,6 +307,24 @@ def main():
     total = 0
     errors = 0
 
+    # Fase copy-edit: tiap script jenis SALIN 1 template + catat tujuan duplikat ke
+    # manifest. Manifest disimpan di path STABIL (bukan temp ber-pid) supaya tombol
+    # DUPLIKAT PSD bisa menemukannya lagi kapan saja setelah fase 1 selesai.
+    script_flags = []
+    manifest_path = None
+    if mode == "copy-edit":
+        if script_dir not in sys.path:
+            sys.path.insert(0, script_dir)
+        from _photoshop_utils import manifest_path_for
+        manifest_path = manifest_path_for(pilihan_path, output_base)
+        if os.path.isfile(manifest_path):
+            try:
+                os.remove(manifest_path)
+            except OSError:
+                pass
+        script_flags = ["--mode=copy-edit", "--phase=1", f"--manifest={manifest_path}"]
+        print(f"[INFO] Manifest copy-edit: {manifest_path}")
+
     os.environ["BMACHINE_USER_NAME"] = user_name
 
     if 'profesi' in detected:
@@ -248,7 +335,7 @@ def main():
                 python_exe, os.path.join(script_dir, "profesi_flat.py"),
                 master_profesi, master_sporty or "", pilihan_path, output_base,
                 oke_base or "", "", "", master_profesi_8r or "",
-            ], "PROFESI / SPORTY")
+            ] + script_flags, "PROFESI / SPORTY")
             total += 1
             if rc != 0: errors += 1
 
@@ -259,7 +346,7 @@ def main():
             rc = run_script([
                 python_exe, os.path.join(script_dir, "pasfoto.py"),
                 master_pasfoto, pilihan_path, output_base, oke_base or "NONE",
-            ], "PAS FOTO")
+            ] + script_flags, "PAS FOTO")
             total += 1
             if rc != 0: errors += 1
 
@@ -272,7 +359,7 @@ def main():
                 python_exe, os.path.join(script_dir, "manasik.py"),
                 master_manasik, pilihan_path, output_base,
                 master_manasik_8r or "", oke_base or "",
-            ], "MANASIK")
+            ] + script_flags, "MANASIK")
             total += 1
             if rc != 0: errors += 1
 
@@ -285,9 +372,42 @@ def main():
                 python_exe, os.path.join(script_dir, "wisuda.py"),
                 master_wisuda, pilihan_path, output_base,
                 master_wisuda_8r or "", oke_base or "",
-            ], "WISUDA")
+            ] + script_flags, "WISUDA")
             total += 1
             if rc != 0: errors += 1
+
+    # PENGGANDAAN: default MANUAL — penggandaan hanya jalan saat user klik tombol
+    # DUPLIKAT PSD. --auto = perilaku lama (fase 2 jalan sendiri: buka semua master,
+    # tunggu tiap tab ditutup, lalu gandakan).
+    if mode == "copy-edit":
+        entries, jobs_planned = [], 0
+        if not (manifest_path and os.path.isfile(manifest_path)):
+            print("[WARN] Manifest kosong (tidak ada master disalin) — fase edit dilewati.")
+        elif auto_duplikat:
+            rc = run_script([
+                python_exe, os.path.join(script_dir, "_photoshop_utils.py"),
+                manifest_path, "1800",
+            ], "SINKRONISASI FOTO OTOMATIS (buka master -> tunggu tab ditutup -> gandakan)")
+            total += 1
+            if rc != 0:
+                errors += 1
+        else:
+            if script_dir not in sys.path:
+                sys.path.insert(0, script_dir)
+            try:
+                from _photoshop_utils import load_manifest, open_edit_psds
+                entries = load_manifest(manifest_path)
+                jobs_planned = sum(len(e.get("jobs") or []) for e in entries)
+                if auto_open and entries:
+                    open_edit_psds(manifest_path)
+            except Exception as e:
+                print(f"[WARN] Auto-buka template dilewati: {e}", file=sys.stderr)
+            print(f"\n{'='*60}")
+            print(f"[MANUAL] {len(entries)} template edit siap, {jobs_planned} file tujuan menunggu.")
+            print("[MANUAL] 1) Edit + SAVE PSD-nya di Photoshop (sesuka hati, tanpa timer).")
+            print("[MANUAL] 2) Setelah selesai: klik tombol 'DUPLIKAT PSD'.")
+            print(f"[MANUAL] Manifest: {manifest_path}")
+            print(f"{'='*60}\n")
 
     print(f"\n{'='*60}")
     print(f"[BUAT MASTER] SELESAI — {total} script dijalankan, {errors} error.")

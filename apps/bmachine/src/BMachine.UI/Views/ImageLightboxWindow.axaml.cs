@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using System.Net.Http;
@@ -399,6 +400,22 @@ public partial class ImageLightboxWindow : Window
         }
     }
 
+
+    private async void OnCopyImageClick(object? sender, RoutedEventArgs e)
+    {
+        var image = this.FindControl<Image>("FullScreenImage");
+        if (image?.Source is not Bitmap bitmap || Clipboard == null) return;
+
+        try
+        {
+            await Clipboard.SetBitmapAsync(bitmap);
+            Log($"copy-image px={bitmap.PixelSize.Width}x{bitmap.PixelSize.Height}");
+        }
+        catch (Exception ex)
+        {
+            Log($"copy-image-failed: {ex.GetType().Name}");
+        }
+    }
 
     private async void OnDownloadClick(object? sender, RoutedEventArgs e)
     {

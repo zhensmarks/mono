@@ -2,7 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using BMachine.UI.ViewModels;
+using System;
 using System.Linq;
 
 namespace BMachine.UI.Views;
@@ -11,6 +13,8 @@ public partial class DashboardView : UserControl
 {
     private bool _isTogglingTerminal = false;
     private bool _isRestoringState = true; // Skip auto-close during initial restore
+    private object? _lastClickedSourceItem;
+    private object? _lastClickedOutputItem;
 
     public DashboardView()
     {
@@ -36,6 +40,32 @@ public partial class DashboardView : UserControl
         {
             _isRestoringState = false;
         }, TimeSpan.FromMilliseconds(1500));
+
+        // Wire up TreeView multi-select (Shift/Ctrl) so Replace (Auto) from the
+        // context menu can batch-process EVERY selected folder at once.
+        var sourceTree = this.FindControl<TreeView>("SourceTreeView");
+        if (sourceTree != null)
+        {
+            sourceTree.SelectionChanged += (s, e) =>
+            {
+                if (DataContext is DashboardViewModel dashVm)
+                {
+                    dashVm.BatchVM?.UpdateSelectedSourceItems(sourceTree.SelectedItems);
+                }
+            };
+        }
+
+        var outputTree = this.FindControl<TreeView>("OutputTreeView");
+        if (outputTree != null)
+        {
+            outputTree.SelectionChanged += (s, e) =>
+            {
+                if (DataContext is DashboardViewModel dashVm)
+                {
+                    dashVm.BatchVM?.UpdateSelectedOutputItems(outputTree.SelectedItems);
+                }
+            };
+        }
     }
 
     protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
@@ -315,6 +345,76 @@ public partial class DashboardView : UserControl
     private void OnNodePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var point = e.GetCurrentPoint(sender as Visual);
+        var mod = e.KeyModifiers;
+
+        bool isShift = (mod & Avalonia.Input.KeyModifiers.Shift) != 0;
+        bool isCtrl  = (mod & Avalonia.Input.KeyModifiers.Control) != 0;
+
+        // --- Shift+click: range select manual (Avalonia Multiple tidak support ini) ---
+        if (e.ClickCount == 1 && point.Properties.IsLeftButtonPressed && isShift && !isCtrl)
+        {
+            if (sender is Control ctl)
+            {
+                var tv = FindParentTreeView(ctl);
+                if (tv != null && ctl.DataContext != null)
+                {
+                    bool isOutput = tv.Name == "OutputTreeView";
+                    var items = tv.ItemsSource?.Cast<object>().ToList();
+                    if (items != null && items.Count > 0)
+                    {
+                        var targetItem = ctl.DataContext;
+                        var targetIdx = items.IndexOf(targetItem);
+
+                        // Anchor: gunakan last clicked item bila ada, fallback ke item pertama yang selected
+                        var lastItem = isOutput ? _lastClickedOutputItem : _lastClickedSourceItem;
+                        int anchorIdx = (lastItem != null) ? items.IndexOf(lastItem) : -1;
+                        if (anchorIdx < 0)
+                        {
+                            var currentSelected = tv.SelectedItems?.Cast<object>().ToList();
+                            anchorIdx = currentSelected?.Count > 0 ? items.IndexOf(currentSelected[0]) : -1;
+                        }
+
+                        if (targetIdx >= 0 && anchorIdx >= 0 && anchorIdx != targetIdx)
+                        {
+                            int lo = Math.Min(anchorIdx, targetIdx);
+                            int hi = Math.Max(anchorIdx, targetIdx);
+                            tv.SelectedItems?.Clear();
+                            for (int i = lo; i <= hi; i++)
+                                tv.SelectedItems?.Add(items[i]);
+                            e.Handled = true;
+
+                            // Sync ke VM
+                            if (DataContext is DashboardViewModel dashVm2 && dashVm2.BatchVM != null)
+                            {
+                                if (isOutput)
+                                    dashVm2.BatchVM.UpdateSelectedOutputItems(tv.SelectedItems!);
+                                else
+                                    dashVm2.BatchVM.UpdateSelectedSourceItems(tv.SelectedItems!);
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
+        // Ctrl+click: Avalonia Multiple handle toggle — jangan intercept, biarkan jalan.
+        if (e.ClickCount == 1 && point.Properties.IsLeftButtonPressed && isCtrl)
+        {
+            if (sender is Control ctlCtrl && ctlCtrl.DataContext != null)
+            {
+                var tvCtrl = FindParentTreeView(ctlCtrl);
+                if (tvCtrl?.Name == "OutputTreeView") _lastClickedOutputItem = ctlCtrl.DataContext;
+                else _lastClickedSourceItem = ctlCtrl.DataContext;
+            }
+            return;
+        }
+
+        // Alt+click: biarkan juga
+        if (e.ClickCount == 1 && point.Properties.IsLeftButtonPressed
+            && (mod & Avalonia.Input.KeyModifiers.Alt) != 0)
+            return;
 
         // Detect Double Left Click (Open Text - BatchNodeItem only)
         if (e.ClickCount == 2 && point.Properties.IsLeftButtonPressed)
@@ -333,6 +433,10 @@ public partial class DashboardView : UserControl
         {
             if (sender is Control control)
             {
+                var clickMod = e.KeyModifiers;
+                bool isMultiModifier = (clickMod & Avalonia.Input.KeyModifiers.Control) != 0
+                                    || (clickMod & Avalonia.Input.KeyModifiers.Shift) != 0;
+
                 string? pathToCopy = null;
                 object? batchItem = null;
                 bool isOutputRootClick = false;
@@ -351,15 +455,20 @@ public partial class DashboardView : UserControl
 
                 // Update the batch selection so the Log Panel MASTER status bar
                 // TARGET follows the clicked source/output folder.
-                if (batchItem != null && DataContext is DashboardViewModel dashVm && dashVm.BatchVM != null)
+                // TAPI: kalau Ctrl/Shift modifier aktif, JANGAN set SelectedBatchItem
+                // karena itu reset TreeView selection ke 1 item saja (TwoWay binding).
+                if (!isMultiModifier && batchItem != null && DataContext is DashboardViewModel dashVm && dashVm.BatchVM != null)
                 {
                     dashVm.BatchVM.SelectBatchItemFromTree(batchItem, isOutputRootClick);
+                    if (isOutputRootClick) _lastClickedOutputItem = batchItem;
+                    else _lastClickedSourceItem = batchItem;
                 }
 
-                if (!string.IsNullOrEmpty(pathToCopy))
+                // Copy path to clipboard tapi JANGAN set e.Handled = true
+                // agar TreeViewItem tetap menerima event dan ter-select secara visual.
+                if (!isMultiModifier && !string.IsNullOrEmpty(pathToCopy))
                 {
                     _ = CopyToClipboardAsync(pathToCopy);
-                    e.Handled = true;
                 }
             }
         }
@@ -380,6 +489,12 @@ public partial class DashboardView : UserControl
         {
             System.Diagnostics.Debug.WriteLine($"[Clipboard] Error: {ex.Message}");
         }
+    }
+
+    /// <summary>Cari TreeView induk via Visual Tree (akurat & andal).</summary>
+    private static TreeView? FindParentTreeView(Control? ctl)
+    {
+        return ctl?.FindAncestorOfType<TreeView>();
     }
 
 

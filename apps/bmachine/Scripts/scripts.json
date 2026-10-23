@@ -82,5 +82,29 @@
     "Code": "",
     "IconKey": "IconCode",
     "Order": 6
+  },
+  "buat_master_buka_edit.py": {
+    "Name": "BUKA EDIT PSD",
+    "Code": "",
+    "IconKey": "IconCode",
+    "Order": 7
+  },
+  "buat_master.py": {
+    "Name": "BUAT MASTER",
+    "Code": "",
+    "IconKey": "IconScript",
+    "Order": 8
+  },
+  "buat_master_duplikat.py": {
+    "Name": "DUPLIKAT PSD",
+    "Code": "",
+    "IconKey": "IconCopy",
+    "Order": 9
+  },
+  "_photoshop_utils.py": {
+    "Name": "(util internal)",
+    "Code": "",
+    "IconKey": "IconTerminalBash",
+    "Order": 9998
   }
 }

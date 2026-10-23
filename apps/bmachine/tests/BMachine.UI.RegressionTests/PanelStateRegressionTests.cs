@@ -254,6 +254,19 @@ public class NavigationVisualRegressionTests
     }
 
     [Fact]
+    public void ImagePreviewCopyWritesBitmapForDocLogoPaste()
+    {
+        var lightbox = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/ImageLightboxWindow.axaml");
+        var codeBehind = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/ImageLightboxWindow.axaml.cs");
+        var batchVm = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/BatchViewModel.cs");
+
+        Assert.Contains("Click=\"OnCopyImageClick\"", lightbox);
+        Assert.Contains("ToolTip.Tip=\"Copy Image\"", lightbox);
+        Assert.Contains("SetBitmapAsync", codeBehind);
+        Assert.Contains("PasteLogo", batchVm);
+    }
+
+    [Fact]
     public void TablerDictionaryRetainsLegacyIconKeysAndNewPickerIcons()
     {
         var icons = ReadRepoFile("apps/bmachine/src/BMachine.UI/Styles/TablerIcons.axaml");

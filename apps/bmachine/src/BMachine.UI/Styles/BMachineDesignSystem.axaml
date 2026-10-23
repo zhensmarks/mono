@@ -869,6 +869,7 @@
     </Style>
     <Style Selector="MenuItem">
         <Setter Property="FontFamily" Value="{DynamicResource FontPrimary}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
     <!-- ================================================================ -->

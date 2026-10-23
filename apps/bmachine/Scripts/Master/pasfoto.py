@@ -6,11 +6,52 @@ import shutil
 from pathlib import Path
 from typing import Optional, Tuple, Any, Dict, List
 
+# Util I/O cepat (batch paralel + cache + robocopy)
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _fastio import batch_copy as _fast_batch_copy, fast_copy as _fast_copy
+    HAS_FASTIO = True
+except ImportError:
+    HAS_FASTIO = False
+    def _fast_batch_copy(jobs, workers=4, overwrite=True, on_done=None, on_error=None):
+        done = skipped = failed = 0
+        for s, d in jobs:
+            if os.path.isfile(d) and not overwrite:
+                skipped += 1
+                continue
+            try:
+                os.makedirs(os.path.dirname(os.path.abspath(d)), exist_ok=True)
+                shutil.copy2(s, d)
+                done += 1
+                if on_done:
+                    try: on_done(d)
+                    except Exception: pass
+            except Exception as e:
+                failed += 1
+                if on_error:
+                    try: on_error(d, str(e))
+                    except Exception: pass
+        return done, skipped, failed
+    def _fast_copy(s, d, overwrite=True):
+        if os.path.isfile(d) and not overwrite:
+            return True
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(d)), exist_ok=True)
+            shutil.copy2(s, d)
+            return True
+        except Exception:
+            return False
+
 # ============================================
 # Konfigurasi & Util
 # ============================================
 
 ALLOWED_EXTS = (".jpg", ".jpeg")
+# Copy-Edit-Sync: mode fase (di-set dari flag CLI --mode=copy-edit).
+# Saat aktif, duplikasi TIDAK langsung: 1 template disalin untuk diedit,
+# daftar tujuan (jobs) dicatat ke manifest, dibuka di Photoshop di fase 2.
+COPY_EDIT = False
+MANIFEST_PATH = None
 
 def natural_sort_key(s: str):
     """Urutan natural: 1, 2, 10 (bukan 1, 10, 2)."""
@@ -314,15 +355,18 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
         except Exception as e:
             print(f"[WARNING] Gagal mirror folder level-1: {e}", file=sys.stderr)
 
-        # Salin .txt dari semua subfolder
-        try:
-            for name in os.listdir(pilihan_path):
-                p = os.path.join(pilihan_path, name)
-                if os.path.isdir(p):
-                    out_p = os.path.join(output_folder, name)
-                    copy_txt_files_recursive(p, out_p)
-        except Exception as e:
-            print(f"[WARNING] Gagal salin .txt dari subfolder: {e}", file=sys.stderr)
+        # Gate COPY_EDIT: fase 1 copy-edit SKIP salin .txt + OKE BASE + shortcut lokal
+        # (pindah ke fase 2 / tombol DUPLIKAT PSD). Hanya siapkan template edit + manifest.
+        if not COPY_EDIT:
+            # Salin .txt dari semua subfolder
+            try:
+                for name in os.listdir(pilihan_path):
+                    p = os.path.join(pilihan_path, name)
+                    if os.path.isdir(p):
+                        out_p = os.path.join(output_folder, name)
+                        copy_txt_files_recursive(p, out_p)
+            except Exception as e:
+                print(f"[WARNING] Gagal salin .txt dari subfolder: {e}", file=sys.stderr)
 
         print(f"Output akan disimpan di: {output_folder}")
     except Exception as e:
@@ -388,6 +432,8 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
 
         print(f"  - Template PSD: {os.path.basename(psd_template_path)}")
 
+        item_jobs = []
+        _pending_direct_jobs = []
         # Kumpulkan JPG/JPEG sumber: telusuri SEMUA subfolder (mis. per KELAS),
         # lalu duplikasi PSD per folder sambil mempertahankan struktur folder
         # (pola sama seperti manasik.py: os.walk + rel_dir).
@@ -425,20 +471,42 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
                     print(f"    - SKIP_EXISTING: '{dest_filename}' sudah ada.")
                     continue
 
-                try:
-                    shutil.copy2(psd_template_path, dest_path)
-                    print(f"    - [OK] {idx}/{len(source_images)} {dest_filename}")
-                except Exception as e:
-                    print(f"    - [ERROR] Gagal menyalin ke '{os.path.basename(dest_path)}': {e}", file=sys.stderr)
+                if COPY_EDIT:
+                    item_jobs.append(dest_path)
+                    print(f"    - [ANTRI] {idx}/{len(source_images)} {dest_filename}")
+                else:
+                    _pending_direct_jobs.append((psd_template_path, dest_path))
 
         if not any_images:
             print("  - [INFO] Tidak ada file JPG/JPEG sumber. Akan tetap menyalin satu PSD sebagai '1.psd'.")
             dest_path = os.path.join(item_output_folder, "1.psd")
-            try:
-                shutil.copy2(psd_template_path, dest_path)
-                print("    - [SUCCESS] Membuat 1.psd")
-            except Exception as e:
-                print(f"    - [ERROR] Gagal menyalin PSD: {e}", file=sys.stderr)
+            if COPY_EDIT:
+                item_jobs.append(dest_path)
+                print("    - [ANTRI] 1.psd")
+            else:
+                _pending_direct_jobs.append((psd_template_path, dest_path))
+                print("    - [ANTRI] 1.psd")
+
+        if not COPY_EDIT and _pending_direct_jobs:
+            # Salin PSD besar secara paralel (default 4 thread).
+            _done, _skipped, _failed = _fast_batch_copy(
+                _pending_direct_jobs, workers=4, overwrite=True,
+                on_done=lambda d: print(f"    - [OK] {os.path.basename(d)}"),
+                on_error=lambda d, e: print(f"    - [ERROR] Gagal salin {os.path.basename(d)}: {e}", file=sys.stderr),
+            )
+            print(f"      -> {_done} file disalin, {_skipped} skip, {_failed} gagal.")
+
+        if COPY_EDIT and item_jobs:
+            # Salin 1 template untuk DIEDIT user (nama = nama master), catat jobs.
+            from _photoshop_utils import manifest_add
+            edit_psd = os.path.join(item_output_folder, os.path.basename(psd_template_path))
+            if not os.path.isfile(edit_psd):
+                shutil.copy2(psd_template_path, edit_psd)
+                print(f"  - [EDIT] {os.path.basename(edit_psd)} dibuka untuk diedit.")
+            else:
+                print(f"  - [EDIT] {os.path.basename(edit_psd)} sudah ada, dipakai ulang (jangan ditimpa).")
+            manifest_add(MANIFEST_PATH, edit_psd, item, item_jobs)
+            print(f"  - [MANIFEST] {len(item_jobs)} tujuan duplikat tercatat.")
 
     if processed_count == 0:
         print("[INFO] Tidak ada folder yang cocok dengan kriteria yang ditemukan untuk diproses.")
@@ -763,6 +831,21 @@ if __name__ == "__main__":
         except Exception:
             pass
 
+    # Flag copy-edit: --mode=copy-edit [--phase=1] [--manifest=<path>]
+    _opts = {"mode": "direct", "phase": None, "manifest": None}
+    for _a in sys.argv:
+        if _a.startswith("--mode="): _opts["mode"] = _a.split("=", 1)[1].lower()
+        elif _a.startswith("--phase="): _opts["phase"] = _a.split("=", 1)[1].strip()
+        elif _a.startswith("--manifest="): _opts["manifest"] = _a.split("=", 1)[1]
+    _ce = _opts["mode"] == "copy-edit"
+    if _ce:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import tempfile as _tempfile
+        COPY_EDIT = True
+        MANIFEST_PATH = _opts["manifest"] or os.path.join(
+            _tempfile.gettempdir(), f"bm_copy_edit_{os.getpid()}.json")
+        print(f"[MODE] copy-edit fase 1 (manifest: {MANIFEST_PATH})")
+
     master_pasfoto_path, pilihan_path, output_base_path, oke_base_path = resolve_paths_from_cli(sys.argv)
 
     if not all([master_pasfoto_path, pilihan_path, output_base_path, oke_base_path]):
@@ -771,11 +854,19 @@ if __name__ == "__main__":
 
     output_folder = main(master_pasfoto_path, pilihan_path, output_base_path)
 
-    # Panggil fungsi baru untuk membuat link di OKE BASE
+    # Shortcut OKE BASE: SELALU jalan (fase 1 copy-edit tetap buat — OKE BASE
+    # langsung lengkap setelah BUAT MASTER).
     config_data = load_config()
     if not config_data: config_data = {}
     user_name = os.environ.get('BMACHINE_USER_NAME', config_data.get('UserName', 'USER'))
     create_oke_base_links(pilihan_path, oke_base_path, user_name)
-    # Tambahkan shortcut di output lokal
-    if output_folder is not None:
+    # Shortcut output lokal: skip di fase 1 copy-edit (pindah ke tombol DUPLIKAT PSD).
+    if not COPY_EDIT and output_folder is not None:
         create_shortcuts_in_output_local(output_folder, pilihan_path, oke_base_path, user_name, output_base_path)
+
+    # Copy-Edit standalone (tanpa --phase=1): fase 1 selesai -> langsung fase 2
+    # (buka semua di Photoshop, tunggu ditutup, sinkron duplikat).
+    if _ce and _opts["phase"] != "1":
+        from _photoshop_utils import run_copy_edit_phase2
+        ok = run_copy_edit_phase2(MANIFEST_PATH)
+        sys.exit(0 if ok else 1)

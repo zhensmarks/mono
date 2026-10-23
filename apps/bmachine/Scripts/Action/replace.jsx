@@ -12,31 +12,34 @@ function loadSettings() {
             var content = settingsFile.read();
             settingsFile.close();
             var data = eval("(" + content + ")");
-            // Penting: bedakan "belum pernah diset" vs "sengaja dikosongkan".
-            // Jika key baseInputServer ada (walau string kosong), hormati nilai apa adanya.
-            // Hanya pakai default bawaan bila key benar-benar tidak ada (pemakaian pertama).
-            if (!("baseInputServer" in data)) data.baseInputServer = DEFAULT_BASE_INPUT;
-            if (data.baseInputServer === null || data.baseInputServer === undefined) data.baseInputServer = DEFAULT_BASE_INPUT;
-            if (!("baseMasterServer" in data)) data.baseMasterServer = DEFAULT_BASE_MASTER;
-            if (data.baseMasterServer === null || data.baseMasterServer === undefined) data.baseMasterServer = DEFAULT_BASE_MASTER;
             if (data.x === undefined) data.x = -1;
             if (data.y === undefined) data.y = -1;
+            // Auto-detect on/off (checkbox). Default false = mode compact manual.
+            if (data.autoDetect === undefined) data.autoDetect = false;
+            if (!("baseInputServer" in data)) data.baseInputServer = DEFAULT_BASE_INPUT;
+            if (data.baseInputServer === null) data.baseInputServer = "";
+            if (!("baseMasterServer" in data)) data.baseMasterServer = DEFAULT_BASE_MASTER;
+            if (data.baseMasterServer === null) data.baseMasterServer = "";
             return data;
         } catch (e) { }
     }
-    return { x: -1, y: -1, baseInputServer: DEFAULT_BASE_INPUT, baseMasterServer: DEFAULT_BASE_MASTER };
+    return {
+        x: -1, y: -1,
+        autoDetect: false,
+        baseInputServer: DEFAULT_BASE_INPUT,
+        baseMasterServer: DEFAULT_BASE_MASTER
+    };
 }
 
-function saveSettings(x, y, baseInputServer, baseMasterServer) {
+function saveSettings(x, y, autoDetect, baseInputServer, baseMasterServer) {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
     try {
-        // Simpan apa adanya (boleh kosong). Kosong = mode manual tanpa auto-detect.
         var base = (baseInputServer === null || baseInputServer === undefined) ? "" : baseInputServer;
-        var escapedBase = base.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        var escapedBase = base.replace(/\\/g, "\\\\").replace(/"/g, '\\\\"');
         var masterBase = (baseMasterServer === null || baseMasterServer === undefined) ? "" : baseMasterServer;
-        var escapedMaster = masterBase.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        var escapedMaster = masterBase.replace(/\\/g, "\\\\").replace(/"/g, '\\\\"');
         settingsFile.open("w");
-        settingsFile.write('{"x":' + x + ',"y":' + y + ',"baseInputServer":"' + escapedBase + '","baseMasterServer":"' + escapedMaster + '"}');
+        settingsFile.write('{"x":' + x + ',"y":' + y + ',"autoDetect":' + (autoDetect ? "true" : "false") + ',"baseInputServer":"' + escapedBase + '","baseMasterServer":"' + escapedMaster + '"}');
         settingsFile.close();
     } catch (e) { }
 }
@@ -45,7 +48,7 @@ function saveSettings(x, y, baseInputServer, baseMasterServer) {
 function normalizePath(p) {
     if (!p) return "";
     var s = decodeURI(p);
-    s = s.replace(/^["']+|["']+$/g, ""); // Strip surrounding quotes
+    s = s.replace(/^["']+|["']+$/g, "");
     var isUnc = (s.indexOf("\\\\") === 0 || s.indexOf("//") === 0);
     s = s.replace(/\\/g, "/");
     var driveMatch = s.match(/^\/([a-zA-Z])\/(.*)$/);
@@ -86,9 +89,7 @@ function parseMasterPath(rawPath, baseMasterServer) {
     var monthName = "";
     var wilayahName = "";
 
-    // Regex format Bulan: misal "03 SEPTEMBER 2026" atau "02 AGUSTUS 2025"
     var monthRegex = /^\d{2}\s+[A-Za-z]+\s+\d{4}$/;
-
     for (var i = 0; i < parts.length; i++) {
         if (monthRegex.test(parts[i])) {
             monthIndex = i;
@@ -106,8 +107,6 @@ function parseMasterPath(rawPath, baseMasterServer) {
         monthToSchool = parts.slice(monthIndex, parts.length - 1).join("/");
     }
 
-    // Jika path master tidak punya bulan (misal "D:/#GAWENA/10. PAUD MUTIARA/1. FOTO 10RP...")
-    // tapi user mengonfigurasi Base Master, kita cek apakah ada info bulan di Base Master
     if (monthIndex === -1 && baseMasterServer) {
         var baseMasterNorm = normalizePath(baseMasterServer);
         var bParts = baseMasterNorm.split("/");
@@ -130,11 +129,9 @@ function parseMasterPath(rawPath, baseMasterServer) {
     };
 }
 
-// Pencarian cepat folder sekolah di dalam subfolder marketing (1 level saja, direct folder check)
 function findSchoolInMarketingFolders(monthFolder, schoolName, targetItem) {
     if (!monthFolder || !monthFolder.exists) return null;
     try {
-        // Ambil folder-folder marketing (misal: "CIANJUR (SURYA)", "BANDUNG (RUDI)", dll.)
         var marketingFolders = monthFolder.getFiles(function (item) { return item instanceof Folder; });
         var schoolLower = schoolName.toLowerCase();
         var schoolClean = schoolLower.replace(/^\d+[\s._-]+/, "").replace(/^\s+|\s+$/g, "");
@@ -143,10 +140,8 @@ function findSchoolInMarketingFolders(monthFolder, schoolName, targetItem) {
             var mFolder = marketingFolders[m];
             var mPath = decodeURI(mFolder.fullName);
 
-            // 1. Cek langsung subfolder dengan nama sekolah persis
             var candExact = new Folder(mPath + "/" + schoolName);
             if (candExact.exists) {
-                // Cek PILIHAN/targetItem
                 var p1 = new Folder(mPath + "/" + schoolName + "/PILIHAN/" + targetItem);
                 if (p1.exists) return toWindowsPath(decodeURI(p1.fullName));
                 var p2 = new Folder(mPath + "/" + schoolName + "/" + targetItem);
@@ -154,7 +149,6 @@ function findSchoolInMarketingFolders(monthFolder, schoolName, targetItem) {
                 return toWindowsPath(decodeURI(candExact.fullName));
             }
 
-            // 2. Cek apakah ada nama sekolah mirip di dalam marketing ini (1 level check)
             var schoolSubDirs = mFolder.getFiles(function (item) { return item instanceof Folder; });
             for (var s = 0; s < schoolSubDirs.length; s++) {
                 var sDir = schoolSubDirs[s];
@@ -184,24 +178,20 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
 
     var baseNorm = normalizePath(baseServer);
 
-    // Jika Base Server dikosongkan => MODE MANUAL (seperti replace.jsx.bak):
-    // tidak ada auto-detect, Input harus dipilih manual lewat Browse.
     if (!baseNorm) {
         return {
             found: false,
             path: "",
             schoolName: parsed.schoolName,
             targetItem: parsed.targetItem,
-            message: "Mode Manual (Base Server kosong) - silakan Browse folder Input"
+            message: "Mode Manual - silakan Browse folder Input"
         };
     }
 
     var baseFolder = new Folder(baseNorm);
     var serverReachable = baseFolder.exists;
 
-    // A. JIKA PATH MASTER LENGKAP MEMILIKI BULAN (Format Anda)
     if (serverReachable && parsed.monthIndex !== -1 && parsed.monthToSchool !== "") {
-        // 1. Jalur Utama: baseServer / Month / ... / School / PILIHAN / TargetItem
         var candPilihan = baseNorm + "/" + parsed.monthToSchool + "/PILIHAN/" + parsed.targetItem;
         var fPilihan = new Folder(candPilihan);
         if (fPilihan.exists) {
@@ -214,7 +204,6 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
             };
         }
 
-        // 2. Pencarian Fuzzy di dalam folder PILIHAN (mencocokkan nama subfolder)
         var parentPilihan = new Folder(baseNorm + "/" + parsed.monthToSchool + "/PILIHAN");
         if (parentPilihan.exists) {
             try {
@@ -238,7 +227,6 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
             } catch (e) { }
         }
 
-        // 3. Jalur Langsung tanpa subfolder PILIHAN (di bawah sekolah)
         var candDirect = baseNorm + "/" + parsed.monthToSchool + "/" + parsed.targetItem;
         var fDirect = new Folder(candDirect);
         if (fDirect.exists) {
@@ -252,13 +240,10 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
         }
     }
 
-    // B. JIKA MASTER PENDEK / TIDAK ADA BULAN (Kasus User Lain / Base Server Berhenti di Bulan)
-    // baseServer mungkin adalah ".../03 SEPTEMBER 2026" ATAU ".../2026-2027" + parsed.monthName
     if (serverReachable && parsed.schoolName && parsed.schoolName !== "-") {
         var monthRegex = /^\d{2}\s+[A-Za-z]+\s+\d{4}$/;
         var targetMonthFolder = null;
 
-        // Cek apakah baseServer itu sendiri adalah folder bulan
         var baseFolderName = baseNorm.substring(baseNorm.lastIndexOf("/") + 1);
         if (monthRegex.test(baseFolderName)) {
             targetMonthFolder = baseFolder;
@@ -267,7 +252,6 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
             if (candMonth.exists) targetMonthFolder = candMonth;
         }
 
-        // Jika folder bulan ditemukan (baik baseServer sendiri maupun baseServer/Bulan)
         if (targetMonthFolder && targetMonthFolder.exists) {
             var quickFound = findSchoolInMarketingFolders(targetMonthFolder, parsed.schoolName, parsed.targetItem);
             if (quickFound) {
@@ -280,11 +264,8 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
                 };
             }
         } else {
-            // Jika baseServer adalah root tahun (2026-2027) dan master tidak punya nama bulan sama sekali,
-            // cari di semua folder bulan yang ada di baseServer (hanya mengecek folder marketing, sangat cepat)
             try {
                 var monthDirs = baseFolder.getFiles(function (item) { return item instanceof Folder && monthRegex.test(decodeURI(item.name)); });
-                // Urutkan descending (bulan terbaru dicek duluan)
                 monthDirs.sort(function (a, b) { return decodeURI(b.name) < decodeURI(a.name) ? -1 : 1; });
                 for (var md = 0; md < monthDirs.length; md++) {
                     var qf = findSchoolInMarketingFolders(monthDirs[md], parsed.schoolName, parsed.targetItem);
@@ -302,7 +283,6 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
         }
     }
 
-    // 4. Pengecekan Sibling Lokal (jika folder master dan input ada di disk lokal yang sama)
     var localPilihan = new Folder(parsed.norm + "/../PILIHAN/" + parsed.targetItem);
     if (localPilihan.exists) {
         return {
@@ -314,8 +294,8 @@ function autoDetectInputFolder(masterPath, baseServer, baseMaster) {
         };
     }
 
-    var notFoundMsg = serverReachable 
-        ? "Input belum ditemukan di server (silakan Browse manual)" 
+    var notFoundMsg = serverReachable
+        ? "Input belum ditemukan di server (silakan Browse manual)"
         : "Server input tidak terjangkau (silakan Browse manual)";
 
     return {
@@ -427,29 +407,51 @@ function main() {
     }
 
     // Batch Replace (Auto) memakai path pasangan yang dikirim BMachine; jangan tampilkan dialog.
+    // Mendukung 1 banyak pasangan sekaligus (SourceFolders = list) — tiap pasangan di-queue
+    // dan dieksekusi berurutan dalam satu invocation, lalu 1 laporan gabungan di akhir.
     if (bmachineContext && bmachineContext.BatchAutoReplace === true) {
-        var batchMasterPath = bmachineContext.MasterTemplatePath;
-        var batchInputPath = bmachineContext.SourceFolders && bmachineContext.SourceFolders.length > 0
-            ? bmachineContext.SourceFolders[0].SourcePath
-            : "";
-        var batchMasterFolder = new Folder(batchMasterPath || "");
-        var batchInputFolder = new Folder(batchInputPath || "");
-        if (!batchMasterFolder.exists || !batchInputFolder.exists) {
-            writeReplaceErrorResult("Replace (Auto): folder Master/Output atau Input/Source tidak ditemukan.");
+        var batchPairs = [];
+        var rawSourceFolders = (bmachineContext.SourceFolders && bmachineContext.SourceFolders.length > 0)
+            ? bmachineContext.SourceFolders
+            : [{ OutputPath: bmachineContext.MasterTemplatePath, SourcePath: "" }];
+
+        for (var p = 0; p < rawSourceFolders.length; p++) {
+            var pOut = rawSourceFolders[p].OutputPath || "";
+            var pIn = rawSourceFolders[p].SourcePath || "";
+            var pOutFolder = new Folder(pOut || "");
+            var pInFolder = new Folder(pIn || "");
+            if (!pOutFolder.exists || !pInFolder.exists) {
+                writeReplaceErrorResult("Replace (Auto): pasangan " + (p + 1) + " tidak lengkap.\n" +
+                    "Master/Output: " + pOut + "\nInput/Source: " + pIn + "\n(Salah satu folder tidak ditemukan)");
+                return;
+            }
+            batchPairs.push({ out: pOutFolder, in: pInFolder });
+        }
+
+        if (batchPairs.length === 0) {
+            writeReplaceErrorResult("Replace (Auto): tidak ada pasangan Master/Output + Input yang valid.");
             return;
         }
+
         var previousDisplayDialogs = app.displayDialogs;
         app.displayDialogs = DialogModes.NO;
         try {
-            var batchResult = runReplacementLogic(batchMasterFolder, batchInputFolder, true, true);
-            var batchMessage = "Master: " + decodeURI(batchMasterFolder.name) + "\n" +
-                "Berhasil: " + (batchResult && batchResult.success ? batchResult.success.length : 0) + "\n" +
-                "Gagal: " + (batchResult && batchResult.fail ? batchResult.fail.length : 0) + "\n";
-            if (batchResult && batchResult.fail && batchResult.fail.length > 0) {
-                batchMessage += "\nDetail gagal:\n" + batchResult.fail.join("\n");
+            var allResults = [];
+            for (var pi = 0; pi < batchPairs.length; pi++) {
+                var pairOut = batchPairs[pi].out;
+                var pairIn = batchPairs[pi].in;
+                var r = runReplacementLogic(pairOut, pairIn, true, true);
+                if (r) allResults.push(r);
+                // Tutup dokumen yang masih terbuka antar pasangan agar tidak menumpuk di memory.
+                try {
+                    while (app.documents.length > 0) {
+                        app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
+                    }
+                } catch (closeErr) { }
             }
-            if (batchResult && batchResult.skipped) batchMessage += "\n\n" + batchResult.skipMsg;
-            showScrollableAlert("Laporan Replace (Auto)", batchMessage);
+
+            var combined = showCombinedReport(allResults, "standard");
+            // Jika hanya 1 pasangan, tetap tampilkan 1 alert (konsisten dengan behavior lama).
         } catch (batchError) {
             writeReplaceErrorResult("Replace (Auto) gagal: " + batchError.message);
             alert("Replace (Auto) gagal:\n" + batchError.message);
@@ -461,36 +463,33 @@ function main() {
 
     // === UI CONFIG ===
     var settings = loadSettings();
-    // Hormati nilai kosong (mode manual). loadSettings sudah menangani default pertama kali.
-    var currentBaseServer = (settings.baseInputServer === null || settings.baseInputServer === undefined) ? "" : settings.baseInputServer;
-    var currentBaseMaster = (settings.baseMasterServer === null || settings.baseMasterServer === undefined) ? "" : settings.baseMasterServer;
+    var currentAutoDetect = settings.autoDetect === true;
 
-    var w = new Window("dialog", "Smart Object Replacer (Queue Mode)");
+    var w = new Window("dialog", "Smart Object Replacer");
     w.orientation = "column";
     w.alignChildren = ["fill", "top"];
-    w.spacing = 10;
-    w.margins = 16;
-    w.preferredSize.width = 540;
+    w.spacing = 8;
+    w.margins = 12;
+    w.preferredSize.width = 460;
 
     // ==========================================
-    // PANEL 1: MASTER (.PSD) & INFORMASI TARGET
+    // PANEL 1: MASTER (.PSD) — compact
     // ==========================================
     var pnlMaster = w.add("panel", undefined, " 1. FOLDER MASTER (.PSD) ");
     pnlMaster.orientation = "column";
     pnlMaster.alignChildren = ["fill", "top"];
-    pnlMaster.spacing = 8;
-    pnlMaster.margins = 12;
+    pnlMaster.spacing = 6;
+    pnlMaster.margins = 10;
 
-    // Row: Input Text & Buttons
     var grpMasterRow = pnlMaster.add("group");
     grpMasterRow.orientation = "row";
     grpMasterRow.alignChildren = ["fill", "center"];
 
     var lblMaster = grpMasterRow.add("statictext", undefined, "Master (.psd):");
-    lblMaster.preferredSize.width = 85;
+    lblMaster.preferredSize.width = 80;
 
     var txtMaster = grpMasterRow.add("edittext", undefined, defaultMasterPath);
-    txtMaster.preferredSize.width = 310;
+    txtMaster.preferredSize.width = 260;
     txtMaster.helpTip = "Drag & Drop folder dari Explorer ke sini, atau Paste (Ctrl+V)";
 
     var btnClearMaster = grpMasterRow.add("button", undefined, "X");
@@ -500,61 +499,32 @@ function main() {
     var btnBrowseMaster = grpMasterRow.add("button", undefined, "Browse...");
     btnBrowseMaster.preferredSize.width = 75;
 
-    // Hint Copy-Paste
-    var lblMasterTip = pnlMaster.add("statictext", undefined, "Tip: Di Explorer klik folder lalu tekan Ctrl+Shift+C (Copy Path), lalu di sini langsung tekan Ctrl+V.");
+    // One-liner info di bawah field Master (Sekolah / Target / jumlah .psd)
+    var lblMasterInfo = pnlMaster.add("statictext", undefined, "-");
+    lblMasterInfo.preferredSize.width = 420;
     try {
-        lblMasterTip.graphics.foregroundColor = w.graphics.newPen(w.graphics.PenType.SOLID_COLOR, [0.4, 0.4, 0.4, 1], 1);
+        lblMasterInfo.graphics.foregroundColor = w.graphics.newPen(w.graphics.PenType.SOLID_COLOR, [0.4, 0.4, 0.4, 1], 1);
     } catch (e) { }
 
-    // Card Informasi Master & Target
-    var pnlMasterInfo = pnlMaster.add("panel", undefined, "Informasi Master & Target");
-    pnlMasterInfo.orientation = "column";
-    pnlMasterInfo.alignChildren = ["fill", "top"];
-    pnlMasterInfo.spacing = 4;
-    pnlMasterInfo.margins = 8;
-
-    var grpSekolah = pnlMasterInfo.add("group");
-    grpSekolah.orientation = "row";
-    var lblSekolahTitle = grpSekolah.add("statictext", undefined, "Sekolah :");
-    lblSekolahTitle.preferredSize.width = 75;
-    var lblSekolahVal = grpSekolah.add("statictext", undefined, "-");
-    lblSekolahVal.preferredSize.width = 400;
-
-    var grpTarget = pnlMasterInfo.add("group");
-    grpTarget.orientation = "row";
-    var lblTargetTitle = grpTarget.add("statictext", undefined, "Target  :");
-    lblTargetTitle.preferredSize.width = 75;
-    var lblTargetVal = grpTarget.add("statictext", undefined, "-");
-    lblTargetVal.preferredSize.width = 400;
-
-    var grpMasterCount = pnlMasterInfo.add("group");
-    grpMasterCount.orientation = "row";
-    var lblMasterCountTitle = grpMasterCount.add("statictext", undefined, "Master  :");
-    lblMasterCountTitle.preferredSize.width = 75;
-    var lblMasterCountVal = grpMasterCount.add("statictext", undefined, "-");
-    lblMasterCountVal.preferredSize.width = 400;
-
-
     // ==========================================
-    // PANEL 2: INPUT FOTO (SERVER / SELEKSI)
+    // PANEL 2: INPUT FOTO — compact
     // ==========================================
-    var pnlInput = w.add("panel", undefined, " 2. FOLDER INPUT FOTO (SERVER / SELEKSI) ");
+    var pnlInput = w.add("panel", undefined, " 2. FOLDER INPUT FOTO ");
     pnlInput.orientation = "column";
     pnlInput.alignChildren = ["fill", "top"];
-    pnlInput.spacing = 8;
-    pnlInput.margins = 12;
+    pnlInput.spacing = 6;
+    pnlInput.margins = 10;
 
-    // Row: Input Text & Buttons
     var grpInputRow = pnlInput.add("group");
     grpInputRow.orientation = "row";
     grpInputRow.alignChildren = ["fill", "center"];
 
     var lblInput = grpInputRow.add("statictext", undefined, "Input (Img):");
-    lblInput.preferredSize.width = 85;
+    lblInput.preferredSize.width = 80;
 
     var txtInput = grpInputRow.add("edittext", undefined, defaultInputPath);
-    txtInput.preferredSize.width = 310;
-    txtInput.helpTip = "Folder foto sumber (otomatis terhubung atau pilih manual)";
+    txtInput.preferredSize.width = 260;
+    txtInput.helpTip = "Folder foto sumber (otomatis jika Mode Otomatis aktif, atau pilih manual via Browse)";
 
     var btnClearInput = grpInputRow.add("button", undefined, "X");
     btnClearInput.size = [26, 26];
@@ -563,104 +533,149 @@ function main() {
     var btnBrowseInput = grpInputRow.add("button", undefined, "Browse...");
     btnBrowseInput.preferredSize.width = 75;
 
-    // Card Informasi Input & Status
-    var pnlInputInfo = pnlInput.add("panel", undefined, "Informasi Input & Status Sinkronisasi");
-    pnlInputInfo.orientation = "column";
-    pnlInputInfo.alignChildren = ["fill", "top"];
-    pnlInputInfo.spacing = 4;
-    pnlInputInfo.margins = 8;
+    // One-liner status di bawah field Input
+    var lblDetectStatus = pnlInput.add("statictext", undefined, "Menunggu input Master (.psd)...");
+    lblDetectStatus.preferredSize.width = 420;
+    try {
+        lblDetectStatus.graphics.foregroundColor = w.graphics.newPen(w.graphics.PenType.SOLID_COLOR, [0.4, 0.4, 0.4, 1], 1);
+    } catch (e) { }
 
-    var grpInputCount = pnlInputInfo.add("group");
-    grpInputCount.orientation = "row";
-    var lblInputCountTitle = grpInputCount.add("statictext", undefined, "Input   :");
-    lblInputCountTitle.preferredSize.width = 75;
-    var lblInputCountVal = grpInputCount.add("statictext", undefined, "-");
-    lblInputCountVal.preferredSize.width = 400;
-
-    var grpStatus = pnlInputInfo.add("group");
-    grpStatus.orientation = "row";
-    var lblStatusTitle = grpStatus.add("statictext", undefined, "Status  :");
-    lblStatusTitle.preferredSize.width = 75;
-    var lblDetectStatus = grpStatus.add("statictext", undefined, "Menunggu input Master (.psd)...");
-    lblDetectStatus.preferredSize.width = 400;
-
-    // Bottom Actions on Input: Server Config, Master Config, & Add to Queue
+    // Row: Add to Queue (satu-satunya tombol tambah, di luar panel agar konsisten posisi)
     var grpInputActions = pnlInput.add("group");
     grpInputActions.orientation = "row";
     grpInputActions.alignChildren = ["fill", "center"];
-
-    var btnServerConfig = grpInputActions.add("button", undefined, "Base Server...");
-    btnServerConfig.preferredSize.width = 105;
-    btnServerConfig.preferredSize.height = 26;
-    btnServerConfig.helpTip = "Lihat atau ubah folder Base Server untuk auto-detect Input";
-
-    var btnMasterConfig = grpInputActions.add("button", undefined, "Base Master...");
-    btnMasterConfig.preferredSize.width = 105;
-    btnMasterConfig.preferredSize.height = 26;
-    btnMasterConfig.helpTip = "Set Base Folder Master lokal jika format path berbeda dengan server";
-
     var grpSpacer = grpInputActions.add("group");
     grpSpacer.alignment = ["fill", "fill"];
-
     var btnAddQueue = grpInputActions.add("button", undefined, "+ Tambah ke Antrian");
     btnAddQueue.preferredSize.width = 160;
     btnAddQueue.preferredSize.height = 26;
     btnAddQueue.helpTip = "Tambahkan pasangan Master dan Input ini ke Antrian (Queue)";
 
+    // ==========================================
+    // PANEL 3: MODE (checkbox + tombol Pengaturan Base)
+    // ==========================================
+    var grpMode = w.add("group");
+    grpMode.orientation = "row";
+    grpMode.alignChildren = ["fill", "center"];
+
+    var chkAutoDetect = grpMode.add("checkbox", undefined, "Mode Otomatis (auto-detect Input via Base)");
+    chkAutoDetect.value = currentAutoDetect;
+    chkAutoDetect.helpTip = "Kalau aktif: Input diisi otomatis dari Base Server saat Master di-paste. Kalau mati: Input wajib Browse manual.";
+
+    var btnBaseSettings = grpMode.add("button", undefined, "Pengaturan...");
+    btnBaseSettings.preferredSize.width = 100;
+    btnBaseSettings.helpTip = "Atur Base Server & Base Master di window baru.";
+
+    // --- Dialog Pengaturan Base (window baru) ---
+    function openBaseSettingsDialog() {
+        var d = new Window("dialog", "Pengaturan Base Server & Base Master");
+        d.orientation = "column";
+        d.alignChildren = ["fill", "top"];
+        d.spacing = 10;
+        d.margins = 14;
+        d.preferredSize.width = 520;
+
+        var lblDesc = d.add("statictext", undefined,
+            "Base Server : root folder input di server (auto-detect saat Mode Otomatis).\n" +
+            "Base Master : (opsional) folder master lokal bila format path berbeda.",
+            { multiline: true });
+        lblDesc.preferredSize.width = 480;
+        try {
+            lblDesc.graphics.foregroundColor = d.graphics.newPen(d.graphics.PenType.SOLID_COLOR, [0.4, 0.4, 0.4, 1], 1);
+        } catch (e) { }
+
+        var grpSrv = d.add("group");
+        grpSrv.orientation = "row";
+        grpSrv.alignChildren = ["fill", "center"];
+        var lblSrv = grpSrv.add("statictext", undefined, "Base Server:");
+        lblSrv.preferredSize.width = 90;
+        var txtSrv = grpSrv.add("edittext", undefined, settings.baseInputServer || "");
+        txtSrv.preferredSize.width = 360;
+        var btnSrvBrowse = grpSrv.add("button", undefined, "Browse...");
+        btnSrvBrowse.preferredSize.width = 75;
+        btnSrvBrowse.onClick = function () {
+            var f = Folder.selectDialog("Pilih Base Server Input");
+            if (f) txtSrv.text = decodeURI(f.fsName || f.fullName);
+        };
+
+        var grpMst = d.add("group");
+        grpMst.orientation = "row";
+        grpMst.alignChildren = ["fill", "center"];
+        var lblMst = grpMst.add("statictext", undefined, "Base Master:");
+        lblMst.preferredSize.width = 90;
+        var txtMst = grpMst.add("edittext", undefined, settings.baseMasterServer || "");
+        txtMst.preferredSize.width = 360;
+        txtMst.helpTip = "Opsional. Kosongkan bila format path Master sama dengan server.";
+        var btnMstBrowse = grpMst.add("button", undefined, "Browse...");
+        btnMstBrowse.preferredSize.width = 75;
+        btnMstBrowse.onClick = function () {
+            var f = Folder.selectDialog("Pilih Base Folder Master lokal");
+            if (f) txtMst.text = decodeURI(f.fsName || f.fullName);
+        };
+
+        var grpBtn = d.add("group");
+        grpBtn.alignment = "right";
+        grpBtn.spacing = 8;
+        var btnSrvClear = grpBtn.add("button", undefined, "Kosongkan");
+        btnSrvClear.onClick = function () { txtSrv.text = ""; txtSrv.active = true; };
+        var btnOk = grpBtn.add("button", undefined, "Simpan", { name: "ok" });
+        var btnCancel = grpBtn.add("button", undefined, "Batal", { name: "cancel" });
+        btnOk.onClick = function () { d.close(1); };
+        btnCancel.onClick = function () { d.close(0); };
+
+        d.center();
+        if (d.show() === 1) {
+            var srv = txtSrv.text.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "").replace(/^\s+|\s+$/g, "");
+            var mst = txtMst.text.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "").replace(/^\s+|\s+$/g, "");
+            settings.baseInputServer = srv;
+            settings.baseMasterServer = mst;
+            saveSettings(w.location.x, w.location.y, chkAutoDetect.value === true, srv, mst);
+            triggerMasterRefresh();
+        }
+    }
+
+    btnBaseSettings.onClick = function () {
+        openBaseSettingsDialog();
+    };
+
+    chkAutoDetect.onChange = function () {
+        saveSettings(w.location.x, w.location.y, chkAutoDetect.value === true,
+            settings.baseInputServer || "", settings.baseMasterServer || "");
+        triggerMasterRefresh();
+    };
+
 
     // ==========================================
-    // LOGIKA AUTO-DETECT & UPDATE REALTIME
+    // LOGIKA UPDATE INFO REALTIME
     // ==========================================
     function updateMasterInfoOnly(raw) {
         if (!raw || raw.replace(/\s+/g, "") === "") {
-            lblSekolahVal.text = "-";
-            lblTargetVal.text = "-";
-            lblMasterCountVal.text = "-";
+            lblMasterInfo.text = "-";
             return;
         }
 
-        var parsed = parseMasterPath(raw, currentBaseMaster);
+        // Baca Base Master dari settings (diupdate oleh dialog Pengaturan).
+        var parsed = parseMasterPath(raw, settings.baseMasterServer || "");
+        var info = "-";
         if (parsed) {
-            lblSekolahVal.text = parsed.schoolName || "-";
-            lblTargetVal.text = parsed.targetItem || "-";
-        } else {
-            lblSekolahVal.text = "-";
-            lblTargetVal.text = "-";
+            info = "Sekolah: " + (parsed.schoolName || "-") + "  |  Target: " + (parsed.targetItem || "-");
         }
-
         var mCount = countFilesFast(raw, /\.(psd|psb)$/i);
         if (mCount > 0) {
-            lblMasterCountVal.text = mCount + " file .psd ditemukan";
+            info += "  |  " + mCount + " file .psd";
         } else if (new Folder(raw).exists) {
-            lblMasterCountVal.text = "0 file .psd (folder kosong)";
+            info += "  |  0 file .psd";
         } else {
-            lblMasterCountVal.text = "- (folder belum ada)";
+            info += "  |  folder tidak ada";
         }
+        lblMasterInfo.text = info;
     }
 
-    function updateInputInfoOnly(raw) {
-        if (!raw || raw.replace(/\s+/g, "") === "") {
-            lblInputCountVal.text = "-";
-            return;
-        }
-        var iCount = countFilesFast(raw, /\.(png|jpe?g|psd)$/i);
-        if (iCount > 0) {
-            lblInputCountVal.text = iCount + " file gambar ditemukan (termasuk di dalam subfolder)";
-        } else if (new Folder(raw).exists) {
-            lblInputCountVal.text = "0 file gambar di folder ini";
-        } else {
-            lblInputCountVal.text = "-";
-        }
-    }
-
-    function triggerAutoDetect() {
+    function triggerMasterRefresh() {
         var raw = txtMaster.text;
         if (!raw || raw.replace(/\s+/g, "") === "") {
-            lblSekolahVal.text = "-";
-            lblTargetVal.text = "-";
-            lblMasterCountVal.text = "-";
+            lblMasterInfo.text = "-";
             lblDetectStatus.text = "Menunggu input Master (.psd)...";
-            lblInputCountVal.text = "-";
             return;
         }
 
@@ -672,160 +687,92 @@ function main() {
 
         updateMasterInfoOnly(raw);
 
-        var res = autoDetectInputFolder(raw, currentBaseServer, currentBaseMaster);
-        lblDetectStatus.text = res.message;
+        // Mode Otomatis aktif => auto-detect Input dari Base (nilai settings, diupdate dialog Pengaturan).
+        if (chkAutoDetect.value) {
+            var res = autoDetectInputFolder(raw, settings.baseInputServer || "", settings.baseMasterServer || "");
+            lblDetectStatus.text = res.message;
+            if (res.found && res.path) {
+                txtInput.text = res.path;
+            }
+            return;
+        }
 
-        if (res.found && res.path) {
-            txtInput.text = res.path;
-            updateInputInfoOnly(res.path);
+        // Mode Manual: coba sibling lokal bila Input kosong.
+        if (!txtInput.text || txtInput.text.replace(/\s+/g, "") === "") {
+            var parsedLocal = parseMasterPath(raw, "");
+            if (parsedLocal) {
+                var cand = new Folder(parsedLocal.norm + "/../PILIHAN/" + parsedLocal.targetItem);
+                if (cand.exists) {
+                    txtInput.text = toWindowsPath(decodeURI(cand.fsName));
+                    lblDetectStatus.text = "[OK] Input ditemukan di folder lokal PILIHAN (sibling Master)";
+                    return;
+                }
+            }
+            lblDetectStatus.text = "Mode Manual - silakan Browse folder Input";
         } else {
-            updateInputInfoOnly(txtInput.text);
+            var iCount = countFilesFast(txtInput.text, /\.(png|jpe?g|psd)$/i);
+            if (iCount > 0) {
+                lblDetectStatus.text = iCount + " file gambar di Input";
+            } else {
+                lblDetectStatus.text = "Input: " + new File(txtInput.text).displayName;
+            }
         }
     }
 
     // Event Handlers (Instant OnChanging saat Paste/Drop)
     txtMaster.onChanging = function () {
-        triggerAutoDetect();
+        triggerMasterRefresh();
     };
 
     txtMaster.onChange = function () {
-        triggerAutoDetect();
+        triggerMasterRefresh();
     };
 
     txtInput.onChanging = function () {
-        updateInputInfoOnly(txtInput.text);
+        if (chkAutoDetect.value) return; // auto-detect sedang pegang, jangan override
+        var iCount = countFilesFast(txtInput.text, /\.(png|jpe?g|psd)$/i);
+        if (iCount > 0) {
+            lblDetectStatus.text = iCount + " file gambar di Input";
+        } else {
+            lblDetectStatus.text = "Input: " + new File(txtInput.text).displayName;
+        }
     };
 
     txtInput.onChange = function () {
-        updateInputInfoOnly(txtInput.text);
+        txtInput.onChanging();
     };
 
     btnBrowseMaster.onClick = function () {
         var f = Folder.selectDialog("Pilih Folder Master");
         if (f) {
             txtMaster.text = decodeURI(f.fsName || f.fullName);
-            triggerAutoDetect();
+            triggerMasterRefresh();
         }
     };
 
     btnClearMaster.onClick = function () {
         txtMaster.text = "";
-        triggerAutoDetect();
+        triggerMasterRefresh();
         txtMaster.active = true;
-    };
-
-    function showPathConfigDialog(title, description, currentValue, defaultVal, isFolderPicker) {
-        var d = new Window("dialog", title);
-        d.orientation = "column";
-        d.alignChildren = ["fill", "top"];
-        d.spacing = 10;
-        d.margins = 16;
-        d.preferredSize.width = 480;
-
-        var lblDesc = d.add("statictext", undefined, description, { multiline: true });
-        lblDesc.preferredSize.width = 440;
-
-        var grpField = d.add("group");
-        grpField.orientation = "row";
-        grpField.alignChildren = ["fill", "center"];
-
-        var txtField = grpField.add("edittext", undefined, currentValue || "");
-        txtField.preferredSize.width = 350;
-
-        var btnBrowse = grpField.add("button", undefined, "Browse...");
-        btnBrowse.preferredSize.width = 80;
-        btnBrowse.onClick = function () {
-            var f = Folder.selectDialog("Pilih Folder");
-            if (f) {
-                txtField.text = decodeURI(f.fsName || f.fullName);
-            }
-        };
-
-        // Hint: kosongkan untuk kembali ke mode manual (tanpa auto-detect)
-        var lblHint = d.add("statictext", undefined, "Tip: Kosongkan field lalu Simpan untuk mematikan auto-detect (mode manual, Input dipilih via Browse).", { multiline: true });
-        lblHint.preferredSize.width = 440;
-        try {
-            lblHint.graphics.foregroundColor = d.graphics.newPen(d.graphics.PenType.SOLID_COLOR, [0.4, 0.4, 0.4, 1], 1);
-        } catch (e) { }
-
-        var grpBottom = d.add("group");
-        grpBottom.alignment = "right";
-        grpBottom.spacing = 8;
-
-        var btnKosong = grpBottom.add("button", undefined, "Kosongkan");
-        btnKosong.helpTip = "Kosongkan field (matikan auto-detect)";
-        btnKosong.onClick = function () {
-            txtField.text = "";
-            txtField.active = true;
-        };
-
-        var btnReset = grpBottom.add("button", undefined, "Reset Default");
-        btnReset.onClick = function () {
-            txtField.text = defaultVal || "";
-        };
-
-        var btnOk = grpBottom.add("button", undefined, "Simpan", { name: "ok" });
-        btnOk.preferredSize.width = 80;
-        var btnCancel = grpBottom.add("button", undefined, "Batal", { name: "cancel" });
-        btnCancel.preferredSize.width = 80;
-
-        btnOk.onClick = function () { d.close(1); };
-        btnCancel.onClick = function () { d.close(0); };
-
-        d.center();
-        var res = d.show();
-        if (res === 1) {
-            var val = txtField.text.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "");
-            return val.replace(/^\s+|\s+$/g, ""); // boleh kosong
-        }
-        return null;
-    }
-
-    btnMasterConfig.onClick = function () {
-        var desc = "Base Folder Master lokal saat ini:\n" + 
-                   (currentBaseMaster || "(Kosong - tidak dipakai)") + 
-                   "\n\nContoh: D:\\#GAWENA\\03 SEPTEMBER 2026\n" +
-                   "Biarkan kosong jika format path Master berbeda dengan server.\n" +
-                   "Jika kosong, Base Server juga sebaiknya kosong (mode manual).";
-        var newMaster = showPathConfigDialog("Konfigurasi Base Master", desc, currentBaseMaster, DEFAULT_BASE_MASTER, true);
-        if (newMaster !== null) {
-            currentBaseMaster = newMaster;
-            saveSettings(w.location.x, w.location.y, currentBaseServer, currentBaseMaster);
-            triggerAutoDetect();
-        }
     };
 
     btnBrowseInput.onClick = function () {
         var f = Folder.selectDialog("Pilih Folder Seleksi");
         if (f) {
             txtInput.text = decodeURI(f.fsName || f.fullName);
-            updateInputInfoOnly(txtInput.text);
+            txtInput.onChanging();
         }
     };
 
     btnClearInput.onClick = function () {
         txtInput.text = "";
-        updateInputInfoOnly("");
+        triggerMasterRefresh();
         txtInput.active = true;
     };
 
-    btnServerConfig.onClick = function () {
-        var desc = "Base Server Input saat ini:\n" + 
-                   (currentBaseServer || "(Kosong - Mode Manual)") + 
-                   "\n\nContoh: \\\\delapanmataair\\Editor 5\\2. REGULER\\#PROJECT SEKOLAH\\2026-2027\n" +
-                   "Kosongkan untuk mematikan auto-detect (Input dipilih manual via Browse).";
-        var newBase = showPathConfigDialog("Konfigurasi Base Server Input", desc, currentBaseServer, DEFAULT_BASE_INPUT, true);
-        if (newBase !== null) {
-            // Boleh kosong => mode manual (tanpa auto-detect), sama seperti replace.jsx.bak
-            currentBaseServer = newBase;
-            saveSettings(w.location.x, w.location.y, currentBaseServer, currentBaseMaster);
-            triggerAutoDetect();
-        }
-    };
-
-    // Auto-detect saat pertama kali dialog terbuka jika Master sudah terisi
+    // Refresh saat pertama kali dialog terbuka jika Master sudah terisi
     if (txtMaster.text != "") {
-        triggerAutoDetect();
+        triggerMasterRefresh();
     }
 
     // ==========================================
@@ -918,7 +865,7 @@ function main() {
 
     btnAddQueue.onClick = function () {
         if (txtMaster.text != "" && txtInput.text == "") {
-            triggerAutoDetect();
+            triggerMasterRefresh();
         }
 
         if (txtMaster.text == "" || txtInput.text == "") {
@@ -948,7 +895,7 @@ function main() {
         // Clear fields for next entry
         txtInput.text = "";
         txtMaster.text = "";
-        triggerAutoDetect();
+        triggerMasterRefresh();
     };
 
     // === EXECUTION LOGIC ===
@@ -981,7 +928,14 @@ function main() {
 
     // Simpan posisi terakhir APA PUN hasilnya (termasuk Cancel/tutup),
     // supaya dialog selalu ingat tempat terakhir kali dipakai.
-    saveSettings(w.location.x, w.location.y, currentBaseServer, currentBaseMaster);
+    // Mode + Base kini persist hanya dari dialog Pengaturan & checkbox.
+    saveSettings(
+        w.location.x,
+        w.location.y,
+        chkAutoDetect.value === true,
+        settings.baseInputServer || "",
+        settings.baseMasterServer || ""
+    );
 
     if (result != 1 && result != 2) return; // Cancel
 
@@ -997,7 +951,7 @@ function main() {
     // NOTE: Only add if fields are filled. If Queue has items but fields empty, ignore fields.
     // If Queue empty, fields MUST be filled.
     if (txtMaster.text != "" && txtInput.text == "") {
-        triggerAutoDetect();
+        triggerMasterRefresh();
     }
 
     if (txtMaster.text != "" && txtInput.text != "") {

@@ -48,6 +48,13 @@
                         ToolTip.Tip="Download Image">
                     <PathIcon Data="{StaticResource IconDownload}" Width="16" Height="16"/>
                 </Button>
+                <!-- Copy Button -->
+                <Button Classes="IconBtn" Width="36" Height="36" CornerRadius="{DynamicResource RadiusSm}"
+                        Cursor="Hand" Click="OnCopyImageClick"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        ToolTip.Tip="Copy Image">
+                    <PathIcon Data="{StaticResource IconCopy}" Width="16" Height="16"/>
+                </Button>
                 <!-- Close Button -->
                 <Button Classes="WindowClose" Click="OnCloseClick"
                         ToolTip.Tip="Close Viewer (Esc / Right Click)">

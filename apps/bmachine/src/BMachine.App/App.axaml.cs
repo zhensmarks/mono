@@ -10,6 +10,7 @@ using BMachine.UI.Messages;
 using CommunityToolkit.Mvvm.Messaging;
 using System; 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -345,6 +346,20 @@ public partial class App : Application,
             
             WeakReferenceMessenger.Default.RegisterAll(this);
             Log("Initialization Complete.");
+
+            // Command-line folder arguments (e.g. drag folder to exe, Open With, or CLI test)
+            if (desktop.Args != null && desktop.Args.Length > 0)
+            {
+                var validDirs = desktop.Args
+                    .Where(a => !string.IsNullOrWhiteSpace(a) && (System.IO.Directory.Exists(a) || a.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase)))
+                    .ToArray();
+                if (validDirs.Length > 0)
+                {
+                    Log($"Opening {validDirs.Length} startup folder(s) in Batch...");
+                    WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.BatchAddFoldersMessage(validDirs));
+                    WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.NavigateToPageMessage("Batch"));
+                }
+            }
         }
         catch (Exception ex)
         {

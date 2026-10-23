@@ -1845,6 +1845,27 @@ if ($img -ne $null) {{
     public event Func<Task<string?>>? RequestMasterPathBrowse;
     public event Func<string, Task<string?>>? RequestManualReplaceFolderBrowse;
 
+    /// <summary>
+    /// Snapshot of all items currently selected in the SOURCE TreeView (multi-select).
+    /// Updated by the View on SelectionChanged; Replace (Auto) uses this to batch
+    /// replace every selected folder at once instead of only the right-clicked one.
+    /// </summary>
+    [ObservableProperty]
+    private System.Collections.Generic.List<object> _selectedSourceItems = new();
+
+    /// <summary>
+    /// Snapshot of all items currently selected in the OUTPUT TreeView (multi-select).
+    /// </summary>
+    [ObservableProperty]
+    private System.Collections.Generic.List<object> _selectedOutputItems = new();
+
+    /// <summary>
+    /// True when the most recent Replace (Auto) run came from a multi-selection
+    /// (more than one folder selected). Drives logging + report title.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isMultiSelectionActive;
+
     [RelayCommand]
     private Task ReplaceSourceAuto(object? target) => ReplaceBatchFolderAsync(target, isOutputSide: false, manual: false);
 
@@ -1857,8 +1878,63 @@ if ($img -ne $null) {{
     [RelayCommand]
     private Task ReplaceOutputManual(object? target) => ReplaceBatchFolderAsync(target, isOutputSide: true, manual: true);
 
+    /// <summary>
+    /// View hook: push the currently selected items in the SOURCE tree to the VM
+    /// so Replace (Auto) can batch-process the whole multi-selection.
+    /// </summary>
+    public void UpdateSelectedSourceItems(System.Collections.IEnumerable items)
+    {
+        var list = new System.Collections.Generic.List<object>();
+        foreach (var i in items) if (i != null) list.Add(i);
+        SelectedSourceItems = list;
+        IsMultiSelectionActive = SelectedSourceItems.Count > 1;
+    }
+
+    /// <summary>
+    /// View hook: push the currently selected items in the OUTPUT tree to the VM.
+    /// </summary>
+    public void UpdateSelectedOutputItems(System.Collections.IEnumerable items)
+    {
+        var list = new System.Collections.Generic.List<object>();
+        foreach (var i in items) if (i != null) list.Add(i);
+        SelectedOutputItems = list;
+        IsMultiSelectionActive = SelectedOutputItems.Count > 1;
+    }
+
     private async Task ReplaceBatchFolderAsync(object? target, bool isOutputSide, bool manual)
     {
+        // MULTI-SELECT AUTO-REPLACE:
+        // Kalau user men-ganti (shift/ctrl) beberapa folder di TreeView lalu klik
+        // "Replace (Auto)" dari context menu, SEMUA folder terpilih diproses sekaligus.
+        // Target dari context menu (right-click) hanya dipakai sebagai fallback
+        // kalau memang hanya 1 item yang terpilih.
+        if (!manual)
+        {
+            var selection = isOutputSide ? SelectedOutputItems : SelectedSourceItems;
+            if (selection.Count > 1)
+            {
+                var pairs = new List<string[]>();
+                foreach (var obj in selection)
+                {
+                    if (!TryResolveReplaceFolders(obj, isOutputSide, out var o, out var s, out var err))
+                    {
+                        _logService?.AddLog($"[WARN] Replace: skipping {obj}: {err}");
+                        continue;
+                    }
+                    pairs.Add(new[] { o, s });
+                }
+
+                if (pairs.Count == 0)
+                {
+                    _logService?.AddLog("[ERROR] Replace (Auto multi): no valid pairs from selection.");
+                    return;
+                }
+
+                await LaunchReplaceScriptAsync(pairs.ToArray());
+                return;
+            }
+        }
+
         if (!TryResolveReplaceFolders(target, isOutputSide, out var outputPath, out var sourcePath, out var error))
         {
             _logService?.AddLog($"[ERROR] Replace: {error}");
@@ -1965,19 +2041,43 @@ if ($img -ne $null) {{
 
     private async Task LaunchReplaceScriptAsync(string outputPath, string sourcePath)
     {
-        if (string.IsNullOrWhiteSpace(outputPath) || !Directory.Exists(outputPath))
-        {
-            _logService?.AddLog($"[ERROR] Replace: Output/Master folder not found: {outputPath}");
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(sourcePath) || !Directory.Exists(sourcePath))
-        {
-            _logService?.AddLog($"[ERROR] Replace: Source/Input folder not found: {sourcePath}");
-            return;
-        }
+        await LaunchReplaceScriptAsync(new[] { new[] { outputPath, sourcePath } });
+    }
+
+    /// <summary>
+    /// Launches replace.jsx with one or more (Output, Source) folder pairs.
+    /// All pairs are executed sequentially inside Photoshop in a single invocation,
+    /// then a combined report is shown at the end.
+    /// </summary>
+    private async Task LaunchReplaceScriptAsync(string[][] pairs)
+    {
         if (_database == null)
         {
             _logService?.AddLog("[ERROR] Replace: Photoshop path settings are unavailable.");
+            return;
+        }
+
+        var validPairs = new List<string[]>();
+        foreach (var pair in pairs)
+        {
+            var outputPath = pair[0];
+            var sourcePath = pair[1];
+            if (string.IsNullOrWhiteSpace(outputPath) || !Directory.Exists(outputPath))
+            {
+                _logService?.AddLog($"[ERROR] Replace: Output/Master folder not found: {outputPath}");
+                continue;
+            }
+            if (string.IsNullOrWhiteSpace(sourcePath) || !Directory.Exists(sourcePath))
+            {
+                _logService?.AddLog($"[ERROR] Replace: Source/Input folder not found: {sourcePath}");
+                continue;
+            }
+            validPairs.Add(new[] { outputPath, sourcePath });
+        }
+
+        if (validPairs.Count == 0)
+        {
+            _logService?.AddLog("[ERROR] Replace: no valid Master/Output + Input/Source pairs to run.");
             return;
         }
 
@@ -1997,13 +2097,17 @@ if ($img -ne $null) {{
                 return;
             }
 
+            var folderPairs = validPairs
+                .Select(p => new { SourcePath = p[1], OutputPath = p[0] })
+                .ToList();
+
             var context = new
             {
-                SourceFolders = new[] { new { SourcePath = sourcePath, OutputPath = outputPath } },
-                OutputBasePath = Path.GetDirectoryName(outputPath) ?? outputPath,
+                SourceFolders = folderPairs,
+                OutputBasePath = Path.GetDirectoryName(validPairs[0][0]) ?? validPairs[0][0],
                 UseInput = true,
                 UseOutput = true,
-                MasterTemplatePath = outputPath,
+                MasterTemplatePath = validPairs[0][0],
                 BatchAutoReplace = true
             };
             var json = System.Text.Json.JsonSerializer.Serialize(context);
@@ -2015,13 +2119,45 @@ if ($img -ne $null) {{
 
             // The wrapper delivers this invocation's exact paths directly to replace.jsx.
             _platformService.RunJsxInPhotoshop(wrapperPath, photoshopPath);
-            _logService?.AddLog($"[INFO] Replace launched. Master: {outputPath} | Input: {sourcePath}");
+            _logService?.AddLog($"[INFO] Replace launched ({validPairs.Count} pair(s)).");
+            foreach (var p in validPairs)
+            {
+                _logService?.AddLog($"[INFO]   Master: {p[0]} | Input: {p[1]}");
+            }
             _logService?.AddLog($"[INFO] Replace wrapper: {wrapperPath}");
         }
         catch (Exception ex)
         {
             _logService?.AddLog($"[ERROR] Replace launch failed: {ex.Message}");
         }
+    }
+
+    // --- REPLACE ALL (multi-pair auto) ---
+
+    [RelayCommand]
+    private async Task ReplaceAllAuto()
+    {
+        if (SourceFolders == null || SourceFolders.Count == 0)
+        {
+            _logService?.AddLog("[ERROR] Replace All: no batch source/output pairs loaded.");
+            return;
+        }
+
+        var pairs = new List<string[]>();
+        foreach (var root in SourceFolders)
+        {
+            if (string.IsNullOrWhiteSpace(root.OutputPath) || string.IsNullOrWhiteSpace(root.SourcePath)) continue;
+            if (!Directory.Exists(root.OutputPath) || !Directory.Exists(root.SourcePath)) continue;
+            pairs.Add(new[] { root.OutputPath, root.SourcePath });
+        }
+
+        if (pairs.Count == 0)
+        {
+            _logService?.AddLog("[ERROR] Replace All: no valid Master/Output + Input/Source pairs available.");
+            return;
+        }
+
+        await LaunchReplaceScriptAsync(pairs.ToArray());
     }
 
     /// <summary>
