@@ -1,7 +1,9 @@
 using FrameStudio.App.Models;
 using FrameStudio.App.Services;
 using FrameStudio.App.ViewModels;
+using FrameStudio.Engine;
 using SkiaSharp;
+using System.Runtime.InteropServices;
 using Xunit;
 
 namespace FrameStudio.Tests;
@@ -29,9 +31,32 @@ public sealed class MainViewModelTests
         Assert.False(string.IsNullOrWhiteSpace(viewModel.RuntimePlatformLabel));
         Assert.Contains(viewModel.RuntimePlatformLabel, viewModel.EngineNotice);
         Assert.Contains("PsdSharp 1.2.0", viewModel.EngineNotice);
-        Assert.Contains("PSD berlapis: nonaktif", viewModel.EngineNotice);
-        Assert.Contains("psd-tools belum diaktifkan", viewModel.EngineDetails);
-        Assert.Contains("hanya PNG raster", viewModel.ExportNotice);
+        Assert.Contains("layered PSD disabled", viewModel.EngineNotice);
+        Assert.Contains("Layered PSD writing is disabled", viewModel.EngineDetails);
+        Assert.Contains("separate raster PNG", viewModel.ExportNotice);
+    }
+
+    [Fact]
+    public void DefaultAdapterReportsPlatformGateAndBoundedReadOnlyFallback()
+    {
+        var adapter = new PsdTemplateEngineUiAdapter();
+        var supportedPlatform = OperatingSystem.IsLinux() && RuntimeInformation.ProcessArchitecture == Architecture.X64;
+
+        if (supportedPlatform)
+            Assert.Contains("Linux X64", adapter.CapabilityNotice);
+        else
+        {
+            Assert.Contains("gated off", adapter.CapabilityNotice);
+            Assert.Null(adapter.Capabilities.OptionalFallback);
+        }
+
+        Assert.Contains("Python 3.11+", adapter.CapabilityDetails);
+        Assert.Contains("psd-tools==1.26.0", adapter.CapabilityDetails);
+        Assert.Contains("512 MiB input", adapter.CapabilityDetails);
+        Assert.Contains("3 GiB child-process address-space cap", adapter.CapabilityDetails);
+        Assert.Contains("120-second timeout", adapter.CapabilityDetails);
+        Assert.Contains("layered PSD disabled", adapter.CapabilityNotice);
+        Assert.False(adapter.Capabilities.CanWriteLayeredPsd);
     }
 
     [Fact]
@@ -39,8 +64,8 @@ public sealed class MainViewModelTests
     {
         var viewModel = new MainViewModel(new FakePsdTemplateAdapter { IsAvailable = false });
 
-        Assert.Contains("pembaca PSD tidak tersedia", viewModel.EngineNotice);
-        Assert.Contains("PSD berlapis: nonaktif", viewModel.EngineNotice);
+        Assert.Contains("PSD reader unavailable", viewModel.EngineNotice);
+        Assert.Contains("layered PSD disabled", viewModel.EngineNotice);
         Assert.False(viewModel.CanExportPngCopies);
     }
 
@@ -63,7 +88,9 @@ public sealed class MainViewModelTests
         Assert.Equal(SlotKind.Photo, viewModel.Slots[0].Kind);
         Assert.Equal(SlotKind.Text, viewModel.Slots[1].Kind);
         Assert.Equal(SlotKind.Logo, viewModel.Slots[2].Kind);
-        Assert.All(viewModel.Slots, slot => Assert.Contains("Kandidat dari nama layer", slot.Helper));
+        Assert.All(viewModel.Slots, slot => Assert.Contains("Best-effort candidate", slot.Helper));
+        Assert.Equal(new[] { "Photo candidate 1", "Text candidate 1", "Logo candidate 1" }, viewModel.Slots.Select(slot => slot.Label));
+        Assert.DoesNotContain("Student Name", string.Join(" ", viewModel.Slots.Select(slot => $"{slot.Label} {slot.Helper} {slot.DisplayValue}")), StringComparison.Ordinal);
         Assert.All(viewModel.Slots, slot => Assert.Null(slot.Value));
         Assert.Equal(PreviewPng, viewModel.TemplatePreviewPng);
         Assert.Equal("120 × 180 px", viewModel.DocumentDimensions);
@@ -71,7 +98,7 @@ public sealed class MainViewModelTests
         Assert.Equal(180, viewModel.DocumentHeight);
         Assert.True(viewModel.HasTemplatePreview);
         Assert.False(viewModel.CanExportPngCopies);
-        Assert.Contains("kandidat nama layer", viewModel.TemplateStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("anonymous candidates", viewModel.TemplateStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -90,7 +117,7 @@ public sealed class MainViewModelTests
 
         Assert.Empty(viewModel.Slots);
         Assert.False(viewModel.HasTemplatePreview);
-        Assert.Contains("broken PSD", viewModel.Status);
+        Assert.Contains("PSD inspection failed without changing the source", viewModel.Status);
     }
 
     [Fact]
@@ -99,19 +126,20 @@ public sealed class MainViewModelTests
         var adapter = new FakePsdTemplateAdapter();
         var pendingOldResult = new TaskCompletionSource<PsdTemplateInspection>(TaskCreationOptions.RunContinuationsAsynchronously);
         adapter.EnqueueInspection((_, _) => pendingOldResult.Task);
-        adapter.EnqueueInspection((_, _) => Task.FromResult(Inspection(new PsdSlotDescriptor("new", "New Photo", PsdSlotType.Photo, "New Photo"))));
+        adapter.EnqueueInspection((_, _) => Task.FromResult(Inspection(new PsdSlotDescriptor("new", "New Photo", PsdSlotType.Photo, "New Photo", Bounds: new PsdSlotBounds(2, 3, 4, 5)))));
         var viewModel = new MainViewModel(adapter);
 
         viewModel.SetMaster("/samples/old.psd");
         var olderInspection = viewModel.InspectSelectedMasterAsync();
         viewModel.SetMaster("/samples/new.psd");
         await viewModel.InspectSelectedMasterAsync();
-        pendingOldResult.SetResult(Inspection(new PsdSlotDescriptor("old", "Old Photo", PsdSlotType.Photo, "Old Photo")));
+        pendingOldResult.SetResult(Inspection(new PsdSlotDescriptor("old", "Old Photo", PsdSlotType.Photo, "Old Photo", Bounds: new PsdSlotBounds(6, 7, 8, 9))));
         await olderInspection;
 
         Assert.Equal("/samples/new.psd", viewModel.MasterPath);
         Assert.Single(viewModel.Slots);
-        Assert.Equal("new", viewModel.Slots[0].Id);
+        Assert.Equal("slot/1", viewModel.Slots[0].Id);
+        Assert.Equal(new FrameSlotBounds(2, 3, 4, 5), viewModel.Slots[0].Bounds);
         Assert.Equal(PreviewPng, viewModel.TemplatePreviewPng);
     }
 
@@ -134,6 +162,52 @@ public sealed class MainViewModelTests
         Assert.Same(previewBefore, viewModel.TemplatePreviewPng);
         Assert.False(viewModel.CanExportPngCopies);
         Assert.Contains("PSD master tidak diubah", viewModel.Status);
+    }
+
+    [Fact]
+    public async Task OptionalFallbackShowsAnonymousTreeAndBlocksEditsButKeepsSafePngAvailable()
+    {
+        var tree = new FramePsdLayerTreeSummary(
+            2, 1, 1, 1, 0, 0,
+            new[]
+            {
+                new FramePsdLayerSummary(
+                    "private-id", "PRIVATE GROUP", "Group", true, true, 255, new FrameBounds(0, 0, 100, 100), false, false, false, false,
+                    new[]
+                    {
+                        new FramePsdLayerSummary("private-child", "PRIVATE TEXT VALUE", "Text layer", false, true, 255, new FrameBounds(10, 20, 50, 15), false, true, false, false, Array.Empty<FramePsdLayerSummary>())
+                    })
+            });
+        var adapter = new FakePsdTemplateAdapter
+        {
+            InspectionResult = new PsdTemplateInspection(
+                true,
+                "Potentially sensitive reader text is ignored",
+                new[] { new PsdSlotDescriptor("private-slot", "PRIVATE NAME", PsdSlotType.Text, "PRIVATE NAME", "PRIVATE VALUE") },
+                PreviewPng,
+                120,
+                180,
+                tree,
+                ActiveReaderName: "psd-tools desktop sidecar")
+        };
+        var viewModel = new MainViewModel(adapter) { OutputPath = "/tmp/frame-studio-output" };
+        viewModel.AddSourcePhoto(new SourcePhoto("/samples/private-photo.jpg", null));
+        viewModel.SetMaster("/samples/master.psd");
+
+        await viewModel.InspectSelectedMasterAsync();
+
+        Assert.True(viewModel.IsFallbackPreviewMode);
+        Assert.False(viewModel.CanEditPhotoTextLogo);
+        Assert.Empty(viewModel.Slots);
+        Assert.Empty(viewModel.SourcePhotos);
+        Assert.True(viewModel.HasTemplatePreview);
+        Assert.True(viewModel.CanExportPngCopies);
+        Assert.Equal("Group 1", viewModel.LayerTreeRows[0].DisplayName);
+        Assert.Equal("Text layer 1", viewModel.LayerTreeRows[1].DisplayName);
+        Assert.Contains("mask", viewModel.LayerTreeRows[1].Details);
+        var uiText = string.Join(" ", viewModel.LayerTreeRows.Select(row => $"{row.DisplayName} {row.Kind} {row.Details}"))
+            + " " + viewModel.TemplateStatus + " " + viewModel.Status + " " + viewModel.EngineNotice + " " + viewModel.EngineDetails;
+        Assert.DoesNotContain("PRIVATE", uiText, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,56 +1,67 @@
-# Frame Studio PSD Engine (proof of concept)
+# Frame Studio PSD Preview Engine (read-only)
 
-This .NET 8 class library reads PSD/PSB document metadata and layer structure, returns conservative photo/text/logo slot candidates with estimated layer rectangles, and exposes the file's stored merged composite. It is UI-framework independent and does not reference Avalonia or the UI assembly.
+## Current capability
 
-## Safe output decision
+The engine is a UI-independent .NET 8 library. Its primary reader is [PsdSharp 1.2.0](https://github.com/kaelon141/PsdSharp), a managed MIT-licensed reader. It can attempt PSD/PSB metadata, layer-tree, and stored-composite reads; support is best-effort per file. A parser error is not a diagnosis that a file is corrupt.
 
-The runtime dependency, PsdSharp 1.2.0, is a reader and does not write or edit PSD files. The engine does **not** claim to alter text layers, insert source photos into editable layers, or save a layered PSD. It can export only the existing merged composite to a new, flattened PNG. The output API uses `FileMode.CreateNew`, so an existing file is not overwritten; the input PSD/PSB is left unchanged.
+An optional [psd-tools 1.26.0](https://github.com/psd-tools/psd-tools/tree/v1.26.0) desktop sidecar is available as a fallback when PsdSharp fails on a file path. The Avalonia app configures it only on Linux x86_64 and only when Python is found; set `FRAME_STUDIO_PSD_TOOLS_PYTHON` to choose a specific interpreter. Other platforms are gated off. The first successful local read must verify Python 3.11+ and `psd-tools==1.26.0` with its declared dependencies. The PSD and layer data stay local; the engine embeds only the small bridge script and does not bundle Python or its packages.
 
-The composite is the merged image already stored in the PSD, not a re-render of the layer tree. It cannot reflect text/photo/position/rotation/crop edits. `CanSaveLayeredPsd` is always `false` in this POC.
+The fallback returns a best-effort layer tree plus the PSD's **stored merged composite** as an RGBA preview for RGB 8-bit files that fit the preview cap. It does not recomposite the layers, so it can show a stale preview if the PSD's stored composite is stale. The app displays anonymous, generic layer labels; source layer names and text values are not included in UI summaries or status. Layer kind, visibility, opacity, bounds, mask, vector-mask, and effects flags are descriptive only. It cannot edit pixels, text, masks, or effects and cannot save a layered PSD.
 
-## Reader and slot candidates
-
-`PsdDocumentReader.Read(path)` or `Read(stream, sourceName)` returns document dimensions, channel count, bit depth, color mode, a nested layer tree with names/visibility/opacity/document-space bounds, warnings, and conservative photo-slot candidates. Candidate detection is only a naming hint: standalone `XL` or `S`, or names containing `Photo`, `Foto`, `Portrait`, or `Slot` (optionally with `XL` or `S`). The engine adapter additionally guesses photo/text/logo types from layer-name tokens. The layer reader does not inspect Photoshop text objects or prove that a layer is a photo mask. A reported rectangle is the layer rectangle, not a validated crop aperture.
-
-The stored composite is exposed as RGBA pixels by `FrameCompositePreview.RgbaPixels`. During adapter inspection it is encoded as PNG bytes in `FramePsdTemplateInspection.FlattenedPreviewPng`, along with `DocumentWidth` and `DocumentHeight`, so the UI can display the actual merged composite without recompositing layers.
-
-## Async adapter matching the UI workflow
-
-`PsdTemplateEngineAdapter` exposes:
+To opt in from a desktop host:
 
 ```csharp
-public bool IsAvailable { get; }
-Task<FramePsdTemplateInspection> InspectAsync(
-    string masterPath,
-    CancellationToken cancellationToken = default);
-Task<FramePsdExportResult> ExportCopyAsync(
-    FramePsdExportRequest request,
-    CancellationToken cancellationToken = default);
+var fallback = new PsdToolsDesktopFallbackReader(
+    new PsdToolsDesktopFallbackOptions(pythonExecutablePath: "python3"));
+var reader = new PsdDocumentReader(fallbackReader: fallback);
+var adapter = new PsdTemplateEngineAdapter(reader);
 ```
 
-The UI's `IPsdTemplateAdapter` is implemented by `FrameStudio.App.Services.PsdTemplateEngineUiAdapter`. That UI-side bridge maps `FramePsdTemplateInspection` and slot enums to UI DTOs while leaving the engine framework-independent. `CurrentValue` remains null because editable PSD text values are not read. Candidate types are inferred from layer names only.
+The executable can be an absolute path or a command resolved through `PATH`. A successful sidecar read verifies the exact psd-tools version; `EngineCapabilities.OptionalFallback` reports whether the backend is configured and runtime-verified, its MIT license, runtime requirement, platform scope, and limitations. The input must be a file path; the stream-based API does not invoke this process.
 
-`ExportCopyAsync` rejects every non-empty `SlotAssignments` dictionary rather than silently discarding edits. With an empty dictionary, it writes a new flattened PNG named `<master>-flattened.png` in `OutputFolder` (adding a numeric suffix when necessary). `SourceFolder` is carried through the request but unused by this engine method. The Avalonia UI has a separate raster canvas renderer that can draw local assets into estimated layer rectangles; those placements are not PSD-layer edits, and they do not use verified Photoshop masks. No layered PSD is written.
+## Memory and process limits
 
-## Format and fidelity boundaries
+The engine rejects source files larger than 512 MiB before either reader is called by default. The optional reader also uses finite defaults: a 1 GiB psd-tools per-allocation budget; a 256 MiB maximum RGBA preview; 100,000 parsed objects and at most 32 nested containers; a 3 GiB process address-space limit where the operating system supports it; and a 120-second process timeout. The sidecar writes its manifest and raw preview only into a unique temporary directory and deletes it after the result is copied into the document model. Oversized manifests, layer trees, dimensions, and preview buffers are rejected.
 
-- PSD and PSB are read through PsdSharp.
-- Preview output is deliberately limited to RGB documents with three channels (RGB) or four (RGBA) and 8-, 16-, or 32-bit source channels. Sixteen-bit samples are reduced to their high byte and 32-bit samples follow PsdSharp's conversion. RGBA allocation is capped at 256 MiB by default; callers can pass a different cap to `PsdDocumentReader`.
-- Other color modes can still yield document/layer metadata, but this engine emits no preview for them. This avoids presenting PsdSharp 1.2.0's generic CMYK plane conversion as color-accurate RGB.
-- PsdSharp supplies the stored composite; blend modes, masks, effects, and layer visibility are not recomposited by this engine. Parsing support and fidelity can vary for newer Photoshop features and malformed files.
-- Streams must be readable and seekable. A path-based overload opens the file read-only and closes it after extraction.
+The psd-tools allocation budget is **not** a total process-memory cap. The sidecar refuses to read unless the OS process limit can be applied to the child Python process. The primary in-process PsdSharp reader has the input-size and preview limits but is not separately memory-sandboxed; the app exposes this limitation. For untrusted files, the host application should also use an OS-level job/container limit. The exercised configuration was Linux x86_64 only. Windows and macOS hosts are unverified; this is desktop-only and makes no mobile-support claim.
 
-## Dependency and license
+## Why layered PSD export remains disabled
 
-The runtime dependency is [PsdSharp 1.2.0](https://www.nuget.org/packages/PsdSharp/1.2.0), a cross-platform managed C# PSD/PSB reader under the [MIT License](https://github.com/kaelon141/PsdSharp/blob/main/LICENSE). No commercial PSD dependency or image-processing package is added. PNG writing uses .NET's built-in `System.IO.Compression` APIs. Test-only package licenses are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+A disposable copy of the local 2953×4488 RGB 8-bit sample was used for writer testing; the master itself remained read-only. In a metadata-only rename round-trip, psd-tools reopened the output and retained the observed structure counts: 30 layers, 5 groups, 3 text layers, 11 masks, 1 effect-bearing layer, and the `lfxs` block. The stored composite hash matched before and after.
 
-Tests construct a tiny layered PSD at runtime, with no customer or proprietary PSD fixture committed or available in the workspace. They verify parser and adapter mechanics, not fidelity against a genuine production PSD.
+That result was not sufficient for editing. A second test hid one visible pixel layer in the disposable copy. The visibility change persisted after save/reopen and the same structural counts remained, but psd-tools reported that its preview update failed because rendering the sample's gradient fills required the optional SciPy dependency. Its merged-composite hash therefore remained unchanged. ImageMagick 6.9.12 independently opened both PSDs as 2953×4488 sRGB 8-bit and found zero changed pixels in the merged composite, despite the saved visibility change. This is a confirmed stale-composite failure, so `CanWriteLayeredPsd`, photo/text/logo editing, and assignment-based export remain `false`.
+
+The reader fallback uses the original stored composite and does not run the incomplete layer renderer. A future writer must update the pixel layer and merged composite, preserve unknown tagged blocks and text/mask/effect/group data, pass independent-reader checks, and open correctly in a Photoshop-compatible editor before any write capability is enabled.
+
+## Engine-to-UI contract
+
+`PsdTemplateEngineAdapter.Capabilities` reports the primary PsdSharp flags and, when configured, `OptionalFallback` diagnostics. The Avalonia app:
+
+- enables the optional fallback only on the tested Linux x86_64 desktop runtime when Python is present, and shows the Python/psd-tools requirement;
+- distinguishes configured-but-unverified from a successful read and reports whether the child-process memory cap was applied;
+- treat `FramePsdLayer.Kind`, `HasMask`, `HasVectorMask`, and `HasEffects` as read-only metadata, not proof that a layer can be edited;
+- treat `CompositePreview` as the stored composite, not a render from the current layer visibility/tree;
+- shows only anonymous, generic layer labels and read-only structural summaries;
+- keeps layered export, photo/text/logo editing, and non-empty slot assignments disabled while allowing a separate flattened PNG copy of the stored composite; and
+- gates the sidecar off on unverified desktop platforms and does not advertise mobile support.
+
+`InspectAsync` returns `Success`, a fixed safe `Message`, anonymous candidate descriptors, a sanitized layer-tree summary, the stored-composite PNG, `EngineCapabilities`, and `FailureKind`. Source layer names and current text values are not returned to the UI. Failure categories distinguish missing/access-denied/unsupported/parser failures; none claims the source is corrupt. `IsAvailable` means the adapter exists, not that a particular PSD will parse.
+
+`ExportCopyAsync` rejects non-empty `SlotAssignments` before reading or creating an output folder. With no assignments it may write a new flattened PNG from a supported stored composite; this is not a layered output, does not use `SourceFolder`, and does not overwrite existing output paths.
+
+The engine intentionally does not reference the Avalonia UI assembly. The app opens a local PSD from its file picker or `--open-psd <path>` startup argument and uses the same read-only inspection contract; no network upload is involved.
+
+## Dependencies and licensing
+
+The .NET runtime dependency remains PsdSharp 1.2.0 (MIT). The optional sidecar requires psd-tools 1.26.0 (MIT), whose declared runtime dependencies are attrs (MIT), Pillow (MIT-CMU), and NumPy (BSD-3-Clause). Python 3.11+ is an external runtime. The optional psd-tools `composite` extra adds `aggdraw` and SciPy for more layer-effect rendering; it is not required for reading the stored composite, and installing it would not resolve psd-tools' documented rendering limitations or make the writer safe. See [third-party notices](THIRD-PARTY-NOTICES.md).
 
 ## Build and test
 
 From the repository root:
 
 ```sh
-dotnet build apps/frame-studio/engine/FrameStudio.Engine.csproj --configuration Release
-dotnet test apps/frame-studio/engine.Tests/FrameStudio.Engine.Tests.csproj --configuration Release
+dotnet build apps/frame-studio/engine/FrameStudio.Engine.csproj -c Release
+dotnet test apps/frame-studio/app/FrameStudio.sln -c Release
 ```
+
+The suite builds synthetic PSD fixtures at runtime. The local master integration test is opt-in and requires both `FRAME_STUDIO_PSD_TOOLS_PYTHON` and `FRAME_STUDIO_PSD_TOOLS_SAMPLE`; it reports aggregate structure only and verifies the source hash is unchanged. No customer or proprietary PSD is committed.

@@ -20,7 +20,36 @@ public sealed record FramePsdLayer(
     FrameBounds Bounds,
     bool HasPixelData,
     FrameSlotSizeHint? SlotHint,
-    IReadOnlyList<FramePsdLayer> Children);
+    IReadOnlyList<FramePsdLayer> Children)
+{
+    /// <summary>Best-effort source layer kind; this does not make the layer editable.</summary>
+    public string Kind { get; init; } = "unknown";
+
+    public bool IsGroup { get; init; }
+
+    public bool HasMask { get; init; }
+    public bool HasVectorMask { get; init; }
+    public bool HasEffects { get; init; }
+}
+
+/// <summary>Diagnostics for an explicitly configured optional PSD reader backend.</summary>
+public sealed record FramePsdOptionalBackendCapabilities(
+    string Name,
+    string Version,
+    string License,
+    string RuntimeRequirement,
+    string PlatformScope,
+    bool IsConfigured,
+    bool RuntimeVerified,
+    bool CanAttemptPsdRead,
+    bool CanAttemptPsbRead,
+    bool CanInspectLayerTreeBestEffort,
+    bool CanExportSupportedStoredCompositePng,
+    bool CanWriteLayeredPsd,
+    string Limitations)
+{
+    public bool? ProcessMemoryLimitApplied { get; init; }
+}
 
 /// <summary>A possible photo location inferred from a layer's name and rectangle.</summary>
 public sealed record FramePhotoSlotCandidate(
@@ -62,7 +91,8 @@ public sealed class FramePsdDocument
         IReadOnlyList<FramePsdLayer> layers,
         IReadOnlyList<FramePhotoSlotCandidate> photoSlots,
         FrameCompositePreview? compositePreview,
-        IReadOnlyList<string> warnings)
+        IReadOnlyList<string> warnings,
+        string readerBackend = "PsdSharp")
     {
         SourceName = sourceName;
         _sourcePath = sourcePath;
@@ -75,6 +105,7 @@ public sealed class FramePsdDocument
         PhotoSlots = photoSlots;
         CompositePreview = compositePreview;
         Warnings = warnings;
+        ReaderBackend = readerBackend;
     }
 
     public string SourceName { get; }
@@ -87,6 +118,7 @@ public sealed class FramePsdDocument
     public IReadOnlyList<FramePhotoSlotCandidate> PhotoSlots { get; }
     public FrameCompositePreview? CompositePreview { get; }
     public IReadOnlyList<string> Warnings { get; }
+    public string ReaderBackend { get; }
 
     /// <summary>PsdSharp is read-only; this prototype cannot save editable PSD layers.</summary>
     public bool CanSaveLayeredPsd => false;

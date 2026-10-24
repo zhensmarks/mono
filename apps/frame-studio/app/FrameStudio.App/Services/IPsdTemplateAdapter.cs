@@ -1,3 +1,5 @@
+using FrameStudio.Engine;
+
 namespace FrameStudio.App.Services;
 
 public enum PsdSlotType
@@ -24,7 +26,11 @@ public sealed record PsdTemplateInspection(
     IReadOnlyList<PsdSlotDescriptor> Slots,
     byte[]? FlattenedPreviewPng = null,
     int? DocumentWidth = null,
-    int? DocumentHeight = null);
+    int? DocumentHeight = null,
+    FramePsdLayerTreeSummary? LayerTree = null,
+    FramePsdEngineCapabilities? EngineCapabilities = null,
+    string? ActiveReaderName = null,
+    FramePsdReadFailureKind FailureKind = FramePsdReadFailureKind.None);
 
 /// <summary>
 /// Boundary between the Avalonia workflow and the read-only PSD document inspector.

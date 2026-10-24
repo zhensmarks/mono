@@ -27,7 +27,11 @@ public partial class MainWindow : Window
     private double _artboardPanOriginX;
     private double _artboardPanOriginY;
 
-    public MainWindow()
+    public MainWindow() : this(null)
+    {
+    }
+
+    public MainWindow(string? startupPsdPath)
     {
         InitializeComponent();
         DataContext = _viewModel;
@@ -41,6 +45,19 @@ public partial class MainWindow : Window
             _templateCompositeBitmap?.Dispose();
             foreach (var photo in _viewModel.SourcePhotos)
                 photo.Dispose();
+        };
+        Opened += async (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(startupPsdPath))
+                return;
+            if (!File.Exists(startupPsdPath))
+            {
+                _viewModel.Status = "The selected local PSD path was not found. No file was changed.";
+                return;
+            }
+
+            _viewModel.SetMaster(startupPsdPath);
+            await _viewModel.InspectSelectedMasterAsync();
         };
         _viewModel.SelectedPhoto = null;
         UpdatePreviewTransform();
@@ -291,6 +308,9 @@ public partial class MainWindow : Window
 
     private async void OnChooseSourceFolder(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        if (!_viewModel.CanEditPhotoTextLogo)
+            return;
+
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "Pilih folder source foto",
@@ -342,6 +362,9 @@ public partial class MainWindow : Window
 
     private async void OnChoosePhotos(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        if (!_viewModel.CanEditPhotoTextLogo)
+            return;
+
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Pilih foto source",
@@ -361,6 +384,9 @@ public partial class MainWindow : Window
 
     private async Task AddPhotoFilesAsync(IEnumerable<string> paths)
     {
+        if (!_viewModel.CanEditPhotoTextLogo)
+            return;
+
         var validPaths = paths.Where(_photoFiles.IsSupported).ToArray();
         var loaded = await Task.Run(() => validPaths.Select(_photoFiles.Load).ToArray());
         foreach (var photo in loaded)
@@ -377,13 +403,16 @@ public partial class MainWindow : Window
 
     private void OnSlotPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is Control control && control.DataContext is FrameSlot slot)
+        if (_viewModel.CanEditPhotoTextLogo && sender is Control control && control.DataContext is FrameSlot slot)
             _viewModel.SelectSlot(slot);
         e.Handled = true;
     }
 
     private void OnAssignPhoto(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        if (!_viewModel.CanEditPhotoTextLogo)
+            return;
+
         if (!_viewModel.AssignSelectedPhoto(_viewModel.SelectedSlot))
             _viewModel.Status = _viewModel.SelectedPhoto is null
                 ? "Pilih foto dari antrean terlebih dahulu."
@@ -401,6 +430,12 @@ public partial class MainWindow : Window
     {
         if (!_viewModel.CanExportPngCopies)
             return;
+
+        if (_viewModel.IsFallbackPreviewMode && (_viewModel.SourcePhotos.Count != 0 || _viewModel.Slots.Count != 0))
+        {
+            _viewModel.Status = "Fallback preview is read-only; only an unchanged stored-composite PNG copy is permitted.";
+            return;
+        }
 
         if (_viewModel.DocumentWidth <= 0 || _viewModel.DocumentHeight <= 0)
         {
@@ -454,17 +489,19 @@ public partial class MainWindow : Window
                 _viewModel.Status = $"Mengekspor {written} dari {photosToRender.Length} PNG…";
             }
 
-            _viewModel.Status = written == 1
-                ? $"PNG hasil komposisi tersimpan di {_viewModel.OutputPath}. PSD master tidak diubah."
-                : $"{written} PNG hasil komposisi tersimpan di {_viewModel.OutputPath}. PSD master tidak diubah.";
+            _viewModel.Status = _viewModel.IsFallbackPreviewMode
+                ? "Separate stored-composite PNG copy saved. The master PSD was not changed."
+                : written == 1
+                    ? "PNG output saved separately. The master PSD was not changed."
+                    : $"{written} PNG outputs saved separately. The master PSD was not changed.";
         }
         catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
-            _viewModel.Status = $"Ekspor PNG gagal setelah {written} file: {exception.Message}";
+            _viewModel.Status = "PNG output failed. The master PSD was not changed.";
         }
         catch (OutOfMemoryException)
         {
-            _viewModel.Status = $"Memori tidak cukup untuk merender artboard {_viewModel.DocumentWidth:N0} × {_viewModel.DocumentHeight:N0}. Tidak ada perubahan pada PSD master.";
+            _viewModel.Status = "Not enough memory to render the PNG output. The master PSD was not changed.";
         }
         finally
         {
@@ -501,12 +538,19 @@ public partial class MainWindow : Window
 
     private void OnPreviewTextChanged(object? sender, TextChangedEventArgs e)
     {
-        if (_viewModel.HasTextCandidateSelected)
+        if (_viewModel.CanEditPhotoTextLogo && _viewModel.HasTextCandidateSelected)
             _viewModel.Status = "Teks akan dirender sebagai overlay PNG; layer teks PSD asli tetap utuh.";
     }
 
     private void OnCanvasDragOver(object? sender, DragEventArgs e)
     {
+        if (!_viewModel.CanEditPhotoTextLogo)
+        {
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
         var hasFiles = e.DataTransfer.TryGetFiles()?.Any(file => _photoFiles.IsSupported(file.Path.LocalPath)) == true;
         var hasPathText = e.DataTransfer.TryGetText() is { } text && _photoFiles.IsSupported(text);
         e.DragEffects = hasFiles || hasPathText ? DragDropEffects.Copy : DragDropEffects.None;
@@ -515,6 +559,12 @@ public partial class MainWindow : Window
 
     private async void OnCanvasDrop(object? sender, DragEventArgs e)
     {
+        if (!_viewModel.CanEditPhotoTextLogo)
+        {
+            e.Handled = true;
+            return;
+        }
+
         var paths = e.DataTransfer.TryGetFiles()?.Select(file => file.Path.LocalPath).ToList() ?? new List<string>();
         if (paths.Count == 0 && e.DataTransfer.TryGetText() is { } text && _photoFiles.IsSupported(text))
             paths.Add(text);
@@ -552,7 +602,7 @@ public partial class MainWindow : Window
 
     private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!_viewModel.HasSelectedPhoto)
+        if (!_viewModel.CanEditPhotoTextLogo || !_viewModel.HasSelectedPhoto)
             return;
         _photoPanStart = e.GetPosition(PhotoFrame);
         _photoPanOriginX = _viewModel.OffsetX;

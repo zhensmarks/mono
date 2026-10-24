@@ -12,8 +12,19 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.MainWindow = new MainWindow();
+            desktop.MainWindow = new MainWindow(GetStartupPsdPath(desktop.Args ?? Array.Empty<string>()));
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static string? GetStartupPsdPath(IReadOnlyList<string> args)
+    {
+        for (var index = 0; index + 1 < args.Count; index++)
+        {
+            if (string.Equals(args[index], "--open-psd", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(args[index + 1]))
+                return args[index + 1];
+        }
+
+        return null;
     }
 }

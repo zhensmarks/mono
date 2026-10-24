@@ -13,6 +13,13 @@ public enum SlotKind
 
 public readonly record struct FrameSlotBounds(int X, int Y, int Width, int Height);
 
+public sealed record PsdLayerTreeRow(
+    string StructurePath,
+    string DisplayName,
+    string Kind,
+    string Details,
+    string IndentPrefix);
+
 public sealed class FrameSlot : INotifyPropertyChanged
 {
     private string? _value;

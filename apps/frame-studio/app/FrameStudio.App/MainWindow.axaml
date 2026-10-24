@@ -42,7 +42,7 @@
             <StackPanel Grid.Row="1" Spacing="6">
               <TextBlock Text="PSD MASTER" FontSize="10" FontWeight="Bold" Foreground="#AEB7C4" LetterSpacing="1" />
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                <TextBox Text="{Binding MasterPath}" Watermark="Pilih file PSD / PSB" IsReadOnly="True" MinHeight="34" />
+                <TextBox Text="{Binding MasterPathDisplayText}" Watermark="Pilih file PSD / PSB" IsReadOnly="True" MinHeight="34" />
                 <Button Grid.Column="1" Classes="secondary" Content="Pilih" Click="OnChooseMaster" />
               </Grid>
               <TextBlock Text="{Binding TemplateStatus}" FontSize="10" Foreground="#AAB2BD" TextWrapping="Wrap" />
@@ -52,7 +52,7 @@
               <TextBlock Text="FOTO SUMBER" FontSize="10" FontWeight="Bold" Foreground="#AEB7C4" LetterSpacing="1" />
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                 <TextBox Text="{Binding SourcePath}" Watermark="Folder foto" IsReadOnly="True" MinHeight="34" />
-                <Button Grid.Column="1" Classes="secondary" Content="Pilih" Click="OnChooseSourceFolder" />
+                <Button Grid.Column="1" Classes="secondary" Content="Pilih" Click="OnChooseSourceFolder" IsEnabled="{Binding CanEditPhotoTextLogo}" />
               </Grid>
             </StackPanel>
 
@@ -70,9 +70,9 @@
                   <TextBlock Text="ANTREAN FOTO" FontSize="10" FontWeight="Bold" LetterSpacing="1.3" Foreground="#9AA4B2" />
                   <TextBlock Text="{Binding SourcePhotos.Count, StringFormat='{}{0} foto siap dipakai'}" FontSize="11" Foreground="#C8CED7" />
                 </StackPanel>
-                <Button Grid.Column="1" Classes="secondary" Content="Tambah" Click="OnChoosePhotos" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="secondary" Content="Tambah" Click="OnChoosePhotos" IsEnabled="{Binding CanEditPhotoTextLogo}" VerticalAlignment="Center" />
               </Grid>
-              <ListBox Grid.Row="1" x:Name="PhotoQueue" ItemsSource="{Binding SourcePhotos}" SelectionChanged="OnQueueSelectionChanged" Background="Transparent" BorderThickness="0" Padding="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
+              <ListBox Grid.Row="1" x:Name="PhotoQueue" ItemsSource="{Binding SourcePhotos}" SelectionChanged="OnQueueSelectionChanged" IsEnabled="{Binding CanEditPhotoTextLogo}" Background="Transparent" BorderThickness="0" Padding="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <Border Background="#20262E" CornerRadius="8" Padding="7" Margin="0,2">
@@ -90,7 +90,7 @@
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
-              <Button Grid.Row="2" Classes="primary" Content="Pasangkan ke slot terpilih" Click="OnAssignPhoto" HorizontalAlignment="Stretch" />
+              <Button Grid.Row="2" Classes="primary" Content="Pasangkan ke slot terpilih" Click="OnAssignPhoto" IsEnabled="{Binding CanEditPhotoTextLogo}" HorizontalAlignment="Stretch" />
             </Grid>
 
             <Border Grid.Row="5" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="9" Padding="9">
@@ -99,7 +99,7 @@
                 <TextBlock Text="Tarik foto ke pratinjau untuk menambahkannya ke antrean." FontSize="10" Foreground="#B4BDC8" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
-            <Button Grid.Row="6" Classes="secondary" Content="Bersihkan antrean" Click="OnClearQueue" HorizontalAlignment="Stretch" />
+            <Button Grid.Row="6" Classes="secondary" Content="Bersihkan antrean" Click="OnClearQueue" IsEnabled="{Binding CanEditPhotoTextLogo}" HorizontalAlignment="Stretch" />
           </Grid>
         </ScrollViewer>
       </Border>
@@ -141,7 +141,7 @@
         </Border>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="12">
-          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" IsVisible="{Binding IsImageSlotSelected}">
+          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" IsVisible="{Binding IsImageSlotSelected}" IsEnabled="{Binding CanEditPhotoTextLogo}">
             <TextBlock Text="Atur crop" FontSize="10" Foreground="#AAB2BD" VerticalAlignment="Center" />
             <Slider x:Name="ZoomSlider" Minimum="0.5" Maximum="3" Value="{Binding Zoom, Mode=TwoWay}" Width="100" />
             <TextBlock Text="{Binding ZoomLabel}" FontSize="9" Foreground="#D7F06B" VerticalAlignment="Center" />
@@ -159,13 +159,13 @@
       <Border Grid.Column="2" Background="#191E25" BorderBrush="#2A3039" BorderThickness="1" CornerRadius="13" Padding="13">
         <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="10">
           <StackPanel Spacing="3">
-            <TextBlock Text="KANDIDAT SLOT" FontSize="10" FontWeight="Bold" LetterSpacing="1.4" Foreground="#9AA4B2" />
+            <TextBlock Text="PSD STRUCTURE · SAFE CANDIDATES" FontSize="10" FontWeight="Bold" LetterSpacing="1.2" Foreground="#9AA4B2" />
             <TextBlock Text="{Binding TemplateStatus}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
           </StackPanel>
           <Border Grid.Row="1" Background="#242A32" BorderBrush="#3A414D" BorderThickness="1" CornerRadius="8" Padding="9,8">
-            <TextBlock Text="Perkiraan dari nama dan kotak layer; mask belum diverifikasi." FontSize="10" Foreground="#D7F06B" TextWrapping="Wrap" />
+            <TextBlock Text="Read-only, best-effort metadata. Mask and effect flags are descriptive only." FontSize="10" Foreground="#D7F06B" TextWrapping="Wrap" />
           </Border>
-          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="{Binding !IsFallbackPreviewMode}">
             <ItemsControl ItemsSource="{Binding Slots}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
@@ -186,7 +186,34 @@
             </ItemsControl>
           </ScrollViewer>
 
-          <Border Grid.Row="3" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="9" Padding="10">
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="{Binding IsFallbackPreviewMode}">
+            <StackPanel Spacing="6">
+              <TextBlock Text="{Binding LayerTreeSummaryText}" FontSize="10" Foreground="#AAB2BD" TextWrapping="Wrap" Margin="2,2,2,5" />
+              <ItemsControl ItemsSource="{Binding LayerTreeRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="7" Padding="7" Margin="0,2">
+                      <Grid ColumnDefinitions="55,*" ColumnSpacing="7">
+                        <Border Background="#2B323C" CornerRadius="5" Padding="3,4" VerticalAlignment="Top">
+                          <TextBlock Text="{Binding Kind}" FontSize="7" Foreground="#D7F06B" TextWrapping="Wrap" TextAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="3">
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="{Binding StructurePath}" FontSize="9" Foreground="#8D96A4" FontFamily="monospace" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding IndentPrefix}" FontSize="9" Foreground="#687382" FontFamily="monospace" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding DisplayName}" FontSize="10" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                          <TextBlock Text="{Binding Details}" FontSize="8" Foreground="#A1ABB8" TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+
+          <Border Grid.Row="3" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="9" Padding="10" IsVisible="{Binding !IsFallbackPreviewMode}">
             <StackPanel Spacing="7">
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="2">
@@ -195,7 +222,7 @@
                 </StackPanel>
                 <TextBlock Grid.Column="1" Text="pratinjau lokal" FontSize="9" Foreground="#D7F06B" VerticalAlignment="Center" />
               </Grid>
-              <Border x:Name="PhotoFrame" Width="108" Height="162" HorizontalAlignment="Center" Background="#14181E" BorderBrush="#525E6D" BorderThickness="1" CornerRadius="8" ClipToBounds="True" DragDrop.AllowDrop="True" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop" PointerPressed="OnPreviewPointerPressed" PointerMoved="OnPreviewPointerMoved" PointerReleased="OnPreviewPointerReleased" IsVisible="{Binding !HasTextCandidateSelected}">
+              <Border x:Name="PhotoFrame" Width="108" Height="162" HorizontalAlignment="Center" Background="#14181E" BorderBrush="#525E6D" BorderThickness="1" CornerRadius="8" ClipToBounds="True" DragDrop.AllowDrop="{Binding CanEditPhotoTextLogo}" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop" PointerPressed="OnPreviewPointerPressed" PointerMoved="OnPreviewPointerMoved" PointerReleased="OnPreviewPointerReleased" IsEnabled="{Binding CanEditPhotoTextLogo}" IsVisible="{Binding !HasTextCandidateSelected}">
                 <Grid>
                   <Image x:Name="PreviewImage" Source="{Binding SelectedPhoto.Image}" Stretch="UniformToFill" IsVisible="{Binding HasPreviewImage}" />
                   <StackPanel IsVisible="{Binding !HasSelectedPhoto}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6" Margin="8">
@@ -207,10 +234,10 @@
               </Border>
               <StackPanel Spacing="7">
                 <TextBlock Text="OVERLAY TEKS" FontSize="9" FontWeight="Bold" Foreground="#AAB2BD" IsVisible="{Binding HasTextCandidateSelected}" />
-                <TextBox Text="{Binding SelectedSlot.Value, Mode=TwoWay}" Watermark="Isi nama / alamat" IsEnabled="{Binding HasTextCandidateSelected}" IsVisible="{Binding HasTextCandidateSelected}" TextChanged="OnPreviewTextChanged" />
+                <TextBox Text="{Binding SelectedSlot.Value, Mode=TwoWay}" Watermark="Isi nama / alamat" IsEnabled="{Binding CanEditPhotoTextLogo}" IsVisible="{Binding HasTextCandidateSelected}" TextChanged="OnPreviewTextChanged" />
                 <TextBlock Text="Teks baru ditambahkan sebagai overlay PNG; teks asli di composite mungkin masih terlihat." FontSize="9" Foreground="#D1C0A6" TextWrapping="Wrap" IsVisible="{Binding HasTextCandidateSelected}" />
               </StackPanel>
-              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" IsVisible="{Binding !HasTextCandidateSelected}">
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" IsEnabled="{Binding CanEditPhotoTextLogo}" IsVisible="{Binding !HasTextCandidateSelected}">
                 <Button Classes="secondary" Content="Isi frame" Click="OnFillFrame" />
                 <Button Classes="secondary" Content="Muat penuh" Click="OnFitFrame" />
               </StackPanel>
@@ -218,10 +245,25 @@
             </StackPanel>
           </Border>
 
-          <Border Grid.Row="4" Background="#2B241D" BorderBrush="#5B4930" BorderThickness="1" CornerRadius="9" Padding="9">
+          <Border Grid.Row="3" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="9" Padding="12" IsVisible="{Binding IsFallbackPreviewMode}">
+            <StackPanel Spacing="7">
+              <TextBlock Text="READ-ONLY PREVIEW" FontSize="10" FontWeight="Bold" Foreground="#D7F06B" LetterSpacing="1" />
+              <TextBlock Text="{Binding ActiveReaderLabel}" FontSize="11" FontWeight="SemiBold" />
+              <TextBlock Text="Layer names and text values are hidden. Visibility, size, masks, and effects are descriptive metadata; the stored composite is not recomposed." FontSize="9" Foreground="#AAB2BD" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Border Grid.Row="4" Background="#2B241D" BorderBrush="#5B4930" BorderThickness="1" CornerRadius="9" Padding="9" IsVisible="{Binding !IsFallbackPreviewMode}">
             <StackPanel Spacing="4">
               <TextBlock Text="BATAS OUTPUT" FontSize="10" FontWeight="Bold" Foreground="#F1D39C" />
               <TextBlock Text="PNG menggabungkan composite dan overlay raster pada kotak perkiraan. Mask tidak diverifikasi; teks lama dapat tertinggal." FontSize="9" Foreground="#D1C0A6" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ExportNotice}" FontSize="9" Foreground="#F1D39C" FontWeight="SemiBold" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="4" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="9" Padding="9" IsVisible="{Binding IsFallbackPreviewMode}">
+            <StackPanel Spacing="4">
+              <TextBlock Text="SAFE PNG OUTPUT" FontSize="10" FontWeight="Bold" Foreground="#D7F06B" />
+              <TextBlock Text="A separate PNG may copy the stored composite. No photo, text, logo, mask, effect, or PSD-layer edits are applied." FontSize="9" Foreground="#AAB2BD" TextWrapping="Wrap" />
               <TextBlock Text="{Binding ExportNotice}" FontSize="9" Foreground="#F1D39C" FontWeight="SemiBold" TextWrapping="Wrap" />
             </StackPanel>
           </Border>

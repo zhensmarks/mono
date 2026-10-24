@@ -8,7 +8,7 @@ public sealed class PsdTemplateEngineAdapterTests
     [InlineData("Photo XL", FramePsdSlotType.Photo)]
     [InlineData("Student Name", FramePsdSlotType.Text)]
     [InlineData("School Logo", FramePsdSlotType.Logo)]
-    public async Task InspectReturnsNameBasedCandidateAndStoredComposite(string layerName, FramePsdSlotType expectedType)
+    public async Task InspectReturnsAnonymousCandidateAndStoredComposite(string layerName, FramePsdSlotType expectedType)
     {
         var root = CreateTempDirectory();
         try
@@ -21,14 +21,19 @@ public sealed class PsdTemplateEngineAdapterTests
             Assert.True(result.Success, result.Message);
             var slot = Assert.Single(result.Slots);
             Assert.Equal(expectedType, slot.Type);
-            Assert.Equal(layerName, slot.LayerName);
+            Assert.Equal($"{expectedType} candidate 1", slot.LayerName);
+            Assert.DoesNotContain(layerName, slot.LayerName, StringComparison.Ordinal);
             Assert.Null(slot.CurrentValue);
             Assert.Equal(new FrameBounds(0, 0, 2, 2), slot.Bounds);
             Assert.Equal(2, result.DocumentWidth);
             Assert.Equal(2, result.DocumentHeight);
             Assert.NotNull(result.FlattenedPreviewPng);
             Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, result.FlattenedPreviewPng![..8]);
-            Assert.Contains("name-based slot candidate", result.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Read-only stored composite", result.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(layerName, result.Message, StringComparison.Ordinal);
+            Assert.Equal("PsdSharp", result.ActiveReaderName);
+            Assert.Equal(1, result.LayerTree!.LayerCount);
+            Assert.Equal("Layer 1", Assert.Single(result.LayerTree.Roots).DisplayName);
         }
         finally
         {
@@ -83,7 +88,7 @@ public sealed class PsdTemplateEngineAdapterTests
                 new Dictionary<string, string> { ["photo-xl"] = "student.jpg" }));
 
             Assert.False(result.Success);
-            Assert.Contains("cannot apply text/photo/logo assignments", result.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("assignments are not supported", result.Message, StringComparison.OrdinalIgnoreCase);
             Assert.False(Directory.Exists(outputFolder));
             Assert.Empty(Directory.GetFiles(root, "*.png"));
         }
