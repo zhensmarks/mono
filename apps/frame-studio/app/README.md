@@ -18,6 +18,7 @@ Ekspor dimulai dari PNG komposit tersimpan, lalu menambahkan gambar dan teks pad
 - Teks dirender sebagai overlay raster putih sederhana di dalam kotak kandidat. Teks asli dalam komposit tersimpan tidak dihapus dan mungkin tetap tampak di bawahnya. Font, gaya, perataan, dan isi objek teks PSD tidak diekstrak.
 - Ekspor batch mengganti satu kandidat foto/logo pilihan untuk setiap foto sumber; assignment slot lain tetap. Aplikasi belum memetakan daftar nama/alamat ke beberapa slot atau membuat PSD yang dapat diedit.
 - Mesin memakai PsdSharp 1.2.0 untuk mencoba membaca metadata dan komposit PSD/PSB. Fitur Photoshop bertag tertentu mungkin belum didukung. Jika parser gagal, aplikasi melaporkannya sebagai batas kompatibilitas atau interpretasi—bukan bukti bahwa file rusak. Penulis PSD berlapis tidak diaktifkan karena blok bertag yang belum dikenal dan kesetiaan komposit belum dapat dijamin.
+- Status bawah menampilkan platform runtime, arsitektur proses, dan mesin PSD yang tersedia. `psd-tools` tidak diaktifkan sebagai fallback lintas platform; ekspor PSD berlapis tetap nonaktif dan hasil yang didukung hanya PNG raster.
 - Render output dibatasi hingga 30 juta piksel per gambar. Ukuran komposit diperiksa sebelum alokasi raster.
 
 ## Build dan tes

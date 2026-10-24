@@ -222,6 +222,7 @@
             <StackPanel Spacing="4">
               <TextBlock Text="BATAS OUTPUT" FontSize="10" FontWeight="Bold" Foreground="#F1D39C" />
               <TextBlock Text="PNG menggabungkan composite dan overlay raster pada kotak perkiraan. Mask tidak diverifikasi; teks lama dapat tertinggal." FontSize="9" Foreground="#D1C0A6" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ExportNotice}" FontSize="9" Foreground="#F1D39C" FontWeight="SemiBold" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
         </Grid>
@@ -232,7 +233,7 @@
       <Grid ColumnDefinitions="Auto,*,Auto">
         <Ellipse Width="7" Height="7" Fill="#D7F06B" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="{Binding Status}" ToolTip.Tip="{Binding Status}" FontSize="10" Foreground="#B5BEC9" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" />
-        <TextBlock Grid.Column="2" Text="{Binding EngineNotice}" FontSize="9" Foreground="#8D96A4" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
+        <TextBlock Grid.Column="2" Text="{Binding EngineNotice}" ToolTip.Tip="{Binding EngineDetails}" FontSize="9" Foreground="#8D96A4" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
       </Grid>
     </Border>
   </Grid>

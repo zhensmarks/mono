@@ -2,6 +2,7 @@ using FrameStudio.App.Models;
 using FrameStudio.App.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 
 namespace FrameStudio.App.ViewModels;
@@ -38,10 +39,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<FrameSlot> Slots { get; }
     public ObservableCollection<SourcePhoto> SourcePhotos { get; } = new();
     public bool PsdEngineReady => _psdAdapter.IsAvailable;
+    public string RuntimePlatformLabel => $"{OperatingSystemLabel()} {ArchitectureLabel()}";
     public string EngineNotice => PsdEngineReady
-        ? "PsdSharp 1.2.0 · hanya baca · dukungan bergantung isi PSD."
-        : "Pembaca PSD tidak tersedia.";
-    public string ExportNotice => "Ekspor membuat PNG raster baru dari komposit tersimpan dan overlay lokal. PSD master berlapis tetap hanya-baca.";
+        ? $"{RuntimePlatformLabel} · PsdSharp 1.2.0 · hanya-baca · PSD berlapis: nonaktif"
+        : $"{RuntimePlatformLabel} · pembaca PSD tidak tersedia · PSD berlapis: nonaktif";
+    public string EngineDetails => PsdEngineReady
+        ? $"Platform aktif: {RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture}). Mesin aktif: PsdSharp 1.2.0, hanya-baca. Fallback psd-tools belum diaktifkan. Dukungan bergantung pada isi PSD. Ekspor PSD berlapis nonaktif; output yang tersedia hanya PNG raster."
+        : $"Platform aktif: {RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture}). Pembaca PSD tidak tersedia. Fallback psd-tools belum diaktifkan. Ekspor PSD berlapis nonaktif.";
+    public string ExportNotice => "Ekspor PSD berlapis tidak tersedia; hanya PNG raster. PSD master tetap hanya-baca.";
     public string MasterPath { get => _masterPath; set { _masterPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasMaster)); OnPropertyChanged(nameof(CanExportPngCopies)); } }
     public string SourcePath { get => _sourcePath; set { _sourcePath = value; OnPropertyChanged(); } }
     public string OutputPath { get => _outputPath; set { _outputPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExportPngCopies)); } }
@@ -75,6 +80,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string ZoomLabel => $"{Zoom:P0}";
     public string RotationLabel => $"{Rotation:0.#}°";
     public bool CanExportPngCopies => PsdEngineReady && HasMaster && HasTemplatePreview && !IsInspecting && !IsExporting && !string.IsNullOrWhiteSpace(OutputPath);
+
+    private static string OperatingSystemLabel() => OperatingSystem.IsWindows() ? "Windows"
+        : OperatingSystem.IsLinux() ? "Linux"
+        : OperatingSystem.IsMacOS() ? "macOS"
+        : "Platform lain";
+
+    private static string ArchitectureLabel() => RuntimeInformation.ProcessArchitecture switch
+    {
+        Architecture.X64 => "x64",
+        Architecture.Arm64 => "ARM64",
+        Architecture.X86 => "x86",
+        Architecture.Arm => "ARM",
+        _ => RuntimeInformation.ProcessArchitecture.ToString()
+    };
 
     public void SetExporting(bool exporting) => IsExporting = exporting;
 

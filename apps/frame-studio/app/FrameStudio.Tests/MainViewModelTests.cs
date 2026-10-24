@@ -22,6 +22,29 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public void EngineStatusShowsRuntimePlatformAndKeepsLayeredPsdExportDisabled()
+    {
+        var viewModel = new MainViewModel(new FakePsdTemplateAdapter());
+
+        Assert.False(string.IsNullOrWhiteSpace(viewModel.RuntimePlatformLabel));
+        Assert.Contains(viewModel.RuntimePlatformLabel, viewModel.EngineNotice);
+        Assert.Contains("PsdSharp 1.2.0", viewModel.EngineNotice);
+        Assert.Contains("PSD berlapis: nonaktif", viewModel.EngineNotice);
+        Assert.Contains("psd-tools belum diaktifkan", viewModel.EngineDetails);
+        Assert.Contains("hanya PNG raster", viewModel.ExportNotice);
+    }
+
+    [Fact]
+    public void EngineStatusExplainsWhenTheReaderIsUnavailable()
+    {
+        var viewModel = new MainViewModel(new FakePsdTemplateAdapter { IsAvailable = false });
+
+        Assert.Contains("pembaca PSD tidak tersedia", viewModel.EngineNotice);
+        Assert.Contains("PSD berlapis: nonaktif", viewModel.EngineNotice);
+        Assert.False(viewModel.CanExportPngCopies);
+    }
+
+    [Fact]
     public async Task InspectionReplacesSlotsWithOnlyNameInferredCandidatesAndComposite()
     {
         var adapter = new FakePsdTemplateAdapter
@@ -294,7 +317,7 @@ public sealed class MainViewModelTests
     {
         private readonly Queue<Func<string, CancellationToken, Task<PsdTemplateInspection>>> _inspectionResponses = new();
 
-        public bool IsAvailable => true;
+        public bool IsAvailable { get; set; } = true;
         public PsdTemplateInspection InspectionResult { get; set; } = new(false, "not inspected", Array.Empty<PsdSlotDescriptor>());
 
         public void EnqueueInspection(Func<string, CancellationToken, Task<PsdTemplateInspection>> response) => _inspectionResponses.Enqueue(response);
