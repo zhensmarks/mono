@@ -9,7 +9,7 @@ public enum PsdSlotType
     Logo
 }
 
-/// <summary>Estimated document-space layer bounds; this is not a verified clipping mask.</summary>
+/// <summary>Estimated document-space bounds; this is not Photoshop mask-render fidelity.</summary>
 public sealed record PsdSlotBounds(int X, int Y, int Width, int Height);
 
 public sealed record PsdSlotDescriptor(
@@ -18,7 +18,9 @@ public sealed record PsdSlotDescriptor(
     PsdSlotType Type,
     string LayerName,
     string? CurrentValue = null,
-    PsdSlotBounds? Bounds = null);
+    PsdSlotBounds? Bounds = null,
+    // True only when positive in-canvas bounds and mask, vector-mask, or clipping evidence were found.
+    bool IsPlacementReady = false);
 
 public sealed record PsdTemplateInspection(
     bool Success,

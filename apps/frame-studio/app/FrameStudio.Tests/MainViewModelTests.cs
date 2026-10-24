@@ -35,7 +35,7 @@ public sealed class MainViewModelTests
         Assert.Contains("PsdSharp 1.2.0", viewModel.EngineNotice);
         Assert.Contains("PSD berlapis nonaktif", viewModel.EngineNotice);
         Assert.Contains("Layered PSD writing is disabled", viewModel.EngineDetails);
-        Assert.Contains("PNG terpisah", viewModel.ExportNotice);
+        Assert.Contains("Ekspor PNG nonaktif", viewModel.ExportNotice);
     }
 
     [Fact]
@@ -100,11 +100,67 @@ public sealed class MainViewModelTests
         Assert.Equal(120, viewModel.DocumentWidth);
         Assert.Equal(180, viewModel.DocumentHeight);
         Assert.True(viewModel.HasTemplatePreview);
+        Assert.True(viewModel.HasValidPhotoSlotSetup);
+        Assert.True(viewModel.ShowDetectedAreaList);
+        Assert.False(viewModel.ShowPhotoSlotSetupNotice);
         Assert.True(viewModel.HasSelectedSlot);
         Assert.False(viewModel.CanAssignSelectedPhoto);
         Assert.False(viewModel.ShowEmptyInspector);
         Assert.False(viewModel.CanExportPngCopies);
-        Assert.Contains("area slot terdeteksi", viewModel.TemplateStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1 slot foto siap", viewModel.TemplateStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UnvalidatedPhotoCandidateIsHiddenAndKeepsPlacementAndExportDisabled()
+    {
+        var adapter = new FakePsdTemplateAdapter
+        {
+            InspectionResult = new PsdTemplateInspection(
+                true,
+                "read-only metadata",
+                new[]
+                {
+                    new PsdSlotDescriptor(
+                        "xl",
+                        "XL",
+                        PsdSlotType.Photo,
+                        "XL",
+                        Bounds: new PsdSlotBounds(0, 0, 0, 0),
+                        IsPlacementReady: false)
+                },
+                PreviewPng,
+                120,
+                180)
+        };
+        var viewModel = new MainViewModel(adapter) { OutputPath = "/tmp/frame-studio-output" };
+        viewModel.SetMaster("/samples/master.psd");
+
+        await viewModel.InspectSelectedMasterAsync();
+        viewModel.AddSourcePhoto(new SourcePhoto("/samples/student.jpg", null));
+
+        Assert.Empty(viewModel.Slots);
+        Assert.False(viewModel.HasValidPhotoSlotSetup);
+        Assert.False(viewModel.ShowDetectedAreaList);
+        Assert.True(viewModel.ShowPhotoSlotSetupNotice);
+        Assert.Contains("Slot foto belum disiapkan", viewModel.PhotoSlotSetupNotice, StringComparison.Ordinal);
+        Assert.False(viewModel.CanPlaceSelectedSlot);
+        Assert.False(viewModel.CanAssignSelectedPhoto);
+        Assert.False(viewModel.CanExportPngCopies);
+    }
+
+    [Fact]
+    public async Task ExportCanEnableOnlyAfterValidatedPhotoSlotIsPresent()
+    {
+        var viewModel = new MainViewModel(new FakePsdTemplateAdapter
+        {
+            InspectionResult = Inspection(new PsdSlotDescriptor("photo", "Photo", PsdSlotType.Photo, "Photo"))
+        }) { OutputPath = "/tmp/frame-studio-output" };
+        viewModel.SetMaster("/samples/master.psd");
+
+        await viewModel.InspectSelectedMasterAsync();
+
+        Assert.True(viewModel.HasValidPhotoSlotSetup);
+        Assert.True(viewModel.CanExportPngCopies);
     }
 
     [Fact]
@@ -193,7 +249,7 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
-    public async Task OptionalFallbackShowsAnonymousTreeAndBlocksEditsButKeepsSafePngAvailable()
+    public async Task OptionalFallbackShowsAnonymousTreeAndBlocksEditsAndPngExport()
     {
         var tree = new FramePsdLayerTreeSummary(
             2, 1, 1, 1, 0, 0,
@@ -230,7 +286,10 @@ public sealed class MainViewModelTests
         Assert.Empty(viewModel.Slots);
         Assert.Empty(viewModel.SourcePhotos);
         Assert.True(viewModel.HasTemplatePreview);
-        Assert.True(viewModel.CanExportPngCopies);
+        Assert.False(viewModel.CanExportPngCopies);
+        Assert.False(viewModel.ShowPhotoSlotSetupNotice);
+        Assert.False(viewModel.ShowDetectedAreaList);
+        Assert.Contains("nonaktif", viewModel.ExportNotice, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Group 1", viewModel.LayerTreeRows[0].DisplayName);
         Assert.Equal("Text layer 1", viewModel.LayerTreeRows[1].DisplayName);
         Assert.Contains("mask", viewModel.LayerTreeRows[1].Details);
@@ -317,7 +376,7 @@ public sealed class MainViewModelTests
         {
             var background = CreateSolidPng(10, 10, new SKColor(20, 40, 180));
             File.WriteAllBytes(photoPath, CreateSolidPng(4, 4, new SKColor(230, 40, 30)));
-            var slot = new FrameSlot("photo", "Photo", SlotKind.Photo, "synthetic", bounds: new FrameSlotBounds(3, 3, 4, 4))
+            var slot = new FrameSlot("photo", "Photo", SlotKind.Photo, "synthetic", bounds: new FrameSlotBounds(3, 3, 4, 4), isPlacementReady: true)
             {
                 Photo = new SourcePhoto(photoPath, null)
             };
@@ -414,8 +473,17 @@ public sealed class MainViewModelTests
         Assert.Equal(expected, viewModel.Zoom);
     }
 
-    private static PsdTemplateInspection Inspection(params PsdSlotDescriptor[] slots) =>
-        new(true, "Read PSD; candidates are based on layer names.", slots, PreviewPng, 120, 180);
+    private static PsdTemplateInspection Inspection(params PsdSlotDescriptor[] slots)
+    {
+        var validatedSlots = slots.Select(slot => slot.Type is PsdSlotType.Photo or PsdSlotType.Logo
+            ? slot with
+            {
+                Bounds = slot.Bounds ?? new PsdSlotBounds(5, 6, 40, 60),
+                IsPlacementReady = true
+            }
+            : slot).ToArray();
+        return new PsdTemplateInspection(true, "Read-only metadata with validated synthetic image bounds.", validatedSlots, PreviewPng, 120, 180);
+    }
 
     private sealed class FakePsdTemplateAdapter : IPsdTemplateAdapter
     {

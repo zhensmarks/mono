@@ -55,7 +55,7 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
             var details = fallback is null
                 ? _fallbackStatus
                 : $"{fallback.Name}: {fallback.Version}. {fallback.RuntimeRequirement} {fallback.PlatformScope} {fallback.Limitations}";
-            return $"Platform: {RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture}). {requirement} {resourceLimits} {memoryCapStatus} {details} Layered PSD writing and photo/text/logo editing are disabled in fallback preview mode; PNG output remains separate from the master.";
+            return $"Platform: {RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture}). {requirement} {resourceLimits} {memoryCapStatus} {details} Layered PSD writing remains disabled. UI photo placement and PNG export stay disabled until a valid image boundary with bounds and mask/clipping evidence is detected; any enabled output is separate from the master.";
         }
     }
 
@@ -86,7 +86,8 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
                 CurrentValue: null,
                 slot.Bounds is { } bounds
                     ? new PsdSlotBounds(bounds.X, bounds.Y, bounds.Width, bounds.Height)
-                    : null);
+                    : null,
+                IsPlacementReady: slot.IsPlacementReady);
         }).ToArray();
 
         return new PsdTemplateInspection(

@@ -58,7 +58,8 @@ public sealed record FramePsdSlotDescriptor(
     FramePsdSlotType Type,
     string LayerName,
     string? CurrentValue = null,
-    FrameBounds? Bounds = null);
+    FrameBounds? Bounds = null,
+    bool IsPlacementReady = false);
 
 /// <summary>A sanitized, descriptive layer node; source names and text values are never included.</summary>
 public sealed record FramePsdLayerSummary(
@@ -73,7 +74,10 @@ public sealed record FramePsdLayerSummary(
     bool HasMask,
     bool HasVectorMask,
     bool HasEffects,
-    IReadOnlyList<FramePsdLayerSummary> Children);
+    IReadOnlyList<FramePsdLayerSummary> Children)
+{
+    public bool HasClipping { get; init; }
+}
 
 public sealed record FramePsdLayerTreeSummary(
     int LayerCount,
@@ -113,7 +117,7 @@ public sealed record FramePsdExportResult(
 
 /// <summary>
 /// Async bridge for the Avalonia template workflow. It performs best-effort read-only inspection and
-/// can export an unchanged supported stored composite to PNG. It never edits or saves layered PSDs.
+/// only exports a stored composite when a validated photo target exists. It never edits or saves layered PSDs.
 /// </summary>
 public sealed class PsdTemplateEngineAdapter
 {
@@ -167,7 +171,7 @@ public sealed class PsdTemplateEngineAdapter
             var document = _reader.Read(masterPath, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             var slotCandidates = EnumerateLayers(document.Layers)
-                .Select(layer => TryMapSlot(layer))
+                .Select(layer => TryMapSlot(layer, document.Width, document.Height))
                 .Where(slot => slot is not null)
                 .Select(slot => slot!)
                 .ToArray();
@@ -224,7 +228,7 @@ public sealed class PsdTemplateEngineAdapter
 
         if (request.SlotAssignments is null)
         {
-            return new FramePsdExportResult(false, "SlotAssignments must be provided; use an empty dictionary for an unchanged flattened preview copy.");
+            return new FramePsdExportResult(false, "SlotAssignments must be provided.");
         }
 
         if (request.SlotAssignments.Count > 0)
@@ -250,6 +254,20 @@ public sealed class PsdTemplateEngineAdapter
                 false,
                 DescribeReadFailure(exception),
                 FailureKind: ClassifyReadFailure(exception));
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var hasValidatedPhotoSlot = EnumerateLayers(document.Layers)
+            .Any(layer => TryMapSlot(layer, document.Width, document.Height) is
+            {
+                Type: FramePsdSlotType.Photo,
+                IsPlacementReady: true
+            });
+        if (!hasValidatedPhotoSlot)
+        {
+            return new FramePsdExportResult(
+                false,
+                "PNG export is disabled because no photo slot with valid bounds and mask or clipping evidence was found; no output was written.");
         }
 
         if (document.CompositePreview is null)
@@ -358,7 +376,7 @@ public sealed class PsdTemplateEngineAdapter
         }
     }
 
-    private static FramePsdSlotDescriptor? TryMapSlot(FramePsdLayer layer)
+    private static FramePsdSlotDescriptor? TryMapSlot(FramePsdLayer layer, int documentWidth, int documentHeight)
     {
         var tokens = SplitName(layer.Name);
         FramePsdSlotType? type = null;
@@ -376,9 +394,36 @@ public sealed class PsdTemplateEngineAdapter
             type = FramePsdSlotType.Text;
         }
 
-        return type.HasValue
-            ? new FramePsdSlotDescriptor(layer.Id, layer.Name, type.Value, layer.Name, Bounds: layer.Bounds)
-            : null;
+        if (!type.HasValue)
+            return null;
+
+        var isImageTarget = type is FramePsdSlotType.Photo or FramePsdSlotType.Logo;
+        if (isImageTarget && !HasValidatedImageBoundary(layer, documentWidth, documentHeight))
+            return null;
+        if (type == FramePsdSlotType.Text && !HasValidBounds(layer.Bounds, documentWidth, documentHeight))
+            return null;
+
+        return new FramePsdSlotDescriptor(
+            layer.Id,
+            layer.Name,
+            type.Value,
+            layer.Name,
+            Bounds: layer.Bounds,
+            IsPlacementReady: isImageTarget);
+    }
+
+    private static bool HasValidatedImageBoundary(FramePsdLayer layer, int documentWidth, int documentHeight) =>
+        HasValidBounds(layer.Bounds, documentWidth, documentHeight)
+        && (layer.HasMask || layer.HasVectorMask || layer.HasClipping);
+
+    private static bool HasValidBounds(FrameBounds bounds, int documentWidth, int documentHeight)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0 || documentWidth <= 0 || documentHeight <= 0)
+            return false;
+
+        var right = (long)bounds.X + bounds.Width;
+        var bottom = (long)bounds.Y + bounds.Height;
+        return bounds.X >= 0 && bounds.Y >= 0 && right <= documentWidth && bottom <= documentHeight;
     }
 
     private static FramePsdSlotDescriptor[] SanitizeSlots(IReadOnlyList<FramePsdSlotDescriptor> candidates)
@@ -433,7 +478,10 @@ public sealed class PsdTemplateEngineAdapter
                     layer.HasMask,
                     layer.HasVectorMask,
                     layer.HasEffects,
-                    BuildNodes(layer.Children, id));
+                    BuildNodes(layer.Children, id))
+                {
+                    HasClipping = layer.HasClipping
+                };
             }).ToArray();
         }
 

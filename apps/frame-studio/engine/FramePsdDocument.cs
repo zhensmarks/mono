@@ -29,6 +29,7 @@ public sealed record FramePsdLayer(
 
     public bool HasMask { get; init; }
     public bool HasVectorMask { get; init; }
+    public bool HasClipping { get; init; }
     public bool HasEffects { get; init; }
 }
 
@@ -51,7 +52,7 @@ public sealed record FramePsdOptionalBackendCapabilities(
     public bool? ProcessMemoryLimitApplied { get; init; }
 }
 
-/// <summary>A possible photo location inferred from a layer's name and rectangle.</summary>
+/// <summary>An unverified photo name/size hint; it is not a validated placement target.</summary>
 public sealed record FramePhotoSlotCandidate(
     string LayerId,
     string LayerName,

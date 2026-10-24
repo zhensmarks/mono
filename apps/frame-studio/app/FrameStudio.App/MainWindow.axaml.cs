@@ -396,13 +396,16 @@ public partial class MainWindow : Window
 
     private void OnAssignPhoto(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (!_viewModel.CanEditPhotoTextLogo)
+        if (!_viewModel.CanPlaceSelectedSlot)
+        {
+            _viewModel.Status = "Slot foto belum disiapkan. Penempatan nonaktif.";
             return;
+        }
 
         if (!_viewModel.AssignSelectedPhoto(_viewModel.SelectedSlot))
             _viewModel.Status = _viewModel.SelectedPhoto is null
                 ? "Pilih foto dari antrean terlebih dahulu."
-                : "Pilih kandidat foto atau logo dengan batas layer yang tersedia.";
+                : "Pilih area foto yang sudah memiliki batas valid.";
     }
 
     private void OnClearQueue(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -417,9 +420,9 @@ public partial class MainWindow : Window
         if (!_viewModel.CanExportPngCopies)
             return;
 
-        if (_viewModel.IsFallbackPreviewMode && (_viewModel.SourcePhotos.Count != 0 || _viewModel.Slots.Count != 0))
+        if (_viewModel.IsFallbackPreviewMode)
         {
-            _viewModel.Status = "Fallback preview is read-only; only an unchanged stored-composite PNG copy is permitted.";
+            _viewModel.Status = "Ekspor nonaktif dalam mode pratinjau hanya-baca.";
             return;
         }
 
@@ -429,24 +432,24 @@ public partial class MainWindow : Window
             return;
         }
 
-        var targetSlot = _viewModel.SelectedSlot is { } selectedSlot && (selectedSlot.IsPhoto || selectedSlot.IsLogo)
+        var targetSlot = _viewModel.SelectedSlot is { IsPlacementReady: true } selectedSlot && (selectedSlot.IsPhoto || selectedSlot.IsLogo)
             ? selectedSlot
-            : _viewModel.Slots.FirstOrDefault(slot => slot.IsPhoto || slot.IsLogo);
+            : _viewModel.Slots.FirstOrDefault(slot => slot.IsPlacementReady && (slot.IsPhoto || slot.IsLogo));
         if (_viewModel.SourcePhotos.Count > 0 && targetSlot is null)
         {
-            _viewModel.Status = "Tidak ada kandidat foto/logo untuk menempatkan antrean. Ekspor dibatalkan.";
+            _viewModel.Status = "Slot foto belum disiapkan. Ekspor nonaktif.";
             return;
         }
-        if (_viewModel.SourcePhotos.Count > 0 && targetSlot is { HasBounds: false })
+        if (_viewModel.SourcePhotos.Count > 0 && targetSlot is { IsPlacementReady: false })
         {
-            _viewModel.Status = "Kandidat foto/logo tidak memiliki batas layer. Ekspor dibatalkan agar foto tidak diam-diam diabaikan.";
+            _viewModel.Status = "Area foto tidak memiliki batas tervalidasi. Ekspor dibatalkan.";
             return;
         }
         var unrenderableAssignment = _viewModel.Slots.FirstOrDefault(slot =>
-            (slot.IsPhoto || slot.IsLogo) && slot.Photo is not null && !slot.HasBounds);
+            (slot.IsPhoto || slot.IsLogo) && slot.Photo is not null && !slot.IsPlacementReady);
         if (unrenderableAssignment is not null)
         {
-            _viewModel.Status = $"Placement pada {unrenderableAssignment.Label} tidak memiliki batas layer; ekspor dibatalkan.";
+            _viewModel.Status = $"Penempatan pada {unrenderableAssignment.Label} tidak memiliki batas tervalidasi; ekspor dibatalkan.";
             return;
         }
 
@@ -530,7 +533,7 @@ public partial class MainWindow : Window
 
     private void OnCanvasDragOver(object? sender, DragEventArgs e)
     {
-        if (!_viewModel.CanEditPhotoTextLogo)
+        if (!_viewModel.CanPlaceSelectedSlot)
         {
             e.DragEffects = DragDropEffects.None;
             e.Handled = true;
@@ -545,7 +548,7 @@ public partial class MainWindow : Window
 
     private async void OnCanvasDrop(object? sender, DragEventArgs e)
     {
-        if (!_viewModel.CanEditPhotoTextLogo)
+        if (!_viewModel.CanPlaceSelectedSlot)
         {
             e.Handled = true;
             return;
@@ -563,10 +566,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_viewModel.SelectedSlot is { } slot && (slot.IsPhoto || slot.IsLogo) && slot.HasBounds)
+        if (_viewModel.SelectedSlot is { IsPlacementReady: true } slot && (slot.IsPhoto || slot.IsLogo))
             _viewModel.AssignSelectedPhoto(slot);
         else
-            _viewModel.Status = "Foto ditambahkan ke antrean. Pilih kandidat foto lalu tekan Pasangkan.";
+            _viewModel.Status = "Slot foto belum disiapkan. Penempatan nonaktif.";
         e.Handled = true;
     }
 
@@ -588,7 +591,7 @@ public partial class MainWindow : Window
 
     private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!_viewModel.CanEditPhotoTextLogo || !_viewModel.HasSelectedPhoto)
+        if (!_viewModel.CanPlaceSelectedSlot || !_viewModel.HasSelectedPhoto)
             return;
         _photoPanStart = e.GetPosition(PhotoFrame);
         _photoPanOriginX = _viewModel.OffsetX;
@@ -625,7 +628,7 @@ public partial class MainWindow : Window
             return;
 
         _viewModel.SelectSlot(slot);
-        if ((slot.IsPhoto || slot.IsLogo) && slot.HasBounds)
+        if ((slot.IsPhoto || slot.IsLogo) && slot.IsPlacementReady)
         {
             _artboardPanSlot = slot;
             _artboardPanStart = point;

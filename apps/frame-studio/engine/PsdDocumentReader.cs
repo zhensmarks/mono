@@ -208,7 +208,12 @@ public sealed class PsdDocumentReader
             bounds,
             layer.ImageData is not null && bounds.Width > 0 && bounds.Height > 0,
             slotHint,
-            Array.AsReadOnly(children));
+            Array.AsReadOnly(children))
+        {
+            HasMask = layer.LayerMaskData is { LayerMaskDisabled: false },
+            HasVectorMask = layer.LayerMaskData is { VectorMaskDensity: not null } or { VectorMaskFeather: not null },
+            HasClipping = layer.Clipping
+        };
     }
 
     private static FrameBounds ToBounds(Rectangle rectangle)
@@ -254,16 +259,6 @@ internal static class SlotNameClassifier
             .ToArray();
 
         var hasMarker = tokens.Any(PhotoMarkers.Contains);
-        if (!hasMarker && tokens.Length == 1 && tokens[0] == "xl")
-        {
-            return FrameSlotSizeHint.XL;
-        }
-
-        if (!hasMarker && tokens.Length == 1 && tokens[0] == "s")
-        {
-            return FrameSlotSizeHint.S;
-        }
-
         if (!hasMarker)
         {
             return null;

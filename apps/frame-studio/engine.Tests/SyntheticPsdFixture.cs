@@ -9,7 +9,7 @@ internal static class SyntheticPsdFixture
     private static readonly byte[] GreenPlane = [0, 255, 0, 255];
     private static readonly byte[] BluePlane = [0, 0, 255, 255];
 
-    public static byte[] CreateRgbWithPhotoLayer(string layerName = "Photo XL")
+    public static byte[] CreateRgbWithPhotoLayer(string layerName = "Photo XL", bool clipped = false)
     {
         using var output = new MemoryStream();
         WriteAscii(output, "8BPS");
@@ -25,7 +25,7 @@ internal static class SyntheticPsdFixture
 
         using var layerInfo = new MemoryStream();
         WriteUInt16(layerInfo, 1); // one layer
-        WriteLayerRecord(layerInfo, layerName);
+        WriteLayerRecord(layerInfo, layerName, clipped);
         WriteLayerChannelData(layerInfo, RedPlane);
         WriteLayerChannelData(layerInfo, GreenPlane);
         WriteLayerChannelData(layerInfo, BluePlane);
@@ -44,7 +44,7 @@ internal static class SyntheticPsdFixture
         return output.ToArray();
     }
 
-    private static void WriteLayerRecord(Stream output, string layerName)
+    private static void WriteLayerRecord(Stream output, string layerName, bool clipped)
     {
         WriteInt32(output, 0); // top
         WriteInt32(output, 0); // left
@@ -61,7 +61,7 @@ internal static class SyntheticPsdFixture
         WriteAscii(output, "8BIM");
         WriteAscii(output, "norm");
         output.WriteByte(255); // opacity
-        output.WriteByte(0);   // clipping
+        output.WriteByte((byte)(clipped ? 1 : 0)); // clipping
         output.WriteByte(0x02); // bit 1: visible
         output.WriteByte(0);   // filler
 

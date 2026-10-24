@@ -6,7 +6,7 @@ The engine is a UI-independent .NET 8 library. Its primary reader is [PsdSharp 1
 
 An optional [psd-tools 1.26.0](https://github.com/psd-tools/psd-tools/tree/v1.26.0) desktop sidecar is available as a fallback when PsdSharp fails on a file path. The Avalonia app configures it only on Linux x86_64 and only when Python is found; set `FRAME_STUDIO_PSD_TOOLS_PYTHON` to choose a specific interpreter. Other platforms are gated off. The first successful local read must verify Python 3.11+ and `psd-tools==1.26.0` with its declared dependencies. The PSD and layer data stay local; the engine embeds only the small bridge script and does not bundle Python or its packages.
 
-The fallback returns a best-effort layer tree plus the PSD's **stored merged composite** as an RGBA preview for RGB 8-bit files that fit the preview cap. It does not recomposite the layers, so it can show a stale preview if the PSD's stored composite is stale. The app displays anonymous, generic layer labels; source layer names and text values are not included in UI summaries or status. Layer kind, visibility, opacity, bounds, mask, vector-mask, and effects flags are descriptive only. It cannot edit pixels, text, masks, or effects and cannot save a layered PSD.
+The fallback returns a best-effort layer tree plus the PSD's **stored merged composite** as an RGBA preview for RGB 8-bit files that fit the preview cap. It does not recomposite the layers, so it can show a stale preview if the PSD's stored composite is stale. The app displays anonymous, generic layer labels; source layer names and text values are not included in UI summaries or status. Layer kind, visibility, opacity, bounds, mask, vector-mask, clipping, and effects flags are descriptive only. It cannot edit pixels, text, masks, or effects and cannot save a layered PSD.
 
 To opt in from a desktop host:
 
@@ -39,15 +39,16 @@ The reader fallback uses the original stored composite and does not run the inco
 
 - enables the optional fallback only on the tested Linux x86_64 desktop runtime when Python is present, and shows the Python/psd-tools requirement;
 - distinguishes configured-but-unverified from a successful read and reports whether the child-process memory cap was applied;
-- treat `FramePsdLayer.Kind`, `HasMask`, `HasVectorMask`, and `HasEffects` as read-only metadata, not proof that a layer can be edited;
+- treats `FramePsdLayer.Kind`, `HasMask`, `HasVectorMask`, `HasClipping`, and `HasEffects` as read-only metadata, not proof that a layer can be edited;
 - treat `CompositePreview` as the stored composite, not a render from the current layer visibility/tree;
 - shows only anonymous, generic layer labels and read-only structural summaries;
-- keeps layered export, photo/text/logo editing, and non-empty slot assignments disabled while allowing a separate flattened PNG copy of the stored composite; and
+- requires positive in-canvas bounds plus mask, vector-mask, or clipping evidence before an image candidate is exposed as placement-ready; name-only `XL`/`S` hints are not photo slots;
+- keeps placement and PNG export disabled until at least one validated photo target exists; fallback preview remains read-only; and
 - gates the sidecar off on unverified desktop platforms and does not advertise mobile support.
 
-`InspectAsync` returns `Success`, a fixed safe `Message`, anonymous candidate descriptors, a sanitized layer-tree summary, the stored-composite PNG, `EngineCapabilities`, and `FailureKind`. Source layer names and current text values are not returned to the UI. Failure categories distinguish missing/access-denied/unsupported/parser failures; none claims the source is corrupt. `IsAvailable` means the adapter exists, not that a particular PSD will parse.
+`InspectAsync` returns `Success`, a fixed safe `Message`, anonymous text/image descriptors (image descriptors require validated bounds and mask/clipping evidence), a sanitized layer-tree summary, the stored-composite PNG, `EngineCapabilities`, and `FailureKind`. Source layer names and current text values are not returned to the UI. Failure categories distinguish missing/access-denied/unsupported/parser failures; none claims the source is corrupt. `IsAvailable` means the adapter exists, not that a particular PSD will parse.
 
-`ExportCopyAsync` rejects non-empty `SlotAssignments` before reading or creating an output folder. With no assignments it may write a new flattened PNG from a supported stored composite; this is not a layered output, does not use `SourceFolder`, and does not overwrite existing output paths.
+`ExportCopyAsync` rejects non-empty `SlotAssignments` before reading or creating an output folder. It also refuses to write until a validated photo target exists. When allowed, it writes only a new flattened PNG from a supported stored composite; this is not a layered output, does not use `SourceFolder`, and does not overwrite existing output paths. The Avalonia app's separate raster overlay path additionally stays gated until its slot readiness checks pass; neither path claims Photoshop Frame Tool or mask-render fidelity.
 
 The engine intentionally does not reference the Avalonia UI assembly. The app opens a local PSD from its file picker or `--open-psd <path>` startup argument and uses the same read-only inspection contract; no network upload is involved.
 

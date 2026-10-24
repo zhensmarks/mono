@@ -365,6 +365,7 @@ public sealed class PsdToolsDesktopFallbackReader
             IsGroup = layer.IsGroup,
             HasMask = layer.HasMask,
             HasVectorMask = layer.HasVectorMask,
+            HasClipping = layer.HasClipping,
             HasEffects = layer.HasEffects
         };
     }
@@ -445,6 +446,7 @@ public sealed class PsdToolsDesktopFallbackReader
         public bool HasPixelData { get; set; }
         public bool HasMask { get; set; }
         public bool HasVectorMask { get; set; }
+        public bool HasClipping { get; set; }
         public bool HasEffects { get; set; }
         public List<BridgeLayer>? Children { get; set; }
     }

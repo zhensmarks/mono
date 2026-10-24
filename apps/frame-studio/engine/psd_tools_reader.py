@@ -61,6 +61,7 @@ def _layer_tree(nodes, prefix: str, depth: int, state: dict):
                 "hasPixelData": bool(layer.has_pixels()),
                 "hasMask": layer.mask is not None,
                 "hasVectorMask": layer.vector_mask is not None,
+                "hasClipping": bool(layer.clipping),
                 "hasEffects": bool(layer.effects),
                 "children": children,
             }

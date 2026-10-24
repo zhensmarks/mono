@@ -36,6 +36,9 @@ public sealed class RasterPngComposer
 
         foreach (var slot in slots)
         {
+            if ((slot.IsPhoto || slot.IsLogo) && !slot.IsPlacementReady)
+                continue;
+
             if (slot.Bounds is not { Width: > 0, Height: > 0 } bounds)
                 continue;
 

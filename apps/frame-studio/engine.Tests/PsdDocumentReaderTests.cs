@@ -15,7 +15,7 @@ public sealed class PsdDocumentReaderTests
     ];
 
     [Fact]
-    public void ReadsSyntheticPsdDocumentLayerSlotAndMergedComposite()
+    public void ReadsSyntheticPsdDocumentLayerNameHintAndMergedComposite()
     {
         using var input = new MemoryStream(SyntheticPsdFixture.CreateRgbWithPhotoLayer(), writable: false);
         var document = new PsdDocumentReader().Read(input, "sample.psd");
@@ -31,6 +31,8 @@ public sealed class PsdDocumentReaderTests
         Assert.Equal("Photo XL", document.Layers[0].Name);
         Assert.Equal(new FrameBounds(0, 0, 2, 2), document.Layers[0].Bounds);
         Assert.True(document.Layers[0].HasPixelData);
+        Assert.False(document.Layers[0].HasMask);
+        Assert.False(document.Layers[0].HasClipping);
         Assert.Single(document.PhotoSlots);
         Assert.Equal(FrameSlotSizeHint.XL, document.PhotoSlots[0].SizeHint);
         Assert.Equal(document.Layers[0].Id, document.PhotoSlots[0].LayerId);
@@ -81,7 +83,8 @@ public sealed class PsdDocumentReaderTests
 
     [Theory]
     [InlineData("School S", null)]
-    [InlineData("S", FrameSlotSizeHint.S)]
+    [InlineData("S", null)]
+    [InlineData("XL", null)]
     [InlineData("[Slot:XL]", FrameSlotSizeHint.XL)]
     [InlineData("Foto portrait", FrameSlotSizeHint.Unspecified)]
     public void SlotHintsAreConservativeAndNameBased(string name, FrameSlotSizeHint? expected)

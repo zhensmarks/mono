@@ -4,33 +4,31 @@ namespace FrameStudio.Engine.Tests;
 
 public sealed class PsdTemplateEngineAdapterTests
 {
-    [Theory]
-    [InlineData("Photo XL", FramePsdSlotType.Photo)]
-    [InlineData("Student Name", FramePsdSlotType.Text)]
-    [InlineData("School Logo", FramePsdSlotType.Logo)]
-    public async Task InspectReturnsAnonymousCandidateAndStoredComposite(string layerName, FramePsdSlotType expectedType)
+    [Fact]
+    public async Task InspectReturnsTextCandidateAndStoredCompositeWithoutExposingLayerName()
     {
         var root = CreateTempDirectory();
         try
         {
             var masterPath = Path.Combine(root, "master.psd");
-            File.WriteAllBytes(masterPath, SyntheticPsdFixture.CreateRgbWithPhotoLayer(layerName));
+            File.WriteAllBytes(masterPath, SyntheticPsdFixture.CreateRgbWithPhotoLayer("Student Name"));
 
             var result = await new PsdTemplateEngineAdapter().InspectAsync(masterPath);
 
             Assert.True(result.Success, result.Message);
             var slot = Assert.Single(result.Slots);
-            Assert.Equal(expectedType, slot.Type);
-            Assert.Equal($"{expectedType} candidate 1", slot.LayerName);
-            Assert.DoesNotContain(layerName, slot.LayerName, StringComparison.Ordinal);
+            Assert.Equal(FramePsdSlotType.Text, slot.Type);
+            Assert.Equal("Text candidate 1", slot.LayerName);
+            Assert.DoesNotContain("Student Name", slot.LayerName, StringComparison.Ordinal);
             Assert.Null(slot.CurrentValue);
             Assert.Equal(new FrameBounds(0, 0, 2, 2), slot.Bounds);
+            Assert.False(slot.IsPlacementReady);
             Assert.Equal(2, result.DocumentWidth);
             Assert.Equal(2, result.DocumentHeight);
             Assert.NotNull(result.FlattenedPreviewPng);
             Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, result.FlattenedPreviewPng![..8]);
             Assert.Contains("Read-only stored composite", result.Message, StringComparison.Ordinal);
-            Assert.DoesNotContain(layerName, result.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("Student Name", result.Message, StringComparison.Ordinal);
             Assert.Equal("PsdSharp", result.ActiveReaderName);
             Assert.Equal(1, result.LayerTree!.LayerCount);
             Assert.Equal("Layer 1", Assert.Single(result.LayerTree.Roots).DisplayName);
@@ -41,8 +39,89 @@ public sealed class PsdTemplateEngineAdapterTests
         }
     }
 
+    [Theory]
+    [InlineData("Photo XL")]
+    [InlineData("School Logo")]
+    public async Task ImageNameWithoutMaskOrClippingIsNotExposedAsUsableTarget(string layerName)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var masterPath = Path.Combine(root, "master.psd");
+            File.WriteAllBytes(masterPath, SyntheticPsdFixture.CreateRgbWithPhotoLayer(layerName));
+
+            var result = await new PsdTemplateEngineAdapter().InspectAsync(masterPath);
+
+            Assert.True(result.Success, result.Message);
+            Assert.Empty(result.Slots);
+            Assert.DoesNotContain(layerName, result.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
-    public async Task EmptyAssignmentsExportSeparateFlattenedPngWithoutChangingMaster()
+    public async Task ClippedPhotoLayerIsValidatedAndCanExportSeparatePngCopy()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var masterPath = Path.Combine(root, "master.psd");
+            var outputFolder = Path.Combine(root, "output");
+            var originalMaster = SyntheticPsdFixture.CreateRgbWithPhotoLayer("Photo XL", clipped: true);
+            File.WriteAllBytes(masterPath, originalMaster);
+
+            var adapter = new PsdTemplateEngineAdapter();
+            var inspection = await adapter.InspectAsync(masterPath);
+            var slot = Assert.Single(inspection.Slots);
+
+            Assert.True(inspection.Success, inspection.Message);
+            Assert.Equal(FramePsdSlotType.Photo, slot.Type);
+            Assert.True(slot.IsPlacementReady);
+            Assert.True(Assert.Single(inspection.LayerTree!.Roots).HasClipping);
+
+            var export = await adapter.ExportCopyAsync(new FramePsdExportRequest(
+                masterPath,
+                root,
+                outputFolder,
+                new Dictionary<string, string>()));
+
+            Assert.True(export.Success, export.Message);
+            Assert.True(File.Exists(export.OutputPath));
+            Assert.Equal(originalMaster, File.ReadAllBytes(masterPath));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("S")]
+    [InlineData("XL")]
+    public async Task SizeLabelAloneDoesNotCreatePhotoSlot(string layerName)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var masterPath = Path.Combine(root, "master.psd");
+            File.WriteAllBytes(masterPath, SyntheticPsdFixture.CreateRgbWithPhotoLayer(layerName));
+
+            var result = await new PsdTemplateEngineAdapter().InspectAsync(masterPath);
+
+            Assert.True(result.Success, result.Message);
+            Assert.Empty(result.Slots);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ExportRemainsDisabledWithoutValidatedPhotoSlot()
     {
         var root = CreateTempDirectory();
         try
@@ -58,12 +137,10 @@ public sealed class PsdTemplateEngineAdapterTests
                 outputFolder,
                 new Dictionary<string, string>()));
 
-            Assert.True(result.Success, result.Message);
-            Assert.Equal(Path.Combine(outputFolder, "master-flattened.png"), result.OutputPath);
-            Assert.True(File.Exists(result.OutputPath));
-            Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, File.ReadAllBytes(result.OutputPath!)[..8]);
+            Assert.False(result.Success);
+            Assert.Contains("no photo slot", result.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.False(Directory.Exists(outputFolder));
             Assert.Equal(originalMaster, File.ReadAllBytes(masterPath));
-            Assert.Contains("Slot assignments were not applied", result.Message, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

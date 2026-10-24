@@ -30,8 +30,9 @@ public sealed class FrameSlot : INotifyPropertyChanged
     private double _offsetX;
     private double _offsetY;
     private bool _isFitMode;
+    private readonly bool _isPlacementReady;
 
-    public FrameSlot(string id, string label, SlotKind kind, string helper, string? value = null, FrameSlotBounds? bounds = null)
+    public FrameSlot(string id, string label, SlotKind kind, string helper, string? value = null, FrameSlotBounds? bounds = null, bool isPlacementReady = false)
     {
         Id = id;
         Label = label;
@@ -39,6 +40,7 @@ public sealed class FrameSlot : INotifyPropertyChanged
         Helper = helper;
         _value = value;
         Bounds = bounds;
+        _isPlacementReady = isPlacementReady;
     }
 
     public string Id { get; }
@@ -54,6 +56,7 @@ public sealed class FrameSlot : INotifyPropertyChanged
     public string Helper { get; }
     public FrameSlotBounds? Bounds { get; }
     public bool HasBounds => Bounds is { Width: > 0, Height: > 0 };
+    public bool IsPlacementReady => _isPlacementReady && HasBounds;
     public bool IsPhoto => Kind == SlotKind.Photo;
     public bool IsText => Kind == SlotKind.Text;
     public bool IsLogo => Kind == SlotKind.Logo;

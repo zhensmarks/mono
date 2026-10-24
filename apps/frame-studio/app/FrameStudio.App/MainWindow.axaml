@@ -70,7 +70,7 @@
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
-              <TextBlock Text="Foto dapat ditarik ke pratinjau." Classes="muted" IsVisible="{Binding HasSelectedSlot}" />
+              <TextBlock Text="Foto dapat ditarik ke pratinjau." Classes="muted" IsVisible="{Binding IsImageSlotSelected}" />
               <Button Content="Pasangkan ke slot terpilih" Classes="ToolBtn" Click="OnAssignPhoto" IsEnabled="{Binding CanAssignSelectedPhoto}" HorizontalAlignment="Stretch" />
             </StackPanel>
           </StackPanel>
@@ -101,7 +101,7 @@
               <Button Content="Reset" Classes="ToolBtn small" Click="OnResetCrop" />
             </StackPanel>
             <TextBlock Text="Edit teks di inspector." Classes="muted" VerticalAlignment="Center" IsVisible="{Binding HasTextCandidateSelected}" />
-            <Button Grid.Column="1" Content="Ekspor PNG" Classes="ActionBtn" IsEnabled="{Binding CanExportPngCopies}" Click="OnExportPngCopies" ToolTip.Tip="Membuat salinan PNG terpisah; PSD master tidak ditulis." />
+            <Button Grid.Column="1" Content="Ekspor PNG" Classes="ActionBtn" IsEnabled="{Binding CanExportPngCopies}" Click="OnExportPngCopies" ToolTip.Tip="{Binding ExportNotice}" />
           </Grid>
           <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
             <TextBlock Text="Folder hasil" Classes="muted" VerticalAlignment="Center" />
@@ -115,14 +115,14 @@
         <Grid RowDefinitions="Auto,*" RowSpacing="12">
           <StackPanel Spacing="3">
             <TextBlock Text="Pengaturan" Classes="h2" />
-            <TextBlock Text="Pilih slot untuk melihat atau mengatur isinya." Classes="muted" TextWrapping="Wrap" IsVisible="{Binding !IsFallbackPreviewMode}" />
+            <TextBlock Text="Pilih area yang dikenali untuk melihat detailnya." Classes="muted" TextWrapping="Wrap" IsVisible="{Binding !IsFallbackPreviewMode}" />
             <TextBlock Text="Pratinjau ini hanya menampilkan isi tersimpan." Classes="muted" TextWrapping="Wrap" IsVisible="{Binding IsFallbackPreviewMode}" />
+            <TextBlock Text="{Binding PhotoSlotSetupNotice}" Classes="muted" TextWrapping="Wrap" IsVisible="{Binding ShowPhotoSlotSetupNotice}" />
           </StackPanel>
           <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="12">
-              <StackPanel Spacing="6" IsVisible="{Binding !IsFallbackPreviewMode}">
-                <TextBlock Text="Area terdeteksi" Classes="sectionTitle" />
-                <TextBlock Text="Posisi slot diperkirakan otomatis; periksa sebelum ekspor." Classes="muted" TextWrapping="Wrap" />
+              <StackPanel Spacing="6" IsVisible="{Binding ShowDetectedAreaList}">
+                <TextBlock Text="Area" Classes="sectionTitle" />
                 <ItemsControl ItemsSource="{Binding Slots}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -148,7 +148,7 @@
                   <TextBlock Text="{Binding SelectedSlot.Label}" Classes="sectionTitle" TextTrimming="CharacterEllipsis" />
                   <TextBlock Text="Atur foto atau teks slot ini di sini." Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
-                <Border x:Name="PhotoFrame" Width="128" Height="150" HorizontalAlignment="Center" Background="{DynamicResource CanvasBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSmall}" ClipToBounds="True" DragDrop.AllowDrop="{Binding CanEditPhotoTextLogo}" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop" PointerPressed="OnPreviewPointerPressed" PointerMoved="OnPreviewPointerMoved" PointerReleased="OnPreviewPointerReleased" IsEnabled="{Binding CanEditPhotoTextLogo}" IsVisible="{Binding !HasTextCandidateSelected}">
+                <Border x:Name="PhotoFrame" Width="128" Height="150" HorizontalAlignment="Center" Background="{DynamicResource CanvasBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusSmall}" ClipToBounds="True" DragDrop.AllowDrop="{Binding CanPlaceSelectedSlot}" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop" PointerPressed="OnPreviewPointerPressed" PointerMoved="OnPreviewPointerMoved" PointerReleased="OnPreviewPointerReleased" IsEnabled="{Binding CanPlaceSelectedSlot}" IsVisible="{Binding IsImageSlotSelected}">
                   <Grid>
                     <Image x:Name="PreviewImage" Source="{Binding SelectedPhoto.Image}" Stretch="UniformToFill" IsVisible="{Binding HasPreviewImage}" />
                     <StackPanel IsVisible="{Binding !HasSelectedPhoto}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="5" Margin="10">
@@ -158,7 +158,7 @@
                     <TextBlock Text="Pratinjau tidak tersedia" IsVisible="{Binding HasPreviewUnavailable}" FontSize="11" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="8" />
                   </Grid>
                 </Border>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" IsEnabled="{Binding CanEditPhotoTextLogo}" IsVisible="{Binding !HasTextCandidateSelected}">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" IsEnabled="{Binding CanPlaceSelectedSlot}" IsVisible="{Binding IsImageSlotSelected}">
                   <Button Content="Isi frame" Classes="ToolBtn small" Click="OnFillFrame" />
                   <Button Content="Muat penuh" Classes="ToolBtn small" Click="OnFitFrame" />
                 </StackPanel>
