@@ -1,0 +1,50 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:themes="using:Avalonia.Themes.Fluent"
+             xmlns:services="using:FrameStudio.App.Services"
+             x:Class="FrameStudio.App.App"
+             RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <services:BoolToBrushConverter x:Key="BoolToBrushConverter" />
+  </Application.Resources>
+  <Application.Styles>
+    <themes:FluentTheme />
+    <Style Selector="TextBlock">
+      <Setter Property="FontFamily" Value="Inter" />
+      <Setter Property="Foreground" Value="#E9ECF2" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#D7F06B" />
+      <Setter Property="Foreground" Value="#15180E" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="14,9" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="#252A33" />
+      <Setter Property="Foreground" Value="#E9ECF2" />
+      <Setter Property="BorderBrush" Value="#3A414D" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12,8" />
+    </Style>
+    <Style Selector="Button.primary:pointerover">
+      <Setter Property="Background" Value="#E5FA8C" />
+    </Style>
+    <Style Selector="Button.secondary:pointerover">
+      <Setter Property="Background" Value="#303743" />
+    </Style>
+    <Style Selector="ListBoxItem:selected">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="ListBoxItem:selected:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+  </Application.Styles>
+</Application>
