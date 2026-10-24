@@ -71,7 +71,7 @@ public partial class MainWindow : Window
 
         if (e.PropertyName == nameof(MainViewModel.TemplatePreviewPng))
             UpdateTemplateCompositePreview();
-        else if (e.PropertyName is nameof(MainViewModel.SelectedSlot) or nameof(MainViewModel.SelectedPhoto) or nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.DocumentWidth) or nameof(MainViewModel.DocumentHeight))
+        else if (e.PropertyName is nameof(MainViewModel.TemplatePreviewNotice) or nameof(MainViewModel.SelectedSlot) or nameof(MainViewModel.SelectedPhoto) or nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.DocumentWidth) or nameof(MainViewModel.DocumentHeight))
             RebuildArtboard();
     }
 
@@ -131,7 +131,7 @@ public partial class MainWindow : Window
         {
             TemplateArtboard.Width = 640;
             TemplateArtboard.Height = 420;
-            TemplateArtboard.Background = Brush.Parse("#20252D");
+            TemplateArtboard.Background = PaletteBrush("CanvasBackgroundBrush", "#0C0C0E");
             var message = new TextBlock
             {
                 Text = string.IsNullOrWhiteSpace(_viewModel.TemplatePreviewNotice)
@@ -142,7 +142,7 @@ public partial class MainWindow : Window
                 TextAlignment = TextAlignment.Center,
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                Foreground = Brush.Parse("#AAB2BD"),
+                Foreground = PaletteBrush("TextMutedBrush", "#71717A"),
                 FontSize = 13
             };
             Canvas.SetLeft(message, 130);
@@ -225,28 +225,6 @@ public partial class MainWindow : Window
                     Child = text
                 };
             }
-            else
-            {
-                var placeholder = new Border
-                {
-                    Width = width,
-                    Height = height,
-                    Background = Brush.Parse("#33252A33"),
-                    Child = new TextBlock
-                    {
-                        Text = slot.IsText ? "Teks slot" : slot.IsLogo ? "Tempat logo" : "Tempat foto",
-                        FontSize = Math.Clamp(Math.Min(width, height) * 0.12, 9, 28),
-                        Foreground = Brush.Parse("#D7F06B"),
-                        TextAlignment = TextAlignment.Center,
-                        TextWrapping = TextWrapping.Wrap,
-                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                        Margin = new Thickness(4)
-                    }
-                };
-                contentFrame = placeholder;
-            }
-
             if (contentFrame is not null)
             {
                 Canvas.SetLeft(contentFrame, x);
@@ -259,8 +237,9 @@ public partial class MainWindow : Window
                 Width = width,
                 Height = height,
                 Background = Brushes.Transparent,
-                BorderBrush = slot.IsSelected ? Brush.Parse("#D7F06B") : Brush.Parse("#85D7F06B"),
+                BorderBrush = PaletteBrush("AccentBrush", "#D7F06B"),
                 BorderThickness = slot.IsSelected ? new Thickness(3) : new Thickness(1),
+                Opacity = slot.IsSelected ? 1 : 0.42,
                 IsHitTestVisible = false
             };
             Canvas.SetLeft(guide, x);
@@ -278,6 +257,13 @@ public partial class MainWindow : Window
             new TranslateTransform(slot.OffsetX * width, slot.OffsetY * height)
         }
     };
+
+    private static IBrush PaletteBrush(string key, string fallback)
+    {
+        if (Application.Current is { } application && application.TryGetResource(key, null, out var resource) && resource is IBrush brush)
+            return brush;
+        return Brush.Parse(fallback);
+    }
 
     private async void OnChooseMaster(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {

@@ -1,39 +1,135 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:themes="using:Avalonia.Themes.Fluent"
-             xmlns:services="using:FrameStudio.App.Services"
              x:Class="FrameStudio.App.App"
              RequestedThemeVariant="Dark">
   <Application.Resources>
-    <services:BoolToBrushConverter x:Key="BoolToBrushConverter" />
+    <ResourceDictionary>
+      <SolidColorBrush x:Key="AppBackgroundBrush" Color="#09090B" />
+      <SolidColorBrush x:Key="CardBackgroundBrush" Color="#111113" />
+      <SolidColorBrush x:Key="CanvasBackgroundBrush" Color="#0C0C0E" />
+      <SolidColorBrush x:Key="InputBackgroundBrush" Color="#0C0C0E" />
+      <SolidColorBrush x:Key="BorderDefaultBrush" Color="#232326" />
+      <SolidColorBrush x:Key="BorderHoverBrush" Color="#3F3F46" />
+      <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E8E8E6" />
+      <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A1A1AA" />
+      <SolidColorBrush x:Key="TextMutedBrush" Color="#71717A" />
+      <SolidColorBrush x:Key="AccentBrush" Color="#D7F06B" />
+      <SolidColorBrush x:Key="AccentSubtleBrush" Color="#1C1D18" />
+      <SolidColorBrush x:Key="ButtonPrimaryBackgroundBrush" Color="#EDEDED" />
+      <SolidColorBrush x:Key="ButtonPrimaryForegroundBrush" Color="#111111" />
+      <SolidColorBrush x:Key="ButtonPrimaryHoverBrush" Color="#F5F5F4" />
+      <SolidColorBrush x:Key="ButtonSecondaryBackgroundBrush" Color="#18181B" />
+      <SolidColorBrush x:Key="ButtonSecondaryForegroundBrush" Color="#E4E4E7" />
+      <SolidColorBrush x:Key="ButtonSecondaryBorderBrush" Color="#27272A" />
+      <SolidColorBrush x:Key="ButtonSecondaryHoverBrush" Color="#27272A" />
+      <CornerRadius x:Key="RadiusSmall">6</CornerRadius>
+      <CornerRadius x:Key="RadiusMedium">8</CornerRadius>
+    </ResourceDictionary>
   </Application.Resources>
   <Application.Styles>
     <themes:FluentTheme />
+    <Style Selector="Window">
+      <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
     <Style Selector="TextBlock">
       <Setter Property="FontFamily" Value="Inter" />
-      <Setter Property="Foreground" Value="#E9ECF2" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
-    <Style Selector="Button.primary">
-      <Setter Property="Background" Value="#D7F06B" />
-      <Setter Property="Foreground" Value="#15180E" />
+    <Style Selector="TextBlock.h2">
+      <Setter Property="FontSize" Value="16" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="14,9" />
+    </Style>
+    <Style Selector="TextBlock.sectionTitle">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.eyebrow">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="LetterSpacing" Value="0.8" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="Border.panel">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+      <Setter Property="Padding" Value="14" />
+    </Style>
+    <Style Selector="Border.slotItem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+      <Setter Property="Padding" Value="8,7" />
+    </Style>
+    <Style Selector="Border.slotItem:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
+    </Style>
+    <Style Selector="Border.slotItem.selected">
+      <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+    </Style>
+    <Style Selector="Border.queueItem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="4,5" />
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.small">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style Selector="Button.primary, Button.ActionBtn">
+      <Setter Property="Background" Value="{DynamicResource ButtonPrimaryBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonPrimaryForegroundBrush}" />
       <Setter Property="BorderThickness" Value="0" />
     </Style>
-    <Style Selector="Button.secondary">
-      <Setter Property="Background" Value="#252A33" />
-      <Setter Property="Foreground" Value="#E9ECF2" />
-      <Setter Property="BorderBrush" Value="#3A414D" />
+    <Style Selector="Button.primary:pointerover, Button.ActionBtn:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonPrimaryHoverBrush}" />
+    </Style>
+    <Style Selector="Button.secondary, Button.ToolBtn">
+      <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="12,8" />
     </Style>
-    <Style Selector="Button.primary:pointerover">
-      <Setter Property="Background" Value="#E5FA8C" />
+    <Style Selector="Button.secondary:pointerover, Button.ToolBtn:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
     </Style>
-    <Style Selector="Button.secondary:pointerover">
-      <Setter Property="Background" Value="#303743" />
+    <Style Selector="Button:focus">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+      <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}" />
+      <Setter Property="MinHeight" Value="32" />
+    </Style>
+    <Style Selector="TextBox:focus">
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
     </Style>
     <Style Selector="ListBoxItem:selected">
       <Setter Property="Background" Value="Transparent" />

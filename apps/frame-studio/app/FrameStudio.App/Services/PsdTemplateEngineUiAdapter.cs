@@ -31,11 +31,11 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
         {
             var fallback = Capabilities.OptionalFallback;
             if (!IsTestedPlatform())
-                return $"{RuntimePlatformLabel()} · optional psd-tools reader gated off · layered PSD disabled";
+                return $"{RuntimePlatformLabel()} · psd-tools tidak aktif · PSD berlapis nonaktif";
             if (fallback is null)
-                return $"{RuntimePlatformLabel()} · psd-tools reader unavailable · layered PSD disabled";
-            var runtimeStatus = fallback.RuntimeVerified ? "runtime verified" : "runtime configured; verification pending";
-            return $"{RuntimePlatformLabel()} · psd-tools 1.26.0 · {runtimeStatus} · read-only · layered PSD disabled";
+                return $"{RuntimePlatformLabel()} · psd-tools tidak tersedia · PSD berlapis nonaktif";
+            var runtimeStatus = fallback.RuntimeVerified ? "siap" : "belum terverifikasi";
+            return $"{RuntimePlatformLabel()} · psd-tools 1.26 · {runtimeStatus} · hanya-baca · PSD berlapis nonaktif";
         }
     }
 

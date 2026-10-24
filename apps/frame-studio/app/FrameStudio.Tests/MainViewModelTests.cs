@@ -20,6 +20,8 @@ public sealed class MainViewModelTests
         Assert.Empty(viewModel.Slots);
         Assert.Null(viewModel.TemplatePreviewPng);
         Assert.False(viewModel.HasTemplatePreview);
+        Assert.False(viewModel.CanAssignSelectedPhoto);
+        Assert.True(viewModel.ShowEmptyInspector);
         Assert.False(viewModel.CanExportPngCopies);
     }
 
@@ -31,9 +33,9 @@ public sealed class MainViewModelTests
         Assert.False(string.IsNullOrWhiteSpace(viewModel.RuntimePlatformLabel));
         Assert.Contains(viewModel.RuntimePlatformLabel, viewModel.EngineNotice);
         Assert.Contains("PsdSharp 1.2.0", viewModel.EngineNotice);
-        Assert.Contains("layered PSD disabled", viewModel.EngineNotice);
+        Assert.Contains("PSD berlapis nonaktif", viewModel.EngineNotice);
         Assert.Contains("Layered PSD writing is disabled", viewModel.EngineDetails);
-        Assert.Contains("separate raster PNG", viewModel.ExportNotice);
+        Assert.Contains("PNG terpisah", viewModel.ExportNotice);
     }
 
     [Fact]
@@ -46,7 +48,7 @@ public sealed class MainViewModelTests
             Assert.Contains("Linux X64", adapter.CapabilityNotice);
         else
         {
-            Assert.Contains("gated off", adapter.CapabilityNotice);
+            Assert.Contains("tidak aktif", adapter.CapabilityNotice);
             Assert.Null(adapter.Capabilities.OptionalFallback);
         }
 
@@ -55,7 +57,7 @@ public sealed class MainViewModelTests
         Assert.Contains("512 MiB input", adapter.CapabilityDetails);
         Assert.Contains("3 GiB child-process address-space cap", adapter.CapabilityDetails);
         Assert.Contains("120-second timeout", adapter.CapabilityDetails);
-        Assert.Contains("layered PSD disabled", adapter.CapabilityNotice);
+        Assert.Contains("PSD berlapis nonaktif", adapter.CapabilityNotice);
         Assert.False(adapter.Capabilities.CanWriteLayeredPsd);
     }
 
@@ -64,8 +66,8 @@ public sealed class MainViewModelTests
     {
         var viewModel = new MainViewModel(new FakePsdTemplateAdapter { IsAvailable = false });
 
-        Assert.Contains("PSD reader unavailable", viewModel.EngineNotice);
-        Assert.Contains("layered PSD disabled", viewModel.EngineNotice);
+        Assert.Contains("pembaca PSD tidak tersedia", viewModel.EngineNotice);
+        Assert.Contains("PSD berlapis nonaktif", viewModel.EngineNotice);
         Assert.False(viewModel.CanExportPngCopies);
     }
 
@@ -88,8 +90,9 @@ public sealed class MainViewModelTests
         Assert.Equal(SlotKind.Photo, viewModel.Slots[0].Kind);
         Assert.Equal(SlotKind.Text, viewModel.Slots[1].Kind);
         Assert.Equal(SlotKind.Logo, viewModel.Slots[2].Kind);
-        Assert.All(viewModel.Slots, slot => Assert.Contains("Best-effort candidate", slot.Helper));
-        Assert.Equal(new[] { "Photo candidate 1", "Text candidate 1", "Logo candidate 1" }, viewModel.Slots.Select(slot => slot.Label));
+        Assert.Equal(new[] { "Foto", "Teks", "Logo" }, viewModel.Slots.Select(slot => slot.KindLabel));
+        Assert.All(viewModel.Slots, slot => Assert.Contains("Posisi otomatis", slot.Helper));
+        Assert.Equal(new[] { "Foto 1", "Teks 1", "Logo 1" }, viewModel.Slots.Select(slot => slot.Label));
         Assert.DoesNotContain("Student Name", string.Join(" ", viewModel.Slots.Select(slot => $"{slot.Label} {slot.Helper} {slot.DisplayValue}")), StringComparison.Ordinal);
         Assert.All(viewModel.Slots, slot => Assert.Null(slot.Value));
         Assert.Equal(PreviewPng, viewModel.TemplatePreviewPng);
@@ -97,8 +100,11 @@ public sealed class MainViewModelTests
         Assert.Equal(120, viewModel.DocumentWidth);
         Assert.Equal(180, viewModel.DocumentHeight);
         Assert.True(viewModel.HasTemplatePreview);
+        Assert.True(viewModel.HasSelectedSlot);
+        Assert.False(viewModel.CanAssignSelectedPhoto);
+        Assert.False(viewModel.ShowEmptyInspector);
         Assert.False(viewModel.CanExportPngCopies);
-        Assert.Contains("anonymous candidates", viewModel.TemplateStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("area slot terdeteksi", viewModel.TemplateStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -117,7 +123,28 @@ public sealed class MainViewModelTests
 
         Assert.Empty(viewModel.Slots);
         Assert.False(viewModel.HasTemplatePreview);
-        Assert.Contains("PSD inspection failed without changing the source", viewModel.Status);
+        Assert.Contains("Pemeriksaan PSD gagal", viewModel.Status);
+    }
+
+    [Fact]
+    public async Task ReaderFailureDoesNotClaimThePsdIsCorrupt()
+    {
+        var adapter = new FakePsdTemplateAdapter
+        {
+            InspectionResult = new PsdTemplateInspection(
+                false,
+                "reader limitation",
+                Array.Empty<PsdSlotDescriptor>(),
+                FailureKind: FramePsdReadFailureKind.ReaderCouldNotInterpretInput)
+        };
+        var viewModel = new MainViewModel(adapter);
+        viewModel.SetMaster("/samples/unsupported.psd");
+
+        await viewModel.InspectSelectedMasterAsync();
+
+        Assert.Contains("tidak membuktikan file rusak", viewModel.Status);
+        Assert.Equal("Pratinjau belum tersedia. Periksa status pembacaan di bawah.", viewModel.TemplatePreviewNotice);
+        Assert.False(viewModel.HasTemplatePreview);
     }
 
     [Fact]
@@ -154,6 +181,7 @@ public sealed class MainViewModelTests
         var photo = new SourcePhoto("/samples/student.jpg", null);
         viewModel.AddSourcePhoto(photo);
 
+        Assert.True(viewModel.CanAssignSelectedPhoto);
         var assigned = viewModel.AssignSelectedPhoto(viewModel.Slots.Single());
 
         Assert.True(assigned);
@@ -198,6 +226,7 @@ public sealed class MainViewModelTests
 
         Assert.True(viewModel.IsFallbackPreviewMode);
         Assert.False(viewModel.CanEditPhotoTextLogo);
+        Assert.False(viewModel.CanAssignSelectedPhoto);
         Assert.Empty(viewModel.Slots);
         Assert.Empty(viewModel.SourcePhotos);
         Assert.True(viewModel.HasTemplatePreview);
@@ -218,6 +247,7 @@ public sealed class MainViewModelTests
         await viewModel.InspectSelectedMasterAsync();
         viewModel.AddSourcePhoto(new SourcePhoto("/samples/student.jpg", null));
 
+        Assert.False(viewModel.CanAssignSelectedPhoto);
         Assert.False(viewModel.AssignSelectedPhoto(viewModel.Slots.Single()));
         Assert.Null(viewModel.Slots.Single().Photo);
     }

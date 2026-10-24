@@ -44,6 +44,13 @@ public sealed class FrameSlot : INotifyPropertyChanged
     public string Id { get; }
     public string Label { get; }
     public SlotKind Kind { get; }
+    public string KindLabel => Kind switch
+    {
+        SlotKind.Photo => "Foto",
+        SlotKind.Text => "Teks",
+        SlotKind.Logo => "Logo",
+        _ => "Slot"
+    };
     public string Helper { get; }
     public FrameSlotBounds? Bounds { get; }
     public bool HasBounds => Bounds is { Width: > 0, Height: > 0 };
