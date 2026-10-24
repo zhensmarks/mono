@@ -5,7 +5,7 @@
         Width="1480" Height="920" MinWidth="1040" MinHeight="680"
         Background="#111419"
         ExtendClientAreaToDecorationsHint="False">
-  <Grid RowDefinitions="70,*,30" ColumnDefinitions="*">
+  <Grid RowDefinitions="70,*,30">
     <Border Grid.Row="0" Background="#171B22" BorderBrush="#2A3039" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="Auto,*,Auto" Margin="24,0">
         <StackPanel Orientation="Horizontal" Spacing="13" VerticalAlignment="Center">
@@ -18,56 +18,46 @@
           </StackPanel>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center" HorizontalAlignment="Center">
-          <Border Background="#242A31" CornerRadius="10" Padding="12,7">
-            <TextBlock Text="1  Template" FontSize="12" Foreground="#DDE2E8" />
-          </Border>
+          <Border Background="#242A31" CornerRadius="10" Padding="12,7"><TextBlock Text="1  Template" FontSize="12" Foreground="#DDE2E8" /></Border>
           <TextBlock Text="›" Foreground="#697381" FontSize="16" VerticalAlignment="Center" />
-          <Border Background="#D7F06B" CornerRadius="10" Padding="12,7">
-            <TextBlock Text="2  Isi foto" FontSize="12" Foreground="#171A10" FontWeight="SemiBold" />
-          </Border>
+          <Border Background="#242A31" CornerRadius="10" Padding="12,7"><TextBlock Text="2  Foto &amp; data" FontSize="12" Foreground="#DDE2E8" /></Border>
           <TextBlock Text="›" Foreground="#697381" FontSize="16" VerticalAlignment="Center" />
-          <Border Background="#242A31" CornerRadius="10" Padding="12,7">
-            <TextBlock Text="3  Tinjau &amp; ekspor" FontSize="12" Foreground="#DDE2E8" />
-          </Border>
+          <Border Background="#242A31" CornerRadius="10" Padding="12,7"><TextBlock Text="3  Tinjau" FontSize="12" Foreground="#DDE2E8" /></Border>
         </StackPanel>
         <Button Grid.Column="2" Classes="secondary" Content="Buka PSD master" Click="OnChooseMaster" VerticalAlignment="Center" />
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" ColumnDefinitions="300,*,318" Margin="18,16,18,14" ColumnSpacing="14">
-      <!-- Source and queue -->
-      <Border Grid.Column="0" Background="#191E25" BorderBrush="#2A3039" BorderThickness="1" CornerRadius="14" Padding="16">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" RowSpacing="11">
+    <Grid Grid.Row="1" ColumnDefinitions="280,*,300" Margin="18,16,18,14" ColumnSpacing="14">
+      <!-- Files and source queue -->
+      <Border Grid.Column="0" Background="#191E25" BorderBrush="#2A3039" BorderThickness="1" CornerRadius="14" Padding="15">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" RowSpacing="10">
           <StackPanel Spacing="3">
-            <TextBlock Text="SUMBER" FontSize="10" FontWeight="Bold" LetterSpacing="1.5" Foreground="#9AA4B2" />
+            <TextBlock Text="FILE &amp; ANTREAN" FontSize="10" FontWeight="Bold" LetterSpacing="1.5" Foreground="#9AA4B2" />
             <TextBlock Text="Siapkan bahan" FontSize="19" FontWeight="SemiBold" />
           </StackPanel>
-
-          <StackPanel Grid.Row="1" Spacing="7">
+          <StackPanel Grid.Row="1" Spacing="6">
             <TextBlock Text="PSD master" FontSize="12" FontWeight="SemiBold" />
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-              <TextBox x:Name="MasterPathBox" Text="{Binding MasterPath}" Watermark="Belum ada file PSD" IsReadOnly="True" MinHeight="36" />
+              <TextBox Text="{Binding MasterPath}" Watermark="Pilih file PSD" IsReadOnly="True" MinHeight="36" />
               <Button Grid.Column="1" Classes="secondary" Content="Pilih" Click="OnChooseMaster" />
             </Grid>
-            <TextBlock Text="{Binding TemplateStatus}" FontSize="11" Foreground="#AAB2BD" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding TemplateStatus}" FontSize="10" Foreground="#AAB2BD" TextWrapping="Wrap" />
           </StackPanel>
-
-          <StackPanel Grid.Row="2" Spacing="7">
+          <StackPanel Grid.Row="2" Spacing="6">
             <TextBlock Text="Folder foto / source" FontSize="12" FontWeight="SemiBold" />
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-              <TextBox x:Name="SourcePathBox" Text="{Binding SourcePath}" Watermark="Pilih folder foto" IsReadOnly="True" MinHeight="36" />
+              <TextBox Text="{Binding SourcePath}" Watermark="Pilih folder atau foto" IsReadOnly="True" MinHeight="36" />
               <Button Grid.Column="1" Classes="secondary" Content="Pilih" Click="OnChooseSourceFolder" />
             </Grid>
           </StackPanel>
-
-          <StackPanel Grid.Row="3" Spacing="7">
-            <TextBlock Text="Simpan hasil ke" FontSize="12" FontWeight="SemiBold" />
+          <StackPanel Grid.Row="3" Spacing="6">
+            <TextBlock Text="Folder hasil" FontSize="12" FontWeight="SemiBold" />
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-              <TextBox x:Name="OutputPathBox" Text="{Binding OutputPath}" Watermark="Pilih folder hasil" IsReadOnly="True" MinHeight="36" />
+              <TextBox Text="{Binding OutputPath}" Watermark="Pilih folder hasil" IsReadOnly="True" MinHeight="36" />
               <Button Grid.Column="1" Classes="secondary" Content="Pilih" Click="OnChooseOutputFolder" />
             </Grid>
           </StackPanel>
-
           <Grid Grid.Row="4" RowDefinitions="Auto,*,Auto" RowSpacing="7">
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Spacing="2">
@@ -85,154 +75,116 @@
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
                       <TextBlock Text="{Binding FileName}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Text="Siap dipetakan" FontSize="10" Foreground="#8E99A8" />
+                      <TextBlock Text="Pratinjau source" FontSize="10" Foreground="#8E99A8" />
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="•" Foreground="#D7F06B" FontSize="18" VerticalAlignment="Center" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
-            <Button Grid.Row="2" Classes="primary" Content="Pasangkan ke slot terpilih" Click="OnAssignPhoto" HorizontalAlignment="Stretch" />
+            <Button Grid.Row="2" Classes="primary" Content="Pasangkan ke kandidat terpilih" Click="OnAssignPhoto" HorizontalAlignment="Stretch" />
           </Grid>
-
           <Border Grid.Row="5" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="10" Padding="10">
-            <TextBlock Text="Nama/alamat belum dibaca dari file data. Foto di antrean hanya contoh source; belum masuk ke PSD." FontSize="11" Foreground="#B4BDC8" TextWrapping="Wrap" />
+            <TextBlock Text="Gunakan pemilih file untuk menambah foto. Penempatan ke slot hanya tersimpan sebagai pratinjau lokal." FontSize="10" Foreground="#B4BDC8" TextWrapping="Wrap" />
           </Border>
-
           <Button Grid.Row="6" Classes="secondary" Content="Bersihkan antrean" Click="OnClearQueue" HorizontalAlignment="Stretch" />
         </Grid>
       </Border>
 
-      <!-- Canvas -->
-      <Grid Grid.Column="1" RowDefinitions="52,*,Auto" RowSpacing="12">
+      <!-- Actual stored composite and a separate, local photo crop preview -->
+      <Grid Grid.Column="1" RowDefinitions="48,*,Auto" RowSpacing="10">
         <Grid ColumnDefinitions="*,Auto">
           <StackPanel Spacing="3" VerticalAlignment="Center">
-            <TextBlock Text="KANVAS" FontSize="10" FontWeight="Bold" LetterSpacing="1.5" Foreground="#9AA4B2" />
-            <TextBlock Text="Pratinjau penempatan foto" FontSize="16" FontWeight="SemiBold" />
+            <TextBlock Text="PSD COMPOSITE" FontSize="10" FontWeight="Bold" LetterSpacing="1.5" Foreground="#9AA4B2" />
+            <TextBlock Text="{Binding DocumentDimensions}" FontSize="15" FontWeight="SemiBold" />
           </StackPanel>
           <Border Grid.Column="1" Background="#292F38" CornerRadius="8" Padding="10,6" VerticalAlignment="Center">
-            <TextBlock Text="SIMULASI UI" Foreground="#D7F06B" FontSize="10" FontWeight="Bold" LetterSpacing="1.0" />
+            <TextBlock Text="HANYA-BACA" Foreground="#D7F06B" FontSize="10" FontWeight="Bold" LetterSpacing="1.0" />
           </Border>
         </Grid>
-
-        <Border Grid.Row="1" x:Name="CanvasDropZone" Background="#171B21" BorderBrush="#343C47" BorderThickness="1" CornerRadius="14" ClipToBounds="True" DragDrop.AllowDrop="True" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop">
-          <Grid RowDefinitions="*,Auto" Margin="16">
-            <Border Grid.Row="0" Background="#20252D" BorderBrush="#3A424E" BorderThickness="1" CornerRadius="12" HorizontalAlignment="Center" VerticalAlignment="Center" Width="330" Height="495" ClipToBounds="True">
-              <Grid>
-                <Border Background="#252B34" />
-                <Grid RowDefinitions="Auto,*,Auto" Margin="22">
-                  <StackPanel Spacing="3">
-                    <TextBlock Text="CONTOH TEMPLATE" FontSize="9" FontWeight="Bold" LetterSpacing="1.5" Foreground="#A7B0BC" />
-                    <TextBlock Text="Sekolah Contoh" FontSize="16" FontWeight="Bold" Foreground="#E5E9EF" />
-                    <TextBlock Text="Tahun ajaran 2026 / 2027" FontSize="10" Foreground="#9BA5B2" />
+        <Grid Grid.Row="1" ColumnDefinitions="*,205" ColumnSpacing="10">
+          <Border Grid.Column="0" Background="#171B21" BorderBrush="#343C47" BorderThickness="1" CornerRadius="14" ClipToBounds="True" Padding="12">
+            <Grid>
+              <Image x:Name="TemplateCompositeImage" Stretch="Uniform" IsVisible="{Binding HasTemplatePreview}" />
+              <StackPanel IsVisible="{Binding !HasTemplatePreview}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" MaxWidth="280">
+                <TextBlock Text="Tidak ada composite untuk ditampilkan" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" />
+                <TextBlock Text="{Binding TemplatePreviewNotice}" FontSize="11" Foreground="#AAB2BD" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" />
+              </StackPanel>
+            </Grid>
+          </Border>
+          <Border Grid.Column="1" Background="#191E25" BorderBrush="#2A3039" BorderThickness="1" CornerRadius="14" Padding="11">
+            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
+              <StackPanel Spacing="3">
+                <TextBlock Text="FOTO TERPILIH" FontSize="10" FontWeight="Bold" LetterSpacing="1.1" Foreground="#9AA4B2" />
+                <TextBlock Text="Crop 2:3 · lokal saja" FontSize="12" FontWeight="SemiBold" />
+              </StackPanel>
+              <Border Grid.Row="1" x:Name="PhotoFrame" Width="126" Height="189" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#14181E" BorderBrush="#525E6D" BorderThickness="1" CornerRadius="8" ClipToBounds="True" DragDrop.AllowDrop="True" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop" PointerPressed="OnPreviewPointerPressed" PointerMoved="OnPreviewPointerMoved" PointerReleased="OnPreviewPointerReleased">
+                <Grid>
+                  <Image x:Name="PreviewImage" Source="{Binding SelectedPhoto.Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasPreviewImage}" />
+                  <StackPanel IsVisible="{Binding !HasSelectedPhoto}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7" Margin="8">
+                    <TextBlock Text="Pilih foto" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="atau gunakan pemilih file" FontSize="10" Foreground="#9BA5B2" HorizontalAlignment="Center" TextAlignment="Center" />
                   </StackPanel>
-                  <Grid Grid.Row="1" RowDefinitions="*,Auto" Margin="0,18,0,18" RowSpacing="12">
-                        <Border x:Name="PhotoFrame" Width="180" Height="270" HorizontalAlignment="Center" Background="#14181E" BorderBrush="#D7F06B" BorderThickness="2" CornerRadius="10" ClipToBounds="True" DragDrop.AllowDrop="True" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop" PointerPressed="OnPreviewPointerPressed" PointerMoved="OnPreviewPointerMoved" PointerReleased="OnPreviewPointerReleased">
-                      <Grid>
-                        <Image x:Name="PreviewImage" Source="{Binding SelectedPhoto.Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasPreviewImage}" />
-                        <StackPanel IsVisible="{Binding !HasSelectedPhoto}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                          <TextBlock Text="＋" FontSize="34" Foreground="#D7F06B" HorizontalAlignment="Center" />
-                          <TextBlock Text="Tarik foto ke slot XL" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                          <TextBlock Text="atau pilih foto dari antrean" FontSize="10" Foreground="#9BA5B2" HorizontalAlignment="Center" />
-                        </StackPanel>
-                        <StackPanel IsVisible="{Binding HasPreviewUnavailable}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-                          <TextBlock Text="Pratinjau tidak tersedia" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                          <TextBlock Text="File tetap ada di antrean, tetapi belum bisa dibuka." FontSize="9" Foreground="#AAB2BD" TextWrapping="Wrap" MaxWidth="190" HorizontalAlignment="Center" />
-                        </StackPanel>
-                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Background="#101318" Opacity="0.92" CornerRadius="6" Padding="7,4">
-                          <TextBlock Text="{Binding SelectedSlot.Label, FallbackValue='XL'}" FontSize="10" FontWeight="Bold" Foreground="#D7F06B" />
-                        </Border>
-                      </Grid>
-                    </Border>
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                      <StackPanel Spacing="5">
-                        <TextBlock Text="{Binding PreviewStudentName}" FontSize="14" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding PreviewAddress}" FontSize="10" Foreground="#A4ADB9" />
-                      </StackPanel>
-                      <Border Grid.Column="1" Width="46" Height="46" Background="#343B46" BorderBrush="#596372" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
-                        <Grid>
-                          <Image Source="{Binding SelectedLogo.Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding HasSelectedLogo}" />
-                          <TextBlock Text="LOGO" FontSize="8" FontWeight="Bold" Foreground="#E0E5EB" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasSelectedLogo}" />
-                        </Grid>
-                      </Border>
-                    </Grid>
-                  </Grid>
-                  <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
-                    <TextBlock Text="PRATINJAU CONTOH • PSD TIDAK DIUBAH" FontSize="8" Foreground="#8A94A1" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1" Text="2 × 3 / 4 × 6" FontSize="8" Foreground="#D7F06B" VerticalAlignment="Center" />
-                  </Grid>
+                  <TextBlock Text="Pratinjau tidak tersedia" IsVisible="{Binding HasPreviewUnavailable}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" />
                 </Grid>
-              </Grid>
-            </Border>
-            <TextBlock Grid.Row="1" Text="Kanvas ini hanya memvisualkan slot. PSD master dan source asli tidak disentuh." FontSize="11" Foreground="#9AA4B2" HorizontalAlignment="Center" Margin="0,13,0,0" />
-          </Grid>
-        </Border>
-
+              </Border>
+              <TextBlock Grid.Row="2" Text="Crop, zoom, rotasi, dan posisi tidak masuk ke composite atau file PSD." FontSize="9" Foreground="#AAB2BD" TextWrapping="Wrap" />
+            </Grid>
+          </Border>
+        </Grid>
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="12">
-          <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-            <TextBlock Text="Zoom" FontSize="11" Foreground="#AAB2BD" VerticalAlignment="Center" />
-            <Slider x:Name="ZoomSlider" Minimum="0.5" Maximum="2" Value="{Binding Zoom, Mode=TwoWay}" Width="150" />
-            <TextBlock Text="{Binding Zoom, StringFormat='{}{0:P0}'}" FontSize="11" Foreground="#E9ECF2" Width="42" VerticalAlignment="Center" />
-            <Button Classes="secondary" Content="Putar ↶" Click="OnRotateLeft" />
-            <Button Classes="secondary" Content="Putar ↷" Click="OnRotateRight" />
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <TextBlock Text="Zoom" FontSize="10" Foreground="#AAB2BD" VerticalAlignment="Center" />
+            <Slider x:Name="ZoomSlider" Minimum="0.5" Maximum="2" Value="{Binding Zoom, Mode=TwoWay}" Width="105" />
+            <Button Classes="secondary" Content="−5°" Click="OnRotateLeft" />
+            <Button Classes="secondary" Content="+5°" Click="OnRotateRight" />
             <Button Classes="secondary" Content="Reset" Click="OnResetCrop" />
           </StackPanel>
-          <Button Grid.Column="1" Classes="primary" Content="Buat salinan hasil" IsEnabled="False" ToolTip.Tip="Belum tersedia — mesin PSD belum tersambung." />
+          <Button Grid.Column="1" Classes="primary" Content="Export flattened preview PNG" IsEnabled="{Binding CanExportFlattenedPreview}" Click="OnExportFlattenedPreview" ToolTip.Tip="Exports the stored PSD composite only; slot assignments are not applied." />
         </Grid>
       </Grid>
 
-      <!-- Slots / inspector -->
-      <Border Grid.Column="2" Background="#191E25" BorderBrush="#2A3039" BorderThickness="1" CornerRadius="14" Padding="15">
-        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" RowSpacing="11">
+      <!-- Name-inferred candidates and preview-only edits -->
+      <Border Grid.Column="2" Background="#191E25" BorderBrush="#2A3039" BorderThickness="1" CornerRadius="14" Padding="14">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="10">
           <StackPanel Spacing="3">
-            <TextBlock Text="SLOT &amp; PROPERTI" FontSize="10" FontWeight="Bold" LetterSpacing="1.4" Foreground="#9AA4B2" />
-            <TextBlock Text="Tujuan isi template" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="LAYER CANDIDATES" FontSize="10" FontWeight="Bold" LetterSpacing="1.4" Foreground="#9AA4B2" />
+            <TextBlock Text="{Binding TemplateStatus}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
           </StackPanel>
           <Border Grid.Row="1" Background="#242A32" CornerRadius="8" Padding="9,7">
-            <TextBlock Text="Contoh slot · menunggu parser PSD" FontSize="10" Foreground="#D7F06B" />
+            <TextBlock Text="Jenis kandidat hanya ditebak dari nama layer; bukan bukti mask atau layer yang dapat diedit." FontSize="10" Foreground="#D7F06B" TextWrapping="Wrap" />
           </Border>
           <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-            <ItemsControl x:Name="SlotItems" ItemsSource="{Binding Slots}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Border Background="{Binding IsSelected, Converter={StaticResource BoolToBrushConverter}}" BorderBrush="#363E49" BorderThickness="1" CornerRadius="10" Padding="11" Margin="0,3" PointerPressed="OnSlotPointerPressed">
-                  <Grid ColumnDefinitions="32,*,Auto" ColumnSpacing="9">
-                    <Border Width="30" Height="30" CornerRadius="8" Background="#2B323C" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding Kind}" FontSize="8" FontWeight="Bold" Foreground="#D7F06B" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" />
-                      <TextBlock Text="{Binding DisplayValue}" FontSize="10" Foreground="#A1ABB8" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                    <TextBlock Grid.Column="2" Text="{Binding Helper}" FontSize="8" Foreground="#7E8998" VerticalAlignment="Center" />
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
+            <ItemsControl ItemsSource="{Binding Slots}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="{Binding IsSelected, Converter={StaticResource BoolToBrushConverter}}" BorderBrush="#363E49" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,3" PointerPressed="OnSlotPointerPressed">
+                    <Grid ColumnDefinitions="32,*,Auto" ColumnSpacing="8">
+                      <Border Width="30" Height="30" CornerRadius="8" Background="#2B323C" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Kind}" FontSize="8" FontWeight="Bold" Foreground="#D7F06B" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding DisplayValue}" FontSize="10" Foreground="#A1ABB8" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="2" Text="KANDIDAT" FontSize="7" Foreground="#AAB2BD" VerticalAlignment="Center" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
             </ItemsControl>
           </ScrollViewer>
-          <Border Grid.Row="3" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="10" Padding="11">
+          <Border Grid.Row="3" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="10" Padding="10">
             <StackPanel Spacing="6">
-              <TextBlock Text="Atur foto" FontSize="12" FontWeight="SemiBold" />
-              <TextBlock Text="Tarik foto ke slot di atas. Crop dan rotasi di sini hanya mengubah pratinjau lokal." FontSize="10" Foreground="#AAB2BD" TextWrapping="Wrap" />
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="7" Margin="0,2,0,0">
-                <Button Classes="secondary" Content="Penuhi bingkai" Click="OnFillFrame" />
-                <Button Grid.Column="1" Classes="secondary" Content="Tampilkan utuh" Click="OnFitFrame" />
-              </Grid>
+              <TextBlock Text="Nilai teks pratinjau" FontSize="12" FontWeight="SemiBold" />
+              <TextBox Text="{Binding SelectedSlot.Value, Mode=TwoWay}" Watermark="Hanya untuk catatan pratinjau" IsEnabled="{Binding HasTextCandidateSelected}" TextChanged="OnPreviewTextChanged" />
+              <TextBlock Text="Teks dan pemetaan foto/logo bersifat lokal; tidak disimpan ke PSD." FontSize="9" Foreground="#AAB2BD" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
-          <Border Grid.Row="4" Background="#20262E" BorderBrush="#343C47" BorderThickness="1" CornerRadius="10" Padding="11">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Redaksi contoh" FontSize="12" FontWeight="SemiBold" />
-              <TextBox Text="Contoh Nama Siswa" Watermark="Nama" IsEnabled="False" />
-              <TextBox Text="Jl. Merdeka No. 12" Watermark="Alamat" IsEnabled="False" />
-              <TextBlock Text="Input layer teks menunggu parser PSD." FontSize="9" Foreground="#9AA4B2" TextWrapping="Wrap" />
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="5" Background="#2B241D" BorderBrush="#5B4930" BorderThickness="1" CornerRadius="10" Padding="11">
+          <Border Grid.Row="4" Background="#2B241D" BorderBrush="#5B4930" BorderThickness="1" CornerRadius="10" Padding="10">
             <StackPanel Spacing="4">
-              <TextBlock Text="Ekspor belum aktif" FontSize="11" FontWeight="SemiBold" Foreground="#F1D39C" />
-              <TextBlock Text="Foto, teks, dan logo belum ditulis ke PSD. Master tidak akan tertimpa." FontSize="10" Foreground="#D1C0A6" TextWrapping="Wrap" />
+              <TextBlock Text="Ekspor terbatas" FontSize="11" FontWeight="SemiBold" Foreground="#F1D39C" />
+              <TextBlock Text="Hanya PNG dari composite tersimpan. Tidak ada PSD berlapis atau salinan per siswa." FontSize="10" Foreground="#D1C0A6" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
         </Grid>
@@ -243,7 +195,7 @@
       <Grid ColumnDefinitions="Auto,*,Auto">
         <Ellipse Width="7" Height="7" Fill="#D7F06B" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="10" Foreground="#B5BEC9" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" />
-        <TextBlock Grid.Column="2" Text="PSD engine: belum tersambung" FontSize="10" Foreground="#8D96A4" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Text="{Binding EngineNotice}" FontSize="9" Foreground="#8D96A4" VerticalAlignment="Center" Margin="10,0,0,0" />
       </Grid>
     </Border>
   </Grid>

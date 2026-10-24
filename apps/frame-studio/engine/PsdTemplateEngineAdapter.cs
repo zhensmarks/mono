@@ -19,7 +19,10 @@ public sealed record FramePsdSlotDescriptor(
 public sealed record FramePsdTemplateInspection(
     bool Success,
     string Message,
-    IReadOnlyList<FramePsdSlotDescriptor> Slots);
+    IReadOnlyList<FramePsdSlotDescriptor> Slots,
+    byte[]? FlattenedPreviewPng = null,
+    int? DocumentWidth = null,
+    int? DocumentHeight = null);
 
 /// <summary>Engine-side equivalent of the UI PsdExportRequest contract.</summary>
 public sealed record FramePsdExportRequest(
@@ -91,10 +94,24 @@ public sealed class PsdTemplateEngineAdapter
                 .Select(slot => slot!)
                 .ToArray();
 
+            byte[]? flattenedPreviewPng = null;
+            if (document.CompositePreview is not null)
+            {
+                using var previewStream = new MemoryStream();
+                document.WriteCompositePreviewPng(previewStream);
+                flattenedPreviewPng = previewStream.ToArray();
+            }
+
             var message = document.Warnings.Count == 0
                 ? $"Read {document.Width}×{document.Height} {document.ColorMode} document; found {slots.Length} name-based slot candidate(s). Text values and editable masks are not inspected."
                 : $"Read {document.Width}×{document.Height} {document.ColorMode} document; found {slots.Length} name-based slot candidate(s). {string.Join(" ", document.Warnings)}";
-            return new FramePsdTemplateInspection(true, message, Array.AsReadOnly(slots));
+            return new FramePsdTemplateInspection(
+                true,
+                message,
+                Array.AsReadOnly(slots),
+                flattenedPreviewPng,
+                document.Width,
+                document.Height);
         }
         catch (OperationCanceledException)
         {

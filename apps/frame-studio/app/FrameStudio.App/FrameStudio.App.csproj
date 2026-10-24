@@ -12,4 +12,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../engine/FrameStudio.Engine.csproj" />
+  </ItemGroup>
 </Project>

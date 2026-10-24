@@ -33,7 +33,7 @@ public sealed class FrameSlot : INotifyPropertyChanged
     public bool IsPhoto => Kind == SlotKind.Photo;
     public bool IsText => Kind == SlotKind.Text;
     public bool IsLogo => Kind == SlotKind.Logo;
-    public string? Value { get => _value; set { _value = value; OnPropertyChanged(); } }
+    public string? Value { get => _value; set { _value = value; OnPropertyChanged(); OnPropertyChanged(nameof(DisplayValue)); } }
     public SourcePhoto? Photo { get => _photo; set { _photo = value; OnPropertyChanged(); OnPropertyChanged(nameof(DisplayValue)); } }
     public string DisplayValue => Photo?.FileName ?? Value ?? "Belum diisi";
     public bool IsSelected { get => _isSelected; set { _isSelected = value; OnPropertyChanged(); } }

@@ -9,6 +9,7 @@ using FrameStudio.App.Models;
 using FrameStudio.App.Services;
 using FrameStudio.App.ViewModels;
 using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace FrameStudio.App;
 
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel = new();
     private readonly PhotoFileService _photoFiles = new();
+    private Bitmap? _templateCompositeBitmap;
     private Point? _panStart;
     private double _panOriginX;
     private double _panOriginY;
@@ -24,12 +26,38 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = _viewModel;
-        _viewModel.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode))
-                UpdatePreviewTransform();
-        };
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        Closed += (_, _) => _templateCompositeBitmap?.Dispose();
         _viewModel.SelectedPhoto = null;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode))
+            UpdatePreviewTransform();
+        if (e.PropertyName == nameof(MainViewModel.TemplatePreviewPng))
+            UpdateTemplateCompositePreview();
+    }
+
+    private void UpdateTemplateCompositePreview()
+    {
+        _templateCompositeBitmap?.Dispose();
+        _templateCompositeBitmap = null;
+        TemplateCompositeImage.Source = null;
+
+        if (_viewModel.TemplatePreviewPng is not { Length: > 0 } png)
+            return;
+
+        try
+        {
+            using var stream = new MemoryStream(png, writable: false);
+            _templateCompositeBitmap = new Bitmap(stream);
+            TemplateCompositeImage.Source = _templateCompositeBitmap;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            _viewModel.Status = $"Composite PSD dibaca, tetapi pratinjau gambar gagal dibuka: {exception.Message}";
+        }
     }
 
     private async void OnChooseMaster(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -161,6 +189,14 @@ public partial class MainWindow : Window
     }
 
     private void OnClearQueue(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => _viewModel.ClearQueue();
+
+    private async void OnExportFlattenedPreview(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => await _viewModel.ExportFlattenedPreviewAsync();
+
+    private void OnPreviewTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_viewModel.HasTextCandidateSelected)
+            _viewModel.Status = "Teks disunting untuk pratinjau lokal saja; PSD tidak diubah.";
+    }
 
     private void OnCanvasDragOver(object? sender, DragEventArgs e)
     {
