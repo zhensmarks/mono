@@ -1,91 +1,38 @@
-# Frame Studio PSD Engine (proof of concept)
+# Frame Studio PSD Engine (safe read-only POC)
 
-This .NET 8 class library reads PSD/PSB document metadata and layer structure, returns conservative photo/text/logo slot candidates, and exposes the file's stored merged composite as RGBA pixels. It is UI-framework independent and does not reference Avalonia or the UI assembly.
+## Current capability
 
-## Safe output decision
+The engine is a UI-independent .NET 8 library. Its runtime reader is [PsdSharp 1.2.0](https://github.com/kaelon141/PsdSharp), a cross-platform managed C# library under the MIT license. It can attempt PSD/PSB metadata, layer-tree, and stored-composite reads. Support is best-effort per file; a parser error is not a file-corruption diagnosis.
 
-The runtime dependency, PsdSharp 1.2.0, is a reader and does not write or edit PSD files. This engine therefore does **not** claim to alter text layers, insert source photos into editable layers, or save a layered PSD. It exports only the existing merged composite to a new, flattened PNG. The output API uses `FileMode.CreateNew`, so an existing file is not overwritten; the input PSD/PSB is left unchanged.
+The engine does **not** edit photo pixels, text, or logos and cannot save a layered PSD. An empty-assignment export can only write a new flattened PNG from the composite already stored in the source, when the document is RGB with 3 or 4 channels, 8/16/32-bit depth, and the RGBA preview fits the configured memory cap. This does not apply per-source assignments or regenerate layer compositing. Existing output paths are never overwritten, and the input is opened read-only.
 
-The composite is the merged image already stored in the PSD, not a re-render of the layer tree. It cannot reflect any text/photo/position/rotation/crop edits. `CanSaveLayeredPsd` is always `false` in this POC.
+Slot candidates are name-based hints only. They do not prove that a layer is an editable aperture, mask, text object, or logo. `CurrentValue` remains null because editable text values are not read by this engine.
 
-## Reader and slot candidates
+## Why this POC does not write PSD files
 
-`PsdDocumentReader.Read(path)` or `Read(stream, sourceName)` returns document dimensions, channel count, bit depth, color mode, a nested layer tree with names/visibility/opacity/document-space bounds, warnings, and photo-slot candidates. Candidate detection is only a naming hint: standalone `XL` or `S`, or names containing `Photo`, `Foto`, `Portrait`, or `Slot` (optionally with `XL` or `S`). The layer reader does not inspect Photoshop text objects or prove that a layer is a photo mask. A reported rectangle is the layer rectangle, not a validated crop aperture.
+The bundled PsdSharp package is read-only. We evaluated other open-source candidates locally, but none passed the safety requirements for rewriting a real user's layered file:
 
-For Avalonia, `CompositePreview.RgbaPixels` is row-major 8-bit RGBA data; the UI can use it to create its own bitmap. `SaveCompositePreviewPng` writes a flattened PNG copy if a preview is available.
+- [psd-tools 1.26.0](https://github.com/psd-tools/psd-tools) is MIT-licensed. Its Python reader successfully read the local RGB 8-bit sample's 2953×4488 document, exposed 30 layer nodes, and produced a composite. Its documented write/edit support is limited, and it does not edit Type-layer text. It is not a runtime dependency of this C# engine.
+- [PhotoshopAPI 0.9.1](https://github.com/EmilDohne/PhotoshopAPI) is BSD-3-Clause-licensed and exposes PSD/PSB layer editing, including text-layer types. On the local sample it exposed 30 layer nodes, but logged that it skipped an unrecognized `lfxs` tagged block. Its documentation also says files it writes do not contain a valid merged image. Dropping an unknown block or writing a stale/missing composite is not acceptable for a customer master.
+- [ag-psd 31.0.3](https://www.npmjs.com/package/ag-psd) is MIT-licensed and supports PSD read/write, but the local probe stopped because a Canvas backend was not initialized. Its documented limits include no PSB or 16-bit writing and stale composite/layer bitmaps after visual or text-layer changes unless those are regenerated. It is not used by this C# engine.
 
-## Async adapter matching the UI workflow
+The local sample fails in PsdSharp with `TargetInvocationException` wrapping `NotSupportedException: osType key 'ObAr' is not recognized`. The same input was readable by psd-tools and PhotoshopAPI, so that failure is specific to the tested parser path; it is not evidence that the PSD is corrupt. The master was read-only throughout evaluation.
 
-The engine exposes a framework-independent bridge with the UI contract's operations:
+A future writer must preserve unknown tagged blocks, update pixel-layer data and text-layer raster data, regenerate the merged composite and preview metadata, write only to a new path, and pass independent-reader plus Photopea/Photoshop compatibility checks. Until then, assignments are rejected and no layered output is claimed.
 
-```csharp
-public bool IsAvailable { get; }
-Task<FramePsdTemplateInspection> InspectAsync(
-    string masterPath,
-    CancellationToken cancellationToken = default);
-Task<FramePsdExportResult> ExportCopyAsync(
-    FramePsdExportRequest request,
-    CancellationToken cancellationToken = default);
-```
+## Engine-to-UI contract
 
-Its DTOs mirror the UI's `PsdTemplateInspection`, `PsdSlotDescriptor`, `PsdExportRequest`, and `PsdExportResult` shapes under the engine namespace: `FramePsdTemplateInspection`, `FramePsdSlotDescriptor`, `FramePsdExportRequest`, and `FramePsdExportResult`. `FramePsdSlotType` has `Photo`, `Text`, and `Logo` values. `CurrentValue` is null because editable PSD text values are not read. Photo/text/logo types are inferred from layer-name tokens only.
+`PsdTemplateEngineAdapter.Capabilities` reports the build's honest feature flags:
 
-Because `IPsdTemplateAdapter` and its DTOs live in `FrameStudio.App.Services`, the engine deliberately does not reference that UI assembly (which would create a dependency cycle). The UI can implement its contract with this thin mapping:
+- `CanAttemptPsdRead` / `CanAttemptPsbRead`: the engine can attempt these formats; they are not per-file guarantees.
+- `CanInspectLayerTreeBestEffort` and `CanExportSupportedStoredCompositePng`: best-effort, subject to the format and memory limits above.
+- `CanEditPhotoLayers`, `CanEditTextLayers`, `CanReplaceLogoLayers`, and `CanWriteLayeredPsd`: currently `false`.
 
-```csharp
-using FrameStudio.Engine;
-using FrameStudio.App.Services;
+`InspectAsync` returns the existing `Success`, `Message`, and name-based `Slots`, plus `EngineCapabilities` and `FailureKind`. `FailureKind` distinguishes `SourceNotFound`, `AccessDenied`, `UnsupportedFeature`, `ReaderCouldNotInterpretInput`, and `ReaderFailure`; none is a declaration that the source is corrupt. `IsAvailable` means the adapter is present, not that a given file will parse.
 
-public sealed class PsdTemplateAdapter : IPsdTemplateAdapter
-{
-    private readonly PsdTemplateEngineAdapter _engine = new();
-    public bool IsAvailable => _engine.IsAvailable;
+`ExportCopyAsync` rejects any non-empty `SlotAssignments` before reading or creating an output folder. With no assignments it may write `<master>-flattened.png` from the stored composite; it does not use `SourceFolder` yet. New names are selected and written with `FileMode.CreateNew`.
 
-    public async Task<PsdTemplateInspection> InspectAsync(
-        string masterPath, CancellationToken cancellationToken = default)
-    {
-        var result = await _engine.InspectAsync(masterPath, cancellationToken);
-        var slots = result.Slots.Select(slot => new PsdSlotDescriptor(
-            slot.Id,
-            slot.DisplayName,
-            slot.Type switch
-            {
-                FramePsdSlotType.Photo => PsdSlotType.Photo,
-                FramePsdSlotType.Text => PsdSlotType.Text,
-                FramePsdSlotType.Logo => PsdSlotType.Logo,
-                _ => throw new ArgumentOutOfRangeException(nameof(slot.Type))
-            },
-            slot.LayerName,
-            slot.CurrentValue)).ToArray();
-        return new PsdTemplateInspection(result.Success, result.Message, slots);
-    }
-
-    public async Task<PsdExportResult> ExportCopyAsync(
-        PsdExportRequest request, CancellationToken cancellationToken = default)
-    {
-        var result = await _engine.ExportCopyAsync(new FramePsdExportRequest(
-            request.MasterPath, request.SourceFolder, request.OutputFolder,
-            request.SlotAssignments), cancellationToken);
-        return new PsdExportResult(result.Success, result.Message, result.OutputPath);
-    }
-}
-```
-
-`ExportCopyAsync` rejects any non-empty `SlotAssignments` rather than silently discarding edits. With an empty dictionary, it writes a new flattened PNG named `<master>-flattened.png` in `OutputFolder` (adding a numeric suffix when necessary). `SourceFolder` is carried through the request but unused until photo placement is implemented. The success message explicitly says assignments were not applied and no layered PSD was written.
-
-## Format and fidelity boundaries
-
-- PSD and PSB are read through PsdSharp.
-- Preview output is deliberately limited to RGB documents with three channels (RGB) or four (RGBA) and 8-, 16-, or 32-bit source channels. Sixteen-bit samples are reduced to their high byte and 32-bit samples follow PsdSharp's conversion. RGBA allocation is capped at 256 MiB by default; callers can pass a different cap to `PsdDocumentReader`.
-- Other color modes can still yield document/layer metadata, but this engine emits no preview for them. This avoids presenting PsdSharp 1.2.0's generic CMYK plane conversion as color-accurate RGB.
-- PsdSharp supplies the stored composite; blend modes, masks, effects, and layer visibility are not recomposited by this engine. Parsing support and fidelity can vary for newer Photoshop features and malformed files.
-- Streams must be readable and seekable. A path-based overload opens the file read-only and closes it after extraction.
-
-## Dependency and license
-
-The runtime dependency is [PsdSharp 1.2.0](https://www.nuget.org/packages/PsdSharp/1.2.0), a cross-platform managed C# PSD/PSB reader under the [MIT License](https://github.com/kaelon141/PsdSharp/blob/main/LICENSE). No commercial PSD dependency or image-processing package is added. PNG writing uses .NET's built-in `System.IO.Compression` APIs. Test-only package licenses are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
-
-Tests construct their own tiny layered PSD at runtime, with no customer or proprietary PSD fixture committed.
+The engine intentionally does not reference the Avalonia UI assembly. The UI can continue mapping the existing DTO properties and read `EngineCapabilities` / `FailureKind` to disable unsupported actions and display parser-specific errors.
 
 ## Build and test
 
@@ -95,3 +42,5 @@ From the repository root:
 dotnet build apps/frame-studio/engine/FrameStudio.Engine.csproj
 dotnet test apps/frame-studio/engine.Tests/FrameStudio.Engine.Tests.csproj
 ```
+
+Tests construct tiny PSD fixtures at runtime; no customer or proprietary PSD is committed.

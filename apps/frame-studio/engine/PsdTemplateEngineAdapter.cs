@@ -7,6 +7,48 @@ public enum FramePsdSlotType
     Logo
 }
 
+/// <summary>Distinguishes reader failure from a claim that an input file is corrupt.</summary>
+public enum FramePsdReadFailureKind
+{
+    None,
+    SourceNotFound,
+    AccessDenied,
+    UnsupportedFeature,
+    ReaderCouldNotInterpretInput,
+    ReaderFailure
+}
+
+/// <summary>
+/// Honest engine-level feature flags. Read support is best-effort per document; an attempted PSD/PSB
+/// read is not a guarantee that every Photoshop feature or tagged block is supported.
+/// </summary>
+public sealed record FramePsdEngineCapabilities(
+    string ReaderName,
+    string ReaderVersion,
+    string ReaderLicense,
+    bool CanAttemptPsdRead,
+    bool CanAttemptPsbRead,
+    bool CanInspectLayerTreeBestEffort,
+    bool CanExportSupportedStoredCompositePng,
+    bool CanEditPhotoLayers,
+    bool CanEditTextLayers,
+    bool CanReplaceLogoLayers,
+    bool CanWriteLayeredPsd)
+{
+    public static FramePsdEngineCapabilities Current { get; } = new(
+        "PsdSharp",
+        "1.2.0",
+        "MIT",
+        CanAttemptPsdRead: true,
+        CanAttemptPsbRead: true,
+        CanInspectLayerTreeBestEffort: true,
+        CanExportSupportedStoredCompositePng: true,
+        CanEditPhotoLayers: false,
+        CanEditTextLayers: false,
+        CanReplaceLogoLayers: false,
+        CanWriteLayeredPsd: false);
+}
+
 /// <summary>Engine-side equivalent of the UI PsdSlotDescriptor contract.</summary>
 public sealed record FramePsdSlotDescriptor(
     string Id,
@@ -19,7 +61,9 @@ public sealed record FramePsdSlotDescriptor(
 public sealed record FramePsdTemplateInspection(
     bool Success,
     string Message,
-    IReadOnlyList<FramePsdSlotDescriptor> Slots);
+    IReadOnlyList<FramePsdSlotDescriptor> Slots,
+    FramePsdReadFailureKind FailureKind = FramePsdReadFailureKind.None,
+    FramePsdEngineCapabilities? EngineCapabilities = null);
 
 /// <summary>Engine-side equivalent of the UI PsdExportRequest contract.</summary>
 public sealed record FramePsdExportRequest(
@@ -32,11 +76,12 @@ public sealed record FramePsdExportRequest(
 public sealed record FramePsdExportResult(
     bool Success,
     string Message,
-    string? OutputPath = null);
+    string? OutputPath = null,
+    FramePsdReadFailureKind FailureKind = FramePsdReadFailureKind.None);
 
 /// <summary>
-/// Async bridge for the Avalonia template workflow. The current implementation inspects layer-name
-/// hints and can export an unchanged flattened PNG copy only; it never edits or saves layered PSDs.
+/// Async bridge for the Avalonia template workflow. It performs best-effort read-only inspection and
+/// can export an unchanged supported stored composite to PNG. It never edits or saves layered PSDs.
 /// </summary>
 public sealed class PsdTemplateEngineAdapter
 {
@@ -62,7 +107,11 @@ public sealed class PsdTemplateEngineAdapter
         _reader = reader ?? new PsdDocumentReader();
     }
 
+    /// <summary>Indicates that the adapter is present, not that every PSD feature is supported.</summary>
     public bool IsAvailable => true;
+
+    /// <summary>Features this build can safely claim independently of any one file.</summary>
+    public FramePsdEngineCapabilities Capabilities => FramePsdEngineCapabilities.Current;
 
     public Task<FramePsdTemplateInspection> InspectAsync(
         string masterPath,
@@ -94,7 +143,12 @@ public sealed class PsdTemplateEngineAdapter
             var message = document.Warnings.Count == 0
                 ? $"Read {document.Width}×{document.Height} {document.ColorMode} document; found {slots.Length} name-based slot candidate(s). Text values and editable masks are not inspected."
                 : $"Read {document.Width}×{document.Height} {document.ColorMode} document; found {slots.Length} name-based slot candidate(s). {string.Join(" ", document.Warnings)}";
-            return new FramePsdTemplateInspection(true, message, Array.AsReadOnly(slots));
+            return new FramePsdTemplateInspection(
+                true,
+                message,
+                Array.AsReadOnly(slots),
+                FramePsdReadFailureKind.None,
+                Capabilities);
         }
         catch (OperationCanceledException)
         {
@@ -102,7 +156,13 @@ public sealed class PsdTemplateEngineAdapter
         }
         catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
-            return new FramePsdTemplateInspection(false, $"PSD inspection failed: {exception.Message}", Array.Empty<FramePsdSlotDescriptor>());
+            var failureKind = ClassifyReadFailure(exception);
+            return new FramePsdTemplateInspection(
+                false,
+                DescribeReadFailure(exception),
+                Array.Empty<FramePsdSlotDescriptor>(),
+                failureKind,
+                Capabilities);
         }
     }
 
@@ -125,20 +185,38 @@ public sealed class PsdTemplateEngineAdapter
 
         if (request.SlotAssignments.Count > 0)
         {
-            return new FramePsdExportResult(false, "This POC cannot apply text/photo/logo assignments or save a layered PSD. No output was written; clear assignments to export the unchanged flattened PNG preview.");
+            return new FramePsdExportResult(
+                false,
+                "Photo, text, and logo assignments are not supported by this read-only engine. No output was written and the master PSD was not changed.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        FramePsdDocument document;
+        try
+        {
+            document = _reader.Read(request.MasterPath);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            return new FramePsdExportResult(
+                false,
+                DescribeReadFailure(exception),
+                FailureKind: ClassifyReadFailure(exception));
+        }
+
+        if (document.CompositePreview is null)
+        {
+            var detail = document.Warnings.Count == 0 ? string.Empty : $" {string.Join(" ", document.Warnings)}";
+            return new FramePsdExportResult(false, $"No supported stored composite preview is available; no output was written.{detail}");
         }
 
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var document = _reader.Read(request.MasterPath);
-            if (document.CompositePreview is null)
-            {
-                var detail = document.Warnings.Count == 0 ? string.Empty : $" {string.Join(" ", document.Warnings)}";
-                return new FramePsdExportResult(false, $"No supported composite preview is available; no output was written.{detail}");
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
             var outputFolder = Path.GetFullPath(request.OutputFolder);
             Directory.CreateDirectory(outputFolder);
             var baseName = Path.GetFileNameWithoutExtension(request.MasterPath);
@@ -176,7 +254,54 @@ public sealed class PsdTemplateEngineAdapter
         }
         catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
-            return new FramePsdExportResult(false, $"Flattened copy export failed: {exception.Message}");
+            return new FramePsdExportResult(false, $"Flattened preview export failed: {exception.Message}");
+        }
+    }
+
+    private static FramePsdReadFailureKind ClassifyReadFailure(Exception exception)
+    {
+        var cause = Unwrap(exception);
+        return cause switch
+        {
+            FileNotFoundException or DirectoryNotFoundException => FramePsdReadFailureKind.SourceNotFound,
+            UnauthorizedAccessException => FramePsdReadFailureKind.AccessDenied,
+            NotSupportedException => FramePsdReadFailureKind.UnsupportedFeature,
+            InvalidDataException or EndOfStreamException => FramePsdReadFailureKind.ReaderCouldNotInterpretInput,
+            _ => FramePsdReadFailureKind.ReaderFailure
+        };
+    }
+
+    private static string DescribeReadFailure(Exception exception)
+    {
+        var cause = Unwrap(exception);
+        var detail = $"{cause.GetType().Name}: {cause.Message}";
+        return ClassifyReadFailure(exception) switch
+        {
+            FramePsdReadFailureKind.SourceNotFound => "The source PSD/PSB was not found; no output was written.",
+            FramePsdReadFailureKind.AccessDenied => "Access to the source PSD/PSB was denied; no output was written.",
+            FramePsdReadFailureKind.UnsupportedFeature => $"PsdSharp 1.2.0 reported unsupported PSD/PSB content ({detail}). This is a reader-compatibility limitation, not evidence that the source file is corrupt. No output was written.",
+            FramePsdReadFailureKind.ReaderCouldNotInterpretInput => $"PsdSharp 1.2.0 could not interpret the input ({detail}). This does not establish that the source file is corrupt. No output was written.",
+            _ => $"PsdSharp 1.2.0 failed while reading the source ({detail}). This reader error does not establish that the source file is corrupt. No output was written."
+        };
+    }
+
+    private static Exception Unwrap(Exception exception)
+    {
+        while (true)
+        {
+            if (exception is System.Reflection.TargetInvocationException { InnerException: not null } invocation)
+            {
+                exception = invocation.InnerException!;
+                continue;
+            }
+
+            if (exception is AggregateException { InnerExceptions.Count: 1 } aggregate)
+            {
+                exception = aggregate.InnerExceptions[0];
+                continue;
+            }
+
+            return exception!;
         }
     }
 
