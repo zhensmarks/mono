@@ -9,23 +9,51 @@ namespace FrameStudio.Engine;
 public sealed class PsdDocumentReader
 {
     private readonly long _maxPreviewBytes;
+    private readonly long _maxInputFileBytes;
+    private readonly PsdToolsDesktopFallbackReader? _fallbackReader;
 
-    public PsdDocumentReader(long maxPreviewBytes = 256L * 1024 * 1024)
+    public PsdDocumentReader(
+        long maxPreviewBytes = 256L * 1024 * 1024,
+        PsdToolsDesktopFallbackReader? fallbackReader = null,
+        long? maxInputFileBytes = null)
     {
         if (maxPreviewBytes < 4)
         {
             throw new ArgumentOutOfRangeException(nameof(maxPreviewBytes), "Preview limit must be at least one RGBA pixel.");
         }
 
+        var inputLimit = maxInputFileBytes ?? fallbackReader?.MaxInputFileBytes ?? 512L * 1024 * 1024;
+        if (inputLimit <= 0 || inputLimit > 4L * 1024 * 1024 * 1024)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxInputFileBytes));
+        }
+
         _maxPreviewBytes = maxPreviewBytes;
+        _maxInputFileBytes = inputLimit;
+        _fallbackReader = fallbackReader;
     }
+
+    public FramePsdEngineCapabilities Capabilities => _fallbackReader is null
+        ? FramePsdEngineCapabilities.Current
+        : FramePsdEngineCapabilities.Current with { OptionalFallback = _fallbackReader.Capabilities };
 
     public FramePsdDocument Read(string path)
     {
+        return Read(path, CancellationToken.None);
+    }
+
+    public FramePsdDocument Read(string path, CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        cancellationToken.ThrowIfCancellationRequested();
         var fullPath = Path.GetFullPath(path);
         using var input = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return ReadCore(input, Path.GetFileName(fullPath), fullPath);
+        if (input.Length > _maxInputFileBytes)
+        {
+            throw new FramePsdInputLimitException();
+        }
+
+        return ReadCore(input, Path.GetFileName(fullPath), fullPath, cancellationToken);
     }
 
     /// <summary>The stream must be readable and seekable. The reader leaves it open.</summary>
@@ -37,10 +65,42 @@ public sealed class PsdDocumentReader
             throw new ArgumentException("PSD input must be a readable, seekable stream.", nameof(input));
         }
 
-        return ReadCore(input, string.IsNullOrWhiteSpace(sourceName) ? "Untitled.psd" : sourceName, null);
+        if (input.Length - input.Position > _maxInputFileBytes)
+        {
+            throw new FramePsdInputLimitException();
+        }
+
+        return ReadCore(input, string.IsNullOrWhiteSpace(sourceName) ? "Untitled.psd" : sourceName, null, CancellationToken.None);
     }
 
-    private FramePsdDocument ReadCore(Stream input, string sourceName, string? sourcePath)
+    private FramePsdDocument ReadCore(Stream input, string sourceName, string? sourcePath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return ReadWithPsdSharp(input, sourceName, sourcePath);
+        }
+        catch (Exception primaryException) when (
+            _fallbackReader is not null
+            && sourcePath is not null
+            && primaryException is not OutOfMemoryException and not StackOverflowException and not OperationCanceledException)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return _fallbackReader.Read(sourcePath, sourceName, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception fallbackException) when (fallbackException is not OutOfMemoryException and not StackOverflowException)
+            {
+                throw new FramePsdReaderFallbackException(primaryException, fallbackException);
+            }
+        }
+    }
+
+    private FramePsdDocument ReadWithPsdSharp(Stream input, string sourceName, string? sourcePath)
     {
         var psd = PsdFile.Open(input, new PsdLoadOptions
         {

@@ -20,7 +20,31 @@ public sealed record FramePsdLayer(
     FrameBounds Bounds,
     bool HasPixelData,
     FrameSlotSizeHint? SlotHint,
-    IReadOnlyList<FramePsdLayer> Children);
+    IReadOnlyList<FramePsdLayer> Children)
+{
+    /// <summary>Best-effort source layer kind; this does not make the layer editable.</summary>
+    public string Kind { get; init; } = "unknown";
+
+    public bool HasMask { get; init; }
+    public bool HasVectorMask { get; init; }
+    public bool HasEffects { get; init; }
+}
+
+/// <summary>Diagnostics for an explicitly configured optional PSD reader backend.</summary>
+public sealed record FramePsdOptionalBackendCapabilities(
+    string Name,
+    string Version,
+    string License,
+    string RuntimeRequirement,
+    string PlatformScope,
+    bool IsConfigured,
+    bool RuntimeVerified,
+    bool CanAttemptPsdRead,
+    bool CanAttemptPsbRead,
+    bool CanInspectLayerTreeBestEffort,
+    bool CanExportSupportedStoredCompositePng,
+    bool CanWriteLayeredPsd,
+    string Limitations);
 
 /// <summary>A possible photo location inferred from a layer's name and rectangle.</summary>
 public sealed record FramePhotoSlotCandidate(

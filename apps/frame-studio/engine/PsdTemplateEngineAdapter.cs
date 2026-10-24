@@ -35,6 +35,8 @@ public sealed record FramePsdEngineCapabilities(
     bool CanReplaceLogoLayers,
     bool CanWriteLayeredPsd)
 {
+    public FramePsdOptionalBackendCapabilities? OptionalFallback { get; init; }
+
     public static FramePsdEngineCapabilities Current { get; } = new(
         "PsdSharp",
         "1.2.0",
@@ -111,7 +113,7 @@ public sealed class PsdTemplateEngineAdapter
     public bool IsAvailable => true;
 
     /// <summary>Features this build can safely claim independently of any one file.</summary>
-    public FramePsdEngineCapabilities Capabilities => FramePsdEngineCapabilities.Current;
+    public FramePsdEngineCapabilities Capabilities => _reader.Capabilities;
 
     public Task<FramePsdTemplateInspection> InspectAsync(
         string masterPath,
@@ -132,7 +134,7 @@ public sealed class PsdTemplateEngineAdapter
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var document = _reader.Read(masterPath);
+            var document = _reader.Read(masterPath, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             var slots = EnumerateLayers(document.Layers)
                 .Select(layer => TryMapSlot(layer))
@@ -194,7 +196,7 @@ public sealed class PsdTemplateEngineAdapter
         FramePsdDocument document;
         try
         {
-            document = _reader.Read(request.MasterPath);
+            document = _reader.Read(request.MasterPath, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -260,7 +262,9 @@ public sealed class PsdTemplateEngineAdapter
 
     private static FramePsdReadFailureKind ClassifyReadFailure(Exception exception)
     {
-        var cause = Unwrap(exception);
+        var cause = exception is FramePsdReaderFallbackException fallback
+            ? Unwrap(fallback.FallbackException)
+            : Unwrap(exception);
         return cause switch
         {
             FileNotFoundException or DirectoryNotFoundException => FramePsdReadFailureKind.SourceNotFound,
@@ -273,6 +277,17 @@ public sealed class PsdTemplateEngineAdapter
 
     private static string DescribeReadFailure(Exception exception)
     {
+        if (exception is FramePsdInputLimitException)
+        {
+            return "The source exceeds the engine's configured input-size limit; no output was written.";
+        }
+
+        if (exception is FramePsdReaderFallbackException fallbackFailure)
+        {
+            var errorType = fallbackFailure.FallbackException.GetType().Name;
+            return $"PsdSharp 1.2.0 and the configured psd-tools desktop fallback could not read the input ({errorType}). This reader failure does not establish that the source file is corrupt. No output was written.";
+        }
+
         var cause = Unwrap(exception);
         var detail = $"{cause.GetType().Name}: {cause.Message}";
         return ClassifyReadFailure(exception) switch
