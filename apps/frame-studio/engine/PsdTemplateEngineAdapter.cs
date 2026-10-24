@@ -7,13 +7,24 @@ public enum FramePsdSlotType
     Logo
 }
 
+public enum FramePsdReadFailureKind
+{
+    None,
+    SourceNotFound,
+    AccessDenied,
+    UnsupportedFeature,
+    ReaderCouldNotInterpretInput,
+    ReaderFailure
+}
+
 /// <summary>Engine-side equivalent of the UI PsdSlotDescriptor contract.</summary>
 public sealed record FramePsdSlotDescriptor(
     string Id,
     string DisplayName,
     FramePsdSlotType Type,
     string LayerName,
-    string? CurrentValue = null);
+    string? CurrentValue = null,
+    FrameBounds? Bounds = null);
 
 /// <summary>Engine-side equivalent of the UI PsdTemplateInspection contract.</summary>
 public sealed record FramePsdTemplateInspection(
@@ -22,7 +33,8 @@ public sealed record FramePsdTemplateInspection(
     IReadOnlyList<FramePsdSlotDescriptor> Slots,
     byte[]? FlattenedPreviewPng = null,
     int? DocumentWidth = null,
-    int? DocumentHeight = null);
+    int? DocumentHeight = null,
+    FramePsdReadFailureKind FailureKind = FramePsdReadFailureKind.None);
 
 /// <summary>Engine-side equivalent of the UI PsdExportRequest contract.</summary>
 public sealed record FramePsdExportRequest(
@@ -35,7 +47,8 @@ public sealed record FramePsdExportRequest(
 public sealed record FramePsdExportResult(
     bool Success,
     string Message,
-    string? OutputPath = null);
+    string? OutputPath = null,
+    FramePsdReadFailureKind FailureKind = FramePsdReadFailureKind.None);
 
 /// <summary>
 /// Async bridge for the Avalonia template workflow. The current implementation inspects layer-name
@@ -119,7 +132,11 @@ public sealed class PsdTemplateEngineAdapter
         }
         catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
         {
-            return new FramePsdTemplateInspection(false, $"PSD inspection failed: {exception.Message}", Array.Empty<FramePsdSlotDescriptor>());
+            return new FramePsdTemplateInspection(
+                false,
+                DescribeReadFailure(exception),
+                Array.Empty<FramePsdSlotDescriptor>(),
+                FailureKind: ClassifyReadFailure(exception));
         }
     }
 
@@ -216,7 +233,7 @@ public sealed class PsdTemplateEngineAdapter
         }
 
         return type.HasValue
-            ? new FramePsdSlotDescriptor(layer.Id, layer.Name, type.Value, layer.Name)
+            ? new FramePsdSlotDescriptor(layer.Id, layer.Name, type.Value, layer.Name, Bounds: layer.Bounds)
             : null;
     }
 
@@ -240,5 +257,52 @@ public sealed class PsdTemplateEngineAdapter
             .Select(token => token.Trim().ToLowerInvariant())
             .Where(token => token.Length > 0)
             .ToArray();
+    }
+
+    private static FramePsdReadFailureKind ClassifyReadFailure(Exception exception)
+    {
+        var cause = Unwrap(exception);
+        return cause switch
+        {
+            FileNotFoundException or DirectoryNotFoundException => FramePsdReadFailureKind.SourceNotFound,
+            UnauthorizedAccessException => FramePsdReadFailureKind.AccessDenied,
+            NotSupportedException => FramePsdReadFailureKind.UnsupportedFeature,
+            InvalidDataException or EndOfStreamException => FramePsdReadFailureKind.ReaderCouldNotInterpretInput,
+            _ => FramePsdReadFailureKind.ReaderFailure
+        };
+    }
+
+    private static string DescribeReadFailure(Exception exception)
+    {
+        var cause = Unwrap(exception);
+        var detail = $"{cause.GetType().Name}: {cause.Message}";
+        return ClassifyReadFailure(exception) switch
+        {
+            FramePsdReadFailureKind.SourceNotFound => "The source PSD/PSB was not found; no output was written.",
+            FramePsdReadFailureKind.AccessDenied => "Access to the source PSD/PSB was denied; no output was written.",
+            FramePsdReadFailureKind.UnsupportedFeature => $"PsdSharp 1.2.0 reported unsupported PSD/PSB content ({detail}). This is a reader-compatibility limitation, not evidence that the source file is corrupt. No output was written.",
+            FramePsdReadFailureKind.ReaderCouldNotInterpretInput => $"PsdSharp 1.2.0 could not interpret the input ({detail}). This does not establish that the source file is corrupt. No output was written.",
+            _ => $"PsdSharp 1.2.0 failed while reading the source ({detail}). This reader error does not establish that the source file is corrupt. No output was written."
+        };
+    }
+
+    private static Exception Unwrap(Exception exception)
+    {
+        while (true)
+        {
+            if (exception is System.Reflection.TargetInvocationException { InnerException: not null } invocation)
+            {
+                exception = invocation.InnerException!;
+                continue;
+            }
+
+            if (exception is AggregateException { InnerExceptions.Count: 1 } aggregate)
+            {
+                exception = aggregate.InnerExceptions[0];
+                continue;
+            }
+
+            return exception!;
+        }
     }
 }

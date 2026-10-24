@@ -1,6 +1,7 @@
 using FrameStudio.App.Models;
 using FrameStudio.App.Services;
 using FrameStudio.App.ViewModels;
+using SkiaSharp;
 using Xunit;
 
 namespace FrameStudio.Tests;
@@ -17,7 +18,7 @@ public sealed class MainViewModelTests
         Assert.Empty(viewModel.Slots);
         Assert.Null(viewModel.TemplatePreviewPng);
         Assert.False(viewModel.HasTemplatePreview);
-        Assert.False(viewModel.CanExportFlattenedPreview);
+        Assert.False(viewModel.CanExportPngCopies);
     }
 
     [Fact]
@@ -39,12 +40,14 @@ public sealed class MainViewModelTests
         Assert.Equal(SlotKind.Photo, viewModel.Slots[0].Kind);
         Assert.Equal(SlotKind.Text, viewModel.Slots[1].Kind);
         Assert.Equal(SlotKind.Logo, viewModel.Slots[2].Kind);
-        Assert.All(viewModel.Slots, slot => Assert.Contains("Ditebak dari nama layer", slot.Helper));
+        Assert.All(viewModel.Slots, slot => Assert.Contains("Kandidat dari nama layer", slot.Helper));
         Assert.All(viewModel.Slots, slot => Assert.Null(slot.Value));
         Assert.Equal(PreviewPng, viewModel.TemplatePreviewPng);
         Assert.Equal("120 × 180 px", viewModel.DocumentDimensions);
+        Assert.Equal(120, viewModel.DocumentWidth);
+        Assert.Equal(180, viewModel.DocumentHeight);
         Assert.True(viewModel.HasTemplatePreview);
-        Assert.False(viewModel.CanExportFlattenedPreview);
+        Assert.False(viewModel.CanExportPngCopies);
         Assert.Contains("kandidat nama layer", viewModel.TemplateStatus, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -90,7 +93,7 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
-    public async Task AssigningPhotoChangesOnlyLocalPreviewState()
+    public async Task AssigningPhotoUpdatesRasterPlacementWithoutChangingMasterOrBaseComposite()
     {
         var adapter = new FakePsdTemplateAdapter { InspectionResult = Inspection(new PsdSlotDescriptor("xl", "XL", PsdSlotType.Photo, "XL")) };
         var viewModel = new MainViewModel(adapter);
@@ -106,8 +109,8 @@ public sealed class MainViewModelTests
         Assert.Same(photo, viewModel.Slots.Single().Photo);
         Assert.Equal("/samples/master.psd", viewModel.MasterPath);
         Assert.Same(previewBefore, viewModel.TemplatePreviewPng);
-        Assert.False(viewModel.CanExportFlattenedPreview);
-        Assert.Contains("PSD tidak diubah", viewModel.Status);
+        Assert.False(viewModel.CanExportPngCopies);
+        Assert.Contains("PSD master tidak diubah", viewModel.Status);
     }
 
     [Fact]
@@ -137,27 +140,112 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
-    public async Task FlattenedPreviewExportSendsNoSlotAssignments()
+    public async Task CropTransformsRemainIndependentPerSelectedSlot()
     {
         var adapter = new FakePsdTemplateAdapter
         {
-            InspectionResult = Inspection(new PsdSlotDescriptor("xl", "XL", PsdSlotType.Photo, "XL")),
-            ExportResult = new PsdExportResult(true, "Stored composite exported; assignments not applied.", "/out/master-flattened.png")
+            InspectionResult = Inspection(
+                new PsdSlotDescriptor("photo-a", "Photo A", PsdSlotType.Photo, "Photo A", Bounds: new PsdSlotBounds(5, 6, 40, 60)),
+                new PsdSlotDescriptor("photo-b", "Photo B", PsdSlotType.Photo, "Photo B", Bounds: new PsdSlotBounds(50, 6, 40, 60)),
+                new PsdSlotDescriptor("student-name", "Student Name", PsdSlotType.Text, "Student Name", Bounds: new PsdSlotBounds(10, 80, 70, 20)))
         };
         var viewModel = new MainViewModel(adapter);
         viewModel.SetMaster("/samples/master.psd");
         await viewModel.InspectSelectedMasterAsync();
-        viewModel.OutputPath = "/out";
-        viewModel.AddSourcePhoto(new SourcePhoto("/samples/student.jpg", null));
-        viewModel.AssignSelectedPhoto(viewModel.Slots.Single());
 
-        Assert.True(viewModel.CanExportFlattenedPreview);
-        await viewModel.ExportFlattenedPreviewAsync();
+        var first = viewModel.Slots[0];
+        var second = viewModel.Slots[1];
+        viewModel.SelectSlot(first);
+        Assert.True(viewModel.IsImageSlotSelected);
+        viewModel.Zoom = 1.8;
+        viewModel.Rotation = 12;
+        viewModel.OffsetX = 0.2;
+        viewModel.SelectSlot(second);
+        viewModel.Zoom = 1.2;
+        viewModel.OffsetY = -0.15;
+        viewModel.SelectSlot(viewModel.Slots[2]);
+        Assert.True(viewModel.HasTextCandidateSelected);
+        Assert.False(viewModel.IsImageSlotSelected);
 
-        Assert.NotNull(adapter.LastExportRequest);
-        Assert.Empty(adapter.LastExportRequest!.SlotAssignments);
-        Assert.Equal("/samples/master.psd", adapter.LastExportRequest.MasterPath);
-        Assert.Contains("assignments not applied", viewModel.Status, StringComparison.OrdinalIgnoreCase);
+        viewModel.SelectSlot(first);
+
+        Assert.Contains("%", viewModel.ZoomLabel);
+        Assert.Equal("12°", viewModel.RotationLabel);
+        Assert.Equal(1.8, viewModel.Zoom);
+        Assert.Equal(12, viewModel.Rotation);
+        Assert.Equal(0.2, viewModel.OffsetX);
+        Assert.Equal(0, viewModel.OffsetY);
+        Assert.Equal(new FrameSlotBounds(5, 6, 40, 60), first.Bounds);
+        Assert.Equal(1.2, second.Zoom);
+        Assert.Equal(-0.15, second.OffsetY);
+    }
+
+    [Fact]
+    public void RasterComposerDrawsPhotoIntoEstimatedRectangleWithoutChangingPixelsOutsideIt()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"frame-studio-compose-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var photoPath = Path.Combine(root, "photo.png");
+        try
+        {
+            var background = CreateSolidPng(10, 10, new SKColor(20, 40, 180));
+            File.WriteAllBytes(photoPath, CreateSolidPng(4, 4, new SKColor(230, 40, 30)));
+            var slot = new FrameSlot("photo", "Photo", SlotKind.Photo, "synthetic", bounds: new FrameSlotBounds(3, 3, 4, 4))
+            {
+                Photo = new SourcePhoto(photoPath, null)
+            };
+
+            var output = new RasterPngComposer().Compose(background, new[] { slot });
+            using var composed = SKBitmap.Decode(output);
+
+            Assert.NotNull(composed);
+            Assert.Equal(10, composed!.Width);
+            Assert.Equal(10, composed.Height);
+            Assert.Equal(new SKColor(230, 40, 30), composed.GetPixel(4, 4));
+            Assert.Equal(new SKColor(20, 40, 180), composed.GetPixel(1, 1));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void RasterComposerRendersTextCandidateAsAnOverlay()
+    {
+        var background = CreateSolidPng(100, 40, new SKColor(20, 40, 180));
+        var slot = new FrameSlot("name", "Nama", SlotKind.Text, "synthetic", bounds: new FrameSlotBounds(10, 5, 80, 30))
+        {
+            Value = "NAMA TEST"
+        };
+
+        var output = new RasterPngComposer().Compose(background, new[] { slot });
+        using var composed = SKBitmap.Decode(output);
+
+        Assert.NotNull(composed);
+        var foundBrightTextPixel = false;
+        for (var y = 5; y < 35 && !foundBrightTextPixel; y++)
+        for (var x = 10; x < 90; x++)
+        {
+            var pixel = composed!.GetPixel(x, y);
+            if (pixel.Red > 240 && pixel.Green > 240 && pixel.Blue > 240)
+            {
+                foundBrightTextPixel = true;
+                break;
+            }
+        }
+
+        Assert.True(foundBrightTextPixel, "The text candidate should be rasterized into the output bounds.");
+    }
+
+    private static byte[] CreateSolidPng(int width, int height, SKColor color)
+    {
+        using var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        using (var canvas = new SKCanvas(bitmap))
+            canvas.Clear(color);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return data!.ToArray();
     }
 
     [Fact]
@@ -184,7 +272,7 @@ public sealed class MainViewModelTests
         Assert.Equal(1, viewModel.Zoom);
         Assert.Equal(0, viewModel.OffsetX);
         Assert.Equal(0, viewModel.OffsetY);
-        Assert.False(viewModel.CanExportFlattenedPreview);
+        Assert.False(viewModel.CanExportPngCopies);
         Assert.Equal("/samples/master.psd", viewModel.MasterPath);
     }
 
@@ -208,8 +296,6 @@ public sealed class MainViewModelTests
 
         public bool IsAvailable => true;
         public PsdTemplateInspection InspectionResult { get; set; } = new(false, "not inspected", Array.Empty<PsdSlotDescriptor>());
-        public PsdExportResult ExportResult { get; set; } = new(false, "not exported");
-        public PsdExportRequest? LastExportRequest { get; private set; }
 
         public void EnqueueInspection(Func<string, CancellationToken, Task<PsdTemplateInspection>> response) => _inspectionResponses.Enqueue(response);
 
@@ -217,11 +303,5 @@ public sealed class MainViewModelTests
             _inspectionResponses.Count > 0
                 ? _inspectionResponses.Dequeue()(masterPath, cancellationToken)
                 : Task.FromResult(InspectionResult);
-
-        public Task<PsdExportResult> ExportCopyAsync(PsdExportRequest request, CancellationToken cancellationToken = default)
-        {
-            LastExportRequest = request;
-            return Task.FromResult(ExportResult);
-        }
     }
 }

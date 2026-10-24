@@ -23,6 +23,7 @@ public sealed class PsdTemplateEngineAdapterTests
             Assert.Equal(expectedType, slot.Type);
             Assert.Equal(layerName, slot.LayerName);
             Assert.Null(slot.CurrentValue);
+            Assert.Equal(new FrameBounds(0, 0, 2, 2), slot.Bounds);
             Assert.Equal(2, result.DocumentWidth);
             Assert.Equal(2, result.DocumentHeight);
             Assert.NotNull(result.FlattenedPreviewPng);
@@ -85,6 +86,27 @@ public sealed class PsdTemplateEngineAdapterTests
             Assert.Contains("cannot apply text/photo/logo assignments", result.Message, StringComparison.OrdinalIgnoreCase);
             Assert.False(Directory.Exists(outputFolder));
             Assert.Empty(Directory.GetFiles(root, "*.png"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ReaderFailureIsReportedWithoutClaimingTheSourceIsCorrupt()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var masterPath = Path.Combine(root, "truncated.psd");
+            File.WriteAllBytes(masterPath, "8BPS"u8.ToArray());
+
+            var result = await new PsdTemplateEngineAdapter().InspectAsync(masterPath);
+
+            Assert.False(result.Success);
+            Assert.NotEqual(FramePsdReadFailureKind.None, result.FailureKind);
+            Assert.Contains("does not establish that the source file is corrupt", result.Message, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

@@ -12,9 +12,4 @@ public sealed class PreviewOnlyPsdTemplateAdapter : IPsdTemplateAdapter
             Success: false,
             Message: "PSD belum dibaca. Mesin PSD belum tersambung; daftar slot yang tampil hanya contoh.",
             Slots: Array.Empty<PsdSlotDescriptor>()));
-
-    public Task<PsdExportResult> ExportCopyAsync(PsdExportRequest request, CancellationToken cancellationToken = default) =>
-        Task.FromResult(new PsdExportResult(
-            Success: false,
-            Message: "Ekspor salinan belum tersedia karena mesin PSD belum tersambung."));
 }

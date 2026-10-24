@@ -15,19 +15,23 @@ public sealed class PhotoFileService
     public SourcePhoto Load(string path)
     {
         Bitmap? thumbnail = null;
+        Bitmap? image = null;
         string? previewError = null;
         try
         {
             using var stream = File.OpenRead(path);
-            var bitmap = new Bitmap(stream);
-            thumbnail = bitmap.CreateScaledBitmap(new Avalonia.PixelSize(112, 112), Avalonia.Media.Imaging.BitmapInterpolationMode.HighQuality);
-            bitmap.Dispose();
+            image = new Bitmap(stream);
+            thumbnail = image.CreateScaledBitmap(new Avalonia.PixelSize(112, 112), BitmapInterpolationMode.HighQuality);
         }
         catch (Exception)
         {
+            thumbnail?.Dispose();
+            image?.Dispose();
+            thumbnail = null;
+            image = null;
             previewError = "Pratinjau tidak tersedia";
         }
 
-        return new SourcePhoto(path, thumbnail, previewError);
+        return new SourcePhoto(path, thumbnail, previewError, image);
     }
 }

@@ -30,7 +30,10 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
                 _ => throw new ArgumentOutOfRangeException(nameof(slot.Type))
             },
             slot.LayerName,
-            slot.CurrentValue)).ToArray();
+            slot.CurrentValue,
+            slot.Bounds is { } bounds
+                ? new PsdSlotBounds(bounds.X, bounds.Y, bounds.Width, bounds.Height)
+                : null)).ToArray();
 
         return new PsdTemplateInspection(
             result.Success,
@@ -39,18 +42,5 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
             result.FlattenedPreviewPng,
             result.DocumentWidth,
             result.DocumentHeight);
-    }
-
-    public async Task<PsdExportResult> ExportCopyAsync(
-        PsdExportRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        var result = await _engine.ExportCopyAsync(new FramePsdExportRequest(
-            request.MasterPath,
-            request.SourceFolder,
-            request.OutputFolder,
-            request.SlotAssignments), cancellationToken);
-        return new PsdExportResult(result.Success, result.Message, result.OutputPath);
     }
 }

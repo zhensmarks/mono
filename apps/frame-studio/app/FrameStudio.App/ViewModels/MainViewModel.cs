@@ -39,55 +39,61 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ObservableCollection<SourcePhoto> SourcePhotos { get; } = new();
     public bool PsdEngineReady => _psdAdapter.IsAvailable;
     public string EngineNotice => PsdEngineReady
-        ? "Composite PSD dibaca apa adanya; jenis slot hanya perkiraan dari nama layer."
-        : "Mesin PSD tidak tersedia.";
-    public string ExportNotice => "Ekspor hanya membuat PNG composite tersimpan. Foto, teks, logo, dan crop tidak ditulis ke PSD.";
-    public string MasterPath { get => _masterPath; set { _masterPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasMaster)); OnPropertyChanged(nameof(CanExportFlattenedPreview)); } }
+        ? "PsdSharp 1.2.0 · hanya baca · dukungan bergantung isi PSD."
+        : "Pembaca PSD tidak tersedia.";
+    public string ExportNotice => "Ekspor membuat PNG raster baru dari komposit tersimpan dan overlay lokal. PSD master berlapis tetap hanya-baca.";
+    public string MasterPath { get => _masterPath; set { _masterPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasMaster)); OnPropertyChanged(nameof(CanExportPngCopies)); } }
     public string SourcePath { get => _sourcePath; set { _sourcePath = value; OnPropertyChanged(); } }
-    public string OutputPath { get => _outputPath; set { _outputPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExportFlattenedPreview)); } }
+    public string OutputPath { get => _outputPath; set { _outputPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExportPngCopies)); } }
     public string Status { get => _status; set { _status = value; OnPropertyChanged(); } }
     public string TemplateStatus { get => _templateStatus; set { _templateStatus = value; OnPropertyChanged(); } }
     public string TemplatePreviewNotice { get => _templatePreviewNotice; private set { _templatePreviewNotice = value; OnPropertyChanged(); } }
     public bool HasMaster => !string.IsNullOrWhiteSpace(MasterPath);
     public bool HasTemplatePreview => _templatePreviewPng is { Length: > 0 };
     public bool HasSelectedPhoto => SelectedPhoto is not null;
-    public bool HasPreviewImage => SelectedPhoto?.Thumbnail is not null;
-    public bool HasPreviewUnavailable => SelectedPhoto is not null && SelectedPhoto.Thumbnail is null;
+    public bool HasPreviewImage => SelectedPhoto?.Image is not null;
+    public bool HasPreviewUnavailable => SelectedPhoto is not null && SelectedPhoto.Image is null;
     public bool HasSelectedLogo => SelectedLogo is not null;
     public bool HasTextCandidateSelected => SelectedSlot?.IsText == true;
-    public bool IsInspecting { get => _isInspecting; private set { _isInspecting = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExportFlattenedPreview)); } }
-    public bool IsExporting { get => _isExporting; private set { _isExporting = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExportFlattenedPreview)); } }
+    public int DocumentWidth => _documentWidth ?? 0;
+    public int DocumentHeight => _documentHeight ?? 0;
+    public bool IsInspecting { get => _isInspecting; private set { _isInspecting = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExportPngCopies)); } }
+    public bool IsExporting { get => _isExporting; private set { _isExporting = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanExportPngCopies)); } }
     public string DocumentDimensions => _documentWidth is { } width && _documentHeight is { } height
         ? $"{width:N0} × {height:N0} px"
         : "";
     public byte[]? TemplatePreviewPng => _templatePreviewPng;
     public SourcePhoto? SelectedPhoto { get => _selectedPhoto; set { _selectedPhoto = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSelectedPhoto)); OnPropertyChanged(nameof(HasPreviewImage)); OnPropertyChanged(nameof(HasPreviewUnavailable)); } }
     public SourcePhoto? SelectedLogo => Slots.FirstOrDefault(slot => slot.IsLogo)?.Photo;
-    public FrameSlot? SelectedSlot { get => _selectedSlot; private set { _selectedSlot = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasTextCandidateSelected)); } }
-    public double Zoom { get => _zoom; set { _zoom = Math.Clamp(value, 0.5, 3); OnPropertyChanged(); } }
-    public double Rotation { get => _rotation; set { _rotation = value % 360; OnPropertyChanged(); } }
-    public double OffsetX { get => _offsetX; set { _offsetX = value; OnPropertyChanged(); } }
-    public double OffsetY { get => _offsetY; set { _offsetY = value; OnPropertyChanged(); } }
-    public bool IsFitMode { get => _isFitMode; private set { _isFitMode = value; OnPropertyChanged(); } }
-    public bool CanExportFlattenedPreview => PsdEngineReady && HasMaster && HasTemplatePreview && !IsInspecting && !IsExporting && !string.IsNullOrWhiteSpace(OutputPath);
+    public FrameSlot? SelectedSlot { get => _selectedSlot; private set { _selectedSlot = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasTextCandidateSelected)); OnPropertyChanged(nameof(IsImageSlotSelected)); OnPropertyChanged(nameof(Zoom)); OnPropertyChanged(nameof(ZoomLabel)); OnPropertyChanged(nameof(Rotation)); OnPropertyChanged(nameof(RotationLabel)); OnPropertyChanged(nameof(OffsetX)); OnPropertyChanged(nameof(OffsetY)); OnPropertyChanged(nameof(IsFitMode)); } }
+    public double Zoom { get => SelectedSlot?.Zoom ?? _zoom; set { var zoom = Math.Clamp(value, 0.5, 3); if (SelectedSlot is { } slot) slot.Zoom = zoom; else _zoom = zoom; OnPropertyChanged(); OnPropertyChanged(nameof(ZoomLabel)); } }
+    public double Rotation { get => SelectedSlot?.Rotation ?? _rotation; set { var rotation = value % 360; if (SelectedSlot is { } slot) slot.Rotation = rotation; else _rotation = rotation; OnPropertyChanged(); OnPropertyChanged(nameof(RotationLabel)); } }
+    public double OffsetX { get => SelectedSlot?.OffsetX ?? _offsetX; set { if (SelectedSlot is { } slot) slot.OffsetX = value; else _offsetX = value; OnPropertyChanged(); } }
+    public double OffsetY { get => SelectedSlot?.OffsetY ?? _offsetY; set { if (SelectedSlot is { } slot) slot.OffsetY = value; else _offsetY = value; OnPropertyChanged(); } }
+    public bool IsFitMode { get => SelectedSlot?.IsFitMode ?? _isFitMode; private set { if (SelectedSlot is { } slot) slot.IsFitMode = value; else _isFitMode = value; OnPropertyChanged(); } }
+    public bool IsImageSlotSelected => SelectedSlot is { } slot && (slot.IsPhoto || slot.IsLogo);
+    public string ZoomLabel => $"{Zoom:P0}";
+    public string RotationLabel => $"{Rotation:0.#}°";
+    public bool CanExportPngCopies => PsdEngineReady && HasMaster && HasTemplatePreview && !IsInspecting && !IsExporting && !string.IsNullOrWhiteSpace(OutputPath);
+
+    public void SetExporting(bool exporting) => IsExporting = exporting;
 
     public void SelectSlot(FrameSlot? slot)
     {
         foreach (var item in Slots)
             item.IsSelected = ReferenceEquals(item, slot);
         SelectedSlot = slot;
-        if (slot?.IsPhoto == true)
-        {
-            if (slot.Photo is not null)
-                SelectedPhoto = slot.Photo;
-            ResetCrop();
-        }
+        if (slot?.Photo is not null)
+            SelectedPhoto = slot.Photo;
     }
 
     public void AddSourcePhoto(SourcePhoto photo)
     {
         if (SourcePhotos.Any(existing => string.Equals(existing.Path, photo.Path, StringComparison.OrdinalIgnoreCase)))
+        {
+            photo.Dispose();
             return;
+        }
 
         SourcePhotos.Add(photo);
         SelectedPhoto = photo;
@@ -100,10 +106,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return false;
 
         slot.Photo = SelectedPhoto;
+        slot.Zoom = 1;
+        slot.Rotation = 0;
+        slot.OffsetX = 0;
+        slot.OffsetY = 0;
+        slot.IsFitMode = false;
         OnPropertyChanged(nameof(SelectedLogo));
         OnPropertyChanged(nameof(HasSelectedLogo));
         SelectSlot(slot);
-        Status = $"{SelectedPhoto.FileName} ditampilkan sebagai pratinjau lokal pada {slot.Label}; PSD tidak diubah.";
+        Status = $"{SelectedPhoto.FileName} ditempatkan pada {slot.Label}; placement ikut PNG ekspor, PSD master tidak diubah.";
         return true;
     }
 
@@ -156,7 +167,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     _ => SlotKind.Photo
                 };
                 var layerName = string.IsNullOrWhiteSpace(descriptor.LayerName) ? "(nama kosong)" : descriptor.LayerName;
-                Slots.Add(new FrameSlot(descriptor.Id, descriptor.DisplayName, kind, $"Ditebak dari nama layer · {layerName}", descriptor.CurrentValue));
+                FrameSlotBounds? bounds = descriptor.Bounds is { } rectangle
+                    ? new FrameSlotBounds(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height)
+                    : null;
+                var boundsHint = bounds is { } estimated
+                    ? $" · kotak layer {estimated.Width:N0} × {estimated.Height:N0} px (perkiraan, bukan mask)"
+                    : " · batas belum tersedia";
+                Slots.Add(new FrameSlot(descriptor.Id, descriptor.DisplayName, kind, $"Kandidat dari nama layer · {layerName}{boundsHint}", descriptor.CurrentValue, bounds));
             }
 
             _documentWidth = result.DocumentWidth;
@@ -165,7 +182,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(TemplatePreviewPng));
             OnPropertyChanged(nameof(HasTemplatePreview));
             OnPropertyChanged(nameof(DocumentDimensions));
-            OnPropertyChanged(nameof(CanExportFlattenedPreview));
+            OnPropertyChanged(nameof(DocumentWidth));
+            OnPropertyChanged(nameof(DocumentHeight));
+            OnPropertyChanged(nameof(CanExportPngCopies));
 
             TemplateStatus = _documentWidth is { } width && _documentHeight is { } height
                 ? $"{Slots.Count} kandidat nama layer · {width:N0} × {height:N0} px"
@@ -195,47 +214,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 ClearInspectionState();
                 TemplateStatus = "Pemeriksaan gagal";
                 TemplatePreviewNotice = "PSD tidak dapat diperiksa. Periksa file dan coba lagi.";
-                Status = $"PSD inspection failed: {exception.Message}";
+                Status = $"PSD gagal dibaca aplikasi: {exception.Message}";
             }
         }
         finally
         {
             if (generation == _inspectionGeneration)
                 IsInspecting = false;
-        }
-    }
-
-    public async Task ExportFlattenedPreviewAsync(CancellationToken cancellationToken = default)
-    {
-        if (!CanExportFlattenedPreview)
-            return;
-
-        IsExporting = true;
-        Status = "Membuat PNG composite tersimpan. Isi slot dan perubahan crop tidak diterapkan.";
-        try
-        {
-            var request = new PsdExportRequest(
-                MasterPath,
-                SourcePath,
-                OutputPath,
-                new Dictionary<string, string>());
-            var result = await _psdAdapter.ExportCopyAsync(request, cancellationToken);
-            Status = result.Success && !string.IsNullOrWhiteSpace(result.OutputPath)
-                ? $"{result.Message} · {result.OutputPath}"
-                : result.Message;
-        }
-        catch (OperationCanceledException)
-        {
-            Status = "Ekspor pratinjau PNG dibatalkan.";
-            throw;
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
-        {
-            Status = $"Ekspor pratinjau PNG gagal: {exception.Message}";
-        }
-        finally
-        {
-            IsExporting = false;
         }
     }
 
@@ -258,10 +243,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public void ClearQueue()
     {
+        var oldPhotos = SourcePhotos.ToArray();
         SourcePhotos.Clear();
         SelectedPhoto = null;
         foreach (var slot in Slots.Where(slot => slot.IsPhoto || slot.IsLogo))
             slot.Photo = null;
+        foreach (var photo in oldPhotos)
+            photo.Dispose();
         OnPropertyChanged(nameof(SelectedLogo));
         OnPropertyChanged(nameof(HasSelectedLogo));
         Status = "Antrean foto dikosongkan. PSD dan composite tetap tidak berubah.";
@@ -279,7 +267,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TemplatePreviewPng));
         OnPropertyChanged(nameof(HasTemplatePreview));
         OnPropertyChanged(nameof(DocumentDimensions));
-        OnPropertyChanged(nameof(CanExportFlattenedPreview));
+        OnPropertyChanged(nameof(DocumentWidth));
+        OnPropertyChanged(nameof(DocumentHeight));
+        OnPropertyChanged(nameof(CanExportPngCopies));
         OnPropertyChanged(nameof(SelectedLogo));
         OnPropertyChanged(nameof(HasSelectedLogo));
     }

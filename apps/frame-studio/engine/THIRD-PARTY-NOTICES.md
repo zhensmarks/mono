@@ -8,6 +8,10 @@ Used by `FrameStudio.Engine` to read PSD/PSB headers, layer records, and stored 
 
 PsdSharp is read-only; it is not used to edit or save layered PSD/PSB documents. The runtime project has no other NuGet dependency. PNG writing uses .NET's built-in `System.IO.Compression` APIs.
 
+### SkiaSharp 2.88.9 — MIT
+
+Used by `FrameStudio.App` to compose raster photo/logo/text overlays over the stored composite and encode new PNG output files. License: <https://github.com/mono/SkiaSharp/blob/main/LICENSE.md>. NuGet package: <https://www.nuget.org/packages/SkiaSharp/2.88.9>.
+
 ## Test-only dependencies
 
 - Microsoft.NET.Test.Sdk 17.12.0 — MIT.

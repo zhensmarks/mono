@@ -1,6 +1,6 @@
 # Frame Studio PSD Engine (proof of concept)
 
-This .NET 8 class library reads PSD/PSB document metadata and layer structure, returns conservative photo/text/logo slot candidates, and exposes the file's stored merged composite. It is UI-framework independent and does not reference Avalonia or the UI assembly.
+This .NET 8 class library reads PSD/PSB document metadata and layer structure, returns conservative photo/text/logo slot candidates with estimated layer rectangles, and exposes the file's stored merged composite. It is UI-framework independent and does not reference Avalonia or the UI assembly.
 
 ## Safe output decision
 
@@ -30,7 +30,7 @@ Task<FramePsdExportResult> ExportCopyAsync(
 
 The UI's `IPsdTemplateAdapter` is implemented by `FrameStudio.App.Services.PsdTemplateEngineUiAdapter`. That UI-side bridge maps `FramePsdTemplateInspection` and slot enums to UI DTOs while leaving the engine framework-independent. `CurrentValue` remains null because editable PSD text values are not read. Candidate types are inferred from layer names only.
 
-`ExportCopyAsync` rejects every non-empty `SlotAssignments` dictionary rather than silently discarding edits. With an empty dictionary, it writes a new flattened PNG named `<master>-flattened.png` in `OutputFolder` (adding a numeric suffix when necessary). `SourceFolder` is carried through the request but unused until photo placement is implemented. Its success message states that assignments were not applied and no layered PSD was written.
+`ExportCopyAsync` rejects every non-empty `SlotAssignments` dictionary rather than silently discarding edits. With an empty dictionary, it writes a new flattened PNG named `<master>-flattened.png` in `OutputFolder` (adding a numeric suffix when necessary). `SourceFolder` is carried through the request but unused by this engine method. The Avalonia UI has a separate raster canvas renderer that can draw local assets into estimated layer rectangles; those placements are not PSD-layer edits, and they do not use verified Photoshop masks. No layered PSD is written.
 
 ## Format and fidelity boundaries
 

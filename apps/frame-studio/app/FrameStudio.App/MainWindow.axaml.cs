@@ -4,11 +4,10 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
-using Avalonia.VisualTree;
 using FrameStudio.App.Models;
 using FrameStudio.App.Services;
 using FrameStudio.App.ViewModels;
-using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
 
 namespace FrameStudio.App;
@@ -17,48 +16,251 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel = new();
     private readonly PhotoFileService _photoFiles = new();
+    private readonly RasterPngComposer _rasterComposer = new();
+    private readonly PngOutputWriter _pngOutputWriter = new();
     private Bitmap? _templateCompositeBitmap;
-    private Point? _panStart;
-    private double _panOriginX;
-    private double _panOriginY;
+    private Point? _photoPanStart;
+    private double _photoPanOriginX;
+    private double _photoPanOriginY;
+    private Point? _artboardPanStart;
+    private FrameSlot? _artboardPanSlot;
+    private double _artboardPanOriginX;
+    private double _artboardPanOriginY;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-        Closed += (_, _) => _templateCompositeBitmap?.Dispose();
+        _viewModel.Slots.CollectionChanged += OnSlotsChanged;
+        TemplateArtboard.PointerPressed += OnArtboardPointerPressed;
+        TemplateArtboard.PointerMoved += OnArtboardPointerMoved;
+        TemplateArtboard.PointerReleased += OnArtboardPointerReleased;
+        Closed += (_, _) =>
+        {
+            _templateCompositeBitmap?.Dispose();
+            foreach (var photo in _viewModel.SourcePhotos)
+                photo.Dispose();
+        };
         _viewModel.SelectedPhoto = null;
+        UpdatePreviewTransform();
+        RebuildArtboard();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode))
+        if (e.PropertyName is nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.SelectedPhoto))
             UpdatePreviewTransform();
+
         if (e.PropertyName == nameof(MainViewModel.TemplatePreviewPng))
             UpdateTemplateCompositePreview();
+        else if (e.PropertyName is nameof(MainViewModel.SelectedSlot) or nameof(MainViewModel.SelectedPhoto) or nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.DocumentWidth) or nameof(MainViewModel.DocumentHeight))
+            RebuildArtboard();
+    }
+
+    private void OnSlotsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+            foreach (FrameSlot slot in e.OldItems)
+                slot.PropertyChanged -= OnSlotPropertyChanged;
+        if (e.NewItems is not null)
+            foreach (FrameSlot slot in e.NewItems)
+                slot.PropertyChanged += OnSlotPropertyChanged;
+        RebuildArtboard();
+    }
+
+    private void OnSlotPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(FrameSlot.Photo) or nameof(FrameSlot.Value) or nameof(FrameSlot.Zoom) or nameof(FrameSlot.Rotation) or nameof(FrameSlot.OffsetX) or nameof(FrameSlot.OffsetY) or nameof(FrameSlot.IsFitMode) or nameof(FrameSlot.IsSelected))
+        {
+            if (sender is FrameSlot slot && ReferenceEquals(slot, _viewModel.SelectedSlot))
+                UpdatePreviewTransform();
+            RebuildArtboard();
+        }
     }
 
     private void UpdateTemplateCompositePreview()
     {
-        _templateCompositeBitmap?.Dispose();
+        var previousBitmap = _templateCompositeBitmap;
         _templateCompositeBitmap = null;
         TemplateCompositeImage.Source = null;
+        previousBitmap?.Dispose();
 
-        if (_viewModel.TemplatePreviewPng is not { Length: > 0 } png)
+        if (_viewModel.TemplatePreviewPng is { Length: > 0 } png)
+        {
+            try
+            {
+                using var stream = new MemoryStream(png, writable: false);
+                _templateCompositeBitmap = new Bitmap(stream);
+                TemplateCompositeImage.Source = _templateCompositeBitmap;
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+            {
+                _viewModel.Status = $"Composite PSD terbaca, tetapi pratinjau tidak dapat dibuka: {exception.Message}";
+            }
+        }
+
+        RebuildArtboard();
+    }
+
+    private void RebuildArtboard()
+    {
+        if (TemplateArtboard is null)
             return;
 
-        try
+        TemplateArtboard.Children.Clear();
+
+        if (_templateCompositeBitmap is null || _viewModel.DocumentWidth <= 0 || _viewModel.DocumentHeight <= 0)
         {
-            using var stream = new MemoryStream(png, writable: false);
-            _templateCompositeBitmap = new Bitmap(stream);
-            TemplateCompositeImage.Source = _templateCompositeBitmap;
+            TemplateArtboard.Width = 640;
+            TemplateArtboard.Height = 420;
+            TemplateArtboard.Background = Brush.Parse("#20252D");
+            var message = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(_viewModel.TemplatePreviewNotice)
+                    ? "Pilih PSD master untuk menampilkan composite."
+                    : _viewModel.TemplatePreviewNotice,
+                Width = 380,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Foreground = Brush.Parse("#AAB2BD"),
+                FontSize = 13
+            };
+            Canvas.SetLeft(message, 130);
+            Canvas.SetTop(message, 185);
+            TemplateArtboard.Children.Add(message);
+            return;
         }
-        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+
+        var documentWidth = _viewModel.DocumentWidth;
+        var documentHeight = _viewModel.DocumentHeight;
+        TemplateArtboard.Width = documentWidth;
+        TemplateArtboard.Height = documentHeight;
+        TemplateArtboard.Background = Brushes.Transparent;
+        TemplateCompositeImage.Width = documentWidth;
+        TemplateCompositeImage.Height = documentHeight;
+        TemplateCompositeImage.Stretch = Stretch.Fill;
+        TemplateCompositeImage.Source = _templateCompositeBitmap;
+        Canvas.SetLeft(TemplateCompositeImage, 0);
+        Canvas.SetTop(TemplateCompositeImage, 0);
+        TemplateArtboard.Children.Add(TemplateCompositeImage);
+
+        foreach (var slot in _viewModel.Slots)
         {
-            _viewModel.Status = $"Composite PSD dibaca, tetapi pratinjau gambar gagal dibuka: {exception.Message}";
+            if (slot.Bounds is not { Width: > 0, Height: > 0 } bounds)
+                continue;
+
+            var x = Math.Max(0, bounds.X);
+            var y = Math.Max(0, bounds.Y);
+            if (x >= documentWidth || y >= documentHeight)
+                continue;
+            var width = Math.Min(bounds.Width - (x - bounds.X), documentWidth - x);
+            var height = Math.Min(bounds.Height - (y - bounds.Y), documentHeight - y);
+            if (width <= 0 || height <= 0)
+                continue;
+
+            Border? contentFrame = null;
+            if ((slot.IsPhoto || slot.IsLogo) && slot.Photo?.Image is { } assignedImage)
+            {
+                var image = new Image
+                {
+                    Source = assignedImage,
+                    Width = width,
+                    Height = height,
+                    Stretch = slot.IsLogo || slot.IsFitMode ? Stretch.Uniform : Stretch.UniformToFill,
+                    RenderTransformOrigin = RelativePoint.Center,
+                    RenderTransform = BuildSlotTransform(slot, width, height)
+                };
+                contentFrame = new Border
+                {
+                    Width = width,
+                    Height = height,
+                    ClipToBounds = true,
+                    Background = Brushes.Transparent,
+                    Child = image
+                };
+            }
+            else if (slot.IsText && !string.IsNullOrWhiteSpace(slot.Value))
+            {
+                var text = new TextBlock
+                {
+                    Text = slot.Value,
+                    Width = Math.Max(1, width - 12),
+                    MaxHeight = height,
+                    TextWrapping = TextWrapping.Wrap,
+                    TextAlignment = TextAlignment.Center,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    FontSize = Math.Clamp(height * 0.28, 9, 160),
+                    FontWeight = FontWeight.SemiBold,
+                    Foreground = Brush.Parse("#FFFFFF"),
+                    RenderTransformOrigin = RelativePoint.Center,
+                    RenderTransform = BuildSlotTransform(slot, width, height)
+                };
+                contentFrame = new Border
+                {
+                    Width = width,
+                    Height = height,
+                    ClipToBounds = true,
+                    Background = Brushes.Transparent,
+                    Child = text
+                };
+            }
+            else
+            {
+                var placeholder = new Border
+                {
+                    Width = width,
+                    Height = height,
+                    Background = Brush.Parse("#33252A33"),
+                    Child = new TextBlock
+                    {
+                        Text = slot.IsText ? "Teks slot" : slot.IsLogo ? "Tempat logo" : "Tempat foto",
+                        FontSize = Math.Clamp(Math.Min(width, height) * 0.12, 9, 28),
+                        Foreground = Brush.Parse("#D7F06B"),
+                        TextAlignment = TextAlignment.Center,
+                        TextWrapping = TextWrapping.Wrap,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Margin = new Thickness(4)
+                    }
+                };
+                contentFrame = placeholder;
+            }
+
+            if (contentFrame is not null)
+            {
+                Canvas.SetLeft(contentFrame, x);
+                Canvas.SetTop(contentFrame, y);
+                TemplateArtboard.Children.Add(contentFrame);
+            }
+
+            var guide = new Border
+            {
+                Width = width,
+                Height = height,
+                Background = Brushes.Transparent,
+                BorderBrush = slot.IsSelected ? Brush.Parse("#D7F06B") : Brush.Parse("#85D7F06B"),
+                BorderThickness = slot.IsSelected ? new Thickness(3) : new Thickness(1),
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(guide, x);
+            Canvas.SetTop(guide, y);
+            TemplateArtboard.Children.Add(guide);
         }
     }
+
+    private static TransformGroup BuildSlotTransform(FrameSlot slot, double width, double height) => new()
+    {
+        Children =
+        {
+            new ScaleTransform(slot.Zoom, slot.Zoom),
+            new RotateTransform(slot.Rotation),
+            new TranslateTransform(slot.OffsetX * width, slot.OffsetY * height)
+        }
+    };
 
     private async void OnChooseMaster(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
@@ -113,7 +315,7 @@ public partial class MainWindow : Window
         await AddPhotoFilesAsync(files);
         _viewModel.Status = files.Length == 0
             ? "Folder source dipilih, tetapi belum ada foto JPG, PNG, BMP, atau WebP di tingkat teratas."
-            : $"{files.Length} foto dimasukkan ke antrean dari folder source.";
+            : $"{files.Length} foto dimasukkan ke antrean source.";
     }
 
     private async void OnChooseOutputFolder(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -135,7 +337,7 @@ public partial class MainWindow : Window
         }
 
         _viewModel.OutputPath = folder;
-        _viewModel.Status = "Folder hasil dipilih. Ekspor masih menunggu mesin PSD.";
+        _viewModel.Status = "Folder hasil dipilih. Ekspor membuat salinan PNG baru dan tidak menimpa file yang ada.";
     }
 
     private async void OnChoosePhotos(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -185,17 +387,122 @@ public partial class MainWindow : Window
         if (!_viewModel.AssignSelectedPhoto(_viewModel.SelectedSlot))
             _viewModel.Status = _viewModel.SelectedPhoto is null
                 ? "Pilih foto dari antrean terlebih dahulu."
-                : "Pilih slot foto XL atau S sebelum memasangkan foto.";
+                : "Pilih kandidat foto atau logo dengan batas layer yang tersedia.";
     }
 
-    private void OnClearQueue(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => _viewModel.ClearQueue();
+    private void OnClearQueue(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel.ClearQueue();
+        PhotoQueue.SelectedItem = null;
+        RebuildArtboard();
+    }
 
-    private async void OnExportFlattenedPreview(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => await _viewModel.ExportFlattenedPreviewAsync();
+    private async void OnExportPngCopies(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!_viewModel.CanExportPngCopies)
+            return;
+
+        if (_viewModel.DocumentWidth <= 0 || _viewModel.DocumentHeight <= 0)
+        {
+            _viewModel.Status = "Ukuran artboard belum tersedia; ekspor dibatalkan.";
+            return;
+        }
+
+        var targetSlot = _viewModel.SelectedSlot is { } selectedSlot && (selectedSlot.IsPhoto || selectedSlot.IsLogo)
+            ? selectedSlot
+            : _viewModel.Slots.FirstOrDefault(slot => slot.IsPhoto || slot.IsLogo);
+        if (_viewModel.SourcePhotos.Count > 0 && targetSlot is null)
+        {
+            _viewModel.Status = "Tidak ada kandidat foto/logo untuk menempatkan antrean. Ekspor dibatalkan.";
+            return;
+        }
+        if (_viewModel.SourcePhotos.Count > 0 && targetSlot is { HasBounds: false })
+        {
+            _viewModel.Status = "Kandidat foto/logo tidak memiliki batas layer. Ekspor dibatalkan agar foto tidak diam-diam diabaikan.";
+            return;
+        }
+        var unrenderableAssignment = _viewModel.Slots.FirstOrDefault(slot =>
+            (slot.IsPhoto || slot.IsLogo) && slot.Photo is not null && !slot.HasBounds);
+        if (unrenderableAssignment is not null)
+        {
+            _viewModel.Status = $"Placement pada {unrenderableAssignment.Label} tidak memiliki batas layer; ekspor dibatalkan.";
+            return;
+        }
+
+        var previousSelectedPhoto = _viewModel.SelectedPhoto;
+        var previousAssignedPhoto = targetSlot?.Photo;
+        var photosToRender = targetSlot is not null && _viewModel.SourcePhotos.Count > 0
+            ? _viewModel.SourcePhotos.Cast<SourcePhoto?>().ToArray()
+            : new SourcePhoto?[] { targetSlot?.Photo };
+        var written = 0;
+        _viewModel.SetExporting(true);
+        try
+        {
+            Directory.CreateDirectory(_viewModel.OutputPath);
+            foreach (var photo in photosToRender)
+            {
+                if (targetSlot is not null && photo is not null)
+                {
+                    targetSlot.Photo = photo;
+                    _viewModel.SelectedPhoto = photo;
+                }
+
+                RebuildArtboard();
+                await Task.Yield();
+                SaveRenderedPng(photo);
+                written++;
+                _viewModel.Status = $"Mengekspor {written} dari {photosToRender.Length} PNG…";
+            }
+
+            _viewModel.Status = written == 1
+                ? $"PNG hasil komposisi tersimpan di {_viewModel.OutputPath}. PSD master tidak diubah."
+                : $"{written} PNG hasil komposisi tersimpan di {_viewModel.OutputPath}. PSD master tidak diubah.";
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            _viewModel.Status = $"Ekspor PNG gagal setelah {written} file: {exception.Message}";
+        }
+        catch (OutOfMemoryException)
+        {
+            _viewModel.Status = $"Memori tidak cukup untuk merender artboard {_viewModel.DocumentWidth:N0} × {_viewModel.DocumentHeight:N0}. Tidak ada perubahan pada PSD master.";
+        }
+        finally
+        {
+            if (targetSlot is not null)
+                targetSlot.Photo = previousAssignedPhoto;
+            _viewModel.SelectedPhoto = previousSelectedPhoto;
+            _viewModel.SetExporting(false);
+            RebuildArtboard();
+        }
+    }
+
+    private void SaveRenderedPng(SourcePhoto? photo)
+    {
+        if (_viewModel.TemplatePreviewPng is not { Length: > 0 } storedComposite)
+            throw new InvalidOperationException("Composite tersimpan tidak tersedia.");
+        var composedPng = _rasterComposer.Compose(storedComposite, _viewModel.Slots);
+        var masterName = SanitizeFileName(Path.GetFileNameWithoutExtension(_viewModel.MasterPath));
+        if (string.IsNullOrWhiteSpace(masterName))
+            masterName = "frame-studio";
+        var photoName = photo is null ? "preview" : SanitizeFileName(Path.GetFileNameWithoutExtension(photo.FileName));
+        if (string.IsNullOrWhiteSpace(photoName))
+            photoName = "output";
+        var stem = $"{masterName}-{photoName}";
+
+        _pngOutputWriter.WriteNewPng(_viewModel.OutputPath, stem, composedPng, _viewModel.MasterPath);
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var safe = new string(value.Select(character => invalid.Contains(character) ? '_' : character).ToArray()).Trim();
+        return safe.TrimEnd('.', ' ');
+    }
 
     private void OnPreviewTextChanged(object? sender, TextChangedEventArgs e)
     {
         if (_viewModel.HasTextCandidateSelected)
-            _viewModel.Status = "Teks disunting untuk pratinjau lokal saja; PSD tidak diubah.";
+            _viewModel.Status = "Teks akan dirender sebagai overlay PNG; layer teks PSD asli tetap utuh.";
     }
 
     private void OnCanvasDragOver(object? sender, DragEventArgs e)
@@ -220,16 +527,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_viewModel.SelectedSlot is { } slot && (slot.IsPhoto || slot.IsLogo))
-            _viewModel.AssignSelectedPhoto(_viewModel.SelectedSlot);
+        if (_viewModel.SelectedSlot is { } slot && (slot.IsPhoto || slot.IsLogo) && slot.HasBounds)
+            _viewModel.AssignSelectedPhoto(slot);
         else
-            _viewModel.Status = "Foto ditambahkan ke antrean. Pilih slot foto/logo lalu tekan Pasangkan.";
+            _viewModel.Status = "Foto ditambahkan ke antrean. Pilih kandidat foto lalu tekan Pasangkan.";
         e.Handled = true;
     }
 
     private void OnRotateLeft(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => _viewModel.Rotation -= 5;
     private void OnRotateRight(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => _viewModel.Rotation += 5;
     private void OnResetCrop(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => _viewModel.ResetCrop();
+
     private void OnFillFrame(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel.SetPreviewMode(showWholePhoto: false);
@@ -246,31 +554,73 @@ public partial class MainWindow : Window
     {
         if (!_viewModel.HasSelectedPhoto)
             return;
-        _panStart = e.GetPosition(PhotoFrame);
-        _panOriginX = _viewModel.OffsetX;
-        _panOriginY = _viewModel.OffsetY;
+        _photoPanStart = e.GetPosition(PhotoFrame);
+        _photoPanOriginX = _viewModel.OffsetX;
+        _photoPanOriginY = _viewModel.OffsetY;
         e.Pointer.Capture(PreviewImage);
         e.Handled = true;
     }
 
     private void OnPreviewPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_panStart is not { } start || e.Pointer.Captured != PreviewImage)
+        if (_photoPanStart is not { } start || e.Pointer.Captured != PreviewImage)
             return;
         var point = e.GetPosition(PhotoFrame);
-        _viewModel.OffsetX = _panOriginX + point.X - start.X;
-        _viewModel.OffsetY = _panOriginY + point.Y - start.Y;
+        var width = Math.Max(1, PhotoFrame.Bounds.Width);
+        var height = Math.Max(1, PhotoFrame.Bounds.Height);
+        _viewModel.OffsetX = Math.Clamp(_photoPanOriginX + (point.X - start.X) / width, -2, 2);
+        _viewModel.OffsetY = Math.Clamp(_photoPanOriginY + (point.Y - start.Y) / height, -2, 2);
     }
 
     private void OnPreviewPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (e.Pointer.Captured == PreviewImage)
             e.Pointer.Capture(null);
-        _panStart = null;
+        _photoPanStart = null;
+    }
+
+    private void OnArtboardPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var point = e.GetPosition(TemplateArtboard);
+        var slot = _viewModel.Slots.LastOrDefault(item => item.Bounds is { } bounds
+            && point.X >= bounds.X && point.X <= bounds.X + bounds.Width
+            && point.Y >= bounds.Y && point.Y <= bounds.Y + bounds.Height);
+        if (slot is null)
+            return;
+
+        _viewModel.SelectSlot(slot);
+        if ((slot.IsPhoto || slot.IsLogo) && slot.HasBounds)
+        {
+            _artboardPanSlot = slot;
+            _artboardPanStart = point;
+            _artboardPanOriginX = slot.OffsetX;
+            _artboardPanOriginY = slot.OffsetY;
+            e.Pointer.Capture(TemplateArtboard);
+        }
+        e.Handled = true;
+    }
+
+    private void OnArtboardPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_artboardPanStart is not { } start || _artboardPanSlot?.Bounds is not { } bounds || e.Pointer.Captured != TemplateArtboard)
+            return;
+        var point = e.GetPosition(TemplateArtboard);
+        _artboardPanSlot.OffsetX = Math.Clamp(_artboardPanOriginX + (point.X - start.X) / bounds.Width, -2, 2);
+        _artboardPanSlot.OffsetY = Math.Clamp(_artboardPanOriginY + (point.Y - start.Y) / bounds.Height, -2, 2);
+    }
+
+    private void OnArtboardPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.Pointer.Captured == TemplateArtboard)
+            e.Pointer.Capture(null);
+        _artboardPanStart = null;
+        _artboardPanSlot = null;
     }
 
     private void UpdatePreviewTransform()
     {
+        if (PreviewImage is null)
+            return;
         PreviewImage.Stretch = _viewModel.IsFitMode ? Stretch.Uniform : Stretch.UniformToFill;
         PreviewImage.RenderTransformOrigin = RelativePoint.Center;
         PreviewImage.RenderTransform = new TransformGroup
@@ -279,7 +629,7 @@ public partial class MainWindow : Window
             {
                 new ScaleTransform(_viewModel.Zoom, _viewModel.Zoom),
                 new RotateTransform(_viewModel.Rotation),
-                new TranslateTransform(_viewModel.OffsetX, _viewModel.OffsetY)
+                new TranslateTransform(_viewModel.OffsetX * Math.Max(1, PhotoFrame.Bounds.Width), _viewModel.OffsetY * Math.Max(1, PhotoFrame.Bounds.Height))
             }
         };
     }
