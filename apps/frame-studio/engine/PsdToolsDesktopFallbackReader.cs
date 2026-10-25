@@ -67,6 +67,7 @@ public sealed class PsdToolsDesktopFallbackReader
 {
     private const string EmbeddedBridgeResource = "FrameStudio.Engine.psd_tools_reader.py";
     private const long MaxManifestBytes = 16L * 1024 * 1024;
+    private const int MaxApertureMaskBytes = 4 * 1024 * 1024;
     private const int MaxLayers = 20_000;
     private const int MaxLayerDepth = 32;
     private readonly PsdToolsDesktopFallbackOptions _options;
@@ -351,6 +352,7 @@ public sealed class PsdToolsDesktopFallbackReader
         var children = layer.Children.Select(child => MapLayer(child, limits, depth + 1)).ToArray();
         var opacity = checked((byte)Math.Clamp(layer.Opacity, 0, 255));
         var bounds = new FrameBounds(layer.X, layer.Y, layer.Width, layer.Height);
+        var apertureMask = DecodeApertureMask(layer.ApertureMaskBase64, bounds);
         return new FramePsdLayer(
             layer.Id,
             layer.Name,
@@ -366,8 +368,34 @@ public sealed class PsdToolsDesktopFallbackReader
             HasMask = layer.HasMask,
             HasVectorMask = layer.HasVectorMask,
             HasClipping = layer.HasClipping,
-            HasEffects = layer.HasEffects
+            HasEffects = layer.HasEffects,
+            ApertureMask = apertureMask
         };
+    }
+
+    private static byte[]? DecodeApertureMask(string? encoded, FrameBounds bounds)
+    {
+        if (string.IsNullOrWhiteSpace(encoded))
+            return null;
+
+        var expectedLength = checked((long)bounds.Width * bounds.Height);
+        if (bounds.Width <= 0 || bounds.Height <= 0 || expectedLength > MaxApertureMaskBytes)
+            throw new InvalidDataException("The optional PSD reader returned an aperture mask outside the configured size limit.");
+
+        byte[] mask;
+        try
+        {
+            mask = Convert.FromBase64String(encoded);
+        }
+        catch (FormatException exception)
+        {
+            throw new InvalidDataException("The optional PSD reader returned an invalid aperture mask.", exception);
+        }
+
+        if (mask.LongLength != expectedLength || mask.Any(sample => sample is not (0 or 255)))
+            throw new InvalidDataException("The optional PSD reader returned an aperture map that does not match its layer bounds or binary-alpha contract.");
+
+        return mask;
     }
 
     private static IEnumerable<FramePsdLayer> Flatten(IEnumerable<FramePsdLayer> layers)
@@ -448,6 +476,7 @@ public sealed class PsdToolsDesktopFallbackReader
         public bool HasVectorMask { get; set; }
         public bool HasClipping { get; set; }
         public bool HasEffects { get; set; }
+        public string? ApertureMaskBase64 { get; set; }
         public List<BridgeLayer>? Children { get; set; }
     }
 }

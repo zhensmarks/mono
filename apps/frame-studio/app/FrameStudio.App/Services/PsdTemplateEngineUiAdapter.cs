@@ -55,7 +55,7 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
             var details = fallback is null
                 ? _fallbackStatus
                 : $"{fallback.Name}: {fallback.Version}. {fallback.RuntimeRequirement} {fallback.PlatformScope} {fallback.Limitations}";
-            return $"Platform: {RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture}). {requirement} {resourceLimits} {memoryCapStatus} {details} Layered PSD writing remains disabled. UI photo placement and PNG export stay disabled until a valid image boundary with bounds and mask/clipping evidence is detected; any enabled output is separate from the master.";
+            return $"Platform: {RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture}). {requirement} {resourceLimits} {memoryCapStatus} {details} Layered PSD writing remains disabled. Photo/logo placement and PNG-copy overlays require a verified exact binary aperture map; mask, vector-mask, clipping, effect, or soft-edge metadata alone is insufficient. Outputs are separate from the master.";
         }
     }
 
@@ -87,7 +87,8 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
                 slot.Bounds is { } bounds
                     ? new PsdSlotBounds(bounds.X, bounds.Y, bounds.Width, bounds.Height)
                     : null,
-                IsPlacementReady: slot.IsPlacementReady);
+                IsPlacementReady: slot.IsPlacementReady,
+                ApertureMask: slot.ApertureMask);
         }).ToArray();
 
         return new PsdTemplateInspection(
@@ -100,7 +101,10 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
             result.LayerTree,
             result.EngineCapabilities,
             result.ActiveReaderName,
-            result.FailureKind);
+            result.FailureKind)
+        {
+            WorkflowHints = result.WorkflowHints
+        };
     }
 
     private static (PsdTemplateEngineAdapter Engine, string FallbackStatus) CreateDefaultEngine()

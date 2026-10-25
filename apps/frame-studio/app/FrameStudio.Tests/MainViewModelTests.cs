@@ -125,8 +125,8 @@ public sealed class MainViewModelTests
                         "XL",
                         PsdSlotType.Photo,
                         "XL",
-                        Bounds: new PsdSlotBounds(0, 0, 0, 0),
-                        IsPlacementReady: false)
+                        Bounds: new PsdSlotBounds(5, 6, 40, 60),
+                        IsPlacementReady: true)
                 },
                 PreviewPng,
                 120,
@@ -142,9 +142,39 @@ public sealed class MainViewModelTests
         Assert.False(viewModel.HasValidPhotoSlotSetup);
         Assert.False(viewModel.ShowDetectedAreaList);
         Assert.True(viewModel.ShowPhotoSlotSetupNotice);
-        Assert.Contains("Slot foto belum disiapkan", viewModel.PhotoSlotSetupNotice, StringComparison.Ordinal);
+        Assert.Contains("aperture biner", viewModel.PhotoSlotSetupNotice, StringComparison.Ordinal);
         Assert.False(viewModel.CanPlaceSelectedSlot);
         Assert.False(viewModel.CanAssignSelectedPhoto);
+        Assert.False(viewModel.CanExportPngCopies);
+    }
+
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(119, 0)]
+    [InlineData(0, -1)]
+    [InlineData(0, 179)]
+    public async Task OutOfCanvasPhotoMaskIsRejectedAtUiBoundary(int x, int y)
+    {
+        var adapter = new FakePsdTemplateAdapter
+        {
+            InspectionResult = Inspection(
+                new PsdSlotDescriptor(
+                    "outside",
+                    "Synthetic outside bounds",
+                    PsdSlotType.Photo,
+                    "Synthetic outside bounds",
+                    Bounds: new PsdSlotBounds(x, y, 2, 2),
+                    IsPlacementReady: true,
+                    ApertureMask: [255, 255, 255, 255]))
+        };
+        var viewModel = new MainViewModel(adapter) { OutputPath = "/tmp/frame-studio-output" };
+        viewModel.SetMaster("/samples/synthetic-master.psd");
+
+        await viewModel.InspectSelectedMasterAsync();
+
+        Assert.Empty(viewModel.Slots);
+        Assert.False(viewModel.HasValidPhotoSlotSetup);
+        Assert.False(viewModel.CanPlaceSelectedSlot);
         Assert.False(viewModel.CanExportPngCopies);
     }
 
@@ -287,7 +317,7 @@ public sealed class MainViewModelTests
         Assert.Empty(viewModel.SourcePhotos);
         Assert.True(viewModel.HasTemplatePreview);
         Assert.False(viewModel.CanExportPngCopies);
-        Assert.False(viewModel.ShowPhotoSlotSetupNotice);
+        Assert.True(viewModel.ShowPhotoSlotSetupNotice);
         Assert.False(viewModel.ShowDetectedAreaList);
         Assert.Contains("nonaktif", viewModel.ExportNotice, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Group 1", viewModel.LayerTreeRows[0].DisplayName);
@@ -296,6 +326,71 @@ public sealed class MainViewModelTests
         var uiText = string.Join(" ", viewModel.LayerTreeRows.Select(row => $"{row.DisplayName} {row.Kind} {row.Details}"))
             + " " + viewModel.TemplateStatus + " " + viewModel.Status + " " + viewModel.EngineNotice + " " + viewModel.EngineDetails;
         Assert.DoesNotContain("PRIVATE", uiText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ManualRectangleUnlocksPngOverlayPlacementInReadOnlyFallbackOnly()
+    {
+        var adapter = new FakePsdTemplateAdapter
+        {
+            InspectionResult = new PsdTemplateInspection(
+                true,
+                "read-only synthetic composite",
+                Array.Empty<PsdSlotDescriptor>(),
+                PreviewPng,
+                120,
+                180,
+                ActiveReaderName: "psd-tools desktop sidecar")
+        };
+        var viewModel = new MainViewModel(adapter) { OutputPath = "/tmp/frame-studio-output" };
+        viewModel.SetMaster("/samples/disposable-master-copy.psd");
+
+        await viewModel.InspectSelectedMasterAsync();
+
+        Assert.True(viewModel.IsFallbackPreviewMode);
+        Assert.False(viewModel.CanEditPhotoTextLogo);
+        Assert.False(viewModel.CanPlaceSelectedSlot);
+        Assert.True(viewModel.CanUseManualFrameTool);
+        viewModel.AddSourcePhoto(new SourcePhoto("/samples/synthetic-student.png", null));
+        viewModel.ToggleManualFrameTool();
+        Assert.True(viewModel.IsManualFrameDrawing);
+
+        var frame = viewModel.AddManualPhotoFrame(10, 20, 30, 40);
+
+        Assert.NotNull(frame);
+        Assert.True(frame!.IsManualFrame);
+        Assert.True(frame.HasTrustedApertureMask);
+        Assert.All(frame.ApertureMask.ToArray(), sample => Assert.Equal(255, sample));
+        Assert.True(viewModel.CanPlaceSelectedSlot);
+        Assert.True(viewModel.CanAssignSelectedPhoto);
+        Assert.True(viewModel.AssignSelectedPhoto(frame));
+        Assert.True(viewModel.CanExportPngCopies);
+        Assert.False(viewModel.CanEditPhotoTextLogo);
+        Assert.True(viewModel.IsFallbackPreviewMode);
+        Assert.Null(viewModel.AddManualPhotoFrame(115, 175, 10, 10));
+        Assert.Equal("/samples/disposable-master-copy.psd", viewModel.MasterPath);
+    }
+
+    [Fact]
+    public async Task GroupHintsNeverUnlockAutomaticPlacementOrExport()
+    {
+        var inspection = Inspection() with
+        {
+            WorkflowHints = new FramePsdWorkflowHints(1, 1, 1, 1, 1, 1)
+        };
+        var viewModel = new MainViewModel(new FakePsdTemplateAdapter { InspectionResult = inspection })
+        {
+            OutputPath = "/tmp/frame-studio-output"
+        };
+        viewModel.SetMaster("/samples/disposable-master-copy.psd");
+
+        await viewModel.InspectSelectedMasterAsync();
+
+        Assert.Contains("KOLASE", viewModel.WorkflowStructureNotice, StringComparison.Ordinal);
+        Assert.Contains("mask", viewModel.WorkflowStructureNotice, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(viewModel.Slots);
+        Assert.False(viewModel.CanPlaceSelectedSlot);
+        Assert.False(viewModel.CanExportPngCopies);
     }
 
     [Fact]
@@ -367,7 +462,7 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
-    public void RasterComposerDrawsPhotoIntoEstimatedRectangleWithoutChangingPixelsOutsideIt()
+    public void RasterComposerDrawsPhotoThroughExactRectangleMaskWithoutChangingPixelsOutsideIt()
     {
         var root = Path.Combine(Path.GetTempPath(), $"frame-studio-compose-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -376,7 +471,7 @@ public sealed class MainViewModelTests
         {
             var background = CreateSolidPng(10, 10, new SKColor(20, 40, 180));
             File.WriteAllBytes(photoPath, CreateSolidPng(4, 4, new SKColor(230, 40, 30)));
-            var slot = new FrameSlot("photo", "Photo", SlotKind.Photo, "synthetic", bounds: new FrameSlotBounds(3, 3, 4, 4), isPlacementReady: true)
+            var slot = new FrameSlot("photo", "Photo", SlotKind.Photo, "synthetic", bounds: new FrameSlotBounds(3, 3, 4, 4), isPlacementReady: true, apertureMask: Enumerable.Repeat((byte)255, 4 * 4).ToArray())
             {
                 Photo = new SourcePhoto(photoPath, null)
             };
@@ -475,13 +570,15 @@ public sealed class MainViewModelTests
 
     private static PsdTemplateInspection Inspection(params PsdSlotDescriptor[] slots)
     {
-        var validatedSlots = slots.Select(slot => slot.Type is PsdSlotType.Photo or PsdSlotType.Logo
-            ? slot with
-            {
-                Bounds = slot.Bounds ?? new PsdSlotBounds(5, 6, 40, 60),
-                IsPlacementReady = true
-            }
-            : slot).ToArray();
+        var validatedSlots = slots.Select(slot =>
+        {
+            if (slot.Type is not (PsdSlotType.Photo or PsdSlotType.Logo))
+                return slot;
+
+            var bounds = slot.Bounds ?? new PsdSlotBounds(5, 6, 40, 60);
+            var apertureMask = slot.ApertureMask ?? Enumerable.Repeat((byte)255, checked(bounds.Width * bounds.Height)).ToArray();
+            return slot with { Bounds = bounds, IsPlacementReady = true, ApertureMask = apertureMask };
+        }).ToArray();
         return new PsdTemplateInspection(true, "Read-only metadata with validated synthetic image bounds.", validatedSlots, PreviewPng, 120, 180);
     }
 

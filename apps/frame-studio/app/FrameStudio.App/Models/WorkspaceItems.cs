@@ -31,8 +31,9 @@ public sealed class FrameSlot : INotifyPropertyChanged
     private double _offsetY;
     private bool _isFitMode;
     private readonly bool _isPlacementReady;
+    private readonly byte[]? _apertureMask;
 
-    public FrameSlot(string id, string label, SlotKind kind, string helper, string? value = null, FrameSlotBounds? bounds = null, bool isPlacementReady = false)
+    public FrameSlot(string id, string label, SlotKind kind, string helper, string? value = null, FrameSlotBounds? bounds = null, bool isPlacementReady = false, byte[]? apertureMask = null, bool isManualFrame = false)
     {
         Id = id;
         Label = label;
@@ -41,6 +42,22 @@ public sealed class FrameSlot : INotifyPropertyChanged
         _value = value;
         Bounds = bounds;
         _isPlacementReady = isPlacementReady;
+        IsManualFrame = isManualFrame;
+        if (apertureMask is not null)
+        {
+            if (bounds is not { Width: > 0, Height: > 0 })
+                throw new ArgumentException("An aperture mask requires positive slot bounds.", nameof(apertureMask));
+
+            var expectedLength = checked((long)bounds.Value.Width * bounds.Value.Height);
+            if (expectedLength > int.MaxValue || apertureMask.Length != expectedLength)
+                throw new ArgumentException("The aperture mask must contain one alpha sample for every slot pixel.", nameof(apertureMask));
+            if (apertureMask.Any(sample => sample is not (0 or 255)))
+                throw new ArgumentException("Only binary alpha masks are supported; soft or antialiased mask edges are not supported.", nameof(apertureMask));
+            if (isManualFrame && (kind != SlotKind.Photo || apertureMask.Any(sample => sample != 255)))
+                throw new ArgumentException("Manual frames support only fully opaque photo rectangles.", nameof(apertureMask));
+
+            _apertureMask = apertureMask.ToArray();
+        }
     }
 
     public string Id { get; }
@@ -55,8 +72,15 @@ public sealed class FrameSlot : INotifyPropertyChanged
     };
     public string Helper { get; }
     public FrameSlotBounds? Bounds { get; }
+    public bool IsManualFrame { get; }
     public bool HasBounds => Bounds is { Width: > 0, Height: > 0 };
     public bool IsPlacementReady => _isPlacementReady && HasBounds;
+    public bool HasTrustedApertureMask => IsPlacementReady
+        && Bounds is { } bounds
+        && _apertureMask is { Length: > 0 } mask
+        && mask.LongLength == (long)bounds.Width * bounds.Height
+        && mask.Any(sample => sample == 255);
+    public ReadOnlyMemory<byte> ApertureMask => _apertureMask ?? Array.Empty<byte>();
     public bool IsPhoto => Kind == SlotKind.Photo;
     public bool IsText => Kind == SlotKind.Text;
     public bool IsLogo => Kind == SlotKind.Logo;

@@ -39,6 +39,26 @@ public sealed class FrameToolPrototypeRendererTests
     }
 
     [Fact]
+    public void PolygonMaskAndCropProduceIdenticalPreviewAndExportRenderBytes()
+    {
+        var renderer = new FrameToolPrototypeRenderer();
+        using var photo = new SKBitmap(64, 48, SKColorType.Rgba8888, SKAlphaType.Premul);
+        photo.Erase(SKColor.Parse("#D65A48"));
+        var mask = FrameMask.Polygon(
+        [
+            new(0.18, 0.21),
+            new(0.72, 0.19),
+            new(0.61, 0.68),
+            new(0.27, 0.77)
+        ]);
+
+        var previewBytes = renderer.Render(mask, photo, zoom: 1.35, rotation: 11, offsetX: 0.12, offsetY: -0.08);
+        var exportBytes = renderer.Render(mask, photo, zoom: 1.35, rotation: 11, offsetX: 0.12, offsetY: -0.08);
+
+        Assert.Equal(previewBytes, exportBytes);
+    }
+
+    [Fact]
     public void RectangleMaskStoresNormalizedVerticesAndClampsToArtboard()
     {
         var mask = FrameMask.Rectangle(new NormalizedFramePoint(0.8, 0.7), new NormalizedFramePoint(-0.2, 0.1));

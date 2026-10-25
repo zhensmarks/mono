@@ -77,7 +77,8 @@ public sealed class PsdDocumentReader
     {
         try
         {
-            return ReadWithPsdSharp(input, sourceName, sourcePath);
+            var primary = ReadWithPsdSharp(input, sourceName, sourcePath);
+            return TrySupplementApertureMaps(primary, sourcePath, cancellationToken);
         }
         catch (Exception primaryException) when (
             _fallbackReader is not null
@@ -99,6 +100,88 @@ public sealed class PsdDocumentReader
             }
         }
     }
+
+    private FramePsdDocument TrySupplementApertureMaps(
+        FramePsdDocument primary,
+        string? sourcePath,
+        CancellationToken cancellationToken)
+    {
+        if (_fallbackReader is null || sourcePath is null || !MayContainMaskedImageCandidate(primary.Layers))
+            return primary;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        FramePsdDocument supplemental;
+        try
+        {
+            supplemental = _fallbackReader.Read(sourcePath, primary.SourceName, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
+        {
+            // The primary reader's result remains usable; without verified pixel maps, placement stays locked.
+            return WithWarning(primary, sourcePath, $"The optional exact-aperture sidecar was unavailable ({exception.GetType().Name}); image placement remains locked.");
+        }
+
+        if (primary.Width != supplemental.Width
+            || primary.Height != supplemental.Height
+            || primary.ChannelCount != supplemental.ChannelCount
+            || primary.BitDepth != supplemental.BitDepth
+            || !string.Equals(primary.ColorMode, supplemental.ColorMode, StringComparison.Ordinal))
+        {
+            return WithWarning(primary, sourcePath, "The optional exact-aperture sidecar metadata did not match the primary document; image placement remains locked.");
+        }
+
+        if (!Flatten(supplemental.Layers).Any(layer => layer.ApertureMask is not null))
+            return WithWarning(primary, sourcePath, "The optional sidecar did not return any safe exact-aperture maps; image placement remains locked.");
+
+        if (primary.CompositePreview is null
+            || supplemental.CompositePreview is null
+            || !primary.CompositePreview.RgbaPixels.Span.SequenceEqual(supplemental.CompositePreview.RgbaPixels.Span))
+        {
+            return WithWarning(primary, sourcePath, "The stored composite buffers did not match byte-for-byte; sidecar aperture maps were rejected and image placement remains locked.");
+        }
+
+        var warnings = supplemental.Warnings
+            .Append("The stored composite matched the primary reader byte-for-byte. Exact binary visible-aperture maps are available only for simple user masks and supported foreground layers; PSD writing remains disabled.")
+            .ToArray();
+        return new FramePsdDocument(
+            primary.SourceName,
+            sourcePath,
+            supplemental.Width,
+            supplemental.Height,
+            supplemental.ChannelCount,
+            supplemental.BitDepth,
+            supplemental.ColorMode,
+            supplemental.Layers,
+            supplemental.PhotoSlots,
+            supplemental.CompositePreview,
+            Array.AsReadOnly(warnings),
+            "PsdSharp + psd-tools aperture supplement");
+    }
+
+    private static FramePsdDocument WithWarning(FramePsdDocument document, string? sourcePath, string warning) => new(
+        document.SourceName,
+        sourcePath,
+        document.Width,
+        document.Height,
+        document.ChannelCount,
+        document.BitDepth,
+        document.ColorMode,
+        document.Layers,
+        document.PhotoSlots,
+        document.CompositePreview,
+        Array.AsReadOnly(document.Warnings.Append(warning).ToArray()),
+        document.ReaderBackend);
+
+    private static bool MayContainMaskedImageCandidate(IEnumerable<FramePsdLayer> layers) =>
+        Flatten(layers).Any(layer =>
+            layer.HasMask
+            && layer.Name.Split(new[] { ' ', '\t', '\r', '\n', '-', '_', '[', ']', '(', ')', ':', '/', '\\', '.' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(token => token.Trim().ToLowerInvariant())
+                .Any(token => token is "photo" or "foto" or "portrait" or "slot" or "logo" or "crest" or "emblem" or "badge" or "lambang" or "lencana"));
 
     private FramePsdDocument ReadWithPsdSharp(Stream input, string sourceName, string? sourcePath)
     {

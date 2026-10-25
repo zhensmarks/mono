@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly RasterPngComposer _rasterComposer = new();
     private readonly PngOutputWriter _pngOutputWriter = new();
     private Bitmap? _templateCompositeBitmap;
+    private Bitmap? _artboardCompositeBitmap;
     private Point? _photoPanStart;
     private double _photoPanOriginX;
     private double _photoPanOriginY;
@@ -26,6 +27,8 @@ public partial class MainWindow : Window
     private FrameSlot? _artboardPanSlot;
     private double _artboardPanOriginX;
     private double _artboardPanOriginY;
+    private Point? _manualFrameDrawStart;
+    private Border? _manualFrameDraft;
 
     public MainWindow() : this(null)
     {
@@ -43,6 +46,7 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _templateCompositeBitmap?.Dispose();
+            _artboardCompositeBitmap?.Dispose();
             foreach (var photo in _viewModel.SourcePhotos)
                 photo.Dispose();
         };
@@ -70,6 +74,14 @@ public partial class MainWindow : Window
         prototype.Show(this);
     }
 
+    private void OnToggleManualFrameTool(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _manualFrameDrawStart = null;
+        _manualFrameDraft = null;
+        _viewModel.ToggleManualFrameTool();
+        RebuildArtboard();
+    }
+
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.SelectedPhoto))
@@ -77,7 +89,7 @@ public partial class MainWindow : Window
 
         if (e.PropertyName == nameof(MainViewModel.TemplatePreviewPng))
             UpdateTemplateCompositePreview();
-        else if (e.PropertyName is nameof(MainViewModel.TemplatePreviewNotice) or nameof(MainViewModel.SelectedSlot) or nameof(MainViewModel.SelectedPhoto) or nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.DocumentWidth) or nameof(MainViewModel.DocumentHeight))
+        else if (e.PropertyName is nameof(MainViewModel.TemplatePreviewNotice) or nameof(MainViewModel.SelectedSlot) or nameof(MainViewModel.SelectedPhoto) or nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.DocumentWidth) or nameof(MainViewModel.DocumentHeight) or nameof(MainViewModel.IsManualFrameDrawing))
             RebuildArtboard();
     }
 
@@ -104,9 +116,12 @@ public partial class MainWindow : Window
 
     private void UpdateTemplateCompositePreview()
     {
+        var previousRenderedBitmap = _artboardCompositeBitmap;
+        _artboardCompositeBitmap = null;
         var previousBitmap = _templateCompositeBitmap;
         _templateCompositeBitmap = null;
         TemplateCompositeImage.Source = null;
+        previousRenderedBitmap?.Dispose();
         previousBitmap?.Dispose();
 
         if (_viewModel.TemplatePreviewPng is { Length: > 0 } png)
@@ -135,6 +150,10 @@ public partial class MainWindow : Window
 
         if (_templateCompositeBitmap is null || _viewModel.DocumentWidth <= 0 || _viewModel.DocumentHeight <= 0)
         {
+            var previousRenderedBitmap = _artboardCompositeBitmap;
+            _artboardCompositeBitmap = null;
+            TemplateCompositeImage.Source = null;
+            previousRenderedBitmap?.Dispose();
             TemplateArtboard.Width = 640;
             TemplateArtboard.Height = 420;
             TemplateArtboard.Background = PaletteBrush("CanvasBackgroundBrush", "#0C0C0E");
@@ -162,13 +181,41 @@ public partial class MainWindow : Window
         TemplateArtboard.Width = documentWidth;
         TemplateArtboard.Height = documentHeight;
         TemplateArtboard.Background = Brushes.Transparent;
+
+        var previousArtboardBitmap = _artboardCompositeBitmap;
+        _artboardCompositeBitmap = null;
+        Bitmap displayBitmap = _templateCompositeBitmap;
+        var hasRasterOverlay = _viewModel.Slots.Any(slot =>
+            ((slot.IsPhoto || slot.IsLogo) && slot.Photo is not null) ||
+            (slot.IsText && !string.IsNullOrWhiteSpace(slot.Value)));
+        if (hasRasterOverlay && _viewModel.TemplatePreviewPng is { Length: > 0 } sourcePng)
+        {
+            try
+            {
+                var composedPng = _rasterComposer.Compose(sourcePng, _viewModel.Slots);
+                using var stream = new MemoryStream(composedPng, writable: false);
+                _artboardCompositeBitmap = new Bitmap(stream);
+                displayBitmap = _artboardCompositeBitmap;
+            }
+            catch (OutOfMemoryException)
+            {
+                _viewModel.Status = "Pratinjau placement terlalu besar untuk dirender; composite tersimpan tetap ditampilkan.";
+            }
+            catch (Exception exception) when (exception is not StackOverflowException)
+            {
+                _viewModel.Status = "Pratinjau placement tidak dapat dirender; composite tersimpan tetap ditampilkan.";
+            }
+        }
+
         TemplateCompositeImage.Width = documentWidth;
         TemplateCompositeImage.Height = documentHeight;
         TemplateCompositeImage.Stretch = Stretch.Fill;
-        TemplateCompositeImage.Source = _templateCompositeBitmap;
+        TemplateCompositeImage.Source = displayBitmap;
         Canvas.SetLeft(TemplateCompositeImage, 0);
         Canvas.SetTop(TemplateCompositeImage, 0);
+        TemplateCompositeImage.ZIndex = 0;
         TemplateArtboard.Children.Add(TemplateCompositeImage);
+        previousArtboardBitmap?.Dispose();
 
         foreach (var slot in _viewModel.Slots)
         {
@@ -184,60 +231,6 @@ public partial class MainWindow : Window
             if (width <= 0 || height <= 0)
                 continue;
 
-            Border? contentFrame = null;
-            if ((slot.IsPhoto || slot.IsLogo) && slot.Photo?.Image is { } assignedImage)
-            {
-                var image = new Image
-                {
-                    Source = assignedImage,
-                    Width = width,
-                    Height = height,
-                    Stretch = slot.IsLogo || slot.IsFitMode ? Stretch.Uniform : Stretch.UniformToFill,
-                    RenderTransformOrigin = RelativePoint.Center,
-                    RenderTransform = BuildSlotTransform(slot, width, height)
-                };
-                contentFrame = new Border
-                {
-                    Width = width,
-                    Height = height,
-                    ClipToBounds = true,
-                    Background = Brushes.Transparent,
-                    Child = image
-                };
-            }
-            else if (slot.IsText && !string.IsNullOrWhiteSpace(slot.Value))
-            {
-                var text = new TextBlock
-                {
-                    Text = slot.Value,
-                    Width = Math.Max(1, width - 12),
-                    MaxHeight = height,
-                    TextWrapping = TextWrapping.Wrap,
-                    TextAlignment = TextAlignment.Center,
-                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                    FontSize = Math.Clamp(height * 0.28, 9, 160),
-                    FontWeight = FontWeight.SemiBold,
-                    Foreground = Brush.Parse("#FFFFFF"),
-                    RenderTransformOrigin = RelativePoint.Center,
-                    RenderTransform = BuildSlotTransform(slot, width, height)
-                };
-                contentFrame = new Border
-                {
-                    Width = width,
-                    Height = height,
-                    ClipToBounds = true,
-                    Background = Brushes.Transparent,
-                    Child = text
-                };
-            }
-            if (contentFrame is not null)
-            {
-                Canvas.SetLeft(contentFrame, x);
-                Canvas.SetTop(contentFrame, y);
-                TemplateArtboard.Children.Add(contentFrame);
-            }
-
             var guide = new Border
             {
                 Width = width,
@@ -250,6 +243,7 @@ public partial class MainWindow : Window
             };
             Canvas.SetLeft(guide, x);
             Canvas.SetTop(guide, y);
+            guide.ZIndex = 1;
             TemplateArtboard.Children.Add(guide);
         }
     }
@@ -300,7 +294,7 @@ public partial class MainWindow : Window
 
     private async void OnChooseSourceFolder(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (!_viewModel.CanEditPhotoTextLogo)
+        if (!_viewModel.CanManageSourcePhotos)
             return;
 
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
@@ -354,7 +348,7 @@ public partial class MainWindow : Window
 
     private async void OnChoosePhotos(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (!_viewModel.CanEditPhotoTextLogo)
+        if (!_viewModel.CanManageSourcePhotos)
             return;
 
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
@@ -376,7 +370,7 @@ public partial class MainWindow : Window
 
     private async Task AddPhotoFilesAsync(IEnumerable<string> paths)
     {
-        if (!_viewModel.CanEditPhotoTextLogo)
+        if (!_viewModel.CanManageSourcePhotos)
             return;
 
         var validPaths = paths.Where(_photoFiles.IsSupported).ToArray();
@@ -395,7 +389,8 @@ public partial class MainWindow : Window
 
     private void OnSlotPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (_viewModel.CanEditPhotoTextLogo && sender is Control control && control.DataContext is FrameSlot slot)
+        if (sender is Control control && control.DataContext is FrameSlot slot
+            && (_viewModel.CanEditPhotoTextLogo || _viewModel.CanPlaceSlot(slot)))
             _viewModel.SelectSlot(slot);
         e.Handled = true;
     }
@@ -426,33 +421,22 @@ public partial class MainWindow : Window
         if (!_viewModel.CanExportPngCopies)
             return;
 
-        if (_viewModel.IsFallbackPreviewMode)
-        {
-            _viewModel.Status = "Ekspor nonaktif dalam mode pratinjau hanya-baca.";
-            return;
-        }
-
         if (_viewModel.DocumentWidth <= 0 || _viewModel.DocumentHeight <= 0)
         {
             _viewModel.Status = "Ukuran artboard belum tersedia; ekspor dibatalkan.";
             return;
         }
 
-        var targetSlot = _viewModel.SelectedSlot is { IsPlacementReady: true } selectedSlot && (selectedSlot.IsPhoto || selectedSlot.IsLogo)
+        var targetSlot = _viewModel.SelectedSlot is { HasTrustedApertureMask: true } selectedSlot && (selectedSlot.IsPhoto || selectedSlot.IsLogo)
             ? selectedSlot
-            : _viewModel.Slots.FirstOrDefault(slot => slot.IsPlacementReady && (slot.IsPhoto || slot.IsLogo));
+            : _viewModel.Slots.FirstOrDefault(slot => slot.HasTrustedApertureMask && (slot.IsPhoto || slot.IsLogo));
         if (_viewModel.SourcePhotos.Count > 0 && targetSlot is null)
         {
             _viewModel.Status = "Slot foto belum disiapkan. Ekspor nonaktif.";
             return;
         }
-        if (_viewModel.SourcePhotos.Count > 0 && targetSlot is { IsPlacementReady: false })
-        {
-            _viewModel.Status = "Area foto tidak memiliki batas tervalidasi. Ekspor dibatalkan.";
-            return;
-        }
         var unrenderableAssignment = _viewModel.Slots.FirstOrDefault(slot =>
-            (slot.IsPhoto || slot.IsLogo) && slot.Photo is not null && !slot.IsPlacementReady);
+            (slot.IsPhoto || slot.IsLogo) && slot.Photo is not null && !slot.HasTrustedApertureMask);
         if (unrenderableAssignment is not null)
         {
             _viewModel.Status = $"Penempatan pada {unrenderableAssignment.Label} tidak memiliki batas tervalidasi; ekspor dibatalkan.";
@@ -484,9 +468,7 @@ public partial class MainWindow : Window
                 _viewModel.Status = $"Mengekspor {written} dari {photosToRender.Length} PNG…";
             }
 
-            _viewModel.Status = _viewModel.IsFallbackPreviewMode
-                ? "Separate stored-composite PNG copy saved. The master PSD was not changed."
-                : written == 1
+            _viewModel.Status = written == 1
                     ? "PNG output saved separately. The master PSD was not changed."
                     : $"{written} PNG outputs saved separately. The master PSD was not changed.";
         }
@@ -626,6 +608,24 @@ public partial class MainWindow : Window
 
     private void OnArtboardPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (_viewModel.IsManualFrameDrawing && _viewModel.CanUseManualFrameTool)
+        {
+            _manualFrameDrawStart = ClampArtboardPoint(e.GetPosition(TemplateArtboard), _viewModel.DocumentWidth, _viewModel.DocumentHeight);
+            _manualFrameDraft = new Border
+            {
+                Background = Brushes.Transparent,
+                BorderBrush = PaletteBrush("AccentBrush", "#D7F06B"),
+                BorderThickness = new Thickness(2),
+                Opacity = 0.9,
+                IsHitTestVisible = false,
+                ZIndex = 5
+            };
+            TemplateArtboard.Children.Add(_manualFrameDraft);
+            e.Pointer.Capture(TemplateArtboard);
+            e.Handled = true;
+            return;
+        }
+
         var point = e.GetPosition(TemplateArtboard);
         var slot = _viewModel.Slots.LastOrDefault(item => item.Bounds is { } bounds
             && point.X >= bounds.X && point.X <= bounds.X + bounds.Width
@@ -647,6 +647,19 @@ public partial class MainWindow : Window
 
     private void OnArtboardPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_manualFrameDrawStart is { } frameStart && _manualFrameDraft is { } draft && e.Pointer.Captured == TemplateArtboard)
+        {
+            var draftPoint = ClampArtboardPoint(e.GetPosition(TemplateArtboard), _viewModel.DocumentWidth, _viewModel.DocumentHeight);
+            var left = Math.Min(frameStart.X, draftPoint.X);
+            var top = Math.Min(frameStart.Y, draftPoint.Y);
+            draft.Width = Math.Max(1, Math.Abs(draftPoint.X - frameStart.X));
+            draft.Height = Math.Max(1, Math.Abs(draftPoint.Y - frameStart.Y));
+            Canvas.SetLeft(draft, left);
+            Canvas.SetTop(draft, top);
+            e.Handled = true;
+            return;
+        }
+
         if (_artboardPanStart is not { } start || _artboardPanSlot?.Bounds is not { } bounds || e.Pointer.Captured != TemplateArtboard)
             return;
         var point = e.GetPosition(TemplateArtboard);
@@ -656,11 +669,33 @@ public partial class MainWindow : Window
 
     private void OnArtboardPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (_manualFrameDrawStart is { } frameStart)
+        {
+            var end = ClampArtboardPoint(e.GetPosition(TemplateArtboard), _viewModel.DocumentWidth, _viewModel.DocumentHeight);
+            if (e.Pointer.Captured == TemplateArtboard)
+                e.Pointer.Capture(null);
+            _manualFrameDrawStart = null;
+            _manualFrameDraft = null;
+
+            var left = (int)Math.Floor(Math.Min(frameStart.X, end.X));
+            var top = (int)Math.Floor(Math.Min(frameStart.Y, end.Y));
+            var right = (int)Math.Ceiling(Math.Max(frameStart.X, end.X));
+            var bottom = (int)Math.Ceiling(Math.Max(frameStart.Y, end.Y));
+            _viewModel.AddManualPhotoFrame(left, top, right - left, bottom - top);
+            RebuildArtboard();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Pointer.Captured == TemplateArtboard)
             e.Pointer.Capture(null);
         _artboardPanStart = null;
         _artboardPanSlot = null;
     }
+
+    private static Point ClampArtboardPoint(Point point, int width, int height) => new(
+        Math.Clamp(point.X, 0, Math.Max(0, width)),
+        Math.Clamp(point.Y, 0, Math.Max(0, height)));
 
     private void UpdatePreviewTransform()
     {

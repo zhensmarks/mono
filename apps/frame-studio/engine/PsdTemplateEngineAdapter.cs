@@ -59,7 +59,8 @@ public sealed record FramePsdSlotDescriptor(
     string LayerName,
     string? CurrentValue = null,
     FrameBounds? Bounds = null,
-    bool IsPlacementReady = false);
+    bool IsPlacementReady = false,
+    byte[]? ApertureMask = null);
 
 /// <summary>A sanitized, descriptive layer node; source names and text values are never included.</summary>
 public sealed record FramePsdLayerSummary(
@@ -99,7 +100,10 @@ public sealed record FramePsdTemplateInspection(
     int? DocumentWidth = null,
     int? DocumentHeight = null,
     FramePsdLayerTreeSummary? LayerTree = null,
-    string? ActiveReaderName = null);
+    string? ActiveReaderName = null)
+{
+    public FramePsdWorkflowHints? WorkflowHints { get; init; }
+}
 
 /// <summary>Engine-side equivalent of the UI PsdExportRequest contract.</summary>
 public sealed record FramePsdExportRequest(
@@ -177,6 +181,7 @@ public sealed class PsdTemplateEngineAdapter
                 .ToArray();
             var slots = SanitizeSlots(slotCandidates);
             var layerTree = BuildLayerTreeSummary(document.Layers);
+            var workflowHints = FramePsdWorkflowGroupHeuristics.Analyze(document.Layers);
             byte[]? flattenedPreviewPng = null;
             if (document.CompositePreview is not null)
             {
@@ -196,7 +201,10 @@ public sealed class PsdTemplateEngineAdapter
                 DocumentWidth: document.Width,
                 DocumentHeight: document.Height,
                 LayerTree: layerTree,
-                ActiveReaderName: document.ReaderBackend);
+                ActiveReaderName: document.ReaderBackend)
+            {
+                WorkflowHints = workflowHints
+            };
         }
         catch (OperationCanceledException)
         {
@@ -267,7 +275,7 @@ public sealed class PsdTemplateEngineAdapter
         {
             return new FramePsdExportResult(
                 false,
-                "PNG export is disabled because no photo slot with valid bounds and mask or clipping evidence was found; no output was written.");
+                "PNG export is disabled because no photo slot with a verified exact binary aperture map was found; no output was written.");
         }
 
         if (document.CompositePreview is null)
@@ -409,12 +417,19 @@ public sealed class PsdTemplateEngineAdapter
             type.Value,
             layer.Name,
             Bounds: layer.Bounds,
-            IsPlacementReady: isImageTarget);
+            IsPlacementReady: isImageTarget,
+            ApertureMask: isImageTarget ? layer.ApertureMask : null);
     }
 
     private static bool HasValidatedImageBoundary(FramePsdLayer layer, int documentWidth, int documentHeight) =>
         HasValidBounds(layer.Bounds, documentWidth, documentHeight)
-        && (layer.HasMask || layer.HasVectorMask || layer.HasClipping);
+        && layer.HasMask
+        && !layer.HasVectorMask
+        && !layer.HasClipping
+        && !layer.HasEffects
+        && layer.ApertureMask is { } aperture
+        && aperture.LongLength == (long)layer.Bounds.Width * layer.Bounds.Height
+        && aperture.All(sample => sample is 0 or 255);
 
     private static bool HasValidBounds(FrameBounds bounds, int documentWidth, int documentHeight)
     {

@@ -31,6 +31,8 @@ public sealed record FramePsdLayer(
     public bool HasVectorMask { get; init; }
     public bool HasClipping { get; init; }
     public bool HasEffects { get; init; }
+    /// <summary>Exact binary visible-aperture alpha, accepted only from the guarded local sidecar profile.</summary>
+    public byte[]? ApertureMask { get; init; }
 }
 
 /// <summary>Diagnostics for an explicitly configured optional PSD reader backend.</summary>

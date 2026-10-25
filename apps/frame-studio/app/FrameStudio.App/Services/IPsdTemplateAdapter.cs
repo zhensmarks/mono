@@ -9,7 +9,7 @@ public enum PsdSlotType
     Logo
 }
 
-/// <summary>Estimated document-space bounds; this is not Photoshop mask-render fidelity.</summary>
+/// <summary>Document-space layer bounds; image placement still requires the exact binary aperture below.</summary>
 public sealed record PsdSlotBounds(int X, int Y, int Width, int Height);
 
 public sealed record PsdSlotDescriptor(
@@ -19,9 +19,10 @@ public sealed record PsdSlotDescriptor(
     string LayerName,
     string? CurrentValue = null,
     PsdSlotBounds? Bounds = null,
-    // True only when positive in-canvas bounds and mask, vector-mask, or clipping evidence were found.
-    bool IsPlacementReady = false);
-
+    // True for image slots only when the exact binary aperture matches the bounds and renderer contract.
+    bool IsPlacementReady = false,
+    // Exact per-pixel 0/255 coverage; null means the mask is missing or unsupported.
+    byte[]? ApertureMask = null);
 public sealed record PsdTemplateInspection(
     bool Success,
     string Message,
@@ -32,7 +33,10 @@ public sealed record PsdTemplateInspection(
     FramePsdLayerTreeSummary? LayerTree = null,
     FramePsdEngineCapabilities? EngineCapabilities = null,
     string? ActiveReaderName = null,
-    FramePsdReadFailureKind FailureKind = FramePsdReadFailureKind.None);
+    FramePsdReadFailureKind FailureKind = FramePsdReadFailureKind.None)
+{
+    public FramePsdWorkflowHints? WorkflowHints { get; init; }
+}
 
 /// <summary>
 /// Boundary between the Avalonia workflow and the read-only PSD document inspector.

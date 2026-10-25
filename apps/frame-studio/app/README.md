@@ -1,45 +1,49 @@
 # Frame Studio
 
-Frame Studio adalah ruang kerja desktop untuk template PSD. PSD/PSB master dibuka hanya-baca dan foto sumber tetap lokal. Nama layer seperti `XL` atau `S` tidak cukup untuk membuat slot foto; area gambar hanya dianggap siap bila memiliki batas positif yang beririsan dengan kanvas serta bukti mask, mask vektor, atau clipping.
+Frame Studio is a desktop workspace for PSD templates. PSD/PSB masters are opened read-only; layered PSD writing remains disabled. Photo and logo placement is enabled only when the reader supplies an exact, bounds-matched binary aperture map that the renderer can apply.
 
-## Prototype Bingkai Foto
+## Photo-frame prototype
 
-Tombol **Bingkai Foto · preview** membuka alur eksperimen yang terpisah dari parser PSD dan kandidat `FrameSlot`. Prototype memakai artboard serta foto contoh sintetis, mendukung mask persegi panjang dan poligon sederhana dengan titik ternormalisasi, memilih salah satu dari dua posisi layer yang disimulasikan, menerima foto lokal lewat picker atau drop, lalu mengatur crop, zoom, dan rotasi. Mask dan titik sisip disimpan sebagai data bingkai pengguna; bingkai dapat disimpan dan dipakai ulang selama sesi prototype.
+The **Demo frame · sintetis** button opens a prototype separate from PSD inspection. Its synthetic artboard supports rectangular and polygon masks, local photo selection by picker or native drag-and-drop, crop/pan/zoom/rotation, and simulated layer insertion order. The artboard preview and PNG export use the same rendered PNG bytes. The output is a flattened preview copy, not an editable PSD, and the prototype does not inspect or modify a selected master.
 
-Preview dan ekspor PNG memakai hasil render yang sama, termasuk clip path mask. PNG merupakan raster pratinjau saja. PSD berlapis tetap nonaktif; prototype tidak membaca atau mengubah master PSD, dan mask/effect Photoshop lain belum didukung. Jalankan `FrameStudio.App --frame-tool-prototype` untuk membuka demo langsung.
+The PSD artboard also has a separate **Frame foto** tool. A user-drawn rectangle becomes a fully opaque binary mask and uses the shared compositor for preview and a new PNG copy. This is a raster overlay only; it does not become a PSD layer. Nonrectangular, soft-edged, feathered, or antialiased manual frames remain unsupported.
 
-## Alur saat ini
+## PSD inspection and masked PNG copies
 
-1. Pilih satu PSD/PSB master, folder foto sumber (atau beberapa file gambar), dan folder output.
-2. Periksa komposit tersimpan dan area yang dikenali. Label ukuran saja—termasuk `XL` atau `S`—bukan slot. Kandidat foto/logo tanpa batas valid dan mask/clipping tidak ditampilkan sebagai target yang bisa dipakai.
-3. Penempatan, kontrol crop, dan ekspor nonaktif sampai setidaknya satu slot foto lolos pemeriksaan batas dan mask/clipping. Jika belum, panel menampilkan “Slot foto belum disiapkan.” Kandidat teks tetap berupa overlay raster manual, bukan pengeditan objek teks PSD.
-4. Setelah slot foto tervalidasi tersedia, ekspor membuat salinan PNG terpisah; PSD master tidak pernah menjadi jalur output. Validasi batas ini belum berarti perender setara Photoshop Frame Tool: komposit tetap dirender dengan kotak persegi dan mask/effect PSD belum diterapkan ulang.
+PsdSharp reads PSD structure and the stored composite. On Linux x64, an optional local `psd-tools==1.26.0` sidecar can provide a narrow class of exact binary user-mask maps. A map is accepted only when dimensions match the layer bounds, the supported mask profile is binary and unfeathered, the visible foreground stack is supported, and the primary and sidecar stored composites match. Missing maps, soft edges, vector masks, clipping, effects, unsupported occlusion, and metadata-only flags fail closed.
 
-Ekspor yang diaktifkan dimulai dari PNG komposit tersimpan, lalu menambahkan overlay lokal pada area yang tervalidasi. Setiap hasil ditulis dulu ke file sementara di folder output, kemudian dipindahkan ke nama akhirnya. File yang sudah ada tidak ditimpa; nomor urut ditambahkan bila perlu. PSD/PSB master hanya dibaca dan tidak pernah dijadikan jalur output. Aplikasi belum menghasilkan PSD berlapis.
+The PSD canvas preview and separate PNG-copy export now use the same raster compositor, which applies those exact mask pixels rather than the layer rectangle. Photo transforms and logo fitting are therefore clipped to the verified aperture. Text candidates remain manual raster overlays; the original text in the stored composite is not removed or edited. Existing PSD masters are never an output path and existing PNG output files are not overwritten.
 
-## Batas kompatibilitas dan kesetiaan visual
+Workflow grouping heuristics describe a primary photo group, optional smaller photo placements, and a supporting background group. The sanitized heuristic exposes only counts/role hints—not source layer names—and never changes visibility, unlocks placement, or saves a PSD. The current aperture sidecar supports only simple root-level masked image layers; nested Smart Object masks, group masks, transforms, and combined stack/effect behavior are not yet verified. Group activation remains gated until mode-specific renders can be compared against trusted output and mask/effect round-trip checks.
 
-- Penanda nama dan ukuran hanya membantu menemukan kandidat. Penempatan baru diaktifkan bila metadata menyediakan batas yang masuk akal beserta mask, mask vektor, atau clipping; pemeriksaan ini bukan jaminan kesetiaan Photoshop.
-- Perender dapat menyesuaikan, memperbesar, menggeser, dan memutar gambar sumber di dalam kotak kandidat. Perender belum menerapkan ulang blend layer, mask, efek, atau layer tersembunyi PSD.
-- Teks dirender sebagai overlay raster putih sederhana di dalam kotak kandidat. Teks asli dalam komposit tersimpan tidak dihapus dan mungkin tetap tampak di bawahnya. Font, gaya, perataan, dan isi objek teks PSD tidak diekstrak.
-- Ekspor batch mengganti satu kandidat foto/logo pilihan untuk setiap foto sumber; assignment slot lain tetap. Aplikasi belum memetakan daftar nama/alamat ke beberapa slot atau membuat PSD yang dapat diedit.
-- Mesin memakai PsdSharp 1.2.0 untuk mencoba membaca metadata dan komposit PSD/PSB. Fitur Photoshop bertag tertentu mungkin belum didukung. Jika parser gagal, aplikasi melaporkannya sebagai batas kompatibilitas atau interpretasi—bukan bukti bahwa file rusak. Penulis PSD berlapis tidak diaktifkan karena blok bertag yang belum dikenal dan kesetiaan komposit belum dapat dijamin.
-- Status bawah menampilkan platform runtime, arsitektur proses, dan mesin PSD yang tersedia. `psd-tools` tidak diaktifkan sebagai fallback lintas platform; ekspor PSD berlapis tetap nonaktif. Jika slot foto belum lolos validasi, penempatan dan ekspor PNG juga tetap nonaktif.
-- Render output dibatasi hingga 30 juta piksel per gambar. Ukuran komposit diperiksa sebelum alokasi raster.
+Automatic multi-layer replacement workflows remain disabled until their supported structure, mask coverage, and rendered output are verified. Manual rectangles create overlays only in separate PNG copies; they do not edit the PSD.
 
-## Build dan tes
+## PSD writing status
 
-Dari direktori utama repository:
+The app has no layered PSD/PSB writer. A separate raw PhotoCraft spike succeeded only on a small synthetic raster-layer fixture; it did not verify variable-length text, Smart Objects, group masks, effects, or complete workflow fidelity. PSD saving must stay disabled until disposable-copy save/reopen testing verifies layer records, masks, effects, previews, and unchanged pixels outside the intended aperture for a supported workflow.
 
-Solusi tetap menargetkan `net8.0`, tetapi compiler build Avalonia 12.1 membutuhkan .NET 10 SDK. Aplikasi hasil build tetap berjalan dengan .NET 8 runtime.
+## Compatibility and safety
+
+- The optional reader is bounded by input, allocation, preview, layer/depth, process-memory, and timeout limits. Opt-in reader tests use synthetic fixtures only.
+- The app treats PSD/PSB inputs as read-only and writes rendered results only as separate PNG copies. Synthetic test fixtures contain no user-provided master or photo.
+- Rendering is capped at 30 million pixels per document. Unsupported Photoshop structures remain locked rather than being guessed from layer names or bounds.
+- The app targets `net8.0`; compiling with Avalonia 12.1 analyzers requires the .NET 10 SDK. The app and test host use the .NET 8 runtime.
+
+## Build and test
+
+From the repository root:
 
 ```sh
 dotnet build apps/frame-studio/app/FrameStudio.sln --configuration Release
 dotnet test apps/frame-studio/app/FrameStudio.sln --configuration Release
 ```
 
-Solusi mencakup aplikasi Avalonia, mesin PSD, dan dua proyek tes. Tes mesin memakai fixture PSD sintetis yang dibuat khusus. Tidak ada PSD atau foto milik pelanggan yang disertakan dalam repository.
+On Linux x64 with Python 3.11+ and `psd-tools==1.26.0`, opt in to the synthetic aperture integration tests:
+
+```sh
+FRAME_STUDIO_PSD_TOOLS_MASK_TESTS=1 dotnet test apps/frame-studio/app/FrameStudio.sln --configuration Release
+```
 
 ## Mobile
 
-Target mobile belum dibangun atau diuji. Proyek saat ini menargetkan `net8.0` dan memakai `Avalonia.Desktop`; belum ada target mobile atau validasi perangkat.
+Mobile targets have not been built or tested. The current application uses `Avalonia.Desktop`.

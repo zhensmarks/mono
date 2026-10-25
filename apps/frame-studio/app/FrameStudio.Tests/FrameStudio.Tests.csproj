@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../FrameStudio.App/FrameStudio.App.csproj" />
+    <None Include="../../engine.Tests/Fixtures/synthetic_masked_photo_slot_no_text.psd" Link="Fixtures/synthetic_masked_photo_slot_no_text.psd" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

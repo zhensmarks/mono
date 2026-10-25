@@ -4,8 +4,8 @@ using SkiaSharp;
 namespace FrameStudio.App.Services;
 
 /// <summary>
-/// Composes local slot overlays over the PSD's stored merged composite. It never writes to the PSD
-/// and deliberately uses estimated layer rectangles instead of claiming Photoshop mask fidelity.
+/// Composes local slot overlays over the PSD's stored merged composite using verified binary aperture maps.
+/// It never writes to layered PSD data.
 /// </summary>
 public sealed class RasterPngComposer
 {
@@ -36,7 +36,11 @@ public sealed class RasterPngComposer
 
         foreach (var slot in slots)
         {
-            if ((slot.IsPhoto || slot.IsLogo) && !slot.IsPlacementReady)
+            var isImageSlot = slot.IsPhoto || slot.IsLogo;
+            if (isImageSlot && slot.Photo is not null && !slot.HasTrustedApertureMask)
+                throw new InvalidOperationException("An exact per-pixel aperture mask is required before an image slot can be rendered.");
+
+            if (isImageSlot && !slot.HasTrustedApertureMask)
                 continue;
 
             if (slot.Bounds is not { Width: > 0, Height: > 0 } bounds)
@@ -50,8 +54,8 @@ public sealed class RasterPngComposer
                 continue;
 
             var destination = new SKRect((float)left, (float)top, (float)right, (float)bottom);
-            if ((slot.IsPhoto || slot.IsLogo) && slot.Photo is { } photo)
-                DrawImageSlot(canvas, slot, photo.Path, destination);
+            if (isImageSlot && slot.Photo is { } photo)
+                DrawMaskedImageSlot(canvas, slot, photo.Path, destination);
             else if (slot.IsText && !string.IsNullOrWhiteSpace(slot.Value))
                 DrawTextSlot(canvas, slot, slot.Value, destination);
         }
@@ -60,6 +64,60 @@ public sealed class RasterPngComposer
         using var encoded = outputImage.Encode(SKEncodedImageFormat.Png, 100)
             ?? throw new InvalidOperationException("The raster compositor could not encode a PNG output.");
         return encoded.ToArray();
+    }
+
+    public byte[] CreateApertureMaskPng(FrameSlot slot)
+    {
+        ArgumentNullException.ThrowIfNull(slot);
+        if (!slot.HasTrustedApertureMask || slot.Bounds is not { Width: > 0, Height: > 0 } bounds)
+            throw new InvalidOperationException("A verified pixel aperture map is required to create a preview opacity mask.");
+
+        using var maskBitmap = new SKBitmap(new SKImageInfo(bounds.Width, bounds.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+        var mask = slot.ApertureMask.Span;
+        if (mask.Length != checked(bounds.Width * bounds.Height))
+            throw new InvalidDataException("The aperture map length does not match the slot bounds.");
+
+        for (var y = 0; y < bounds.Height; y++)
+        for (var x = 0; x < bounds.Width; x++)
+        {
+            var alpha = mask[y * bounds.Width + x];
+            if (alpha is not (0 or 255))
+                throw new InvalidDataException("Only binary aperture coverage is supported by the preview renderer.");
+            maskBitmap.SetPixel(x, y, new SKColor(255, 255, 255, alpha));
+        }
+
+        using var encoded = maskBitmap.Encode(SKEncodedImageFormat.Png, 100)
+            ?? throw new InvalidOperationException("The raster compositor could not encode the aperture mask.");
+        return encoded.ToArray();
+    }
+
+    private static void DrawMaskedImageSlot(SKCanvas canvas, FrameSlot slot, string path, SKRect destination)
+    {
+        var bounds = slot.Bounds ?? throw new InvalidOperationException("A masked image slot must have bounds.");
+        var mask = slot.ApertureMask.Span;
+        var slotInfo = new SKImageInfo(bounds.Width, bounds.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var slotSurface = SKSurface.Create(slotInfo)
+            ?? throw new InvalidOperationException("Could not allocate an isolated image-slot surface.");
+        var slotCanvas = slotSurface.Canvas;
+        slotCanvas.Clear(SKColors.Transparent);
+        slotCanvas.Save();
+        slotCanvas.Translate(-bounds.X, -bounds.Y);
+        DrawImageSlot(slotCanvas, slot, path, destination);
+        slotCanvas.Restore();
+
+        using var maskBitmap = new SKBitmap(new SKImageInfo(bounds.Width, bounds.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+        for (var y = 0; y < bounds.Height; y++)
+        for (var x = 0; x < bounds.Width; x++)
+        {
+            var alpha = mask[y * bounds.Width + x];
+            maskBitmap.SetPixel(x, y, new SKColor(255, 255, 255, alpha));
+        }
+
+        using (var maskPaint = new SKPaint { BlendMode = SKBlendMode.DstIn, IsAntialias = false })
+            slotCanvas.DrawBitmap(maskBitmap, 0, 0, maskPaint);
+
+        using var slotImage = slotSurface.Snapshot();
+        canvas.DrawImage(slotImage, bounds.X, bounds.Y);
     }
 
     private static void DrawImageSlot(SKCanvas canvas, FrameSlot slot, string path, SKRect destination)

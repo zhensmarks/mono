@@ -63,7 +63,7 @@ public sealed class PsdTemplateEngineAdapterTests
     }
 
     [Fact]
-    public async Task ClippedPhotoLayerIsValidatedAndCanExportSeparatePngCopy()
+    public async Task ClippedPhotoLayerMetadataAloneDoesNotEnablePlacementOrExport()
     {
         var root = CreateTempDirectory();
         try
@@ -75,11 +75,9 @@ public sealed class PsdTemplateEngineAdapterTests
 
             var adapter = new PsdTemplateEngineAdapter();
             var inspection = await adapter.InspectAsync(masterPath);
-            var slot = Assert.Single(inspection.Slots);
 
             Assert.True(inspection.Success, inspection.Message);
-            Assert.Equal(FramePsdSlotType.Photo, slot.Type);
-            Assert.True(slot.IsPlacementReady);
+            Assert.DoesNotContain(inspection.Slots, slot => slot.Type is FramePsdSlotType.Photo or FramePsdSlotType.Logo);
             Assert.True(Assert.Single(inspection.LayerTree!.Roots).HasClipping);
 
             var export = await adapter.ExportCopyAsync(new FramePsdExportRequest(
@@ -88,8 +86,9 @@ public sealed class PsdTemplateEngineAdapterTests
                 outputFolder,
                 new Dictionary<string, string>()));
 
-            Assert.True(export.Success, export.Message);
-            Assert.True(File.Exists(export.OutputPath));
+            Assert.False(export.Success);
+            Assert.Contains("no photo slot", export.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.False(Directory.Exists(outputFolder));
             Assert.Equal(originalMaster, File.ReadAllBytes(masterPath));
         }
         finally

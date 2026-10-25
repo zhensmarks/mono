@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Local-only read bridge for psd-tools; writes JSON metadata and raw RGBA to caller-owned temp paths."""
+"""Local-only psd-tools bridge for sanitized metadata, stored RGBA, and safe aperture maps."""
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
 import sys
 import warnings
 from pathlib import Path
+
+MAX_APERTURE_MASK_BYTES = 4 * 1024 * 1024
+IMAGE_MARKERS = {"photo", "foto", "portrait", "slot", "logo", "crest", "emblem", "badge", "lambang", "lencana"}
 
 
 def _silence_library_output() -> None:
@@ -26,6 +30,118 @@ def _apply_process_memory_limit(limit_bytes: int) -> bool:
         return True
     except (ImportError, AttributeError, OSError, ValueError):
         return False
+
+
+def _has_image_marker(name: str) -> bool:
+    normalized = name.lower()
+    for separator in ("-", "_", "[", "]", "(", ")", ":", "/", "\\", "."):
+        normalized = normalized.replace(separator, " ")
+    return bool(set(normalized.split()) & IMAGE_MARKERS)
+
+
+def _simple_user_mask(layer):
+    """Return a layer-sized binary user mask only for a narrowly supported layer profile."""
+    if layer.is_group() or layer.kind not in ("pixel", "smartobject"):
+        return None
+    if not layer.visible or layer.opacity != 255 or layer.clipping:
+        return None
+    if layer.blend_mode.name != "NORMAL" or layer.vector_mask is not None or bool(layer.effects):
+        return None
+
+    mask = layer.mask
+    if mask is None or mask.disabled or mask.has_real():
+        return None
+    mask_data = getattr(mask, "_data", None)
+    if mask_data is None:
+        return None
+    flags = getattr(mask_data, "flags", None)
+    if bool(getattr(flags, "invert", False)) or bool(getattr(flags, "disabled", False)):
+        return None
+    if getattr(mask_data, "user_mask_density", None) not in (None, 255):
+        return None
+    if getattr(mask_data, "user_mask_feather", None) not in (None, 0, 0.0):
+        return None
+
+    width, height = int(layer.width), int(layer.height)
+    if width <= 0 or height <= 0 or width * height > MAX_APERTURE_MASK_BYTES:
+        return None
+    image = mask.topil(real=False, layer_sized=True)
+    if image is None or image.size != (width, height):
+        return None
+
+    import numpy as np
+
+    samples = np.asarray(image.convert("L"), dtype=np.uint8)
+    if samples.shape != (height, width) or np.any((samples != 0) & (samples != 255)):
+        return None
+    return samples
+
+
+def _aperture_maps(document, state: dict) -> dict[str, str]:
+    """Return binary visible apertures for simple root-level image slots only."""
+    import numpy as np
+
+    layers = list(document)
+    maps: dict[str, str] = {}
+    for index, target in enumerate(layers):
+        if not _has_image_marker(str(target.name or "")):
+            continue
+        target_mask = _simple_user_mask(target)
+        if target_mask is None:
+            continue
+
+        width, height = target_mask.shape[1], target_mask.shape[0]
+        left, top = int(target.left), int(target.top)
+        covered = np.zeros((height, width), dtype=np.bool_)
+        unsupported = False
+        for foreground in layers[index + 1 :]:
+            if not foreground.visible:
+                continue
+            if (
+                foreground.is_group()
+                or foreground.clipping
+                or foreground.blend_mode.name != "NORMAL"
+                or foreground.opacity != 255
+                or foreground.vector_mask is not None
+                or bool(foreground.effects)
+            ):
+                unsupported = True
+                break
+
+            foreground_left, foreground_top = int(foreground.left), int(foreground.top)
+            x0 = max(left, foreground_left)
+            y0 = max(top, foreground_top)
+            x1 = min(left + width, foreground_left + int(foreground.width))
+            y1 = min(top + height, foreground_top + int(foreground.height))
+            if x1 <= x0 or y1 <= y0:
+                continue
+
+            rendered = foreground.composite(force=True, apply_icc=False)
+            if rendered is None or rendered.size != (int(foreground.width), int(foreground.height)):
+                unsupported = True
+                break
+            alpha = np.asarray(rendered.convert("RGBA"), dtype=np.uint8)[
+                y0 - foreground_top : y1 - foreground_top,
+                x0 - foreground_left : x1 - foreground_left,
+                3,
+            ]
+            target_region = target_mask[y0 - top : y1 - top, x0 - left : x1 - left]
+            if np.any(((alpha > 0) & (alpha < 255)) & (target_region != 0)):
+                unsupported = True
+                break
+            covered[y0 - top : y1 - top, x0 - left : x1 - left] |= alpha > 0
+
+        if unsupported:
+            continue
+
+        aperture = np.where((target_mask == 255) & ~covered, 255, 0).astype(np.uint8)
+        if not np.any(aperture):
+            continue
+        if state["aperture_mask_bytes"] + aperture.nbytes > MAX_APERTURE_MASK_BYTES:
+            break
+        state["aperture_mask_bytes"] += aperture.nbytes
+        maps[f"layer/{index}"] = base64.b64encode(aperture.tobytes()).decode("ascii")
+    return maps
 
 
 def _layer_tree(nodes, prefix: str, depth: int, state: dict):
@@ -119,10 +235,17 @@ def main() -> int:
             "max_depth": 32,
             "max_name_length": 512,
             "names_truncated": False,
+            "aperture_mask_bytes": 0,
         }
         layers = _layer_tree(document, "layer", 1, state)
+        aperture_maps = _aperture_maps(document, state)
+        for layer in layers:
+            aperture = aperture_maps.get(layer["id"])
+            if aperture is not None:
+                layer["apertureMaskBase64"] = aperture
+
         warnings_out = [
-            "Layer tree and stored merged composite are best-effort reads; no layer, text, mask, effect, or PSD editing is supported."
+            "Layer tree and stored merged composite are best-effort reads; no PSD layer, text, mask, effect, or layered-file editing is supported. Exact binary visible-aperture maps are emitted only for simple user masks and supported foreground layers."
         ]
         if state["names_truncated"]:
             warnings_out.append("One or more layer names were truncated to the configured safety limit.")

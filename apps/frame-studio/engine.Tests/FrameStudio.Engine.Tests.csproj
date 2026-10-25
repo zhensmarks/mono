@@ -19,4 +19,8 @@
   <ItemGroup>
     <ProjectReference Include="../engine/FrameStudio.Engine.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Fixtures/synthetic_frame_targets.psd" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/synthetic_masked_photo_slot*.psd" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

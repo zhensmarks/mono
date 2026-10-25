@@ -14,7 +14,7 @@
           <TextBlock Text="Alur kerja template PSD" Classes="muted" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button Content="Bingkai Foto · preview" Classes="ToolBtn small" Click="OnOpenFrameToolPrototype" />
+          <Button Content="Demo frame · sintetis" Classes="ToolBtn small" Click="OnOpenFrameToolPrototype" ToolTip.Tip="Demo terpisah dengan aset sintetis; bukan editor PSD." />
           <TextBlock Text="01 Master" FontSize="11" FontWeight="SemiBold" />
           <TextBlock Text="/" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" />
           <TextBlock Text="02 Foto" Classes="muted" />
@@ -47,17 +47,17 @@
             <StackPanel Spacing="7">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                 <TextBlock Text="Foto sumber" Classes="sectionTitle" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="Tambah" Classes="ToolBtn small" Click="OnChoosePhotos" IsEnabled="{Binding CanEditPhotoTextLogo}" />
+                <Button Grid.Column="1" Content="Tambah" Classes="ToolBtn small" Click="OnChoosePhotos" IsEnabled="{Binding CanManageSourcePhotos}" />
               </Grid>
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                 <TextBox Text="{Binding SourcePath}" PlaceholderText="Folder foto" IsReadOnly="True" />
-                <Button Grid.Column="1" Content="Pilih folder" Classes="ToolBtn small" Click="OnChooseSourceFolder" IsEnabled="{Binding CanEditPhotoTextLogo}" />
+                <Button Grid.Column="1" Content="Pilih folder" Classes="ToolBtn small" Click="OnChooseSourceFolder" IsEnabled="{Binding CanManageSourcePhotos}" />
               </Grid>
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{Binding SourcePhotos.Count, StringFormat='{}{0} foto dalam antrean'}" Classes="muted" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="Bersihkan" Classes="ToolBtn small" Click="OnClearQueue" IsEnabled="{Binding CanEditPhotoTextLogo}" />
+                <Button Grid.Column="1" Content="Bersihkan" Classes="ToolBtn small" Click="OnClearQueue" IsEnabled="{Binding CanManageSourcePhotos}" />
               </Grid>
-              <ListBox x:Name="PhotoQueue" ItemsSource="{Binding SourcePhotos}" SelectionChanged="OnQueueSelectionChanged" IsEnabled="{Binding CanEditPhotoTextLogo}" Height="190" Background="Transparent" BorderThickness="0" Padding="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
+              <ListBox x:Name="PhotoQueue" ItemsSource="{Binding SourcePhotos}" SelectionChanged="OnQueueSelectionChanged" IsEnabled="{Binding CanManageSourcePhotos}" Height="190" Background="Transparent" BorderThickness="0" Padding="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <Border Classes="queueItem">
@@ -79,9 +79,11 @@
       </Border>
 
       <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" RowSpacing="10" MinWidth="400">
-        <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
           <TextBlock Text="Kanvas" Classes="h2" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding DocumentDimensions}" Classes="muted" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="{Binding ManualFrameToolLabel}" Classes="ToolBtn small" Click="OnToggleManualFrameTool" IsEnabled="{Binding CanUseManualFrameTool}" IsVisible="{Binding HasTemplatePreview}" />
+          <TextBlock Grid.Column="2" Text="{Binding ManualFrameToolHelp}" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasTemplatePreview}" />
+          <TextBlock Grid.Column="3" Text="{Binding DocumentDimensions}" Classes="muted" VerticalAlignment="Center" />
         </Grid>
         <Border Grid.Row="1" Background="{DynamicResource CanvasBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMedium}" ClipToBounds="True" Padding="14">
           <Viewbox Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="1300" MaxHeight="720">
@@ -92,7 +94,7 @@
         </Border>
         <Grid Grid.Row="2" RowDefinitions="Auto,Auto" RowSpacing="8">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-            <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" IsVisible="{Binding IsImageSlotSelected}" IsEnabled="{Binding CanEditPhotoTextLogo}">
+            <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" IsVisible="{Binding IsImageSlotSelected}" IsEnabled="{Binding CanAdjustSelectedSlot}">
               <TextBlock Text="Zoom" Classes="muted" VerticalAlignment="Center" />
               <Slider x:Name="ZoomSlider" Minimum="0.5" Maximum="3" Value="{Binding Zoom, Mode=TwoWay}" Width="105" />
               <TextBlock Text="{Binding ZoomLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
@@ -119,6 +121,7 @@
             <TextBlock Text="Pilih area yang dikenali untuk melihat detailnya." Classes="muted" TextWrapping="Wrap" IsVisible="{Binding !IsFallbackPreviewMode}" />
             <TextBlock Text="Pratinjau ini hanya menampilkan isi tersimpan." Classes="muted" TextWrapping="Wrap" IsVisible="{Binding IsFallbackPreviewMode}" />
             <TextBlock Text="{Binding PhotoSlotSetupNotice}" Classes="muted" TextWrapping="Wrap" IsVisible="{Binding ShowPhotoSlotSetupNotice}" />
+            <TextBlock Text="{Binding WorkflowStructureNotice}" Classes="muted" TextWrapping="Wrap" IsVisible="{Binding HasTemplatePreview}" />
           </StackPanel>
           <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="12">
@@ -172,7 +175,7 @@
               <StackPanel Spacing="8" IsVisible="{Binding IsFallbackPreviewMode}">
                 <StackPanel Spacing="3">
                   <TextBlock Text="Pratinjau tersimpan · hanya-baca" Classes="sectionTitle" />
-                  <TextBlock Text="Isi PSD ini tidak dapat diubah dalam mode pratinjau." Classes="muted" TextWrapping="Wrap" />
+                  <TextBlock Text="Layer PSD tetap hanya-baca. Frame manual dan foto hanya menjadi overlay pada PNG copy." Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
                 <Expander Header="Detail lanjutan · struktur layer" IsExpanded="False">
                   <StackPanel Spacing="7" Margin="0,8,0,0">
