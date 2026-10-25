@@ -77,7 +77,7 @@ public sealed class MainViewModelTests
         var adapter = new FakePsdTemplateAdapter
         {
             InspectionResult = Inspection(
-                new PsdSlotDescriptor("photo-xl", "Photo XL", PsdSlotType.Photo, "Photo XL"),
+                new PsdSlotDescriptor("photo-xl", "Photo XL", PsdSlotType.Photo, "Photo XL", AssignmentRole: FrameLayerRole.XLPhoto),
                 new PsdSlotDescriptor("student-name", "Student Name", PsdSlotType.Text, "Student Name"),
                 new PsdSlotDescriptor("school-logo", "School Logo", PsdSlotType.Logo, "School Logo"))
         };
@@ -92,7 +92,7 @@ public sealed class MainViewModelTests
         Assert.Equal(SlotKind.Logo, viewModel.Slots[2].Kind);
         Assert.Equal(new[] { "Foto", "Teks", "Logo" }, viewModel.Slots.Select(slot => slot.KindLabel));
         Assert.All(viewModel.Slots, slot => Assert.Contains("Posisi otomatis", slot.Helper));
-        Assert.Equal(new[] { "Foto 1", "Teks 1", "Logo 1" }, viewModel.Slots.Select(slot => slot.Label));
+        Assert.Equal(new[] { "XL", "Teks 1", "Logo 1" }, viewModel.Slots.Select(slot => slot.Label));
         Assert.DoesNotContain("Student Name", string.Join(" ", viewModel.Slots.Select(slot => $"{slot.Label} {slot.Helper} {slot.DisplayValue}")), StringComparison.Ordinal);
         Assert.All(viewModel.Slots, slot => Assert.Null(slot.Value));
         Assert.Equal(PreviewPng, viewModel.TemplatePreviewPng);
@@ -149,11 +149,56 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task InvalidXlAndMissingSmallTargetsKeepBothModesAndExportDisabled()
+    {
+        var invalidXl = new FramePsdLayerSummary(
+            "xl-node",
+            "Pixel layer 1",
+            "Pixel layer",
+            false,
+            true,
+            255,
+            new FrameBounds(0, 0, 0, 0),
+            true,
+            false,
+            false,
+            false,
+            Array.Empty<FramePsdLayerSummary>())
+        {
+            AssignmentRole = FrameLayerRole.XLPhoto,
+            IsPlacementReady = false
+        };
+        var tree = new FramePsdLayerTreeSummary(1, 0, 0, 0, 0, 0, new[] { invalidXl });
+        var viewModel = new MainViewModel(new FakePsdTemplateAdapter
+        {
+            InspectionResult = new PsdTemplateInspection(true, "synthetic master metadata", Array.Empty<PsdSlotDescriptor>(), PreviewPng, 120, 180, tree)
+        }) { OutputPath = "/tmp/frame-studio-output" };
+        viewModel.SetMaster("/samples/master.psd");
+
+        await viewModel.InspectSelectedMasterAsync();
+        viewModel.AddSourcePhoto(new SourcePhoto("/samples/student.jpg", null));
+
+        Assert.False(viewModel.CanPlaceSelectedSlot);
+        Assert.False(viewModel.CanAssignSelectedPhoto);
+        Assert.False(viewModel.CanExportPngCopies);
+        Assert.Contains("XL", viewModel.ModeAssignmentStatus, StringComparison.Ordinal);
+        Assert.Contains("batas positif", viewModel.ModeAssignmentStatus, StringComparison.Ordinal);
+
+        viewModel.SelectedMode = FrameAssignmentMode.Kolase;
+
+        Assert.False(viewModel.CanPlaceSelectedSlot);
+        Assert.False(viewModel.CanAssignSelectedPhoto);
+        Assert.False(viewModel.CanExportPngCopies);
+        Assert.Contains("S: target tidak ditemukan", viewModel.ModeAssignmentStatus, StringComparison.Ordinal);
+        Assert.Contains("BG kecil: grup tidak ditemukan", viewModel.ModeAssignmentStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ExportCanEnableOnlyAfterValidatedPhotoSlotIsPresent()
     {
         var viewModel = new MainViewModel(new FakePsdTemplateAdapter
         {
-            InspectionResult = Inspection(new PsdSlotDescriptor("photo", "Photo", PsdSlotType.Photo, "Photo"))
+            InspectionResult = Inspection(new PsdSlotDescriptor("photo", "Photo XL", PsdSlotType.Photo, "Photo XL", AssignmentRole: FrameLayerRole.XLPhoto))
         }) { OutputPath = "/tmp/frame-studio-output" };
         viewModel.SetMaster("/samples/master.psd");
 
@@ -229,7 +274,7 @@ public sealed class MainViewModelTests
     [Fact]
     public async Task AssigningPhotoUpdatesRasterPlacementWithoutChangingMasterOrBaseComposite()
     {
-        var adapter = new FakePsdTemplateAdapter { InspectionResult = Inspection(new PsdSlotDescriptor("xl", "XL", PsdSlotType.Photo, "XL")) };
+        var adapter = new FakePsdTemplateAdapter { InspectionResult = Inspection(new PsdSlotDescriptor("xl", "XL", PsdSlotType.Photo, "Photo XL", AssignmentRole: FrameLayerRole.XLPhoto)) };
         var viewModel = new MainViewModel(adapter);
         viewModel.SetMaster("/samples/master.psd");
         await viewModel.InspectSelectedMasterAsync();
@@ -331,8 +376,8 @@ public sealed class MainViewModelTests
         var adapter = new FakePsdTemplateAdapter
         {
             InspectionResult = Inspection(
-                new PsdSlotDescriptor("photo-a", "Photo A", PsdSlotType.Photo, "Photo A", Bounds: new PsdSlotBounds(5, 6, 40, 60)),
-                new PsdSlotDescriptor("photo-b", "Photo B", PsdSlotType.Photo, "Photo B", Bounds: new PsdSlotBounds(50, 6, 40, 60)),
+                new PsdSlotDescriptor("photo-a", "Photo A", PsdSlotType.Photo, "Photo XL", Bounds: new PsdSlotBounds(5, 6, 40, 60), AssignmentRole: FrameLayerRole.XLPhoto),
+                new PsdSlotDescriptor("photo-b", "Photo B", PsdSlotType.Photo, "Photo S", Bounds: new PsdSlotBounds(50, 6, 40, 60), AssignmentRole: FrameLayerRole.SPhoto),
                 new PsdSlotDescriptor("student-name", "Student Name", PsdSlotType.Text, "Student Name", Bounds: new PsdSlotBounds(10, 80, 70, 20)))
         };
         var viewModel = new MainViewModel(adapter);

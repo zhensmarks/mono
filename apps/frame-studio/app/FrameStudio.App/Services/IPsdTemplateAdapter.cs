@@ -20,7 +20,8 @@ public sealed record PsdSlotDescriptor(
     string? CurrentValue = null,
     PsdSlotBounds? Bounds = null,
     // True only when positive in-canvas bounds and mask, vector-mask, or clipping evidence were found.
-    bool IsPlacementReady = false);
+    bool IsPlacementReady = false,
+    FrameLayerRole AssignmentRole = FrameLayerRole.None);
 
 public sealed record PsdTemplateInspection(
     bool Success,

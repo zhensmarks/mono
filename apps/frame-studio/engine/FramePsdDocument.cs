@@ -3,6 +3,14 @@ namespace FrameStudio.Engine;
 /// <summary>A PSD layer's document-space pixel bounds.</summary>
 public readonly record struct FrameBounds(int X, int Y, int Width, int Height);
 
+public enum FrameLayerRole
+{
+    None,
+    XLPhoto,
+    SPhoto,
+    BGKecil
+}
+
 /// <summary>Best-effort size hint inferred from a layer name, not a confirmed editable slot.</summary>
 public enum FrameSlotSizeHint
 {

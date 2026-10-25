@@ -59,7 +59,8 @@ public sealed record FramePsdSlotDescriptor(
     string LayerName,
     string? CurrentValue = null,
     FrameBounds? Bounds = null,
-    bool IsPlacementReady = false);
+    bool IsPlacementReady = false,
+    FrameLayerRole AssignmentRole = FrameLayerRole.None);
 
 /// <summary>A sanitized, descriptive layer node; source names and text values are never included.</summary>
 public sealed record FramePsdLayerSummary(
@@ -77,6 +78,8 @@ public sealed record FramePsdLayerSummary(
     IReadOnlyList<FramePsdLayerSummary> Children)
 {
     public bool HasClipping { get; init; }
+    public FrameLayerRole AssignmentRole { get; init; }
+    public bool IsPlacementReady { get; init; }
 }
 
 public sealed record FramePsdLayerTreeSummary(
@@ -176,7 +179,7 @@ public sealed class PsdTemplateEngineAdapter
                 .Select(slot => slot!)
                 .ToArray();
             var slots = SanitizeSlots(slotCandidates);
-            var layerTree = BuildLayerTreeSummary(document.Layers);
+            var layerTree = BuildLayerTreeSummary(document.Layers, document.Width, document.Height);
             byte[]? flattenedPreviewPng = null;
             if (document.CompositePreview is not null)
             {
@@ -379,6 +382,12 @@ public sealed class PsdTemplateEngineAdapter
     private static FramePsdSlotDescriptor? TryMapSlot(FramePsdLayer layer, int documentWidth, int documentHeight)
     {
         var tokens = SplitName(layer.Name);
+        var assignmentRole = layer.SlotHint switch
+        {
+            FrameSlotSizeHint.XL => FrameLayerRole.XLPhoto,
+            FrameSlotSizeHint.S => FrameLayerRole.SPhoto,
+            _ => FrameLayerRole.None
+        };
         FramePsdSlotType? type = null;
 
         if (tokens.Any(LogoMarkers.Contains))
@@ -409,7 +418,8 @@ public sealed class PsdTemplateEngineAdapter
             type.Value,
             layer.Name,
             Bounds: layer.Bounds,
-            IsPlacementReady: isImageTarget);
+            IsPlacementReady: isImageTarget,
+            AssignmentRole: assignmentRole);
     }
 
     private static bool HasValidatedImageBoundary(FramePsdLayer layer, int documentWidth, int documentHeight) =>
@@ -439,7 +449,7 @@ public sealed class PsdTemplateEngineAdapter
         }).ToArray();
     }
 
-    private static FramePsdLayerTreeSummary BuildLayerTreeSummary(IReadOnlyList<FramePsdLayer> roots)
+    private static FramePsdLayerTreeSummary BuildLayerTreeSummary(IReadOnlyList<FramePsdLayer> roots, int documentWidth, int documentHeight)
     {
         var kindCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         var layerCount = 0;
@@ -456,6 +466,7 @@ public sealed class PsdTemplateEngineAdapter
                 var id = string.IsNullOrEmpty(parentId) ? (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : $"{parentId}.{index + 1}";
                 var isGroup = layer.IsGroup || layer.Children.Count > 0 || IsKind(layer.Kind, "group");
                 var kind = SafeKind(layer.Kind, isGroup);
+                var assignmentRole = ClassifyLayerRole(layer, isGroup);
                 kindCounts.TryGetValue(kind, out var sameKindCount);
                 sameKindCount++;
                 kindCounts[kind] = sameKindCount;
@@ -480,7 +491,11 @@ public sealed class PsdTemplateEngineAdapter
                     layer.HasEffects,
                     BuildNodes(layer.Children, id))
                 {
-                    HasClipping = layer.HasClipping
+                    HasClipping = layer.HasClipping,
+                    AssignmentRole = assignmentRole,
+                    IsPlacementReady = assignmentRole is FrameLayerRole.XLPhoto or FrameLayerRole.SPhoto
+                        && !isGroup
+                        && HasValidatedImageBoundary(layer, documentWidth, documentHeight)
                 };
             }).ToArray();
         }
@@ -498,6 +513,31 @@ public sealed class PsdTemplateEngineAdapter
         if (IsKind(kind, "adjustment")) return "Adjustment layer";
         if (IsKind(kind, "smartobject") || IsKind(kind, "smart object")) return "Smart object";
         return "Layer";
+    }
+
+    private static FrameLayerRole ClassifyLayerRole(FramePsdLayer layer, bool isGroup)
+    {
+        var tokens = SplitName(layer.Name);
+        if (isGroup && tokens.SequenceEqual(new[] { "bg", "kecil" }, StringComparer.OrdinalIgnoreCase))
+            return FrameLayerRole.BGKecil;
+        if (isGroup)
+            return FrameLayerRole.None;
+
+        var hintedRole = layer.SlotHint switch
+        {
+            FrameSlotSizeHint.XL => FrameLayerRole.XLPhoto,
+            FrameSlotSizeHint.S => FrameLayerRole.SPhoto,
+            _ => FrameLayerRole.None
+        };
+        if (hintedRole != FrameLayerRole.None)
+            return hintedRole;
+
+        // A bare size label is diagnostic only; it never becomes a usable photo slot.
+        if (tokens.SequenceEqual(new[] { "xl" }, StringComparer.OrdinalIgnoreCase))
+            return FrameLayerRole.XLPhoto;
+        if (tokens.SequenceEqual(new[] { "s" }, StringComparer.OrdinalIgnoreCase))
+            return FrameLayerRole.SPhoto;
+        return FrameLayerRole.None;
     }
 
     private static bool IsKind(string? candidate, string expected) => string.Equals(candidate, expected, StringComparison.OrdinalIgnoreCase);

@@ -31,6 +31,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _isInspecting;
     private bool _isExporting;
     private bool _isFallbackPreviewMode;
+    private FrameAssignmentMode _selectedMode = FrameAssignmentMode.Single;
     private int _inspectionGeneration;
 
     public MainViewModel(IPsdTemplateAdapter? psdAdapter = null)
@@ -55,9 +56,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         : $"Runtime platform: {RuntimeInformation.OSDescription} ({RuntimeInformation.ProcessArchitecture}). Layered PSD writing is disabled; UI placement and PNG export require a validated photo slot.";
     public string ExportNotice => IsFallbackPreviewMode
         ? "Ekspor nonaktif dalam mode pratinjau hanya-baca."
-        : !HasValidPhotoSlotSetup
-            ? "Ekspor PNG nonaktif sampai slot foto valid disiapkan."
-            : "Ekspor membuat PNG terpisah; PSD master tetap tidak berubah.";
+        : !ModeAssignmentPlan.CanExportPng
+            ? $"Ekspor PNG nonaktif. {ModeAssignmentPlan.StatusText}"
+            : "Ekspor membuat PNG raster perkiraan terpisah; PSD master tetap tidak berubah.";
     public string MasterPath { get => _masterPath; set { _masterPath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasMaster)); OnPropertyChanged(nameof(MasterPathDisplayText)); OnPropertyChanged(nameof(HasValidPhotoSlotSetup)); OnPropertyChanged(nameof(ShowPhotoSlotSetupNotice)); OnPropertyChanged(nameof(EmptyInspectorText)); OnPropertyChanged(nameof(CanPlaceSelectedSlot)); OnPropertyChanged(nameof(IsImageSlotSelected)); OnPropertyChanged(nameof(CanExportPngCopies)); } }
     public string MasterPathDisplayText => HasMaster ? Path.GetFileName(MasterPath) : string.Empty;
     public string SourcePath { get => _sourcePath; set { _sourcePath = value; OnPropertyChanged(); } }
@@ -68,12 +69,44 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool HasMaster => !string.IsNullOrWhiteSpace(MasterPath);
     public string EmptyInspectorText => !HasMaster
         ? "Pilih PSD master untuk memuat pratinjau."
-        : HasValidPhotoSlotSetup
+        : ModeAssignmentPlan.TargetsReady
             ? "Pilih area untuk melihat detailnya."
-            : "Slot foto belum disiapkan.";
+            : "Target mode belum valid.";
     public bool HasValidPhotoSlotSetup => Slots.Any(slot => slot.IsPhoto && slot.IsPlacementReady);
-    public bool ShowPhotoSlotSetupNotice => HasMaster && !IsFallbackPreviewMode && !HasValidPhotoSlotSetup;
-    public string PhotoSlotSetupNotice => "Slot foto belum disiapkan. Penempatan dan ekspor nonaktif sampai batas foto valid serta mask/clipping tersedia.";
+    public bool ShowPhotoSlotSetupNotice => HasMaster && !IsFallbackPreviewMode && !ModeAssignmentPlan.TargetsReady;
+    public string PhotoSlotSetupNotice => ModeAssignmentPlan.TargetsReady
+        ? ModeAssignmentStatus
+        : $"Slot foto belum disiapkan. {ModeAssignmentStatus}";
+    public FrameAssignmentMode SelectedMode
+    {
+        get => _selectedMode;
+        set
+        {
+            if (_selectedMode == value) return;
+            _selectedMode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsSingleMode));
+            OnPropertyChanged(nameof(IsKolaseMode));
+            OnPropertyChanged(nameof(ModeAssignmentPlan));
+            OnPropertyChanged(nameof(ModeAssignmentStatus));
+            OnPropertyChanged(nameof(ShowPhotoSlotSetupNotice));
+            OnPropertyChanged(nameof(PhotoSlotSetupNotice));
+            OnPropertyChanged(nameof(CanPlaceSelectedSlot));
+            OnPropertyChanged(nameof(IsImageSlotSelected));
+            OnPropertyChanged(nameof(CanAssignSelectedPhoto));
+            OnPropertyChanged(nameof(CanExportPngCopies));
+            OnPropertyChanged(nameof(ExportNotice));
+            OnPropertyChanged(nameof(EmptyInspectorText));
+        }
+    }
+    public bool IsSingleMode { get => SelectedMode == FrameAssignmentMode.Single; set { if (value) SelectedMode = FrameAssignmentMode.Single; } }
+    public bool IsKolaseMode { get => SelectedMode == FrameAssignmentMode.Kolase; set { if (value) SelectedMode = FrameAssignmentMode.Kolase; } }
+    public FrameModeAssignmentPlan ModeAssignmentPlan => FrameModeAssignmentPlan.Create(SelectedMode, Slots, _layerTreeSummary);
+    public string ModeAssignmentStatus => IsFallbackPreviewMode
+        ? "Mode assignment tidak tersedia karena pembaca aktif hanya menyediakan pratinjau PSD read-only."
+        : HasMaster
+            ? ModeAssignmentPlan.StatusText
+            : "Pilih PSD master untuk memeriksa target XL, S, dan BG kecil.";
     public bool HasTemplatePreview => _templatePreviewPng is { Length: > 0 };
     public bool HasSelectedPhoto => SelectedPhoto is not null;
     public bool HasPreviewImage => SelectedPhoto?.Image is not null;
@@ -103,14 +136,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(ShowEmptyInspector));
             OnPropertyChanged(nameof(ShowDetectedAreaList));
             OnPropertyChanged(nameof(ShowPhotoSlotSetupNotice));
+            OnPropertyChanged(nameof(ModeAssignmentStatus));
+            OnPropertyChanged(nameof(PhotoSlotSetupNotice));
         }
     }
     public bool CanEditPhotoTextLogo => !IsFallbackPreviewMode && !IsInspecting && !IsExporting;
     public bool CanPlaceSelectedSlot => HasMaster
         && CanEditPhotoTextLogo
-        && HasValidPhotoSlotSetup
         && SelectedSlot is { IsPlacementReady: true } slot
-        && (slot.IsPhoto || slot.IsLogo);
+        && slot.IsPhoto
+        && ModeAssignmentPlan.TargetsReady
+        && ModeAssignmentPlan.IncludesPhotoRole(slot.AssignmentRole);
     public bool CanAssignSelectedPhoto => CanPlaceSelectedSlot && SelectedPhoto is not null;
     public string LayerTreeSummaryText => _layerTreeSummary is { } summary
         ? $"{summary.LayerCount} layer · {summary.GroupCount} grup · {summary.TextLayerCount} teks · {summary.MaskCount} mask · {summary.VectorMaskCount} mask vektor · {summary.EffectLayerCount} efek"
@@ -198,7 +234,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool CanExportPngCopies => PsdEngineReady
         && HasMaster
         && HasTemplatePreview
-        && HasValidPhotoSlotSetup
+        && ModeAssignmentPlan.CanExportPng
         && !IsFallbackPreviewMode
         && !IsInspecting
         && !IsExporting
@@ -253,7 +289,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public bool AssignSelectedPhoto(FrameSlot? slot)
     {
-        if (!HasMaster || !CanEditPhotoTextLogo || !HasValidPhotoSlotSetup || slot is not { IsPlacementReady: true } || (!slot.IsPhoto && !slot.IsLogo) || SelectedPhoto is null)
+        if (!HasMaster || !CanEditPhotoTextLogo || !ModeAssignmentPlan.TargetsReady
+            || slot is not { IsPlacementReady: true, IsPhoto: true }
+            || !ModeAssignmentPlan.IncludesPhotoRole(slot.AssignmentRole)
+            || SelectedPhoto is null)
             return false;
 
         slot.Photo = SelectedPhoto;
@@ -345,7 +384,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         SlotKind.Logo => "Logo",
                         _ => "Slot"
                     };
-                    var safeLabel = $"{kindLabel} {typeCount}";
+                    var assignmentRole = descriptor.AssignmentRole;
+                    var safeLabel = assignmentRole == FrameLayerRole.XLPhoto
+                        ? "XL"
+                        : assignmentRole == FrameLayerRole.SPhoto
+                            ? "S"
+                            : $"{kindLabel} {typeCount}";
                     var safeId = $"slot/{++slotIndex}";
                     FrameSlotBounds? bounds = descriptor.Bounds is { } rectangle
                         ? new FrameSlotBounds(rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height)
@@ -357,7 +401,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     var boundsHint = bounds is { } estimated
                         ? $" · area perkiraan {estimated.Width:N0} × {estimated.Height:N0} px"
                         : " · ukuran belum diketahui";
-                    Slots.Add(new FrameSlot(safeId, safeLabel, kind, $"Posisi otomatis{boundsHint}", null, bounds, placementReady));
+                    Slots.Add(new FrameSlot(safeId, safeLabel, kind, $"Posisi otomatis{boundsHint}", null, bounds, placementReady, assignmentRole));
                 }
             }
             else
@@ -375,6 +419,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(DocumentWidth));
             OnPropertyChanged(nameof(DocumentHeight));
             OnPropertyChanged(nameof(HasValidPhotoSlotSetup));
+            OnPropertyChanged(nameof(ModeAssignmentPlan));
+            OnPropertyChanged(nameof(ModeAssignmentStatus));
+            OnPropertyChanged(nameof(PhotoSlotSetupNotice));
             OnPropertyChanged(nameof(ShowPhotoSlotSetupNotice));
             OnPropertyChanged(nameof(EmptyInspectorText));
             OnPropertyChanged(nameof(CanPlaceSelectedSlot));
@@ -383,29 +430,29 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CanExportPngCopies));
             OnPropertyChanged(nameof(ShowDetectedAreaList));
 
-            var validPhotoSlots = Slots.Count(slot => slot.IsPhoto && slot.IsPlacementReady);
+            var validPhotoSlots = GetModePhotoSlots().Count(slot => slot.IsPlacementReady);
             TemplateStatus = usedFallback
                 ? _documentWidth is { } previewWidth && _documentHeight is { } previewHeight
                     ? $"Pratinjau siap · {previewWidth:N0} × {previewHeight:N0} px"
                     : "Pratinjau siap"
-                : validPhotoSlots == 0
-                    ? _documentWidth is { } width && _documentHeight is { } height
-                        ? $"Slot foto belum disiapkan · {width:N0} × {height:N0} px"
-                        : "Slot foto belum disiapkan"
-                    : _documentWidth is { } imageWidth && _documentHeight is { } imageHeight
-                        ? $"{validPhotoSlots} slot foto siap · {imageWidth:N0} × {imageHeight:N0} px"
-                        : $"{validPhotoSlots} slot foto siap";
+                : ModeAssignmentPlan.TargetsReady
+                    ? _documentWidth is { } imageWidth && _documentHeight is { } imageHeight
+                        ? $"{validPhotoSlots} slot foto siap untuk {SelectedMode} · {imageWidth:N0} × {imageHeight:N0} px"
+                        : $"{validPhotoSlots} slot foto siap untuk {SelectedMode}"
+                    : _documentWidth is { } width && _documentHeight is { } height
+                        ? $"{ModeAssignmentPlan.StatusText} · {width:N0} × {height:N0} px"
+                        : ModeAssignmentPlan.StatusText;
             TemplatePreviewNotice = HasTemplatePreview
                 ? usedFallback
                     ? "Pratinjau komposit tersimpan dari PSD lokal. Mode hanya-baca; layer tidak disusun ulang."
                     : "Komposit tersimpan dari PSD. Pratinjau hanya-baca; layer tidak disusun ulang."
                 : "Informasi PSD terbaca, tetapi gambarnya belum dapat ditampilkan.";
-            SelectSlot(usedFallback ? null : Slots.FirstOrDefault());
+            SelectSlot(usedFallback ? null : Slots.FirstOrDefault(slot => ModeAssignmentPlan.IncludesPhotoRole(slot.AssignmentRole)));
             Status = usedFallback
                 ? "Pratinjau tersimpan siap. Pengeditan slot tidak tersedia pada mode ini."
-                : HasValidPhotoSlotSetup
-                    ? "Pemeriksaan PSD selesai. Area foto valid terdeteksi; PSD master tetap tidak berubah."
-                    : "Pemeriksaan PSD selesai. Slot foto belum disiapkan; penempatan dan ekspor nonaktif.";
+                : ModeAssignmentPlan.TargetsReady
+                    ? ModeAssignmentPlan.StatusText
+                    : $"Pemeriksaan PSD selesai. {ModeAssignmentPlan.StatusText}";
             OnPropertyChanged(nameof(SelectedLogo));
             OnPropertyChanged(nameof(HasSelectedLogo));
             OnPropertyChanged(nameof(LayerTreeSummaryText));
@@ -463,6 +510,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OffsetX = 0;
         OffsetY = 0;
     }
+
+    public IEnumerable<FrameSlot> GetModePhotoSlots() => Slots
+        .Where(slot => slot.IsPhoto && ModeAssignmentPlan.IncludesPhotoRole(slot.AssignmentRole));
 
     public void ClearQueue()
     {
@@ -566,6 +616,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasTemplatePreview));
         OnPropertyChanged(nameof(ShowDetectedAreaList));
         OnPropertyChanged(nameof(HasValidPhotoSlotSetup));
+        OnPropertyChanged(nameof(ModeAssignmentPlan));
+        OnPropertyChanged(nameof(ModeAssignmentStatus));
+        OnPropertyChanged(nameof(PhotoSlotSetupNotice));
         OnPropertyChanged(nameof(ShowPhotoSlotSetupNotice));
         OnPropertyChanged(nameof(EmptyInspectorText));
         OnPropertyChanged(nameof(CanPlaceSelectedSlot));

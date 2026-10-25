@@ -54,6 +54,12 @@ public sealed class PsdTemplateEngineAdapterTests
 
             Assert.True(result.Success, result.Message);
             Assert.Empty(result.Slots);
+            if (layerName == "Photo XL")
+            {
+                var target = Assert.Single(result.LayerTree!.Roots);
+                Assert.Equal(FrameLayerRole.XLPhoto, target.AssignmentRole);
+                Assert.False(target.IsPlacementReady);
+            }
             Assert.DoesNotContain(layerName, result.Message, StringComparison.Ordinal);
         }
         finally
@@ -80,7 +86,10 @@ public sealed class PsdTemplateEngineAdapterTests
             Assert.True(inspection.Success, inspection.Message);
             Assert.Equal(FramePsdSlotType.Photo, slot.Type);
             Assert.True(slot.IsPlacementReady);
+            Assert.Equal(FrameLayerRole.XLPhoto, slot.AssignmentRole);
             Assert.True(Assert.Single(inspection.LayerTree!.Roots).HasClipping);
+            Assert.Equal(FrameLayerRole.XLPhoto, Assert.Single(inspection.LayerTree.Roots).AssignmentRole);
+            Assert.True(Assert.Single(inspection.LayerTree.Roots).IsPlacementReady);
 
             var export = await adapter.ExportCopyAsync(new FramePsdExportRequest(
                 masterPath,
@@ -113,6 +122,9 @@ public sealed class PsdTemplateEngineAdapterTests
 
             Assert.True(result.Success, result.Message);
             Assert.Empty(result.Slots);
+            var diagnostic = Assert.Single(result.LayerTree!.Roots);
+            Assert.Equal(layerName == "XL" ? FrameLayerRole.XLPhoto : FrameLayerRole.SPhoto, diagnostic.AssignmentRole);
+            Assert.False(diagnostic.IsPlacementReady);
         }
         finally
         {

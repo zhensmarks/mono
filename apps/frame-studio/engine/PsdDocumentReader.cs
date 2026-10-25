@@ -210,6 +210,7 @@ public sealed class PsdDocumentReader
             slotHint,
             Array.AsReadOnly(children))
         {
+            IsGroup = children.Length > 0,
             HasMask = layer.LayerMaskData is { LayerMaskDisabled: false },
             HasVectorMask = layer.LayerMaskData is { VectorMaskDensity: not null } or { VectorMaskFeather: not null },
             HasClipping = layer.Clipping

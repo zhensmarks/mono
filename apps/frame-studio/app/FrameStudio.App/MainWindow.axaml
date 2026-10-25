@@ -44,6 +44,17 @@
 
             <Border Height="1" Background="{DynamicResource BorderDefaultBrush}" />
 
+            <StackPanel Spacing="6">
+              <TextBlock Text="Mode penempatan" Classes="sectionTitle" />
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <RadioButton Content="Single" GroupName="FrameAssignmentMode" IsChecked="{Binding IsSingleMode, Mode=TwoWay}" />
+                <RadioButton Content="Kolase" GroupName="FrameAssignmentMode" IsChecked="{Binding IsKolaseMode, Mode=TwoWay}" />
+              </StackPanel>
+              <TextBlock Text="{Binding ModeAssignmentStatus}" Classes="muted" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Height="1" Background="{DynamicResource BorderDefaultBrush}" />
+
             <StackPanel Spacing="7">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                 <TextBlock Text="Foto sumber" Classes="sectionTitle" VerticalAlignment="Center" />

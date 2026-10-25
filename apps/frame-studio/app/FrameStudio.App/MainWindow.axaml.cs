@@ -77,7 +77,7 @@ public partial class MainWindow : Window
 
         if (e.PropertyName == nameof(MainViewModel.TemplatePreviewPng))
             UpdateTemplateCompositePreview();
-        else if (e.PropertyName is nameof(MainViewModel.TemplatePreviewNotice) or nameof(MainViewModel.SelectedSlot) or nameof(MainViewModel.SelectedPhoto) or nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.DocumentWidth) or nameof(MainViewModel.DocumentHeight))
+        else if (e.PropertyName is nameof(MainViewModel.TemplatePreviewNotice) or nameof(MainViewModel.SelectedMode) or nameof(MainViewModel.SelectedSlot) or nameof(MainViewModel.SelectedPhoto) or nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.DocumentWidth) or nameof(MainViewModel.DocumentHeight))
             RebuildArtboard();
     }
 
@@ -170,7 +170,7 @@ public partial class MainWindow : Window
         Canvas.SetTop(TemplateCompositeImage, 0);
         TemplateArtboard.Children.Add(TemplateCompositeImage);
 
-        foreach (var slot in _viewModel.Slots)
+        foreach (var slot in _viewModel.GetModePhotoSlots())
         {
             if (slot.Bounds is not { Width: > 0, Height: > 0 } bounds)
                 continue;
@@ -424,7 +424,10 @@ public partial class MainWindow : Window
     private async void OnExportPngCopies(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (!_viewModel.CanExportPngCopies)
+        {
+            _viewModel.Status = _viewModel.ExportNotice;
             return;
+        }
 
         if (_viewModel.IsFallbackPreviewMode)
         {
@@ -438,9 +441,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var targetSlot = _viewModel.SelectedSlot is { IsPlacementReady: true } selectedSlot && (selectedSlot.IsPhoto || selectedSlot.IsLogo)
+        var modeSlots = _viewModel.GetModePhotoSlots().ToArray();
+        var targetSlot = _viewModel.SelectedSlot is { IsPlacementReady: true } selectedSlot && modeSlots.Contains(selectedSlot)
             ? selectedSlot
-            : _viewModel.Slots.FirstOrDefault(slot => slot.IsPlacementReady && (slot.IsPhoto || slot.IsLogo));
+            : modeSlots.FirstOrDefault(slot => slot.IsPlacementReady);
         if (_viewModel.SourcePhotos.Count > 0 && targetSlot is null)
         {
             _viewModel.Status = "Slot foto belum disiapkan. Ekspor nonaktif.";
@@ -451,8 +455,8 @@ public partial class MainWindow : Window
             _viewModel.Status = "Area foto tidak memiliki batas tervalidasi. Ekspor dibatalkan.";
             return;
         }
-        var unrenderableAssignment = _viewModel.Slots.FirstOrDefault(slot =>
-            (slot.IsPhoto || slot.IsLogo) && slot.Photo is not null && !slot.IsPlacementReady);
+        var unrenderableAssignment = modeSlots.FirstOrDefault(slot =>
+            slot.Photo is not null && !slot.IsPlacementReady);
         if (unrenderableAssignment is not null)
         {
             _viewModel.Status = $"Penempatan pada {unrenderableAssignment.Label} tidak memiliki batas tervalidasi; ekspor dibatalkan.";
@@ -512,7 +516,7 @@ public partial class MainWindow : Window
     {
         if (_viewModel.TemplatePreviewPng is not { Length: > 0 } storedComposite)
             throw new InvalidOperationException("Composite tersimpan tidak tersedia.");
-        var composedPng = _rasterComposer.Compose(storedComposite, _viewModel.Slots);
+        var composedPng = _rasterComposer.Compose(storedComposite, _viewModel.GetModePhotoSlots());
         var masterName = SanitizeFileName(Path.GetFileNameWithoutExtension(_viewModel.MasterPath));
         if (string.IsNullOrWhiteSpace(masterName))
             masterName = "frame-studio";
@@ -627,7 +631,7 @@ public partial class MainWindow : Window
     private void OnArtboardPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var point = e.GetPosition(TemplateArtboard);
-        var slot = _viewModel.Slots.LastOrDefault(item => item.Bounds is { } bounds
+        var slot = _viewModel.GetModePhotoSlots().LastOrDefault(item => item.Bounds is { } bounds
             && point.X >= bounds.X && point.X <= bounds.X + bounds.Width
             && point.Y >= bounds.Y && point.Y <= bounds.Y + bounds.Height);
         if (slot is null)

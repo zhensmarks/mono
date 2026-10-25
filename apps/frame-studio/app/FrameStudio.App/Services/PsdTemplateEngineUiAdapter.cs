@@ -87,7 +87,8 @@ public sealed class PsdTemplateEngineUiAdapter : IPsdTemplateAdapter
                 slot.Bounds is { } bounds
                     ? new PsdSlotBounds(bounds.X, bounds.Y, bounds.Width, bounds.Height)
                     : null,
-                IsPlacementReady: slot.IsPlacementReady);
+                IsPlacementReady: slot.IsPlacementReady,
+                AssignmentRole: slot.AssignmentRole);
         }).ToArray();
 
         return new PsdTemplateInspection(

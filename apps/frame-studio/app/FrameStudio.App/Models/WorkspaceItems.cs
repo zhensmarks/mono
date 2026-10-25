@@ -1,4 +1,5 @@
 using Avalonia.Media.Imaging;
+using FrameStudio.Engine;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
@@ -32,7 +33,7 @@ public sealed class FrameSlot : INotifyPropertyChanged
     private bool _isFitMode;
     private readonly bool _isPlacementReady;
 
-    public FrameSlot(string id, string label, SlotKind kind, string helper, string? value = null, FrameSlotBounds? bounds = null, bool isPlacementReady = false)
+    public FrameSlot(string id, string label, SlotKind kind, string helper, string? value = null, FrameSlotBounds? bounds = null, bool isPlacementReady = false, FrameLayerRole assignmentRole = FrameLayerRole.None)
     {
         Id = id;
         Label = label;
@@ -41,6 +42,7 @@ public sealed class FrameSlot : INotifyPropertyChanged
         _value = value;
         Bounds = bounds;
         _isPlacementReady = isPlacementReady;
+        AssignmentRole = assignmentRole;
     }
 
     public string Id { get; }
@@ -57,6 +59,7 @@ public sealed class FrameSlot : INotifyPropertyChanged
     public FrameSlotBounds? Bounds { get; }
     public bool HasBounds => Bounds is { Width: > 0, Height: > 0 };
     public bool IsPlacementReady => _isPlacementReady && HasBounds;
+    public FrameLayerRole AssignmentRole { get; }
     public bool IsPhoto => Kind == SlotKind.Photo;
     public bool IsText => Kind == SlotKind.Text;
     public bool IsLogo => Kind == SlotKind.Logo;
