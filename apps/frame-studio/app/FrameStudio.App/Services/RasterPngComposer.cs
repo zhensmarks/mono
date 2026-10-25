@@ -80,18 +80,20 @@ public sealed class RasterPngComposer
 
         using var paint = new SKPaint
         {
-            IsAntialias = true,
-            FilterQuality = SKFilterQuality.High
+            IsAntialias = true
         };
+        using var image = SKImage.FromBitmap(source);
+        var sampling = new SKSamplingOptions(new SKCubicResampler(1f / 3f, 1f / 3f));
 
         canvas.Save();
         canvas.ClipRect(destination, SKClipOperation.Intersect, antialias: false);
         canvas.Translate(centerX, centerY);
         canvas.RotateDegrees((float)slot.Rotation);
-        canvas.DrawBitmap(
-            source,
+        canvas.DrawImage(
+            image,
             new SKRect(0, 0, source.Width, source.Height),
             new SKRect(-drawWidth / 2, -drawHeight / 2, drawWidth / 2, drawHeight / 2),
+            sampling,
             paint);
         canvas.Restore();
     }
@@ -99,21 +101,20 @@ public sealed class RasterPngComposer
     private static void DrawTextSlot(SKCanvas canvas, FrameSlot slot, string value, SKRect destination)
     {
         using var typeface = SKTypeface.FromFamilyName("Arial") ?? SKTypeface.Default;
+        using var font = new SKFont(typeface, Math.Clamp(destination.Height * 0.22f, 10, 160), 1f, 0);
         using var paint = new SKPaint
         {
             Color = SKColors.White,
-            IsAntialias = true,
-            Typeface = typeface,
-            TextSize = Math.Clamp(destination.Height * 0.22f, 10, 160)
+            IsAntialias = true
         };
 
-        var lines = Wrap(value, paint, Math.Max(1, destination.Width - 12));
+        var lines = Wrap(value, font, paint, Math.Max(1, destination.Width - 12));
         if (lines.Count == 0)
             return;
 
-        var lineHeight = paint.TextSize * 1.2f;
+        var lineHeight = font.Size * 1.2f;
         var blockHeight = lineHeight * lines.Count;
-        var baseline = -blockHeight / 2 + paint.TextSize;
+        var baseline = -blockHeight / 2 + font.Size;
         var centerX = destination.MidX + (float)slot.OffsetX * destination.Width;
         var centerY = destination.MidY + (float)slot.OffsetY * destination.Height;
 
@@ -125,13 +126,13 @@ public sealed class RasterPngComposer
         for (var index = 0; index < lines.Count; index++)
         {
             var line = lines[index];
-            var x = -paint.MeasureText(line) / 2;
-            canvas.DrawText(line, x, baseline + index * lineHeight, paint);
+            var x = -font.MeasureText(line, paint) / 2;
+            canvas.DrawText(line, x, baseline + index * lineHeight, font, paint);
         }
         canvas.Restore();
     }
 
-    private static List<string> Wrap(string text, SKPaint paint, float maxWidth)
+    private static List<string> Wrap(string text, SKFont font, SKPaint paint, float maxWidth)
     {
         var lines = new List<string>();
         foreach (var paragraph in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
@@ -140,7 +141,7 @@ public sealed class RasterPngComposer
             foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
                 var candidate = string.IsNullOrEmpty(line) ? word : $"{line} {word}";
-                if (line.Length > 0 && paint.MeasureText(candidate) > maxWidth)
+                if (line.Length > 0 && font.MeasureText(candidate, paint) > maxWidth)
                 {
                     lines.Add(line);
                     line = word;

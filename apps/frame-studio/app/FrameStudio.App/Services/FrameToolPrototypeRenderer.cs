@@ -139,38 +139,33 @@ public sealed class FrameToolPrototypeRenderer
         using var titleTypeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Bold) ?? SKTypeface.Default;
         using var regularTypeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Normal) ?? SKTypeface.Default;
 
+        using var fieldFont = new SKFont(regularTypeface, 13f, 1.05f, 0);
+        using var smallMutedFont = new SKFont(regularTypeface, 12f, 1f, 0);
+        using var titleFont = new SKFont(titleTypeface, 40f, 0.95f, 0);
+        using var bodyFont = new SKFont(regularTypeface, 15f, 1f, 0);
+        using var labelDarkFont = new SKFont(titleTypeface, 11f, 1f, 0);
+        using var labelMutedFont = new SKFont(regularTypeface, 11f, 1f, 0);
+
         canvas.DrawLine(62, 84, 898, 84, rule);
-        dark.Typeface = regularTypeface;
-        dark.TextSize = 13;
-        dark.TextScaleX = 1.05f;
-        canvas.DrawText("FIELD NOTES   /   FRAME STUDY", 64, 61, dark);
-        muted.TextSize = 12;
-        canvas.DrawText("SYNTHETIC ARTBOARD     ·     01", 715, 61, muted);
+        canvas.DrawText("FIELD NOTES   /   FRAME STUDY", 64, 61, SKTextAlign.Left, fieldFont, dark);
+        canvas.DrawText("SYNTHETIC ARTBOARD     ·     01", 715, 61, SKTextAlign.Left, smallMutedFont, muted);
 
         using var divider = new SKPaint { Color = SKColor.Parse("#C8C1B4"), StrokeWidth = 1.2f, IsAntialias = true };
         canvas.DrawLine(684, 124, 684, 563, divider);
 
-        dark.Typeface = titleTypeface;
-        dark.TextSize = 40;
-        dark.TextScaleX = 0.95f;
-        canvas.DrawText("JENDELA", 720, 253, dark);
-        canvas.DrawText("KE JEDA", 720, 301, dark);
+        canvas.DrawText("JENDELA", 720, 253, SKTextAlign.Left, titleFont, dark);
+        canvas.DrawText("KE JEDA", 720, 301, SKTextAlign.Left, titleFont, dark);
 
-        muted.Typeface = regularTypeface;
-        muted.TextSize = 15;
-        canvas.DrawText("Satu ruang untuk foto", 721, 345, muted);
-        canvas.DrawText("yang ingin disimpan.", 721, 368, muted);
+        canvas.DrawText("Satu ruang untuk foto", 721, 345, SKTextAlign.Left, bodyFont, muted);
+        canvas.DrawText("yang ingin disimpan.", 721, 368, SKTextAlign.Left, bodyFont, muted);
         canvas.DrawLine(721, 399, 848, 399, rule);
 
-        dark.TextSize = 11;
-        canvas.DrawText("FRAME  /  01", 721, 428, dark);
-        muted.TextSize = 11;
-        canvas.DrawText("BENTUK DITENTUKAN PENGGUNA", 721, 451, muted);
+        canvas.DrawText("FRAME  /  01", 721, 428, SKTextAlign.Left, labelDarkFont, dark);
+        canvas.DrawText("BENTUK DITENTUKAN PENGGUNA", 721, 451, SKTextAlign.Left, labelMutedFont, muted);
 
         canvas.DrawLine(62, 584, 898, 584, rule);
-        muted.TextSize = 11;
-        canvas.DrawText("CONTOH VISUAL SINTETIS", 64, 609, muted);
-        canvas.DrawText("FOTO TERPOTONG MENGIKUTI MASK", 681, 609, muted);
+        canvas.DrawText("CONTOH VISUAL SINTETIS", 64, 609, SKTextAlign.Left, labelMutedFont, muted);
+        canvas.DrawText("FOTO TERPOTONG MENGIKUTI MASK", 681, 609, SKTextAlign.Left, labelMutedFont, muted);
     }
 
     private static void DrawForeground(SKCanvas canvas)
@@ -235,15 +230,18 @@ public sealed class FrameToolPrototypeRenderer
         var centerX = bounds.MidX + (float)Math.Clamp(offsetX, -2, 2) * bounds.Width;
         var centerY = bounds.MidY + (float)Math.Clamp(offsetY, -2, 2) * bounds.Height;
 
-        using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High };
+        using var paint = new SKPaint { IsAntialias = true };
+        using var image = SKImage.FromBitmap(photo);
+        var sampling = new SKSamplingOptions(new SKCubicResampler(1f / 3f, 1f / 3f));
         canvas.Save();
         canvas.ClipPath(path, SKClipOperation.Intersect, antialias: true);
         canvas.Translate(centerX, centerY);
         canvas.RotateDegrees((float)rotation);
-        canvas.DrawBitmap(
-            photo,
+        canvas.DrawImage(
+            image,
             new SKRect(0, 0, photo.Width, photo.Height),
             new SKRect(-drawWidth / 2, -drawHeight / 2, drawWidth / 2, drawHeight / 2),
+            sampling,
             paint);
         canvas.Restore();
     }

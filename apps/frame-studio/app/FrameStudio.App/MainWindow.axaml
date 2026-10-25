@@ -36,7 +36,7 @@
             <StackPanel Spacing="6">
               <TextBlock Text="PSD master" Classes="sectionTitle" />
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                <TextBox Text="{Binding MasterPathDisplayText}" Watermark="Belum ada master" IsReadOnly="True" />
+                <TextBox Text="{Binding MasterPathDisplayText}" PlaceholderText="Belum ada master" IsReadOnly="True" />
                 <Button Grid.Column="1" Content="Pilih" Classes="ToolBtn small" Click="OnChooseMaster" />
               </Grid>
               <TextBlock Text="{Binding TemplateStatus}" Classes="muted" TextWrapping="Wrap" />
@@ -50,7 +50,7 @@
                 <Button Grid.Column="1" Content="Tambah" Classes="ToolBtn small" Click="OnChoosePhotos" IsEnabled="{Binding CanEditPhotoTextLogo}" />
               </Grid>
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                <TextBox Text="{Binding SourcePath}" Watermark="Folder foto" IsReadOnly="True" />
+                <TextBox Text="{Binding SourcePath}" PlaceholderText="Folder foto" IsReadOnly="True" />
                 <Button Grid.Column="1" Content="Pilih folder" Classes="ToolBtn small" Click="OnChooseSourceFolder" IsEnabled="{Binding CanEditPhotoTextLogo}" />
               </Grid>
               <Grid ColumnDefinitions="*,Auto">
@@ -106,7 +106,7 @@
           </Grid>
           <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
             <TextBlock Text="Folder hasil" Classes="muted" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding OutputPath}" Watermark="Pilih folder output" IsReadOnly="True" />
+            <TextBox Grid.Column="1" Text="{Binding OutputPath}" PlaceholderText="Pilih folder output" IsReadOnly="True" />
             <Button Grid.Column="2" Content="Pilih" Classes="ToolBtn small" Click="OnChooseOutputFolder" />
           </Grid>
         </Grid>
@@ -164,7 +164,7 @@
                   <Button Content="Muat penuh" Classes="ToolBtn small" Click="OnFitFrame" />
                 </StackPanel>
                 <StackPanel Spacing="6" IsVisible="{Binding HasTextCandidateSelected}">
-                  <TextBox Text="{Binding SelectedSlot.Value, Mode=TwoWay}" Watermark="Isi nama atau alamat" IsEnabled="{Binding CanEditPhotoTextLogo}" TextChanged="OnPreviewTextChanged" />
+                  <TextBox Text="{Binding SelectedSlot.Value, Mode=TwoWay}" PlaceholderText="Isi nama atau alamat" IsEnabled="{Binding CanEditPhotoTextLogo}" TextChanged="OnPreviewTextChanged" />
                   <TextBlock Text="Teks ditambahkan sebagai overlay PNG; teks asli pada komposit mungkin tetap terlihat." Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
               </StackPanel>

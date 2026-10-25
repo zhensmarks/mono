@@ -31,6 +31,8 @@ Ekspor yang diaktifkan dimulai dari PNG komposit tersimpan, lalu menambahkan ove
 
 Dari direktori utama repository:
 
+Solusi tetap menargetkan `net8.0`, tetapi compiler build Avalonia 12.1 membutuhkan .NET 10 SDK. Aplikasi hasil build tetap berjalan dengan .NET 8 runtime.
+
 ```sh
 dotnet build apps/frame-studio/app/FrameStudio.sln --configuration Release
 dotnet test apps/frame-studio/app/FrameStudio.sln --configuration Release

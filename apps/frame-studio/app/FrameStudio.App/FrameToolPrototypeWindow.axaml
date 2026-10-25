@@ -86,7 +86,7 @@
           </StackPanel>
           <TextBlock Grid.Column="1" Text="960 × 640 px" Classes="muted" VerticalAlignment="Center" />
         </Grid>
-        <Border Grid.Row="1" Background="{DynamicResource CanvasBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="12" ClipToBounds="True" DragDrop.AllowDrop="True" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop">
+        <Border Grid.Row="1" Classes="dropTarget" Background="{DynamicResource CanvasBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="12" ClipToBounds="True" DragDrop.AllowDrop="True" DragDrop.DragEnter="OnPhotoDragEnter" DragDrop.DragLeave="OnPhotoDragLeave" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop">
           <Viewbox Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="960" MaxHeight="640">
             <Grid x:Name="CanvasInputSurface" Width="960" Height="640" Background="Transparent" PointerPressed="OnCanvasPointerPressed" PointerMoved="OnCanvasPointerMoved" PointerReleased="OnCanvasPointerReleased">
               <Image x:Name="ArtboardImage" Width="960" Height="640" Stretch="Fill" IsHitTestVisible="False" />
@@ -96,7 +96,7 @@
         </Border>
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10">
           <TextBlock x:Name="CanvasStatusText" Text="Foto contoh ilustratif · mask poligon aktif" Classes="muted" VerticalAlignment="Center" TextWrapping="Wrap" />
-          <TextBlock Grid.Column="1" Text="Drop foto langsung di kanvas" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="Tarik foto ke kanvas atau area foto" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
         </Grid>
       </Grid>
 
@@ -109,11 +109,11 @@
             </StackPanel>
 
             <Button Content="Pilih foto…" Classes="ToolBtn" Click="OnChoosePhoto" HorizontalAlignment="Stretch" />
-            <Border x:Name="PhotoDropZone" Background="{DynamicResource InputBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="12" DragDrop.AllowDrop="True" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop">
+            <Border x:Name="PhotoDropZone" Classes="dropTarget" Background="{DynamicResource InputBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="12" DragDrop.AllowDrop="True" DragDrop.DragEnter="OnPhotoDragEnter" DragDrop.DragLeave="OnPhotoDragLeave" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop">
               <StackPanel Spacing="4">
                 <TextBlock x:Name="PhotoNameText" Text="Contoh ilustratif bawaan" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
                 <TextBlock Text="JPG · PNG · BMP · WebP" Classes="muted" />
-                <TextBlock Text="Bisa juga tarik file foto ke kanvas ini." Classes="muted" TextWrapping="Wrap" />
+                <TextBlock x:Name="PhotoDropHintText" Text="Tarik foto ke sini untuk langsung mengisi bingkai." Classes="muted" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
 

@@ -21,6 +21,12 @@ public partial class FrameToolPrototypeWindow : Window
         Polygon
     }
 
+    private const string DefaultPhotoDropHint = "Tarik foto ke sini untuk langsung mengisi bingkai.";
+    private static readonly HashSet<string> SupportedPhotoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".bmp", ".webp"
+    };
+
     private readonly FrameToolPrototypeRenderer _renderer = new();
     private readonly List<NormalizedFramePoint> _polygonPoints = [];
     private FrameMask? _mask = FrameMask.ExamplePolygon();
@@ -332,30 +338,68 @@ public partial class FrameToolPrototypeWindow : Window
         LoadPhoto(path);
     }
 
+    private void OnPhotoDragEnter(object? sender, DragEventArgs e)
+    {
+        var canAcceptPhoto = GetSupportedPhotoPath(e.DataTransfer) is not null;
+        if (sender is Border target)
+            target.Classes.Set("dropActive", canAcceptPhoto);
+
+        if (ReferenceEquals(sender, PhotoDropZone))
+            PhotoDropHintText.Text = canAcceptPhoto
+                ? "Lepaskan untuk langsung mengisi bingkai."
+                : "Gunakan JPG, PNG, BMP, atau WebP.";
+        else if (canAcceptPhoto)
+            CanvasStatusText.Text = "Lepaskan foto pada kanvas untuk mengisi bingkai.";
+    }
+
+    private void OnPhotoDragLeave(object? sender, DragEventArgs e)
+    {
+        if (sender is Border target)
+            target.Classes.Set("dropActive", false);
+
+        if (ReferenceEquals(sender, PhotoDropZone))
+            PhotoDropHintText.Text = DefaultPhotoDropHint;
+    }
+
     private void OnCanvasDragOver(object? sender, DragEventArgs e)
     {
-        var hasFile = e.DataTransfer.Formats.Contains(DataFormat.File)
-            && e.DataTransfer.TryGetFiles()?.Any(item => item.Path.IsFile) == true;
-        e.DragEffects = hasFile ? DragDropEffects.Copy : DragDropEffects.None;
+        e.DragEffects = GetSupportedPhotoPath(e.DataTransfer) is not null
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
         e.Handled = true;
     }
 
     private void OnCanvasDrop(object? sender, DragEventArgs e)
     {
-        var path = e.DataTransfer.Formats.Contains(DataFormat.File)
-            ? e.DataTransfer.TryGetFiles()?.FirstOrDefault(item => item.Path.IsFile)?.Path.LocalPath
-            : null;
+        var path = GetSupportedPhotoPath(e.DataTransfer);
+        if (sender is Border target)
+            target.Classes.Set("dropActive", false);
+
         if (path is not null)
             LoadPhoto(path);
         else
-            CanvasStatusText.Text = "Drop satu file foto lokal yang didukung.";
+            CanvasStatusText.Text = "Jatuhkan foto JPG, PNG, BMP, atau WebP.";
+
+        if (ReferenceEquals(sender, PhotoDropZone))
+            PhotoDropHintText.Text = DefaultPhotoDropHint;
         e.Handled = true;
+    }
+
+    private static string? GetSupportedPhotoPath(IDataTransfer dataTransfer)
+    {
+        if (!dataTransfer.Formats.Contains(DataFormat.File))
+            return null;
+
+        return dataTransfer.TryGetFiles()?
+            .Where(item => item.Path.IsFile)
+            .Select(item => item.Path.LocalPath)
+            .FirstOrDefault(path => SupportedPhotoExtensions.Contains(System.IO.Path.GetExtension(path)));
     }
 
     private void LoadPhoto(string path)
     {
         var extension = System.IO.Path.GetExtension(path);
-        if (!new[] { ".jpg", ".jpeg", ".png", ".bmp", ".webp" }.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        if (!SupportedPhotoExtensions.Contains(extension))
         {
             CanvasStatusText.Text = "Format foto tidak didukung. Gunakan JPG, PNG, BMP, atau WebP.";
             return;
@@ -374,6 +418,7 @@ public partial class FrameToolPrototypeWindow : Window
             _photo?.Dispose();
             _photo = nextPhoto;
             PhotoNameText.Text = System.IO.Path.GetFileName(path);
+            PhotoDropHintText.Text = DefaultPhotoDropHint;
             _offsetX = 0;
             _offsetY = 0;
             OnResetCrop(null, new RoutedEventArgs());
