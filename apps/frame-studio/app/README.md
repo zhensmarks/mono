@@ -2,6 +2,12 @@
 
 Frame Studio adalah ruang kerja desktop untuk template PSD. PSD/PSB master dibuka hanya-baca dan foto sumber tetap lokal. Nama layer seperti `XL` atau `S` tidak cukup untuk membuat slot foto; area gambar hanya dianggap siap bila memiliki batas positif yang beririsan dengan kanvas serta bukti mask, mask vektor, atau clipping.
 
+## Prototype Bingkai Foto
+
+Tombol **Bingkai Foto · preview** membuka alur eksperimen yang terpisah dari parser PSD dan kandidat `FrameSlot`. Prototype memakai artboard serta foto contoh sintetis, mendukung mask persegi panjang dan poligon sederhana dengan titik ternormalisasi, memilih salah satu dari dua posisi layer yang disimulasikan, menerima foto lokal lewat picker atau drop, lalu mengatur crop, zoom, dan rotasi. Mask dan titik sisip disimpan sebagai data bingkai pengguna; bingkai dapat disimpan dan dipakai ulang selama sesi prototype.
+
+Preview dan ekspor PNG memakai hasil render yang sama, termasuk clip path mask. PNG merupakan raster pratinjau saja. PSD berlapis tetap nonaktif; prototype tidak membaca atau mengubah master PSD, dan mask/effect Photoshop lain belum didukung. Jalankan `FrameStudio.App --frame-tool-prototype` untuk membuka demo langsung.
+
 ## Alur saat ini
 
 1. Pilih satu PSD/PSB master, folder foto sumber (atau beberapa file gambar), dan folder output.

@@ -1,0 +1,158 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="FrameStudio.App.FrameToolPrototypeWindow"
+        Title="Bingkai Foto · Prototype"
+        Width="1280" Height="800" MinWidth="1120" MinHeight="720"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+  <Grid RowDefinitions="66,*,34">
+    <Border Grid.Row="0" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto,*" Margin="22,0">
+        <StackPanel VerticalAlignment="Center" Spacing="2">
+          <TextBlock Text="Frame Studio" FontSize="16" FontWeight="SemiBold" />
+          <TextBlock Text="Bingkai Foto · prototype UI" Classes="muted" />
+        </StackPanel>
+        <Border Grid.Column="1" Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="10,6" VerticalAlignment="Center">
+          <TextBlock Text="PREVIEW ONLY  ·  ARTBOARD SINTETIS" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+        </Border>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <Button Content="Reset demo" Classes="ToolBtn" Click="OnResetDemo" />
+          <Button Content="Tutup" Classes="ToolBtn" Click="OnClose" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="254,*,286" Margin="14,12" ColumnSpacing="12">
+      <Border Grid.Column="0" Classes="panel">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="15">
+            <StackPanel Spacing="4">
+              <TextBlock Text="1  ·  Bentuk bingkai" Classes="h2" />
+              <TextBlock Text="Gambar area foto satu kali; ukuran layer tidak menentukan bingkai." Classes="muted" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="7">
+              <Button Content="Persegi panjang" Classes="ToolBtn small" Click="OnChooseRectangle" />
+              <Button Grid.Column="1" Content="Poligon" Classes="ToolBtn small" Click="OnChoosePolygon" />
+            </Grid>
+            <TextBlock x:Name="ShapeInstructions" Text="Tarik pada artboard untuk membentuk bingkai. Foto contoh sudah terpotong mengikuti poligon." Classes="muted" TextWrapping="Wrap" />
+            <Button x:Name="FinishPolygonButton" Content="Selesaikan poligon" Classes="ToolBtn" Click="OnFinishPolygon" IsEnabled="False" />
+            <Button x:Name="ConfirmFrameButton" Content="Konfirmasi bingkai" Classes="ActionBtn" Click="OnConfirmFrame" />
+            <TextBlock x:Name="FrameStateText" Text="Poligon contoh · terkonfirmasi" FontSize="11" Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" />
+
+            <Border Height="1" Background="{DynamicResource BorderDefaultBrush}" />
+            <StackPanel Spacing="4">
+              <TextBlock Text="2  ·  Posisi di artwork" Classes="sectionTitle" />
+              <ComboBox x:Name="InsertionPointCombo" SelectedIndex="0" SelectionChanged="OnInsertionPointChanged">
+                <ComboBoxItem Content="Di antara latar &amp; ornamen" />
+                <ComboBoxItem Content="Di atas ornamen" />
+              </ComboBox>
+              <TextBlock Text="Ornamen garis pada artboard contoh adalah layer depan sintetis." Classes="muted" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Height="1" Background="{DynamicResource BorderDefaultBrush}" />
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Bingkai tersimpan" Classes="sectionTitle" VerticalAlignment="Center" />
+                <TextBlock Text="SESI INI" FontSize="9" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+              </Grid>
+              <TextBlock Text="Preset bisa dipakai ulang selama prototype terbuka." Classes="muted" TextWrapping="Wrap" />
+              <ListBox x:Name="SavedFramesList" Height="120" Background="Transparent" BorderThickness="0" Padding="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Border Classes="queueItem">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Description}" Classes="muted" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="7">
+                <Button Content="Simpan bingkai" Classes="ToolBtn small" Click="OnSaveFrame" />
+                <Button Grid.Column="1" Content="Gunakan" Classes="ToolBtn small" Click="OnUseSavedFrame" IsEnabled="False" x:Name="UseSavedFrameButton" />
+              </Grid>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" RowSpacing="9" MinWidth="420">
+        <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+          <StackPanel Spacing="2">
+            <TextBlock Text="Kanvas" Classes="h2" />
+            <TextBlock Text="Bingkai dapat digambar ulang; tarik foto untuk mengatur crop." Classes="muted" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Text="960 × 640 px" Classes="muted" VerticalAlignment="Center" />
+        </Grid>
+        <Border Grid.Row="1" Background="{DynamicResource CanvasBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="12" ClipToBounds="True" DragDrop.AllowDrop="True" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop">
+          <Viewbox Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="960" MaxHeight="640">
+            <Grid x:Name="CanvasInputSurface" Width="960" Height="640" Background="Transparent" PointerPressed="OnCanvasPointerPressed" PointerMoved="OnCanvasPointerMoved" PointerReleased="OnCanvasPointerReleased">
+              <Image x:Name="ArtboardImage" Width="960" Height="640" Stretch="Fill" IsHitTestVisible="False" />
+              <Canvas x:Name="DrawingOverlay" Width="960" Height="640" IsHitTestVisible="False" />
+            </Grid>
+          </Viewbox>
+        </Border>
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+          <TextBlock x:Name="CanvasStatusText" Text="Foto contoh ilustratif · mask poligon aktif" Classes="muted" VerticalAlignment="Center" TextWrapping="Wrap" />
+          <TextBlock Grid.Column="1" Text="Drop foto langsung di kanvas" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+        </Grid>
+      </Grid>
+
+      <Border Grid.Column="2" Classes="panel">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="14">
+            <StackPanel Spacing="3">
+              <TextBlock Text="3  ·  Foto &amp; crop" Classes="h2" />
+              <TextBlock Text="Mask yang sama memotong foto di preview dan PNG." Classes="muted" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Button Content="Pilih foto…" Classes="ToolBtn" Click="OnChoosePhoto" HorizontalAlignment="Stretch" />
+            <Border x:Name="PhotoDropZone" Background="{DynamicResource InputBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="12" DragDrop.AllowDrop="True" DragDrop.DragOver="OnCanvasDragOver" DragDrop.Drop="OnCanvasDrop">
+              <StackPanel Spacing="4">
+                <TextBlock x:Name="PhotoNameText" Text="Contoh ilustratif bawaan" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="JPG · PNG · BMP · WebP" Classes="muted" />
+                <TextBlock Text="Bisa juga tarik file foto ke kanvas ini." Classes="muted" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <StackPanel Spacing="5">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Zoom / crop" Classes="sectionTitle" />
+                <TextBlock x:Name="ZoomValueText" Text="100%" Classes="muted" />
+              </Grid>
+              <Slider x:Name="ZoomSlider" Minimum="0.5" Maximum="2.5" Value="1" ValueChanged="OnCropControlChanged" />
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Rotasi" Classes="sectionTitle" />
+                <TextBlock x:Name="RotationValueText" Text="0°" Classes="muted" />
+              </Grid>
+              <Slider x:Name="RotationSlider" Minimum="-15" Maximum="15" Value="0" ValueChanged="OnCropControlChanged" />
+              <Button Content="Reset crop" Classes="ToolBtn small" Click="OnResetCrop" HorizontalAlignment="Left" />
+            </StackPanel>
+
+            <Border Height="1" Background="{DynamicResource BorderDefaultBrush}" />
+            <Border Background="{DynamicResource AccentSubtleBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="6" Padding="10">
+              <StackPanel Spacing="4">
+                <TextBlock Text="Batas dukungan" Classes="sectionTitle" />
+                <TextBlock Text="Mask persegi &amp; poligon sederhana aktif. Mask PSD, clipping, dan efek layer lain belum didukung." Classes="muted" TextWrapping="Wrap" />
+                <TextBlock Text="Artboard dan foto contoh dibuat sintetis; tidak ada master pengguna yang dibuka." FontSize="10" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <Button x:Name="ExportPngButton" Content="Ekspor PNG pratinjau" Classes="ActionBtn" Click="OnExportPng" IsEnabled="False" HorizontalAlignment="Stretch" />
+            <Button Content="Simpan sebagai PSD" Classes="ToolBtn" IsEnabled="False" ToolTip.Tip="PSD berlapis nonaktif: writer dan preservasi struktur belum terverifikasi." HorizontalAlignment="Stretch" />
+            <TextBlock Text="PNG adalah raster dari preview yang sedang tampil. PSD tidak ditulis." Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="2" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto" Margin="18,0">
+        <TextBlock x:Name="FooterStatusText" Text="Preview only · tidak membaca atau menyimpan PSD." Classes="muted" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="Mask foto diterapkan sebagai path clip" Classes="muted" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

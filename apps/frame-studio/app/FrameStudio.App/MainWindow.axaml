@@ -14,6 +14,7 @@
           <TextBlock Text="Alur kerja template PSD" Classes="muted" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Content="Bingkai Foto · preview" Classes="ToolBtn small" Click="OnOpenFrameToolPrototype" />
           <TextBlock Text="01 Master" FontSize="11" FontWeight="SemiBold" />
           <TextBlock Text="/" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" />
           <TextBlock Text="02 Foto" Classes="muted" />

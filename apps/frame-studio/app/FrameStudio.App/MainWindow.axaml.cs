@@ -64,6 +64,12 @@ public partial class MainWindow : Window
         RebuildArtboard();
     }
 
+    private void OnOpenFrameToolPrototype(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var prototype = new FrameToolPrototypeWindow { WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        prototype.Show(this);
+    }
+
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(MainViewModel.Zoom) or nameof(MainViewModel.Rotation) or nameof(MainViewModel.OffsetX) or nameof(MainViewModel.OffsetY) or nameof(MainViewModel.IsFitMode) or nameof(MainViewModel.SelectedPhoto))

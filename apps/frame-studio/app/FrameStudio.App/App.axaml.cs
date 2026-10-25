@@ -12,7 +12,12 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.MainWindow = new MainWindow(GetStartupPsdPath(desktop.Args ?? Array.Empty<string>()));
+        {
+            var args = desktop.Args ?? Array.Empty<string>();
+            desktop.MainWindow = args.Contains("--frame-tool-prototype", StringComparer.Ordinal)
+                ? new FrameToolPrototypeWindow()
+                : new MainWindow(GetStartupPsdPath(args));
+        }
 
         base.OnFrameworkInitializationCompleted();
     }
