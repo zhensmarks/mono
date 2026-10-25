@@ -27,9 +27,7 @@ The psd-tools allocation budget is **not** a total process-memory cap. The sidec
 
 ## Why layered PSD export remains disabled
 
-A disposable copy of the local 2953×4488 RGB 8-bit sample was used for writer testing; the master itself remained read-only. In a metadata-only rename round-trip, psd-tools reopened the output and retained the observed structure counts: 30 layers, 5 groups, 3 text layers, 11 masks, 1 effect-bearing layer, and the `lfxs` block. The stored composite hash matched before and after.
-
-That result was not sufficient for editing. A second test hid one visible pixel layer in the disposable copy. The visibility change persisted after save/reopen and the same structural counts remained, but psd-tools reported that its preview update failed because rendering the sample's gradient fills required the optional SciPy dependency. Its merged-composite hash therefore remained unchanged. ImageMagick 6.9.12 independently opened both PSDs as 2953×4488 sRGB 8-bit and found zero changed pixels in the merged composite, despite the saved visibility change. This is a confirmed stale-composite failure, so `CanWriteLayeredPsd`, photo/text/logo editing, and assignment-based export remain `false`.
+An earlier metadata-only save/reopen check on a disposable test copy preserved the stored composite, but did not establish full writer fidelity. A separate visibility-change check persisted the layer edit while leaving the stored composite unchanged, demonstrating a stale-composite failure. Consequently, layered PSD writing, photo/text/logo editing, and assignment-based export remain disabled (`CanWriteLayeredPsd = false`).
 
 The reader fallback uses the original stored composite and does not run the incomplete layer renderer. A future writer must update the pixel layer and merged composite, preserve unknown tagged blocks and text/mask/effect/group data, pass independent-reader checks, and open correctly in a Photoshop-compatible editor before any write capability is enabled.
 
@@ -42,11 +40,11 @@ The reader fallback uses the original stored composite and does not run the inco
 - treats `FramePsdLayer.Kind`, `HasMask`, `HasVectorMask`, `HasClipping`, and `HasEffects` as read-only metadata, not proof that a layer can be edited;
 - treat `CompositePreview` as the stored composite, not a render from the current layer visibility/tree;
 - shows only anonymous, generic layer labels and read-only structural summaries;
-- requires positive in-canvas bounds plus mask, vector-mask, or clipping evidence before an image candidate is exposed as placement-ready; name-only `XL`/`S` hints are not photo slots;
-- keeps placement and PNG export disabled until at least one validated photo target exists; fallback preview remains read-only; and
+- requires positive in-canvas bounds and an exact verified binary aperture before an image candidate is exposed as placement-ready; names or metadata flags alone are not photo slots;
+- keeps automatic placement gated on a validated aperture; fallback PSD layers remain read-only while manual frames export only as separate PNG copies; and
 - gates the sidecar off on unverified desktop platforms and does not advertise mobile support.
 
-`InspectAsync` returns `Success`, a fixed safe `Message`, anonymous text/image descriptors (image descriptors require validated bounds and mask/clipping evidence), a sanitized layer-tree summary, the stored-composite PNG, `EngineCapabilities`, and `FailureKind`. Source layer names and current text values are not returned to the UI. Failure categories distinguish missing/access-denied/unsupported/parser failures; none claims the source is corrupt. `IsAvailable` means the adapter exists, not that a particular PSD will parse.
+`InspectAsync` returns `Success`, a fixed safe `Message`, anonymous text/image descriptors (image placement requires in-canvas bounds and an exact verified binary aperture), a sanitized layer-tree summary, the stored-composite PNG, `EngineCapabilities`, and `FailureKind`. Source layer names and current text values are not returned to the UI. Failure categories distinguish missing/access-denied/unsupported/parser failures; none claims the source is corrupt. `IsAvailable` means the adapter exists, not that a particular PSD will parse.
 
 `ExportCopyAsync` rejects non-empty `SlotAssignments` before reading or creating an output folder. It also refuses to write until a validated photo target exists. When allowed, it writes only a new flattened PNG from a supported stored composite; this is not a layered output, does not use `SourceFolder`, and does not overwrite existing output paths. The Avalonia app's separate raster overlay path additionally stays gated until its slot readiness checks pass; neither path claims Photoshop Frame Tool or mask-render fidelity.
 
