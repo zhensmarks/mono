@@ -487,9 +487,11 @@ def is_8r_path(pilihan_path, rel_dir):
     parts = rel_dir.split(os.sep) if rel_dir not in ('.', '') else []
     # Cek dari folder terdalam ke atas (prioritas folder terdekat)
     for p in reversed(parts):
-        if '8R' in p.upper(): return True
-        if '10RP' in p.upper(): return False
-    return '8R' in os.path.basename(pilihan_path).upper()
+        p_clean = re.sub(r'[\s_\-]+', '', p.upper())
+        if '10RP' in p_clean: return False
+        if '8R' in p_clean: return True
+    base_clean = re.sub(r'[\s_\-]+', '', os.path.basename(pilihan_path).upper())
+    return '8R' in base_clean
 
 # ---------- Core ----------
 def process_images(master_path_profesi, master_path_sporty, pilihan_path, output_path, config_data,
@@ -802,17 +804,36 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
     if copy_edit and ce_jobs:
         # Fase 1 copy-edit: salin 1 template per master untuk DIEDIT user,
         # seluruh tujuan duplikat tercatat di manifest (dibuka di fase 2).
+        # Master dari folder 8R diberi suffix ' 8R' agar tidak bentrok/tertimpa
+        # master 10RP dengan nama profesi sama (mis. BRIMOB.psd vs BRIMOB 8R.psd).
         from _photoshop_utils import manifest_add
         for _m_path, _jobs in ce_jobs.items():
-            _edit_psd = os.path.join(final_event_folder, os.path.basename(_m_path))
+            is_from_8r = False
+            if master_path_profesi_8r and os.path.exists(master_path_profesi_8r):
+                try:
+                    norm_m = os.path.normcase(os.path.abspath(_m_path))
+                    norm_8r = os.path.normcase(os.path.abspath(master_path_profesi_8r))
+                    if norm_m.startswith(norm_8r):
+                        is_from_8r = True
+                except Exception:
+                    pass
+
+            stem, ext = os.path.splitext(os.path.basename(_m_path))
+            if is_from_8r and not stem.upper().endswith("8R"):
+                edit_filename = f"{stem} 8R{ext}"
+                label_name = f"{stem} 8R"
+            else:
+                edit_filename = f"{stem}{ext}"
+                label_name = stem
+
+            _edit_psd = os.path.join(final_event_folder, edit_filename)
             if not os.path.isfile(_edit_psd):
                 shutil.copy2(_m_path, _edit_psd)
                 print(f"[EDIT] {os.path.basename(_edit_psd)} dibuka untuk diedit.")
             else:
                 print(f"[EDIT] {os.path.basename(_edit_psd)} sudah ada, dipakai ulang.")
-            manifest_add(manifest_path, _edit_psd,
-                         os.path.splitext(os.path.basename(_m_path))[0], _jobs)
-            print(f"[MANIFEST] {os.path.basename(_m_path)}: {len(_jobs)} tujuan duplikat tercatat.")
+            manifest_add(manifest_path, _edit_psd, label_name, _jobs)
+            print(f"[MANIFEST] {label_name}: {len(_jobs)} tujuan duplikat tercatat.")
 
     print("\n--- RINGKASAN ---")
     if not summary_counts:

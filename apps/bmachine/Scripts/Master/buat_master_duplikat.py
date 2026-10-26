@@ -90,6 +90,146 @@ def _copy_txt_files_recursive(source_folder: str, output_folder: str) -> int:
     return count
 
 
+def _scan_manual_masters(output_folder: str, manifest_path: str) -> list:
+    """Scan folder output untuk detect master PSD yang user tambah manual.
+    
+    Master PSD yang valid:
+    - Ada di root output folder (bukan subfolder)
+    - Nama file .psd (case insensitive)
+    - Tidak ada di manifest (edit_psd yang sudah terdaftar)
+    
+    Returns: list of (master_psd_path, label) untuk master tambahan
+    """
+    import json
+    
+    if not os.path.isdir(output_folder):
+        return []
+    
+    # Load manifest untuk cek PSD yang sudah terdaftar
+    registered_psds = set()
+    try:
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            entries = json.load(f)
+            for e in entries:
+                edit_psd = e.get("edit_psd", "")
+                if edit_psd:
+                    registered_psds.add(os.path.normpath(edit_psd).lower())
+    except Exception:
+        pass
+    
+    # Scan root output folder untuk .psd files
+    manual_masters = []
+    try:
+        for name in os.listdir(output_folder):
+            if not name.lower().endswith('.psd'):
+                continue
+            full_path = os.path.join(output_folder, name)
+            if not os.path.isfile(full_path):
+                continue
+            # Skip kalau sudah terdaftar di manifest
+            if os.path.normpath(full_path).lower() in registered_psds:
+                continue
+            # Master tambahan ditemukan
+            label = os.path.splitext(name)[0]
+            manual_masters.append((full_path, label))
+            print(f"  [MANUAL] Ditemukan master tambahan: {name}")
+    except Exception as e:
+        print(f"[WARN] Gagal scan manual masters: {e}", file=sys.stderr)
+    
+    return manual_masters
+
+
+def _add_manual_masters_to_manifest(manifest_path: str, output_folder: str, pilihan_path: str) -> int:
+    """Tambahkan master PSD manual ke manifest untuk duplikasi.
+    
+    Logika:
+    - Scan subfolder output untuk cari folder yang match nama master
+    - Contoh: DOKTER BEDAH.psd → cari "1. FOTO 10RP_OB PROFESI_GRADASI/DOKTER BEDAH"
+    - Generate job list (1.psd, 2.psd, ...) sesuai jumlah foto di folder tersebut
+    
+    Returns: jumlah master manual yang ditambahkan
+    """
+    import json
+    import glob
+    
+    manual_masters = _scan_manual_masters(output_folder, manifest_path)
+    if not manual_masters:
+        return 0
+    
+    print(f"\n[INFO] Ditemukan {len(manual_masters)} master PSD tambahan (manual).")
+    
+    # Load manifest existing
+    entries = []
+    try:
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            entries = json.load(f)
+    except Exception:
+        pass
+    
+    added = 0
+    for master_path, label in manual_masters:
+        # Cari subfolder yang match dengan nama master
+        # Contoh: DOKTER BEDAH.psd → cari "*DOKTER BEDAH" di subfolder
+        target_folder = None
+        try:
+            for item in os.listdir(output_folder):
+                item_path = os.path.join(output_folder, item)
+                if not os.path.isdir(item_path):
+                    continue
+                # Match jika nama folder ends with nama master (case insensitive)
+                if item.upper().endswith(label.upper()):
+                    target_folder = item_path
+                    break
+        except Exception:
+            pass
+        
+        if not target_folder:
+            print(f"  [SKIP] {label}: tidak ada folder target yang match")
+            continue
+        
+        # Count jumlah file .jpg/.jpeg di folder target
+        try:
+            photo_files = []
+            for ext in ['*.jpg', '*.jpeg', '*.JPG', '*.JPEG']:
+                photo_files.extend(glob.glob(os.path.join(target_folder, ext)))
+            
+            if not photo_files:
+                print(f"  [SKIP] {label}: folder target kosong (tidak ada foto)")
+                continue
+            
+            # Generate job list: 1.psd, 2.psd, ...
+            jobs = []
+            for i in range(1, len(photo_files) + 1):
+                job_path = os.path.join(target_folder, f"{i}.psd")
+                jobs.append(job_path)
+            
+            # Tambahkan entry baru ke manifest
+            new_entry = {
+                "edit_psd": master_path,
+                "label": label,
+                "jobs": jobs
+            }
+            entries.append(new_entry)
+            added += 1
+            
+            print(f"  [TAMBAH] {label}: {len(jobs)} tujuan duplikat")
+            
+        except Exception as e:
+            print(f"  [ERROR] {label}: {e}", file=sys.stderr)
+    
+    if added > 0:
+        # Save manifest yang sudah di-update
+        try:
+            with open(manifest_path, 'w', encoding='utf-8') as f:
+                json.dump(entries, f, indent=2, ensure_ascii=False)
+            print(f"\n[INFO] Manifest di-update: +{added} master manual")
+        except Exception as e:
+            print(f"[ERROR] Gagal save manifest: {e}", file=sys.stderr)
+            return 0
+    
+    return added
+
+
 def main() -> int:
     if os.name == "nt":
         try:
@@ -174,7 +314,11 @@ def main() -> int:
 
     # ------------------------------------------------------------------
     # Langkah 3: gandakan tiap template edit (edit_psd) ke semua job.
+    # SEBELUM duplikasi: scan master PSD manual yang user tambah sendiri.
     # ------------------------------------------------------------------
+    print("\n--- Scanning master PSD tambahan (manual) ---")
+    _add_manual_masters_to_manifest(manifest, final_output_folder, pilihan_path)
+    
     print("\n--- Menjalankan DUPLIKAT PSD ---")
     if overwrite_manual:
         print("[INFO] Mode overwrite-manual: file yang sudah ada akan di-TIMPA.")

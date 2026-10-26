@@ -70,7 +70,7 @@ _PASFOTO_KEYWORDS   = ["PAS FOTO", "PAS_FOTO", "PASFOTO", "FREE PAS FOTO", "FREE
 # Kode pas foto eksplisit (termasuk pemisah underscore): PFM-005 / PFM_005 / PFB 005 / PFM005
 _PASFOTO_CODE_RE    = re.compile(r"PF[MB][\s_\-]*\d+", re.IGNORECASE)
 _PROFESI_KEYWORDS   = ["PROFESI", "SPORTY", "FOTO PROFESI"]
-_MANASIK_KEYWORDS   = ["MANASIK", "MSK"]
+_MANASIK_KEYWORDS   = ["MANASIK", "MSK", "NONREG"]
 _WISUDA_KEYWORDS    = ["WISUDA", "WSD"]
 
 
