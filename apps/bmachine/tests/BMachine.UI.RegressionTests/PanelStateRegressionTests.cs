@@ -192,10 +192,9 @@ public class NavigationVisualRegressionTests
         Assert.Contains("BMachineBatchContext", batchViewModel);
         Assert.Contains("$.global.BMachineBatchContext", replaceScript);
         Assert.Contains("bmachineContext.BatchAutoReplace === true", replaceScript);
-        Assert.Contains("runReplacementLogic(batchMasterFolder, batchInputFolder, true, true)", replaceScript);
+        Assert.Contains("runReplacementLogic(pairOut, pairIn, true, true)", replaceScript);
         Assert.DoesNotContain("doc.close(SaveOptions.SAVECHANGES)", replaceScript);
-        Assert.Contains("showScrollableAlert(\"Laporan Replace (Auto)\"", replaceScript);
-        Assert.Contains("if (autoBatch) writeReplaceErrorResult(skipMsg)", replaceScript);
+        Assert.Contains("showCombinedReport(allResults, \"standard\")", replaceScript);
         Assert.Contains("writeReplaceErrorResult", replaceScript);
     }
 
@@ -204,7 +203,7 @@ public class NavigationVisualRegressionTests
     {
         var dashboard = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DashboardView.axaml");
 
-        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(dashboard, "Header=\\\"Replace \\(Auto\\)\\\"").Count);
+        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(dashboard, "Header=\\\"Replace \\(Auto\\)\\\"").Count);
         Assert.DoesNotContain("Header=\\\"Replace (Manual)\\\"", dashboard);
         Assert.DoesNotContain("ReplaceSourceManualCommand", dashboard);
         Assert.DoesNotContain("ReplaceOutputManualCommand", dashboard);
@@ -251,6 +250,43 @@ public class NavigationVisualRegressionTests
         Assert.Contains("MinHeight\" Value=\"32\"", docPanel);
         Assert.Contains("Button.logoAction:pointerover", docPanel);
         Assert.Contains("PathIcon Data=\"{StaticResource IconClipboard}\" Width=\"14\" Height=\"14\"", docPanel);
+    }
+
+    [Fact]
+    public void BatchAutoReplaceKeepsProcessedDocumentsOpen()
+    {
+        var jsx = ReadRepoFile("apps/bmachine/Scripts/Action/replace.jsx");
+        var batchStart = jsx.IndexOf("if (bmachineContext && bmachineContext.BatchAutoReplace === true)", StringComparison.Ordinal);
+        var batchEnd = jsx.IndexOf("// === UI CONFIG ===", batchStart, StringComparison.Ordinal);
+        var batchBranch = jsx[batchStart..batchEnd];
+
+        Assert.Contains("runReplacementLogic(pairOut, pairIn, true, true)", batchBranch);
+        Assert.DoesNotContain("while (app.documents.length > 0)", batchBranch);
+        Assert.DoesNotContain("app.activeDocument.close(SaveOptions.DONOTSAVECHANGES)", batchBranch);
+    }
+
+    [Fact]
+    public void BatchReplaceJsxAvoidsReservedInPropertyForExtendScript()
+    {
+        var jsx = ReadRepoFile("apps/bmachine/Scripts/Action/replace.jsx");
+
+        Assert.Contains("inputFolder: pInFolder", jsx);
+        Assert.DoesNotContain("in: pInFolder", jsx);
+        Assert.Contains("batchPairs[pi].inputFolder", jsx);
+    }
+
+    [Fact]
+    public void MultiSelectReplaceSynchronizesSelectionAfterPointerRelease()
+    {
+        var codeBehind = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/DashboardView.axaml.cs");
+
+        Assert.Contains("sourceTree.PointerReleased += OnBatchTreePointerReleased;", codeBehind);
+        Assert.Contains("outputTree.PointerReleased += OnBatchTreePointerReleased;", codeBehind);
+        Assert.Contains("sourceTree.AddHandler(PointerPressedEvent, OnBatchTreePointerPressed, RoutingStrategies.Tunnel", codeBehind);
+        Assert.Contains("outputTree.AddHandler(PointerPressedEvent, OnBatchTreePointerPressed, RoutingStrategies.Tunnel", codeBehind);
+        Assert.Contains("RestoreBatchTreeSelection", codeBehind);
+        Assert.Contains("UpdateSelectedSourceItems(tree.SelectedItems)", codeBehind);
+        Assert.Contains("UpdateSelectedOutputItems(tree.SelectedItems)", codeBehind);
     }
 
     [Fact]

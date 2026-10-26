@@ -425,7 +425,7 @@ function main() {
                     "Master/Output: " + pOut + "\nInput/Source: " + pIn + "\n(Salah satu folder tidak ditemukan)");
                 return;
             }
-            batchPairs.push({ out: pOutFolder, in: pInFolder });
+            batchPairs.push({ out: pOutFolder, inputFolder: pInFolder });
         }
 
         if (batchPairs.length === 0) {
@@ -439,15 +439,10 @@ function main() {
             var allResults = [];
             for (var pi = 0; pi < batchPairs.length; pi++) {
                 var pairOut = batchPairs[pi].out;
-                var pairIn = batchPairs[pi].in;
+                var pairIn = batchPairs[pi].inputFolder;
                 var r = runReplacementLogic(pairOut, pairIn, true, true);
                 if (r) allResults.push(r);
-                // Tutup dokumen yang masih terbuka antar pasangan agar tidak menumpuk di memory.
-                try {
-                    while (app.documents.length > 0) {
-                        app.activeDocument.close(SaveOptions.DONOTSAVECHANGES);
-                    }
-                } catch (closeErr) { }
+                // Sama seperti Replace normal: PSD hasil replace tetap terbuka untuk diedit/save user.
             }
 
             var combined = showCombinedReport(allResults, "standard");

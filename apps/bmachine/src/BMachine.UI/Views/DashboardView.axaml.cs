@@ -15,6 +15,8 @@ public partial class DashboardView : UserControl
     private bool _isRestoringState = true; // Skip auto-close during initial restore
     private object? _lastClickedSourceItem;
     private object? _lastClickedOutputItem;
+    private System.Collections.Generic.List<object>? _sourceSelectionBeforeContextMenu;
+    private System.Collections.Generic.List<object>? _outputSelectionBeforeContextMenu;
 
     public DashboardView()
     {
@@ -53,6 +55,8 @@ public partial class DashboardView : UserControl
                     dashVm.BatchVM?.UpdateSelectedSourceItems(sourceTree.SelectedItems);
                 }
             };
+            sourceTree.PointerReleased += OnBatchTreePointerReleased;
+            sourceTree.AddHandler(PointerPressedEvent, OnBatchTreePointerPressed, RoutingStrategies.Tunnel);
         }
 
         var outputTree = this.FindControl<TreeView>("OutputTreeView");
@@ -65,7 +69,65 @@ public partial class DashboardView : UserControl
                     dashVm.BatchVM?.UpdateSelectedOutputItems(outputTree.SelectedItems);
                 }
             };
+            outputTree.PointerReleased += OnBatchTreePointerReleased;
+            outputTree.AddHandler(PointerPressedEvent, OnBatchTreePointerPressed, RoutingStrategies.Tunnel);
         }
+    }
+
+    private void OnBatchTreePointerPressed(object? sender, PointerEventArgs e)
+    {
+        // Right-clicking a TreeViewItem normally collapses multi-selection to the
+        // clicked item before its ContextMenu command runs. Preserve it in Tunnel,
+        // then restore after the native TreeView finishes handling the click.
+        if (sender is not TreeView tree || !e.GetCurrentPoint(tree).Properties.IsRightButtonPressed)
+            return;
+
+        var selected = tree.SelectedItems?.Cast<object>().ToList();
+        if (selected == null || selected.Count <= 1)
+            return;
+
+        if (tree.Name == "OutputTreeView")
+            _outputSelectionBeforeContextMenu = selected;
+        else if (tree.Name == "SourceTreeView")
+            _sourceSelectionBeforeContextMenu = selected;
+        else
+            return;
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => RestoreBatchTreeSelection(tree),
+            Avalonia.Threading.DispatcherPriority.Input);
+    }
+
+    private void RestoreBatchTreeSelection(TreeView tree)
+    {
+        var saved = tree.Name == "OutputTreeView"
+            ? _outputSelectionBeforeContextMenu
+            : _sourceSelectionBeforeContextMenu;
+        if (saved == null || saved.Count <= 1) return;
+
+        tree.SelectedItems?.Clear();
+        foreach (var item in saved)
+            tree.SelectedItems?.Add(item);
+
+        if (DataContext is DashboardViewModel dashVm && dashVm.BatchVM != null)
+        {
+            if (tree.Name == "OutputTreeView")
+                dashVm.BatchVM.UpdateSelectedOutputItems(tree.SelectedItems!);
+            else
+                dashVm.BatchVM.UpdateSelectedSourceItems(tree.SelectedItems!);
+        }
+    }
+
+    private void OnBatchTreePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        // Native TreeView applies Ctrl toggle after press. Snapshot here is therefore
+        // the final selection used by a context-menu Replace (Auto) immediately after.
+        if (sender is not TreeView tree || DataContext is not DashboardViewModel dashVm || dashVm.BatchVM == null)
+            return;
+
+        if (tree.Name == "OutputTreeView")
+            dashVm.BatchVM.UpdateSelectedOutputItems(tree.SelectedItems);
+        else if (tree.Name == "SourceTreeView")
+            dashVm.BatchVM.UpdateSelectedSourceItems(tree.SelectedItems);
     }
 
     protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
