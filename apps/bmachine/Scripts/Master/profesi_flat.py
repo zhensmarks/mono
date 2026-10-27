@@ -854,9 +854,9 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
     if oke_base_path:
         user_name = os.environ.get('BMACHINE_USER_NAME', config_data.get('UserName', 'USER'))
         create_oke_base_links(pilihan_path, oke_base_path, user_name)
-        # Shortcut output lokal: skip di fase 1 copy-edit (pindah ke tombol DUPLIKAT PSD).
-        if not copy_edit:
-            create_shortcuts_in_output_local(final_event_folder, pilihan_path, oke_base_path, user_name, output_path)
+        # Shortcut output lokal: SELALU dibuat (termasuk fase 1) agar user
+        # bisa langsung lihat/cari folder output di Windows Explorer.
+        create_shortcuts_in_output_local(final_event_folder, pilihan_path, oke_base_path, user_name, output_path)
 
 # ---------- Main ----------
 def main():

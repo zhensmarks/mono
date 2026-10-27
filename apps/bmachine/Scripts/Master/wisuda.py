@@ -820,10 +820,9 @@ if __name__ == "__main__":
         user_name = os.environ.get('BMACHINE_USER_NAME', config_data.get('UserName', 'USER'))
         # 1. Create Symlinks/Shortcuts in OKE BASE
         create_oke_base_links(pilihan_path, oke_base_path, user_name)
-        # 2. Shortcut output lokal: skip di fase 1 copy-edit (pindah ke tombol DUPLIKAT PSD).
-        if not COPY_EDIT:
-            final_output_folder = os.path.join(output_base_path, get_relative_path_from_month(pilihan_path))
-            create_shortcuts_in_output_local(final_output_folder, pilihan_path, oke_base_path, user_name, output_base_path)
+        # 2. Shortcut output lokal: SELALU dibuat (termasuk fase 1).
+        final_output_folder = os.path.join(output_base_path, get_relative_path_from_month(pilihan_path))
+        create_shortcuts_in_output_local(final_output_folder, pilihan_path, oke_base_path, user_name, output_base_path)
 
     # Copy-Edit standalone (tanpa --phase=1): fase 1 selesai -> langsung fase 2.
     if _ce and _opts["phase"] != "1":

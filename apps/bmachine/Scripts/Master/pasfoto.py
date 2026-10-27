@@ -860,8 +860,8 @@ if __name__ == "__main__":
     if not config_data: config_data = {}
     user_name = os.environ.get('BMACHINE_USER_NAME', config_data.get('UserName', 'USER'))
     create_oke_base_links(pilihan_path, oke_base_path, user_name)
-    # Shortcut output lokal: skip di fase 1 copy-edit (pindah ke tombol DUPLIKAT PSD).
-    if not COPY_EDIT and output_folder is not None:
+    # Shortcut output lokal: SELALU dibuat (termasuk fase 1).
+    if output_folder is not None:
         create_shortcuts_in_output_local(output_folder, pilihan_path, oke_base_path, user_name, output_base_path)
 
     # Copy-Edit standalone (tanpa --phase=1): fase 1 selesai -> langsung fase 2
