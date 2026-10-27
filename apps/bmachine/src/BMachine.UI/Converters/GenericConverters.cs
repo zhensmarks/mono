@@ -225,3 +225,49 @@ public class ContrastColorConverter : IValueConverter
         return AvaloniaProperty.UnsetValue;
     }
 }
+
+/// <summary>
+/// Resolves whether a given tab item is the currently active doc tab by
+/// asking the DocTabs owner. Used by the chip PseudoClasses so the active
+/// chip is highlighted. `value` = tab item; `parameter` = active tab ref
+/// (passed via a nested binding in the XAML so both references arrive here).
+/// </summary>
+public class TabIsActiveConverter : IValueConverter
+{
+    public static readonly TabIsActiveConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        // value = current tab item (bound from DataTemplate DataContext)
+        // parameter = ActiveDocTab (bound from BatchVM.ActiveDocTab)
+        if (value is null) return false;
+        return ReferenceEquals(value, parameter);
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Returns true when the bound value (the current tab item) is the same
+/// reference as the active doc tab (supplied via the ItemsRepeater's
+/// DataContext -> BatchVM.ActiveDocTab). Drives the DOC chip Active style.
+/// Use a MultiBinding: [tab item, ActiveDocTab].
+/// </summary>
+public class AreSameConverter : IMultiValueConverter
+{
+    public static readonly AreSameConverter Instance = new();
+
+    public object? Convert(System.Collections.Generic.IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (values.Count < 2) return false;
+        return ReferenceEquals(values[0], values[1]);
+    }
+
+    public object?[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

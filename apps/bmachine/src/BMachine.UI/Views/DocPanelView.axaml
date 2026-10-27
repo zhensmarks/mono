@@ -2,6 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BMachine.UI.ViewModels"
+             xmlns:conv="using:BMachine.UI.Converters"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
              x:Class="BMachine.UI.Views.DocPanelView">
     
@@ -76,13 +78,45 @@
             <Setter Property="MinHeight" Value="36"/>
             <Setter Property="MaxHeight" Value="36"/>
         </Style>
+
+        <!-- DOC TAB STRIP: chip kotak kecil bernomor (1, 2, 3, +) -->
+        <Style Selector="Border.docChip">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Border.docChip TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.docChip:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource HoverOverlayBrush}"/>
+        </Style>
+        <Style Selector="Border.docChip.docTabActive">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonSecondaryHoverBrush}"/>
+        </Style>
+        <Style Selector="Border.docChip.docTabActive TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Border.docChip.docAddChip:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+        </Style>
     </UserControl.Styles>
 
-    <Grid>
+    <Grid RowDefinitions="*,Auto">
         <!-- ========================================== -->
         <!-- 1. SIDEBAR LAYOUT (Default, Non-Floating)  -->
         <!-- ========================================== -->
-        <Grid IsVisible="{Binding !BatchVM.IsDocFloating}" RowDefinitions="Auto, *" Margin="10,0,10,10">
+        <Grid Grid.Row="0" IsVisible="{Binding !BatchVM.IsDocFloating}" RowDefinitions="Auto, *" Margin="10,0,10,0">
             <StackPanel Grid.Row="0" Spacing="6" Margin="0,10,0,10">
                 <Grid ColumnDefinitions="*, Auto, Auto, Auto, Auto">
                         <TextBlock Grid.Column="0" Text="INSTAN REDAKSI" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center"/>
@@ -209,7 +243,7 @@
         <!-- ========================================== -->
         <!-- 2. FLOATING LAYOUT (Minimalist Hover)      -->
         <!-- ========================================== -->
-        <Grid IsVisible="{Binding BatchVM.IsDocFloating}" RowDefinitions="*" Margin="14">
+        <Grid Grid.Row="0" IsVisible="{Binding BatchVM.IsDocFloating}" RowDefinitions="*" Margin="14,0,14,0">
             
             <!-- Logo + Text Content Row (scrollable agar window bisa dikecilkan) -->
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -336,5 +370,35 @@
 
         </Grid>
 
+        <!-- ========================================== -->
+        <!-- 3. DOC TAB STRIP (chip kecil, tanpa border) -->
+        <!-- ========================================== -->
+        <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="0,2,0,6" Padding="2"
+                Background="Transparent" BorderThickness="0">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <ItemsControl ItemsSource="{Binding BatchVM.DocTabs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="4"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Classes="docChip" PointerPressed="OnDocChipPressed"
+                                    ToolTip.Tip="{Binding TabTooltip}">
+                                <TextBlock Text="{Binding NumberText}"/>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Classes="docChip docAddChip" PointerPressed="OnDocAddChipPressed"
+                        ToolTip.Tip="Tambah tab redaksi baru (kosong)">
+                    <PathIcon Data="{StaticResource IconPlus}" Width="11" Height="11"
+                              Foreground="{DynamicResource AccentBlueBrush}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>
