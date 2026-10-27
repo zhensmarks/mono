@@ -31,6 +31,18 @@ public class PieWedge : Control
     public static readonly StyledProperty<IBrush?> HoverStrokeProperty =
         AvaloniaProperty.Register<PieWedge, IBrush?>(nameof(HoverStroke));
 
+    public static readonly StyledProperty<IBrush?> StrokeProperty =
+        AvaloniaProperty.Register<PieWedge, IBrush?>(nameof(Stroke));
+
+    public static readonly StyledProperty<double> StrokeThicknessProperty =
+        AvaloniaProperty.Register<PieWedge, double>(nameof(StrokeThickness), 0.0);
+
+    public static readonly StyledProperty<double> StrokeOpacityProperty =
+        AvaloniaProperty.Register<PieWedge, double>(nameof(StrokeOpacity), 1.0);
+
+    public static readonly StyledProperty<double> HoverStrokeThicknessProperty =
+        AvaloniaProperty.Register<PieWedge, double>(nameof(HoverStrokeThickness), 5.0);
+
     public double StartAngle
     {
         get => GetValue(StartAngleProperty);
@@ -73,12 +85,39 @@ public class PieWedge : Control
         set => SetValue(HoverStrokeProperty, value);
     }
 
+    public IBrush? Stroke
+    {
+        get => GetValue(StrokeProperty);
+        set => SetValue(StrokeProperty, value);
+    }
+
+    public double StrokeThickness
+    {
+        get => GetValue(StrokeThicknessProperty);
+        set => SetValue(StrokeThicknessProperty, value);
+    }
+
+    /// <summary>Opacity khusus garis tepi (fill tetap solid).</summary>
+    public double StrokeOpacity
+    {
+        get => GetValue(StrokeOpacityProperty);
+        set => SetValue(StrokeOpacityProperty, value);
+    }
+
+    /// <summary>Tebal arc indikator hover (default 5 px, bisa dibuat lebih halus).</summary>
+    public double HoverStrokeThickness
+    {
+        get => GetValue(HoverStrokeThicknessProperty);
+        set => SetValue(HoverStrokeThicknessProperty, value);
+    }
+
     static PieWedge()
     {
         AffectsRender<PieWedge>(
             StartAngleProperty, SweepAngleProperty,
             InnerRadiusProperty, OuterRadiusProperty,
-            FillProperty, ShowHoverIndicatorsProperty, HoverStrokeProperty);
+            FillProperty, StrokeProperty, StrokeThicknessProperty, StrokeOpacityProperty,
+            ShowHoverIndicatorsProperty, HoverStrokeProperty, HoverStrokeThicknessProperty);
     }
 
     public override void Render(DrawingContext context)
@@ -86,7 +125,9 @@ public class PieWedge : Control
         base.Render(context);
 
         var fill = Fill;
-        if (fill == null || SweepAngle == 0) return;
+        var stroke = Stroke;
+        var strokeThickness = StrokeThickness;
+        if ((fill == null && stroke == null) || SweepAngle == 0) return;
 
         var cx = Bounds.Width / 2;
         var cy = Bounds.Height / 2;
@@ -127,7 +168,21 @@ public class PieWedge : Control
             ctx.EndFigure(true);
         }
 
-        context.DrawGeometry(fill, null, geom);
+        // Garis tepi bisa dibuat lebih transparan tanpa mengubah soliditas fill.
+        IBrush? strokeBrush = stroke;
+        if (stroke != null && StrokeOpacity < 1.0)
+        {
+            if (stroke is ISolidColorBrush scb)
+            {
+                strokeBrush = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(
+                    scb.Color, scb.Opacity * Math.Clamp(StrokeOpacity, 0.0, 1.0));
+            }
+        }
+
+        IPen? strokePen = strokeBrush != null && strokeThickness > 0
+            ? new Pen(strokeBrush, strokeThickness)
+            : null;
+        context.DrawGeometry(fill, strokePen, geom);
         
             // Draw hover indicators if enabled
         if (ShowHoverIndicators && HoverStroke != null)
@@ -144,7 +199,7 @@ public class PieWedge : Control
                 ctx.ArcTo(arcEnd, new Size(strokeOuter, strokeOuter), 0, isLargeArc, SweepDirection.Clockwise);
                 ctx.EndFigure(false);
             }
-            context.DrawGeometry(null, new Pen(HoverStroke, thickness: 5, lineCap: PenLineCap.Flat), arcGeom);
+            context.DrawGeometry(null, new Pen(HoverStroke, thickness: HoverStrokeThickness, lineCap: PenLineCap.Flat), arcGeom);
 
             // Inner triangle pointer ( chevron pointing OUTWARD )
             double midRad = (startRad + endRad) / 2.0;

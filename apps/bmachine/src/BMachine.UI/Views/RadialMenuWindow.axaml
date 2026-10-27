@@ -9,7 +9,7 @@
         x:Class="BMachine.UI.Views.RadialMenuWindow"
         x:DataType="vm:RadialMenuViewModel"
         x:Name="RadialRoot"
-        Width="200" Height="200"
+        Width="320" Height="320"
         WindowStartupLocation="Manual"
         SystemDecorations="None"
         ShowInTaskbar="False"
@@ -18,6 +18,55 @@
         TransparencyLevelHint="Transparent"
         CanResize="False"
         Title="RadialMenu">
+
+    <Window.Resources>
+        <!-- Template item radial dipakai dua cincin: dalam (VisibleItems) dan
+             luar (SubmenuItems, pilihan tab DOC). Klik tombol lewat ExecuteItem
+             supaya item cincin luar menyiapkan doc_info.json tab dulu. -->
+        <DataTemplate x:Key="RadialItemTemplate" x:DataType="models:RadialMenuItem">
+            <Grid Width="36" Height="36" ClipToBounds="False">
+                <!-- Regular script button -->
+                <Button Classes="MenuButton"
+                        Classes.highlighted="{Binding IsHighlighted}"
+                        IsVisible="{Binding !IsNavigation}"
+                        Command="{Binding DataContext.ExecuteItemCommand, ElementName=RadialRoot}"
+                        CommandParameter="{Binding}">
+                    <Grid>
+                        <!-- Icon with Drop Shadow for legibility -->
+                        <PathIcon Data="{Binding Icon}" Width="18" Height="18" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+                        <!-- Fallback Text -->
+                        <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" FontWeight="SemiBold"
+                                   IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
+                        </TextBlock>
+                    </Grid>
+                </Button>
+
+                <!-- Navigation button (More / Back) -->
+                <Button Classes="NavButton"
+                        IsVisible="{Binding IsNavigation}"
+                        IsHitTestVisible="False">
+                    <Panel>
+                        <!-- Tiga titik digambar manual: geometri PathIcon yang pipih ditempel ke atas kotak -->
+                        <StackPanel Orientation="Horizontal" Spacing="3"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    IsVisible="{Binding IsMoreDots}">
+                            <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
+                            <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
+                            <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                        <PathIcon Data="{Binding Icon}" Width="16" Height="16"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Foreground="{DynamicResource TextSecondaryBrush}"
+                                  IsVisible="{Binding !IsMoreDots}"/>
+                        <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
+                    </Panel>
+                </Button>
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
 
     <Window.Styles>
         <!-- Item Button Style -->
@@ -147,23 +196,23 @@
              </Border>
 
              <!-- 2. Segmented Divider Lines (Absolute 22.5 Degree Math Offsets to perfectly frame the 45-degree slices) -->
-             <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.4">
+             <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.18">
                  <!-- 22.5° -->
-                 <Line StartPoint="116.84,59.35" EndPoint="138.27,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <Line StartPoint="116.84,59.35" EndPoint="138.27,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
                  <!-- 67.5° -->
-                 <Line StartPoint="140.65,83.16" EndPoint="192.39,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <Line StartPoint="140.65,83.16" EndPoint="192.39,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
                  <!-- 112.5° -->
-                 <Line StartPoint="140.65,116.84" EndPoint="192.39,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <Line StartPoint="140.65,116.84" EndPoint="192.39,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
                  <!-- 157.5° -->
-                 <Line StartPoint="116.84,140.65" EndPoint="138.27,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <Line StartPoint="116.84,140.65" EndPoint="138.27,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
                  <!-- 202.5° -->
-                 <Line StartPoint="83.16,140.65" EndPoint="61.73,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <Line StartPoint="83.16,140.65" EndPoint="61.73,192.39" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
                  <!-- 247.5° -->
-                 <Line StartPoint="59.35,116.84" EndPoint="7.61,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <Line StartPoint="59.35,116.84" EndPoint="7.61,138.27" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
                  <!-- 292.5° -->
-                 <Line StartPoint="59.35,83.16" EndPoint="7.61,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <Line StartPoint="59.35,83.16" EndPoint="7.61,61.73" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
                  <!-- 337.5° -->
-                 <Line StartPoint="83.16,59.35" EndPoint="61.73,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2"/>
+                 <Line StartPoint="83.16,59.35" EndPoint="61.73,7.61" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
              </Canvas>
 
              <!-- Hover Pie Wedge (Accent Glow Highlight with Custom Overlay Indicators) -->
@@ -173,6 +222,7 @@
                                 InnerRadius="44" OuterRadius="100"
                                 Fill="{DynamicResource AccentBlueBrush}" Opacity="0.5"
                                 ShowHoverIndicators="True" HoverStroke="{DynamicResource TextPrimaryBrush}"
+                                HoverStrokeThickness="2"
                                 IsVisible="{Binding IsWedgeVisible}"
                                 IsHitTestVisible="False"/>
 
@@ -186,69 +236,115 @@
                  </StackPanel>
              </Border>
 
+             <!-- 5b. Cincin LUAR (Arc Fan pilihan tab DOC untuk SEND-TEXT / SEND-LOGO).
+                  HANYA busur parsial (bukan 360°) yang menempel langsung di luar item induk.
+                  Tiap tab digambar sebagai annular wedge (arc petal) mandiri dengan tema gelap,
+                  border pembatas, hover glow accent biru, dan tipografi nomor + judul tab yang
+                  dirotasi presisi mengikuti lengkungan segmen. -->
+             <Panel IsVisible="{Binding HasOuterRing}">
+                 <!-- Lapisan 1: Annular Wedges untuk tiap tab -->
+                 <ItemsControl ItemsSource="{Binding SubmenuItems}">
+                     <ItemsControl.ItemsPanel>
+                         <ItemsPanelTemplate>
+                             <Grid Width="320" Height="320" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                         </ItemsPanelTemplate>
+                     </ItemsControl.ItemsPanel>
+                     <ItemsControl.ItemTemplate>
+                         <DataTemplate x:DataType="models:RadialMenuItem">
+                             <Panel Width="320" Height="320">
+                                 <!-- Base wedge: background solid gelap + border halus (tipis & transparan) -->
+                                 <controls:PieWedge Width="320" Height="320"
+                                                    StartAngle="{Binding WedgeStartAngle}"
+                                                    SweepAngle="{Binding WedgeSweepAngle}"
+                                                    InnerRadius="104" OuterRadius="152"
+                                                    Fill="{DynamicResource CardBackgroundBrush}"
+                                                    Stroke="{DynamicResource TextPrimaryBrush}"
+                                                    StrokeThickness="0.5"
+                                                    StrokeOpacity="0.15"
+                                                    IsHitTestVisible="False"/>
+                                 <!-- Hover wedge: accent biru menyala + arc indikator halus + chevron -->
+                                 <controls:PieWedge Width="320" Height="320"
+                                                    StartAngle="{Binding WedgeStartAngle}"
+                                                    SweepAngle="{Binding WedgeSweepAngle}"
+                                                    InnerRadius="104" OuterRadius="152"
+                                                    Fill="{DynamicResource AccentBlueBrush}"
+                                                    Opacity="0.75"
+                                                    ShowHoverIndicators="True"
+                                                    HoverStroke="{DynamicResource TextPrimaryBrush}"
+                                                    HoverStrokeThickness="1.5"
+                                                    IsVisible="{Binding IsHighlighted}"
+                                                    IsHitTestVisible="False"/>
+                             </Panel>
+                         </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                 </ItemsControl>
+
+                 <!-- Lapisan 2: Tipografi teks di dalam tiap wedge (rotasi presisi mengikuti lengkungan segmen) -->
+                 <ItemsControl ItemsSource="{Binding SubmenuItems}">
+                     <ItemsControl.ItemsPanel>
+                         <ItemsPanelTemplate>
+                             <Canvas Width="320" Height="320" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="False"/>
+                         </ItemsPanelTemplate>
+                     </ItemsControl.ItemsPanel>
+                     <ItemsControl.Styles>
+                         <Style Selector="ItemsControl > ContentPresenter">
+                             <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                             <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                         </Style>
+                     </ItemsControl.Styles>
+                     <ItemsControl.ItemTemplate>
+                         <DataTemplate x:DataType="models:RadialMenuItem">
+                             <!-- Kontainer 60x28 dengan RenderTransformOrigin 50%,50% (unit relatif wajib tanda %) agar rotasi tepat di pusat geometrisnya -->
+                             <StackPanel Width="60" Height="28"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                                         RenderTransformOrigin="50%,50%"
+                                         Spacing="1" IsHitTestVisible="False">
+                                 <StackPanel.RenderTransform>
+                                     <RotateTransform Angle="{Binding TextRotation}"/>
+                                 </StackPanel.RenderTransform>
+                                 <TextBlock Text="{Binding ShortName}"
+                                            FontSize="13" FontWeight="Bold"
+                                            Foreground="{DynamicResource TextPrimaryBrush}"
+                                            HorizontalAlignment="Center"
+                                            TextAlignment="Center"/>
+                                 <TextBlock Text="{Binding FullName}"
+                                            FontSize="8.5"
+                                            Foreground="{DynamicResource TextSecondaryBrush}"
+                                            HorizontalAlignment="Center"
+                                            MaxWidth="56" TextTrimming="CharacterEllipsis"
+                                            TextAlignment="Center"/>
+                             </StackPanel>
+                         </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                 </ItemsControl>
+             </Panel>
+
              <!-- 6. Foreground Structural Rings (Concentric borders drawn over the hub and wedges) -->
-             <Ellipse Width="200" Height="200" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
-             <Ellipse Width="88" Height="88" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+             <Ellipse Width="200" Height="200" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1" Opacity="0.18" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+             <Ellipse Width="88" Height="88" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1" Opacity="0.18" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
 
-             <!-- Radial Menu Items overlay... -->
-             <ItemsControl ItemsSource="{Binding VisibleItems}" ClipToBounds="False">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <Canvas Width="200" Height="200" ClipToBounds="False"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.Styles>
-                    <Style Selector="ItemsControl > ContentPresenter">
-                        <Setter Property="Canvas.Left" Value="{Binding X}"/>
-                        <Setter Property="Canvas.Top" Value="{Binding Y}"/>
-                    </Style>
-                </ItemsControl.Styles>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="models:RadialMenuItem">
-                        <Grid Width="36" Height="36" ClipToBounds="False">
-                            <!-- Regular script button -->
-                            <Button Classes="MenuButton" 
-                                    Classes.highlighted="{Binding IsHighlighted}"
-                                    IsVisible="{Binding !IsNavigation}"
-                                    Command="{Binding DataContext.ExecuteScript, ElementName=RadialRoot}" 
-                                    CommandParameter="{Binding ScriptPath}">
-                                <Grid>
-                                    <!-- Icon with Drop Shadow for legibility -->
-                                    <PathIcon Data="{Binding Icon}" Width="18" Height="18" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                                    
-                                    <!-- Fallback Text -->
-                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" FontWeight="SemiBold"
-                                               IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
-                                    </TextBlock>
-                                </Grid>
-                            </Button>
-
-                            <!-- Navigation button (More / Back) -->
-                            <Button Classes="NavButton"
-                                    IsVisible="{Binding IsNavigation}"
-                                    IsHitTestVisible="False">
-                                <Panel>
-                                                                    <!-- Tiga titik digambar manual: geometri PathIcon yang pipih ditempel ke atas kotak -->
-                                                                    <StackPanel Orientation="Horizontal" Spacing="3"
-                                                                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                                IsVisible="{Binding IsMoreDots}">
-                                                                        <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
-                                                                        <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
-                                                                        <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
-                                                                    </StackPanel>
-                                                                    <PathIcon Data="{Binding Icon}" Width="16" Height="16"
-                                                                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                              Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                              IsVisible="{Binding !IsMoreDots}"/>
-                                                                    <TextBlock Text="{Binding ShortName}" VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                                               FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                               IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
-                                                                </Panel>
-                            </Button>
-                        </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
+             <!-- Radial Menu Items overlay... (cincin DALAM — tampilan utama tidak berubah) -->
+             <ItemsControl ItemsSource="{Binding VisibleItems}" ClipToBounds="False"
+                           HorizontalAlignment="Center" VerticalAlignment="Center">
+               <ItemsControl.ItemsPanel>
+                   <ItemsPanelTemplate>
+                       <Canvas Width="200" Height="200" ClipToBounds="False"/>
+                   </ItemsPanelTemplate>
+               </ItemsControl.ItemsPanel>
+               <ItemsControl.Styles>
+                   <Style Selector="ItemsControl > ContentPresenter">
+                       <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                       <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                   </Style>
+               </ItemsControl.Styles>
+               <ItemsControl.ItemTemplate>
+                   <DataTemplate>
+                       <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource RadialItemTemplate}"/>
+                   </DataTemplate>
+               </ItemsControl.ItemTemplate>
              </ItemsControl>
+
+
         </Grid>
     </Border>
 </Window>

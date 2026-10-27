@@ -43,6 +43,12 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     /// </summary>
     public ObservableCollection<RadialMenuItem> VisibleItems { get; } = new();
 
+    /// <summary>
+    /// Cincin luar: pilihan tab DOC yang muncul mengelilingi item SEND-TEXT /
+    /// SEND-LOGO. Menu utama (VisibleItems) tidak pernah diganti.
+    /// </summary>
+    public ObservableCollection<RadialMenuItem> SubmenuItems { get; } = new();
+
     // Manual property — not using [ObservableProperty] because HighlightItem 
     // needs direct field access to avoid MVVMTK0034 warnings
     private RadialMenuItem? _currentHighlightedItem;
@@ -59,6 +65,37 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     /// </summary>
     [ObservableProperty] private int _currentPage;
     private DateTime _lastPageSwitchTime = DateTime.MinValue;
+
+    // --- Submenu tab DOC (SEND-TEXT / SEND-LOGO) -------------------------
+    private static bool IsDocActionScript(string fileName, string displayName)
+    {
+        var normFile = fileName.Replace("-", "").Replace("_", "").Replace(" ", "").ToLowerInvariant();
+        if (normFile.StartsWith("sendtext") || normFile.StartsWith("sendlogo"))
+            return true;
+        var normName = displayName.Replace("-", "").Replace("_", "").Replace(" ", "").ToLowerInvariant();
+        if (normName.Contains("sendtext") || normName.Contains("sendlogo"))
+            return true;
+        return false;
+    }
+
+    /// <summary>Script induk submenu; "" = tidak sedang di submenu.</summary>
+    private string _submenuScriptPath = "";
+
+    /// <summary>Batas dalam band luar (px dari pusat jendela 320x320).</summary>
+    private const double OuterBandMin = 102.0;
+    /// <summary>Batas luar band luar (px dari pusat jendela 320x320).</summary>
+    private const double OuterBandMax = 154.0;
+    /// <summary>Tab hasil query terakhir (dipakai saat membangun item submenu).</summary>
+    private List<Messages.DocTabSnapshot>? _submenuTabs;
+    /// <summary>True kalau busur luar tab DOC sedang tampil.</summary>
+    public bool HasOuterRing => SubmenuItems.Count > 0;
+
+    /// <summary>Item yang sedang didwell untuk membuka submenu.</summary>
+    private RadialMenuItem? _dwellCandidate;
+    private Avalonia.Threading.DispatcherTimer? _submenuDwellTimer;
+
+    /// <summary>Dwell hover (ms) sebelum submenu tab DOC muncul.</summary>
+    private const int SubmenuDwellMs = 300;
     
     /// <summary>
     /// Whether the total item count exceeds MaxVisibleItems
@@ -112,6 +149,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         
         CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.RegisterAll(this);
 
+        SubmenuItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasOuterRing));
+
         LoadScripts();
     }
     
@@ -126,8 +165,11 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     }
 
     private void LoadScripts()
-    {
-        MasterItems.Clear(); 
+        {
+            // Bersihkan cincin luar tab DOC kalau script dimuat ulang.
+            ClearSubmenu();
+
+            MasterItems.Clear();
         ActionItems.Clear();
         LoadMetadata();
 
@@ -167,11 +209,12 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     }
 
     private void BuildVisibleItems()
-    {
-        VisibleItems.Clear();
-        HighlightItem(null);
+            {
+                StopSubmenuDwell(); // dwell batal saat isi menu diganti
+                VisibleItems.Clear();
+                HighlightItem(null);
 
-        if (ActionItems.Count <= MaxVisibleItems)
+            if (ActionItems.Count <= MaxVisibleItems)
         {
             // All items fit — no More button needed
             foreach (var item in ActionItems)
@@ -226,7 +269,68 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     }
 
     /// <summary>
-    /// Arrange items in a full circle (360°), evenly spaced.
+        /// Cincin luar: satu segmen per tab DOC (teks = nomor tab, hub = judul
+        /// tab), digelar mengelilingi item induk pada grid 45°.
+        /// </summary>
+        private void BuildOuterSubmenu(double parentAngle)
+        {
+            SubmenuItems.Clear();
+            var tabs = _submenuTabs ?? new List<Messages.DocTabSnapshot>();
+            int n = tabs.Count;
+            if (n == 0) return;
+
+            // Busur segmen luar simetris di sekitar sudut item induk:
+            // n=2 -> Tab 1 di parent - 22.5°, Tab 2 di parent + 22.5°
+            // Garis batas antar-tab tepat menunjuk keluar dari sudut parentAngle.
+            double start = parentAngle - 45.0 * (n - 1) / 2.0;
+            for (int i = 0; i < n; i++)
+            {
+                var tab = tabs[i];
+                var item = new RadialMenuItem
+                {
+                    FullName = string.IsNullOrWhiteSpace(tab.Title) ? $"Tab {tab.Number}" : tab.Title,
+                    ShortName = tab.Number.ToString(),
+                    ScriptPath = _submenuScriptPath,
+                    TabId = tab.Id,
+                    Angle = ((start + i * 45.0) % 360.0 + 360.0) % 360.0
+                };
+                PlaceOuterItem(item, 128.0);
+                SubmenuItems.Add(item);
+            }
+        }
+
+        /// <summary>Hitung posisi X/Y dan sudut rotasi teks di kanvas 320x320 untuk segmen cincin luar.</summary>
+        private static void PlaceOuterItem(RadialMenuItem item, double radius)
+        {
+            double trigAngleRad = (item.Angle - 90.0) * (Math.PI / 180.0);
+            double itemCenterX = 160.0 + radius * Math.Cos(trigAngleRad);
+            double itemCenterY = 160.0 + radius * Math.Sin(trigAngleRad);
+            // Kotak konten 60x28 berpusat tepat di (itemCenterX, itemCenterY)
+            item.X = itemCenterX - 30.0;
+            item.Y = itemCenterY - 14.0;
+            item.WedgeSweepAngle = 45.0;
+            item.WedgeStartAngle = ((item.Angle - 22.5) % 360.0 + 360.0) % 360.0;
+
+            // Sudut rotasi tangensial agar teks mengikuti lengkungan dan arah segmen
+            double rot = item.Angle;
+            if (rot > 180) rot -= 360;
+            if (rot > 90) rot -= 180;
+            else if (rot < -90) rot += 180;
+            item.TextRotation = rot;
+        }
+
+        /// <summary>Tutup cincin luar (dipanggil saat menu dibuka ulang / reload).</summary>
+        private void ClearSubmenu()
+        {
+            _submenuScriptPath = "";
+            _submenuTabs = null;
+            SubmenuItems.Clear();
+
+            StopSubmenuDwell();
+        }
+
+        /// <summary>
+        /// Arrange items in a full circle (360°), evenly spaced.
     /// The "More" / "Back" button is always placed at the bottom (270° in trig = South).
     /// </summary>
     private void ArrangeItems()
@@ -282,6 +386,24 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         }
     }
 
+    /// <summary>Cari item yang paling dekat sudutnya (hitungan 0 = Utara, searah jarum jam).</summary>
+    private static RadialMenuItem? ClosestByAngle(IEnumerable<RadialMenuItem> items, double angle, out double minDiff)
+    {
+        RadialMenuItem? closest = null;
+        minDiff = double.MaxValue;
+        foreach (var item in items)
+        {
+            double diff = Math.Abs(angle - item.Angle);
+            if (diff > 180) diff = 360 - diff;
+            if (diff < minDiff)
+            {
+                minDiff = diff;
+                closest = item;
+            }
+        }
+        return closest;
+    }
+
     public void UpdateHighlight(Point mousePos, Size windowSize)
     {
         double cx = windowSize.Width / 2;
@@ -292,38 +414,34 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         double dist = Math.Sqrt(dx * dx + dy * dy);
 
         // Deadzone: center (< 40px) or outside window bounds (> 145px)
-        if (dist < 40 || dist > 145)
+        if (dist < 40 || dist > OuterBandMax)
         {
             HighlightItem(null);
+            UpdateSubmenuDwell(null);
             return;
         }
 
-        // Calculate angle (0 = North/Top, clockwise)
         // Calculate angle (0 = North/Top, clockwise)
         double angle = Math.Atan2(dy, dx) * (180 / Math.PI);
         angle += 90;
         if (angle < 0) angle += 360;
 
-        // Find closest item
-        RadialMenuItem? closest = null;
-        double minDiff = double.MaxValue;
-
-        foreach (var item in VisibleItems)
+        // Band luar (cincin pilihan tab DOC) aktif: yang bisa dipilih hanya
+        // segmen luar — menu utama tetap tampil tapi tidak ikut ter-highlight.
+        if (SubmenuItems.Count > 0 && dist >= OuterBandMin)
         {
-            double diff = Math.Abs(angle - item.Angle);
-            if (diff > 180) diff = 360 - diff;
-
-            if (diff < minDiff)
-            {
-                minDiff = diff;
-                closest = item;
-            }
+            var outer = ClosestByAngle(SubmenuItems, angle, out var outerDiff);
+            double outerStep = Math.Min(360.0 / SubmenuItems.Count, 45.0);
+            HighlightItem(outer != null && outerDiff < outerStep / 2.0 ? outer : null);
+            UpdateSubmenuDwell(_currentHighlightedItem);
+            return;
         }
 
-        // Check angular threshold
-        double angleStep = Math.Min(360.0 / VisibleItems.Count, 45.0);
+        // Band dalam: item menu utama seperti biasa.
+        var closest = ClosestByAngle(VisibleItems, angle, out var minDiff);
+        double angleStep = VisibleItems.Count > 0 ? Math.Min(360.0 / VisibleItems.Count, 45.0) : 45.0;
         double threshold = angleStep / 2.0;
-        
+
         if (closest != null && minDiff < threshold)
         {
             // Handle navigation items on hover with hysteresis
@@ -355,10 +473,12 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                 return;
 
             HighlightItem(closest);
+            UpdateSubmenuDwell(closest);
         }
         else
         {
             HighlightItem(null);
+            UpdateSubmenuDwell(null);
         }
     }
 
@@ -372,11 +492,13 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             if (_currentHighlightedItem != null)
             {
                 _currentHighlightedItem.IsHighlighted = true;
-                
-                // Update wedge
+
+                // Update wedge — item menu dalam pakai wedge radius dalam;
+                // segmen cincin luar (TabId terisi) pakai wedge radius luar.
                 WedgeStart = _currentHighlightedItem.WedgeStartAngle;
                 WedgeSweep = _currentHighlightedItem.WedgeSweepAngle;
-                IsWedgeVisible = true;
+                IsWedgeVisible = string.IsNullOrEmpty(_currentHighlightedItem.TabId);
+
                 
                 // Update label
                 HighlightLabel = _currentHighlightedItem.FullName;
@@ -391,6 +513,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             else
             {
                 IsWedgeVisible = false;
+
                 HighlightLabel = "";
                 CenterTextTitle = "";
                 CenterTextSubtitle = "";
@@ -401,26 +524,157 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     }
 
     /// <summary>
-    /// Reset to page 1 when menu is shown
-    /// </summary>
-    public void ResetPage()
-    {
-        CurrentPage = 0;
-        BuildVisibleItems();
-    }
+        /// Reset to page 1 when menu is shown
+        /// </summary>
+        public void ResetPage()
+        {
+            ClearSubmenu();
+            CurrentPage = 0;
+            BuildVisibleItems();
+        }
 
-    public void ExecuteHighlighted()
-    {
-        if (_currentHighlightedItem != null && !_currentHighlightedItem.IsNavigation)
+        // ============================================================
+        // Submenu tab DOC (SEND-TEXT / SEND-LOGO)
+        // ============================================================
+
+        /// <summary>
+        /// Kelola timer dwell: hover item ber-HasSubmenu (di luar submenu)
+        /// selama SubmenuDwellMs membuka submenu pilihan tab DOC.
+        /// </summary>
+        private void UpdateSubmenuDwell(RadialMenuItem? item)
         {
-            _ = ExecuteScript(_currentHighlightedItem.ScriptPath);
+            bool canDwell = item != null
+                && item.HasSubmenu
+                && !item.IsNavigation;
+
+            if (!canDwell)
+            {
+                StopSubmenuDwell();
+                return;
+            }
+
+            if (ReferenceEquals(_dwellCandidate, item)) return; // sudah berjalan
+
+            _dwellCandidate = item;
+            _submenuDwellTimer?.Stop();
+            _submenuDwellTimer ??= new Avalonia.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(SubmenuDwellMs)
+            };
+            _submenuDwellTimer.Tick -= OnSubmenuDwellTick;
+            _submenuDwellTimer.Tick += OnSubmenuDwellTick;
+            _submenuDwellTimer.Start();
         }
-        else
+
+        private void StopSubmenuDwell()
         {
-            // Missed selection -> Close
-            RequestClose?.Invoke();
+            _submenuDwellTimer?.Stop();
+            _dwellCandidate = null;
         }
-    }
+
+        private void OnSubmenuDwellTick(object? sender, EventArgs e)
+        {
+            _submenuDwellTimer?.Stop();
+            var candidate = _dwellCandidate;
+            _dwellCandidate = null;
+            if (candidate == null) return;
+            if (!IsVisible) return;
+            TryEnterSubmenu(candidate);
+        }
+
+        /// <summary>
+        /// Ambil daftar tab DOC lewat BatchViewModel (fresh dari memori).
+        /// null = BatchViewModel belum ada / tidak membalas → submenu tidak muncul,
+        /// perilaku lama (kirim pakai tab aktif) tetap berlaku.
+        /// </summary>
+        private List<Messages.DocTabSnapshot>? QueryDocTabs()
+        {
+            try
+            {
+                var msg = new Messages.GetDocTabsRequestMessage();
+                WeakReferenceMessenger.Default.Send(msg);
+                if (msg.HasReceivedResponse)
+                    return msg.Response.ToList();
+            }
+            catch (Exception ex)
+            {
+                _logService?.AddLog($"[WARNING] Gagal mengambil daftar tab DOC: {ex.Message}");
+            }
+            return null;
+        }
+
+        private void TryEnterSubmenu(RadialMenuItem item)
+        {
+            if (!item.HasSubmenu || item.IsNavigation) return;
+
+            // Sudah terbuka untuk item ini -> tidak perlu query ulang.
+            if (SubmenuItems.Count > 0 && item.ScriptPath == _submenuScriptPath) return;
+
+            var tabs = QueryDocTabs();
+            // Hanya tampilkan cincin luar kalau ada > 1 tab DOC (kasus user).
+            if (tabs == null || tabs.Count <= 1)
+            {
+                ClearSubmenu();
+                return;
+            }
+
+            _submenuTabs = tabs;
+            _submenuScriptPath = item.ScriptPath;
+            BuildOuterSubmenu(item.Angle);
+        }
+
+        /// <summary>
+        /// Mintai BatchViewModel menulis doc_info.json milik tab terpilih
+        /// sebelum script SEND-TEXT / SEND-LOGO dibaca Photoshop.
+        /// </summary>
+        private bool PrepareDocSend(string tabId)
+        {
+            try
+            {
+                var msg = new Messages.PrepareDocSendRequestMessage(tabId);
+                WeakReferenceMessenger.Default.Send(msg);
+                if (!msg.HasReceivedResponse)
+                {
+                    // BatchViewModel belum ada → jalan dengan doc_info.json apa adanya.
+                    return false;
+                }
+                return msg.Response;
+            }
+            catch (Exception ex)
+            {
+                _logService?.AddLog($"[WARNING] Gagal menyiapkan data tab DOC: {ex.Message}");
+                return false;
+            }
+        }
+
+        public void ExecuteHighlighted()
+        {
+            if (_currentHighlightedItem != null && !_currentHighlightedItem.IsNavigation)
+            {
+                ExecuteItem(_currentHighlightedItem);
+            }
+            else
+            {
+                // Missed selection -> Close
+                RequestClose?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// Jalankan satu item menu — dipakai juga hook lepas-tombol dan klik
+        /// langsung tombol XAML. Item cincin luar (TabId terisi) menyiapkan
+        /// doc_info.json milik tab tsb lebih dulu.
+        /// </summary>
+        [RelayCommand]
+        private void ExecuteItem(RadialMenuItem? item)
+        {
+            if (item == null || item.IsNavigation) return;
+            if (!string.IsNullOrEmpty(item.TabId) && !PrepareDocSend(item.TabId))
+            {
+                _logService?.AddLog("[WARNING] Data tab DOC tidak siap; script jalan dengan doc_info.json saat ini.");
+            }
+            _ = ExecuteScript(item.ScriptPath);
+        }
 
     // ============================================================
     // Script Loading & Metadata (unchanged from original)
@@ -469,14 +723,15 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         }
 
         collection.Add(new RadialMenuItem
-        {
-            FullName = displayName,
-            ShortName = shortName,
-            ScriptPath = path,
-            IsMaster = isMaster,
-            Order = order,
-            Icon = icon
-        });
+                {
+                    FullName = displayName,
+                    ShortName = shortName,
+                    ScriptPath = path,
+                    IsMaster = isMaster,
+                    Order = order,
+                    Icon = icon,
+                    HasSubmenu = IsDocActionScript(fileName, displayName)
+                });
     }
 
     private void LoadMetadata()

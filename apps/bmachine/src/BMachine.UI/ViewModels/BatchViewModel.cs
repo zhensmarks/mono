@@ -7,6 +7,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Globalization;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using BMachine.SDK;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
@@ -42,7 +44,11 @@ namespace BMachine.UI.ViewModels;
             _database = database;
             _logService = logService;
             _platformService = platformService ?? BMachine.Core.Platform.PlatformServiceFactory.Get();
-            
+
+            // Initial doc tab + keep the event subscribed for lifetime
+            DocTabs.Add(new DocTabItem { Title = "Redaksi" });
+            DocTabs.CollectionChanged += (s, e) => OnDocTabsCollectionChanged(e);
+
             // Register for Stop Message
             WeakReferenceMessenger.Default.Register<StopProcessMessage>(this, (r, m) =>
             {
@@ -84,7 +90,21 @@ namespace BMachine.UI.ViewModels;
             WeakReferenceMessenger.Default.Register<MasterPathsChangedMessage>(this);
             WeakReferenceMessenger.Default.Register<BatchAddFoldersMessage>(this);
             WeakReferenceMessenger.Default.Register<MasterBrowserSyncFromExplorerMessage>(this);
-        }
+
+                        // Radial menu submenu: daftar tab DOC + penulisan doc_info.json per tab.
+                        // Guard HasReceivedResponse supaya BatchViewModel ganda (dashboard
+                        // dibuat ulang) tidak bikin Reply() dobel.
+                        WeakReferenceMessenger.Default.Register<GetDocTabsRequestMessage>(this, (r, m) =>
+                        {
+                            if (m.HasReceivedResponse) return;
+                            m.Reply(BuildDocTabSnapshots());
+                        });
+                        WeakReferenceMessenger.Default.Register<PrepareDocSendRequestMessage>(this, (r, m) =>
+                        {
+                            if (m.HasReceivedResponse) return;
+                            m.Reply(PrepareDocSend(m.TabId));
+                        });
+                    }
 
         public void Receive(MasterBrowserSyncFromExplorerMessage message)
         {
@@ -596,11 +616,6 @@ namespace BMachine.UI.ViewModels;
     [ObservableProperty] private string _schoolLogoPath2 = "";
     [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _schoolLogoImage2;
     [ObservableProperty] private bool _isSecondLogoVisible = false;
-
-    partial void OnSchoolNameChanged(string value) => SaveDocDataAsync();
-    partial void OnSchoolAddressChanged(string value) => SaveDocDataAsync();
-    partial void OnSchoolLogoPathChanged(string value) => SaveDocDataAsync();
-    partial void OnSchoolLogoPath2Changed(string value) => SaveDocDataAsync();
     // --- DOC REPLACE SOURCES ---------------------------------------------
     // Placeholder texts that SEND-TEXT.jsx searches for in the active PSD.
     // One source per line (multi-line). Exposed so the user can match whatever
@@ -617,11 +632,297 @@ namespace BMachine.UI.ViewModels;
     partial void OnNameSourcesChanged(string value) => SaveDocDataAsync();
     partial void OnAddressSourcesChanged(string value) => SaveDocDataAsync();
 
+    // --- DOC TABS ----------------------------------------------------
+    // Each Doc tab = one reusable redaksi draft (name/address/logos).
+    // Only the ACTIVE tab drives ExportDocJsonAsync, so SEND-TEXT / SEND-LOGO
+    // (which read doc_info.json) always pick up the active tab's contents.
+    public partial class DocTabItem : ObservableObject
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString("N");
+        [ObservableProperty] private string _title = "Redaksi";
+        /// <summary>Nomor urut yang ditampilkan di chip (1, 2, 3, ...).</summary>
+        [ObservableProperty] private int _number = 1;
+        [ObservableProperty] private string _name = "";
+        [ObservableProperty] private string _address = "";
+        [ObservableProperty] private string _logoPath = "";
+        [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _logoImage;
+        [ObservableProperty] private string _logoPath2 = "";
+        [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _logoImage2;
+        [ObservableProperty] private bool _showSecondLogo = false;
+
+        public string NumberText => Number.ToString(CultureInfo.InvariantCulture);
+
+        public string TabTooltip
+        {
+            get
+            {
+                var head = $"{Title} (tab {Number})";
+                if (!string.IsNullOrWhiteSpace(Name)) return $"{head}\n{Name}";
+                return $"{head}\n(masih kosong)";
+            }
+        }
+
+        partial void OnNumberChanged(int value) => OnPropertyChanged(nameof(NumberText));
+        partial void OnNameChanged(string value) => OnPropertyChanged(nameof(TabTooltip));
+        partial void OnTitleChanged(string value) => OnPropertyChanged(nameof(TabTooltip));
+    }
+
+    [ObservableProperty] private ObservableCollection<DocTabItem> _docTabs = new();
+    [ObservableProperty] private DocTabItem? _activeDocTab;
+
+    /// <summary>Tab yang isinya sedang dimuat ke field datar (SchoolName, dst).
+    /// Dipakai untuk menyimpan balik isi field ke tab yang benar saat pindah tab.</summary>
+    private DocTabItem? _loadedDocTab;
+    private bool _switchingDocTab;
+
+    private void OnDocTabsCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (var t in e.NewItems.OfType<DocTabItem>())
+                t.PropertyChanged += OnDocTabChanged;
+        }
+        if (e.OldItems is not null)
+        {
+            foreach (var t in e.OldItems.OfType<DocTabItem>())
+                t.PropertyChanged -= OnDocTabChanged;
+        }
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            foreach (var t in DocTabs) t.PropertyChanged -= OnDocTabChanged;
+            foreach (var t in DocTabs) t.PropertyChanged += OnDocTabChanged;
+        }
+
+        // Kalau tab yang sedang terpakai dihapus, pilih tab pengganti.
+        if (_loadedDocTab != null && !DocTabs.Contains(_loadedDocTab))
+            LoadDocTab(DocTabs.Count > 0 ? DocTabs[0] : null);
+        else if (DocTabs.Count == 0)
+            LoadDocTab(null);
+
+        OnPropertyChanged(nameof(HasMultipleDocTabs));
+        RenumberDocTabs();
+    }
+
+    /// <summary>Nomor chip selalu rapat 1..N walau ada tab yang dihapus.</summary>
+    private void RenumberDocTabs()
+    {
+        for (var i = 0; i < DocTabs.Count; i++)
+        {
+            if (DocTabs[i].Number != i + 1)
+                DocTabs[i].Number = i + 1;
+        }
+    }
+
+    public bool HasMultipleDocTabs => DocTabs.Count > 1;
+
+    private static Avalonia.Media.Imaging.Bitmap? TryLoadBitmap(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+        try
+        {
+            using var fs = File.OpenRead(path);
+            return new Avalonia.Media.Imaging.Bitmap(fs);
+        }
+        catch { return null; }
+    }
+
+    private DocTabItem? AcceptedDocTab() => _loadedDocTab ?? ActiveDocTab
+        ?? (DocTabs.Count > 0 ? DocTabs[0] : null);
+
+    /// <summary>Perubahan dari dalam tab (mis. nama diubah lewat kode lain).</summary>
+    private void OnDocTabChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_switchingDocTab) return;
+        if (sender is not DocTabItem t) return;
+        if (!ReferenceEquals(t, _loadedDocTab)) return;
+
+        _switchingDocTab = true;
+        try
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(DocTabItem.Name): SchoolName = t.Name; break;
+                case nameof(DocTabItem.Address): SchoolAddress = t.Address; break;
+                case nameof(DocTabItem.LogoPath): SchoolLogoPath = t.LogoPath; break;
+                case nameof(DocTabItem.LogoImage): SchoolLogoImage = t.LogoImage; break;
+                case nameof(DocTabItem.LogoPath2): SchoolLogoPath2 = t.LogoPath2; break;
+                case nameof(DocTabItem.LogoImage2): SchoolLogoImage2 = t.LogoImage2; break;
+                case nameof(DocTabItem.ShowSecondLogo): IsSecondLogoVisible = t.ShowSecondLogo; break;
+            }
+        }
+        finally
+        {
+            _switchingDocTab = false;
+        }
+    }
+
+    /// <summary>
+    /// Muat satu tab ke field datar. Isi field yang sekarang disimpan lebih dulu
+    /// ke tab yang sedang dimuat (_loadedDocTab), supaya tiap tab punya draf sendiri.
+    /// </summary>
+    private void LoadDocTab(DocTabItem? target)
+    {
+        if (ReferenceEquals(target, _loadedDocTab) && target != null) return;
+
+        _switchingDocTab = true;
+        try
+        {
+            // 1. Simpan isi field ke tab yang ditinggalkan.
+            if (_loadedDocTab != null)
+            {
+                _loadedDocTab.Name = SchoolName;
+                _loadedDocTab.Address = SchoolAddress;
+                _loadedDocTab.LogoPath = SchoolLogoPath;
+                _loadedDocTab.LogoPath2 = SchoolLogoPath2;
+                _loadedDocTab.ShowSecondLogo = IsSecondLogoVisible;
+                _loadedDocTab.LogoImage = SchoolLogoImage;
+                _loadedDocTab.LogoImage2 = SchoolLogoImage2;
+            }
+
+            // 2. Muat tab tujuan (tab baru = semua kosong).
+            _loadedDocTab = target;
+            ActiveDocTab = target;
+
+            SchoolName = target?.Name ?? "";
+            SchoolAddress = target?.Address ?? "";
+            SchoolLogoPath = target?.LogoPath ?? "";
+            SchoolLogoPath2 = target?.LogoPath2 ?? "";
+            IsSecondLogoVisible = target?.ShowSecondLogo ?? false;
+            SchoolLogoImage = target?.LogoImage;
+            SchoolLogoImage2 = target?.LogoImage2;
+        }
+        finally
+        {
+            _switchingDocTab = false;
+        }
+
+        // doc_info.json harus langsung mencerminkan tab aktif supaya SEND-TEXT /
+        // SEND-LOGO tidak memakai isi tab sebelumnya saat diklik cepat.
+        _ = ExportDocJsonAsync();
+        QueueDocSave();
+    }
+
+    partial void OnActiveDocTabChanged(DocTabItem? value)
+    {
+        // Aktivasi selalu lewat LoadDocTab(); ini hanya jaring pengaman.
+        if (!_switchingDocTab && !ReferenceEquals(value, _loadedDocTab))
+            LoadDocTab(value);
+    }
+
+    /// <summary>Simpan tertunda: hindari menulis DB/JSON berulang saat pindah tab cepat.</summary>
+    private Avalonia.Threading.DispatcherTimer? _docSaveDebounce;
+    private void QueueDocSave()
+    {
+        _docSaveDebounce?.Stop();
+        _docSaveDebounce ??= new Avalonia.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _docSaveDebounce.Tick -= OnDocSaveDebounceTick;
+        _docSaveDebounce.Tick += OnDocSaveDebounceTick;
+        _docSaveDebounce.Start();
+    }
+
+    private void OnDocSaveDebounceTick(object? sender, EventArgs e)
+    {
+        _docSaveDebounce?.Stop();
+        SaveDocDataAsync();
+    }
+
+    [RelayCommand]
+    private void AddDocTab()
+    {
+        // Tab baru selalu kosong; draf tab lama sudah disimpan oleh LoadDocTab.
+        var tab = new DocTabItem { Title = $"Redaksi {DocTabs.Count + 1}" };
+        DocTabs.Add(tab);
+        LoadDocTab(tab);
+    }
+
+    [RelayCommand]
+    private void CloseDocTab(object? parameter)
+    {
+        var target = parameter as DocTabItem ?? ActiveDocTab;
+        if (target == null) return;
+
+        // Sisakan minimal satu tab.
+        if (DocTabs.Count <= 1) return;
+
+        var index = DocTabs.IndexOf(target);
+        var wasActive = ReferenceEquals(target, _loadedDocTab);
+
+        if (wasActive)
+        {
+            // Jangan simpan balik isi field ke tab yang akan dihapus.
+            _loadedDocTab = null;
+        }
+
+        DocTabs.Remove(target);
+        target.LogoImage = null;
+        target.LogoImage2 = null;
+
+        if (wasActive && DocTabs.Count > 0)
+        {
+            var next = DocTabs[Math.Min(Math.Max(index, 0), DocTabs.Count - 1)];
+            LoadDocTab(next);
+        }
+        else
+        {
+            QueueDocSave();
+        }
+    }
+
+    [RelayCommand]
+    private void SetActiveDocTab(object? parameter)
+    {
+        if (parameter is DocTabItem t)
+            LoadDocTab(t);
+    }
+
+    partial void OnSchoolNameChanged(string value)
+    {
+        if (_switchingDocTab) return;
+        if (_loadedDocTab != null && _loadedDocTab.Name != value) _loadedDocTab.Name = value;
+        QueueDocSave();
+    }
+    partial void OnSchoolAddressChanged(string value)
+    {
+        if (_switchingDocTab) return;
+        if (_loadedDocTab != null && _loadedDocTab.Address != value) _loadedDocTab.Address = value;
+        QueueDocSave();
+    }
+    partial void OnSchoolLogoPathChanged(string value)
+    {
+        if (_switchingDocTab) return;
+        if (_loadedDocTab != null)
+        {
+            _loadedDocTab.LogoPath = value;
+            _loadedDocTab.LogoImage = SchoolLogoImage;
+        }
+        QueueDocSave();
+    }
+    partial void OnSchoolLogoPath2Changed(string value)
+    {
+        if (_switchingDocTab) return;
+        if (_loadedDocTab != null)
+        {
+            _loadedDocTab.LogoPath2 = value;
+            _loadedDocTab.LogoImage2 = SchoolLogoImage2;
+        }
+        QueueDocSave();
+    }
+
     private bool _isSavingDoc;
+    private bool _docSavePending;
     private bool _isLoadingDoc;
     private async void SaveDocDataAsync()
     {
-        if (_database == null || _isSavingDoc || _isLoadingDoc) return;
+        if (_database == null || _isLoadingDoc) return;
+        if (_isSavingDoc)
+        {
+            // Ada penyimpanan berjalan: ulangi setelah selesai agar tidak hilang.
+            _docSavePending = true;
+            return;
+        }
         _isSavingDoc = true;
         try 
         {
@@ -632,6 +933,7 @@ namespace BMachine.UI.ViewModels;
             await _database.SetAsync("Doc.SchoolLogoPath2", SchoolLogoPath2);
             await _database.SetAsync("Doc.NameSources", NameSources);
             await _database.SetAsync("Doc.AddressSources", AddressSources);
+            await _database.SetAsync("Doc.Tabs", DocTabsToJson());
             await ExportDocJsonAsync();
         }
         catch (Exception ex)
@@ -641,34 +943,104 @@ namespace BMachine.UI.ViewModels;
         finally 
         {
             _isSavingDoc = false;
+            if (_docSavePending)
+            {
+                _docSavePending = false;
+                SaveDocDataAsync();
+            }
         }
     }
 
-    private async Task ExportDocJsonAsync()
+    /// <summary>Fire-and-forget export used on tab switch (no DB debounce wait).</summary>
+    private void ExportDocJsonNowAsync()
     {
-        try 
+        _ = ExportDocJsonAsync();
+    }
+
+    private string DocTabsToJson()
+    {
+        var list = DocTabs.Select(t => new
+        {
+            t.Id,
+            t.Title,
+            name = t.Name,
+            address = t.Address,
+            logoPath = t.LogoPath,
+            logoPath2 = t.LogoPath2,
+            showSecondLogo = t.ShowSecondLogo
+        });
+        return System.Text.Json.JsonSerializer.Serialize(list);
+    }
+
+    private DocTabItem? FindTabById(string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        return DocTabs.FirstOrDefault(t => t.Id == id);
+    }
+
+    private async Task ExportDocJsonAsync()
+        {
+            try
+            {
+                WriteDocInfoJson(SchoolName, SchoolAddress, SchoolLogoPath, SchoolLogoPath2);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error ExportDocJsonAsync: {ex.Message}");
+            }
+            await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Snapshot ringan tab DOC untuk submenu radial (id, nomor, judul).
+        /// </summary>
+        private IReadOnlyList<Messages.DocTabSnapshot> BuildDocTabSnapshots() =>
+            DocTabs.Select(t => new Messages.DocTabSnapshot(t.Id, t.Number, t.Title)).ToList();
+
+        /// <summary>
+        /// Tulis doc_info.json dari tab DOC tertentu TANPA mengubah tab aktif di UI.
+        /// Dipakai radial menu saat user memilih tab pada submenu SEND-TEXT /
+        /// SEND-LOGO. Field datar (SchoolName, dst.) selalu disinkronkan ke
+        /// _loadedDocTab saat diedit, jadi isi setiap DocTabItem sudah fresh.
+        /// </summary>
+        private bool PrepareDocSend(string tabId)
+        {
+            var tab = FindTabById(tabId);
+            if (tab == null) return false;
+            try
+            {
+                WriteDocInfoJson(tab.Name, tab.Address, tab.LogoPath, tab.LogoPath2);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error PrepareDocSend: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Penulis tunggal doc_info.json (data per tab + sumber teks global).
+        /// Sync & kecil: aman dipanggil dari UI thread maupun dari wrapper async.
+        /// </summary>
+        private void WriteDocInfoJson(string? nameRaw, string? addressRaw, string? logoRaw, string? logo2Raw)
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var folder = Path.Combine(appData, "BMachine.v2");
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-            
+
             var jsonPath = Path.Combine(folder, "doc_info.json");
-            var name = SchoolName?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
-            var address = SchoolAddress?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
-            var logo = SchoolLogoPath?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
-            var logo2 = SchoolLogoPath2?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
+            var name = nameRaw?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
+            var address = addressRaw?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "") ?? "";
+            var logo = logoRaw?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
+            var logo2 = logo2Raw?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
 
             var nameSourcesJson = BuildJsonStringArray(NameSources);
             var addressSourcesJson = BuildJsonStringArray(AddressSources);
 
             var json = $"{{\n  \"name\": \"{name}\",\n  \"address\": \"{address}\",\n  \"nameSources\": {nameSourcesJson},\n  \"addressSources\": {addressSourcesJson},\n  \"logo\": \"{logo}\",\n  \"logo2\": \"{logo2}\"\n}}";
-            await File.WriteAllTextAsync(jsonPath, json);
+            File.WriteAllText(jsonPath, json);
         }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error ExportDocJsonAsync: {ex.Message}");
-        }
-    }
 
     /// <summary>
     /// Splits a multi-line string into trimmed, non-empty lines and serializes
@@ -696,45 +1068,69 @@ namespace BMachine.UI.ViewModels;
         _isLoadingDoc = true;
         try
         {
-            SchoolName = await _database.GetAsync<string>("Doc.SchoolName") ?? "";
-            SchoolAddress = await _database.GetAsync<string>("Doc.SchoolAddress") ?? "";
+            // Restore persisted tab set first.
+            var tabsJson = await _database.GetAsync<string>("Doc.Tabs");
+            var restored = LoadDocTabsFromJson(tabsJson);
+
+            DocTabs.Clear();
+            foreach (var t in restored)
+                DocTabs.Add(t);
+            if (DocTabs.Count == 0)
+                DocTabs.Add(new DocTabItem { Title = "Redaksi" });
+
+            var legacyTab = DocTabs[0];
+
+            // Migrasi/perbaikan: nilai datar lama (Doc.SchoolName, dst) dipakai
+            // HANYA untuk mengisi tab pertama yang masih kosong. Kalau dipakai
+            // tanpa syarat, isi tab pertama bisa tertimpa tab aktif terakhir.
+            var legacyName = await _database.GetAsync<string>("Doc.SchoolName") ?? "";
+            var legacyAddress = await _database.GetAsync<string>("Doc.SchoolAddress") ?? "";
+            if (string.IsNullOrEmpty(legacyTab.Name) && !string.IsNullOrEmpty(legacyName))
+                legacyTab.Name = legacyName;
+            if (string.IsNullOrEmpty(legacyTab.Address) && !string.IsNullOrEmpty(legacyAddress))
+                legacyTab.Address = legacyAddress;
+
             var nameSources = await _database.GetAsync<string>("Doc.NameSources");
             if (!string.IsNullOrEmpty(nameSources)) NameSources = nameSources;
 
             var addressSources = await _database.GetAsync<string>("Doc.AddressSources");
             if (!string.IsNullOrEmpty(addressSources)) AddressSources = addressSources;
-            
+
             var logoPath = await _database.GetAsync<string>("Doc.SchoolLogoPath") ?? "";
-            if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
+            if (string.IsNullOrEmpty(legacyTab.LogoPath) && !string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
             {
                 try 
                 {
-                    SchoolLogoPath = logoPath;
+                    legacyTab.LogoPath = logoPath;
                     using var fs = File.OpenRead(logoPath);
-                    SchoolLogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
+                    legacyTab.LogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
                 } 
                 catch 
                 {
-                    SchoolLogoPath = "";
-                    SchoolLogoImage = null;
+                    legacyTab.LogoPath = "";
+                    legacyTab.LogoImage = null;
                 }
             }
 
             var logoPath2 = await _database.GetAsync<string>("Doc.SchoolLogoPath2") ?? "";
-            if (!string.IsNullOrEmpty(logoPath2) && File.Exists(logoPath2))
+            if (string.IsNullOrEmpty(legacyTab.LogoPath2) && !string.IsNullOrEmpty(logoPath2) && File.Exists(logoPath2))
             {
                 try 
                 {
-                    SchoolLogoPath2 = logoPath2;
+                    legacyTab.LogoPath2 = logoPath2;
                     using var fs2 = File.OpenRead(logoPath2);
-                    SchoolLogoImage2 = new Avalonia.Media.Imaging.Bitmap(fs2);
+                    legacyTab.LogoImage2 = new Avalonia.Media.Imaging.Bitmap(fs2);
                 } 
                 catch 
                 {
-                    SchoolLogoPath2 = "";
-                    SchoolLogoImage2 = null;
+                    legacyTab.LogoPath2 = "";
+                    legacyTab.LogoImage2 = null;
                 }
             }
+
+            // Muat tab hasil restore ke field datar.
+            _loadedDocTab = null; // paksa LoadDocTab memuat isi tab, bukan menyimpan balik
+            LoadDocTab(legacyTab);
         }
         finally
         {
@@ -745,27 +1141,76 @@ namespace BMachine.UI.ViewModels;
         await ExportDocJsonAsync();
     }
 
+    private List<DocTabItem> LoadDocTabsFromJson(string? json)
+    {
+        var result = new List<DocTabItem>();
+        if (string.IsNullOrWhiteSpace(json)) return result;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) return result;
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                var tab = new DocTabItem
+                {
+                    Id = el.TryGetProperty("Id", out var idProp) && idProp.ValueKind == System.Text.Json.JsonValueKind.String && !string.IsNullOrWhiteSpace(idProp.GetString())
+                        ? idProp.GetString()!
+                        : Guid.NewGuid().ToString("N"),
+                    // DocTabsToJson menulis "Title" (PascalCase); "title" (huruf kecil) dipertahankan
+                    // untuk kompatibilitas data lama. Tanpa ini judul tab selalu reset
+                    // ke "Redaksi" setiap restart dan submenu radial kehilangan teks tab.
+                    Title = (el.TryGetProperty("Title", out var t) || el.TryGetProperty("title", out t))
+                            && t.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? t.GetString() ?? ""
+                        : "Redaksi",
+                    Name = el.TryGetProperty("name", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.String ? n.GetString() ?? "" : "",
+                    Address = el.TryGetProperty("address", out var a) && a.ValueKind == System.Text.Json.JsonValueKind.String ? a.GetString() ?? "" : "",
+                    LogoPath = el.TryGetProperty("logoPath", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.String ? l.GetString() ?? "" : "",
+                    LogoPath2 = el.TryGetProperty("logoPath2", out var l2) && l2.ValueKind == System.Text.Json.JsonValueKind.String ? l2.GetString() ?? "" : "",
+                    ShowSecondLogo = el.TryGetProperty("showSecondLogo", out var s) && s.ValueKind == System.Text.Json.JsonValueKind.True && s.GetBoolean()
+                };
+                tab.LogoImage = TryLoadBitmap(tab.LogoPath);
+                tab.LogoImage2 = TryLoadBitmap(tab.LogoPath2);
+                result.Add(tab);
+            }
+        }
+        catch { /* corrupt JSON -> fresh tab */ }
+        return result;
+    }
+
     [RelayCommand]
     private void ResetDoc(string? slot)
     {
-        // Reset all fields
-        SchoolName = "";
-        SchoolAddress = "";
-        
-        // Reset Logo 1
-        SchoolLogoPath = "";
-        SchoolLogoImage?.Dispose();
-        SchoolLogoImage = null;
-        
-        // Reset Logo 2
-        SchoolLogoPath2 = "";
-        SchoolLogoImage2?.Dispose();
-        SchoolLogoImage2 = null;
-        
-        // Collapse back to 1 column
-        IsSecondLogoVisible = false;
-        
+        // Hanya tab AKTIF yang dikosongkan; tab lain tetap utuh.
+        _switchingDocTab = true;
+        try
+        {
+            SchoolName = "";
+            SchoolAddress = "";
+            SchoolLogoPath = "";
+            SchoolLogoPath2 = "";
+            IsSecondLogoVisible = false;
+            SchoolLogoImage = null;
+            SchoolLogoImage2 = null;
+        }
+        finally
+        {
+            _switchingDocTab = false;
+        }
+
+        if (_loadedDocTab != null)
+        {
+            _loadedDocTab.Name = "";
+            _loadedDocTab.Address = "";
+            _loadedDocTab.LogoPath = "";
+            _loadedDocTab.LogoPath2 = "";
+            _loadedDocTab.ShowSecondLogo = false;
+            _loadedDocTab.LogoImage = null;
+            _loadedDocTab.LogoImage2 = null;
+        }
+
         SaveDocDataAsync();
+        ExportDocJsonNowAsync();
     }
 
     [RelayCommand]
@@ -1078,6 +1523,10 @@ if ($img -ne $null) {{
 
         try
         {
+            // Pastikan doc_info.json sudah mencerminkan tab aktif sebelum
+            // Photoshop membaca path-nya.
+            await ExportDocJsonAsync();
+
             var tempPath = Path.Combine(Path.GetTempPath(), "bmachine_place_target.txt");
             await File.WriteAllTextAsync(tempPath, path);
 
@@ -1119,9 +1568,16 @@ if ($img -ne $null) {{
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
 
             var ext = Path.GetExtension(sourcePath);
-            var destName = slot == "2" ? $"school_logo2{ext}" : $"school_logo{ext}";
+
+            // Nama file HARUS unik per tab. Kalau memakai nama tetap
+            // (school_logo.png), logo tab lain akan menimpa file yang sama
+            // sehingga tab 1 bisa mengirim logo milik tab 2.
+            var tabKey = _loadedDocTab?.Id ?? "default";
+            var destName = slot == "2"
+                ? $"tab_{tabKey}_logo2{ext}"
+                : $"tab_{tabKey}_logo1{ext}";
             var destPath = Path.Combine(folder, destName);
-            
+
             File.Copy(sourcePath, destPath, true);
 
             using var fs = File.OpenRead(destPath);
@@ -1135,8 +1591,20 @@ if ($img -ne $null) {{
                 SchoolLogoPath = destPath;
                 SchoolLogoImage = new Avalonia.Media.Imaging.Bitmap(fs);
             }
-            
+
+            // The active doc tab must always hold the current logo paths so
+            // switching back to it restores the logos on the chip.
+            var activeTab = AcceptedDocTab();
+            if (activeTab != null)
+            {
+                activeTab.LogoPath = SchoolLogoPath;
+                activeTab.LogoPath2 = SchoolLogoPath2;
+            }
+
             SaveDocDataAsync();
+            // Tulis doc_info.json segera: kalau user langsung klik "Kirim",
+            // SEND-LOGO harus memakai path logo tab yang sedang aktif.
+            _ = ExportDocJsonAsync();
         }
         catch (Exception ex)
         {

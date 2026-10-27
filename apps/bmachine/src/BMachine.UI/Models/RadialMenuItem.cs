@@ -88,7 +88,31 @@ public partial class RadialMenuItem : ObservableObject
         [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsMoreDots))] private string _navigationType = string.Empty;
 
         /// <summary>
-        /// True hanya untuk tombol "More" (tiga titik).
+                /// True = item ini bisa membuka submenu tab DOC (SEND-TEXT / SEND-LOGO
+                /// saat ada lebih dari satu tab DOC di tab DOC).
+                /// </summary>
+                [ObservableProperty] private bool _hasSubmenu;
+
+                /// <summary>
+                /// Id tab DOC yang dipilih pada submenu (terisi hanya di item submenu;
+                /// "" = pakai tab aktif seperti biasa).
+                /// </summary>
+                [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsOuterItem))] private string _tabId = string.Empty;
+
+                /// <summary>
+                /// True = segmen cincin LUAR (pilihan tab DOC). Tampilan segmen luar
+                /// mengikuti gaya menu dalam (band + garis + wedge accent); properti ini
+                /// penanda identitas item untuk keperluan lain.
+                /// </summary>
+                public bool IsOuterItem => !string.IsNullOrEmpty(TabId);
+
+                /// <summary>
+                /// Sudut rotasi teks (dalam derajat) agar mengikuti lengkungan orientasi segmen.
+                /// </summary>
+                [ObservableProperty] private double _textRotation;
+
+                /// <summary>
+                /// True hanya untuk tombol "More" (tiga titik).
         /// Dipakai XAML: PathIcon menempelkan bbox geometri yang pipih ke ATAS kotak ikon
         /// (terukur -6.5 px dari pusat), jadi tombol More menggambar tiga titik manual
         /// (Ellipse di StackPanel center) supaya pasti center di lingkaran tombolnya.
