@@ -12,6 +12,10 @@ import shutil
 import sys
 import json
 
+# Nama subfolder tempat template edit disimpan (per grup).
+# Contoh: "...\1. FOTO 10RP_MANASIK_GRADASI\NONREG\#MASTER\MSK-002.psd"
+MASTER_SUBDIR = "#MASTER"
+
 # Util I/O cepat (batch paralel + cache + robocopy). Dipakai manasik/wisuda/
 # pasfoto/profesi_flat untuk salin PSD besar tanpa bikin sistem lag.
 try:
@@ -592,6 +596,40 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
     if not md_8r_path or not os.path.exists(md_8r_path):
          print(f"[ERROR] Master Path 8R tidak valid: {md_8r_path}", file=sys.stderr)
 
+    # ------------------------------------------------------------------
+    # Helper: kode .txt terdekat untuk sebuah folder.
+    # Folder seperti NONREG / KOLASE yang punya .txt sendiri otomatis jadi
+    # "grup" tersendiri dan memakai master sendiri, bukan menumpang induk.
+    # ------------------------------------------------------------------
+    def _codes_for_dir(dir_path):
+        cur = os.path.abspath(dir_path)
+        root = os.path.abspath(subfolder_path)
+        while True:
+            codes = find_candidate_codes(cur, prefer_tag=prefer_tag)
+            if codes:
+                return codes, cur
+            if os.path.normcase(cur) == os.path.normcase(root):
+                return [], None
+            parent = os.path.dirname(cur)
+            if os.path.normcase(parent) == os.path.normcase(cur):
+                return [], None
+            if not os.path.normcase(parent).startswith(os.path.normcase(root)):
+                return [], None
+            cur = parent
+
+    def _pick_master(codes):
+        for code in codes:
+            found = find_master_file(master_folder_to_use, code)
+            if found:
+                return found, code
+        return None, None
+
+    def _out_dir_for(dir_path):
+        rel = os.path.relpath(dir_path, subfolder_path)
+        if rel in (".", ""):
+            return os.path.join(final_output_folder, subfolder_name)
+        return os.path.join(final_output_folder, subfolder_name, rel)
+
     for subfolder_name in os.listdir(pilihan_path):
         subfolder_path = os.path.join(pilihan_path, subfolder_name)
         if not os.path.isdir(subfolder_path):
@@ -618,54 +656,34 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
 
         print(f"\n--- Memproses: {subfolder_name} ---")
 
-        candidates = find_candidate_codes(subfolder_path, prefer_tag=prefer_tag)
-        print(f"  - Kandidat kode dari .txt: {candidates if candidates else '∅'}")
-        if not candidates:
-            print(f"[SCRIPT_ERROR] [ERROR] Tidak ditemukan kandidat kode dari .txt di '{subfolder_name}'.", file=sys.stderr)
-            continue
+        ce_jobs = {}          # (master_path, grup_output_dir) -> [tujuan]
+        _skipped_total = 0
 
-        master_file_path, chosen_code = None, None
-        for code in candidates:
-            master_file_path = find_master_file(master_folder_to_use, code)
-            if master_file_path:
-                chosen_code = code
-                break
-        if not master_file_path:
-            print(f"[SCRIPT_ERROR] [ERROR] Tidak ditemukan file master cocok untuk {candidates}.", file=sys.stderr)
-            continue
-
-        print(f"  - Kode terpilih: {chosen_code}")
-        print(f"  - Master ditemukan: {os.path.basename(master_file_path)}")
-
-        print(f"  - Kode terpilih: {chosen_code}")
-        print(f"  - Master ditemukan: {os.path.basename(master_file_path)}")
-
-        # --- REFACTOR START: Deep Walk to Preserve Structure ---
-        # Walk through subfolder_path recursively
-        item_jobs = []
         for root, dirs, files in os.walk(subfolder_path):
             jpg_files = [f for f in files if f.lower().endswith(('.jpg', '.jpeg'))]
             if not jpg_files:
                 continue
 
-            # Calculate relative path from the event root (subfolder_path)
-            # e.g. root = ".../1. FOTO.../KELAS A", rel = "KELAS A"
             rel_dir = os.path.relpath(root, subfolder_path)
-            
-            # Destination directory: Final Output / Event Name / Relative Subfolder
-            # e.g. ".../OUTPUT/1. FOTO.../KELAS A"
-            if rel_dir == ".":
-                current_output_dir = os.path.join(final_output_folder, subfolder_name)
-            else:
-                current_output_dir = os.path.join(final_output_folder, subfolder_name, rel_dir)
-            
+            current_output_dir = _out_dir_for(root)
             os.makedirs(current_output_dir, exist_ok=True)
 
-            # Process files in this directory
+            codes, group_dir = _codes_for_dir(root)
+            if not codes:
+                print(f"  [SKIP] '{rel_dir}' - tidak ada .txt kode di folder ini/induknya.")
+                continue
+
+            master_file_path, chosen_code = _pick_master(codes)
+            if not master_file_path:
+                print(f"  [SKIP] '{rel_dir}' - master tidak cocok untuk kode {codes}.")
+                continue
+
+            group_out_dir = _out_dir_for(group_dir) if group_dir else current_output_dir
+            print(f"  [GRUP] '{rel_dir}' -> kode {chosen_code} ({os.path.basename(master_file_path)})")
+
             group_ids, seen = [], set()
             for fn in jpg_files:
-                base = fn
-                name_no_ext = os.path.splitext(base)[0]
+                name_no_ext = os.path.splitext(fn)[0]
                 num = get_leading_number(name_no_ext)
                 if num is not None:
                     gid = num
@@ -675,54 +693,58 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
                         gid = m.group(1)
                     else:
                         gid = normalize_non_numeric(name_no_ext)
-                
+
                 if gid and gid not in seen:
                     seen.add(gid)
                     group_ids.append(gid)
 
             print(f"    - Folder '{rel_dir if rel_dir != '.' else '[Root]'}': {len(group_ids)} grup.")
 
-            # Kumpulkan semua tujuan duplikat untuk batch paralel
             _dest_jobs = []
-            _skipped_existing = 0
+            _new_jobs = []
             for gid in group_ids:
                 out_name = f"{gid}.psd"
                 destination_path = os.path.join(current_output_dir, out_name)
-
                 if os.path.exists(destination_path):
-                    _skipped_existing += 1
+                    _skipped_total += 1
                     continue
-
                 if COPY_EDIT:
-                    item_jobs.append(destination_path)
+                    _new_jobs.append(destination_path)
                 else:
                     _dest_jobs.append((master_file_path, destination_path))
 
             if COPY_EDIT:
-                copied = len(item_jobs)
-                skipped = _skipped_existing
+                if _new_jobs:
+                    ce_jobs.setdefault((master_file_path, group_out_dir), []).extend(_new_jobs)
+                    print(f"      -> {len(_new_jobs)} tujuan dicatat.")
             else:
-                # Salin PSD besar secara paralel (default 4 thread) supaya
-                # disk I/O tidak spike serial + tidak bikin sistem lag.
                 copied, _sk, _fl = _fast_batch_copy(_dest_jobs, workers=4, overwrite=True,
                                                      on_done=lambda d: print(f"      - [OK] {os.path.basename(d)}"),
                                                      on_error=lambda d, e: print(f"      [ERROR] Gagal salin '{os.path.basename(d)}': {e}", file=sys.stderr))
-                skipped = _sk + _skipped_existing
+                _skipped_total += _sk
+                if copied > 0:
+                    print(f"      -> {copied} file disalin.")
 
-            if copied > 0:
-                print(f"      -> {copied} file disalin.")
-
-        if COPY_EDIT and item_jobs:
-            # Salin 1 template untuk DIEDIT user di event output, catat jobs.
+        if COPY_EDIT and ce_jobs:
+            # Template edit disimpan di <grup>/#MASTER supaya tiap grup
+            # (mis. NONREG vs reguler) punya template sendiri.
             from _photoshop_utils import manifest_add
-            edit_psd = os.path.join(final_output_folder, os.path.basename(master_file_path))
-            if not os.path.isfile(edit_psd):
-                shutil.copy2(master_file_path, edit_psd)
-                print(f"    [EDIT] {os.path.basename(edit_psd)} dibuka untuk diedit.")
-            else:
-                print(f"    [EDIT] {os.path.basename(edit_psd)} sudah ada, dipakai ulang.")
-            manifest_add(MANIFEST_PATH, edit_psd, subfolder_name, item_jobs)
-            print(f"    [MANIFEST] {len(item_jobs)} tujuan duplikat tercatat.")
+            for (m_path, group_out_dir), jobs in ce_jobs.items():
+                master_dir = os.path.join(group_out_dir, MASTER_SUBDIR)
+                try:
+                    os.makedirs(master_dir, exist_ok=True)
+                except Exception as e:
+                    print(f"    [ERROR] Gagal buat folder {MASTER_SUBDIR}: {e}", file=sys.stderr)
+                    continue
+                edit_psd = os.path.join(master_dir, os.path.basename(m_path))
+                if not os.path.isfile(edit_psd):
+                    shutil.copy2(m_path, edit_psd)
+                    print(f"    [EDIT] {MASTER_SUBDIR}\\{os.path.basename(edit_psd)} dibuka untuk diedit.")
+                else:
+                    print(f"    [EDIT] {MASTER_SUBDIR}\\{os.path.basename(edit_psd)} sudah ada, dipakai ulang.")
+                label = os.path.splitext(os.path.basename(m_path))[0]
+                manifest_add(MANIFEST_PATH, edit_psd, label, jobs)
+                print(f"    [MANIFEST] {label}: {len(jobs)} tujuan duplikat tercatat.")
 
     print("\n--- Proses Selesai ---")
 
