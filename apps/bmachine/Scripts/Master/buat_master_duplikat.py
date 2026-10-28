@@ -90,143 +90,234 @@ def _copy_txt_files_recursive(source_folder: str, output_folder: str) -> int:
     return count
 
 
-def _scan_manual_masters(output_folder: str, manifest_path: str) -> list:
-    """Scan folder output untuk detect master PSD yang user tambah manual.
-    
-    Master PSD yang valid:
-    - Ada di root output folder (bukan subfolder)
-    - Nama file .psd (case insensitive)
-    - Tidak ada di manifest (edit_psd yang sudah terdaftar)
-    
-    Returns: list of (master_psd_path, label) untuk master tambahan
-    """
+MASTER_SUBDIR = "#MASTER"
+
+
+def _load_entries(manifest_path: str) -> list:
+    """Baca entry manifest (toleran: dict {"entries": [...]} maupun list lama)."""
     import json
-    
-    if not os.path.isdir(output_folder):
+
+    if not manifest_path or not os.path.isfile(manifest_path):
         return []
-    
-    # Load manifest untuk cek PSD yang sudah terdaftar
-    registered_psds = set()
     try:
-        with open(manifest_path, 'r', encoding='utf-8') as f:
-            entries = json.load(f)
-            for e in entries:
-                edit_psd = e.get("edit_psd", "")
-                if edit_psd:
-                    registered_psds.add(os.path.normpath(edit_psd).lower())
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
     except Exception:
-        pass
-    
-    # Scan root output folder untuk .psd files
-    manual_masters = []
+        return []
+    if isinstance(data, dict):
+        return list(data.get("entries") or [])
+    if isinstance(data, list):
+        return data
+    return []
+
+
+def _save_entries(manifest_path: str, entries: list) -> bool:
+    import json
+
     try:
-        for name in os.listdir(output_folder):
-            if not name.lower().endswith('.psd'):
-                continue
-            full_path = os.path.join(output_folder, name)
-            if not os.path.isfile(full_path):
-                continue
-            # Skip kalau sudah terdaftar di manifest
-            if os.path.normpath(full_path).lower() in registered_psds:
-                continue
-            # Master tambahan ditemukan
-            label = os.path.splitext(name)[0]
-            manual_masters.append((full_path, label))
-            print(f"  [MANUAL] Ditemukan master tambahan: {name}")
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump({"entries": entries}, f, indent=2, ensure_ascii=False)
+        return True
     except Exception as e:
-        print(f"[WARN] Gagal scan manual masters: {e}", file=sys.stderr)
-    
-    return manual_masters
+        print(f"[ERROR] Gagal save manifest: {e}", file=sys.stderr)
+        return False
+
+
+def _norm_key(text: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", (text or "").upper())
+
+
+def _scan_manual_masters(output_folder: str, registered: set) -> list:
+    """Cari master PSD yang ditambahkan user sendiri (tidak ada di manifest).
+
+    Dua lokasi yang didukung:
+      1) <folder grup>/#MASTER/*.psd   (struktur baru — per grup/redaksi)
+      2) <root event>/*.psd            (struktur lama, tetap didukung)
+
+    Returns: list of (master_psd_path, label, target_folder)
+             target_folder = folder tempat hasil gandaan harus keluar
+                             (parent dari #MASTER, atau root event).
+    """
+    found = []
+    if not os.path.isdir(output_folder):
+        return found
+
+    for root, _dirs, files in os.walk(output_folder):
+        is_master_dir = os.path.basename(root).upper() == MASTER_SUBDIR.upper()
+        # Root event hanya dipakai untuk kompatibilitas struktur lama
+        is_legacy_root = os.path.normcase(os.path.abspath(root)) == os.path.normcase(os.path.abspath(output_folder))
+        if not (is_master_dir or is_legacy_root):
+            continue
+
+        target_folder = os.path.dirname(root) if is_master_dir else output_folder
+        for name in files:
+            if not name.lower().endswith(".psd"):
+                continue
+            full_path = os.path.join(root, name)
+            if os.path.normcase(os.path.abspath(full_path)) in registered:
+                continue
+            label = os.path.splitext(name)[0]
+            found.append((full_path, label, target_folder))
+            where = f"{MASTER_SUBDIR}\\" if is_master_dir else ""
+            print(f"  [MANUAL] Ditemukan master tambahan: {where}{name}")
+    return found
+
+
+def _collect_known_job_names(entries: list) -> dict:
+    """Peta folder -> set nama file job yang sudah dipakai manifest.
+
+    Dipakai agar master manual memakai penomoran yang SAMA dengan grup itu
+    (mis. 1.psd, 3.psd, 7.psd) tanpa perlu membaca ulang folder sumber.
+    """
+    mapping = {}
+    for e in entries:
+        for job in (e.get("jobs") or []):
+            d = os.path.normcase(os.path.abspath(os.path.dirname(job)))
+            mapping.setdefault(d, set()).add(os.path.basename(job))
+    return mapping
+
+
+def _photo_base_name(filename: str) -> str:
+    """Nama dasar output dari nama file foto (sama dengan logika profesi_flat).
+
+    '(15).JPG' -> '15' | 'pilot 2(1).jpg' -> '2' | 'tni 12 single.jpeg' -> '12SINGLE'
+    """
+    base_noext = os.path.splitext(filename)[0].strip()
+    for pattern, single in (
+        (r"^(.*?)(\d+)\s*\(\d+\)\s*(.*?)$", False),
+        (r"^(.*?)(\d+)\s*single\s*(.*?)$", True),
+        (r"^(.*?)(\d+)\s*(.*?)$", False),
+    ):
+        m = re.match(pattern, base_noext, flags=re.IGNORECASE)
+        if m:
+            _left, base, _right = m.groups()
+            return f"{base}SINGLE" if single else base
+    return os.path.splitext(filename)[0]
+
+
+def _map_source_jobs(pilihan_path: str, output_folder: str, target_folder: str, label: str, ext: str) -> list:
+    """Petakan foto di folder sumber yang cocok dengan label master -> daftar job.
+
+    Contoh: master '#MASTER/DOKTER BEDAH.psd' di grup '.../KB'
+    -> cari folder sumber '.../KB/DOKTER BEDAH' lalu ambil nomor fotonya saja
+    (bukan seluruh nomor di grup), supaya tidak menimpa hasil profesi lain.
+    """
+    if not pilihan_path or not os.path.isdir(pilihan_path):
+        return []
+
+    try:
+        rel_target = os.path.relpath(target_folder, output_folder)
+    except Exception:
+        rel_target = "."
+    target_parts = [] if rel_target in (".", "") else [_norm_key(p) for p in rel_target.split(os.sep)]
+    lab = _norm_key(label)
+
+    exact, loose = None, None
+    for root, _dirs, files in os.walk(pilihan_path):
+        base = _norm_key(os.path.basename(root))
+        if not base or not (base == lab or lab in base or base in lab):
+            continue
+        photos = [f for f in files if f.lower().endswith((".jpg", ".jpeg"))]
+        if not photos:
+            continue
+
+        rel_src = os.path.relpath(root, pilihan_path)
+        src_parts = [] if rel_src in (".", "") else [_norm_key(p) for p in rel_src.split(os.sep)]
+
+        idx, ok = 0, True
+        for tp in target_parts:
+            if not tp:
+                continue
+            hit = False
+            while idx < len(src_parts):
+                if tp in src_parts[idx] or src_parts[idx] in tp:
+                    hit = True
+                    idx += 1
+                    break
+                idx += 1
+            if not hit:
+                ok = False
+                break
+        if not ok:
+            continue
+
+        if base == lab:
+            exact = (root, photos)
+            break
+        if loose is None:
+            loose = (root, photos)
+
+    chosen = exact or loose
+    if not chosen:
+        return []
+
+    _src_root, photos = chosen
+    jobs, seen = [], set()
+    for f in sorted(photos):
+        name = _photo_base_name(f)
+        if not name:
+            continue
+        job = os.path.join(target_folder, f"{name}{ext}")
+        key = os.path.normcase(job)
+        if key in seen:
+            continue
+        seen.add(key)
+        jobs.append(job)
+    return jobs
 
 
 def _add_manual_masters_to_manifest(manifest_path: str, output_folder: str, pilihan_path: str) -> int:
-    """Tambahkan master PSD manual ke manifest untuk duplikasi.
-    
-    Logika:
-    - Scan subfolder output untuk cari folder yang match nama master
-    - Contoh: DOKTER BEDAH.psd → cari "1. FOTO 10RP_OB PROFESI_GRADASI/DOKTER BEDAH"
-    - Generate job list (1.psd, 2.psd, ...) sesuai jumlah foto di folder tersebut
-    
-    Returns: jumlah master manual yang ditambahkan
+    """Daftarkan master PSD buatan user ke manifest agar ikut digandakan.
+
+    Aturan:
+    - Master di <grup>/#MASTER/X.psd -> hasil gandaan keluar di <grup>/ (di luar #MASTER)
+    - Job diambil dari foto di folder sumber yang namanya cocok dengan label master
+      (jadi tidak menimpa hasil profesi lain di grup yang sama).
     """
-    import json
-    import glob
-    
-    manual_masters = _scan_manual_masters(output_folder, manifest_path)
+    entries = _load_entries(manifest_path)
+    if not entries:
+        return 0
+
+    registered = set()
+    for e in entries:
+        p = e.get("edit_psd") or ""
+        if p:
+            registered.add(os.path.normcase(os.path.abspath(p)))
+
+    manual_masters = _scan_manual_masters(output_folder, registered)
     if not manual_masters:
         return 0
-    
+
     print(f"\n[INFO] Ditemukan {len(manual_masters)} master PSD tambahan (manual).")
-    
-    # Load manifest existing
-    entries = []
-    try:
-        with open(manifest_path, 'r', encoding='utf-8') as f:
-            entries = json.load(f)
-    except Exception:
-        pass
-    
+
+    known_jobs = _collect_known_job_names(entries)
     added = 0
-    for master_path, label in manual_masters:
-        # Cari subfolder yang match dengan nama master
-        # Contoh: DOKTER BEDAH.psd → cari "*DOKTER BEDAH" di subfolder
-        target_folder = None
-        try:
-            for item in os.listdir(output_folder):
-                item_path = os.path.join(output_folder, item)
-                if not os.path.isdir(item_path):
-                    continue
-                # Match jika nama folder ends with nama master (case insensitive)
-                if item.upper().endswith(label.upper()):
-                    target_folder = item_path
-                    break
-        except Exception:
-            pass
-        
-        if not target_folder:
-            print(f"  [SKIP] {label}: tidak ada folder target yang match")
-            continue
-        
-        # Count jumlah file .jpg/.jpeg di folder target
-        try:
-            photo_files = []
-            for ext in ['*.jpg', '*.jpeg', '*.JPG', '*.JPEG']:
-                photo_files.extend(glob.glob(os.path.join(target_folder, ext)))
-            
-            if not photo_files:
-                print(f"  [SKIP] {label}: folder target kosong (tidak ada foto)")
+
+    for master_path, label, target_folder in manual_masters:
+        ext = os.path.splitext(master_path)[1] or ".psd"
+
+        jobs = _map_source_jobs(pilihan_path, output_folder, target_folder, label, ext)
+        if jobs:
+            print(f"  [TAMBAH] {label}: {len(jobs)} tujuan (dari folder sumber '{label}')")
+        else:
+            key = os.path.normcase(os.path.abspath(target_folder))
+            names = sorted(known_jobs.get(key) or [])
+            if not names:
+                print(f"  [SKIP] {label}: tidak ada foto/tujuan yang bisa dipetakan")
                 continue
-            
-            # Generate job list: 1.psd, 2.psd, ...
-            jobs = []
-            for i in range(1, len(photo_files) + 1):
-                job_path = os.path.join(target_folder, f"{i}.psd")
-                jobs.append(job_path)
-            
-            # Tambahkan entry baru ke manifest
-            new_entry = {
-                "edit_psd": master_path,
-                "label": label,
-                "jobs": jobs
-            }
-            entries.append(new_entry)
-            added += 1
-            
-            print(f"  [TAMBAH] {label}: {len(jobs)} tujuan duplikat")
-            
-        except Exception as e:
-            print(f"  [ERROR] {label}: {e}", file=sys.stderr)
-    
+            jobs = [os.path.join(target_folder, n) for n in names]
+            print(f"  [TAMBAH] {label}: {len(jobs)} tujuan (mengikuti penomoran grup)")
+
+        entries.append({"edit_psd": master_path, "label": label, "jobs": jobs})
+        registered.add(os.path.normcase(os.path.abspath(master_path)))
+        added += 1
+
     if added > 0:
-        # Save manifest yang sudah di-update
-        try:
-            with open(manifest_path, 'w', encoding='utf-8') as f:
-                json.dump(entries, f, indent=2, ensure_ascii=False)
+        if _save_entries(manifest_path, entries):
             print(f"\n[INFO] Manifest di-update: +{added} master manual")
-        except Exception as e:
-            print(f"[ERROR] Gagal save manifest: {e}", file=sys.stderr)
+        else:
             return 0
-    
+
     return added
 
 

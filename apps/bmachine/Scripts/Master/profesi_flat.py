@@ -13,6 +13,10 @@ import time
 sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
 print("PYTHON_SCRIPT_STARTED: profesi_flat.py", flush=True)
 
+# Nama subfolder tempat template edit disimpan (per grup/redaksi).
+# Contoh: "...\1. FOTO 10RP OB PROFESI GRADASI\KB\#MASTER\ASTRONOT.psd"
+MASTER_SUBDIR = "#MASTER"
+
 # Import helper untuk copy-edit-sync workflow
 try:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -774,7 +778,9 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                      continue
                 
                 if copy_edit:
-                    ce_jobs.setdefault(file_master_path, []).append(tujuan_path)
+                    # Key = (master, folder tujuan) supaya tiap grup/redaksi
+                    # (mis. KB vs RA) punya template edit SENDIRI di #MASTER-nya.
+                    ce_jobs.setdefault((file_master_path, current_output_dir), []).append(tujuan_path)
                     summary_counts[os.path.splitext(file_master_name)[0]] += 1
                     print(f"  [ANTRI] '{filename}' -> '{tgt_name}{master_ext}' ({category_mode.upper()}: {file_master_name})")
                 else:
@@ -802,12 +808,13 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
         print(f"--- SELESAI SALIN: {_done} ok, {_skipped} skip, {_failed} gagal ---")
 
     if copy_edit and ce_jobs:
-        # Fase 1 copy-edit: salin 1 template per master untuk DIEDIT user,
-        # seluruh tujuan duplikat tercatat di manifest (dibuka di fase 2).
-        # Master dari folder 8R diberi suffix ' 8R' agar tidak bentrok/tertimpa
-        # master 10RP dengan nama profesi sama (mis. BRIMOB.psd vs BRIMOB 8R.psd).
+        # Fase 1 copy-edit: salin 1 template per (master, folder tujuan) untuk
+        # DIEDIT user, seluruh tujuan duplikat tercatat di manifest (fase 2).
+        # Template disimpan di <folder tujuan>\#MASTER\<PROFESI>.psd supaya grup
+        # berbeda (mis. KB vs RA) punya redaksi/template masing-masing.
+        # Saat DUPLIKAT PSD, hasil gandaan tetap keluar DI LUAR folder #MASTER.
         from _photoshop_utils import manifest_add
-        for _m_path, _jobs in ce_jobs.items():
+        for (_m_path, _out_dir), _jobs in ce_jobs.items():
             is_from_8r = False
             if master_path_profesi_8r and os.path.exists(master_path_profesi_8r):
                 try:
@@ -826,12 +833,19 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                 edit_filename = f"{stem}{ext}"
                 label_name = stem
 
-            _edit_psd = os.path.join(final_event_folder, edit_filename)
+            _master_dir = os.path.join(_out_dir, MASTER_SUBDIR)
+            try:
+                os.makedirs(_master_dir, exist_ok=True)
+            except Exception as e:
+                print(f"  [ERROR] Gagal buat folder {MASTER_SUBDIR}: {e}", file=sys.stderr)
+                continue
+
+            _edit_psd = os.path.join(_master_dir, edit_filename)
             if not os.path.isfile(_edit_psd):
                 shutil.copy2(_m_path, _edit_psd)
-                print(f"[EDIT] {os.path.basename(_edit_psd)} dibuka untuk diedit.")
+                print(f"[EDIT] {MASTER_SUBDIR}\\{edit_filename} dibuka untuk diedit.")
             else:
-                print(f"[EDIT] {os.path.basename(_edit_psd)} sudah ada, dipakai ulang.")
+                print(f"[EDIT] {MASTER_SUBDIR}\\{edit_filename} sudah ada, dipakai ulang.")
             manifest_add(manifest_path, _edit_psd, label_name, _jobs)
             print(f"[MANIFEST] {label_name}: {len(_jobs)} tujuan duplikat tercatat.")
 
