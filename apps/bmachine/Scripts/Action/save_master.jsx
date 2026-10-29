@@ -41,7 +41,7 @@ function showAdvancedMode(){
  var name=dlg.add("edittext",undefined,"");var row=dlg.add("group");row.orientation="row";var master=row.add("checkbox",undefined,"Save PSD");master.value=true;var jpg=row.add("checkbox",undefined,"JPG");var png=row.add("checkbox",undefined,"PNG");var action=dlg.add("checkbox",undefined,"Run anti ramijud action");action.value=true;var keep=dlg.add("checkbox",undefined,"Keep source open");keep.value=true;var batch=dlg.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
  var pr=dlg.add("group");pr.orientation="row";pr.add("statictext",undefined,"Export folder (blank = source)");var path=pr.add("edittext",undefined,"");path.preferredSize.width=145;var browse=pr.add("button",undefined,"Browse");var buttons=dlg.add("group");buttons.orientation="row";buttons.alignment="center";var save=buttons.add("button",undefined,"Save / Edit");var run=buttons.add("button",undefined,"Run Current");var cancel=buttons.add("button",undefined,"Cancel");
  function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,path:path.text};}
- function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng){alert("Aktifkan minimal satu proses.");return;}var f=c.path.replace(/^\s+|\s+$/g,"");if(f&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:c.saveMaster,exportJpg:c.exportJpg,exportPng:c.exportPng,processAction:c.processAction,keepOpen:c.keepOpen,batch:isBatchEnabled(c.batch),path:f});}
+ function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng){alert("Aktifkan minimal satu proses.");return;}var f=(c.path?String(c.path):"").replace(/^\s+|\s+$/g,"");var isAbs=f.indexOf(":")>=0||f.charAt(0)==="/";if(f&&isAbs&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:f});}
  function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
  populate();browse.onClick=function(){var f=Folder.selectDialog("Pilih folder export");if(f)path.text=decodeURI(f.fsName);};function savePreset(){var c=conf(),n=c.name.replace(/^\s+|\s+$/g,"");if(!n){alert("Isi nama preset.");return;}c.name=n;var i=-1;for(var j=0;j<presets.length;j++)if(presets[j].name===n)i=j;if(i<0)presets.push(c);else presets[i]=c;if(!saveAdvancedPresets(presets)){alert("Gagal menyimpan preset.");return;}populate();area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.layout.resize();dlg.update();}save.onClick=savePreset; run.onClick=function(){execute(conf());};cancel.onClick=function(){dlg.close(0);};dlg.onClose=function(){var s=loadSettings();s.advancedX=dlg.location.x;s.advancedY=dlg.location.y;saveSettingsData(s);return true;};if(pos.advancedX>0&&pos.advancedY>0)dlg.location=[pos.advancedX,pos.advancedY];else dlg.center();dlg.show();
 }
@@ -59,8 +59,9 @@ function runAdvancedMode(c){
 
  function isAbsolutePath(p){return p.indexOf(":")>=0||p.indexOf("\\\\")===0;}
  function getExportFolder(pathInput,sourceDocPath){
-  if(!pathInput||pathInput.length===0)return sourceDocPath;
+  if(!pathInput||pathInput.length===0)return sourceDocPath?new Folder(sourceDocPath):null;
   if(isAbsolutePath(pathInput))return new Folder(pathInput);
+  if(!sourceDocPath)return null; // path relatif tanpa path dokumen tidak bisa dihitung
   // Relatif: buat satu level di atas sumber, mirroring subfolder sumber di batch
   var srcFolder=new Folder(sourceDocPath);
   var srcName=srcFolder.name;
@@ -81,23 +82,32 @@ function runAdvancedMode(c){
     if(!d){fail.push(docName+" (dokumen tidak ditemukan/sudah ditutup)");continue;}
     app.activeDocument=d;
     var m=docName.match(/\.([^.]+)$/),ext=m?m[1].toLowerCase():"";
-    
+
+    // Path dokumen sumber. Dokumen yang belum pernah disimpan tidak punya path,
+    // jadi akses d.path harus dibungkus (kalau tidak, seluruh proses gagal).
+    var srcPath=null;
+    try{ if(d.path)srcPath=d.path.fsName; }catch(ePath){}
+
     // Tentukan export folder (untuk PSD dan export file)
     var exportFolder=null;
     if(c.saveMaster||c.exportJpg||c.exportPng){
      if(c.path){
-      exportFolder=getExportFolder(c.path,d.path.fsName);
-      if(!exportFolder||!exportFolder.exists){throw new Error("Tidak bisa membuat/akses folder export.");}
-     }else{exportFolder=d.path;}
+      exportFolder=getExportFolder(c.path,srcPath);
+      if(!exportFolder)throw new Error("Folder export relatif butuh dokumen yang sudah disimpan; isi path absolut.");
+      if(!exportFolder.exists){try{exportFolder.create();}catch(eCreate){}}
+      if(!exportFolder.exists)throw new Error("Tidak bisa membuat/akses folder export: "+exportFolder.fsName);
+     }else if(srcPath){
+      exportFolder=new Folder(srcPath);
+     }
     }
 
     // SAVE PSD
     if(c.saveMaster){
-     if((ext==="jpg"||ext==="jpeg"||ext==="png")&&d.path){
+     if((ext==="jpg"||ext==="jpeg"||ext==="png")&&srcPath){
       var f=new File(exportFolder.fsName+"/"+base+".psd"),o=new PhotoshopSaveOptions();
       o.embedColorProfile=true;o.layers=true;o.maximizeCompatibility=true;
       d.saveAs(f,o,true,Extension.LOWERCASE);
-     }else if(!d.path){
+     }else if(!srcPath){
       var sf=File.saveDialog("Simpan master PSD","Photoshop:*.psd");
       if(!sf)throw new Error("Save dibatalkan");
       if(!/\.psd$/i.test(sf.name))sf=new File(sf.fsName+".psd");
@@ -108,11 +118,34 @@ function runAdvancedMode(c){
 
     // EXPORT JPG/PNG
     if(c.exportJpg||c.exportPng){
-     dup=d.duplicate(base+"_advanced_export");app.activeDocument=dup;dup.flatten();
-     if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
-     if(!requested&&c.exportJpg)saveJPG(dup,exportFolder.fsName+"/"+base+".jpg",12);
-     if(!requested&&c.exportPng)savePNG(dup,exportFolder.fsName+"/"+base+".png");
-     dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
+     // Dokumen belum pernah disimpan & tidak ada folder export: minta folder.
+     if(!exportFolder){
+      var picked=Folder.selectDialog("Pilih folder export untuk: "+docName);
+      if(!picked)throw new Error("Folder export tidak dipilih (dibatalkan)");
+      exportFolder=picked;
+     }
+
+     // --- PNG: HARUS tetap transparan ---
+     // JANGAN pakai dup.flatten(): Photoshop mengisi semua area transparan dengan
+     // putih, sehingga file .png keluar berbackground putih walau layer background
+     // sudah tidak ada / di-hide. Pakai mergeVisible (persis seperti tombol
+     // "PNG Standard") supaya alpha tetap terjaga.
+     if(c.exportPng){
+      dup=d.duplicate(base+"_advanced_png");app.activeDocument=dup;
+      try{dup.artLayers.add();}catch(exAdd){}
+      try{executeAction(stringIDToTypeID("mergeVisible"),undefined,DialogModes.NO);}catch(exMerge){}
+      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
+      if(!requested)savePNG(dup,exportFolder.fsName+"/"+base+".png");
+      dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
+     }
+
+     // --- JPG: tidak mendukung alpha, flatten tetap dipakai (sama seperti mode JPG) ---
+     if(c.exportJpg){
+      dup=d.duplicate(base+"_advanced_jpg");app.activeDocument=dup;dup.flatten();
+      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
+      if(!requested)saveJPG(dup,exportFolder.fsName+"/"+base+".jpg",12);
+      dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
+     }
     }
 
     if(requested){stop=true;break;}
