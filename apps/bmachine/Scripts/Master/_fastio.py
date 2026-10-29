@@ -5,7 +5,7 @@ _fastio.py — Utilitas I/O cepat untuk skrip master BMachine.
 
 Mengatasi lag saat "Buat Master" / "Duplikat PSD" karena:
   1. Salin ribuan file kecil / puluhan PSD besar secara serial (I/O spike).
-  2. `os.walk` + `listdir` di jaringan (\\server\...) berulang kali.
+  2. `os.walk` + `listdir` di jaringan (\\\\server\\...) berulang kali.
 
 Fitur:
   - fast_copy(src, dst): salin file via `robocopy` (Windows, cepat + resume),

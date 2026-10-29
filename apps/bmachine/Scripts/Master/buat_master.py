@@ -66,12 +66,68 @@ def get_script_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 
+# Aturan kode .txt -> folder master ada di master_codes.py (satu sumber,
+# dipakai juga oleh manasik.py / wisuda.py / tambahan_flat.py).
+try:
+    sys.path.insert(0, get_script_dir())
+    import master_codes as mc
+except Exception as _e:      # pragma: no cover
+    mc = None
+    print(f"[WARN] master_codes.py tidak bisa dimuat: {_e}", file=sys.stderr)
+
+
+def scan_codes(pilihan_path):
+    """Semua kode .txt di PILIHAN (rekursif) -> list kode unik, urut kemunculan."""
+    if mc is None or not os.path.isdir(pilihan_path):
+        return []
+    out, seen = [], set()
+    for root, dirs, files in os.walk(pilihan_path):
+        has_txt = any(f.lower().endswith('.txt') for f in files)
+        if not has_txt:
+            continue
+        try:
+            codes = mc.find_candidate_codes(root)
+        except Exception:
+            continue
+        for c in codes:
+            if mc.code_prefix(c) and c not in seen:
+                seen.add(c)
+                out.append(c)
+    return out
+
+
 _PASFOTO_KEYWORDS   = ["PAS FOTO", "PAS_FOTO", "PASFOTO", "FREE PAS FOTO", "FREE PAS_FOTO", "PAS FOTO FREE", "PFM", "PFB"]
 # Kode pas foto eksplisit (termasuk pemisah underscore): PFM-005 / PFM_005 / PFB 005 / PFM005
 _PASFOTO_CODE_RE    = re.compile(r"PF[MB][\s_\-]*\d+", re.IGNORECASE)
 _PROFESI_KEYWORDS   = ["PROFESI", "SPORTY", "FOTO PROFESI"]
+# MANASIK: hanya kode MSK yang ditangani manasik.py. BML/BMP/KML/KMP
+# (bersama & kalender manasik) ditangani tambahan_flat.py lewat registry.
 _MANASIK_KEYWORDS   = ["MANASIK", "MSK", "NONREG"]
 _WISUDA_KEYWORDS    = ["WISUDA", "WSD"]
+
+# Kode di nama/isi .txt: "MSK-001" / "KODE= MSK-001" / "MSK 10RP-004" / "BML 005"
+_CODE_TOKEN_RE      = re.compile(r"\b([A-Z]{2,4})[\s_\-=:.]{0,3}(\d{1,3})(?!\d)")
+# Penanda ukuran dibuang dulu supaya "MSK 10RP-004" tidak terbaca MSK-10
+_SIZE_TOKEN_RE      = re.compile(r"(?i)(?<![0-9])(?:10|12|14|16|20)\s*RP(?![0-9A-Z])|(?<![0-9])[2-9]\s*R(?![0-9A-Z])")
+_PSEUDO_PREFIX      = {"KODE", "KODENYA", "CODE", "KD"}
+
+# prefix kode -> jenis master
+_CODE_PREFIX_KIND = {
+    "MSK": "manasik",
+    "BML": "manasik", "BMP": "manasik", "KML": "manasik", "KMP": "manasik",
+    "WSD": "wisuda", "KRA": "wisuda",
+    "PFM": "pasfoto", "PFB": "pasfoto",
+}
+
+
+def codes_in_text(text):
+    """Ambil semua prefix kode dari teks: ['MSK', 'FRS', ...]."""
+    clean = _SIZE_TOKEN_RE.sub(" ", text or "").upper()
+    out = []
+    for pref, _num in _CODE_TOKEN_RE.findall(clean):
+        if pref not in _PSEUDO_PREFIX:
+            out.append(pref)
+    return out
 
 
 def iter_txt_files(root, max_depth=4):
@@ -128,6 +184,12 @@ def detect_folder_types(pilihan_path):
                 if kw in combined: found.add('manasik')
             for kw in _WISUDA_KEYWORDS:
                 if kw in combined: found.add('wisuda')
+
+            # Deteksi dari KODE di nama/isi .txt (MSK-001 / KODE= MSK-001 / BML-005)
+            for pref in codes_in_text(combined):
+                kind = _CODE_PREFIX_KIND.get(pref)
+                if kind:
+                    found.add(kind)
         except Exception:
             pass
 
@@ -256,9 +318,14 @@ def main():
     print(f"[INFO] Mode buat master: {mode}"
           + (" (auto-duplikat)" if auto_duplikat else " (MANUAL: tekan tombol DUPLIKAT PSD)"))
 
-    pilihan_path = sys.argv[1].strip()
-    output_base  = sys.argv[2].strip() if len(sys.argv) > 2 else ""
-    oke_base     = sys.argv[3].strip() if len(sys.argv) > 3 else ""
+    pilihan_path = sys.argv[1].strip().strip('"').strip("'")
+    output_base  = sys.argv[2].strip().strip('"') if len(sys.argv) > 2 else ""
+    oke_base     = sys.argv[3].strip().strip('"') if len(sys.argv) > 3 else ""
+
+    # Terima juga path ke file .txt (mis. "...\3. FOTO TM 8R GRADASI\KODE= MSK-001.txt")
+    if os.path.isfile(pilihan_path):
+        pilihan_path = os.path.dirname(pilihan_path)
+    pilihan_path = os.path.normpath(pilihan_path)
 
     print(f"[INFO] PILIHAN: {pilihan_path}")
 
@@ -290,17 +357,54 @@ def main():
     print(f"[INFO] Output Base: {output_base}")
     print(f"[INFO] Oke Base: {oke_base}")
 
+    # ------------------------------------------------------------------
+    # REGISTRY KODE -> FOLDER MASTER (Settings + Master Tambahan)
+    # Satu kali baca, dipakai untuk semua jenis: MSK, WSD, FRS, BML, KMP, ...
+    # ------------------------------------------------------------------
+    registry = {}
+    codes_found = []
+    extra_prefixes = []
+    if mc is not None:
+        try:
+            registry = mc.build_registry()
+        except Exception as e:
+            print(f"[WARN] Gagal membangun registry master: {e}", file=sys.stderr)
+            registry = {}
+        codes_found = scan_codes(pilihan_path)
+        prefixes = {mc.code_prefix(c) for c in codes_found if mc.code_prefix(c)}
+        extra_prefixes = sorted(p for p in prefixes
+                                if p not in mc.HANDLED_BY and p in registry)
+        missing_prefixes = sorted(p for p in prefixes
+                                  if p not in mc.HANDLED_BY and p not in registry)
+        print(f"[INFO] Kode .txt terdeteksi: {', '.join(codes_found) or '∅'}")
+        if registry:
+            print("[INFO] Folder master yang dikenal:")
+            for line in mc.describe_registry(registry).splitlines():
+                print(line)
+        if missing_prefixes:
+            print(f"[WARN] Prefix belum punya folder master: {', '.join(missing_prefixes)}")
+
     detected = detect_folder_types(pilihan_path)
+    if extra_prefixes:
+        detected.add('tambahan')
     print(f"[INFO] Terdeteksi jenis master: {', '.join(sorted(detected)) or 'tidak ada'}")
 
     if not detected:
         print("[WARN] Tidak ada sub-folder yang cocok dengan jenis master apapun.")
-        print("[WARN] Pastikan folder berisi sub-folder bernama PROFESI, PAS FOTO, MANASIK, atau WISUDA.")
+        print("[WARN] Pastikan folder berisi sub-folder PROFESI / PAS FOTO / MANASIK / WISUDA,")
+        print("[WARN] atau .txt berisi kode (MSK-001, WSD-001, FRS-004, KMP-002, ...).")
         sys.exit(0)
 
     if not output_base:
         print("[ERROR] Output base path tidak ada. Set di Settings > Paths > OKE BASE.", file=sys.stderr)
         sys.exit(1)
+
+    # Pastikan folder output sudah ada (dulu script anak menolak jalan kalau
+    # output base belum dibuat — kasus bulan/tahun baru).
+    try:
+        os.makedirs(output_base, exist_ok=True)
+    except Exception as e:
+        print(f"[WARN] Gagal membuat output base '{output_base}': {e}", file=sys.stderr)
 
     script_dir  = get_script_dir()
     python_exe  = sys.executable
@@ -375,6 +479,27 @@ def main():
             ] + script_flags, "WISUDA")
             total += 1
             if rc != 0: errors += 1
+
+    # ------------------------------------------------------------------
+    # MASTER TAMBAHAN: kode yang tidak punya script khusus
+    # (FRS, BML, BMP, KML, KMP, BSL, BSP, KSL, KSP, KPL, KPP, HGN, ATN,
+    #  MWS, IDC, PLK, ...) -> master diambil dari folder tambahan di Settings.
+    # ------------------------------------------------------------------
+    if 'tambahan' in detected and extra_prefixes:
+        try:
+            import tempfile
+            reg_path = os.path.join(tempfile.gettempdir(), f"bm_registry_{os.getpid()}.json")
+            with open(reg_path, "w", encoding="utf-8") as f:
+                json.dump({p: registry[p] for p in extra_prefixes}, f, ensure_ascii=False, indent=1)
+            rc = run_script([
+                python_exe, os.path.join(script_dir, "tambahan_flat.py"),
+                pilihan_path, output_base, reg_path,
+            ] + script_flags, "MASTER TAMBAHAN (" + ", ".join(extra_prefixes) + ")")
+            total += 1
+            if rc != 0: errors += 1
+        except Exception as e:
+            print(f"[ERROR] Master tambahan gagal dijalankan: {e}", file=sys.stderr)
+            errors += 1
 
     # PENGGANDAAN: default MANUAL — penggandaan hanya jalan saat user klik tombol
     # DUPLIKAT PSD. --auto = perilaku lama (fase 2 jalan sendiri: buka semua master,

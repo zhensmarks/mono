@@ -250,7 +250,7 @@ for /d %%D in (*) do (
     echo   Folder : "%%~nxD"
     <nul set /p "=!ESC![3GStatus : Sedang memindahkan "
     
-    if exist "%TEMP%\stop_spin" del "%TEMP%\stop_spin"
+    if exist "%TEMP%\\stop_spin" del "%TEMP%\\stop_spin"
     start /b cmd /c "%SPINNER%"
     
     pushd "%%D"
@@ -385,110 +385,163 @@ oLink.Save
         print(f"[ERROR] Terjadi kesalahan saat membuat shortcut di OKE BASE: {e}", file=sys.stderr)
 
 
-def _extract_numbers_list(text):
-    return re.findall(r'(?<!\d)(\d{1,3})(?!\d)', text)
+# ============================================================================
+# DETEKSI KODE DARI FILE .txt
+# ----------------------------------------------------------------------------
+# Format nama/isi .txt yang didukung (semua dianggap sama):
+#   MSK-001.txt              MSK 001.txt            MSK_001.txt
+#   KODE= MSK-001.txt        KODE = MSK 10RP-004 .txt
+#   MSK-001 (DESAIN BARU).txt            MSK 002, DESAIN BARU.txt
+#   FRS-003.txt   BML-005.txt   KML-005, 33+1.txt   PFM-006, TANPA REDAKSI (-1).txt
+#   isi file: "KODE= BML-001" / "KODE = MSK 10RP-004"
+# ============================================================================
+
+# Token kode: PREFIX 2-4 huruf + pemisah opsional + 1-3 angka (MSK-001 / MSK001)
+_CODE_TOKEN_RE = re.compile(r'\b([A-Za-z]{2,4})[\s_\-=:.]{0,3}(\d{1,3})(?!\d)')
+
+# Penanda ukuran cetak. WAJIB dibuang sebelum cari kode, kalau tidak
+# "MSK 10RP-004" akan terbaca sebagai MSK-10 (salah).
+# Batas: digit sebelumnya tidak boleh angka (supaya "18R" tidak ikut), tapi
+# boleh nempel huruf — nyata di lapangan: "FOTO8R_TM", "FOTO10RP_MANASIK".
+_SIZE_TOKEN_RE = re.compile(
+    r'(?i)(?<![0-9])(?:10|12|14|16|20)\s*RP(?![0-9A-Z])'
+    r'|(?<![0-9])[2-9]\s*R(?![0-9A-Z])'
+)
+
+# Prefix yang bukan kode, tapi penanda nilai kode ("KODE= 001")
+_PSEUDO_PREFIX = {'KODE', 'KODENYA', 'CODE', 'KD'}
 
 
-def _split_csv_numbers(group_text):
-    return re.findall(r'\d{1,3}', group_text)
+def detect_size_tag(text):
+    """Ambil penanda ukuran: '8R' / '10RP' (None kalau tidak ada)."""
+    t = (text or '').upper()
+    if re.search(r'(?<![0-9])(?:10|12|14|16|20)\s*RP(?![0-9A-Z])', t):
+        return '10RP'
+    if re.search(r'(?<![0-9])[2-9]\s*R(?![0-9A-Z])', t):
+        return '8R'
+    return None
+
+
+def code_prefix(code):
+    """'MSK-001' -> 'MSK' ; '001' -> ''."""
+    m = re.match(r'^\s*([A-Za-z]+)', str(code or ''))
+    return m.group(1).upper() if m else ''
+
+
+def code_digits(code):
+    return re.sub(r'\D', '', str(code or ''))
+
+
+def read_txt_files(folder_path):
+    """Hasilkan (filename, stem, content) untuk semua .txt langsung di folder."""
+    try:
+        names = sorted(os.listdir(folder_path))
+    except Exception as e:
+        print(f"[ERROR] Gagal membaca folder '{folder_path}': {e}", file=sys.stderr)
+        return
+    for name in names:
+        if not name.lower().endswith('.txt'):
+            continue
+        content = ''
+        path = os.path.join(folder_path, name)
+        for enc in ('utf-8', 'utf-8-sig', 'latin-1'):
+            try:
+                with open(path, 'r', encoding=enc, errors='ignore') as f:
+                    content = f.read()
+                break
+            except Exception:
+                content = ''
+        yield name, os.path.splitext(name)[0], content
 
 
 def find_candidate_codes(folder_path, prefer_tag=None):
     """Kumpulkan kandidat kode dari semua .txt di folder.
 
-    PRIORITAS: kode eksplisit (MSK-001, 10RP 001, BML-002) didahulukan di atas
-    angka polos. Angka polos sering hanya catatan seperti "-4 SUSULAN.txt" yang
-    BUKAN kode master; kalau didahulukan, ia salah menang atas kode eksplisit
-    seperti "MSK-001 (KOLASE).txt" dan memilih master yang keliru.
+    PRIORITAS: kode berprefix (MSK-001, BML-005, FRS-003) didahulukan di atas
+    angka polos. Angka polos sering cuma catatan ("-4 SUSULAN.txt") yang BUKAN
+    kode master, jadi tidak boleh menang atas kode eksplisit.
+
+    Mengembalikan list kode siap pakai, mis. ['MSK-001'] atau ['001'].
     """
-    prefer_tag = (prefer_tag or "").upper()
-    candidates_map = {}  # code -> high_priority (True/False)
+    high, low = [], []
+    seen = set()
 
-    def register(val, high_priority=False):
-        if val is None:
-            return
-        val = str(val).strip()
-        if not val:
-            return
-        if val not in candidates_map:
-            candidates_map[val] = high_priority
-        elif high_priority:
-            candidates_map[val] = True
+    def add(bucket, code):
+        code = str(code or '').strip()
+        if code and code not in seen:
+            seen.add(code)
+            bucket.append(code)
 
+    for _filename, stem, content in read_txt_files(folder_path):
+        raw = f"{stem}\n{content}"
+        # buang penanda ukuran dulu ("8R" / "10RP")
+        text = _SIZE_TOKEN_RE.sub(' ', raw)
+
+        got_explicit = False
+        for pref, num in _CODE_TOKEN_RE.findall(text):
+            pref = pref.upper()
+            if pref in _PSEUDO_PREFIX:
+                add(high, num)                  # "KODE= 001"
+            else:
+                add(high, f"{pref}-{num}")      # "KODE= MSK-001"
+            got_explicit = True
+
+        if got_explicit:
+            continue
+
+        # fallback: angka polos (prioritas rendah)
+        for num in re.findall(r'(?<!\d)(\d{1,3})(?!\d)', text):
+            add(low, num)
+
+    return high + low
+
+
+def master_prefixes(master_folder):
+    """Daftar prefix kode yang tersedia di folder master (MSK, BML, ...)."""
+    out = set()
     try:
-        for filename in os.listdir(folder_path):
-            if not filename.lower().endswith('.txt'):
-                continue
-            file_path = os.path.join(folder_path, filename)
-            try:
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-            except Exception:
-                continue
-
-            # Gabung nama file dan isi untuk pencarian
-            search_text = f"{filename}\n{content}"
-
-            # A. Kode eksplisit MSK: MSK-001 / MSK 001 / MSK_001 -> prioritas tinggi
-            for m in re.finditer(r'MSK[\s_-]*(\d{1,3})', search_text, re.IGNORECASE):
-                register(m.group(1), high_priority=True)
-
-            # B. Kode eksplisit tipe: 10RP 001 / 8R 001 -> prioritas tinggi
-            for m in re.finditer(r'(?:10RP|8R)[\s_-]*(\d{1,3})', search_text, re.IGNORECASE):
-                register(m.group(1), high_priority=True)
-
-            # C. Kode berprefix umum: BML-002 / KML_003 / FRS-014 -> prioritas tinggi
-            for m in re.finditer(r'\b[A-Za-z]+[\s_-]+(\d{1,3})(?!\d)', search_text):
-                register(m.group(1), high_priority=True)
-
-            # D. Fallback angka polos -> prioritas rendah (buang noise 8 / 10)
-            for num_str in re.findall(r'(?<!\d)(\d{1,3})(?!\d)', search_text):
-                if num_str == '8' and '8R' in search_text.upper():
-                    continue
-                if num_str == '10' and '10RP' in search_text.upper():
-                    continue
-                register(num_str, high_priority=False)
-
-    except Exception as e:
-        print(f"[ERROR] Gagal scan .txt di {folder_path}: {e}", file=sys.stderr)
-
-    # Kode eksplisit dulu (urutan kemunculan), baru angka polos.
-    high_prio = [k for k, v in candidates_map.items() if v]
-    low_prio = [k for k, v in candidates_map.items() if not v]
-    return high_prio + low_prio
-
-
-def find_master_file(master_folder, code):
-    """Mencari file di master_folder yang nomornya COCOK EKSAD dengan code."""
-    try:
-        # Code harus angka
-        cat_digits = re.sub(r'\D', '', code)
-        if not cat_digits:
-            return None
-        target_num = int(cat_digits)
-
-        # Scan folder master
-        candidates = []
         for fname in os.listdir(master_folder):
-            if not fname.lower().endswith('.psd'):
-                continue
-            
-            # Ambil angka dari nama file
-            fname_no_ext = os.path.splitext(fname)[0]
-            nums_in_file = re.findall(r'\d+', fname_no_ext)
-            
-            for num_str in nums_in_file:
-                if int(num_str) == target_num:
-                    candidates.append(fname)
-                    break
-        
-        if not candidates:
-            return None
-            
-        return os.path.join(master_folder, candidates[0])
+            if fname.lower().endswith('.psd'):
+                m = re.match(r'^\s*([A-Za-z]{2,4})', fname)
+                if m:
+                    out.add(m.group(1).upper())
+    except Exception:
+        pass
+    return out
 
+
+def find_master_file(master_folder, code, prefix=None):
+    """Cari .psd di master_folder yang nomornya COCOK EKSAK dengan `code`.
+
+    - 001 == 1 (nol di depan diabaikan)
+    - penanda ukuran di nama file (8R / 10RP) diabaikan, supaya kode 8
+      tidak salah cocok dengan "MSK-001 8R.psd"
+    - kalau `code` punya prefix (MSK-001), nama file WAJIB punya prefix sama.
+      Ini mencegah master MSK dipakai untuk kode BML (desainnya beda).
+    """
+    digits = code_digits(code)
+    if not digits:
+        return None
+    target = int(digits)
+    want_prefix = (prefix if prefix is not None else code_prefix(code)).upper()
+
+    try:
+        names = sorted(os.listdir(master_folder))
     except Exception as e:
-        print(f"[ERROR] Gagal mencari master '{code}': {e}", file=sys.stderr)
+        print(f"[ERROR] Gagal membaca folder master '{master_folder}': {e}", file=sys.stderr)
+        return None
+
+    for fname in names:
+        if not fname.lower().endswith('.psd'):
+            continue
+        stem = os.path.splitext(fname)[0]
+        clean = _SIZE_TOKEN_RE.sub(' ', stem)
+        nums = re.findall(r'\d+', clean)
+        if not any(int(n) == target for n in nums):
+            continue
+        if want_prefix and want_prefix not in clean.upper():
+            continue
+        return os.path.join(master_folder, fname)
     return None
 
 
@@ -551,18 +604,59 @@ def get_relative_path_from_month(pilihan_path):
 
 
 
+def normalize_pilihan_path(pilihan_path):
+    """Rapikan argumen path. -> (folder_pilihan, daftar_nama_subfolder | None)
+
+    Menerima juga:
+      - path ke file .txt, mis. "...\\3. FOTO TM 8R GRADASI\\KODE= MSK-001.txt"
+      - folder pekerjaan langsung, mis. "...\\PILIHAN\\3. FOTO TM 8R GRADASI"
+        (tanpa subfolder di dalamnya) -> otomatis dianggap 1 pekerjaan.
+    """
+    p = (pilihan_path or '').strip().strip('"').strip("'")
+    if not p:
+        return p, None
+    p = os.path.normpath(p)
+
+    if os.path.isfile(p):
+        p = os.path.dirname(p)
+    if not os.path.isdir(p):
+        return p, None
+
+    try:
+        entries = os.listdir(p)
+    except Exception:
+        return p, None
+
+    subdirs = [n for n in entries if os.path.isdir(os.path.join(p, n))]
+    has_job_files = any(f.lower().endswith(('.txt', '.jpg', '.jpeg')) for f in entries)
+
+    if not subdirs and has_job_files:
+        # p sendiri adalah folder pekerjaan
+        return os.path.dirname(p), [os.path.basename(p)]
+    return p, None
+
+
 def main(master_path_primary, pilihan_path, output_base_path, master_path_secondary=None):
     _ = load_config()
+    pilihan_path, only_events = normalize_pilihan_path(pilihan_path)
     relative_path = get_relative_path_from_month(pilihan_path)
     final_output_folder = os.path.join(output_base_path, relative_path)
     os.makedirs(final_output_folder, exist_ok=True)
 
+    # Daftar subfolder pekerjaan (PILIHAN level-1)
+    event_names = only_events
+    if event_names is None:
+        try:
+            event_names = [n for n in sorted(os.listdir(pilihan_path))
+                           if os.path.isdir(os.path.join(pilihan_path, n))]
+        except Exception as e:
+            print(f"[WARNING] Gagal membaca folder PILIHAN: {e}", file=sys.stderr)
+            event_names = []
+
     # Mirror level-1 folders dari pilihan_path ke output
     try:
-        for name in os.listdir(pilihan_path):
-            p = os.path.join(pilihan_path, name)
-            if os.path.isdir(p):
-                os.makedirs(os.path.join(final_output_folder, name), exist_ok=True)
+        for name in event_names:
+            os.makedirs(os.path.join(final_output_folder, name), exist_ok=True)
     except Exception as e:
         print(f"[WARNING] Gagal mirror folder level-1: {e}", file=sys.stderr)
 
@@ -571,7 +665,7 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
     if not COPY_EDIT:
         # Salin .txt dari semua subfolder
         try:
-            for name in os.listdir(pilihan_path):
+            for name in event_names:
                 p = os.path.join(pilihan_path, name)
                 if os.path.isdir(p):
                     out_p = os.path.join(final_output_folder, name)
@@ -630,31 +724,67 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
             return os.path.join(final_output_folder, subfolder_name)
         return os.path.join(final_output_folder, subfolder_name, rel)
 
-    for subfolder_name in os.listdir(pilihan_path):
+    processed = 0
+    for subfolder_name in event_names:
         subfolder_path = os.path.join(pilihan_path, subfolder_name)
         if not os.path.isdir(subfolder_path):
             continue
         subfolder_lower = subfolder_name.lower()
-        if 'manasik' not in subfolder_lower:
+
+        # ---- 1. Baca kode dari .txt (bentuk apa pun: MSK-001 / KODE= MSK-001) ----
+        codes = find_candidate_codes(subfolder_path)
+        msk_codes = [c for c in codes if code_prefix(c) == 'MSK']
+        txt_mentions_manasik = any('MANASIK' in (stem + ' ' + content).upper()
+                                   for _fn, stem, content in read_txt_files(subfolder_path))
+
+        # ---- 2. Apakah folder ini pekerjaan MANASIK? ----
+        #    Tidak lagi wajib ada kata "manasik" di nama folder:
+        #    kode MSK di .txt sudah cukup (mis. "3. FOTO TM 8R GRADASI").
+        is_manasik_job = (
+            'manasik' in subfolder_lower
+            or 'msk' in subfolder_lower
+            or bool(msk_codes)
+            or txt_mentions_manasik
+        )
+        if not is_manasik_job:
+            souvenir = [c for c in codes if code_prefix(c) in ('BML', 'BMP', 'KML', 'KMP')]
+            if souvenir:
+                print(f"[SKIP] '{subfolder_name}': kode {', '.join(souvenir)} = desain BERSAMA/KALENDER "
+                      f"manasik (bukan master MSK). Butuh master souvenir sendiri.")
+            else:
+                print(f"[INFO] Lewati '{subfolder_name}': bukan pekerjaan manasik "
+                      f"(kode: {codes if codes else '∅'}).")
             continue
 
-        master_folder_to_use = None
-        prefer_tag = None
-        if '8r' in subfolder_lower:
-            master_folder_to_use = md_8r_path
-            prefer_tag = '8R'
-        elif '10rp' in subfolder_lower:
-            master_folder_to_use = md_10rp_path
-            prefer_tag = '10RP'
+        # ---- 3. Tentukan ukuran -> folder master (nama folder, lalu .txt) ----
+        size_tag = detect_size_tag(subfolder_name)
+        if not size_tag:
+            for _fn, stem, content in read_txt_files(subfolder_path):
+                size_tag = detect_size_tag(f"{stem} {content}")
+                if size_tag:
+                    break
+
+        if size_tag == '8R':
+            master_folder_to_use, prefer_tag = md_8r_path, '8R'
         else:
-            print(f"[INFO] Melewati '{subfolder_name}' karena tidak mengandung '8r' atau '10rp'.")
-            continue
+            master_folder_to_use = md_10rp_path
+            prefer_tag = size_tag or '10RP'
+            if size_tag and size_tag != '10RP':
+                print(f"[INFO] Ukuran '{size_tag}' tidak punya master sendiri; pakai master 10RP.")
 
         if not master_folder_to_use or not os.path.exists(master_folder_to_use):
-             print(f"[ERROR] Folder Master untuk {prefer_tag} tidak ditemukan/valid!", file=sys.stderr)
-             continue
+            alt_path = md_8r_path if master_folder_to_use == md_10rp_path else md_10rp_path
+            alt_tag = '8R' if master_folder_to_use == md_10rp_path else '10RP'
+            if alt_path and os.path.exists(alt_path):
+                print(f"[WARNING] Master {prefer_tag} tidak ada/valid; pakai master {alt_tag}.")
+                master_folder_to_use, prefer_tag = alt_path, alt_tag
+            else:
+                print(f"[SCRIPT_ERROR] [ERROR] Folder master untuk {prefer_tag} tidak ditemukan/valid!", file=sys.stderr)
+                continue
 
-        print(f"\n--- Memproses: {subfolder_name} ---")
+        print(f"\n--- Memproses: {subfolder_name} (master {prefer_tag}) ---")
+        print(f"  - Kandidat kode dari .txt: {codes if codes else '∅'}")
+        processed += 1
 
         ce_jobs = {}          # (master_path, grup_output_dir) -> [tujuan]
         _skipped_total = 0
@@ -746,7 +876,8 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
                 manifest_add(MANIFEST_PATH, edit_psd, label, jobs)
                 print(f"    [MANIFEST] {label}: {len(jobs)} tujuan duplikat tercatat.")
 
-    print("\n--- Proses Selesai ---")
+    print(f"\n--- Proses Selesai ({processed} pekerjaan manasik diproses) ---")
+    return pilihan_path
 
 
 if __name__ == "__main__":
@@ -772,30 +903,24 @@ if __name__ == "__main__":
         sys.exit(1)
     
     # args: script.py master1 pilihan output [master2] [oke]
-    master_path = sys.argv[1]
-    pilihan_path = sys.argv[2]
-    output_base_path = sys.argv[3]
-    
-    master_path_2 = None
-    oke_base_path = None
-    
-    if len(sys.argv) > 4:
-        master_path_2 = sys.argv[4]
-    
+    master_path = sys.argv[1].strip().strip('"')
+    pilihan_path = sys.argv[2].strip().strip('"')
+    output_base_path = sys.argv[3].strip().strip('"') if len(sys.argv) > 3 else ""
+    master_path_2 = sys.argv[4].strip().strip('"') if len(sys.argv) > 4 else None
+    oke_base_path = sys.argv[5].strip().strip('"') if len(sys.argv) > 5 else None
+
     # BUG FIX: main() dulu dipanggil 2x di sini -> semua langkah (salin .txt, scan,
     # manifest) diulang 2x = proses copy-edit tampak lama. Sekali panggil cukup.
-    main(master_path, pilihan_path, output_base_path, master_path_secondary=master_path_2)
+    pilihan_container = main(master_path, pilihan_path, output_base_path, master_path_secondary=master_path_2)
 
-    if len(sys.argv) > 5:
-        oke_base_path = sys.argv[5]
-    
     # Shortcut OKE BASE: SELALU jalan (fase 1 copy-edit tetap buat).
-    if oke_base_path:
+    if oke_base_path and oke_base_path.upper() != "NONE":
         user_name = os.environ.get('BMACHINE_USER_NAME', 'USER')
-        create_oke_base_links(pilihan_path, oke_base_path, user_name)
+        container = pilihan_container or pilihan_path
+        create_oke_base_links(container, oke_base_path, user_name)
         # Shortcut output lokal: SELALU dibuat (termasuk fase 1).
-        final_output_folder = os.path.join(output_base_path, get_relative_path_from_month(pilihan_path))
-        create_shortcuts_in_output_local(final_output_folder, pilihan_path, oke_base_path, user_name, output_base_path)
+        final_output_folder = os.path.join(output_base_path, get_relative_path_from_month(container))
+        create_shortcuts_in_output_local(final_output_folder, container, oke_base_path, user_name, output_base_path)
 
     # Copy-Edit standalone (tanpa --phase=1): fase 1 selesai -> langsung fase 2.
     if _ce and _opts["phase"] != "1":

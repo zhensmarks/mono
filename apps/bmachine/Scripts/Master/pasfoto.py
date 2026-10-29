@@ -673,7 +673,7 @@ for /d %%D in (*) do (
     echo   Folder : "%%~nxD"
     <nul set /p "=!ESC![3GStatus : Sedang memindahkan "
     
-    if exist "%TEMP%\stop_spin" del "%TEMP%\stop_spin"
+    if exist "%TEMP%\\stop_spin" del "%TEMP%\\stop_spin"
     start /b cmd /c "%SPINNER%"
     
     pushd "%%D"

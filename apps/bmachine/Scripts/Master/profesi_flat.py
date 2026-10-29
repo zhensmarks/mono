@@ -17,6 +17,13 @@ print("PYTHON_SCRIPT_STARTED: profesi_flat.py", flush=True)
 # Contoh: "...\1. FOTO 10RP OB PROFESI GRADASI\KB\#MASTER\ASTRONOT.psd"
 MASTER_SUBDIR = "#MASTER"
 
+# Aturan kode .txt -> satu sumber di master_codes.py
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import master_codes as mc
+except Exception:
+    mc = None
+
 # Import helper untuk copy-edit-sync workflow
 try:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -360,7 +367,7 @@ for /d %%D in (*) do (
     echo   Folder : "%%~nxD"
     <nul set /p "=!ESC![3GStatus : Sedang memindahkan "
     
-    if exist "%TEMP%\stop_spin" del "%TEMP%\stop_spin"
+    if exist "%TEMP%\\stop_spin" del "%TEMP%\\stop_spin"
     start /b cmd /c "%SPINNER%"
     
     pushd "%%D"
@@ -502,9 +509,9 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                    files_to_reprocess=None, mappings_b64=None, oke_base_path=None, master_path_profesi_8r=None,
                    copy_edit=False, manifest_path=None):
     print("--- Memulai Jurus: PROFESI | SPORTY ---")
-    print(f"[DEBUG] Master 8R Path: {master_path_profesi_8r}")
     if master_path_profesi_8r:
-        print(f"[DEBUG] Master 8R Exists: {os.path.exists(master_path_profesi_8r)}")
+        print(f"[INFO] Master 8R: {master_path_profesi_8r} "
+              f"({'ada' if os.path.exists(master_path_profesi_8r) else 'TIDAK ADA'})")
 
     if not all([master_path_profesi, pilihan_path, output_path]):
         print("[ERROR] Argumen tidak lengkap (butuh master_profesi, pilihan, output).", file=sys.stderr)
@@ -611,13 +618,46 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
     ce_jobs = {}  # copy_edit: {master_path: [tujuan, ...]}
     _pending_direct_jobs = []  # direct mode: kumpulkan dulu, salin paralel di akhir
 
+    # ------------------------------------------------------------------
+    # GERBANG JENIS PEKERJAAN
+    # profesi_flat.py hanya menangani folder PROFESI / SPORTY. Folder milik
+    # script lain (manasik, wisuda, pas foto, free sekolah, souvenir/kalender,
+    # hanging, ...) dilewati diam-diam - dulu tiap JPG-nya dicetak [SKIP]
+    # sehingga log penuh sampah.
+    # ------------------------------------------------------------------
+    _PROFESI_NAMES = ("PROFESI", "SPORTY")
+    _OTHER_NAMES = ("MANASIK", "WISUDA", "FREE SEKOLAH", "PAS FOTO", "PAS PHOTO",
+                    "PASFOTO", "SOUVENIR", "KALENDER", "HANGING", "MEDALI",
+                    "ANGKATAN", "BERSAMA", "ID CARD", "PLAKAT")
+
+    def _event_name(rel_dir_):
+        if rel_dir_ in (".", ""):
+            return os.path.basename(os.path.normpath(pilihan_path)).upper()
+        return rel_dir_.split(os.sep)[0].upper()
+
+    def _other_job_reason(root_, rel_dir_):
+        up = _event_name(rel_dir_)
+        if any(k in up for k in _PROFESI_NAMES):
+            return None
+        if any(k in up for k in _OTHER_NAMES):
+            return "folder jenis lain"
+        if mc is not None:
+            try:
+                for c in mc.find_candidate_codes(root_):
+                    pref = mc.code_prefix(c)
+                    if pref and pref not in ("PROFESI", "SPORTY"):
+                        return f"kode {c}"
+            except Exception:
+                pass
+        return None
+
     # --- NEW LOGIC: Deep Walk with Smart Folder Detection ---
     total_folders_scanned = 0
     total_files_scanned = 0
-    print("[DEBUG] Memulai scan folder...")
+    skipped_other_folders = 0
+    print("[INFO] Memindai folder PILIHAN...")
     for root, dirs, files in os.walk(pilihan_path):
         total_folders_scanned += 1
-        print(f"\r[SCAN] Folder ke-{total_folders_scanned}: {os.path.basename(root)[:40]}...", end='', flush=True)
         jpg_files = [f for f in files if f.lower().endswith(ALLOWED_EXTS)]
         if not jpg_files:
             continue
@@ -626,6 +666,12 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
         # 1. Tentukan konteks folder
         rel_dir = os.path.relpath(root, pilihan_path)
         parts_dir = [] if rel_dir in (".", "") else rel_dir.split(os.sep)
+
+        # Lewati folder yang bukan pekerjaan profesi (tanpa mencetak [SKIP])
+        _reason = _other_job_reason(root, rel_dir)
+        if _reason:
+            skipped_other_folders += 1
+            continue
         
         current_folder_name = os.path.basename(root)
 
@@ -683,6 +729,9 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
         print(f"\n[FOLDER] {rel_dir} -> [OUTPUT] {target_rel_dir if target_rel_dir != '.' else '[ROOT]'} (MasterFolder: {folder_master_key[0] if folder_master_key else 'None'})")
 
         # 4. Proses File
+        _no_master = 0
+        _no_master_example = None
+        _no_master_8r = 0
         for filename in jpg_files:
             full_path = os.path.join(root, filename)
             try:
@@ -735,8 +784,11 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                      pass
 
                 if not final_master_key:
-                     vars_hint = ", ".join(generate_pf_variants(label_from_name or current_folder_name))
-                     print(f"  [SKIP] '{filename}' -> Master tidak ditemukan (Folder: '{current_folder_name}', File: '{label_from_name}')", file=sys.stderr)
+                     # Jangan cetak per file (bikin log berisik) - dihitung,
+                     # lalu diringkas 1 baris per folder setelah loop.
+                     _no_master += 1
+                     if _no_master_example is None:
+                         _no_master_example = label_from_name or current_folder_name
                      unmatched.append(f"'{filename}' di '{rel_dir}'")
                      continue
 
@@ -749,14 +801,14 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
                             master_root = master_path_profesi_8r
                         else:
                             # Jika tidak ada, jangan fallback ke 10RP. Abaikan saja (continue)
-                            print(f"  [SKIP] '{filename}' - Master 8R '{final_master_key}' tidak ditemukan.")
+                            _no_master_8r += 1
                             continue
                     else:
                         if final_master_key in master_files_profesi:
                             master_dict = master_files_profesi
                             master_root = master_path_profesi
                         else:
-                            print(f"  [SKIP] '{filename}' - Master 10RP '{final_master_key}' tidak ditemukan.")
+                            _no_master_8r += 1
                             continue
                 else:
                     master_dict = master_files_sporty
@@ -791,6 +843,15 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
             except Exception as e:
                 errors.append(f"{full_path}: {e}")
                 print(f"  [ERROR] {filename}: {e}", file=sys.stderr)
+
+        # Ringkas 1 baris per folder (bukan per file)
+        if _no_master or _no_master_8r:
+            _parts = []
+            if _no_master:
+                _parts.append(f"{_no_master} file tanpa master profesi (contoh label: {_no_master_example})")
+            if _no_master_8r:
+                _parts.append(f"{_no_master_8r} file: master 8R/10RP tidak tersedia")
+            print(f"  [SKIP] {rel_dir}: " + "; ".join(_parts))
 
     if not copy_edit and _pending_direct_jobs:
         # Direct mode: salin semua PSD yang sudah dihitung, secara paralel.
@@ -855,9 +916,12 @@ def process_images(master_path_profesi, master_path_sporty, pilihan_path, output
     for label, count in summary_counts.items():
         print(f"  - {label}: {count} file")
     if unmatched:
-        print("\n--- MASTER TIDAK DITEMUKAN ---")
-        for item in sorted(set(unmatched)):
+        # Dibatasi supaya log tidak kebanjiran; detail lengkap tetap dihitung.
+        print(f"\n--- MASTER TIDAK DITEMUKAN ({len(set(unmatched))} file) ---")
+        for item in sorted(set(unmatched))[:10]:
             print(f"  - {item}")
+        if len(set(unmatched)) > 10:
+            print(f"  ... dan {len(set(unmatched)) - 10} file lain (dipotong)")
     if errors:
         print("\n--- ERROR ---")
         for err in errors:

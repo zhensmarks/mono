@@ -16,6 +16,14 @@ import json
 # Contoh: "...\1. FOTO 10RP_WISUDA_GRADASI\NONREG\#MASTER\WSD-002.psd"
 MASTER_SUBDIR = "#MASTER"
 
+# Aturan baca kode .txt -> satu sumber di master_codes.py (dipakai bareng
+# buat_master.py / manasik.py / tambahan_flat.py).
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import master_codes as mc
+except Exception:
+    mc = None
+
 # Util I/O cepat (batch paralel + cache + robocopy)
 try:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -247,7 +255,7 @@ for /d %%D in (*) do (
     echo   Folder : "%%~nxD"
     <nul set /p "=!ESC![3GStatus : Sedang memindahkan "
     
-    if exist "%TEMP%\stop_spin" del "%TEMP%\stop_spin"
+    if exist "%TEMP%\\stop_spin" del "%TEMP%\\stop_spin"
     start /b cmd /c "%SPINNER%"
     
     pushd "%%D"
@@ -681,28 +689,57 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
         if not os.path.isdir(subfolder_path):
             continue
         subfolder_lower = subfolder_name.lower()
-        
-        # --- MODIFIED: check for 'wisuda' ---
-        if 'wisuda' not in subfolder_lower:
+
+        # --- MODIFIED: pekerjaan WISUDA dikenali dari KODE di .txt (WSD/KRA),
+        #     bukan hanya dari nama folder. Jadi folder "1. FOTO 10RP GRADASI"
+        #     yang txt-nya berisi WSD-003 tetap diproses. ---
+        _codes_pref = mc.find_candidate_codes(subfolder_path) if mc else []
+        _txt_upper = mc.folder_text(subfolder_path).upper() if mc else ""
+        is_wisuda_job = (
+            'wisuda' in subfolder_lower
+            or 'wsd' in subfolder_lower
+            or any(str(c).upper().startswith(('WSD', 'KRA')) for c in _codes_pref)
+            or 'WISUDA' in _txt_upper
+        )
+        if not is_wisuda_job:
+            print(f"[INFO] Lewati '{subfolder_name}': bukan pekerjaan wisuda "
+                  f"(kode: {_codes_pref or '∅'}).")
             continue
 
         master_folder_to_use = None
         prefer_tag = None
-        if '8r' in subfolder_lower or '8 r' in subfolder_lower:
+        size_tag = None
+        if mc:
+            size_tag = mc.detect_size_tag(subfolder_name)
+            if not size_tag:
+                for _fn, stem, content in mc.read_txt_files(subfolder_path):
+                    size_tag = mc.detect_size_tag(f"{stem} {content}")
+                    if size_tag:
+                        break
+        else:
+            if '8r' in subfolder_lower or '8 r' in subfolder_lower:
+                size_tag = '8R'
+            elif '10rp' in subfolder_lower or '10 rp' in subfolder_lower:
+                size_tag = '10RP'
+
+        if size_tag == '8R':
             master_folder_to_use = md_8r_path
             prefer_tag = '8R'
-        elif '10rp' in subfolder_lower or '10 rp' in subfolder_lower:
-            master_folder_to_use = md_10rp_path
-            prefer_tag = '10RP'
         else:
-            print(f"[INFO] Melewati '{subfolder_name}' karena tidak mengandung '8r' atau '10rp'.")
-            continue
+            master_folder_to_use = md_10rp_path
+            prefer_tag = size_tag or '10RP'
 
         if not master_folder_to_use or not os.path.exists(master_folder_to_use):
-             print(f"[ERROR] Folder Master untuk {prefer_tag} tidak ditemukan/valid!", file=sys.stderr)
-             continue
+            alt_path = md_8r_path if master_folder_to_use == md_10rp_path else md_10rp_path
+            alt_tag = '8R' if master_folder_to_use == md_10rp_path else '10RP'
+            if alt_path and os.path.exists(alt_path):
+                print(f"[WARNING] Master {prefer_tag} tidak ada/valid; pakai master {alt_tag}.")
+                master_folder_to_use, prefer_tag = alt_path, alt_tag
+            else:
+                print(f"[ERROR] Folder Master untuk {prefer_tag} tidak ditemukan/valid!", file=sys.stderr)
+                continue
 
-        print(f"\n--- Memproses: {subfolder_name} ---")
+        print(f"\n--- Memproses: {subfolder_name} (master {prefer_tag}) ---")
 
         ce_jobs = {}          # (master_path, grup_output_dir) -> [tujuan]
 
