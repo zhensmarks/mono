@@ -535,7 +535,10 @@ public partial class SpreadsheetViewModel : ObservableObject
                         cellVM.PropertyChanged += (s, e) =>
                         {
                             if (e.PropertyName == nameof(SpreadsheetCellViewModel.Value))
+                            {
                                 CheckHasChanges();
+                                ScheduleDraftPersist();
+                            }
                         };
 
                         rowVM.Cells.Add(cellVM);
@@ -552,6 +555,7 @@ public partial class SpreadsheetViewModel : ObservableObject
 
                 FilterRows();
                 StatusText = $"{Rows.Count} rows loaded from '{_sheetName}'";
+                await RestoreDraftsAsync();
             }
             else
             {
@@ -666,6 +670,85 @@ public partial class SpreadsheetViewModel : ObservableObject
         return clusters;
     }
 
+    private Avalonia.Threading.DispatcherTimer? _draftPersistTimer;
+
+    /// <summary>
+    /// Simpan perubahan yang belum di-push ke database (draft), supaya tidak hilang saat
+    /// window/aplikasi ditutup dan tetap ada ketika window dibuka lagi lewat pencarian Trello.
+    /// </summary>
+    internal async Task PersistDraftsAsync()
+    {
+        if (string.IsNullOrEmpty(_sheetId) || string.IsNullOrEmpty(_sheetName)) return;
+        try
+        {
+            var entries = SpreadsheetDraftStore.Capture(_sheetId, _sheetName, Rows);
+            await _database.SetAsync(
+                SpreadsheetDraftStore.StorageKey,
+                SpreadsheetDraftStore.Serialize(entries));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Draft persist failed: {ex.GetType().Name}");
+        }
+    }
+
+    private void ScheduleDraftPersist()
+    {
+        if (_draftPersistTimer == null)
+        {
+            _draftPersistTimer = new Avalonia.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(700)
+            };
+            _draftPersistTimer.Tick += (_, _) =>
+            {
+                _draftPersistTimer?.Stop();
+                _ = PersistDraftsAsync();
+            };
+        }
+
+        _draftPersistTimer.Stop();
+        _draftPersistTimer.Start();
+    }
+
+    /// <summary>
+    /// Kembalikan draft yang belum di-push ke baris yang baru dimuat. Draft hanya diterapkan
+    /// bila sel di sheet masih berisi nilai asli yang sama (tidak menimpa perubahan orang lain).
+    /// </summary>
+    private async Task RestoreDraftsAsync()
+    {
+        if (string.IsNullOrEmpty(_sheetId)) return;
+        try
+        {
+            var stored = await _database.GetAsync<string>(SpreadsheetDraftStore.StorageKey);
+            var drafts = SpreadsheetDraftStore.Deserialize(stored);
+            if (drafts.Count == 0) return;
+
+            var result = SpreadsheetDraftStore.Apply(
+                drafts, _sheetId, Rows.ToList(), Columns.Count);
+
+            if (result.Remaining.Count != drafts.Count)
+            {
+                await _database.SetAsync(
+                    SpreadsheetDraftStore.StorageKey,
+                    SpreadsheetDraftStore.Serialize(result.Remaining));
+            }
+
+            if (result.Applied > 0)
+            {
+                HasChanges = true;
+                var leftover = result.Remaining.Count > 0
+                    ? $" {result.Remaining.Count} draft tidak bisa diterapkan karena data sheet sudah berubah."
+                    : string.Empty;
+                StatusText = $"{result.Applied} perubahan draft dipulihkan, belum di-push ke sheet.{leftover}";
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Draft restore failed: {ex.GetType().Name}");
+        }
+    }
+
     [RelayCommand]
     private async Task SaveChanges()
     {
@@ -736,6 +819,10 @@ public partial class SpreadsheetViewModel : ObservableObject
                 savedCount += entries.Count;
                 CheckHasChanges();
             }
+
+            // Draft yang sudah terkirim ke sheet tidak perlu disimpan lagi.
+            await PersistDraftsAsync();
+
             await SaveColumnWidthsToSheetAsync();
         }
         catch (Exception ex)
@@ -1078,6 +1165,13 @@ public partial class SpreadsheetCellViewModel : ObservableObject
     internal object? OriginalRawValue { get; set; }
     internal SpreadsheetCellInputKind InputKind { get; set; } = SpreadsheetCellInputKind.Text;
     public int ColumnIndex { get; set; }
+
+    /// <summary>
+    /// Penanda seleksi multi-baris untuk sel di kolom yang sedang difokuskan.
+    /// Disimpan di ViewModel (bukan sebagai class pada container DataGridCell) supaya
+    /// highlight tetap benar saat container sel didaur-ulang ketika di-scroll.
+    /// </summary>
+    [ObservableProperty] private bool _isSelectionHighlighted;
 
     public bool IsChanged => Value != OriginalValue;
 

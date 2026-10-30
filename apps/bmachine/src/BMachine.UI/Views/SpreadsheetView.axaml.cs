@@ -24,6 +24,11 @@ public partial class SpreadsheetView : UserControl
     private bool _openDropdownOnNextEdit = false;
     private bool _selectionVisualUpdateQueued;
 
+    // Baris yang sedang diberi penanda seleksi (kolom fokus) — dipakai supaya update
+    // hanya menyentuh sel yang berubah, bukan 13 ribu baris setiap kali seleksi bergerak.
+    private readonly HashSet<SpreadsheetRowViewModel> _highlightedRows = new();
+    private int? _highlightedColumn;
+
     public SpreadsheetView()
     {
         InitializeComponent();
@@ -434,6 +439,22 @@ public partial class SpreadsheetView : UserControl
 
             var grid = new Grid();
 
+            // Overlay seleksi multi-baris: di-bind ke flag di ViewModel, jadi tetap benar
+            // walau container sel didaur-ulang saat scroll (dulu memakai class pada
+            // DataGridCell sehingga highlight tertinggal di baris yang salah).
+            var selectionOverlay = new Border
+            {
+                IsHitTestVisible = false,
+                Opacity = 1
+            };
+            if (Application.Current?.TryFindResource("AccentLowOpacityBrush", out var lowAccent) == true && lowAccent is Avalonia.Media.IBrush lowAccentBrush)
+                selectionOverlay.Background = lowAccentBrush;
+            else
+                selectionOverlay.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#3B82F6"), 0.18);
+            selectionOverlay.Bind(Avalonia.Visual.IsVisibleProperty,
+                new Binding($"Cells[{col.Index}].IsSelectionHighlighted") { FallbackValue = false });
+            grid.Children.Add(selectionOverlay);
+
             var textBlock = new TextBlock
             {
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
@@ -743,6 +764,10 @@ public partial class SpreadsheetView : UserControl
     /// <summary>
     /// Highlights ONLY the cells in the active/focused column for selected rows,
     /// so multiple selection does not highlight the entire horizontal rows.
+    ///
+    /// Highlight disimpan sebagai flag di ViewModel sel (bukan class pada container),
+    /// sehingga daur-ulang container DataGrid saat scroll tidak bisa membuat highlight
+    /// tertinggal di baris yang salah.
     /// </summary>
     private void UpdateCellSelectionVisuals()
     {
@@ -752,37 +777,39 @@ public partial class SpreadsheetView : UserControl
         bool hasMultiple = selectedItems != null && selectedItems.Count > 1;
         int? targetCol = _focusedColumnIndex;
 
-        foreach (var desc in _dataGrid.GetVisualDescendants())
+        var desired = new HashSet<SpreadsheetRowViewModel>();
+        if (hasMultiple && targetCol.HasValue && selectedItems != null)
         {
-            if (desc is DataGridRow dataGridRow)
+            foreach (var item in selectedItems)
             {
-                bool isRowSelected = hasMultiple && selectedItems!.Contains(dataGridRow.DataContext);
-
-                var cellsPresenter = dataGridRow.GetVisualDescendants()
-                    .OfType<DataGridCellsPresenter>().FirstOrDefault();
-                if (cellsPresenter == null) continue;
-
-                for (int i = 0; i < cellsPresenter.Children.Count; i++)
-                {
-                    if (cellsPresenter.Children[i] is not DataGridCell cell) continue;
-
-                    var column = DataGridColumn.GetColumnContainingElement(cell);
-                    int colIndex = column?.Tag is int tag ? tag : -1;
-                    bool isCellSelected = isRowSelected && targetCol.HasValue && colIndex == targetCol.Value;
-
-                    if (isCellSelected)
-                    {
-                        if (!cell.Classes.Contains("cell-selected"))
-                            cell.Classes.Add("cell-selected");
-                    }
-                    else
-                    {
-                        if (cell.Classes.Contains("cell-selected"))
-                            cell.Classes.Remove("cell-selected");
-                    }
-                }
+                if (item is SpreadsheetRowViewModel row) desired.Add(row);
             }
         }
+
+        // Kolom fokus pindah atau baris tidak lagi terpilih: bersihkan penanda lama.
+        bool columnChanged = _highlightedColumn != targetCol;
+        foreach (var row in _highlightedRows.ToList())
+        {
+            if (columnChanged || !desired.Contains(row))
+            {
+                SetCellHighlight(row, _highlightedColumn, false);
+                _highlightedRows.Remove(row);
+            }
+        }
+        _highlightedColumn = targetCol;
+
+        foreach (var row in desired)
+        {
+            if (_highlightedRows.Add(row))
+                SetCellHighlight(row, targetCol, true);
+        }
+    }
+
+    private static void SetCellHighlight(SpreadsheetRowViewModel? row, int? columnIndex, bool value)
+    {
+        if (row == null || columnIndex is not int column) return;
+        if (column < 0 || column >= row.Cells.Count) return;
+        row.Cells[column].IsSelectionHighlighted = value;
     }
 
     private void OnDataGridPointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)

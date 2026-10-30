@@ -44,7 +44,11 @@ public partial class SpreadsheetWindow : Window
         }
 
         if (DataContext is BMachine.UI.ViewModels.SpreadsheetViewModel spreadsheetVM)
+        {
             _ = spreadsheetVM.SaveColumnWidthsAsync();
+            // Draft disimpan juga saat menutup, jadi isian tidak hilang walaupun belum di-push.
+            _ = spreadsheetVM.PersistDraftsAsync();
+        }
 
         base.OnClosing(e);
     }
@@ -73,8 +77,9 @@ public partial class SpreadsheetWindow : Window
     protected virtual Task<bool> AskToDiscardUnsavedChangesAsync()
     {
         var dialog = new Dialogs.MantraData.MantraConfirmDialog(
-            "Perubahan belum disimpan",
-            "Perubahan spreadsheet belum disimpan. Tutup tanpa menyimpan dan buang perubahan ini?");
+            "Belum di-push ke spreadsheet",
+            "Ada perubahan yang belum dikirim ke spreadsheet. Perubahan ini tetap tersimpan "
+            + "sebagai draft dan akan muncul lagi saat window dibuka. Tutup sekarang?");
         return dialog.ShowDialog<bool>(this);
     }
 

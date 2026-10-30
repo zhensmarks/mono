@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -12,13 +11,20 @@ using Xunit;
 
 namespace BMachine.UI.RegressionTests;
 
+/// <summary>
+/// Seleksi multi-baris harus "diam": penanda hanya boleh ada di sel kolom fokus untuk baris
+/// yang benar-benar terpilih, dan tidak boleh tertinggal di baris lain setelah container
+/// DataGrid didaur-ulang karena scroll.
+/// </summary>
 public sealed class SpreadsheetSelectionVirtualizationTests
 {
-    [AvaloniaFact]
-    public void MultiSelectHighlightTracksRowsAfterVirtualizedScroll()
+    private const int RowCount = 120;
+    private const int ColumnCount = 3;
+
+    private static (SpreadsheetViewModel Vm, List<SpreadsheetRowViewModel> Rows) BuildViewModel()
     {
         var vm = new SpreadsheetViewModel(new FakeDatabase());
-        for (var column = 0; column < 3; column++)
+        for (var column = 0; column < ColumnCount; column++)
         {
             vm.Columns.Add(new SpreadsheetColumnViewModel
             {
@@ -29,10 +35,10 @@ public sealed class SpreadsheetSelectionVirtualizationTests
         }
 
         var rows = new List<SpreadsheetRowViewModel>();
-        for (var rowIndex = 0; rowIndex < 120; rowIndex++)
+        for (var rowIndex = 0; rowIndex < RowCount; rowIndex++)
         {
-            var row = new SpreadsheetRowViewModel(rowIndex, vm);
-            for (var column = 0; column < 3; column++)
+            var row = new SpreadsheetRowViewModel(rowIndex, vm, rowIndex + 4);
+            for (var column = 0; column < ColumnCount; column++)
             {
                 var value = $"R{rowIndex + 1}C{column + 1}";
                 row.Cells.Add(new SpreadsheetCellViewModel
@@ -46,7 +52,18 @@ public sealed class SpreadsheetSelectionVirtualizationTests
             vm.Rows.Add(row);
         }
         vm.FilteredRows = new ObservableCollection<SpreadsheetRowViewModel>(rows);
+        return (vm, rows);
+    }
 
+    private static void FocusColumn(SpreadsheetView view, int? columnIndex)
+        => typeof(SpreadsheetView)
+            .GetField("_focusedColumnIndex", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(view, columnIndex);
+
+    [AvaloniaFact]
+    public void MultiSelectHighlightStaysOnSelectedRowsAfterVirtualizedScroll()
+    {
+        var (vm, rows) = BuildViewModel();
         var window = new SpreadsheetWindow { DataContext = vm };
         try
         {
@@ -57,29 +74,29 @@ public sealed class SpreadsheetSelectionVirtualizationTests
             var grid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
             Assert.NotEmpty(grid.GetVisualDescendants().OfType<DataGridRow>());
 
-            typeof(SpreadsheetView)
-                .GetField("_focusedColumnIndex", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(view, 0);
+            FocusColumn(view, 0);
 
             grid.SelectedItems.Clear();
             grid.SelectedItems.Add(rows[1]);
             grid.SelectedItems.Add(rows[4]);
             Pump(window);
-            AssertVisualSelectionMatches(grid, 0);
-            Assert.True(FindRow(grid, rows[1])?.GetVisualDescendants().OfType<DataGridCell>()
-                .Any(cell => cell.Classes.Contains("cell-selected")));
-            Assert.True(FindRow(grid, rows[4])?.GetVisualDescendants().OfType<DataGridCell>()
-                .Any(cell => cell.Classes.Contains("cell-selected")));
 
-            CaptureIfRequested(window);
+            AssertHighlightMatches(grid, vm, 0);
+            Assert.True(rows[1].Cells[0].IsSelectionHighlighted);
+            Assert.True(rows[4].Cells[0].IsSelectionHighlighted);
+            Assert.False(rows[1].Cells[1].IsSelectionHighlighted);
 
+            // Scroll jauh: container didaur-ulang, penanda tidak boleh tertinggal.
             grid.ScrollIntoView(rows[90], grid.Columns[0]);
             Pump(window);
-            AssertVisualSelectionMatches(grid, 0);
+            AssertHighlightMatches(grid, vm, 0);
 
+            // Kembali ke atas: baris yang sama harus tetap ditandai.
             grid.ScrollIntoView(rows[1], grid.Columns[0]);
             Pump(window);
-            AssertVisualSelectionMatches(grid, 0);
+            AssertHighlightMatches(grid, vm, 0);
+            Assert.True(rows[1].Cells[0].IsSelectionHighlighted);
+            Assert.True(rows[4].Cells[0].IsSelectionHighlighted);
         }
         finally
         {
@@ -87,22 +104,151 @@ public sealed class SpreadsheetSelectionVirtualizationTests
         }
     }
 
-    private static DataGridRow? FindRow(DataGrid grid, SpreadsheetRowViewModel row)
-        => grid.GetVisualDescendants().OfType<DataGridRow>()
-            .FirstOrDefault(visualRow => ReferenceEquals(visualRow.DataContext, row));
-
-    private static void AssertVisualSelectionMatches(DataGrid grid, int highlightedColumn)
+    [AvaloniaFact]
+    public void ChangingSelectionClearsOldHighlightWithoutLeftovers()
     {
-        foreach (var visualRow in grid.GetVisualDescendants().OfType<DataGridRow>())
+        var (vm, rows) = BuildViewModel();
+        var window = new SpreadsheetWindow { DataContext = vm };
+        try
         {
-            var selected = grid.SelectedItems.Count > 1 && grid.SelectedItems.Contains(visualRow.DataContext);
-            foreach (var cell in visualRow.GetVisualDescendants().OfType<DataGridCell>())
+            window.Show();
+            Pump(window);
+
+            var view = Assert.Single(window.GetVisualDescendants().OfType<SpreadsheetView>());
+            var grid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+            FocusColumn(view, 0);
+
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(rows[1]);
+            grid.SelectedItems.Add(rows[4]);
+            Pump(window);
+            Assert.True(rows[1].Cells[0].IsSelectionHighlighted);
+
+            // Ganti seleksi ke baris lain: penanda lama harus hilang total.
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(rows[2]);
+            grid.SelectedItems.Add(rows[3]);
+            Pump(window);
+
+            AssertHighlightMatches(grid, vm, 0);
+            Assert.False(rows[1].Cells[0].IsSelectionHighlighted);
+            Assert.False(rows[4].Cells[0].IsSelectionHighlighted);
+            Assert.True(rows[2].Cells[0].IsSelectionHighlighted);
+            Assert.True(rows[3].Cells[0].IsSelectionHighlighted);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ChangingFocusedColumnMovesTheHighlight()
+    {
+        var (vm, rows) = BuildViewModel();
+        var window = new SpreadsheetWindow { DataContext = vm };
+        try
+        {
+            window.Show();
+            Pump(window);
+
+            var view = Assert.Single(window.GetVisualDescendants().OfType<SpreadsheetView>());
+            var grid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+
+            FocusColumn(view, 0);
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(rows[1]);
+            grid.SelectedItems.Add(rows[4]);
+            Pump(window);
+            AssertHighlightMatches(grid, vm, 0);
+
+            FocusColumn(view, 2);
+            typeof(SpreadsheetView)
+                .GetMethod("UpdateCellSelectionVisuals", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(view, null);
+            Pump(window);
+
+            AssertHighlightMatches(grid, vm, 2);
+            Assert.False(rows[1].Cells[0].IsSelectionHighlighted);
+            Assert.True(rows[1].Cells[2].IsSelectionHighlighted);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// Memastikan overlay visual benar-benar ter-bind ke flag (bukan hanya flag di ViewModel),
+    /// supaya kesalahan penulisan binding tidak lolos diam-diam.
+    /// </summary>
+    [AvaloniaFact]
+    public void SelectionOverlayIsVisibleOnlyForHighlightedCells()
+    {
+        var (vm, rows) = BuildViewModel();
+        var window = new SpreadsheetWindow { DataContext = vm };
+        try
+        {
+            window.Show();
+            Pump(window);
+
+            var view = Assert.Single(window.GetVisualDescendants().OfType<SpreadsheetView>());
+            var grid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+            FocusColumn(view, 0);
+
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(rows[1]);
+            grid.SelectedItems.Add(rows[2]);
+            Pump(window);
+
+            var highlighted = FindCell(grid, rows[1], 0);
+            var notHighlighted = FindCell(grid, rows[1], 1);
+            Assert.NotNull(highlighted);
+            Assert.NotNull(notHighlighted);
+            Assert.True(FindOverlay(highlighted!)?.IsVisible);
+            Assert.False(FindOverlay(notHighlighted!)?.IsVisible ?? true);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static DataGridCell? FindCell(DataGrid grid, SpreadsheetRowViewModel row, int columnIndex)
+        => grid.GetVisualDescendants().OfType<DataGridRow>()
+            .FirstOrDefault(visualRow => ReferenceEquals(visualRow.DataContext, row))?
+            .GetVisualDescendants().OfType<DataGridCell>()
+            .FirstOrDefault(cell =>
+                DataGridColumn.GetColumnContainingElement(cell)?.Tag is int tag && tag == columnIndex);
+
+    private static Border? FindOverlay(DataGridCell cell)
+    {
+        var templateRoot = cell.GetVisualDescendants().OfType<Border>()
+            .FirstOrDefault(border => border.Tag is int);
+        return templateRoot?.Child is Grid grid && grid.Children.Count > 0
+            ? grid.Children[0] as Border
+            : null;
+    }
+
+    /// <summary>
+    /// Memeriksa SEMUA baris di ViewModel (bukan hanya yang ter-realize), jadi penanda yang
+    /// tertinggal di container hasil daur-ulang ikut terdeteksi.
+    /// </summary>
+    private static void AssertHighlightMatches(DataGrid grid, SpreadsheetViewModel vm, int highlightedColumn)
+    {
+        var selected = grid.SelectedItems;
+        var multiSelect = selected != null && selected.Count > 1;
+
+        foreach (var row in vm.Rows)
+        {
+            var shouldHighlight = multiSelect && selected!.Contains(row);
+            for (var column = 0; column < row.Cells.Count; column++)
             {
-                var column = DataGridColumn.GetColumnContainingElement(cell);
-                var columnIndex = column?.Tag is int index ? index : -1;
-                var shouldHighlight = selected && columnIndex == highlightedColumn;
-                Assert.True(shouldHighlight == cell.Classes.Contains("cell-selected"),
-                    $"Row {((visualRow.DataContext as SpreadsheetRowViewModel)?.SheetRowNumber.ToString() ?? "unknown")}, column {columnIndex}, selected={selected}");
+                var expected = shouldHighlight && column == highlightedColumn;
+                Assert.True(
+                    expected == row.Cells[column].IsSelectionHighlighted,
+                    $"Row {row.SheetRowNumber}, column {column}: expected highlight={expected}, " +
+                    $"actual={row.Cells[column].IsSelectionHighlighted}");
             }
         }
     }
@@ -113,24 +259,6 @@ public sealed class SpreadsheetSelectionVirtualizationTests
         {
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
-        }
-    }
-
-    private static void CaptureIfRequested(Window window)
-    {
-        var path = Environment.GetEnvironmentVariable("BMACHINE_TEST_SCREENSHOT");
-        if (string.IsNullOrWhiteSpace(path)) return;
-
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        try
-        {
-            using var bitmap = window.CaptureRenderedFrame();
-            if (bitmap != null) bitmap.Save(path);
-        }
-        catch (NotSupportedException)
-        {
-            // The standard test backend validates visuals but does not expose pixels.
-            // A Skia-enabled smoke run can request and save a rendered frame.
         }
     }
 }
