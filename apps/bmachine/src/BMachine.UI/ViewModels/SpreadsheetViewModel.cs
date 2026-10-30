@@ -231,12 +231,35 @@ public partial class SpreadsheetViewModel : ObservableObject
             if (!IsCurrentLoad(loadGeneration)) return;
             var values = valuesResponse.Values;
 
+            // Selaraskan jangkar baris/kolom dengan range yang BENAR-BENAR dikembalikan Google.
+            // Tanpa ini, bila respons mulai di baris/kolom lain dari teks konfigurasi,
+            // seluruh penomoran bergeser tanpa suara dan nilai tersimpan ke sel yang salah.
+            var loadAnchor = SpreadsheetLoadAlignment.Resolve(
+                valuesResponse.Range, _rangeStartRow, _rangeStartCol);
+            if (loadAnchor.StartRow != _rangeStartRow || loadAnchor.StartColumn != _rangeStartCol)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Load anchor adjusted: row {_rangeStartRow}->{loadAnchor.StartRow}, " +
+                    $"col {_rangeStartCol}->{loadAnchor.StartColumn} (response '{valuesResponse.Range}')");
+                _rangeStartRow = loadAnchor.StartRow;
+                _rangeStartCol = loadAnchor.StartColumn;
+            }
+
             var rawValuesRequest = _sheetsService.Spreadsheets.Values.Get(_sheetId, fullRange);
             rawValuesRequest.ValueRenderOption = SpreadsheetsResource.ValuesResource.GetRequest.ValueRenderOptionEnum.UNFORMATTEDVALUE;
             rawValuesRequest.DateTimeRenderOption = SpreadsheetsResource.ValuesResource.GetRequest.DateTimeRenderOptionEnum.SERIALNUMBER;
             var rawValuesResponse = await rawValuesRequest.ExecuteAsync();
             if (!IsCurrentLoad(loadGeneration)) return;
             var rawValues = rawValuesResponse.Values;
+
+            // Dua request terpisah: kalau panjangnya beda (sheet berubah di antaranya),
+            // indeks rawValues bisa menunjuk baris yang berbeda. Lebih aman tidak dipakai.
+            if (rawValues != null && values != null && rawValues.Count != values.Count)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"rawValues dropped: {rawValues.Count} rows vs {values.Count} displayed rows.");
+                rawValues = null;
+            }
 
             if (values != null && values.Count > 0)
             {
@@ -269,7 +292,9 @@ public partial class SpreadsheetViewModel : ObservableObject
                 try
                 {
                     // Build a small range: just 2 rows from the start of the range for type/validation detection
-                    var startCol = _range.Split(':')[0].TrimEnd('0','1','2','3','4','5','6','7','8','9');
+                    // Pakai kolom jangkar hasil load (bukan potong string dari teks config,
+                    // yang rusak untuk range ber-$ atau kolom multi-huruf).
+                    var startCol = GetColumnName(_rangeStartCol);
                     var endCol = GetColumnName(columnViewModels.Count - 1 + _rangeStartCol);
                     var metaRange = $"{quotedSheetName}!{startCol}{_rangeStartRow}:{endCol}{_rangeStartRow + 1}";
                     

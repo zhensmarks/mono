@@ -559,7 +559,7 @@ public partial class SpreadsheetView : UserControl
         var sourceRow = visualOrder.FirstOrDefault(r => selectedRows.Contains(r));
         if (sourceRow == null) return; // Safety check
 
-        vm.StatusText = $"Fill from Row {sourceRow.OriginalRowIndex + 1} ({visualOrder.IndexOf(sourceRow) + 1} visually)...";
+        vm.StatusText = $"Fill from sheet row {sourceRow.SheetRowNumber} ({visualOrder.IndexOf(sourceRow) + 1} in view)...";
         
         // Determine which columns to fill
         // If a column is focused, only fill that column
@@ -581,7 +581,7 @@ public partial class SpreadsheetView : UserControl
         {
             if (targetRow == sourceRow) continue; // Skip source
 
-            targetIndices.Add(targetRow.OriginalRowIndex + 1);
+            targetIndices.Add(targetRow.SheetRowNumber);
             // Copy each cell value in the range
             for (int colIndex = startCol; colIndex < endCol && colIndex < sourceRow.Cells.Count && colIndex < targetRow.Cells.Count; colIndex++)
             {
@@ -604,7 +604,7 @@ public partial class SpreadsheetView : UserControl
         {
             columnName = "all cols";
         }
-        vm.StatusText = $"Filled {count} rows from Row#{sourceRow.OriginalRowIndex + 1} to [{string.Join(",", targetIndices)}] ({columnName}){sourceVal}";
+        vm.StatusText = $"Filled {count} rows from sheet row {sourceRow.SheetRowNumber} to [{string.Join(",", targetIndices)}] ({columnName}){sourceVal}";
     }
 
     private void OnDataGridPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
