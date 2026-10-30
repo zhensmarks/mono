@@ -111,11 +111,16 @@ def load_registry(path):
         return json.load(f)
 
 
-def find_master(registry, code):
-    """Cari .psd untuk `code` di semua folder master prefix tsb."""
+def find_master(registry, code, size_tag=None):
+    """Cari .psd untuk `code` di semua folder master prefix tsb.
+
+    `size_tag` ('8R' / '10RP' / 'A3') dipakai kalau folder master dibagi
+    per ukuran (mis. ANGKATAN\\10RP, ANGKATAN\\A3, FREE SEKOLAH\\8R).
+    POSTER dianggap sama dengan A3.
+    """
     pref = mc.code_prefix(code)
     for item in registry.get(pref, []):
-        got = mc.find_master_in(item.get("path", ""), code)
+        got = mc.find_master_in(item.get("path", ""), code, size_tag=size_tag)
         if got:
             return got, item
     return None, None
@@ -186,6 +191,17 @@ def main(pilihan_path, output_base, registry, oke_base=None):
                 return os.path.join(final_output_folder, subfolder_name)
             return os.path.join(final_output_folder, subfolder_name, rel)
 
+        # ---- Ukuran cetak pekerjaan ini (8R / 10RP / A3=POSTER) ----
+        # Diambil dari nama subfolder level-1, lalu dari .txt kalau tidak ada.
+        size_tag = mc.detect_size_tag(subfolder_name)
+        if not size_tag:
+            for _fn, stem, content in mc.read_txt_files(subfolder_path):
+                size_tag = mc.detect_size_tag(f"{stem} {content}")
+                if size_tag:
+                    break
+        if size_tag:
+            print(f"  [UKURAN] {subfolder_name} -> {size_tag}")
+
         touched = False
         for root, dirs, files in os.walk(subfolder_path):
             jpg_files = [f for f in files if f.lower().endswith(('.jpg', '.jpeg'))]
@@ -196,11 +212,11 @@ def main(pilihan_path, output_base, registry, oke_base=None):
             if not codes:
                 continue
 
-            master_path, info = find_master(registry, codes[0])
+            master_path, info = find_master(registry, codes[0], size_tag=size_tag)
             if not master_path:
                 # coba kode berikutnya
                 for c in codes[1:]:
-                    master_path, info = find_master(registry, c)
+                    master_path, info = find_master(registry, c, size_tag=size_tag)
                     if master_path:
                         codes = [c] + [x for x in codes if x != c]
                         break

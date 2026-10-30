@@ -33,9 +33,13 @@ CODE_TOKEN_RE = re.compile(r'\b([A-Za-z]{2,4})[\s_\-=:.]{0,3}(\d{1,3})(?!\d)')
 # "MSK 10RP-004" akan terbaca sebagai MSK-10 (salah).
 # Batas: digit sebelumnya tidak boleh angka (supaya "18R" tidak ikut), tapi
 # boleh nempel huruf — nyata di lapangan: "FOTO8R_TM", "FOTO10RP_MANASIK".
+# POSTER = A3 (nama yang dipakai di lapangan cuma beda sebutan), jadi
+# keduanya dianggap ukuran yang sama: 'A3'.
 SIZE_TOKEN_RE = re.compile(
     r'(?i)(?<![0-9])(?:10|12|14|16|20)\s*RP(?![0-9A-Z])'
     r'|(?<![0-9])[2-9]\s*R(?![0-9A-Z])'
+    r'|(?<![0-9A-Z])A3(?![0-9A-Z])'
+    r'|(?<![A-Z])POSTER(?![A-Z])'
 )
 
 # Prefix yang bukan kode, tapi penanda nilai kode ("KODE= 001")
@@ -97,13 +101,38 @@ NAME_HINTS = {
 # 2. HELPER KODE
 # ----------------------------------------------------------------------------
 def detect_size_tag(text):
-    """Ambil penanda ukuran: '8R' / '10RP' (None kalau tidak ada)."""
+    """Ambil penanda ukuran: '8R' / '10RP' / 'A3' (None kalau tidak ada).
+
+    'POSTER' dianggap sama dengan 'A3' — di lapangan nama foldernya kadang
+    cuma "POSTER", kadang "POSTER_A3", kadang "A3" saja.
+    """
     t = (text or '').upper()
     if re.search(r'(?<![0-9])(?:10|12|14|16|20)\s*RP(?![0-9A-Z])', t):
         return '10RP'
     if re.search(r'(?<![0-9])[2-9]\s*R(?![0-9A-Z])', t):
         return '8R'
+    if re.search(r'(?<![0-9A-Z])A3(?![0-9A-Z])', t) or re.search(r'(?<![A-Z])POSTER(?![A-Z])', t):
+        return 'A3'
     return None
+
+
+# Nama subfolder master yang dianggap mewakili tiap ukuran.
+SIZE_ALIASES = {
+    '10RP': ('10RP', '10 RP', '10R'),
+    '8R': ('8R', '8 R'),
+    'A3': ('A3', 'POSTER', 'PLAKAT', 'PLK'),
+}
+
+
+def size_matches(folder_name, size_tag):
+    """True kalau nama subfolder master mewakili `size_tag` (POSTER == A3)."""
+    if not size_tag:
+        return False
+    up = (folder_name or '').upper()
+    for alias in SIZE_ALIASES.get(size_tag, (size_tag,)):
+        if alias.upper() in up:
+            return True
+    return False
 
 
 def code_prefix(code):
@@ -220,21 +249,8 @@ def psd_stems(folder_path):
         return []
 
 
-def find_master_in(folder_path, code, allow_generic=True):
-    """Cari .psd di folder master yang cocok dengan `code`.
-
-    Toleran terhadap cara penulisan: "MSK-001", "MSK 001", "MSK001",
-    "FRS 003 SINGLE", "WSD-001 B" — yang penting prefix sama & nomornya sama.
-    Kalau tidak ada yang cocok TAPI folder itu cuma punya 1 desain
-    (mis. "MASTER KPL"), desain tunggal itu dipakai (allow_generic).
-    """
-    digits = code_digits(code)
-    if not digits:
-        return None
-    target = int(digits)
-    want_prefix = code_prefix(code)
-
-    stems = psd_stems(folder_path)
+def _match_stem(stems, want_prefix, target):
+    """Cari stem .psd yang prefix & nomornya cocok (toleran spasi/strip/nol)."""
     best = None
     for stem in stems:
         clean = SIZE_TOKEN_RE.sub(' ', stem).upper()
@@ -245,14 +261,59 @@ def find_master_in(folder_path, code, allow_generic=True):
             continue
         # utamakan yang persis "PREFIX-NNN" / "PREFIX NNN" tanpa embel-embel
         if re.fullmatch(rf'\s*{re.escape(want_prefix)}[\s\-_]?0*{target}\s*', clean):
-            return os.path.join(folder_path, stem + '.psd')
+            return stem
         if best is None:
             best = stem
-    if best:
-        return os.path.join(folder_path, best + '.psd')
+    return best
 
-    if allow_generic and len(stems) == 1:
-        return os.path.join(folder_path, stems[0] + '.psd')
+
+def find_master_in(folder_path, code, allow_generic=True, size_tag=None):
+    """Cari .psd di folder master yang cocok dengan `code`.
+
+    Toleran terhadap cara penulisan: "MSK-001", "MSK 001", "MSK001",
+    "FRS 003 SINGLE", "WSD-001 B" — yang penting prefix sama & nomornya sama.
+
+    Folder master TAMBAHAN sering dibagi per ukuran cetak:
+        FREE SEKOLAH\\          (10RP)      FREE SEKOLAH\\8R\\
+        ANGKATAN\\10RP\\  ANGKATAN\\8R\\  ANGKATAN\\A3\\   (=POSTER)
+    Jadi kalau `size_tag` diketahui, subfolder yang mewakili ukuran itu
+    dicari LEBIH DULU, baru root, baru subfolder lain.
+
+    Kalau tidak ada yang cocok TAPI folder itu cuma punya 1 desain
+    (mis. "MASTER KPL"), desain tunggal itu dipakai (allow_generic).
+    """
+    digits = code_digits(code)
+    if not digits:
+        return None
+    target = int(digits)
+    want_prefix = code_prefix(code)
+
+    size_dirs, other_dirs = [], []
+    try:
+        for name in sorted(os.listdir(folder_path)):
+            p = os.path.join(folder_path, name)
+            if not os.path.isdir(p) or name.startswith('#'):
+                continue          # '#BG KATALOG', '#WISUDA (JANGAN DIPAKE)' = bukan desain
+            if size_matches(name, size_tag):
+                size_dirs.append(p)
+            else:
+                other_dirs.append(p)
+    except Exception:
+        pass
+
+    # urutan: subfolder ukuran cocok -> root -> subfolder lain (tanpa generic)
+    ordered = [(p, True) for p in size_dirs] + [(folder_path, True)]
+    ordered += [(p, False) for p in other_dirs]
+
+    for path, generic_ok in ordered:
+        stems = psd_stems(path)
+        if not stems:
+            continue
+        got = _match_stem(stems, want_prefix, target)
+        if got:
+            return os.path.join(path, got + '.psd')
+        if generic_ok and allow_generic and len(stems) == 1:
+            return os.path.join(path, stems[0] + '.psd')
     return None
 
 
@@ -277,8 +338,19 @@ def _guess_prefixes_from_folder(path):
     """Tebak prefix dari isi folder (psd) dan/atau dari nama folder.
 
     Bisa lebih dari satu: folder PasFoto berisi PFB-001..010 DAN PFM-001..010.
+    Folder master tambahan sering dibagi per ukuran (8R\\, 10RP\\, A3\\) dan
+    kadang cuma di subfolder (mis. ID CARD\\LANDSCAPE, ID CARD\\PORTRAIT),
+    jadi psd di subfolder satu level juga ikut dibaca.
     """
     stems = psd_stems(path)
+    if not stems:
+        try:
+            for name in sorted(os.listdir(path)):
+                sub = os.path.join(path, name)
+                if os.path.isdir(sub) and not name.startswith('#'):
+                    stems.extend(psd_stems(sub))
+        except Exception:
+            pass
     counts = {}
     for stem in stems:
         clean = SIZE_TOKEN_RE.sub(' ', stem).upper()
@@ -299,6 +371,11 @@ def _guess_prefixes_from_folder(path):
         if name in base and pref not in out:
             out.append(pref)
     return out
+
+
+# Dinaikkan kalau cara menebak prefix berubah, supaya cache lama (master_index.json)
+# tidak dipakai lagi. v2: prefix ikut dibaca dari subfolder ukuran (8R/10RP/A3).
+_CACHE_VERSION = 2
 
 
 def build_registry(db_path=None, cache_path=None, use_cache=True, force=False):
@@ -348,9 +425,9 @@ def build_registry(db_path=None, cache_path=None, use_cache=True, force=False):
     new_cache = {}
     for name, path in candidates:
         try:
-            sig = [int(os.path.getmtime(path)), len(os.listdir(path))]
+            sig = [int(os.path.getmtime(path)), len(os.listdir(path)), _CACHE_VERSION]
         except Exception:
-            sig = [0, 0]
+            sig = [0, 0, _CACHE_VERSION]
         hit = cache.get(path)
         prefixes = None
         if isinstance(hit, dict) and hit.get("sig") == sig:
