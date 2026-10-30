@@ -694,6 +694,13 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
         #     bukan hanya dari nama folder. Jadi folder "1. FOTO 10RP GRADASI"
         #     yang txt-nya berisi WSD-003 tetap diproses. ---
         _codes_pref = mc.find_candidate_codes(subfolder_path) if mc else []
+        if mc and not any(str(c).upper().startswith(('WSD', 'KRA')) for c in _codes_pref):
+            # .txt bisa berada di subfolder (mis. NONREG\WISUDA\WSD-002.txt)
+            _deep = mc.find_candidate_codes_deep(subfolder_path)
+            if _deep:
+                _codes_pref = _deep
+                print(f"[INFO] '{subfolder_name}': kode {', '.join(_deep)} "
+                      f"ditemukan di subfolder.")
         _txt_upper = mc.folder_text(subfolder_path).upper() if mc else ""
         is_wisuda_job = (
             'wisuda' in subfolder_lower

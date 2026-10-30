@@ -50,6 +50,20 @@ HANDLED_BY = {
     'PFB': 'pasfoto',
 }
 
+# Prefix yang hasilnya HANYA 1 file .psd per folder kerja — bukan 1 psd per
+# foto. Ini desain GABUNGAN: semua foto di folder itu masuk ke SATU desain
+# (kolase / lembaran / poster / hanging), jadi jumlah foto di PILIHAN TIDAK
+# boleh menentukan jumlah psd. Nama file hasilnya: 1.psd
+#   FRS = FREE SEKOLAH   HGN = HANGING   PLK = PLAKAT/POSTER
+#   BML/BMP = BERSAMA MANASIK    BPL/BPP = BERSAMA PROFESI
+#   BSL/BSP = BERSAMA SPORTY
+# Kalau nanti ada jenis lain yang juga "1 pcs per sekolah" (mis. ATN, MWS,
+# IDC), tinggal tambahkan prefix-nya di sini — tidak perlu ubah script lain.
+SINGLE_FILE_PREFIXES = {
+    'FRS', 'HGN', 'PLK',
+    'BML', 'BMP', 'BPL', 'BPP', 'BSL', 'BSP',
+}
+
 # Petunjuk prefix dari NAMA folder master (dipakai kalau folder masih kosong,
 # jadi begitu psd-nya dimasukkan otomatis kebaca tanpa ubah kode).
 NAME_HINTS = {
@@ -140,6 +154,33 @@ def find_candidate_codes(folder_path, prefer_tag=None):
         for num in re.findall(r'(?<!\d)(\d{1,3})(?!\d)', text):
             add(low, num)
     return high + low
+
+
+def find_candidate_codes_deep(folder_path, prefer_tag=None, max_depth=3):
+    """Kode dari .txt folder ini; kalau kosong, telusuri subfolder.
+
+    Kasus nyata: PILIHAN\\3. FOTO 8R_NONREG_GRADASI\\MANASIK\\MSK-004.txt
+    — .txt tidak sejajar dengan subfolder level-1, jadi pembacaan
+    "folder ini saja" tidak menemukan apa pun dan pekerjaan dianggap
+    bukan manasik/wisuda. Fungsi ini menyelam sampai `max_depth` level.
+    """
+    codes = find_candidate_codes(folder_path, prefer_tag=prefer_tag)
+    if codes:
+        return codes
+    root = os.path.abspath(folder_path)
+    base_depth = root.rstrip(os.sep).count(os.sep)
+    try:
+        for cur, dirs, files in os.walk(root):
+            if cur.rstrip(os.sep).count(os.sep) - base_depth >= max_depth:
+                dirs[:] = []
+            if not any(f.lower().endswith('.txt') for f in files):
+                continue
+            got = find_candidate_codes(cur, prefer_tag=prefer_tag)
+            if got:
+                return got
+    except Exception:
+        pass
+    return []
 
 
 def folder_text(folder_path):

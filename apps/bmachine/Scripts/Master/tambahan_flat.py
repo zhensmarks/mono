@@ -228,7 +228,26 @@ def main(pilihan_path, output_base, registry, oke_base=None):
                     seen.add(gid)
                     gids.append(gid)
 
-            print(f"    - '{rel_dir if rel_dir != '.' else '[Root]'}': {len(gids)} grup.")
+            # ------------------------------------------------------------------
+            # DESAIN GABUNGAN = 1 FILE SAJA.
+            # FREE SEKOLAH / HANGING / PLAKAT / BERSAMA (BML, BMP, BPL, BPP,
+            # BSL, BSP) itu semua fotonya digabung ke SATU desain. Jadi jumlah
+            # foto di PILIHAN tidak boleh jadi jumlah psd: cukup 1.psd.
+            # ------------------------------------------------------------------
+            single_file = mc.code_prefix(chosen) in getattr(mc, 'SINGLE_FILE_PREFIXES', set())
+            if single_file:
+                gids = ['1']
+                existing_psd = [f for f in os.listdir(current_output_dir)
+                                if f.lower().endswith('.psd')]
+                if existing_psd:
+                    print(f"    - '{rel_dir if rel_dir != '.' else '[Root]'}': desain gabungan, "
+                          f"sudah ada psd ({existing_psd[0]}) -> tidak ditambah.")
+                    total_dirs += 1
+                    touched = True
+                    continue
+
+            print(f"    - '{rel_dir if rel_dir != '.' else '[Root]'}': "
+                  f"{'1 file (desain gabungan)' if single_file else str(len(gids)) + ' grup'}.")
             total_dirs += 1
             touched = True
 

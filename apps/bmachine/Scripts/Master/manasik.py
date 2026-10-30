@@ -496,6 +496,32 @@ def find_candidate_codes(folder_path, prefer_tag=None):
     return high + low
 
 
+def find_candidate_codes_deep(folder_path, prefer_tag=None, max_depth=3):
+    """Kode dari .txt di folder ini; kalau kosong, selami subfoldernya.
+
+    Kasus nyata: PILIHAN\\3. FOTO 8R_NONREG_GRADASI\\MANASIK\\MSK-004.txt
+    — .txt ada satu level di dalam, bukan sejajar dengan subfolder level-1.
+    Dulu folder itu dianggap "bukan manasik" lalu dilewati (tidak ada psd).
+    """
+    codes = find_candidate_codes(folder_path, prefer_tag=prefer_tag)
+    if codes:
+        return codes
+    root = os.path.abspath(folder_path)
+    base_depth = root.rstrip(os.sep).count(os.sep)
+    try:
+        for cur, dirs, files in os.walk(root):
+            if cur.rstrip(os.sep).count(os.sep) - base_depth >= max_depth:
+                dirs[:] = []
+            if not any(f.lower().endswith('.txt') for f in files):
+                continue
+            got = find_candidate_codes(cur, prefer_tag=prefer_tag)
+            if got:
+                return got
+    except Exception:
+        pass
+    return []
+
+
 def master_prefixes(master_folder):
     """Daftar prefix kode yang tersedia di folder master (MSK, BML, ...)."""
     out = set()
@@ -733,6 +759,14 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
 
         # ---- 1. Baca kode dari .txt (bentuk apa pun: MSK-001 / KODE= MSK-001) ----
         codes = find_candidate_codes(subfolder_path)
+        deep_codes = []
+        if not any(code_prefix(c) == 'MSK' for c in codes):
+            # .txt bisa berada di subfolder: NONREG\MANASIK\MSK-004.txt
+            deep_codes = find_candidate_codes_deep(subfolder_path)
+            if deep_codes:
+                codes = deep_codes
+                print(f"[INFO] '{subfolder_name}': kode {', '.join(deep_codes)} "
+                      f"ditemukan di subfolder.")
         msk_codes = [c for c in codes if code_prefix(c) == 'MSK']
         txt_mentions_manasik = any('MANASIK' in (stem + ' ' + content).upper()
                                    for _fn, stem, content in read_txt_files(subfolder_path))
