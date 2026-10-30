@@ -142,11 +142,12 @@ public partial class SpreadsheetViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadData()
     {
-        if (HasChanges)
-        {
-            StatusText = "Save or discard changes before refreshing.";
-            return;
-        }
+        // Edit belum ter-push tidak hilang: draft dipersist dulu dan dipulihkan lagi
+        // setelah load (hanya bila nilai asli sel di sheet masih sama), jadi Refresh
+        // tetap boleh walau ada perubahan belum disimpan.
+        // ponytail: tanpa draft, refresh saat ada edit basi = edit hilang; kalau draft
+        // suatu saat dihapus, kembalikan blokir refresh saat HasChanges.
+        if (HasChanges) await PersistDraftsAsync();
 
         var loadGeneration = _loadSequence.Start();
 

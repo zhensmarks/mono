@@ -707,12 +707,18 @@
                 IsVisible="{Binding IsChecklistPanelOpen}"
                 PointerPressed="OnSubPanelPointerPressed">
             <Grid RowDefinitions="Auto, *, Auto" Margin="24">
-                <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,24">
+                <Grid ColumnDefinitions="*, Auto, Auto" Margin="0,0,0,24">
                     <StackPanel Spacing="4">
                          <TextBlock Text="CHECKLISTS" FontSize="18" FontWeight="Bold" LetterSpacing="2" Foreground="White"/>
                          <TextBlock Text="{Binding SelectedCard.Name}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="300" LetterSpacing="1"/>
                     </StackPanel>
-                    <Button Classes="ghostIcon" Grid.Column="1" Command="{Binding CloseChecklistPanelCommand}"
+                    <Button Classes="ghostIcon" Grid.Column="1" Margin="0,0,4,0"
+                            Command="{Binding RefreshChecklistsCommand}"
+                            Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand"
+                            ToolTip.Tip="Refresh checklist dari Trello">
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                    <Button Classes="ghostIcon" Grid.Column="2" Command="{Binding CloseChecklistPanelCommand}"
                             Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
                         <PathIcon Data="{StaticResource IconX}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>

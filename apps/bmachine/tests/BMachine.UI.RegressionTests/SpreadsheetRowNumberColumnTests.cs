@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using BMachine.UI.ViewModels;
@@ -10,7 +11,8 @@ using Xunit;
 namespace BMachine.UI.RegressionTests;
 
 /// <summary>
-/// Tampilan ala Google Sheets: gutter nomor baris sheet di kiri + huruf kolom di header.
+/// Tampilan ala Google Sheets: gutter nomor baris sheet di kiri, header = nama kolom
+/// rata tengah (huruf kolom sheet tidak ditampilkan, hanya tooltip).
 /// Nomor yang ditampilkan harus nomor baris sheet asli (bukan indeks grid), karena itu
 /// patokan yang dipakai user saat mencocokkan dengan spreadsheet.
 /// </summary>
@@ -73,7 +75,9 @@ public sealed class SpreadsheetRowNumberColumnTests
             Assert.Null(numberColumn.Tag);
             Assert.True(numberColumn.IsReadOnly);
             Assert.False(numberColumn.CanUserResize);
-            Assert.Equal("#", numberColumn.Header as string);
+            var gutterHeader = Assert.IsType<TextBlock>(numberColumn.Header);
+            Assert.Equal("#", gutterHeader.Text);
+            Assert.Equal(TextAlignment.Center, gutterHeader.TextAlignment);
 
             // Kolom data pertama tetap memetakan ke kolom VM index 0.
             Assert.Equal(0, Assert.IsType<int>(grid.Columns[1].Tag));
@@ -98,8 +102,10 @@ public sealed class SpreadsheetRowNumberColumnTests
         }
     }
 
+    /// Header hanya nama kolom (huruf sheet A/B/C disembunyikan, ada di tooltip)
+    /// dan rata tengah horizontal — menyesuaikan isi sel yang juga center.
     [AvaloniaFact]
-    public void ColumnHeadersShowSheetColumnLetters()
+    public void ColumnHeadersArePlainTextAndCentered()
     {
         var (vm, _) = BuildViewModel();
         var window = new SpreadsheetWindow { DataContext = vm };
@@ -113,14 +119,9 @@ public sealed class SpreadsheetRowNumberColumnTests
 
             for (var column = 0; column < vm.Columns.Count; column++)
             {
-                var header = Assert.IsType<StackPanel>(grid.Columns[column + 1].Header);
-                var texts = header.Children.OfType<TextBlock>()
-                    .Select(block => block.Text)
-                    .ToList();
-
-                var expectedLetter = ((char)('A' + column)).ToString();
-                Assert.Contains(expectedLetter, texts);
-                Assert.Contains(Headers[column], texts);
+                var header = Assert.IsType<TextBlock>(grid.Columns[column + 1].Header);
+                Assert.Equal(Headers[column], header.Text);
+                Assert.Equal(TextAlignment.Center, header.TextAlignment);
             }
         }
         finally

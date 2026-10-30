@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Markup.Xaml;
@@ -421,9 +421,34 @@ public partial class SpreadsheetView : UserControl
             templateCol.Bind(DataGridColumn.IsVisibleProperty, visibilityBinding);
 
             _dataGrid.Columns.Add(templateCol);
-        }
-        ScheduleCellSelectionVisualUpdate();
-    }
+            }
+            ScheduleCellSelectionVisualUpdate();
+            // Setelah template header termuat, geser isi header supaya benar-benar di tengah.
+            Avalonia.Threading.Dispatcher.UIThread.Post(
+                FixHeaderContentCentering, Avalonia.Threading.DispatcherPriority.Loaded);
+            }
+
+            /// <summary>
+            /// Teks header harus pas di tengah seperti Google Sheets. Template theme Fluent membawa
+            /// kolom Auto sort-icon (MinWidth 32) yang menahan 32px di kanan blok header dan tidak
+            /// bisa di-style, sehingga isi header tampak 16px ke kiri dari tengah. Solusinya: margin
+            /// Panel isi header digeser +16 kiri / -16 kanan (net nol, sekali saja — idempotent).
+            /// ponytail: 16 = setengah 32; kalau theme Avalonia berubah, sesuaikan deteksi 6/4.
+            /// </summary>
+            private void FixHeaderContentCentering()
+            {
+            if (_dataGrid == null) return;
+            foreach (var header in _dataGrid.GetVisualDescendants().OfType<DataGridColumnHeader>())
+            {
+                var panel = header.GetVisualDescendants().OfType<Control>()
+                    .FirstOrDefault(c => c.GetType() == typeof(Panel));
+                if (panel == null) continue;
+                var m = panel.Margin;
+                // 6,4,6,4 = nilai asli dari template theme; kalau sudah digeser, jangan ulangi.
+                if (Math.Abs(m.Left - 6) < 0.01 && Math.Abs(m.Right - 6) < 0.01)
+                    panel.Margin = new Thickness(m.Left + 16, m.Top, m.Right - 16, m.Bottom);
+            }
+            }
 
     /// <summary>
     /// Kolom paling kiri berisi nomor baris sheet asli (bukan indeks grid), supaya bisa
@@ -432,9 +457,20 @@ public partial class SpreadsheetView : UserControl
     /// </summary>
     private static DataGridTemplateColumn CreateRowNumberColumn()
     {
+        // Header '#' dibuat TextBlock (bukan string) supaya ikut rata tengah seperti
+        // header kolom lain — string header tidak di-stretch oleh presenter.
+        var gutterHeader = new TextBlock
+        {
+            Text = "#",
+            FontSize = 11.5,
+            FontWeight = Avalonia.Media.FontWeight.SemiBold,
+            TextAlignment = Avalonia.Media.TextAlignment.Center,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
         var column = new DataGridTemplateColumn
         {
-            Header = "#",
+            Header = gutterHeader,
             Width = new DataGridLength(58, DataGridLengthUnitType.Pixel),
             MinWidth = 40,
             CanUserResize = false,
@@ -465,40 +501,25 @@ public partial class SpreadsheetView : UserControl
     }
 
     /// <summary>
-    /// Header dua baris: huruf kolom sheet (A, B, C, ...) di atas, nama kolom di bawah —
-    /// meniru tampilan Google Sheets supaya mudah dicocokkan.
+    /// Header satu baris: nama kolom, rata tengah horizontal — teks header harus sejajar
+    /// dengan isi sel yang juga center. Huruf kolom sheet (A, B, C, ...) tidak ditampilkan
+    /// (permintaan user); hurufnya tetap muncul di tooltip untuk pencocokan dengan sheet.
     /// </summary>
     private static Control BuildColumnHeader(SpreadsheetColumnViewModel col)
     {
-        var stack = new StackPanel { Spacing = 1, Margin = new Thickness(2, 1) };
-
-        var letter = new TextBlock
-        {
-            Text = col.ColumnLetter ?? string.Empty,
-            FontSize = 9,
-            FontWeight = Avalonia.Media.FontWeight.SemiBold,
-            Opacity = 0.65,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
-        };
-        if (Application.Current?.TryFindResource("TextSecondaryBrush", out var brush) == true
-            && brush is Avalonia.Media.IBrush secondary)
-        {
-            letter.Foreground = secondary;
-        }
-
         var name = new TextBlock
         {
             Text = col.Header ?? string.Empty,
             FontSize = 11.5,
             FontWeight = Avalonia.Media.FontWeight.SemiBold,
             TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+            TextAlignment = Avalonia.Media.TextAlignment.Center,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Margin = new Thickness(2, 1)
         };
-
-        stack.Children.Add(letter);
-        stack.Children.Add(name);
-        ToolTip.SetTip(stack, $"[{col.ColumnLetter}] {col.Header}");
-        return stack;
+        ToolTip.SetTip(name, $"[{col.ColumnLetter}] {col.Header}");
+        return name;
     }
 
     /// <summary>

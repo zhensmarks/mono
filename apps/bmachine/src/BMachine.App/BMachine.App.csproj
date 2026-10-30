@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -40,7 +40,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Version>8.3.0</Version>
+    <Version>15.4.5</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -55,3 +55,15 @@
 
 
 </Project>
+
+
+
+
+
+
+
+
+
+
+
+

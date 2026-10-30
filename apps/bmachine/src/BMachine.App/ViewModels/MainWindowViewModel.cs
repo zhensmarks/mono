@@ -1,6 +1,8 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using BMachine.UI.ViewModels;
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -132,9 +134,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
 
     public void Receive(UpdateAvailableMessage message)
     {
-        IsUpdateAvailable = true;
-        LatestVersion = message.Value.LatestVersion;
-        UpdateUrl = message.Value.DownloadUrl;
+        ShowUpdateBanner(message.Value);
     }
 
     public void Receive(OpenExitConfirmMessage message)
@@ -225,16 +225,102 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     {
         try
         {
-            var service = new BMachine.UI.Services.UpdateService();
-            var info = await service.CheckForUpdatesAsync();
-            if (info.IsUpdateAvailable)
+            var folder = BMachine.UI.Services.LocalUpdateService.ResolveFolder(
+                await _database.GetAsync<string>("Update.LocalPath"));
+
+            var (info, status) = await BMachine.UI.Services.LocalUpdateService.CheckAsync(folder);
+            Console.WriteLine($"[Update] Folder='{folder}' Local='{info.CurrentVersion}' Remote='{info.LatestVersion}' Available={info.IsUpdateAvailable} ({status})");
+            if (!info.IsUpdateAvailable) return;
+
+            // Kalau user sudah menekan "Nanti" untuk versi ini, jangan diganggu lagi.
+            var dismissed = await _database.GetAsync<string>("Update.DismissedVersion");
+            if (!string.IsNullOrEmpty(dismissed) &&
+                string.Equals(dismissed.TrimStart('v', 'V'), info.LatestVersion.TrimStart('v', 'V'), StringComparison.OrdinalIgnoreCase))
             {
-                IsUpdateAvailable = true;
-                LatestVersion = info.LatestVersion;
-                UpdateUrl = info.DownloadUrl;
+                return;
             }
+
+            _lastUpdateInfo = info;
+            ShowUpdateBanner(info);
         }
         catch { }
+    }
+
+    // --- Mode update lokal (LAN) ---
+    private BMachine.UI.Models.UpdateInfo? _lastUpdateInfo;
+
+    [ObservableProperty] private string _updateNotes = "";
+    [ObservableProperty] private string _updateNotesInline = "";
+    [ObservableProperty] private bool _isApplyingUpdate;
+    [ObservableProperty] private string _updateActionStatus = "";
+
+    /// <summary>Versi yang sedang dipakai app (untuk perbandingan di banner).</summary>
+    [ObservableProperty] private string _currentVersion = "";
+
+    /// <summary>Ukuran payload siap tampil (mis. "147 MB"); kosong kalau manifest lama.</summary>
+    [ObservableProperty] private string _updateSizeText = "";
+
+    /// <summary>Poin catatan rilis untuk daftar berbutir di banner.</summary>
+    [ObservableProperty] private ObservableCollection<string> _updateNoteItems = new();
+
+    /// <summary>Isi seluruh state banner dari satu UpdateInfo (dipakai jalur startup &amp; pesan).</summary>
+    private void ShowUpdateBanner(BMachine.UI.Models.UpdateInfo info)
+    {
+        _lastUpdateInfo = info;
+        LatestVersion = info.LatestVersion;
+        CurrentVersion = info.CurrentVersion;
+        UpdateUrl = info.DownloadUrl;
+        UpdateNotes = info.NotesText;
+        UpdateNotesInline = info.NotesInline;
+        UpdateSizeText = info.SizeText;
+        UpdateNoteItems = new ObservableCollection<string>(info.Notes.Take(4));
+        UpdateActionStatus = "";
+        IsUpdateAvailable = true;
+    }
+
+    partial void OnIsUpdateAvailableChanged(bool value)
+        => Console.WriteLine($"[Update] banner {(value ? "tampil" : "disembunyikan")}");
+
+    [RelayCommand]
+    private async Task ApplyUpdate()
+    {
+        if (_lastUpdateInfo == null) return;
+
+        IsApplyingUpdate = true;
+        UpdateActionStatus = "Menyiapkan update...";
+        try
+        {
+            var (ok, message) = await BMachine.UI.Services.LocalUpdateService.ApplyAsync(_lastUpdateInfo);
+            UpdateActionStatus = message;
+
+            if (ok)
+            {
+                // Helper PowerShell menunggu proses ini keluar, lalu menyalin payload + membuka app lagi.
+                await Task.Delay(1200);
+                if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                    desktop.Shutdown();
+                else
+                    Environment.Exit(0);
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateActionStatus = $"Gagal: {ex.Message}";
+        }
+        finally
+        {
+            IsApplyingUpdate = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DismissUpdate()
+    {
+        IsUpdateAvailable = false;
+        if (!string.IsNullOrEmpty(LatestVersion))
+        {
+            await _database.SetAsync("Update.DismissedVersion", LatestVersion.TrimStart('v', 'V'));
+        }
     }
 
     public void NavigateToDashboard()

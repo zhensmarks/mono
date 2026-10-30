@@ -67,6 +67,7 @@ internal static class SpreadsheetRowAnchorGuard
         return $"Data di sheet sudah berubah sejak terakhir dimuat{more}: " +
                $"baris {first.SheetRowNumber} di sheet berisi '{first.ActualDisplay}', " +
                $"sedangkan yang dimuat '{first.ExpectedDisplay}'. " +
-               "Simpan dibatalkan agar data tidak salah baris — klik Refresh lalu ulangi edit.";
+               "Simpan dibatalkan agar data tidak salah baris — klik Refresh; " +
+               "edit Anda tetap tersimpan sebagai draft dan dipulihkan setelah muat ulang.";
     }
 }

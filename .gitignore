@@ -123,3 +123,9 @@ crash.log
 
 # Screenshot verifikasi GUI lokal (jangan push)
 verify_shots/
+
+# --- Folder update LAN (mono\updates) ---
+# payload berisi exe ratusan MB + manifest dihasilkan publish-update.ps1 → jangan masuk git.
+/updates/payload/
+/updates/manifest.json
+/updates/notes.txt

@@ -1043,7 +1043,7 @@ public partial class SettingsViewModel : ObservableObject
     // SaveProfile calls GetColorHex(EditingColor, CustomEditingColor).
     // So the signature above IS correct for the new property type.
     
-    // --- Update System ---
+    // --- Update System (mode lokal / LAN) ---
     [ObservableProperty] private string _currentVersion = "8.3.0";
     [ObservableProperty] private bool _isUpdateAvailable = false;
     [ObservableProperty] private string _latestVersion = "";
@@ -1052,39 +1052,98 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _isCheckingUpdate = false;
     [ObservableProperty] private string _updateStatusText = "Belum diperiksa pada sesi ini.";
 
+    /// <summary>Folder share tempat manifest.json + payload update diletakkan.</summary>
+    [ObservableProperty] private string _updateFolderPath = LocalUpdateService.DefaultFolder;
+
+    /// <summary>Catatan rilis versi pendek (satu baris = satu poin).</summary>
+    [ObservableProperty] private string _updateNotesText = "";
+
+    [ObservableProperty] private bool _isApplyingUpdate = false;
+
+    private UpdateInfo? _lastUpdateInfo;
+
+    partial void OnUpdateFolderPathChanged(string value)
+    {
+        if (_isInitializing || _database == null) return;
+
+        var clean = (value ?? "").Trim();
+
+        // Path ini dikunci untuk user: kalau dikosongkan atau diisi path relatif/sampah,
+        // balikkan sendiri ke default server NAS supaya sumber update tidak pernah hilang.
+        if (clean.Length == 0 || !Path.IsPathRooted(clean))
+        {
+            UpdateFolderPath = LocalUpdateService.DefaultFolder;
+            UpdateStatusText = "Path folder update tidak valid, dipakai default server NAS.";
+            return;
+        }
+
+        _ = _database.SetAsync("Update.LocalPath", clean);
+    }
+
+    /// <summary>Kembalikan folder update ke default server NAS (mis. setelah isinya diubah user).</summary>
+    [RelayCommand]
+    private async Task ResetUpdateFolderPath()
+    {
+        UpdateFolderPath = LocalUpdateService.DefaultFolder;
+
+        if (_database != null)
+            await _database.SetAsync("Update.LocalPath", LocalUpdateService.DefaultFolder);
+
+        UpdateStatusText = "Folder update dikembalikan ke default server NAS.";
+    }
+
     [RelayCommand]
     private async Task CheckForUpdates()
     {
         IsCheckingUpdate = true;
-        UpdateStatusText = "Checking...";
-        
+        UpdateStatusText = "Memeriksa folder update...";
+
         try
         {
-            var service = new UpdateService();
-            var info = await service.CheckForUpdatesAsync();
-            
+            var (info, status) = await LocalUpdateService.CheckAsync(UpdateFolderPath);
+
+            _lastUpdateInfo = info;
             CurrentVersion = info.CurrentVersion;
             LatestVersion = info.LatestVersion;
             IsUpdateAvailable = info.IsUpdateAvailable;
-            UpdateReleaseNotes = info.ReleaseNotes;
+            UpdateReleaseNotes = info.NotesText;
+            UpdateNotesText = info.NotesText;
             UpdateDownloadUrl = info.DownloadUrl;
-            
-            UpdateStatusText = IsUpdateAvailable ? "New version available!" : "You are up to date.";
-            
+
+            UpdateStatusText = status;
+
             // Notify Main Window (via Message)
             if (IsUpdateAvailable)
             {
-                 WeakReferenceMessenger.Default.Send(new UpdateAvailableMessage(info));
+                WeakReferenceMessenger.Default.Send(new UpdateAvailableMessage(info));
             }
         }
         catch (Exception ex)
         {
-            UpdateStatusText = "Error checking update.";
+            UpdateStatusText = "Gagal memeriksa update.";
             Console.WriteLine($"Update check failed: {ex.Message}");
         }
         finally
         {
             IsCheckingUpdate = false;
+        }
+    }
+
+    /// <summary>Terapkan update lokal: salin payload ke folder instalasi lalu restart.</summary>
+    [RelayCommand]
+    private async Task ApplyUpdate()
+    {
+        if (_lastUpdateInfo == null || !_lastUpdateInfo.IsUpdateAvailable) return;
+
+        IsApplyingUpdate = true;
+        try
+        {
+            var (ok, message) = await LocalUpdateService.ApplyAsync(_lastUpdateInfo);
+            UpdateStatusText = message;
+        }
+        finally
+        {
+            IsApplyingUpdate = false;
         }
     }
 
@@ -1241,6 +1300,10 @@ public partial class SettingsViewModel : ObservableObject
             if (_database == null) return;
             var name = await _database.GetAsync<string>("User.Name");
             UserName = name ?? "USER";
+
+            // --- Mode update lokal (LAN) ---
+            CurrentVersion = LocalUpdateService.GetCurrentVersion();
+            UpdateFolderPath = LocalUpdateService.ResolveFolder(await _database.GetAsync<string>("Update.LocalPath"));
             
             // Load Animation Setting
             var animStr = await _database.GetAsync<string>("Settings.StartupAnim");

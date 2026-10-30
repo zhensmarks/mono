@@ -133,6 +133,8 @@
         <Style Selector="DataGridColumnHeader TextBlock">
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
+        <!-- Kompensasi centering header ada di code-behind (FixHeaderContentCentering):
+             margin Panel dibawa template theme sebagai nilai lokal, jadi style kalah. -->
 
         <!-- ═══ Slim header toggle buttons (theme only) ═══ -->
         <Style Selector="Button.Hdr">

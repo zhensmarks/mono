@@ -1099,6 +1099,11 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsAnyPanelOpen));
         OnPropertyChanged(nameof(IsShowingInlineSidePanel));
+
+        // Panel terbuka = pantau terus isi checklist di Trello (checklist/item baru
+        // langsung masuk tanpa perlu restart aplikasi).
+        if (value) StartChecklistPanelWatcher();
+        else StopChecklistPanelWatcher();
     }
     [ObservableProperty] private ObservableCollection<TrelloChecklist> _checklists = new();
     [ObservableProperty] private bool _isLoadingChecklists;
@@ -1107,20 +1112,84 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
     [ObservableProperty] private TrelloChecklist? _selectedSourceChecklist;
     [ObservableProperty] private string _duplicateChecklistName = "";
 
+    // --- Sinkronisasi checklist dengan Trello ---
+
+    /// <summary>Interval cek ulang checklist selama panel terbuka.</summary>
+    private static readonly TimeSpan ChecklistPanelPollInterval = TimeSpan.FromSeconds(10);
+
+    private Avalonia.Threading.DispatcherTimer? _checklistPanelTimer;
+    private string? _syncingCardId;
+    private DateTime _lastChecklistsSyncUtc = DateTime.MinValue;
+    private string _lastChecklistsBadgeSignature = "";
+
+    private void StartChecklistPanelWatcher()
+    {
+        if (_checklistPanelTimer == null)
+        {
+            _checklistPanelTimer = new Avalonia.Threading.DispatcherTimer { Interval = ChecklistPanelPollInterval };
+            _checklistPanelTimer.Tick += async (_, _) => await PollOpenChecklistsAsync();
+        }
+        _checklistPanelTimer.Start();
+    }
+
+    private void StopChecklistPanelWatcher() => _checklistPanelTimer?.Stop();
+
+    /// <summary>
+    /// Cek berkala selama panel checklist terbuka: tarik ulang daftar checklist dari Trello
+    /// supaya checklist baru, item baru, atau rename langsung tampil.
+    /// </summary>
+    private async Task PollOpenChecklistsAsync()
+    {
+        if (!IsChecklistPanelOpen) { StopChecklistPanelWatcher(); return; }
+
+        var card = SelectedCard;
+        if (card == null || string.IsNullOrWhiteSpace(card.Id)) return;
+        if (_syncingCardId == card.Id || IsLoadingChecklists) return;
+        if (DateTime.UtcNow - _lastChecklistsSyncUtc < ChecklistPanelPollInterval / 2) return;
+
+        await SyncChecklists(card.Id);
+    }
+
     [RelayCommand]
     protected async Task ShowChecklists(TrelloCard card)
     {
         if (card == null) return;
-        
+
         CloseAllSidePanels(); // Ensure exclusivity
-        
+
+        var sameCard = _lastLoadedChecklistsCardId == card.Id && Checklists.Count > 0;
+
         SelectedCard = card;
         IsChecklistPanelOpen = true;
 
-        if (_lastLoadedChecklistsCardId != card.Id || Checklists.Count == 0)
+        if (!sameCard)
         {
-            await LoadChecklists(card.Id);
-            _lastLoadedChecklistsCardId = card.Id;
+            // Kartu lain: kosongkan dulu supaya checklist kartu sebelumnya tidak nyangkut.
+            Checklists.Clear();
+            _lastChecklistsBadgeSignature = "";
+            await SyncChecklists(card.Id);
+        }
+        else
+        {
+            // Kartu sama: tampilkan cache segera, lalu tarik versi terbaru dari Trello.
+            _ = SyncChecklists(card.Id);
+        }
+    }
+
+    /// <summary>Tombol refresh di panel checklist: paksa tarik ulang dari Trello.</summary>
+    [RelayCommand]
+    private async Task RefreshChecklists()
+    {
+        if (SelectedCard == null || string.IsNullOrWhiteSpace(SelectedCard.Id)) return;
+
+        IsLoadingChecklists = true; // umpan balik visual saat tombol ditekan
+        try
+        {
+            await SyncChecklists(SelectedCard.Id);
+        }
+        finally
+        {
+            IsLoadingChecklists = false;
         }
     }
 
@@ -1209,8 +1278,8 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             DuplicateChecklistName = "";
             SelectedSourceChecklist = null;
             
-            // Background reload to sync IDs/Items
-            _ = LoadChecklists(SelectedCard.Id);
+            // Tarik ulang dari Trello supaya ID item + progres ikut sinkron.
+            await SyncChecklists(SelectedCard.Id);
         }
         catch (Exception ex)
         {
@@ -1242,12 +1311,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             {
                 Checklists.Remove(checklist);
                 SelectedCard.ChecklistNames.Remove(checklist.Name);
-                SelectedCard.ChecklistTotal -= checklist.Items.Count;
-                SelectedCard.ChecklistCompleted -= checklist.Items.Count(item => item.IsChecked);
-                SelectedCard.HasChecklist = Checklists.Count > 0;
-                SelectedCard.RefreshChecklistStatus();
                 await LogActivity("Checklist", "Deleted Checklist", $"{checklist.Name} on {SelectedCard.Name}");
-                _ = LoadChecklists(SelectedCard.Id);
+                // Ambil state final dari Trello (badge kartu + sisa checklist).
+                await SyncChecklists(SelectedCard.Id);
             }
             else
             {
@@ -1264,10 +1330,19 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
         }
     }
 
-    protected async Task LoadChecklists(string cardId)
+    /// <summary>
+    /// Tarik daftar checklist kartu dari Trello lalu sinkronkan ke <see cref="Checklists"/>.
+    /// Sync dilakukan di tempat (bukan Clear + re-add) supaya panel tidak flicker, posisi
+    /// scroll tidak lompat, dan state checkbox tidak ke-reset.
+    /// </summary>
+    protected async Task SyncChecklists(string cardId)
     {
-        IsLoadingChecklists = true;
-        Checklists.Clear();
+        if (string.IsNullOrWhiteSpace(cardId) || _syncingCardId == cardId) return;
+
+        _syncingCardId = cardId;
+        var hasData = Checklists.Count > 0 && _lastLoadedChecklistsCardId == cardId;
+        if (!hasData) IsLoadingChecklists = true;
+
         try
         {
             var apiKey = await _database.GetAsync<string>("Trello.ApiKey");
@@ -1275,44 +1350,157 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(token)) return;
 
             using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
-            var url = $"https://api.trello.com/1/cards/{cardId}/checklists";
-            
+            var url = $"https://api.trello.com/1/cards/{cardId}/checklists?fields=id,name,idCard&checkItems=all&checkItem_fields=id,name,state,pos";
+
             var json = await client.GetStringAsync(url);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
-            
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) return;
+
+            var incoming = new List<TrelloChecklist>();
             foreach (var element in doc.RootElement.EnumerateArray())
             {
                 var checklist = new TrelloChecklist
                 {
-                    Id = element.GetProperty("id").GetString() ?? "",
-                    Name = element.GetProperty("name").GetString() ?? "",
-                    IdCard = element.GetProperty("idCard").GetString() ?? ""
+                    Id = element.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "",
+                    Name = element.TryGetProperty("name", out var nameEl) ? nameEl.GetString() ?? "" : "",
+                    IdCard = element.TryGetProperty("idCard", out var cardEl) ? cardEl.GetString() ?? cardId : cardId
                 };
 
                 if (element.TryGetProperty("checkItems", out var items))
                 {
-                    foreach(var item in items.EnumerateArray())
+                    foreach (var item in items.EnumerateArray())
                     {
-                        var ci = new TrelloChecklistItem
+                        checklist.Items.Add(new TrelloChecklistItem
                         {
-                            Id = item.GetProperty("id").GetString() ?? "",
-                            Name = item.GetProperty("name").GetString() ?? "",
-                            State = item.GetProperty("state").GetString() ?? "incomplete"
-                        };
-                        checklist.Items.Add(ci);
+                            Id = item.TryGetProperty("id", out var itemIdEl) ? itemIdEl.GetString() ?? "" : "",
+                            Name = item.TryGetProperty("name", out var itemNameEl) ? itemNameEl.GetString() ?? "" : "",
+                            State = item.TryGetProperty("state", out var stateEl) ? stateEl.GetString() ?? "incomplete" : "incomplete"
+                        });
                     }
                 }
-                Checklists.Add(checklist);
+
+                incoming.Add(checklist);
             }
+
+            ApplyChecklists(cardId, incoming);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error loading checklists: {ex.Message}";
+            // Offline / gagal: pertahankan data lama, jangan kosongkan panel.
+            if (!hasData) StatusMessage = $"Error loading checklists: {ex.Message}";
         }
         finally
         {
             IsLoadingChecklists = false;
+            if (_syncingCardId == cardId) _syncingCardId = null;
+            _lastChecklistsSyncUtc = DateTime.UtcNow;
         }
+    }
+
+    /// <summary>Sinkronkan hasil fetch ke collection yang sedang ditampilkan (diff per Id).</summary>
+    private void ApplyChecklists(string cardId, List<TrelloChecklist> incoming)
+    {
+        // Kartu bisa sudah berganti selama fetch berjalan → buang hasil yang sudah basi.
+        if (SelectedCard?.Id != cardId) return;
+
+        MergeChecklists(Checklists, incoming);
+
+        _lastLoadedChecklistsCardId = cardId;
+        _lastChecklistsBadgeSignature = BuildChecklistsBadgeSignature();
+        _lastChecklistsSyncUtc = DateTime.UtcNow;
+
+        // Badge + progres di kartu ikut menyesuaikan isi panel.
+        SyncSelectedCardChecklistBadge();
+    }
+
+    /// <summary>
+    /// Diff dua snapshot checklist (per Id) lalu terapkan ke collection target:
+    /// checklist/item baru di-insert, yang hilang dihapus, sisanya di-update di tempat
+    /// (instance lama dipertahankan supaya UI tidak flicker dan checkbox tidak reset).
+    /// </summary>
+    public static void MergeChecklists(ObservableCollection<TrelloChecklist> target, IList<TrelloChecklist> incoming)
+    {
+        var incomingIds = new HashSet<string>(incoming.Select(c => c.Id));
+        for (var i = target.Count - 1; i >= 0; i--)
+        {
+            if (!incomingIds.Contains(target[i].Id)) target.RemoveAt(i);
+        }
+
+        for (var i = 0; i < incoming.Count; i++)
+        {
+            var src = incoming[i];
+            var existing = target.FirstOrDefault(c => c.Id == src.Id);
+            if (existing == null)
+            {
+                target.Insert(Math.Min(i, target.Count), src);
+                continue;
+            }
+
+            if (!string.Equals(existing.Name, src.Name, StringComparison.Ordinal))
+                existing.Name = src.Name;
+
+            SyncChecklistItems(existing, src.Items);
+            existing.RefreshProgress();
+
+            var currentIndex = target.IndexOf(existing);
+            if (currentIndex != i) target.Move(currentIndex, i);
+        }
+    }
+
+    private static void SyncChecklistItems(TrelloChecklist target, IList<TrelloChecklistItem> incomingItems)
+    {
+        var incomingIds = new HashSet<string>(incomingItems.Select(i => i.Id));
+
+        for (var i = target.Items.Count - 1; i >= 0; i--)
+        {
+            if (!incomingIds.Contains(target.Items[i].Id)) target.Items.RemoveAt(i);
+        }
+
+        for (var i = 0; i < incomingItems.Count; i++)
+        {
+            var src = incomingItems[i];
+            var existing = target.Items.FirstOrDefault(x => x.Id == src.Id);
+            if (existing == null)
+            {
+                target.Items.Insert(Math.Min(i, target.Items.Count), src);
+                continue;
+            }
+
+            if (!string.Equals(existing.Name, src.Name, StringComparison.Ordinal))
+                existing.Name = src.Name;
+
+            if (existing.IsChecked != src.IsChecked)
+                existing.IsChecked = src.IsChecked; // cermin state terbaru dari Trello
+
+            var currentIndex = target.Items.IndexOf(existing);
+            if (currentIndex != i) target.Items.Move(currentIndex, i);
+        }
+    }
+
+    /// <summary>
+    /// Sidik jari ringkas isi checklist (nama + total + selesai) untuk mendeteksi cepat
+    /// perubahan dari Trello tanpa membandingkan seluruh payload.
+    /// </summary>
+    private string BuildChecklistsBadgeSignature()
+    {
+        var names = string.Join("|", Checklists.Select(c => c.Name));
+        var total = Checklists.Sum(c => c.Items.Count);
+        var done = Checklists.Sum(c => c.Items.Count(i => i.IsChecked));
+        return $"{names}#{total}/{done}";
+    }
+
+    /// <summary>Samakan nama checklist + progres pada kartu dengan isi panel (tanpa tunggu refresh list).</summary>
+    private void SyncSelectedCardChecklistBadge()
+    {
+        var card = SelectedCard;
+        if (card == null || _lastLoadedChecklistsCardId != card.Id) return;
+
+        var names = Checklists.Select(c => c.Name).Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+        card.ChecklistNames = names;
+        card.ChecklistTotal = Checklists.Sum(c => c.Items.Count);
+        card.ChecklistCompleted = Checklists.Sum(c => c.Items.Count(i => i.IsChecked));
+        card.HasChecklist = names.Count > 0;
+        card.RefreshChecklistStatus();
     }
     
     [RelayCommand]
@@ -1336,12 +1524,25 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
              }
               else
               {
-                  var delta = item.IsChecked ? 1 : -1;
-                  SelectedCard.ChecklistCompleted = Math.Clamp(
-                      SelectedCard.ChecklistCompleted + delta,
-                      0,
-                      SelectedCard.ChecklistTotal);
+                  // Progres dihitung ulang dari isi panel (lebih akurat daripada delta manual).
+                  var owner = Checklists.FirstOrDefault(c => c.Items.Contains(item));
+                  if (owner != null)
+                  {
+                      owner.RefreshProgress();
+                      SelectedCard.ChecklistTotal = Checklists.Sum(c => c.Items.Count);
+                      SelectedCard.ChecklistCompleted = Checklists.Sum(c => c.Items.Count(i => i.IsChecked));
+                      _lastChecklistsBadgeSignature = BuildChecklistsBadgeSignature();
+                  }
+                  else
+                  {
+                      var delta = item.IsChecked ? 1 : -1;
+                      SelectedCard.ChecklistCompleted = Math.Clamp(
+                          SelectedCard.ChecklistCompleted + delta,
+                          0,
+                          SelectedCard.ChecklistTotal);
+                  }
                   SelectedCard.RefreshChecklistStatus();
+                  _lastChecklistsSyncUtc = DateTime.UtcNow;
                   await LogActivity("Checklist", "Update Item", $"{item.Name} -> {newState} on {SelectedCard.Name}");
               }
         }
@@ -2081,6 +2282,25 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                 }
             }
         }
+
+        // Panel checklist sedang terbuka: ikutkan perubahan checklist dari Trello
+        // (checklist baru / item baru / progres) tanpa perlu restart aplikasi.
+        if (IsChecklistPanelOpen && SelectedCard != null)
+        {
+            if (!Cards.Any(c => c.Id == SelectedCard.Id))
+            {
+                // Kartu sudah tidak ada di list ini (dipindah/dihapus) → tutup panel checklist.
+                IsChecklistPanelOpen = false;
+            }
+            else if (_lastLoadedChecklistsCardId == SelectedCard.Id)
+            {
+                var badgeSignature = $"{string.Join("|", SelectedCard.ChecklistNames)}#{SelectedCard.ChecklistTotal}/{SelectedCard.ChecklistCompleted}";
+                if (!string.Equals(badgeSignature, _lastChecklistsBadgeSignature, StringComparison.Ordinal))
+                {
+                    _ = SyncChecklists(SelectedCard.Id);
+                }
+            }
+        }
     }
 
     protected async Task<List<TrelloCard>> FetchCards(string listId, string apiKey, string token)
@@ -2287,8 +2507,9 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
             client.Timeout = TimeSpan.FromSeconds(10);
             
-            // Fetch only IDs to minimize data transfer and parsing
-            var url = $"https://api.trello.com/1/lists/{listId}/cards?fields=id";
+            // Fetch only ID + badge checklist supaya perubahan checklist (tambah/hapus item,
+            // centang) juga terdeteksi tanpa menunggu restart aplikasi.
+            var url = $"https://api.trello.com/1/lists/{listId}/cards?fields=id,badges";
             var json = await client.GetStringAsync(url);
             
             // If offline/error, client throws, goes to catch.
@@ -2298,13 +2519,27 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) return false;
 
             var currentIds = new HashSet<string>(Cards.Select(c => c.Id));
+            var currentProgress = new Dictionary<string, string>();
+            foreach (var c in Cards) currentProgress[c.Id] = $"{c.ChecklistTotal}/{c.ChecklistCompleted}";
+
             var newIds = new HashSet<string>();
+            var newProgress = new Dictionary<string, string>();
             
             foreach (var element in doc.RootElement.EnumerateArray())
             {
                 if (element.TryGetProperty("id", out var idProp))
                 {
-                    newIds.Add(idProp.GetString() ?? "");
+                    var id = idProp.GetString() ?? "";
+                    newIds.Add(id);
+
+                    var total = 0;
+                    var done = 0;
+                    if (element.TryGetProperty("badges", out var badges))
+                    {
+                        if (badges.TryGetProperty("checkItems", out var ci)) total = ci.GetInt32();
+                        if (badges.TryGetProperty("checkItemsChecked", out var cc)) done = cc.GetInt32();
+                    }
+                    newProgress[id] = $"{total}/{done}";
                 }
             }
 
@@ -2315,7 +2550,16 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
             // Trello cards move positions frequently. Let's use SetEquals.
             
             bool isSame = currentIds.SetEquals(newIds);
-            return !isSame;
+            if (!isSame) return true;
+
+            // ID sama tapi progres checklist berubah → tetap perlu refresh.
+            foreach (var pair in newProgress)
+            {
+                if (currentProgress.TryGetValue(pair.Key, out var current) && current != pair.Value)
+                    return true;
+            }
+
+            return false;
         }
         catch 
         {

@@ -1,0 +1,3 @@
+Checklist Trello auto-refresh tanpa restart
+Tombol refresh di panel checklist
+Perbaikan badge progres checklist
