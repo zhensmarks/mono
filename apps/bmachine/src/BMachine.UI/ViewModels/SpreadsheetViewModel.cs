@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Windows.Input;
@@ -28,6 +29,8 @@ public partial class SpreadsheetViewModel : ObservableObject
     private System.Threading.Timer? _widthSaveTimer;
     private bool _isLoadingWidths; // prevent save during load
     private bool _isLoadingSettings; // prevent hidden column save during load
+    private readonly SpreadsheetLoadGeneration _loadSequence = new();
+    private CultureInfo _sheetCulture = CultureInfo.CurrentCulture;
 
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private string _statusText = "Ready";
@@ -139,6 +142,14 @@ public partial class SpreadsheetViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadData()
     {
+        if (HasChanges)
+        {
+            StatusText = "Save or discard changes before refreshing.";
+            return;
+        }
+
+        var loadGeneration = _loadSequence.Start();
+
         // Flush any unsaved column widths and visibility settings before reloading
         _widthSaveTimer?.Dispose();
         _widthSaveTimer = null;
@@ -148,6 +159,7 @@ public partial class SpreadsheetViewModel : ObservableObject
             {
                 await SaveColumnWidthsAsync();
                 SaveColumnSettings();
+                if (!IsCurrentLoad(loadGeneration)) return;
             }
             catch (Exception ex)
             {
@@ -155,16 +167,17 @@ public partial class SpreadsheetViewModel : ObservableObject
             }
         }
 
+        if (!IsCurrentLoad(loadGeneration)) return;
         IsLoading = true;
         _isLoadingWidths = true;
         _isLoadingSettings = true;
         StatusText = "Loading data...";
-        Rows.Clear();
-        Columns.Clear();
-        HasChanges = false;
         
+        try
+        {
         // Load saved zoom level
         var savedZoomStr = await _database.GetAsync<string>("Configs.Spreadsheet.ZoomLevel");
+        if (!IsCurrentLoad(loadGeneration)) return;
         if (double.TryParse(savedZoomStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double savedZoom))
         {
              // Clamp to reasonable range (0.5 to 3.0) to prevent overflow
@@ -173,13 +186,15 @@ public partial class SpreadsheetViewModel : ObservableObject
              ZoomLevel = savedZoom;
         }
 
-        try
-        {
             // Load Config
             _sheetId = await _database.GetAsync<string>("Google.SheetId");
+            if (!IsCurrentLoad(loadGeneration)) return;
             var credsPath = await _database.GetAsync<string>("Google.CredsPath");
+            if (!IsCurrentLoad(loadGeneration)) return;
             _sheetName = await _database.GetAsync<string>("Spreadsheet.SheetName");
+            if (!IsCurrentLoad(loadGeneration)) return;
             _range = await _database.GetAsync<string>("Spreadsheet.Range");
+            if (!IsCurrentLoad(loadGeneration)) return;
 
             if (string.IsNullOrEmpty(_sheetId) ||
                 string.IsNullOrEmpty(credsPath) ||
@@ -187,7 +202,6 @@ public partial class SpreadsheetViewModel : ObservableObject
                 string.IsNullOrEmpty(_range))
             {
                 StatusText = "Error: Google integration is not configured in Settings.";
-                IsLoading = false;
                 return;
             }
 
@@ -209,12 +223,20 @@ public partial class SpreadsheetViewModel : ObservableObject
             });
 
             // Step 1: Fetch raw values (FAST - no timeout)
-            var quotedSheetName = _sheetName.Contains(" ") ? $"'{_sheetName}'" : _sheetName;
+            var quotedSheetName = SpreadsheetValueMapper.QuoteSheetName(_sheetName);
             var fullRange = $"{quotedSheetName}!{_range}";
             
             var valuesRequest = _sheetsService.Spreadsheets.Values.Get(_sheetId, fullRange);
             var valuesResponse = await valuesRequest.ExecuteAsync();
+            if (!IsCurrentLoad(loadGeneration)) return;
             var values = valuesResponse.Values;
+
+            var rawValuesRequest = _sheetsService.Spreadsheets.Values.Get(_sheetId, fullRange);
+            rawValuesRequest.ValueRenderOption = SpreadsheetsResource.ValuesResource.GetRequest.ValueRenderOptionEnum.UNFORMATTEDVALUE;
+            rawValuesRequest.DateTimeRenderOption = SpreadsheetsResource.ValuesResource.GetRequest.DateTimeRenderOptionEnum.SERIALNUMBER;
+            var rawValuesResponse = await rawValuesRequest.ExecuteAsync();
+            if (!IsCurrentLoad(loadGeneration)) return;
+            var rawValues = rawValuesResponse.Values;
 
             if (values != null && values.Count > 0)
             {
@@ -253,9 +275,16 @@ public partial class SpreadsheetViewModel : ObservableObject
                     
                     var metadataRequest = _sheetsService.Spreadsheets.Get(_sheetId);
                     metadataRequest.Ranges = new List<string> { metaRange };
-                    metadataRequest.Fields = "sheets(properties.sheetId,data(rowData(values(dataValidation,effectiveFormat,userEnteredFormat)),columnMetadata))";
+                    metadataRequest.Fields = "properties(locale),sheets(properties.sheetId,data(rowData(values(dataValidation,effectiveFormat,userEnteredFormat)),columnMetadata))";
                     
                     var metadataResponse = await metadataRequest.ExecuteAsync();
+                    if (!IsCurrentLoad(loadGeneration)) return;
+                    var locale = metadataResponse.Properties?.Locale;
+                    if (!string.IsNullOrWhiteSpace(locale))
+                    {
+                        try { _sheetCulture = CultureInfo.GetCultureInfo(locale.Replace('_', '-')); }
+                        catch (CultureNotFoundException) { _sheetCulture = CultureInfo.CurrentCulture; }
+                    }
                     var sheetData = metadataResponse.Sheets?.FirstOrDefault()?.Data?.FirstOrDefault();
                     var metaRowDataList = sheetData?.RowData;
                     var colMetadata = sheetData?.ColumnMetadata;
@@ -356,11 +385,16 @@ public partial class SpreadsheetViewModel : ObservableObject
                     System.Diagnostics.Debug.WriteLine($"Metadata fetch failed (non-fatal): {metaEx.GetType().Name}");
                 }
 
+                var rawDataRows = rawValues?.Skip(1).ToList();
+                foreach (var col in columnViewModels)
+                    col.InputKind = SpreadsheetValueMapper.InferColumnKind(rawDataRows, col.Index, col.IsDate);
+
                 // Load saved column widths (saved widths override Google Sheets metadata widths)
                 Dictionary<string, double>? widths = null;
                 try
                 {
                     widths = await _database.GetAsync<Dictionary<string, double>>("Configs.Spreadsheet.ColumnWidths");
+                    if (!IsCurrentLoad(loadGeneration)) return;
                 }
                 catch { /* ignore */ }
 
@@ -369,6 +403,7 @@ public partial class SpreadsheetViewModel : ObservableObject
                     try
                     {
                         var rawStr = await _database.GetAsync<string>("Configs.Spreadsheet.ColumnWidths");
+                        if (!IsCurrentLoad(loadGeneration)) return;
                         if (!string.IsNullOrEmpty(rawStr))
                         {
                             if (rawStr.StartsWith("\"") && rawStr.EndsWith("\""))
@@ -420,6 +455,7 @@ public partial class SpreadsheetViewModel : ObservableObject
 
                 // Load hidden column settings
                 var hiddenStr = await _database.GetAsync<string>("Spreadsheet.HiddenColumns");
+                if (!IsCurrentLoad(loadGeneration)) return;
                 if (!string.IsNullOrEmpty(hiddenStr))
                 {
                     var tokens = hiddenStr.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
@@ -450,23 +486,24 @@ public partial class SpreadsheetViewModel : ObservableObject
                     }
                 }
 
-                // Build column & row collections (Columns will already have correct saved widths & visibility)
-                Columns.Clear();
-                foreach (var col in columnViewModels) Columns.Add(col);
-
-                // Process Data Rows (simple & fast - no per-cell format mirroring for performance)
+                // Materialize a complete snapshot before replacing the currently displayed rows.
+                var loadedRows = new List<SpreadsheetRowViewModel>();
                 for (int i = 1; i < values.Count; i++)
                 {
-                    var rawRow = values[i];
-                    var rowVM = new SpreadsheetRowViewModel(i, this);
-
-                    for (int j = 0; j < Columns.Count; j++)
+                    var displayRow = values[i];
+                    var rawRow = rawValues != null && i < rawValues.Count ? rawValues[i] : null;
+                    var sheetRowNumber = SpreadsheetValueMapper.GetSheetRowNumber(_rangeStartRow, i);
+                    var rowVM = new SpreadsheetRowViewModel(i, this, sheetRowNumber);
+                    for (int j = 0; j < columnViewModels.Count; j++)
                     {
-                        var cellValue = j < rawRow.Count ? rawRow[j]?.ToString() ?? "" : "";
+                        var cellValue = j < displayRow.Count ? displayRow[j]?.ToString() ?? "" : "";
+                        object? rawValue = rawRow != null && j < rawRow.Count ? rawRow[j] : null;
                         var cellVM = new SpreadsheetCellViewModel
                         {
                             Value = cellValue,
                             OriginalValue = cellValue,
+                            OriginalRawValue = rawValue,
+                            InputKind = columnViewModels[j].InputKind,
                             ColumnIndex = j
                         };
 
@@ -478,29 +515,47 @@ public partial class SpreadsheetViewModel : ObservableObject
 
                         rowVM.Cells.Add(cellVM);
                     }
-                    Rows.Add(rowVM);
+                    loadedRows.Add(rowVM);
                 }
+
+                if (!IsCurrentLoad(loadGeneration)) return;
+                Columns.Clear();
+                foreach (var col in columnViewModels) Columns.Add(col);
+                Rows.Clear();
+                foreach (var row in loadedRows) Rows.Add(row);
+                HasChanges = false;
 
                 FilterRows();
                 StatusText = $"{Rows.Count} rows loaded from '{_sheetName}'";
             }
             else
             {
+                if (!IsCurrentLoad(loadGeneration)) return;
+                Columns.Clear();
+                Rows.Clear();
+                HasChanges = false;
+                FilterRows();
                 StatusText = "No data found.";
             }
         }
         catch (Exception ex)
         {
-            StatusText = $"Google Sheets request failed ({ex.GetType().Name}).";
+            if (IsCurrentLoad(loadGeneration))
+                StatusText = $"Google Sheets request failed ({ex.GetType().Name}).";
             System.Diagnostics.Debug.WriteLine($"Spreadsheet request failed: {ex.GetType().Name}");
         }
         finally
         {
-            _isLoadingSettings = false;
-            _isLoadingWidths = false;
-            IsLoading = false;
+            if (IsCurrentLoad(loadGeneration))
+            {
+                _isLoadingSettings = false;
+                _isLoadingWidths = false;
+                IsLoading = false;
+            }
         }
     }
+
+    private bool IsCurrentLoad(long generation) => _loadSequence.IsCurrent(generation);
 
     private void CheckHasChanges()
     {
@@ -511,81 +566,92 @@ public partial class SpreadsheetViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveChanges()
     {
-        if (_sheetsService == null || string.IsNullOrEmpty(_sheetId) || string.IsNullOrEmpty(_sheetName)) return;
+        if (_sheetsService == null || string.IsNullOrEmpty(_sheetId) || string.IsNullOrEmpty(_sheetName))
+        {
+            StatusText = "Google Sheets is not ready. Refresh and check the integration settings.";
+            return;
+        }
+
+        if (IsLoading)
+        {
+            StatusText = "Wait for the current spreadsheet operation to finish.";
+            return;
+        }
+
+        var changes = SpreadsheetCellWritePlanner.Create(Rows, _sheetName, _rangeStartCol, _sheetCulture);
 
         IsLoading = true;
         StatusText = "Saving changes...";
-
+        var savedCount = 0;
         try
         {
-            var updates = new List<ValueRange>();
-
-            // Find changed cells
-            foreach (var row in Rows)
+            foreach (var batch in changes.GroupBy(c => c.MappedValue.InputMode))
             {
-                foreach (var cell in row.Cells.Where(c => c.IsChanged))
+                var entries = batch.ToList();
+                var batchRequest = new BatchUpdateValuesRequest
                 {
-                    // Calculate A1 notation using parsed range start
-                    // OriginalRowIndex = i (1-based in values array)
-                    // Actual sheet row = OriginalRowIndex + _rangeStartRow
-                    // (values[0] = sheet row _rangeStartRow, values[i] = sheet row _rangeStartRow + i)
-                    
-                    var sheetRowIndex = row.OriginalRowIndex + _rangeStartRow;
-                    var colLetter = GetColumnName(cell.ColumnIndex + _rangeStartCol);
-                    var quotedSheetName = _sheetName.Contains(" ") ? $"'{_sheetName}'" : _sheetName;
-                    var range = $"{quotedSheetName}!{colLetter}{sheetRowIndex}";
-
-                    var valueRange = new ValueRange
+                    ValueInputOption = batch.Key == SpreadsheetValueInputMode.Raw ? "RAW" : "USER_ENTERED",
+                    IncludeValuesInResponse = true,
+                    ResponseValueRenderOption = "FORMATTED_VALUE",
+                    ResponseDateTimeRenderOption = "SERIAL_NUMBER",
+                    Data = entries.Select(entry => new ValueRange
                     {
-                        Range = range,
-                        Values = new List<IList<object>> { new List<object> { cell.Value } }
-                    };
-                    updates.Add(valueRange);
-                }
-            }
-
-            if (updates.Count > 0)
-            {
-                var batchUpdateRequest = new BatchUpdateValuesRequest
-                {
-                    ValueInputOption = "USER_ENTERED",
-                    Data = updates
+                        Range = entry.Range,
+                        Values = new List<IList<object>> { new List<object> { entry.MappedValue.Value } }
+                    }).ToList()
                 };
 
-                var request = _sheetsService.Spreadsheets.Values.BatchUpdate(batchUpdateRequest, _sheetId);
-                await request.ExecuteAsync();
-
-                // Reset change tracking
-                foreach (var row in Rows)
+                var response = await _sheetsService.Spreadsheets.Values.BatchUpdate(batchRequest, _sheetId).ExecuteAsync();
+                for (int i = 0; i < entries.Count; i++)
                 {
-                    foreach (var cell in row.Cells)
-                    {
-                        cell.OriginalValue = cell.Value;
-                    }
+                    var entry = entries[i];
+                    var rangeResponse = response.Responses != null && i < response.Responses.Count
+                        ? response.Responses[i]
+                        : null;
+                    var returnedValue = rangeResponse?.UpdatedData?.Values?.FirstOrDefault()?.FirstOrDefault();
+                    var serverDisplayValue = returnedValue?.ToString() ?? entry.EditedValue;
+
+                    entry.Cell.OriginalValue = serverDisplayValue;
+                    entry.Cell.OriginalRawValue = entry.MappedValue.InputMode == SpreadsheetValueInputMode.UserEntered
+                        ? null
+                        : entry.MappedValue.Value;
+                    if (string.Equals(entry.Cell.Value, entry.EditedValue, StringComparison.Ordinal))
+                        entry.Cell.Value = serverDisplayValue;
                 }
-                
-                HasChanges = false;
-                StatusText = $"Saved {updates.Count} changes successfully.";
-            }
-            else
-            {
-                StatusText = "No changes to save.";
-            }
 
-            // Save column widths to Google Sheets (regardless of cell changes)
+                savedCount += entries.Count;
+                CheckHasChanges();
+            }
             await SaveColumnWidthsToSheetAsync();
-
-            // Also save column widths locally
-            await SaveColumnWidthsAsync();
         }
         catch (Exception ex)
         {
-            StatusText = $"Google Sheets save failed ({ex.GetType().Name}).";
+            CheckHasChanges();
+            StatusText = savedCount > 0
+                ? $"Saved {savedCount} cells; remaining changes failed ({ex.GetType().Name})."
+                : $"Google Sheets save failed ({ex.GetType().Name}).";
+            return;
         }
         finally
         {
             IsLoading = false;
         }
+
+        try
+        {
+            // Save column widths locally after IsLoading is cleared.
+            await SaveColumnWidthsAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Cell values saved ({savedCount}); column-width save failed ({ex.GetType().Name}).";
+            return;
+        }
+
+        CheckHasChanges();
+        StatusText = HasChanges
+            ? $"Saved {savedCount} cells; newer edits are still unsaved."
+            : SpreadsheetSaveStatus.GetCompletionMessage(savedCount);
     }
 
     [RelayCommand]
@@ -791,45 +857,18 @@ public partial class SpreadsheetViewModel : ObservableObject
         _ = _database.SetAsync("Spreadsheet.HiddenColumns", str);
     }
 
-    // Helper to convert 1 -> A, 2 -> B, 27 -> AA, etc. (Index is 0-based)
-    private string GetColumnName(int index)
-    {
-        index++; // Convert to 1-based
-        string columnName = "";
-        while (index > 0)
-        {
-            int modulo = (index - 1) % 26;
-            columnName = Convert.ToChar(65 + modulo) + columnName;
-            index = (index - modulo) / 26;
-        }
-        return columnName;
-    }
+    // Convert a zero-based index to a Google Sheets column label (A, Z, AA, ...).
+    private string GetColumnName(int index) => SpreadsheetValueMapper.GetColumnName(index);
 
     /// <summary>
     /// Parse range like "A3:AU" to extract start row (3) and start column (A=0).
     /// </summary>
     private void ParseRangeStart(string range)
     {
-        var startPart = range.Split(':')[0]; // e.g., "A3" from "A3:AU"
-        var colPart = "";
-        var rowPart = "";
-        foreach (var c in startPart)
-        {
-            if (char.IsLetter(c)) colPart += c;
-            else if (char.IsDigit(c)) rowPart += c;
-        }
-        
-        // Column letters to 0-based index (A=0, B=1, AA=26)
-        _rangeStartCol = 0;
-        foreach (var c in colPart.ToUpper())
-        {
-            _rangeStartCol = _rangeStartCol * 26 + (c - 'A');
-        }
-        
-        // Row number
-        _rangeStartRow = int.TryParse(rowPart, out var row) ? row : 1;
-        
-        System.Diagnostics.Debug.WriteLine($"Range '{range}' parsed: startRow={_rangeStartRow}, startCol={_rangeStartCol} ({colPart})");
+        var start = SpreadsheetValueMapper.ParseRangeStart(range);
+        _rangeStartRow = start.RowNumber;
+        _rangeStartCol = start.ColumnIndex;
+        System.Diagnostics.Debug.WriteLine($"Range '{range}' parsed: startRow={_rangeStartRow}, startCol={_rangeStartCol} ({SpreadsheetValueMapper.GetColumnName(_rangeStartCol)})");
     }
 }
 
@@ -845,6 +884,7 @@ public partial class SpreadsheetColumnViewModel : ObservableObject
     public bool IsDropdown { get; set; }
     public List<string> DropdownItems { get; set; } = new();
     public bool IsDate { get; set; }
+    internal SpreadsheetCellInputKind InputKind { get; set; } = SpreadsheetCellInputKind.Text;
     
     // Track original width for change detection
     public double OriginalWidthPixels { get; set; } = 100;
@@ -862,14 +902,16 @@ public partial class SpreadsheetRowViewModel : ObservableObject
 {
     private readonly SpreadsheetViewModel? _parent;
     public int OriginalRowIndex { get; set; }
-    
+    public int SheetRowNumber { get; }
+
     [ObservableProperty] private double _height = 36; // Default modern height
 
     public ObservableCollection<SpreadsheetCellViewModel> Cells { get; set; } = new();
 
-    public SpreadsheetRowViewModel(int originalIndex, SpreadsheetViewModel? parent = null)
+    public SpreadsheetRowViewModel(int originalIndex, SpreadsheetViewModel? parent = null, int? sheetRowNumber = null)
     {
         OriginalRowIndex = originalIndex;
+        SheetRowNumber = sheetRowNumber ?? originalIndex;
         _parent = parent;
     }
 
@@ -919,6 +961,8 @@ public partial class SpreadsheetCellViewModel : ObservableObject
 {
     [ObservableProperty] private string _value = "";
     public string OriginalValue { get; set; } = "";
+    internal object? OriginalRawValue { get; set; }
+    internal SpreadsheetCellInputKind InputKind { get; set; } = SpreadsheetCellInputKind.Text;
     public int ColumnIndex { get; set; }
 
     public bool IsChanged => Value != OriginalValue;

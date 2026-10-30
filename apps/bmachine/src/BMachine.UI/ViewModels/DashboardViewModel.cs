@@ -477,9 +477,6 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     [RelayCommand]
     private async Task OpenSpreadsheetWindow()
     {
-        // Refresh Data - DISABLED by user request (load manually)
-        // SpreadsheetVM.LoadDataCommand.Execute(null);
-
         if (_spreadsheetWindow != null && _spreadsheetWindow.IsVisible)
         {
             _spreadsheetWindow.Activate();
@@ -1164,14 +1161,11 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
         if (SpreadsheetVM != null && !string.IsNullOrEmpty(message.Value))
         {
             SpreadsheetVM.SearchText = message.Value;
-            // If rows are not loaded yet or ID not found in current cache, load fresh data
-            if (SpreadsheetVM.Rows.Count == 0 || !SpreadsheetVM.FilteredRows.Any())
-            {
-                if (SpreadsheetVM.LoadDataCommand.CanExecute(null))
-                {
-                    await SpreadsheetVM.LoadDataCommand.ExecuteAsync(null);
-                }
-            }
+            // Explicit search navigation needs searchable rows; ordinary window
+            // opening remains manual-refresh-only.
+            if ((SpreadsheetVM.Rows.Count == 0 || !SpreadsheetVM.FilteredRows.Any()) &&
+                SpreadsheetVM.LoadDataCommand.CanExecute(null))
+                await SpreadsheetVM.LoadDataCommand.ExecuteAsync(null);
         }
     }
 

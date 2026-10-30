@@ -22,6 +22,7 @@ public partial class SpreadsheetView : UserControl
     // Set true sesaat sebelum BeginEdit pada sel dropdown, supaya ComboBox yang baru
     // dibuat langsung membuka daftar pilihannya (perilaku klik tunggal).
     private bool _openDropdownOnNextEdit = false;
+    private bool _selectionVisualUpdateQueued;
 
     public SpreadsheetView()
     {
@@ -66,12 +67,22 @@ public partial class SpreadsheetView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (sender is SpreadsheetViewModel vm && e.PropertyName == nameof(SpreadsheetViewModel.IsLoading) && !vm.IsLoading)
+        if (sender is not SpreadsheetViewModel vm) return;
+
+        if (e.PropertyName == nameof(SpreadsheetViewModel.FilteredRows))
+        {
+            _dataGrid?.SelectedItems.Clear();
+            if (_dataGrid != null) _dataGrid.SelectedItem = null;
+            ScheduleCellSelectionVisualUpdate();
+        }
+
+        if (e.PropertyName == nameof(SpreadsheetViewModel.IsLoading) && !vm.IsLoading)
         {
             if (vm.Columns.Any())
-            {
                 RebuildColumns(vm.Columns, vm);
-            }
+            else if (_dataGrid != null)
+                _dataGrid.Columns.Clear();
+            ScheduleCellSelectionVisualUpdate();
         }
     }
 
@@ -139,7 +150,8 @@ public partial class SpreadsheetView : UserControl
             _dataGrid.CellEditEnded += OnDataGridCellEditEnded;
             _dataGrid.CurrentCellChanged += OnDataGridCurrentCellChanged;
             _dataGrid.SelectionChanged += OnDataGridSelectionChanged;
-            _dataGrid.AddHandler(ScrollViewer.ScrollChangedEvent, (s, e) => UpdateCellSelectionVisuals());
+            _dataGrid.LayoutUpdated += OnDataGridLayoutUpdated;
+            _dataGrid.AddHandler(ScrollViewer.ScrollChangedEvent, OnDataGridScrollChanged);
 
             // Click on empty area to deselect
             container.PointerPressed += (s, e) =>
@@ -149,7 +161,7 @@ public partial class SpreadsheetView : UserControl
                 {
                     _dataGrid.SelectedItems.Clear();
                     _dataGrid.SelectedItem = null;
-                    UpdateCellSelectionVisuals();
+                    ScheduleCellSelectionVisualUpdate();
                 }
             };
         }
@@ -401,6 +413,7 @@ public partial class SpreadsheetView : UserControl
 
             _dataGrid.Columns.Add(templateCol);
         }
+        ScheduleCellSelectionVisualUpdate();
     }
 
     /// <summary>
@@ -624,7 +637,7 @@ public partial class SpreadsheetView : UserControl
         _isExtendingSelection = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift) 
                              || e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control);
 
-        Avalonia.Threading.Dispatcher.UIThread.Post(UpdateCellSelectionVisuals, Avalonia.Threading.DispatcherPriority.Render);
+        ScheduleCellSelectionVisualUpdate();
 
         // Sel dropdown / tanggal: KLIK TUNGGAL langsung buka editornya (daftar pilihan
         // atau tombol tanggal). Sebelumnya semua sel wajib klik ganda, jadi klik tunggal
@@ -697,12 +710,34 @@ public partial class SpreadsheetView : UserControl
             }
         }
 
-        UpdateCellSelectionVisuals();
+        ScheduleCellSelectionVisualUpdate();
     }
 
     private void OnDataGridSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        UpdateCellSelectionVisuals();
+        ScheduleCellSelectionVisualUpdate();
+    }
+
+    private void OnDataGridScrollChanged(object? sender, ScrollChangedEventArgs e)
+        => ScheduleCellSelectionVisualUpdate();
+
+    private void OnDataGridLayoutUpdated(object? sender, EventArgs e)
+    {
+        // DataGrid can recycle row/cell containers after scroll. Defer until the
+        // layout pass has finished so the recycled DataContext is already current.
+        ScheduleCellSelectionVisualUpdate();
+    }
+
+    private void ScheduleCellSelectionVisualUpdate()
+    {
+        if (_selectionVisualUpdateQueued) return;
+        _selectionVisualUpdateQueued = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (!_selectionVisualUpdateQueued) return;
+            _selectionVisualUpdateQueued = false;
+            UpdateCellSelectionVisuals();
+        }, Avalonia.Threading.DispatcherPriority.Render);
     }
 
     /// <summary>
@@ -752,6 +787,8 @@ public partial class SpreadsheetView : UserControl
 
     private void OnDataGridPointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)
     {
+        _isExtendingSelection = false;
+        ScheduleCellSelectionVisualUpdate();
         SyncActualColumnWidthsToViewModel();
         if (DataContext is SpreadsheetViewModel vm && !vm.IsLoading)
         {
@@ -761,6 +798,8 @@ public partial class SpreadsheetView : UserControl
 
     private void OnDataGridPointerCaptureLost(object? sender, Avalonia.Input.PointerCaptureLostEventArgs e)
     {
+        _isExtendingSelection = false;
+        ScheduleCellSelectionVisualUpdate();
         SyncActualColumnWidthsToViewModel();
         if (DataContext is SpreadsheetViewModel vm && !vm.IsLoading)
         {
