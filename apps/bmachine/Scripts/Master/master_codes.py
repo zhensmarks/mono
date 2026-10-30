@@ -52,17 +52,33 @@ HANDLED_BY = {
 
 # Prefix yang hasilnya HANYA 1 file .psd per folder kerja — bukan 1 psd per
 # foto. Ini desain GABUNGAN: semua foto di folder itu masuk ke SATU desain
-# (kolase / lembaran / poster / hanging), jadi jumlah foto di PILIHAN TIDAK
-# boleh menentukan jumlah psd. Nama file hasilnya: 1.psd
-#   FRS = FREE SEKOLAH   HGN = HANGING   PLK = PLAKAT/POSTER
+# (kolase / lembaran / poster / hanging / kalender / id card / medali), jadi
+# jumlah foto di PILIHAN TIDAK menentukan jumlah psd.
+#   FRS = FREE SEKOLAH   HGN = HANGING     PLK = PLAKAT/POSTER
+#   ATN = ANGKATAN       IDC = ID CARD     MWS = MEDALI
 #   BML/BMP = BERSAMA MANASIK    BPL/BPP = BERSAMA PROFESI
 #   BSL/BSP = BERSAMA SPORTY
-# Kalau nanti ada jenis lain yang juga "1 pcs per sekolah" (mis. ATN, MWS,
-# IDC), tinggal tambahkan prefix-nya di sini — tidak perlu ubah script lain.
+#   KPL/KPP = KALENDER PROFESI   KML/KMP = KALENDER MANASIK
+#   KSL/KSP = KALENDER SPORTY
+# Nama file hasilnya = nama file master (mis. "FRS 006.psd", "KMP 001.psd").
 SINGLE_FILE_PREFIXES = {
-    'FRS', 'HGN', 'PLK',
+    'FRS', 'HGN', 'PLK', 'ATN', 'IDC', 'MWS',
     'BML', 'BMP', 'BPL', 'BPP', 'BSL', 'BSP',
+    'KPL', 'KPP', 'KML', 'KMP', 'KSL', 'KSP',
 }
+
+
+def is_single_file_code(code):
+    """True kalau kode ini cuma butuh 1 psd (semua master TAMBAHAN).
+
+    Master tambahan = prefix yang tidak punya script khusus (bukan MSK/WSD/
+    KRA/PFM/PFB). Semuanya desain gabungan, jadi prefix BARU yang nanti
+    ditambahkan otomatis ikut aturan ini tanpa perlu ubah daftar di atas.
+    """
+    pref = code_prefix(code)
+    if not pref:
+        return False
+    return pref in SINGLE_FILE_PREFIXES or pref not in HANDLED_BY
 
 # Petunjuk prefix dari NAMA folder master (dipakai kalau folder masih kosong,
 # jadi begitu psd-nya dimasukkan otomatis kebaca tanpa ubah kode).

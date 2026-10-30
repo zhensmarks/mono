@@ -229,42 +229,43 @@ def main(pilihan_path, output_base, registry, oke_base=None):
                     gids.append(gid)
 
             # ------------------------------------------------------------------
-            # DESAIN GABUNGAN = 1 FILE SAJA.
-            # FREE SEKOLAH / HANGING / PLAKAT / BERSAMA (BML, BMP, BPL, BPP,
-            # BSL, BSP) itu semua fotonya digabung ke SATU desain. Jadi jumlah
-            # foto di PILIHAN tidak boleh jadi jumlah psd: cukup 1.psd.
+            # DESAIN GABUNGAN = 1 FILE SAJA, NAMA IKUT FILE MASTER.
+            # Semua master TAMBAHAN (FREE SEKOLAH, HANGING, PLAKAT, BERSAMA,
+            # KALENDER, ID CARD, MEDALI, ANGKATAN, ...) itu desain gabungan:
+            # semua foto di folder dimasukkan ke SATU desain. Jadi jumlah foto
+            # di PILIHAN TIDAK menentukan jumlah psd — cukup 1 file, dan
+            # namanya diambil dari nama file master (mis. "FRS 006.psd").
             # ------------------------------------------------------------------
-            single_file = mc.code_prefix(chosen) in getattr(mc, 'SINGLE_FILE_PREFIXES', set())
+            single_file = mc.is_single_file_code(chosen)
+            rel_label = rel_dir if rel_dir != '.' else '[Root]'
+
             if single_file:
-                gids = ['1']
+                target_single = os.path.join(current_output_dir, os.path.basename(master_path))
                 existing_psd = [f for f in os.listdir(current_output_dir)
                                 if f.lower().endswith('.psd')]
                 if existing_psd:
-                    print(f"    - '{rel_dir if rel_dir != '.' else '[Root]'}': desain gabungan, "
-                          f"sudah ada psd ({existing_psd[0]}) -> tidak ditambah.")
+                    print(f"    - '{rel_label}': desain gabungan, sudah ada psd "
+                          f"({existing_psd[0]}) -> tidak ditambah.")
                     total_dirs += 1
                     touched = True
                     continue
+                print(f"    - '{rel_label}': desain gabungan -> 1 file "
+                      f"({os.path.basename(target_single)}).")
+                targets = [target_single]
+            else:
+                print(f"    - '{rel_label}': {len(gids)} grup.")
+                targets = [os.path.join(current_output_dir, f"{gid}.psd") for gid in gids]
 
-            print(f"    - '{rel_dir if rel_dir != '.' else '[Root]'}': "
-                  f"{'1 file (desain gabungan)' if single_file else str(len(gids)) + ' grup'}.")
             total_dirs += 1
             touched = True
 
             if use_copy_edit:
-                new_jobs = []
-                for gid in gids:
-                    dest = os.path.join(current_output_dir, f"{gid}.psd")
-                    if os.path.exists(dest):
-                        continue
-                    new_jobs.append(dest)
+                new_jobs = [t for t in targets if not os.path.exists(t)]
                 if new_jobs:
                     ce_jobs.setdefault((master_path, group_out_dir), []).extend(new_jobs)
                     print(f"      -> {len(new_jobs)} tujuan dicatat.")
             else:
-                jobs = [(master_path, os.path.join(current_output_dir, f"{gid}.psd"))
-                        for gid in gids
-                        if not os.path.exists(os.path.join(current_output_dir, f"{gid}.psd"))]
+                jobs = [(master_path, t) for t in targets if not os.path.exists(t)]
                 if jobs:
                     done, _sk, _fl = _fast_batch_copy(
                         jobs, workers=4, overwrite=True,
