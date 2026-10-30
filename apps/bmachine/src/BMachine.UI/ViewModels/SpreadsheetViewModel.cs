@@ -563,6 +563,42 @@ public partial class SpreadsheetViewModel : ObservableObject
         if (HasChanges) StatusText = "Unsaved changes...";
     }
 
+    /// <summary>
+    /// Membaca ulang kolom kunci (kolom pertama range) untuk baris-baris yang diedit dan
+    /// membandingkannya dengan nilai saat data dimuat. Mengembalikan pesan bila sheet
+    /// sudah bergeser, atau null bila masih sejajar.
+    /// </summary>
+    private async Task<string?> CheckRowsStillAlignedAsync()
+    {
+        if (_sheetsService == null || string.IsNullOrEmpty(_sheetId) || string.IsNullOrEmpty(_sheetName))
+            return null;
+
+        var changedRows = Rows.Where(row => row.Cells.Any(cell => cell.IsChanged)).ToList();
+        if (changedRows.Count == 0) return null;
+
+        var anchors = changedRows
+            .Where(row => row.Cells.Count > 0)
+            .Select(row => new SpreadsheetRowAnchor(row.SheetRowNumber, row.Cells[0].OriginalValue ?? string.Empty))
+            .ToList();
+        if (anchors.Count == 0) return null;
+
+        var firstRow = anchors.Min(anchor => anchor.SheetRowNumber);
+        var lastRow = anchors.Max(anchor => anchor.SheetRowNumber);
+        if (firstRow < 1) return null;
+
+        var columnLetter = SpreadsheetValueMapper.GetColumnName(_rangeStartCol);
+        var quotedSheet = SpreadsheetValueMapper.QuoteSheetName(_sheetName);
+        var checkRange = $"{quotedSheet}!{columnLetter}{firstRow}:{columnLetter}{lastRow}";
+
+        var request = _sheetsService.Spreadsheets.Values.Get(_sheetId, checkRange);
+        request.ValueRenderOption =
+            SpreadsheetsResource.ValuesResource.GetRequest.ValueRenderOptionEnum.FORMATTEDVALUE;
+        var response = await request.ExecuteAsync();
+
+        var mismatches = SpreadsheetRowAnchorGuard.FindMismatches(anchors, response.Values, firstRow);
+        return mismatches.Count == 0 ? null : SpreadsheetRowAnchorGuard.Describe(mismatches);
+    }
+
     [RelayCommand]
     private async Task SaveChanges()
     {
@@ -581,10 +617,21 @@ public partial class SpreadsheetViewModel : ObservableObject
         var changes = SpreadsheetCellWritePlanner.Create(Rows, _sheetName, _rangeStartCol, _sheetCulture);
 
         IsLoading = true;
-        StatusText = "Saving changes...";
+        StatusText = "Checking sheet alignment...";
         var savedCount = 0;
         try
         {
+            // Pengaman anti grid-basi: pastikan baris yang akan ditulis masih berisi data
+            // yang sama seperti saat dimuat. Kalau sheet sempat berubah (baris disisip /
+            // dihapus / di-cut), penulisan akan meleset 1+ baris, jadi batalkan.
+            var alignmentProblem = await CheckRowsStillAlignedAsync();
+            if (alignmentProblem != null)
+            {
+                StatusText = alignmentProblem;
+                return;
+            }
+
+            StatusText = "Saving changes...";
             foreach (var batch in changes.GroupBy(c => c.MappedValue.InputMode))
             {
                 var entries = batch.ToList();
