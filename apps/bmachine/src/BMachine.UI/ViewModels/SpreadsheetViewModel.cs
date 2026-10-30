@@ -589,39 +589,81 @@ public partial class SpreadsheetViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Membaca ulang kolom kunci (kolom pertama range) untuk baris-baris yang diedit dan
-    /// membandingkannya dengan nilai saat data dimuat. Mengembalikan pesan bila sheet
-    /// sudah bergeser, atau null bila masih sejajar.
+    /// Membaca ulang baris-baris yang diedit (seluruh kolom) dan membandingkan sidik jarinya
+    /// dengan sidik jari saat data dimuat. Mengembalikan pesan bila sheet sudah berubah,
+    /// atau null bila masih sejajar.
     /// </summary>
     private async Task<string?> CheckRowsStillAlignedAsync()
     {
         if (_sheetsService == null || string.IsNullOrEmpty(_sheetId) || string.IsNullOrEmpty(_sheetName))
             return null;
 
-        var changedRows = Rows.Where(row => row.Cells.Any(cell => cell.IsChanged)).ToList();
+        var changedRows = Rows
+            .Where(row => row.Cells.Any(cell => cell.IsChanged))
+            .OrderBy(row => row.SheetRowNumber)
+            .ToList();
         if (changedRows.Count == 0) return null;
 
-        var anchors = changedRows
-            .Where(row => row.Cells.Count > 0)
-            .Select(row => new SpreadsheetRowAnchor(row.SheetRowNumber, row.Cells[0].OriginalValue ?? string.Empty))
-            .ToList();
-        if (anchors.Count == 0) return null;
+        var columnCount = Columns.Count > 0
+            ? Columns.Count
+            : changedRows.Max(row => row.Cells.Count);
+        if (columnCount <= 0) return null;
 
-        var firstRow = anchors.Min(anchor => anchor.SheetRowNumber);
-        var lastRow = anchors.Max(anchor => anchor.SheetRowNumber);
-        if (firstRow < 1) return null;
-
-        var columnLetter = SpreadsheetValueMapper.GetColumnName(_rangeStartCol);
         var quotedSheet = SpreadsheetValueMapper.QuoteSheetName(_sheetName);
-        var checkRange = $"{quotedSheet}!{columnLetter}{firstRow}:{columnLetter}{lastRow}";
+        var firstColumn = SpreadsheetValueMapper.GetColumnName(_rangeStartCol);
+        var lastColumn = SpreadsheetValueMapper.GetColumnName(_rangeStartCol + columnCount - 1);
 
-        var request = _sheetsService.Spreadsheets.Values.Get(_sheetId, checkRange);
-        request.ValueRenderOption =
-            SpreadsheetsResource.ValuesResource.GetRequest.ValueRenderOptionEnum.FORMATTEDVALUE;
-        var response = await request.ExecuteAsync();
+        // Baca per klaster baris berurutan supaya edit yang berjauhan tidak menarik
+        // ribuan baris di antaranya.
+        foreach (var cluster in GroupIntoClusters(changedRows))
+        {
+            var firstRow = cluster[0].SheetRowNumber;
+            var lastRow = cluster[^1].SheetRowNumber;
+            if (firstRow < 1) continue;
 
-        var mismatches = SpreadsheetRowAnchorGuard.FindMismatches(anchors, response.Values, firstRow);
-        return mismatches.Count == 0 ? null : SpreadsheetRowAnchorGuard.Describe(mismatches);
+            var request = _sheetsService.Spreadsheets.Values.Get(
+                _sheetId, $"{quotedSheet}!{firstColumn}{firstRow}:{lastColumn}{lastRow}");
+            request.ValueRenderOption =
+                SpreadsheetsResource.ValuesResource.GetRequest.ValueRenderOptionEnum.FORMATTEDVALUE;
+            var response = await request.ExecuteAsync();
+
+            var anchors = cluster
+                .Select(row =>
+                {
+                    var fingerprint = SpreadsheetRowFingerprint.FromLoadedRow(row, columnCount);
+                    return new SpreadsheetRowAnchor(
+                        row.SheetRowNumber,
+                        fingerprint,
+                        SpreadsheetRowFingerprint.DisplayOf(fingerprint));
+                })
+                .ToList();
+
+            var mismatches = SpreadsheetRowAnchorGuard.FindMismatches(
+                anchors, response.Values, firstRow, columnCount);
+            if (mismatches.Count > 0)
+                return SpreadsheetRowAnchorGuard.Describe(mismatches);
+        }
+
+        return null;
+    }
+
+    private static List<List<SpreadsheetRowViewModel>> GroupIntoClusters(
+        List<SpreadsheetRowViewModel> orderedRows)
+    {
+        var clusters = new List<List<SpreadsheetRowViewModel>>();
+        foreach (var row in orderedRows)
+        {
+            if (clusters.Count > 0 &&
+                row.SheetRowNumber - clusters[^1][^1].SheetRowNumber <= 1)
+            {
+                clusters[^1].Add(row);
+            }
+            else
+            {
+                clusters.Add(new List<SpreadsheetRowViewModel> { row });
+            }
+        }
+        return clusters;
     }
 
     [RelayCommand]
