@@ -172,12 +172,16 @@ public partial class SpreadsheetView : UserControl
         }
 
         _dataGrid.Columns.Clear();
-        
+
+        // Gutter nomor baris sheet (seperti Google Sheets). Read-only dan Tag=null, jadi
+        // tidak ikut pengaturan sembunyikan kolom, lebar kolom, fill down, atau edit sel.
+        _dataGrid.Columns.Add(CreateRowNumberColumn());
+
         foreach (var col in columns)
         {
             DataGridTemplateColumn templateCol = new DataGridTemplateColumn
             {
-                Header = col.Header,
+                Header = BuildColumnHeader(col),
                 Width = col.Width,
                 MinWidth = 30,
                 // Store Column Index in Tag for Fill Down logic (Column level)
@@ -419,6 +423,82 @@ public partial class SpreadsheetView : UserControl
             _dataGrid.Columns.Add(templateCol);
         }
         ScheduleCellSelectionVisualUpdate();
+    }
+
+    /// <summary>
+    /// Kolom paling kiri berisi nomor baris sheet asli (bukan indeks grid), supaya bisa
+    /// dicocokkan langsung dengan baris di Google Sheets. Read-only dan Tag=null agar tidak
+    /// ikut pengaturan sembunyikan kolom, lebar kolom, fill down, atau edit sel.
+    /// </summary>
+    private static DataGridTemplateColumn CreateRowNumberColumn()
+    {
+        var column = new DataGridTemplateColumn
+        {
+            Header = "#",
+            Width = new DataGridLength(58, DataGridLengthUnitType.Pixel),
+            MinWidth = 40,
+            CanUserResize = false,
+            IsReadOnly = true,
+            Tag = null
+        };
+
+        column.CellTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SpreadsheetRowViewModel>((row, ns) =>
+        {
+            var label = new TextBlock
+            {
+                Text = row?.SheetRowNumber.ToString() ?? string.Empty,
+                FontSize = 10.5,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                Opacity = 0.55
+            };
+            if (Application.Current?.TryFindResource("TextSecondaryBrush", out var brush) == true
+                && brush is Avalonia.Media.IBrush secondary)
+            {
+                label.Foreground = secondary;
+            }
+            return label;
+        });
+
+        return column;
+    }
+
+    /// <summary>
+    /// Header dua baris: huruf kolom sheet (A, B, C, ...) di atas, nama kolom di bawah —
+    /// meniru tampilan Google Sheets supaya mudah dicocokkan.
+    /// </summary>
+    private static Control BuildColumnHeader(SpreadsheetColumnViewModel col)
+    {
+        var stack = new StackPanel { Spacing = 1, Margin = new Thickness(2, 1) };
+
+        var letter = new TextBlock
+        {
+            Text = col.ColumnLetter ?? string.Empty,
+            FontSize = 9,
+            FontWeight = Avalonia.Media.FontWeight.SemiBold,
+            Opacity = 0.65,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+        };
+        if (Application.Current?.TryFindResource("TextSecondaryBrush", out var brush) == true
+            && brush is Avalonia.Media.IBrush secondary)
+        {
+            letter.Foreground = secondary;
+        }
+
+        var name = new TextBlock
+        {
+            Text = col.Header ?? string.Empty,
+            FontSize = 11.5,
+            FontWeight = Avalonia.Media.FontWeight.SemiBold,
+            TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+        };
+
+        stack.Children.Add(letter);
+        stack.Children.Add(name);
+        ToolTip.SetTip(stack, $"[{col.ColumnLetter}] {col.Header}");
+        return stack;
     }
 
     /// <summary>
@@ -721,14 +801,17 @@ public partial class SpreadsheetView : UserControl
         {
             // Track which column is currently focused
             var currentColumn = _dataGrid.CurrentColumn;
-            if (currentColumn != null && currentColumn.Tag is int colIndex)
+            if (currentColumn?.Tag is int colIndex)
             {
                 _focusedColumnIndex = colIndex;
             }
-            else
+            else if (currentColumn == null)
             {
                 _focusedColumnIndex = null;
             }
+            // Kolom gutter nomor baris (Tag bukan int) BUKAN kolom data:
+            // pertahankan kolom fokus sebelumnya supaya highlight & Fill Down tidak hilang
+            // hanya karena user menyentuh gutter.
         }
 
         ScheduleCellSelectionVisualUpdate();
