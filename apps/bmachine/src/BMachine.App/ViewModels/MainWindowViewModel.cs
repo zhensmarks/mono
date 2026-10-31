@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.Messaging;
 using BMachine.UI.Messages;
 using CommunityToolkit.Mvvm.Input;
@@ -134,7 +135,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
 
     public void Receive(UpdateAvailableMessage message)
     {
-        ShowUpdateBanner(message.Value);
+        ShowUpdatePopup(message.Value);
     }
 
     public void Receive(OpenExitConfirmMessage message)
@@ -232,6 +233,12 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             Console.WriteLine($"[Update] Folder='{folder}' Local='{info.CurrentVersion}' Remote='{info.LatestVersion}' Available={info.IsUpdateAvailable} ({status})");
             if (!info.IsUpdateAvailable) return;
 
+            // Bagikan hasilnya SEBELUM cek "Nanti": badge di popup akun memang
+            // bertugas memberi tahu tanpa mengganggu (cukup satu kali cek, hasilnya
+            // disimpan di memori — membuka popup tidak membaca folder share lagi).
+            _currentUpdateInfo = info;
+            WeakReferenceMessenger.Default.Send(new UpdateStateMessage(info));
+
             // Kalau user sudah menekan "Nanti" untuk versi ini, jangan diganggu lagi.
             var dismissed = await _database.GetAsync<string>("Update.DismissedVersion");
             if (!string.IsNullOrEmpty(dismissed) &&
@@ -241,10 +248,92 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             }
 
             _lastUpdateInfo = info;
-            ShowUpdateBanner(info);
+            _pendingUpdateInfo = info;
+            // Jangan tampilkan selama masih di atas splash: dialog yang muncul
+            // sebelum window utama tampil jatuh di posisi keliru sehingga kliknya
+            // tembus ke window di belakangnya.
+            if (_mainWindowReady) ShowUpdatePopup(info);
         }
         catch { }
     }
+
+    private BMachine.UI.Models.UpdateInfo? _pendingUpdateInfo;
+    private bool _mainWindowReady;
+
+    /// <summary>Hasil cek update terakhir, dipakai untuk push ke badge popup akun
+    /// setelah DashboardViewModel dibuat (messenger tidak mengantre pesan lama).</summary>
+    private BMachine.UI.Models.UpdateInfo? _currentUpdateInfo;
+
+    /// <summary>Dipanggil App setelah MainWindow.Show() + splash ditutup.</summary>
+    public void MarkMainWindowReady()
+    {
+        _mainWindowReady = true;
+        if (_pendingUpdateInfo is { } pending)
+        {
+            _pendingUpdateInfo = null;
+            ShowUpdatePopup(pending);
+        }
+    }
+
+    /// <summary>Buka dialog update popup (jendela baru, bukan strip header).</summary>
+    private void ShowUpdatePopup(BMachine.UI.Models.UpdateInfo info)
+    {
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            // Isi state dulu (versi saat ini, catatan rilis, ukuran payload).
+            // Tanpa ini dialog tampil kosong: "Versi saat ini:" dan daftar butir
+            // tidak terisi karena binding mengambil dari properti yang belum pernah di-set.
+            ShowUpdateBanner(info);
+
+            if (_updateDialog is { IsVisible: true })
+            {
+                _updateDialog.Activate();
+                return;
+            }
+
+            _updateDialog = new BMachine.UI.Views.Dialogs.UpdateDialogWindow
+            {
+                DataContext = this,
+            };
+            // Owned window: selalu di atas window utama, tidak bisa jatuh ke belakang
+            // (kalau jatuh, klik tombolnya tembus ke window di bawahnya).
+            var owner = (Application.Current?.ApplicationLifetime
+                as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            if (owner is { IsVisible: true } and not BMachine.UI.Views.SplashWindow)
+                _updateDialog.Show(owner);
+            else
+                _updateDialog.Show();
+            ClampToVisibleArea(_updateDialog);
+            _updateDialog.Activate();
+            Console.WriteLine($"[Update] popup dialog (v{info.LatestVersion})");
+        });
+    }
+
+    /// <summary>Jaga dialog selalu sepenuhnya di dalam layar. CenterOwner pada owner
+    /// yang kecil atau menyempit ke tepi layar bisa melempar dialog ke luar layar
+    /// (tercatat posisi 0,1052 dengan tinggi 540 pada layar 1080) sehingga tombolnya
+    /// tak terjangkau dan pengguna mengira dialognya rusak.</summary>
+    private static void ClampToVisibleArea(Avalonia.Controls.Window window)
+    {
+        try
+        {
+            var screen = window.Screens.ScreenFromPoint(window.Position) ?? window.Screens.Primary;
+            if (screen is null) return;
+            var area = screen.WorkingArea;
+
+            var width = (int)window.Bounds.Width;
+            var height = (int)window.Bounds.Height;
+            if (width <= 0 || height <= 0) return;
+
+            var x = Math.Clamp(window.Position.X, area.X, Math.Max(area.X, area.X + area.Width - width));
+            var y = Math.Clamp(window.Position.Y, area.Y, Math.Max(area.Y, area.Y + area.Height - height));
+            if (x != window.Position.X || y != window.Position.Y)
+                window.Position = new Avalonia.PixelPoint(x, y);
+        }
+        catch { /* layar bisa berubah di tengah jalan; posisi default tetap dipakai */ }
+    }
+
+    private Avalonia.Controls.Window? _updateDialog;
 
     // --- Mode update lokal (LAN) ---
     private BMachine.UI.Models.UpdateInfo? _lastUpdateInfo;
@@ -266,6 +355,8 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     /// <summary>Isi seluruh state banner dari satu UpdateInfo (dipakai jalur startup &amp; pesan).</summary>
     private void ShowUpdateBanner(BMachine.UI.Models.UpdateInfo info)
     {
+        // Diganti oleh ShowUpdatePopup; IsUpdateAvailable dipakai hanya sebagai flag state,
+        // bukan sebagai visibility banner (banner sudah dihapus dari MainWindow.axaml).
         _lastUpdateInfo = info;
         LatestVersion = info.LatestVersion;
         CurrentVersion = info.CurrentVersion;
@@ -321,6 +412,14 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         {
             await _database.SetAsync("Update.DismissedVersion", LatestVersion.TrimStart('v', 'V'));
         }
+
+        // Tutup dialog setelah "Nanti": tanpa ini tombol menulis status tapi
+        // jendelanya tetap terbuka, sehingga terasa tidak bereaksi.
+        if (_updateDialog is { } dialog)
+        {
+            _updateDialog = null;
+            dialog.Close();
+        }
     }
 
     public void NavigateToDashboard()
@@ -336,6 +435,11 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             // Apply log panel state restored from MainWindow
             _cachedDashboardVM.IsLogPanelOpen = InitialLogPanelOpen;
             _cachedDashboardVM.MarkInitialLoadComplete();
+
+            // DashboardViewModel dibuat BELAKANGAN; messenger tidak mengantre pesan
+            // yang dikirim sebelum registrasi, jadi push ulang hasil ceknya di sini.
+            if (_currentUpdateInfo is { } upd)
+                WeakReferenceMessenger.Default.Send(new UpdateStateMessage(upd));
         }
         
         CurrentView = _cachedDashboardVM;

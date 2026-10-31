@@ -5,8 +5,9 @@ using Xunit;
 namespace BMachine.UI.RegressionTests;
 
 /// <summary>
-/// Regresi banner update di MainWindow: harus menampilkan versi, ukuran payload, catatan rilis
-/// berbutir, progres saat memasang, dan tiga aksi (perbarui / nanti / tutup).
+/// Regresi dialog popup update (UpdateDialogWindow, menggantikan strip banner lama di MainWindow):
+/// harus menampilkan versi, ukuran payload, catatan rilis berbutir, progres saat memasang,
+/// dan tiga aksi (perbarui / nanti / tutup).
 /// </summary>
 public class UpdateBannerTests
 {
@@ -27,11 +28,10 @@ public class UpdateBannerTests
 
     private static string Banner()
     {
-        var doc = ReadAxaml("apps/bmachine/src/BMachine.App/Views/MainWindow.axaml");
+        var doc = ReadAxaml("apps/bmachine/src/BMachine.UI/Views/Dialogs/UpdateDialogWindow.axaml");
 
-        var banner = doc.Descendants()
-            .FirstOrDefault(e => (e.Attribute("Name")?.Value ?? e.Attribute(Xaml + "Name")?.Value) == "Part_UpdateBanner")
-            ?? throw new Xunit.Sdk.XunitException("Banner update (Part_UpdateBanner) tidak ditemukan di MainWindow.axaml.");
+        var banner = doc.Descendants().First()
+            ?? throw new Xunit.Sdk.XunitException("Jendela dialog update tidak ditemukan.");
 
         return banner.ToString();
     }
@@ -77,6 +77,73 @@ public class UpdateBannerTests
         Assert.Contains("DismissUpdateCommand", xaml);
         Assert.Contains("Nanti", xaml);
         Assert.Contains("IconX", xaml);
+    }
+
+    /// <summary>Keluhan: "tombol X kenapa ada 2". Dialog cuma boleh punya satu X (tutup).</summary>
+    [Fact]
+    public void HanyaAdaSatuTombolX()
+    {
+        var doc = XDocument.Parse(Banner());
+
+        var closeButtons = doc.Descendants()
+            .Where(e => e.Name.LocalName == "Button")
+            .Where(b => b.Descendants().Any(d =>
+                d.Attribute("Data")?.Value.Contains("IconX") == true))
+            .ToList();
+
+        Assert.Equal(1, closeButtons.Count);
+    }
+
+    /// <summary>Keluhan: "ukuran tombol Nanti berbeda dengan tombol update". Keduanya wajib sama.</summary>
+    [Fact]
+    public void TombolAksiPunyaTinggiSama()
+    {
+        var doc = XDocument.Parse(Banner());
+
+        var apply = doc.Descendants().FirstOrDefault(e =>
+            e.Name.LocalName == "Button" &&
+            (e.Attribute("Command")?.Value.Contains("ApplyUpdateCommand") == true));
+        var dismiss = doc.Descendants().FirstOrDefault(e =>
+            e.Name.LocalName == "Button" &&
+            (e.Attribute("Command")?.Value.Contains("DismissUpdateCommand") == true));
+
+        Assert.NotNull(apply);
+        Assert.NotNull(dismiss);
+
+        // DESIGN_SYSTEM.md §4: tombol pakai MinHeight 36 (BUKAN Height) + Padding 16,8.
+        var applyMinHeight = apply!.Attribute("MinHeight")?.Value
+            ?? throw new Xunit.Sdk.XunitException("Tombol Perbarui sekarang tanpa MinHeight eksplisit.");
+        var dismissMinHeight = dismiss!.Attribute("MinHeight")?.Value
+            ?? throw new Xunit.Sdk.XunitException("Tombol Nanti tanpa MinHeight eksplisit.");
+
+        Assert.Equal("36", applyMinHeight);
+        Assert.Equal(applyMinHeight, dismissMinHeight);
+        Assert.Equal(apply!.Attribute("Padding")?.Value, dismiss!.Attribute("Padding")?.Value);
+    }
+
+    /// <summary>Keluhan: popup muncul di belakang jendela utama sehingga tombolnya tidak bisa diklik.</summary>
+    [Fact]
+    public void DialogSelaluDiDepanJendelaUtama()
+    {
+        var doc = XDocument.Parse(Banner());
+
+        Assert.Equal("True", doc.Root?.Attribute("Topmost")?.Value);
+    }
+
+    /// <summary>Kalau user memilih "Nanti", pembaruan tetap harus terlihat lewat baris
+    /// di flyout profil (Terminal/Settings/Log Out) — tanpa mengulang cek jaringan.</summary>
+    [Fact]
+    public void FlyoutProfilPunyaBarisPembaruan()
+    {
+        var doc = ReadAxaml("apps/bmachine/src/BMachine.UI/Views/DashboardView.axaml");
+
+        var badge = doc.Descendants()
+            .Where(e => e.Name.LocalName == "Button")
+            .Where(b => (b.Attribute("IsVisible")?.Value ?? "").Contains("HasPendingUpdate"))
+            .ToList();
+
+        var row = Assert.Single(badge);
+        Assert.Contains("OpenPendingUpdateCommand", row.Attribute("Command")?.Value ?? "");
     }
 
     [Fact]

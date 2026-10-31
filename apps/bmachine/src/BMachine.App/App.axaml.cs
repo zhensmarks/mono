@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using System.Threading;
 namespace BMachine.App;
 
 public partial class App : Application, 
@@ -21,6 +22,7 @@ public partial class App : Application,
     IRecipient<SetRecordingModeMessage>,
     IRecipient<UpdateTriggerConfigMessage>
 {
+    private Mutex? _instanceMutex;
     private Avalonia.Controls.Window? _mainWindow;
     private GlobalInputHookService? _inputHook;
     private RadialMenuWindow? _radialMenuWindow;
@@ -36,6 +38,28 @@ public partial class App : Application,
     public override void OnFrameworkInitializationCompleted()
     {
         Console.WriteLine("[App] Framework Initialization Started");
+
+        // Single-instance per data folder. Tanpa ini, meluncurkan BMachine kedua
+        // (mis. saat dev) sama-sama membuka BMachine.db dan instance baru
+        // nyangkut selamanya di splash "Menghubungkan Database SQLite...".
+        // Run terisolasi (BMACHINE_APPDATA_ROOT) memakai mutex terpisah.
+        var dataRoot = Environment.GetEnvironmentVariable("BMACHINE_APPDATA_ROOT");
+        if (string.IsNullOrWhiteSpace(dataRoot))
+            dataRoot = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var instanceTag = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(
+            System.Text.Encoding.UTF8.GetBytes(dataRoot.ToLowerInvariant())))[..12];
+        _instanceMutex = new Mutex(initiallyOwned: true, $"BMachine.SingleInstance.{instanceTag}", out var isFirstInstance);
+        if (!isFirstInstance)
+        {
+            Log("Instance lain sudah berjalan untuk data folder ini - keluar.");
+            Console.WriteLine("[App] Instance sudah berjalan - keluar.");
+            // Jangan Shutdown() langsung: dispatcher belum jalan ->
+            // "Cannot perform requested operation because the Dispatcher shut down".
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime dl)
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => dl.Shutdown());
+            base.OnFrameworkInitializationCompleted();
+            return;
+        }
 
         // ATURAN: AutoCompleteBox (kolom pencarian board/list, filter, dsb) harus
         // terbuka dengan SATU KLIK di mana pun di dalam kotaknya — dulu hanya klik
@@ -305,6 +329,9 @@ public partial class App : Application,
             #endif
             splashWindow.Close();
             Log("MainWindow.Show() called.");
+            // Dialog update ditunda sampai titik ini: muncul setelah window utama
+            // tampil, bukan di atas splash.
+            mainVm.MarkMainWindowReady();
             
             _mainWindow = mainWindow;
             
@@ -471,11 +498,11 @@ public partial class App : Application,
     }
 
     public void Receive(ShutdownMessage message)
-    {
-        _radialMenuWindow?.Close();
-        _inputHook?.Dispose();
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.Shutdown();
-    }
+        {
+            _radialMenuWindow?.Close();
+            _inputHook?.Dispose();
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.Shutdown();
+        }
 
     private async void LoadInitialShortcutConfig()
     {

@@ -21,7 +21,14 @@ public class DatabaseService : IDatabase, IActivityService
         var fullPath = Path.Combine(appData, databasePath);
         DatabasePath = fullPath;
         
-        _connectionString = $"Data Source={fullPath}";
+        // DefaultTimeout: kalau proses lain memegang BMachine.db, penulis
+        // menunggu berbatas (15s) lalu gagal jelas. Dulu tanpa ini splash
+        // nyangkut selamanya di "Menghubungkan Database SQLite...".
+        _connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = fullPath,
+            DefaultTimeout = 15,
+        }.ToString();
         InitializeDatabase();
     }
 
@@ -31,6 +38,16 @@ public class DatabaseService : IDatabase, IActivityService
     {
         using var connection = new SqliteConnection(_connectionString);
         connection.Open();
+
+        // WAL: pembaca tidak diblokir penulis. Best-effort: kalau DB sedang
+        // terkunci proses lain, jangan gagalkan startup.
+        try
+        {
+            using var pragma = connection.CreateCommand();
+            pragma.CommandText = "PRAGMA journal_mode=WAL;";
+            pragma.ExecuteNonQuery();
+        }
+        catch { }
 
         // Clear Cache on Startup (Session-based)
         // We only clear entries that are marked as 'Cache' type or have specific keys if we want to be selective.

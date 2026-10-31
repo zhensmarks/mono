@@ -227,6 +227,26 @@
                                         <Separator/>
                                         <!-- Menu (no icons) -->
                                         <StackPanel Margin="6,6" Spacing="1">
+                                            <!-- Pembaruan: muncul HANYA kalau ada update. Isinya hasil cek
+                                                 sekali saat startup (disimpan di memori), sehingga membuka
+                                                 flyout tidak pernah membaca folder share lagi = tanpa lag. -->
+                                            <Button Classes="profileMenuItem" Margin="0,0,0,3"
+                                                    IsVisible="{Binding HasPendingUpdate}"
+                                                    Command="{Binding OpenPendingUpdateCommand}"
+                                                    ToolTip.Tip="Buka detail pembaruan">
+                                                <Grid ColumnDefinitions="Auto,*" Margin="10,0">
+                                                    <!-- Titik aksen (Border, bukan PathIcon): menu flyout ini
+                                                         by-design tanpa ikon -->
+                                                    <Border Grid.Column="0" Width="6" Height="6" Margin="0,0,9,0"
+                                                            CornerRadius="{DynamicResource RadiusPill}"
+                                                            Background="{DynamicResource AccentBlueBrush}"
+                                                            VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" FontSize="12.5"
+                                                               Text="{Binding PendingUpdateVersion, StringFormat='Ada pembaruan v{0}'}"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                </Grid>
+                                            </Button>
                                             <ToggleButton Classes="profileMenuItem" Click="OnTerminalToggleClick" IsChecked="{Binding IsLogPanelOpen, Mode=OneWay}">
                                                 <Grid ColumnDefinitions="*,Auto" Margin="10,0">
                                                     <TextBlock Grid.Column="0" Text="Terminal" FontSize="12.5"

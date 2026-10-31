@@ -157,6 +157,16 @@ Semua icon UI memakai outline Tabler melalui `PathIcon` + `StreamGeometry` dari 
 - Jangan set `ClipToBounds="True"` pada button/grid yang membungkus icon kecuali kontainernya sudah cukup besar.
 - Stroke `1.8` di `PathIcon` default. Jika icon dipakai di ukuran `xs` (12), boleh turun ke `1.5` agar tidak penuh.
 - Icon di dalam Button otomatis ikut `Foreground` button.
+- **Teks di dalam Button juga WAJIB ikut `Foreground` button** — jangan mengandalkan
+  warisan. Style global `TextBlock` (`Foreground=TextPrimaryBrush`) punya precedence
+  lebih tinggi dari nilai warisan, jadi label tombol tanpa style ini mengambil warna
+  teks tema: di tema gelap + palet Classic itu = putih di atas bg `#EDEDED` sehingga
+  label HILANG (terukur: 0 piksel teks; icon selamat karena sudah punya binding).
+  Sudah ditangani style `Button.<variant> TextBlock` → `$parent[Button].Foreground`
+  di `BMachineDesignSystem.axaml` (varian primary/secondary/danger/accent).
+  Jangan menambah `Foreground` lokal pada label/icon tombol — itu mematikan
+  adaptivitas palet (`AppearancePaletteService` meng-override
+  `ButtonPrimaryForegroundBrush` + `TextOnPrimaryBrush` bersamaan).
 - Icon tanpa teks: beri `ToolTip.Tip` agar label tetap terbaca saat hover.
 
 ---
@@ -432,3 +442,45 @@ dan tidak menyimpan file sementara. Bitmap itu harus kompatibel dengan tombol **
 DOC; user bisa membuka preview Trello → Copy Image → tab DOC → Paste Logo tanpa download lebih dulu.
 
 DILARANG menambah tombol teks, warna lokal, atau varian tombol berbeda di toolbar preview.
+
+---
+
+## 26. Pembaruan (dialog startup + baris di flyout profil)
+
+**Kapan dipakai:** cek update jalan SEKALI saat startup (`CheckForUpdatesBackground`), hasilnya
+disimpan di memori (`UpdateInfo`). Hasil itu dipakai dua tempat, tidak pernah dicek ulang:
+
+1. **Dialog startup** — `Views/Dialogs/UpdateDialogWindow` (menggantikan strip banner lama di
+   `MainWindow.axaml`). Muncul HANYA kalau ada update dan versinya belum dipilih **Nanti**.
+   Ditunda sampai `MainWindow.Show()` selesai (`MarkMainWindowReady()`) lalu dibuka sebagai
+   *owned window* + `ClampToVisibleArea`, supaya selalu di depan dan tidak pernah keluar layar.
+2. **Baris pembaruan di flyout profil** (atas menu Terminal/Laporkan Bug/Settings/Log Out,
+   `DashboardView.axaml`) — muncul selama update tersedia, termasuk setelah user memilih
+   **Nanti**. Ini penanda non-intrusif: `IsVisible="{Binding HasPendingUpdate}"` membaca flag
+   **in-memory**, jadi membuka flyout TIDAK membaca folder share (UNC) → tanpa lag.
+
+**Struktur dialog (atas ke bawah):** Border card `RadiusMd` + border `SeparatorBrush` → header
+(ikon unduh 42x42 `RadiusPill` di atas `AccentColorBrush`, label "PEMBARUAN TERSEDIA" 11 bold +
+badge versi `RadiusPill`, baris "Versi saat ini: 11") → badan scroll (teks keterangan 12.5 +
+`ItemsControl` butir catatan `UpdateNoteItems` maks 4) → baris aksi.
+
+**Angka baris aksi (§4):** kedua tombol `MinHeight="36"` `Padding="16,8"` `Radius 6` — pakai
+`MinHeight`, BUKAN `Height`. Tombol primary memakai `BorderThickness="1"` dengan
+`BorderBrush="{DynamicResource ButtonPrimaryBackgroundBrush}"` (warna sama dengan background)
+agar luas isi kedua tombol IDENTIK (dulu 32 vs 34 px karena `BorderThickness` 0 vs 1 — diukur
+user dengan penggaris).
+
+**Alur state:** `CheckForUpdatesBackground` → kirim `UpdateStateMessage(info)` SEBELUM cek
+"Nanti" (badge tetap tampil walau sudah didismiss) → `DashboardViewModel.Receive` set
+`HasPendingUpdate` + `PendingUpdateVersion` → klik baris kirim `UpdateAvailableMessage(info)`
+balik ke `MainWindowViewModel.ShowUpdatePopup`. Karena `messenger tidak mengantre`, state di-push
+ULANG saat `DashboardViewModel` dibuat (`MarkInitialLoadComplete`).
+
+DILARANG:
+- Membaca `LocalUpdateService.CheckAsync` (folder UNC) saat flyout dibuka — cek hanya saat startup.
+- `Height="..."` pada tombol dialog; pakai `MinHeight="36"` (§4).
+- Warna hardcode di dialog (`Foreground="White"`, `Background="#..."`, `CornerRadius="<angka>"`);
+  pakai `TextOnPrimaryBrush`, token brush, `RadiusPill`/`RadiusXxs`.
+- `Foreground` lokal pada label/tombol aksi dialog — biarkan style `Button.<variant> TextBlock`
+  (§8) yang menurunkan warna dari tombolnya; foreground lokal mematikan adaptivitas palet.
+- `WindowStartupLocation="CenterOwner"` tanpa clamp: owner kecil bisa melempar dialog ke luar layar.

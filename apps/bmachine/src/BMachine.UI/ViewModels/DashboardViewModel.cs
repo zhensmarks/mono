@@ -20,7 +20,7 @@ using BMachine.Core.Platform;
 
 namespace BMachine.UI.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>, IRecipient<NavigateToPageMessage>, IRecipient<OpenSpreadsheetWithSearchMessage>, IRecipient<RequestOpenExplorerWindowMessage>
+public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextFileMessage>, IRecipient<AppFocusChangedMessage>, IRecipient<NavigateBackMessage>, IRecipient<SettingsChangedMessage>, IRecipient<NavigateToNextTrelloViewMessage>, IRecipient<NavigateToPageMessage>, IRecipient<OpenSpreadsheetWithSearchMessage>, IRecipient<RequestOpenExplorerWindowMessage>, IRecipient<UpdateStateMessage>
 {
     private readonly IActivityService _activityService;
     private readonly IDatabase _database;
@@ -586,6 +586,28 @@ public partial class DashboardViewModel : ObservableObject, IRecipient<OpenTextF
     private void OpenLogoutDialog()
     {
         WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.OpenExitConfirmMessage());
+    }
+
+    // --- Pembaruan (badge di flyout profil) ---
+    // Hasil cek update sekali saat startup, disimpan di memori. Membuka flyout
+    // profil TIDAK pernah membaca ulang folder share (UNC), jadi tidak menimbulkan lag.
+    [ObservableProperty] private bool _hasPendingUpdate;
+    [ObservableProperty] private string _pendingUpdateVersion = "";
+    private BMachine.UI.Models.UpdateInfo? _pendingUpdate;
+
+    public void Receive(UpdateStateMessage message)
+    {
+        _pendingUpdate = message.Value;
+        HasPendingUpdate = message.Value.IsUpdateAvailable;
+        PendingUpdateVersion = message.Value.LatestVersion;
+    }
+
+    /// <summary>Buka lagi dialog pembaruan dari flyout profil (tanpa cek ulang jaringan).</summary>
+    [RelayCommand]
+    private void OpenPendingUpdate()
+    {
+        if (_pendingUpdate is { } update)
+            WeakReferenceMessenger.Default.Send(new UpdateAvailableMessage(update));
     }
 
     public DashboardViewModel(

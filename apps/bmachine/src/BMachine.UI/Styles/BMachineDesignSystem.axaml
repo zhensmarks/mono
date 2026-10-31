@@ -618,9 +618,18 @@
         <Setter Property="Height" Value="{StaticResource IconXl}" />
     </Style>
     <!-- Icon di dalam button: ikut warna button -->
-    <Style Selector="Button PathIcon">
-        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-    </Style>
+        <Style Selector="Button PathIcon">
+            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+        </Style>
+        <!-- Teks di dalam button WAJIB ikut Foreground button (§4/§8), sama seperti icon.
+             Style global `TextBlock` (Foreground=TextPrimaryBrush) punya precedence lebih
+             tinggi dari nilai warisan, jadi tanpa style ini label tombol primary mengambil
+             warna teks tema: di tema gelap + palet Classic itu = putih di atas bg #EDEDED
+             sehingga label HILANG (terukur: 0 piksel teks di dalam tombol, icon tetap
+             terlihat karena sudah punya binding sendiri). -->
+        <Style Selector="Button.primary TextBlock, Button.Action TextBlock, Button.secondary TextBlock, Button.Muted TextBlock, Button.danger TextBlock, Button.Warn TextBlock, Button.accent TextBlock, Button.Accent TextBlock">
+            <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
+        </Style>
 
     <!-- Icon-only controls share a 32 px target and visible hover/pressed/focus states. -->
     <Style Selector="Button.IconBtn, Button.iconBtn">
