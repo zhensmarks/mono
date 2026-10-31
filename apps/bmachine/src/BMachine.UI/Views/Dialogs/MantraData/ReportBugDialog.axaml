@@ -19,8 +19,7 @@
     <Window.Styles>
     </Window.Styles>
 
-    <Border Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" ClipToBounds="True">
-        <Border Margin="14" Padding="22" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLg}">
+    <Border Padding="22" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusLg}">
             <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto">
 
                 <!-- Title bar: drag + close. Tanpa ikon, teks saja. -->
@@ -60,6 +59,5 @@
                     <Button Classes="Action" Content="Kirim" MinWidth="110" Click="OnSendClick"/>
                 </StackPanel>
             </Grid>
-        </Border>
     </Border>
 </local:MantraDialogBase>

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -11,6 +13,9 @@ namespace Abeng.BugReporter;
 ///
 /// Alur: app -> POST http://127.0.0.1:21478/bug -> ProjectBot simpan ke inbox
 ///       + kirim notifikasi ke topik Telegram "Project & Bug".
+///
+/// Fallback: kalau ProjectBot mati, simpan ke file JSON lokal di
+///       %LOCALAPPDATA%/BMachine/bug-reports/ agar user bisa kirim manual via email.
 ///
 /// Kelas ini sengaja dibuat tahan banting: setiap kegagalan jaringan ditelan
 /// diam-diam ( lihat <see cref="SendAsync"/> ). Membuat laporan tidak boleh
@@ -52,49 +57,51 @@ public sealed class BugReporter
 
     /// <summary>
     /// Kirim bug. Selalu return (tidak lempar). Kembalikan true kalau ProjectBot
-    /// menerima (balasan { ok: true }).
+    /// menerima (balasan { ok: true }). Kalau gagal, simpan ke file JSON lokal
+    /// sebagai fallback.
     /// </summary>
-    public async Task<bool> SendAsync(string summary, string text,
+    public async Task<(bool ok, string? fallbackPath)> SendAsync(string summary, string text,
         string? appVersion = null, string severity = "sedang",
         string source = "manual")
     {
+        var payload = new BugPayload
+        {
+            Project = _project,
+            Summary = string.IsNullOrWhiteSpace(summary)
+                ? "(tidak ada judul)"
+                : summary.Trim(),
+            Text = string.IsNullOrWhiteSpace(text) ? summary?.Trim() ?? "" : text.Trim(),
+            AppVersion = string.IsNullOrWhiteSpace(appVersion) ? null : appVersion.Trim(),
+            Severity = severity,
+            Source = source == "crash" ? "crash" : "manual",
+            Timestamp = DateTime.Now.ToString("o"),
+        };
+
         try
         {
-            var payload = new BugPayload
-            {
-                Project = _project,
-                Summary = string.IsNullOrWhiteSpace(summary)
-                    ? "(tidak ada judul)"
-                    : summary.Trim(),
-                Text = string.IsNullOrWhiteSpace(text) ? summary?.Trim() ?? "" : text.Trim(),
-                AppVersion = string.IsNullOrWhiteSpace(appVersion) ? null : appVersion.Trim(),
-                Severity = severity,
-                Source = source == "crash" ? "crash" : "manual",
-            };
-
             using var content = new StringContent(
                 JsonSerializer.Serialize(payload, BugJsonOptions), Encoding.UTF8, "application/json");
 
             using var resp = await _client.PostAsync(_endpoint, content);
-            if (!resp.IsSuccessStatusCode) return false;
+            if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"Status {resp.StatusCode}");
 
             var body = await resp.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<BridgeResponse>(body,
-                BugJsonOptions);
-            return result?.Ok == true;
+            var result = JsonSerializer.Deserialize<BridgeResponse>(body, BugJsonOptions);
+            if (result?.Ok == true) return (true, null);
+
+            throw new HttpRequestException("Server responded !ok");
         }
         catch
         {
-            // Kegagalan jaringan (ProjectBot mati / port tutup / timeout)
-            // TIDAK boleh menjatuhkan app. false = tidak terkirim, panggilan
-            // harus fallback ke file lokal (lihat ReportCrash).
-            return false;
+            // ProjectBot mati / timeout -> fallback: simpan ke file JSON lokal.
+            var fallbackPath = SaveToLocalFile(payload);
+            return (false, fallbackPath);
         }
     }
 
     /// <summary>
     /// Laporkan exception: kirim kalau ProjectBot bisa dihubungi, dan selalu
-    /// simpan ke file lokal sebagai cadangan (-crash.log / crash_report.txt).
+    /// simpan ke file lokal sebagai cadangan (-crash.log + JSON fallback).
     /// </summary>
     public void ReportCrash(Exception ex, string? appVersion = null,
         string context = "unhandled")
@@ -103,7 +110,7 @@ public sealed class BugReporter
         try
         {
             var logPath = GetLocalCrashLogPath();
-            var msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {context.ToUpper()}:\n{ex}\n\n";
+            var msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {context.ToUpper()}:\\n{ex}\\n\\n";
             System.IO.File.AppendAllText(logPath, msg);
         }
         catch { /* gagal simpan lokal pun tidak apa-apa */ }
@@ -112,7 +119,7 @@ public sealed class BugReporter
         //    selesai cepat supaya proses bisa keluar / dump tidak tertunda.
         _ = SendAsync(
             summary: FirstLine(ex) is { } fl && fl.Length > 0 ? fl : $"{context}: {ex.GetType().Name}",
-            text: $"Context: {context}\n\n{ex}",
+            text: $"Context: {context}\\n\\n{ex}",
             appVersion: appVersion,
             severity: "tinggi",
             source: "crash");
@@ -133,6 +140,29 @@ public sealed class BugReporter
 
     // --- helper ---
 
+    private string SaveToLocalFile(BugPayload payload)
+    {
+        try
+        {
+            var dir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "BMachine", "bug-reports");
+            System.IO.Directory.CreateDirectory(dir);
+
+            var filename = $"bug-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString().Substring(0, 8)}.json";
+            var path = System.IO.Path.Combine(dir, filename);
+
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+            System.IO.File.WriteAllText(path, json, Encoding.UTF8);
+
+            return path;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static string? FirstLine(Exception ex)
     {
         var msg = ex.Message?.Trim() ?? string.Empty;
@@ -143,7 +173,7 @@ public sealed class BugReporter
 
     private static string GetLocalCrashLogPath()
     {
-        // Pakai %LOCALAPPDATA% &lt;Project&gt; \crash.log; fallback folder app.
+        // Pakai %LOCALAPPDATA% &lt;Project&gt; \\crash.log; fallback folder app.
         try
         {
             var dir = System.IO.Path.Combine(
@@ -166,6 +196,7 @@ public sealed class BugReporter
         public string? AppVersion { get; set; }
         public string Severity { get; set; } = "sedang";
         public string Source { get; set; } = "manual";
+        public string Timestamp { get; set; } = "";
     }
 
     private sealed class BridgeResponse

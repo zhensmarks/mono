@@ -44,7 +44,7 @@ public partial class ReportBugDialog : MantraDialogBase
         // Nonaktifkan tombol saat mengirim supaya tidak double-submit.
         if (sender is Button btn) btn.IsEnabled = false;
 
-        var ok = await _reporter.SendAsync(
+        var (ok, fallbackPath) = await _reporter.SendAsync(
             summary: summary,
             text: string.IsNullOrEmpty(detail) ? summary : detail,
             appVersion: AppVersion(),
@@ -56,13 +56,14 @@ public partial class ReportBugDialog : MantraDialogBase
         {
             if (ok)
             {
-                // Jangan pakai dialog pop-up baru (noise). Tutup saja; pemanggil
+                // Berhasil kirim ke ProjectBot. Tutup saja; pemanggil
                 // bisa baca SendResult untuk menampilkan toast di tempat yang tepat.
                 Close();
             }
             else
             {
-                // ProjectBot mati / port tutup -> kirim ulang tetap mungkin.
+                // ProjectBot mati / timeout -> simpan lokal.
+                // Tombol bisa dicoba lagi, atau user lihat pesan di parent.
                 if (sender is Button b) b.IsEnabled = true;
             }
         });
