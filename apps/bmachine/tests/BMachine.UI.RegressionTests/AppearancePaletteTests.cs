@@ -6,6 +6,7 @@ using BMachine.SDK;
 using BMachine.UI.Messages;
 using BMachine.UI.Models;
 using BMachine.UI.Services;
+using BMachine.UI.ViewModels;
 using Xunit;
 
 namespace BMachine.UI.RegressionTests;
@@ -140,6 +141,43 @@ public sealed class AppearancePaletteTests : IDisposable
         AppearancePaletteService.Select("classic");
         Assert.Equal("#112233", Hex(ResourceColor("AccentColor")));
         Assert.Equal("#445566", Hex(ResourceColor("AppBackgroundBrush")));
+    }
+
+    [AvaloniaFact]
+    public void SelectingPresetSyncsAppearanceColorsToDbAndClassicRestoresDefaults()
+    {
+        var db = new FakeDatabase();
+        var vm = new SettingsViewModel(db, () => { }, null, new FakeNotificationService());
+
+        var spider = AppearancePalette.Find("spider");
+        vm.SelectedAppearancePalette = spider;
+        Assert.Equal("spider", (db.GetAsync<string>(AppearancePaletteService.SettingKey)).GetAwaiter().GetResult());
+        Assert.Equal("#171717", db.GetAsync<string>("Appearance.Background.Dark").GetAwaiter().GetResult());
+        Assert.Equal("#FCF1F1", db.GetAsync<string>("Appearance.Background.Light").GetAwaiter().GetResult());
+        Assert.Equal("#D9272E", db.GetAsync<string>("Settings.Accent").GetAwaiter().GetResult());
+
+        vm.SelectedAppearancePalette = AppearancePalette.Find("classic");
+        Assert.Equal(ThemeDefaults.DarkBackground, db.GetAsync<string>("Appearance.Background.Dark").GetAwaiter().GetResult());
+        Assert.Equal(ThemeDefaults.Accent, db.GetAsync<string>("Settings.Accent").GetAwaiter().GetResult());
+    }
+
+    [AvaloniaFact]
+    public void ResetDefaultAppearanceRestoresDefaultColorsWidgetAndClassicPalette()
+    {
+        var db = new FakeDatabase();
+        db.SetAsync("Settings.Accent", "#0000FF").GetAwaiter().GetResult();
+        db.SetAsync("Settings.Color.Late", "#123456").GetAwaiter().GetResult();
+        db.SetAsync(AppearancePaletteService.SettingKey, "spider").GetAwaiter().GetResult();
+        var vm = new SettingsViewModel(db, () => { }, null, new FakeNotificationService());
+
+        vm.ResetDefaultAppearanceCommand.Execute(null);
+
+        Assert.Equal("classic", db.GetAsync<string>(AppearancePaletteService.SettingKey).GetAwaiter().GetResult());
+        Assert.Equal(ThemeDefaults.Accent, db.GetAsync<string>("Settings.Accent").GetAwaiter().GetResult());
+        Assert.Equal(ThemeDefaults.WidgetLate, db.GetAsync<string>("Settings.Color.Late").GetAwaiter().GetResult());
+        Assert.Equal(ThemeDefaults.DarkBackground, db.GetAsync<string>("Appearance.Background.Dark").GetAwaiter().GetResult());
+        Assert.Equal(ThemeDefaults.LightBackground, db.GetAsync<string>("Appearance.Background.Light").GetAwaiter().GetResult());
+        Assert.Equal(AppearancePalette.All[0], vm.SelectedAppearancePalette);
     }
 
     [AvaloniaTheory]

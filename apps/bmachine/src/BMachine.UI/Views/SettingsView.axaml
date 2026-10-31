@@ -384,8 +384,11 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0" FontSize="11" TextWrapping="Wrap"
-                                       Text="{Binding SelectedAppearancePalette.ColorLabels}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Grid.Row="1" Text="{Binding SelectedAppearancePalette.ColorLabels}" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Button Grid.Row="1" Grid.Column="1" Content="Reset ke default" Classes="Muted" Height="30" Padding="12,0"
+                                    Command="{Binding ResetDefaultAppearanceCommand}"
+                                    Margin="0,8,0,0" HorizontalAlignment="Right" VerticalAlignment="Top"/>
                         </Grid>
                     </Border>
                     <Border Classes="SR">
