@@ -429,82 +429,66 @@ public partial class SettingsViewModel : ObservableObject
         if (_isInitializing) return;
         AppearancePaletteService.Select(value.Id);
         _database?.SetAsync(AppearancePaletteService.SettingKey, value.Id);
-        // Preset ikut mensinkronkan field Appearance yang editable (bg + accent),
+        // Preset ikut mensinkronkan field Appearance yang editable (bg + accent + widget),
         // biar langsung terlihat di panel dan bisa di-override user setelahnya.
         ApplyAppearancePaletteColors(value);
     }
 
-    private static Color PresetAccent(AppearancePalette p) =>
-        p.Id switch
-        {
-            "spider" => Color.Parse("#D9272E"),
-            "gwen" => Color.Parse("#65D6D6"),
-            "armor" => Color.Parse("#D9A52E"),
-            "midnight" => Color.Parse("#8B5CF6"),
-            "symbiote" => Color.Parse("#E8E8E8"),
-            _ => Color.Parse("#3b82f6")
-        };
-
-    /// <summary>Normalisasi warna preset ke hex RRGGBB (tanpa alpha) supaya konsisten dengan format DB lama.</summary>
-    private static string HexRgba(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
-
-    /// <summary>Mensinkronkan background + accent ke nilai preset; classic kembali ke default.</summary>
+    /// <summary>Mensinkronkan appearance panel ke nilai bawaan template terpilih; classic = bawaan aplikasi.</summary>
     private void ApplyAppearancePaletteColors(AppearancePalette p)
     {
         if (_themeService == null) return;
-        var accent = p.Id == "classic" ? ThemeDefaults.Accent : HexRgba(PresetAccent(p));
-        var darkBg = p.Id == "classic" ? ThemeDefaults.DarkBackground : p.Background;
-        var lightBg = p.Id == "classic" ? ThemeDefaults.LightBackground : p.LightBackground;
+        var isClassic = p.Id == "classic";
+        var accent = isClassic ? ThemeDefaults.Accent : p.Primary;
+        var darkBg = isClassic ? ThemeDefaults.DarkBackground : p.Background;
+        var lightBg = isClassic ? ThemeDefaults.LightBackground : p.LightBackground;
+        var editing = isClassic ? ThemeDefaults.WidgetEditing : p.WidgetEditing;
+        var revision = isClassic ? ThemeDefaults.WidgetRevision : p.WidgetRevision;
+        var late = isClassic ? ThemeDefaults.WidgetLate : p.WidgetLate;
+        var points = isClassic ? ThemeDefaults.WidgetPoints : p.WidgetPoints;
+
         _themeService.SetWidgetColor("Accent", accent);
+        _themeService.SetWidgetColor("Editing", editing);
+        _themeService.SetWidgetColor("Revision", revision);
+        _themeService.SetWidgetColor("Late", late);
+        _themeService.SetWidgetColor("Points", points);
         _themeService.SetBorderColor(ThemeDefaults.BorderDark, true);
         _themeService.SetBorderColor(ThemeDefaults.BorderLight, false);
         DarkBackgroundColor = darkBg;
         LightBackgroundColor = lightBg;
+
+        // Bawaan template bukan preset picker -> pindahkan 5 picker ke "Custom" + isi hex-nya.
+        // Assign CustomXxx memicu ApplyWidgetColors (menulis format 8-digit ke DB),
+        // jadi tulis nilai record 6-digit terakhir supaya format DB konsisten dengan record.
+        var customOption = WidgetColorOptions.First(x => x.Name == "Custom");
+        EditingColor = customOption;
+        RevisionColor = customOption;
+        LateColor = customOption;
+        PointsColor = customOption;
+        AccentColor = customOption;
+        CustomEditingColor = Color.Parse(editing);
+        CustomRevisionColor = Color.Parse(revision);
+        CustomLateColor = Color.Parse(late);
+        CustomPointsColor = Color.Parse(points);
+        CustomAccentColor = Color.Parse(accent);
+
         _database?.SetAsync("Settings.Accent", accent);
+        _database?.SetAsync("Settings.Color.Editing", editing);
+        _database?.SetAsync("Settings.Color.Revision", revision);
+        _database?.SetAsync("Settings.Color.Late", late);
+        _database?.SetAsync("Settings.Color.Points", points);
         _database?.SetAsync("Appearance.Background.Dark", darkBg);
         _database?.SetAsync("Appearance.Background.Light", lightBg);
     }
 
-    /// <summary>Reset seluruh Appearance ke default aplikasi (Classic + nilai bawaan).</summary>
+    /// <summary>Reset seluruh Appearance ke nilai bawaan TEMPLATE TERPILIH (bukan bawaan app).</summary>
     [RelayCommand]
     private void ResetDefaultAppearance()
     {
         if (_themeService == null) return;
-        SelectedAppearancePalette = AppearancePalette.All[0]; // cascade -> default
-        CustomDarkBackgroundColor = Color.Parse(ThemeDefaults.DarkBackground);
-        CustomLightBackgroundColor = Color.Parse(ThemeDefaults.LightBackground);
-        CustomDarkBorderColor = Color.Parse(ThemeDefaults.BorderDark);
-        CustomLightBorderColor = Color.Parse(ThemeDefaults.BorderLight);
-        CustomAccentColor = Color.Parse(ThemeDefaults.Accent);
-        CustomEditingColor = Color.Parse(ThemeDefaults.WidgetEditing);
-        CustomRevisionColor = Color.Parse(ThemeDefaults.WidgetRevision);
-        CustomLateColor = Color.Parse(ThemeDefaults.WidgetLate);
-        CustomPointsColor = Color.Parse(ThemeDefaults.WidgetPoints);
-        EditingColor = WidgetColorOptions[0];
-        RevisionColor = WidgetColorOptions[1];
-        LateColor = WidgetColorOptions[1];
-        PointsColor = WidgetColorOptions[3];
-        AccentColor = WidgetColorOptions[0];
-        // Mode tema (Light/Dark/System) dipertahankan; yang direset hanya warnanya.
-        _themeService.SetTheme(SelectedThemeIndex == 0 ? ThemeVariantType.Light
-            : SelectedThemeIndex == 2 ? ThemeVariantType.System : ThemeVariantType.Dark);
-        _themeService.SetWidgetColor("Editing", ThemeDefaults.WidgetEditing);
-        _themeService.SetWidgetColor("Revision", ThemeDefaults.WidgetRevision);
-        _themeService.SetWidgetColor("Late", ThemeDefaults.WidgetLate);
-        _themeService.SetWidgetColor("Points", ThemeDefaults.WidgetPoints);
-        _themeService.SetWidgetColor("Accent", ThemeDefaults.Accent);
-        _themeService.SetBorderColor(ThemeDefaults.BorderDark, true);
-        _themeService.SetBorderColor(ThemeDefaults.BorderLight, false);
-        DarkBackgroundColor = ThemeDefaults.DarkBackground;
-        LightBackgroundColor = ThemeDefaults.LightBackground;
-        _database?.SetAsync("Settings.Color.Editing", ThemeDefaults.WidgetEditing);
-        _database?.SetAsync("Settings.Color.Revision", ThemeDefaults.WidgetRevision);
-        _database?.SetAsync("Settings.Color.Late", ThemeDefaults.WidgetLate);
-        _database?.SetAsync("Settings.Color.Points", ThemeDefaults.WidgetPoints);
-        _database?.SetAsync("Settings.Accent", ThemeDefaults.Accent);
-        _database?.SetAsync("Appearance.Background.Dark", ThemeDefaults.DarkBackground);
-        _database?.SetAsync("Appearance.Background.Light", ThemeDefaults.LightBackground);
-        StatusMessage = "Appearance direset ke default.";
+        var p = SelectedAppearancePalette; // template yang aktif sekarang
+        ApplyAppearancePaletteColors(p);
+        StatusMessage = $"Appearance di-reset ke bawaan template {p.Name}.";
         IsStatusVisible = true;
         _ = HideStatusAfterAsync();
     }

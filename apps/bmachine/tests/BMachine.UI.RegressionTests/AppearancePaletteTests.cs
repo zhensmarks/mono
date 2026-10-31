@@ -151,18 +151,23 @@ public sealed class AppearancePaletteTests : IDisposable
 
         var spider = AppearancePalette.Find("spider");
         vm.SelectedAppearancePalette = spider;
-        Assert.Equal("spider", (db.GetAsync<string>(AppearancePaletteService.SettingKey)).GetAwaiter().GetResult());
+        Assert.Equal("spider", db.GetAsync<string>(AppearancePaletteService.SettingKey).GetAwaiter().GetResult());
         Assert.Equal("#171717", db.GetAsync<string>("Appearance.Background.Dark").GetAwaiter().GetResult());
         Assert.Equal("#FCF1F1", db.GetAsync<string>("Appearance.Background.Light").GetAwaiter().GetResult());
         Assert.Equal("#D9272E", db.GetAsync<string>("Settings.Accent").GetAwaiter().GetResult());
+        Assert.Equal("#D9272E", db.GetAsync<string>("Settings.Color.Editing").GetAwaiter().GetResult());
+        Assert.Equal("#1557A5", db.GetAsync<string>("Settings.Color.Revision").GetAwaiter().GetResult());
+        Assert.Equal("#EF4444", db.GetAsync<string>("Settings.Color.Late").GetAwaiter().GetResult());
+        Assert.Equal("#F97316", db.GetAsync<string>("Settings.Color.Points").GetAwaiter().GetResult());
 
         vm.SelectedAppearancePalette = AppearancePalette.Find("classic");
         Assert.Equal(ThemeDefaults.DarkBackground, db.GetAsync<string>("Appearance.Background.Dark").GetAwaiter().GetResult());
         Assert.Equal(ThemeDefaults.Accent, db.GetAsync<string>("Settings.Accent").GetAwaiter().GetResult());
+        Assert.Equal(ThemeDefaults.WidgetEditing, db.GetAsync<string>("Settings.Color.Editing").GetAwaiter().GetResult());
     }
 
     [AvaloniaFact]
-    public void ResetDefaultAppearanceRestoresDefaultColorsWidgetAndClassicPalette()
+    public void ResetDefaultAppearanceRestoresPerTemplateDefaultNotAppDefault()
     {
         var db = new FakeDatabase();
         db.SetAsync("Settings.Accent", "#0000FF").GetAwaiter().GetResult();
@@ -172,12 +177,15 @@ public sealed class AppearancePaletteTests : IDisposable
 
         vm.ResetDefaultAppearanceCommand.Execute(null);
 
-        Assert.Equal("classic", db.GetAsync<string>(AppearancePaletteService.SettingKey).GetAwaiter().GetResult());
-        Assert.Equal(ThemeDefaults.Accent, db.GetAsync<string>("Settings.Accent").GetAwaiter().GetResult());
-        Assert.Equal(ThemeDefaults.WidgetLate, db.GetAsync<string>("Settings.Color.Late").GetAwaiter().GetResult());
-        Assert.Equal(ThemeDefaults.DarkBackground, db.GetAsync<string>("Appearance.Background.Dark").GetAwaiter().GetResult());
-        Assert.Equal(ThemeDefaults.LightBackground, db.GetAsync<string>("Appearance.Background.Light").GetAwaiter().GetResult());
-        Assert.Equal(AppearancePalette.All[0], vm.SelectedAppearancePalette);
+        // Reset harus kembali ke bawaan spider, bukan bawaan aplikasi (classic)
+        Assert.Equal("spider", db.GetAsync<string>(AppearancePaletteService.SettingKey).GetAwaiter().GetResult());
+        var spider = AppearancePalette.Find("spider");
+        Assert.Equal(spider.Primary, db.GetAsync<string>("Settings.Accent").GetAwaiter().GetResult());
+        Assert.Equal(spider.WidgetLate, db.GetAsync<string>("Settings.Color.Late").GetAwaiter().GetResult());
+        Assert.Equal(spider.WidgetEditing, db.GetAsync<string>("Settings.Color.Editing").GetAwaiter().GetResult());
+        Assert.Equal(spider.Background, db.GetAsync<string>("Appearance.Background.Dark").GetAwaiter().GetResult());
+        Assert.Equal(spider.LightBackground, db.GetAsync<string>("Appearance.Background.Light").GetAwaiter().GetResult());
+        Assert.Equal(spider, vm.SelectedAppearancePalette);
     }
 
     [AvaloniaTheory]

@@ -361,10 +361,10 @@
                 <StackPanel Spacing="0" Margin="0,0,14,20">
                     <TextBlock Classes="SL" Text="THEME"/>
                     <Border Classes="SR" Margin="0,0,0,8">
-                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
                             <StackPanel Spacing="2" Margin="0,0,12,0" VerticalAlignment="Center">
                                 <TextBlock Text="Color theme" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Text="Classic mempertahankan warna pribadi. Preset mengikuti mode Light / Dark."
+                                <TextBlock Text="Pilih template, warna background/accent/widget ikut menyesuaikan. Bisa di-override manual. Reset mengembalikan ke bawaan template itu."
                                            FontSize="11" TextWrapping="Wrap" MaxWidth="350" HorizontalAlignment="Left" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
                             <ComboBox x:Name="AppearancePaletteComboBox" Grid.Column="1" Width="230"
@@ -386,7 +386,7 @@
                             </ComboBox>
                             <TextBlock Grid.Row="1" Text="{Binding SelectedAppearancePalette.ColorLabels}" FontSize="11" TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <Button Grid.Row="1" Grid.Column="1" Content="Reset ke default" Classes="Muted" Height="30" Padding="12,0"
+                            <Button Grid.Row="2" Grid.Column="1" Content="Reset ke bawaan template ini" Classes="Muted" Height="30" Padding="12,0"
                                     Command="{Binding ResetDefaultAppearanceCommand}"
                                     Margin="0,8,0,0" HorizontalAlignment="Right" VerticalAlignment="Top"/>
                         </Grid>
