@@ -17,6 +17,11 @@ public static class ThumbnailCacheService
 {
     private const int DefaultMaxEdge = 96;
 
+    // ponytail: batas kasar thumbnail di RAM. Kelebihan dibuang sekaligus (bulk clear),
+    // cukup karena thumbnail 96px murah di-decode ulang. Ganti LRU kalau cache miss terasa.
+    private const int MaxMemoryEntries = 400;
+    private const int MaxFailedKeys = 2000;
+
     // In-memory cache keyed by cache key (path + write ticks) so the same
     // bitmap instance is reused while the app is running.
     private static readonly ConcurrentDictionary<string, Bitmap> _memoryCache = new();
@@ -136,7 +141,7 @@ public static class ThumbnailCacheService
                     {
                         using var fs = File.OpenRead(cacheFile);
                         var bmp = new Bitmap(fs);
-                        _memoryCache[key] = bmp;
+                        Store(key, bmp);
                         return bmp;
                     }
                 }
@@ -169,7 +174,7 @@ public static class ThumbnailCacheService
 
             if (thumb == null)
             {
-                _failedKeys[key] = 1;
+                MarkFailed(key);
                 return null;
             }
 
@@ -184,14 +189,26 @@ public static class ThumbnailCacheService
                 // Disk cache is best-effort only.
             }
 
-            _memoryCache[key] = thumb;
+            Store(key, thumb);
             return thumb;
         }
         catch
         {
-            _failedKeys[key] = 1;
+            MarkFailed(key);
             return null;
         }
+    }
+
+    private static void Store(string key, Bitmap bitmap)
+    {
+        if (_memoryCache.Count >= MaxMemoryEntries) _memoryCache.Clear();
+        _memoryCache[key] = bitmap;
+    }
+
+    private static void MarkFailed(string key)
+    {
+        if (_failedKeys.Count >= MaxFailedKeys) _failedKeys.Clear();
+        _failedKeys[key] = 1;
     }
 
     private static string HashKey(string key)

@@ -19,6 +19,9 @@ public class GlobalInputHookService : IDisposable
     
     // Hook
     private readonly TaskPoolGlobalHook _hook;
+    // Task RunAsync disimpan supaya exception saat Dispose (TaskQueue disposed) tidak
+    // jadi unobserved exception di thread pool (sumber "TaskQueue" di crash.log).
+    private readonly System.Threading.Tasks.Task _runTask;
     private bool _isInteracting = false;
     private ModifierMask _currentModifiers = ModifierMask.None;
     private Point _lastMousePos = new Point(0, 0); // Track last known cursor position
@@ -42,9 +45,11 @@ public class GlobalInputHookService : IDisposable
         // Initialize TaskPoolGlobalHook (runs callbacks on background threads)
         _hook = new TaskPoolGlobalHook();
 
-        // Subscribe to Events
-        _hook.MouseMoved += OnHookMouseMove;
-        _hook.MouseDragged += OnHookMouseMove; // Handle drag too
+        // Subscribe to Events.
+        // MouseMoved/MouseDragged TIDAK di-subscribe di sini: hook ini system-wide, jadi tiap
+        // gerakan mouse akan jadi work item thread pool walau tidak dipakai (terukur ~4.7%
+        // satu core saat mouse digerakkan terus). Keduanya dipasang hanya saat radial menu
+        // aktif (StartMoveTracking) dan dilepas lagi setelah trigger selesai.
         _hook.MouseWheel += OnHookMouseWheel;
         _hook.MousePressed += OnHookMouseDown;
         _hook.MouseReleased += OnHookMouseUp;
@@ -52,13 +57,28 @@ public class GlobalInputHookService : IDisposable
         _hook.KeyReleased += OnHookKeyReleased;
 
         // Start Hook
-        _ = _hook.RunAsync();
+        _runTask = _hook.RunAsync();
+    }
+
+    private void StartMoveTracking()
+    {
+        _hook.MouseMoved -= OnHookMouseMove;
+        _hook.MouseMoved += OnHookMouseMove;
+        _hook.MouseDragged -= OnHookMouseMove;
+        _hook.MouseDragged += OnHookMouseMove;
+    }
+
+    private void StopMoveTracking()
+    {
+        _hook.MouseMoved -= OnHookMouseMove;
+        _hook.MouseDragged -= OnHookMouseMove;
     }
 
     public void UpdateConfig(Models.TriggerConfig config)
     {
         _config = config;
         _isInteracting = false;
+        StopMoveTracking();
     }
 
     private void OnHookMouseMove(object? sender, MouseHookEventArgs e)
@@ -123,6 +143,7 @@ public class GlobalInputHookService : IDisposable
                 if (CheckModifiers(_currentModifiers))
                 {
                     _isInteracting = true;
+                    StartMoveTracking(); // radial aktif: drag/resize butuh posisi mouse
                     OnTriggerDown?.Invoke(pos);
                     e.SuppressEvent = true;
                 }
@@ -141,6 +162,7 @@ public class GlobalInputHookService : IDisposable
             if (_isInteracting)
             {
                 _isInteracting = false;
+                StopMoveTracking();
                 OnTriggerUp?.Invoke(pos);
                 e.SuppressEvent = true;
             }
@@ -176,10 +198,11 @@ public class GlobalInputHookService : IDisposable
             if (!_isInteracting && CheckModifiers(_currentModifiers))
             {
                 _isInteracting = true;
-                                // Posisi trigger keyboard: ambil posisi kursor nyata (tracking _lastMousePos bisa
-                                // basi, mis. saat kursor digerakkan tanpa event hook -> radial muncul di (0,0)).
-                                OnTriggerDown?.Invoke(GetCursorScreenPos()); // Use real cursor position
-                                e.SuppressEvent = true;
+                StartMoveTracking();
+                // Posisi trigger keyboard: ambil posisi kursor nyata (tracking _lastMousePos bisa
+                // basi, mis. saat kursor digerakkan tanpa event hook -> radial muncul di (0,0)).
+                OnTriggerDown?.Invoke(GetCursorScreenPos()); // Use real cursor position
+                e.SuppressEvent = true;
             }
         }
     }
@@ -195,6 +218,7 @@ public class GlobalInputHookService : IDisposable
             if (_isInteracting)
             {
                 _isInteracting = false;
+                StopMoveTracking();
                 OnTriggerUp?.Invoke(GetCursorScreenPos());
                 e.SuppressEvent = true;
             }
@@ -250,7 +274,22 @@ public class GlobalInputHookService : IDisposable
 
     public void Dispose()
     {
-        _hook.MouseWheel -= OnHookMouseWheel;
+        // Lepas semua handler dulu: Dispose hook saat handler masih hidup membuat SharpHook
+        // tetap meng-enqueue event ke TaskQueue yang sudah dibuang (ObjectDisposedException
+        // "Cannot call Enqueue" yang muncul di crash.log).
+        try
+        {
+            StopMoveTracking();
+            _hook.MouseWheel -= OnHookMouseWheel;
+            _hook.MousePressed -= OnHookMouseDown;
+            _hook.MouseReleased -= OnHookMouseUp;
+            _hook.KeyPressed -= OnHookKeyPressed;
+            _hook.KeyReleased -= OnHookKeyReleased;
+        }
+        catch { }
+
         _hook.Dispose();
+
+        try { _runTask?.Wait(500); } catch { /* exception shutdown dari SharpHook: diabaikan */ }
     }
 }

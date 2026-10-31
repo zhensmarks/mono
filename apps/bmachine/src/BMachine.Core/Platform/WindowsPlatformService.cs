@@ -120,6 +120,8 @@ public class WindowsPlatformService : IPlatformService
         process.ErrorDataReceived += (s, e) => { if (e.Data != null) onError?.Invoke(e.Data); };
 
         process.Start();
+        // Batch python jangan menyaingi Photoshop/editor yang sedang dipakai user.
+        try { process.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
