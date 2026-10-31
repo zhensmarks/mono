@@ -23,10 +23,12 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     {
         // Load Appearance Background Colors
         var darkBg = await _database.GetAsync<string>("Appearance.Background.Dark");
-        if (!string.IsNullOrEmpty(darkBg)) _darkBgColor = darkBg;
+        var hasDarkBg = !string.IsNullOrEmpty(darkBg);
+        if (hasDarkBg) _darkBgColor = darkBg;
 
         var lightBg = await _database.GetAsync<string>("Appearance.Background.Light");
-        if (!string.IsNullOrEmpty(lightBg)) _lightBgColor = lightBg;
+        var hasLightBg = !string.IsNullOrEmpty(lightBg);
+        if (hasLightBg) _lightBgColor = lightBg;
 
         // Load settings from DB
         var themeStr = await _database.GetAsync<string>("Settings.Theme") ?? "Dark";
@@ -37,8 +39,12 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
                 // Normalisasi: nilai border tersimpan pernah ber-alpha 00 (AARRGGBB) -> transparan,
                 // sehingga di tema Classic garis separator/border TIDAK terlihat sama sekali.
                 // Alpha 00 dipaksa FF (border wajib opaque); nilai lama ditulis ulang biar membaik sendiri.
-                var borderLight = await _database.GetAsync<string>("Settings.BorderLight") ?? "#E5E7EB"; // Default Light Gray
-                var borderDark = await _database.GetAsync<string>("Settings.BorderDark") ?? "#333333"; // Default Dark Gray
+        var savedBorderLight = await _database.GetAsync<string>("Settings.BorderLight");
+        var hasBorderLight = !string.IsNullOrEmpty(savedBorderLight);
+        var borderLight = savedBorderLight ?? "#E5E7EB"; // Default Light Gray
+        var savedBorderDark = await _database.GetAsync<string>("Settings.BorderDark");
+        var hasBorderDark = !string.IsNullOrEmpty(savedBorderDark);
+        var borderDark = savedBorderDark ?? "#333333"; // Default Dark Gray
                 var healedLight = OpaqueIfInvisible(borderLight);
                 var healedDark = OpaqueIfInvisible(borderDark);
                 if (healedLight != borderLight) { borderLight = healedLight; _ = _database.SetAsync("Settings.BorderLight", borderLight); }
@@ -64,16 +70,36 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
         var isInitialLight = themeStr == "Light";
         UpdateLogColors(isInitialLight);
 
-        // Apply Theme (This also applies the initial border and background)
+        // Apply Theme (border/bg hanya di-pin ke manual jika DB punya nilai custom user;
+        // jika tidak, template layer yang menentukan tampilan).
         if (Enum.TryParse<ThemeVariantType>(themeStr, out var theme))
         {
             SetTheme(theme);
         }
         else
         {
-            UpdateBackgroundBrush(isInitialLight);
+            AppearancePaletteService.ApplyCurrent();
         }
-        
+
+        var activeIsLight = isInitialLight || themeStr == "Light";
+        if (hasDarkBg || hasLightBg)
+        {
+            var bgHex = activeIsLight ? _lightBgColor : _darkBgColor;
+            if (Color.TryParse(bgHex, out var bgc))
+            {
+                var bgBrush = new SolidColorBrush(bgc);
+                AppearancePaletteService.SetManual("AppBackgroundBrush", bgBrush);
+                AppearancePaletteService.SetManual("TerminalBackgroundBrush", bgBrush);
+                AppearancePaletteService.SetManual("BackgroundDarkBrush", bgBrush);
+            }
+        }
+        if (hasBorderLight || hasBorderDark)
+        {
+            var borderHex = activeIsLight ? _lightBorderColor : _darkBorderColor;
+            AppearancePaletteService.SetManual("CardBorderBrush", SolidColorBrush.Parse(borderHex));
+            AppearancePaletteService.SetManual("SeparatorBrush", SolidColorBrush.Parse(borderHex));
+        }
+
         SetAccentColor(accentStr);
         SetFontFamily(fontStr);
         AppearancePaletteService.Select(await _database.GetAsync<string>(AppearancePaletteService.SettingKey));
@@ -84,30 +110,25 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     public void SetWidgetColor(string type, string hexColor)
     {
         if (Application.Current == null) return;
-        
-        AppearancePaletteService.RemoveOverrides();
         if (hexColor == "RANDOM") hexColor = "#FFFFFF"; // Fallback
-        
+
         if (Color.TryParse(hexColor, out var color))
         {
             if (type == "Accent")
             {
-                Application.Current.Resources["AccentBlueBrush"] = new SolidColorBrush(color);
-                Application.Current.Resources["AccentBlue"] = color;
-                
-                 // Update color resource for consistency
-                Application.Current.Resources["AccentColorBrush"] = new SolidColorBrush(color);
-                Application.Current.Resources["AccentLowOpacityBrush"] = new SolidColorBrush(color) { Opacity = 0.15 };
-                Application.Current.Resources["AccentColor"] = color;
+                AppearancePaletteService.SetManual("AccentBlueBrush", new SolidColorBrush(color));
+                AppearancePaletteService.SetManual("AccentBlue", color);
+                AppearancePaletteService.SetManual("AccentColorBrush", new SolidColorBrush(color));
+                AppearancePaletteService.SetManual("AccentLowOpacityBrush", new SolidColorBrush(color) { Opacity = 0.15 });
+                AppearancePaletteService.SetManual("AccentColor", color);
             }
             else
             {
-                Application.Current.Resources[$"Accent{type}Brush"] = new SolidColorBrush(color);
-                Application.Current.Resources[$"Accent{type}LowOpacityBrush"] = new SolidColorBrush(color) { Opacity = 0.35 };
-                Application.Current.Resources[$"Accent{type}Color"] = color;
+                AppearancePaletteService.SetManual($"Accent{type}Brush", new SolidColorBrush(color));
+                AppearancePaletteService.SetManual($"Accent{type}LowOpacityBrush", new SolidColorBrush(color) { Opacity = 0.35 });
+                AppearancePaletteService.SetManual($"Accent{type}Color", color);
             }
         }
-        AppearancePaletteService.ApplyCurrent();
     }
 
 
@@ -118,7 +139,6 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     {
         if (Application.Current == null) return;
 
-        AppearancePaletteService.RemoveOverrides();
         Application.Current.RequestedThemeVariant = theme switch
         {
             ThemeVariantType.Light => ThemeVariant.Light,
@@ -126,11 +146,7 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
             _ => ThemeVariant.Default
         };
 
-        AppearancePaletteService.RemoveOverrides();
         // Resolve actual theme to apply correct manual colors (Border, CardBg)
-        // If System/Default, we check ActualThemeVariant.
-        // Note: This only sets the initial colors. Fully dynamic system switching 
-        // would require listening to ActualThemeVariantChanged event.
         bool isLight = false;
         if (theme == ThemeVariantType.Light) isLight = true;
         else if (theme == ThemeVariantType.Dark) isLight = false;
@@ -140,32 +156,34 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
             isLight = Application.Current.ActualThemeVariant == ThemeVariant.Light;
         }
 
-        // Apply Border Color for the new theme
+        // Border + bg: update manual override HANYA jika user sudah custom (UpdateManual = no-op jika belum).
         var borderColor = isLight ? _lightBorderColor : _darkBorderColor;
-        
-        // Update the Dynamic Resource
-        Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(borderColor);
-        Application.Current.Resources["SeparatorBrush"] = SolidColorBrush.Parse(borderColor);
-
-        // Update Background Brush
+        AppearancePaletteService.UpdateManual("CardBorderBrush", SolidColorBrush.Parse(borderColor));
+        AppearancePaletteService.UpdateManual("SeparatorBrush", SolidColorBrush.Parse(borderColor));
         UpdateBackgroundBrush(isLight);
         
         // Update Log Colors
         UpdateLogColors(isLight);
 
-        // Fire and forget save
+        // Recompute layer (light/dark aware), re-apply manual di atasnya
         AppearancePaletteService.ApplyCurrent();
         _database.SetAsync("Settings.Theme", theme.ToString());
     }
 
     public void Receive(ThemeSettingsChangedMessage message)
     {
-        AppearancePaletteService.RemoveOverrides();
         if (!string.IsNullOrEmpty(message.DarkBackgroundColor)) _darkBgColor = message.DarkBackgroundColor;
         if (!string.IsNullOrEmpty(message.LightBackgroundColor)) _lightBgColor = message.LightBackgroundColor;
         bool isLight = Application.Current?.ActualThemeVariant == ThemeVariant.Light;
-        UpdateBackgroundBrush(isLight);
-        AppearancePaletteService.ApplyCurrent();
+        var hex = isLight ? _lightBgColor : _darkBgColor;
+        if (Color.TryParse(hex, out var color))
+        {
+            // Aksi user (picker berubah) -> pin manual override di atas layer template.
+            var brush = new SolidColorBrush(color);
+            AppearancePaletteService.SetManual("AppBackgroundBrush", brush);
+            AppearancePaletteService.SetManual("TerminalBackgroundBrush", brush);
+            AppearancePaletteService.SetManual("BackgroundDarkBrush", brush);
+        }
     }
 
     private void UpdateBackgroundBrush(bool isLight)
@@ -175,9 +193,9 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
             if (Color.TryParse(hex, out var color))
             {
                 var brush = new SolidColorBrush(color);
-                Application.Current.Resources["AppBackgroundBrush"] = brush;
-                Application.Current.Resources["TerminalBackgroundBrush"] = brush;
-                Application.Current.Resources["BackgroundDarkBrush"] = brush;
+                AppearancePaletteService.UpdateManual("AppBackgroundBrush", brush);
+                AppearancePaletteService.UpdateManual("TerminalBackgroundBrush", brush);
+                AppearancePaletteService.UpdateManual("BackgroundDarkBrush", brush);
             }
         }
 
@@ -217,38 +235,30 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     }
 
     public void SetBorderColor(string hexColor, bool isDark, bool saveToDb = true)
-        {
-            if (Application.Current == null) return;
+    {
+        if (Application.Current == null) return;
 
-            // Paksa opaque: border alpha 00 = tak terlihat (dulu bikin tema Classic tanpa garis sama sekali).
-            hexColor = OpaqueIfInvisible(hexColor);
-
-            AppearancePaletteService.RemoveOverrides();
+        // Paksa opaque: border alpha 00 = tak terlihat (dulu bikin tema Classic tanpa garis sama sekali).
+        hexColor = OpaqueIfInvisible(hexColor);
         if (isDark)
         {
             _darkBorderColor = hexColor;
             if (saveToDb) _database.SetAsync("Settings.BorderDark", hexColor);
-            
-            // If currently dark, apply immediately
-            if (Application.Current.RequestedThemeVariant == ThemeVariant.Dark)
-            {
-                Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(hexColor);
-                Application.Current.Resources["SeparatorBrush"] = SolidColorBrush.Parse(hexColor);
-            }
         }
         else
         {
             _lightBorderColor = hexColor;
             if (saveToDb) _database.SetAsync("Settings.BorderLight", hexColor);
-            
-             // If currently light, apply immediately
-            if (Application.Current.RequestedThemeVariant == ThemeVariant.Light)
-            {
-                Application.Current.Resources["CardBorderBrush"] = SolidColorBrush.Parse(hexColor);
-                Application.Current.Resources["SeparatorBrush"] = SolidColorBrush.Parse(hexColor);
-            }
         }
-        AppearancePaletteService.ApplyCurrent();
+        // Tulis hanya ke variant yang aktif; variant lain ditangani saat SetTheme.
+        bool isActive = isDark
+            ? Application.Current.RequestedThemeVariant == ThemeVariant.Dark
+            : Application.Current.RequestedThemeVariant == ThemeVariant.Light;
+        if (isActive)
+        {
+            AppearancePaletteService.SetManual("CardBorderBrush", SolidColorBrush.Parse(hexColor));
+            AppearancePaletteService.SetManual("SeparatorBrush", SolidColorBrush.Parse(hexColor));
+        }
     }
 
 
@@ -256,27 +266,17 @@ public class ThemeService : IThemeService, IRecipient<ThemeSettingsChangedMessag
     public void SetAccentColor(string hexColor)
     {
         if (Application.Current == null) return;
-        
-        AppearancePaletteService.RemoveOverrides();
         if (Color.TryParse(hexColor, out var color))
         {
-            // Update Core Accent Resources
-            Application.Current.Resources["AccentColor"] = color;
-            Application.Current.Resources["AccentColorBrush"] = new SolidColorBrush(color);
-            Application.Current.Resources["AccentLowOpacityBrush"] = new SolidColorBrush(color) { Opacity = 0.15 };
-
-            // Update Specific Variants (Blue/Orange) to match if we want unified theme
-            Application.Current.Resources["AccentBlue"] = color;
-            Application.Current.Resources["AccentBlueBrush"] = new SolidColorBrush(color);
-            
-            // Simplified: Keeping others as fallback or also unified?
-            // User requested "Accent Color" generally, so let's unify.
-            Application.Current.Resources["AccentOrange"] = color; 
-            Application.Current.Resources["AccentOrangeBrush"] = new SolidColorBrush(color);
-            
-             _database.SetAsync("Settings.Accent", hexColor);
+            AppearancePaletteService.SetManual("AccentColor", color);
+            AppearancePaletteService.SetManual("AccentColorBrush", new SolidColorBrush(color));
+            AppearancePaletteService.SetManual("AccentLowOpacityBrush", new SolidColorBrush(color) { Opacity = 0.15 });
+            AppearancePaletteService.SetManual("AccentBlue", color);
+            AppearancePaletteService.SetManual("AccentBlueBrush", new SolidColorBrush(color));
+            AppearancePaletteService.SetManual("AccentOrange", color);
+            AppearancePaletteService.SetManual("AccentOrangeBrush", new SolidColorBrush(color));
+            _database.SetAsync("Settings.Accent", hexColor);
         }
-        AppearancePaletteService.ApplyCurrent();
     }
 
     public void SetFontFamily(string fontFamily)

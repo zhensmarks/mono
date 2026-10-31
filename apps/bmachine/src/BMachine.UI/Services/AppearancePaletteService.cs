@@ -7,14 +7,22 @@ using BMachine.UI.Models;
 
 namespace BMachine.UI.Services;
 
-/// <summary>Palette overrides never overwrite saved Classic customizations or semantic status colors.</summary>
+/// <summary>
+/// Layering resource: Base (theme axaml) &lt; Layer (palette template) &lt; Manual (warna custom user).
+/// Manual TIDAK pernah dihapus oleh Select/ApplyCurrent/theme-switch — hanya oleh ClearManual()
+/// (tombol "Reset ke bawaan template").
+/// </summary>
 public static class AppearancePaletteService
 {
     public const string SettingKey = "Appearance.Palette";
     private sealed class State
     {
         public AppearancePalette Palette = AppearancePalette.All[0];
-        public Dictionary<string, (bool Existed, object? Value)> Originals = new();
+        // Nilai Base (theme) per key yang Layer tulis — untuk menghapus layer.
+        public Dictionary<string, (bool Existed, object? Value)> Base = new();
+        // Manual override user + nilai layer saat di-capture (untuk restore saat layer recompute).
+        public Dictionary<string, object> Manual = new();
+        public Dictionary<string, object> ManualLayerValue = new();
     }
     private static readonly ConditionalWeakTable<Application, State> States = new();
 
@@ -27,34 +35,88 @@ public static class AppearancePaletteService
     public static AppearancePalette Current => Application.Current is { } app
         ? GetState(app).Palette : AppearancePalette.All[0];
 
+    /// <summary>Ganti palette template; manual override user tetap bertahan di atasnya.</summary>
     public static void Select(string? id)
     {
         if (Application.Current is not { } app) return;
-        RemoveOverrides();
-        GetState(app).Palette = AppearancePalette.Find(id);
-        ApplyCurrent();
+        var state = GetState(app);
+        state.Palette = AppearancePalette.Find(id);
+        ApplyLayer(app, state);
     }
 
-    // ThemeService calls these around legacy custom-color updates so Classic stays intact.
-    public static void RemoveOverrides()
+    /// <summary>Recompute layer (theme variant light/dark switch); manual tetap di atas.</summary>
+    public static void ApplyCurrent()
+    {
+        if (Application.Current is not { } app) return;
+        ApplyLayer(app, GetState(app));
+    }
+
+    /// <summary>Catat manual override (widget color/accent/border/background) di atas layer.</summary>
+    public static void SetManual(string key, object value)
+    {
+        if (Application.Current is not { } app) return;
+        SetManual(app, GetState(app), key, value);
+    }
+
+    /// <summary>Update nilai manual override HANYA jika sudah pernah di-set (pindah variant light/dark).</summary>
+    public static void UpdateManual(string key, object value)
     {
         if (Application.Current is not { } app) return;
         var state = GetState(app);
-        foreach (var (key, original) in state.Originals)
+        if (!state.Manual.ContainsKey(key)) return;
+        state.Manual[key] = value;
+        app.Resources[key] = value;
+    }
+
+    /// <summary>Hapus manual override (reset ke bawaan template): resource kembali ke nilai layer.</summary>
+    public static void ClearManual()
+    {
+        if (Application.Current is not { } app) return;
+        var state = GetState(app);
+        if (state.Manual.Count == 0) return;
+        foreach (var key in state.Manual.Keys)
+            Restore(app, key, state.ManualLayerValue.TryGetValue(key, out var v) ? v : null);
+        state.Manual.Clear();
+        state.ManualLayerValue.Clear();
+    }
+
+    private static void SetManual(Application app, State state, string key, object value)
+    {
+        if (!state.Manual.ContainsKey(key))
+            state.ManualLayerValue[key] = Capture(app, key);
+        state.Manual[key] = value;
+        app.Resources[key] = value;
+    }
+
+    /// <summary>Rebuild layer dari Base, terapkan palette aktif, re-apply manual di atasnya.</summary>
+    private static void ApplyLayer(Application app, State state)
+    {
+        // 1. Simpan nilai manual, kembalikan resource ke nilai layer (bukan Base)
+        var manual = new Dictionary<string, object>(state.Manual);
+        if (state.Manual.Count > 0)
+        {
+            foreach (var key in state.Manual.Keys)
+                Restore(app, key, state.ManualLayerValue.TryGetValue(key, out var v) ? v : null);
+            state.Manual.Clear();
+            state.ManualLayerValue.Clear();
+        }
+        // 2. Hapus layer lama (kembalikan Base theme values)
+        foreach (var (key, original) in state.Base)
         {
             if (original.Existed) app.Resources[key] = original.Value!;
             else app.Resources.Remove(key);
         }
-        state.Originals.Clear();
+        state.Base.Clear();
+        // 3. Terapkan layer palette (classic = tanpa layer)
+        if (state.Palette.Id != "classic")
+            WriteLayer(app, state, state.Palette);
+        // 4. Re-apply manual (capture nilai layer baru sebagai ManualLayerValue)
+        foreach (var (key, value) in manual)
+            SetManual(app, state, key, value);
     }
 
-    public static void ApplyCurrent()
+    private static void WriteLayer(Application app, State state, AppearancePalette palette)
     {
-        if (Application.Current is not { } app) return;
-        RemoveOverrides();
-        var state = GetState(app);
-        var palette = state.Palette;
-        if (palette.Id == "classic") return;
         var light = app.ActualThemeVariant == ThemeVariant.Light;
         var accent = Color.Parse(palette.Primary);
         var secondary = Color.Parse(palette.Secondary);
@@ -75,7 +137,7 @@ public static class AppearancePaletteService
 
         void Set(string key, object value)
         {
-            state.Originals[key] = (app.Resources.ContainsKey(key), app.Resources.ContainsKey(key) ? app.Resources[key] : null);
+            state.Base[key] = (app.Resources.ContainsKey(key), Capture(app, key));
             app.Resources[key] = value;
         }
         void Brushes(Color color, params string[] keys)
@@ -113,6 +175,15 @@ public static class AppearancePaletteService
         Brushes(Contrast(accent, Colors.Black) >= Contrast(accent, Colors.White) ? Colors.Black : Colors.White, "ButtonPrimaryForegroundBrush", "TextOnPrimaryBrush");
         Brushes(Mix(accent, text, .10), "ButtonPrimaryHoverBrush");
         Brushes(Mix(accent, background, .15), "ButtonPrimaryPressedBrush");
+    }
+
+    private static object? Capture(Application app, string key)
+        => app.Resources.TryGetValue(key, out var value) ? value : null;
+
+    private static void Restore(Application app, string key, object? value)
+    {
+        if (value is null) app.Resources.Remove(key);
+        else app.Resources[key] = value;
     }
 
     private static Color Mix(Color a, Color b, double amount) => Color.FromRgb(

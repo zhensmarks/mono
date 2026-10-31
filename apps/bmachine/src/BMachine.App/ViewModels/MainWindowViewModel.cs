@@ -145,7 +145,6 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
 
     private void UpdateBackground()
     {
-        BMachine.UI.Services.AppearancePaletteService.RemoveOverrides();
         var isDark = Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
         var hex = isDark ? _cachedDarkBg : _cachedLightBg;
         
@@ -155,18 +154,17 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
             {
                 WindowBackground = new SolidColorBrush(color);
                 
-                // Update Resource for other Windows/Views
+                // Update Resource untuk window lain (hanya jika sudah ada manual override bg).
                 if (Application.Current != null)
                 {
-                    Application.Current.Resources["AppBackgroundBrush"] = WindowBackground;
-                    Application.Current.Resources["CardBackgroundBrush"] = WindowBackground;
-                    Application.Current.Resources["TerminalBackgroundBrush"] = WindowBackground;
-                    Application.Current.Resources["BackgroundDarkBrush"] = WindowBackground;
+                    BMachine.UI.Services.AppearancePaletteService.UpdateManual("AppBackgroundBrush", WindowBackground);
+                    BMachine.UI.Services.AppearancePaletteService.UpdateManual("CardBackgroundBrush", WindowBackground);
+                    BMachine.UI.Services.AppearancePaletteService.UpdateManual("TerminalBackgroundBrush", WindowBackground);
+                    BMachine.UI.Services.AppearancePaletteService.UpdateManual("BackgroundDarkBrush", WindowBackground);
                 }
             }
         }
         catch { }
-        BMachine.UI.Services.AppearancePaletteService.ApplyCurrent();
     }
 
     // Update State

@@ -19,6 +19,7 @@ public sealed class AppearancePaletteTests : IDisposable
 
     public AppearancePaletteTests()
     {
+        AppearancePaletteService.ClearManual();
         AppearancePaletteService.Select("classic");
         _resources = App.Resources.ToDictionary(x => x.Key, x => x.Value);
         _variant = App.RequestedThemeVariant!;
@@ -27,6 +28,7 @@ public sealed class AppearancePaletteTests : IDisposable
 
     public void Dispose()
     {
+        AppearancePaletteService.ClearManual();
         AppearancePaletteService.Select("classic");
         App.RequestedThemeVariant = _variant;
         App.Resources.Clear();
@@ -186,6 +188,32 @@ public sealed class AppearancePaletteTests : IDisposable
         Assert.Equal(spider.Background, db.GetAsync<string>("Appearance.Background.Dark").GetAwaiter().GetResult());
         Assert.Equal(spider.LightBackground, db.GetAsync<string>("Appearance.Background.Light").GetAwaiter().GetResult());
         Assert.Equal(spider, vm.SelectedAppearancePalette);
+    }
+
+    [AvaloniaFact]
+    public void CustomAccentOverrideSurvivesActiveTemplateLayer()
+    {
+        // Skenario user: template spider aktif, user custom accent jadi biru ->
+        // warna harus bertahan di atas layer template (tidak kembali merah).
+        var db = new FakeDatabase();
+        db.SetAsync(AppearancePaletteService.SettingKey, "spider").GetAwaiter().GetResult();
+        var service = new ThemeService(db);
+        service.InitializeAsync().GetAwaiter().GetResult();
+        AppearancePaletteService.Select("spider");
+        Assert.Equal("#D9272E", Hex(ResourceColor("ButtonPrimaryBackgroundBrush")));
+
+        service.SetAccentColor("#3b82f6"); // user ganti merah -> biru
+        Assert.Equal("#3B82F6", Hex(ResourceColor("AccentColor")));
+        Assert.Equal("#3B82F6", Hex(ResourceColor("AccentColorBrush")));
+
+        // Layer recompute (theme switch) tidak boleh menghapus custom user.
+        service.SetTheme(ThemeVariantType.Dark);
+        Assert.Equal("#3B82F6", Hex(ResourceColor("AccentColor")));
+        Assert.Equal("#171717", Hex(ResourceColor("AppBackgroundBrush")));
+
+        // Reset manual -> kembali ke bawaan template spider (merah).
+        AppearancePaletteService.ClearManual();
+        Assert.Equal("#D9272E", Hex(ResourceColor("ButtonPrimaryBackgroundBrush")));
     }
 
     [AvaloniaTheory]

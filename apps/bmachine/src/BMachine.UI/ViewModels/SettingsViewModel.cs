@@ -452,8 +452,6 @@ public partial class SettingsViewModel : ObservableObject
         _themeService.SetWidgetColor("Revision", revision);
         _themeService.SetWidgetColor("Late", late);
         _themeService.SetWidgetColor("Points", points);
-        _themeService.SetBorderColor(ThemeDefaults.BorderDark, true);
-        _themeService.SetBorderColor(ThemeDefaults.BorderLight, false);
         DarkBackgroundColor = darkBg;
         LightBackgroundColor = lightBg;
 
@@ -486,6 +484,8 @@ public partial class SettingsViewModel : ObservableObject
     private void ResetDefaultAppearance()
     {
         if (_themeService == null) return;
+        // Hapus custom manual user, lalu terapkan bawaan template aktif.
+        BMachine.UI.Services.AppearancePaletteService.ClearManual();
         var p = SelectedAppearancePalette; // template yang aktif sekarang
         ApplyAppearancePaletteColors(p);
         StatusMessage = $"Appearance di-reset ke bawaan template {p.Name}.";
@@ -559,8 +559,10 @@ public partial class SettingsViewModel : ObservableObject
         { 
             var brush = Brush.Parse(value);
             DarkBackgroundBrush = brush;
-            // Immediate Preview
-            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new ThemeSettingsChangedMessage(value, LightBackgroundColor));
+            // Immediate preview. Broadcast only on user action, not during DB load (load-time
+            // messages would pin the default bg on top of the template layer).
+            if (!_isInitializing)
+                CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new ThemeSettingsChangedMessage(value, LightBackgroundColor));
         } 
         catch { }
     }
@@ -571,8 +573,8 @@ public partial class SettingsViewModel : ObservableObject
         { 
             var brush = Brush.Parse(value);
             LightBackgroundBrush = brush;
-            // Immediate Preview
-            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new ThemeSettingsChangedMessage(DarkBackgroundColor, value));
+            if (!_isInitializing)
+                CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new ThemeSettingsChangedMessage(DarkBackgroundColor, value));
         } 
         catch { }
     }
