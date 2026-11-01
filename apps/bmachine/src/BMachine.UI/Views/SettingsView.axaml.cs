@@ -77,6 +77,9 @@ public partial class SettingsView : UserControl
                 if (args.PropertyName == nameof(SettingsViewModel.IsSlotDetailsOpen))
                     Avalonia.Threading.Dispatcher.UIThread.Post(UpdateRadialRowLayout);
             };
+            // Always start from the menu list on entry. The SettingsViewModel is cached
+            // and survives across navigations; a stale IsMobileContentOpen=true from a
+            // previous visit would open straight into a page instead of the menu.
             vm.IsMobileContentOpen = false;
             _hasAppliedResponsiveLayout = false;
 
@@ -96,14 +99,14 @@ public partial class SettingsView : UserControl
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             ApplyResponsiveLayout(rootGrid, Math.Max(rootGrid.Bounds.Width, Bounds.Width)));
 
-        // Reopen the page that was open when the view was hidden (SettingsViewModel
-        // is cached and stays alive in the DataTemplate while another view shows).
-        // Without this, the compact two-step layout still reports the list as visible
-        // and every tap lands on the hidden/underlying menu instead of the content.
-        if (DataContext is SettingsViewModel re && re.IsMobileView && re.SelectedMenuIndex >= 0)
+        // Re-entering Settings must always land on the menu list (user expectation:
+        // compact opens to the menu first, then a tap opens the chosen page).
+        // SettingsViewModel is cached, so reset any stale open-page state here.
+        if (DataContext is SettingsViewModel vm && vm.IsMobileView)
         {
-            re.IsMobileContentOpen = true;
-            ApplyResponsiveLayout(rootGrid, Math.Max(rootGrid.Bounds.Width, Bounds.Width));
+            vm.IsMobileContentOpen = false;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                ApplyResponsiveLayout(rootGrid, Math.Max(rootGrid.Bounds.Width, Bounds.Width)));
         }
     }
 
@@ -153,38 +156,46 @@ public partial class SettingsView : UserControl
 
         var properties = e.GetCurrentPoint(this).Properties;
         var sectionList = this.FindControl<ListBox>("SettingsSectionList");
-        if (properties.IsLeftButtonPressed && DataContext is SettingsViewModel compactVm && compactVm.IsMobileView && sectionList is { IsVisible: true, IsHitTestVisible: true })
+        // Saat content terbuka di compact, klik kiri harus tembus ke control konten.
+        // Handler menu hanya aktif saat daftar menu tampil (IsMobileContentOpen=false)
+        // DAN posisi klik benar-benar jatuh di dalam bounds list — bukan di konten
+        // yang tumpang tindih di belakangnya.
+        if (properties.IsLeftButtonPressed && DataContext is SettingsViewModel compactVm
+            && compactVm.IsMobileView && !compactVm.IsMobileContentOpen
+            && sectionList is { IsVisible: true, IsHitTestVisible: true })
         {
             var listPoint = e.GetPosition(sectionList);
-            if (listPoint.X >= 0 && listPoint.Y >= 0 && listPoint.X < sectionList.Bounds.Width && listPoint.Y < sectionList.Bounds.Height)
+            if (listPoint.X < 0 || listPoint.Y < 0
+                || listPoint.X >= sectionList.Bounds.Width
+                || listPoint.Y >= sectionList.Bounds.Height)
+                return;
+
+            var sectionItems = new[]
             {
-                var sectionItems = new[]
-                {
-                    this.FindControl<ListBoxItem>("SettingsItemGeneral"),
-                    this.FindControl<ListBoxItem>("SettingsItemAppearance"),
-                    this.FindControl<ListBoxItem>("SettingsItemAccount"),
-                    this.FindControl<ListBoxItem>("SettingsItemExtensions"),
-                    this.FindControl<ListBoxItem>("SettingsItemScriptManager"),
-                    this.FindControl<ListBoxItem>("SettingsItemPaths"),
-                    this.FindControl<ListBoxItem>("SettingsItemAbout")
-                };
+                this.FindControl<ListBoxItem>("SettingsItemGeneral"),
+                this.FindControl<ListBoxItem>("SettingsItemAppearance"),
+                this.FindControl<ListBoxItem>("SettingsItemAccount"),
+                this.FindControl<ListBoxItem>("SettingsItemExtensions"),
+                this.FindControl<ListBoxItem>("SettingsItemScriptManager"),
+                this.FindControl<ListBoxItem>("SettingsItemPaths"),
+                this.FindControl<ListBoxItem>("SettingsItemAbout")
+            };
 
-                for (var index = 0; index < sectionItems.Length; index++)
-                {
-                    var candidate = sectionItems[index];
-                    if (candidate is null || !candidate.IsVisible || !candidate.IsHitTestVisible)
-                        continue;
+            for (var index = 0; index < sectionItems.Length; index++)
+            {
+                var candidate = sectionItems[index];
+                if (candidate is null || !candidate.IsVisible || !candidate.IsHitTestVisible)
+                    continue;
 
-                    var itemPoint = e.GetPosition(candidate);
-                    if (itemPoint.X < 0 || itemPoint.Y < 0 || itemPoint.X > candidate.Bounds.Width || itemPoint.Y > candidate.Bounds.Height)
-                        continue;
+                var itemPoint = e.GetPosition(candidate);
+                if (itemPoint.X < 0 || itemPoint.Y < 0 || itemPoint.X > candidate.Bounds.Width || itemPoint.Y > candidate.Bounds.Height)
+                    continue;
 
-                    compactVm.SelectedMenuIndex = index;
-                    compactVm.IsMobileContentOpen = true;
-                    InvalidateSettingsSurface();
-                    e.Handled = true;
-                    return;
-                }
+                compactVm.SelectedMenuIndex = index;
+                compactVm.IsMobileContentOpen = true;
+                InvalidateSettingsSurface();
+                e.Handled = true;
+                return;
             }
         }
 
@@ -403,14 +414,33 @@ public partial class SettingsView : UserControl
     }
     private void OnSettingsMenuPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (DataContext is not SettingsViewModel vm || !vm.IsMobileView || e.Source is not Control source)
+        // Klik item menu di single-view = buka halaman item itu.
+        // Langsung return saat content sudah terbuka (list sudah non-hit-test,
+        // tapi guard ini memastikan tidak ada leak jalur lain).
+        if (DataContext is not SettingsViewModel vm || !vm.IsMobileView || vm.IsMobileContentOpen)
             return;
+        if (e.Source is not Control source) return;
 
-        if (source is ListBoxItem || source.FindAncestorOfType<ListBoxItem>() is not null)
+        var clicked = source is ListBoxItem li ? li : source.FindAncestorOfType<ListBoxItem>();
+        if (clicked == null || !clicked.IsVisible || !clicked.IsHitTestVisible) return;
+
+        var index = clicked.Name switch
         {
-            vm.IsMobileContentOpen = true;
-            InvalidateSettingsSurface();
-        }
+            "SettingsItemGeneral" => 0,
+            "SettingsItemAppearance" => 1,
+            "SettingsItemAccount" => 2,
+            "SettingsItemExtensions" => 3,
+            "SettingsItemScriptManager" => 4,
+            "SettingsItemPaths" => 5,
+            "SettingsItemAbout" => 6,
+            _ => -1
+        };
+        if (index < 0) return;
+
+        vm.SelectedMenuIndex = index;
+        vm.IsMobileContentOpen = true;
+        InvalidateSettingsSurface();
+        e.Handled = true;
     }
 
     private void OnRootGridSizeChanged(object? sender, SizeChangedEventArgs e)

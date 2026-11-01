@@ -177,7 +177,10 @@
                     </StackPanel>
                 </Border>
                 <TextBlock Text="PREFERENCES" FontSize="9" FontWeight="SemiBold" LetterSpacing="1.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,8,8"/>
-                <ListBox x:Name="SettingsSectionList" Background="Transparent" SelectedIndex="{Binding SelectedMenuIndex}" PointerPressed="OnSettingsMenuPointerPressed">
+                <ListBox x:Name="SettingsSectionList" Background="Transparent"
+                         SelectedIndex="{Binding SelectedMenuIndex}"
+                         PointerPressed="OnSettingsMenuPointerPressed"
+                         IsHitTestVisible="{Binding !IsMobileContentOpen}">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
                             <Setter Property="Padding" Value="12,10"/>
