@@ -95,6 +95,16 @@ public partial class SettingsView : UserControl
 
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             ApplyResponsiveLayout(rootGrid, Math.Max(rootGrid.Bounds.Width, Bounds.Width)));
+
+        // Reopen the page that was open when the view was hidden (SettingsViewModel
+        // is cached and stays alive in the DataTemplate while another view shows).
+        // Without this, the compact two-step layout still reports the list as visible
+        // and every tap lands on the hidden/underlying menu instead of the content.
+        if (DataContext is SettingsViewModel re && re.IsMobileView && re.SelectedMenuIndex >= 0)
+        {
+            re.IsMobileContentOpen = true;
+            ApplyResponsiveLayout(rootGrid, Math.Max(rootGrid.Bounds.Width, Bounds.Width));
+        }
     }
 
     private async void OnBrowseCredsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
