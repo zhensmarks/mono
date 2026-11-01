@@ -211,14 +211,6 @@ public partial class SettingsView : UserControl
         }
     }
 
-    private void OnMobileBackClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is SettingsViewModel vm && vm.IsMobileView)
-            vm.IsMobileContentOpen = false;
-
-        InvalidateSettingsSurface();
-        e.Handled = true;
-    }
 
     private void InvalidateSettingsSurface()
     {

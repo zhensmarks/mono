@@ -137,22 +137,14 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <!-- Back button (mobile) -->
-            <Button Classes="ghost" Grid.Column="0" Click="OnMobileBackClick"
-                    IsVisible="{Binding IsMobileContentOpen}"
-                     BorderThickness="0" Padding="4" Cursor="Hand" Margin="0,0,6,0">
-                <TextBlock Text="{Binding Language[Nav.Back]}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            </Button>
+            <!-- Back button removed: klik kanan sudah back ke daftar menu (OnRootPointerPressed). -->
             <!-- Accent dot -->
-            <Border Grid.Column="1" Width="4" Height="4" CornerRadius="{DynamicResource RadiusXxs}"
+            <Border Grid.Column="0" Width="4" Height="4" CornerRadius="{DynamicResource RadiusXxs}"
                     Background="{DynamicResource AccentBlueBrush}"
-                    VerticalAlignment="Center" Margin="0,0,8,0"
-                    IsVisible="{Binding !IsMobileContentOpen}"/>
+                    VerticalAlignment="Center" Margin="0,0,8,0"/>
             <!-- Title -->
-            <TextBlock Grid.Column="2" Text="CONTROL CENTER"
+            <TextBlock Grid.Column="1" Text="CONTROL CENTER"
                        FontSize="10" FontWeight="Bold"
                        LetterSpacing="2.5"
                        Foreground="{DynamicResource TextSecondaryBrush}"
