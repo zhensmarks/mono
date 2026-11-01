@@ -108,6 +108,21 @@ public partial class SettingsView : UserControl
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 ApplyResponsiveLayout(rootGrid, Math.Max(rootGrid.Bounds.Width, Bounds.Width)));
         }
+
+        // Resize compact -> desktop: reapply layout every time the window is resized.
+        // SizeChanged on Part_RootGrid catches most cases; this guards against the
+        // view being cached and the grid not receiving a fresh SizeChanged.
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is Window win)
+        {
+            win.SizeChanged += (_, args) =>
+            {
+                var grid2 = this.FindControl<Grid>("Part_RootGrid");
+                if (grid2 is { } g && g.Bounds.Width > 0)
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        ApplyResponsiveLayout(g, g.Bounds.Width));
+            };
+        }
     }
 
     private async void OnBrowseCredsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -449,6 +464,9 @@ public partial class SettingsView : UserControl
             ApplyResponsiveLayout(grid, e.NewSize.Width);
     }
 
+    // Fallback: jika SizeChanged tidak terpicu saat window resize (mis. view ter-cache),
+    // hook event LayoutUpdated (routed) dipanggil setiap layout pass sehingga kolom
+    // akan kembali ke 2-column begitu lebar melewati threshold.
     private void ApplyResponsiveLayout(Grid grid, double width)
     {
         if (DataContext is not SettingsViewModel vm) return;
@@ -480,7 +498,9 @@ public partial class SettingsView : UserControl
         }
         else
         {
-            // Desktop keeps both panes visible and hides the compact-only back affordance.
+            // Desktop: sidebar + pane konten sama-sama visible; flag compact dimatikan.
+            // SelectedMenuIndex tetap = halaman yang terakhir dibuka saat compact,
+            // jadi pane kanan langsung menampilkan halaman itu.
             vm.IsMobileContentOpen = false;
             grid.ColumnDefinitions = new ColumnDefinitions("300, *");
             Grid.SetColumn(sidebar, 0);
