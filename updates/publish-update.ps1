@@ -143,23 +143,31 @@ $json = $manifestObj | ConvertTo-Json -Depth 4
 # App memakainya saat user tertinggal beberapa versi: catatan rilis digabung per versi
 # (header "------- vX -------"). Entry versi lama dipertahankan, versi sama ditimpa.
 $Changelog = Join-Path $Here "changelog.json"
-$history = @()
+$history = New-Object System.Collections.ArrayList
 if (Test-Path -LiteralPath $Changelog) {
     try {
-        $history = @(Get-Content -LiteralPath $Changelog -Raw | ConvertFrom-Json)
+        # ConvertFrom-Json PS 5.1 bisa mengembalikan array sebagai SATU objek;
+        # foreach + @() memaksa enumerasi per entri (jangan pakai pipeline langsung).
+        $parsed = ConvertFrom-Json -InputObject (Get-Content -LiteralPath $Changelog -Raw)
+        foreach ($entry in @($parsed)) {
+            if (-not $entry) { continue }
+            $versionText = "$($entry.version)"
+            if ($versionText -eq "" -or $versionText -eq $Version) { continue }
+            [void]$history.Add($entry)
+        }
     } catch {
         Write-Host "[!] changelog.json lama tidak terbaca, ditulis ulang dari rilis ini." -ForegroundColor Yellow
-        $history = @()
+        $history = New-Object System.Collections.ArrayList
     }
 }
-$history = @($history | Where-Object { $_ -and $_.version -and ("$($_.version)" -ne $Version) })
-$history += [pscustomobject][ordered]@{
+$history.Add([pscustomobject][ordered]@{
     version    = $Version
     releasedAt = $manifestObj.releasedAt
     notes      = $cleanNotes
-}
+}) | Out-Null
+
 # Terbaru dulu, simpan maksimum 60 rilis.
-$history = @($history | Sort-Object -Property @{ Expression = { [version]"$($_.version)" } } -Descending)
+$history = @($history | Sort-Object -Property @{ Expression = { [version]([string]$_.version) } } -Descending)
 if ($history.Count -gt 60) { $history = @($history[0..59]) }
 $changelogJson = ConvertTo-Json -InputObject @($history) -Depth 5
 [System.IO.File]::WriteAllText($Changelog, $changelogJson, (New-Object System.Text.UTF8Encoding($false)))
