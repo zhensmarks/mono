@@ -120,6 +120,20 @@ if (Test-Path $scriptsSrc) {
     }
 }
 
+# Daftar file yang harus DIHAPUS dari install user saat update (satu path relatif
+# per baris, mis. "Scripts/Action/C-REDAKSI.jsx"). File ini dihapus helper update
+# SEBELUM copy payload, supaya rename/restrukturisasi lama tidak tinggal sebagai
+# orphan di PC user. File di daftar yang tidak ada di install di-skip (aman).
+$removeSrc = Join-Path $Here "remove-on-update.txt"
+if (Test-Path $removeSrc) {
+    $removeEntries = @(Get-Content -LiteralPath $removeSrc | Where-Object {
+        $_.Trim() -ne "" -and -not $_.TrimStart().StartsWith("#")
+    })
+    $removeDst = Join-Path $PayloadDir "remove-on-update.txt"
+    $removeEntries | Set-Content -LiteralPath $removeDst -Encoding UTF8
+    Write-Host "      remove-on-update.txt: $($removeEntries.Count) file terdaftar dihapus saat update." -ForegroundColor DarkGray
+}
+
 # --- 4. Manifest ------------------------------------------------------------
 Write-Host "[4/5] Tulis manifest.json..." -ForegroundColor Cyan
 $exeInfo = Get-Item -LiteralPath (Join-Path $PayloadDir "BMachine.App.exe")

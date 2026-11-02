@@ -397,6 +397,21 @@ if (Test-Path -LiteralPath $exe) {
     catch { Write-Log ('backup gagal: ' + $_.Exception.Message) }
 }
 
+# Hapus file lama yang terdaftar di remove-on-update.txt (SEBELUM copy payload,
+# supaya rename/restrukturisasi tidak meninggalkan orphan di install user).
+$removeList = Join-Path $payload 'remove-on-update.txt'
+if (Test-Path -LiteralPath $removeList) {
+    foreach ($rel in (Get-Content -LiteralPath $removeList)) {
+        $rel = $rel.Trim()
+        if ($rel -eq '' -or $rel.StartsWith('#')) { continue }
+        $target = [IO.Path]::Combine($install, $rel.Replace('/', [IO.Path]::DirectorySeparatorChar))
+        if (Test-Path -LiteralPath $target) {
+            try { Remove-Item -LiteralPath $target -Force -ErrorAction Stop; Write-Log ('dihapus: ' + $rel) }
+            catch { Write-Log ('gagal hapus ' + $rel + ': ' + $_.Exception.Message) }
+        }
+    }
+}
+
 $copied = $true
 try {
     Copy-Item -Path (Join-Path $payload '*') -Destination $install -Recurse -Force -ErrorAction Stop
