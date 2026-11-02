@@ -40,7 +40,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Version>15.4.21</Version>
+    <Version>15.4.22</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -55,4 +55,5 @@
 
 
 </Project>
+
 
