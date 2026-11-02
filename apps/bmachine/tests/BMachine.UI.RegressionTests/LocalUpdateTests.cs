@@ -22,6 +22,9 @@ public class LocalUpdateTests : IDisposable
     private void WriteManifest(object payload)
         => File.WriteAllText(Path.Combine(_folder, LocalUpdateService.ManifestFileName), JsonSerializer.Serialize(payload));
 
+    private void WriteChangelog(object payload)
+        => File.WriteAllText(Path.Combine(_folder, LocalUpdateService.ChangelogFileName), JsonSerializer.Serialize(payload));
+
     [Fact]
     public async Task VersiLebihBaruTerdeteksiSebagaiUpdate()
     {
@@ -138,5 +141,65 @@ public class LocalUpdateTests : IDisposable
 
         Assert.False(ok);
         Assert.Contains("SHA256", message);
+    }
+
+    // --- Changelog gabungan (user tertinggal beberapa versi) ---
+
+    [Fact]
+    public async Task ChangelogMenggabungkanVersiYangKetinggalanUrutNaik()
+    {
+        WriteManifest(new { version = "99.9.0", notes = new[] { "catatan manifest" } });
+        WriteChangelog(new object[]
+        {
+            new { version = "99.9.0", notes = new[] { "poin sembilan" } },
+            new { version = "99.8.0", notes = new[] { "poin delapan" } },
+            new { version = "0.0.1", notes = new[] { "versi jauh lebih lama dari app" } },
+        });
+
+        var (info, _) = await LocalUpdateService.CheckAsync(_folder, allowFallback: false);
+
+        // Hanya versi > versi app dan <= versi manifest, urut naik.
+        Assert.Equal(new[] { "99.8.0", "99.9.0" }, info.Changelog.Select(s => s.Version));
+
+        var items = info.BuildNoteItems();
+
+        Assert.True(items[0].IsHeader);
+        Assert.Equal("------- v99.8.0 -------", items[0].Text);
+        Assert.False(items[1].IsHeader);
+        Assert.Equal("poin delapan", items[1].Text);
+        Assert.True(items[2].IsHeader);
+        Assert.Equal("------- v99.9.0 -------", items[2].Text);
+        Assert.Equal("poin sembilan", items[3].Text);
+        Assert.Equal(4, items.Count);
+    }
+
+    [Fact]
+    public async Task TanpaChangelogPakaiCatatanManifestTanpaHeader()
+    {
+        WriteManifest(new { version = "99.10.0", notes = new[] { "satu", "dua", "tiga", "empat", "lima" } });
+
+        var (info, _) = await LocalUpdateService.CheckAsync(_folder, allowFallback: false);
+
+        Assert.Empty(info.Changelog);
+
+        var items = info.BuildNoteItems();
+
+        Assert.Equal(4, items.Count);                      // satu versi: tetap dibatasi 4 poin
+        Assert.All(items, item => Assert.False(item.IsHeader));
+        Assert.Equal("satu", items[0].Text);
+    }
+
+    [Fact]
+    public async Task ChangelogRusakTidakMelemparDanTetapPakaiManifest()
+    {
+        WriteManifest(new { version = "99.11.0", notes = new[] { "aman" } });
+        File.WriteAllText(Path.Combine(_folder, LocalUpdateService.ChangelogFileName), "{ bukan json ]");
+
+        var (info, status) = await LocalUpdateService.CheckAsync(_folder, allowFallback: false);
+
+        Assert.True(info.IsUpdateAvailable);
+        Assert.Empty(info.Changelog);
+        Assert.Single(info.BuildNoteItems());
+        Assert.Contains("99.11.0", status);
     }
 }

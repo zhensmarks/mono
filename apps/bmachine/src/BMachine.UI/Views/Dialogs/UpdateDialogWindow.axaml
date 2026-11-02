@@ -65,12 +65,16 @@
                         <ItemsControl ItemsSource="{Binding UpdateNoteItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:CompileBindings="False">
-                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,1">
-                                        <Border Width="4" Height="4" CornerRadius="{DynamicResource RadiusXxs}" VerticalAlignment="Center"
-                                                Background="{DynamicResource AccentColorBrush}"/>
-                                        <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap" MaxWidth="360"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    </StackPanel>
+                                    <Grid ColumnDefinitions="Auto,*" Margin="0,1">
+                                        <Border Grid.Column="0" Width="4" Height="4" CornerRadius="{DynamicResource RadiusXxs}" VerticalAlignment="Center"
+                                                Background="{DynamicResource AccentColorBrush}" IsVisible="{Binding !IsHeader}"/>
+                                        <!-- Poin catatan -->
+                                        <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="12" TextWrapping="Wrap" MaxWidth="360"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding !IsHeader}"/>
+                                        <!-- Pemisah versi: baris "vX" dari changelog gabungan -->
+                                        <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="12" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="360"
+                                                   Margin="0,8,0,2" Foreground="{DynamicResource AccentColorBrush}" IsVisible="{Binding IsHeader}"/>
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

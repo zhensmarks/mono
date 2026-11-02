@@ -139,6 +139,32 @@ $json = $manifestObj | ConvertTo-Json -Depth 4
 # Tulis tanpa BOM supaya bisa dibaca tool lain (C#/JsonDocument tetap aman, tapi lebih bersih).
 [System.IO.File]::WriteAllText($Manifest, $json, (New-Object System.Text.UTF8Encoding($false)))
 
+# --- 4b. Riwayat changelog ---------------------------------------------------
+# App memakainya saat user tertinggal beberapa versi: catatan rilis digabung per versi
+# (header "------- vX -------"). Entry versi lama dipertahankan, versi sama ditimpa.
+$Changelog = Join-Path $Here "changelog.json"
+$history = @()
+if (Test-Path -LiteralPath $Changelog) {
+    try {
+        $history = @(Get-Content -LiteralPath $Changelog -Raw | ConvertFrom-Json)
+    } catch {
+        Write-Host "[!] changelog.json lama tidak terbaca, ditulis ulang dari rilis ini." -ForegroundColor Yellow
+        $history = @()
+    }
+}
+$history = @($history | Where-Object { $_ -and $_.version -and ("$($_.version)" -ne $Version) })
+$history += [pscustomobject][ordered]@{
+    version    = $Version
+    releasedAt = $manifestObj.releasedAt
+    notes      = $cleanNotes
+}
+# Terbaru dulu, simpan maksimum 60 rilis.
+$history = @($history | Sort-Object -Property @{ Expression = { [version]"$($_.version)" } } -Descending)
+if ($history.Count -gt 60) { $history = @($history[0..59]) }
+$changelogJson = ConvertTo-Json -InputObject @($history) -Depth 5
+[System.IO.File]::WriteAllText($Changelog, $changelogJson, (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "      changelog.json: $($history.Count) rilis tercatat." -ForegroundColor DarkGray
+
 $sizeMb = [math]::Round($exeInfo.Length / 1MB, 1)
 
 # --- 5. Salin ke server NAS (payload dulu, manifest terakhir) -----------------
@@ -163,6 +189,9 @@ if ($OutDir) {
 
         Copy-Item -LiteralPath $Manifest -Destination (Join-Path $OutDir "manifest.json") -Force
         Write-Host "      manifest.json tersalin (versi terlihat oleh user setelah payload lengkap)." -ForegroundColor DarkGray
+
+        Copy-Item -LiteralPath $Changelog -Destination (Join-Path $OutDir "changelog.json") -Force
+        Write-Host "      changelog.json tersalin (riwayat catatan rilis)." -ForegroundColor DarkGray
 
         if ($relock) {
             & icacls $OutDir /inheritance:r /grant:r "Everyone:(OI)(CI)RX" | Out-Null

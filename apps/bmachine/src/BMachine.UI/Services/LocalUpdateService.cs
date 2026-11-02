@@ -35,6 +35,9 @@ public static class LocalUpdateService
 
     public const string ManifestFileName = "manifest.json";
 
+    /// <summary>Riwayat catatan rilis semua versi (opsional; dipakai saat user tertinggal beberapa versi).</summary>
+    public const string ChangelogFileName = "changelog.json";
+
     /// <summary>Batas tunggu baca manifest per kandidat folder.</summary>
     private static readonly TimeSpan ManifestTimeout = TimeSpan.FromSeconds(4);
 
@@ -129,6 +132,7 @@ public static class LocalUpdateService
             info.SourceFolder = candidate;
             info.LatestVersion = parsedManifest.LatestVersion;
             info.Notes = parsedManifest.Notes;
+            info.Changelog = parsedManifest.Changelog;
             info.ReleaseNotes = parsedManifest.ReleaseNotes;
             info.PayloadFolder = parsedManifest.PayloadFolder;
             info.DownloadUrl = parsedManifest.PayloadFolder;
@@ -200,31 +204,16 @@ public static class LocalUpdateService
                     : ""
             };
 
-            if (root.TryGetProperty("notes", out var notesEl))
-            {
-                if (notesEl.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var note in notesEl.EnumerateArray())
-                    {
-                        if (note.ValueKind != JsonValueKind.String) continue;
-                        var text = (note.GetString() ?? "").Trim();
-                        if (!string.IsNullOrEmpty(text)) result.Notes.Add(text);
-                    }
-                }
-                else if (notesEl.ValueKind == JsonValueKind.String)
-                {
-                    foreach (var line in (notesEl.GetString() ?? "").Split('\n'))
-                    {
-                        var text = line.Trim().TrimStart('-', '*', '•').Trim();
-                        if (!string.IsNullOrEmpty(text)) result.Notes.Add(text);
-                    }
-                }
-            }
+            result.Notes = ReadNotes(root);
 
             if (root.TryGetProperty("sizeBytes", out var sizeEl) && sizeEl.ValueKind == JsonValueKind.Number)
             {
                 result.SizeBytes = sizeEl.TryGetInt64(out var size) ? size : 0;
             }
+
+            // Changelog versi yang belum dipasang (opsional): dipakai dialog update untuk
+            // menggabungkan catatan rilis kalau user tertinggal beberapa versi.
+            result.Changelog = ReadChangelog(folder, result.LatestVersion);
 
             info = result;
             return true;
@@ -234,6 +223,86 @@ public static class LocalUpdateService
             error = $"Gagal membaca manifest: {ex.Message}";
             return false;
         }
+    }
+
+    /// <summary>Baca array/string "notes" jadi daftar poin (dipakai manifest maupun changelog).</summary>
+    private static List<string> ReadNotes(JsonElement parent)
+    {
+        var notes = new List<string>();
+        if (!parent.TryGetProperty("notes", out var notesEl)) return notes;
+
+        if (notesEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var note in notesEl.EnumerateArray())
+            {
+                if (note.ValueKind != JsonValueKind.String) continue;
+                var text = (note.GetString() ?? "").Trim();
+                if (!string.IsNullOrEmpty(text)) notes.Add(text);
+            }
+        }
+        else if (notesEl.ValueKind == JsonValueKind.String)
+        {
+            foreach (var line in (notesEl.GetString() ?? "").Split('\n'))
+            {
+                var text = line.Trim().TrimStart('-', '*', '•').Trim();
+                if (!string.IsNullOrEmpty(text)) notes.Add(text);
+            }
+        }
+
+        return notes;
+    }
+
+    /// <summary>
+    /// Baca changelog.json (opsional) dan ambil versi yang LEBIH BARU dari versi app tapi
+    /// tidak melewati versi manifest (payloadnya belum ada). Urut naik: versi terlama dulu,
+    /// supaya dialog update bisa menampilkan "------- vX -------" dari yang paling lama.
+    /// Folder tanpa changelog.json atau file rusak = daftar kosong (pakai notes manifest).
+    /// </summary>
+    private static List<UpdateChangelogSection> ReadChangelog(string folder, string latestVersion)
+    {
+        var sections = new List<UpdateChangelogSection>();
+
+        try
+        {
+            var path = Path.Combine(folder, ChangelogFileName);
+            if (!File.Exists(path)) return sections;
+
+            var current = ParseVersion(GetCurrentVersion());
+            var latest = ParseVersion(latestVersion);
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return sections;
+
+            foreach (var entry in doc.RootElement.EnumerateArray())
+            {
+                if (entry.ValueKind != JsonValueKind.Object) continue;
+
+                var versionText = entry.TryGetProperty("version", out var versionEl) &&
+                                  versionEl.ValueKind == JsonValueKind.String
+                    ? (versionEl.GetString() ?? "").Trim().TrimStart('v', 'V')
+                    : "";
+                var parsed = ParseVersion(versionText);
+                if (parsed == null) continue;
+                if (current != null && parsed <= current) continue;   // sudah dipasang user
+                if (latest != null && parsed > latest) continue;      // belum ada payload-nya
+
+                var notes = ReadNotes(entry);
+                if (notes.Count == 0) continue;
+
+                sections.Add(new UpdateChangelogSection { Version = versionText, Notes = notes });
+            }
+
+            sections.Sort((a, b) =>
+            {
+                var va = ParseVersion(a.Version);
+                var vb = ParseVersion(b.Version);
+                if (va == null || vb == null) return string.CompareOrdinal(a.Version, b.Version);
+                return va.CompareTo(vb);
+            });
+        }
+        catch { /* changelog opsional: rusak/tidak terbaca = pakai catatan manifest */ }
+
+        return sections;
     }
 
     private static Version? ParseVersion(string value)

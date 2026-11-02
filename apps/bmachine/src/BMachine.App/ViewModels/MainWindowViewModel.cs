@@ -347,8 +347,9 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     /// <summary>Ukuran payload siap tampil (mis. "147 MB"); kosong kalau manifest lama.</summary>
     [ObservableProperty] private string _updateSizeText = "";
 
-    /// <summary>Poin catatan rilis untuk daftar berbutir di banner.</summary>
-    [ObservableProperty] private ObservableCollection<string> _updateNoteItems = new();
+    /// <summary>Baris catatan rilis di dialog: header "------- vX -------" per versi yang
+    /// ketinggalan, atau poin biasa kalau cuma satu versi (lihat UpdateInfo.BuildNoteItems).</summary>
+    [ObservableProperty] private ObservableCollection<BMachine.UI.Models.UpdateNoteItem> _updateNoteItems = new();
 
     /// <summary>Isi seluruh state banner dari satu UpdateInfo (dipakai jalur startup &amp; pesan).</summary>
     private void ShowUpdateBanner(BMachine.UI.Models.UpdateInfo info)
@@ -362,7 +363,7 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         UpdateNotes = info.NotesText;
         UpdateNotesInline = info.NotesInline;
         UpdateSizeText = info.SizeText;
-        UpdateNoteItems = new ObservableCollection<string>(info.Notes.Take(4));
+        UpdateNoteItems = new ObservableCollection<BMachine.UI.Models.UpdateNoteItem>(info.BuildNoteItems());
         UpdateActionStatus = "";
         IsUpdateAvailable = true;
     }

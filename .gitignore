@@ -129,3 +129,4 @@ verify_shots/
 /updates/payload/
 /updates/manifest.json
 /updates/notes.txt
+/updates/changelog.json
