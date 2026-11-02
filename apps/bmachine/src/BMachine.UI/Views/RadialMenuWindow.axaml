@@ -31,25 +31,26 @@
                         IsVisible="{Binding !IsNavigation}"
                         Command="{Binding DataContext.ExecuteItemCommand, ElementName=RadialRoot}"
                         CommandParameter="{Binding}">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="0">
+                    <Grid>
                         <!-- Ikon (jika ada) -->
-                        <PathIcon Data="{Binding Icon}" Width="14" Height="14"
+                        <PathIcon Data="{Binding Icon}" Width="18" Height="18"
                                   VerticalAlignment="Center" HorizontalAlignment="Center"
                                   IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                        <!-- Singkatan SELALU tampil, jadi tidak ada tombol yang kosong/transparan -->
+                        <!-- Singkatan: HANYA kalau tidak ada ikon. Auto-generated (GenerateShortName),
+                             jadi tidak akan kosong — aturan "jangan dua-duanya". -->
                         <TextBlock Text="{Binding ShortName}"
-                                   FontSize="8" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                   IsVisible="{Binding ShortName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                    </StackPanel>
+                                   IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
+                    </Grid>
                 </Button>
 
                 <!-- Navigation button (More / Back) -->
                 <Button Classes="NavButton"
                         IsVisible="{Binding IsNavigation}"
                         IsHitTestVisible="False">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="0">
+                    <Grid>
                         <!-- Tiga titik digambar manual: geometri PathIcon yang pipih ditempel ke atas kotak -->
                         <StackPanel Orientation="Horizontal" Spacing="3"
                                     HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -58,16 +59,18 @@
                             <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
                             <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>
-                        <PathIcon Data="{Binding Icon}" Width="14" Height="14"
+                        <!-- Ikon (jika ada) -->
+                        <PathIcon Data="{Binding Icon}" Width="16" Height="16"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"
                                   Foreground="{DynamicResource TextSecondaryBrush}"
                                   IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        <!-- Singkatan: HANYA kalau tidak ada ikon -->
                         <TextBlock Text="{Binding ShortName}"
-                                   FontSize="8" FontWeight="Bold"
+                                   FontSize="10" FontWeight="Bold"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   IsVisible="{Binding ShortName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                    </StackPanel>
+                                   IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
+                    </Grid>
                 </Button>
             </Grid>
         </DataTemplate>

@@ -994,18 +994,17 @@
 
                                                                             Cursor="SizeAll">
                                                                         <Grid>
-                                                                                                                                                    <Border IsVisible="{Binding IsSelected}" Width="44" Height="44" CornerRadius="{DynamicResource RadiusPill}" BorderBrush="White" BorderThickness="2" Margin="-4"/>
-                                                                                                                                                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="0">
-                                                                                                                                                        <Viewbox Width="14" Height="14" IsVisible="{Binding Script.IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                                                                                                            <Path Data="{Binding Script.IconGeometry}" Fill="Transparent" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
-                                                                                                                                                        </Viewbox>
-                                                                                                                                                        <!-- Singkatan SELALU tampil (auto dari nama kalau belum ada kode),
-                                                                                                                                                             supaya tidak ada slot preview yang kosong -->
-                                                                                                                                                        <TextBlock Text="{Binding Script.DisplayCode}" FontSize="7" FontWeight="Bold" Foreground="White"
-                                                                                                                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                                                                                                                   IsVisible="{Binding Script.DisplayCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                                                                                                                                                    </StackPanel>
-                                                                                                                                                </Grid>
+                                                                            <Border IsVisible="{Binding IsSelected}" Width="44" Height="44" CornerRadius="{DynamicResource RadiusPill}" BorderBrush="White" BorderThickness="2" Margin="-4"/>
+                                                                            <Viewbox Width="18" Height="18" IsVisible="{Binding Script.IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                <Path Data="{Binding Script.IconGeometry}" Fill="Transparent" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
+                                                                            </Viewbox>
+                                                                            <!-- Singkatan: HANYA kalau tidak ada ikon. DisplayCode auto-jadi
+                                                                                 dari nama (GenerateShortName) kalau kode belum diisi,
+                                                                                 jadi tidak akan kosong — aturan "jangan dua-duanya". -->
+                                                                            <TextBlock Text="{Binding Script.DisplayCode}" FontSize="10" FontWeight="Bold" Foreground="White"
+                                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                       IsVisible="{Binding Script.IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                                        </Grid>
                                                                     </Button>
                                                                 </Grid>
                                                             </DataTemplate>
