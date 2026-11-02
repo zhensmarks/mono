@@ -119,12 +119,10 @@ public class NavigationNoIconsRegressionTests
         Assert.Contains("Height\" Value=\"14\"", source);
         Assert.Contains("ListBoxItem:selected /template/ Border#PART_Root", source);
 
-        var back = document.Descendants(Avalonia + "Button").Single(button => Attribute(button, "Click") == "OnMobileBackClick");
-        Assert.False(ContainsVisualIcon(back));
-        Assert.False(ContainsNavigationGlyph(back));
-        Assert.Equal("{Binding Language[Nav.Back]}", Attribute(Assert.Single(back.Descendants(Avalonia + "TextBlock")), "Text"));
-        Assert.Equal("4", Attribute(back, "Padding"));
-        Assert.Equal("0,0,6,0", Attribute(back, "Margin"));
+        // Tombol back compact sengaja dihapus (klik kanan sudah kembali ke menu, 8a75f6c) —
+        // jangan ada lagi Button Click=OnMobileBackClick di SettingsView.
+        Assert.DoesNotContain(document.Descendants(Avalonia + "Button"),
+            button => Attribute(button, "Click") == "OnMobileBackClick");
 
         var language = ReadRepoFile("apps/bmachine/src/BMachine.UI/Services/LanguageService.cs");
         Assert.Contains("[\"Nav.Back\"] = \"Back\"", language);

@@ -105,4 +105,34 @@ public class CommentAttachmentLinkTests
 
         Assert.Equal("![attachment](https://trello.com/1/cards/a/attachments/x.png)", comments[0].Text);
     }
+
+    [Fact]
+    public void Markdown_hasil_upload_sudah_di_comment_loader_tidak_membelit_sisipan()
+    {
+        // SendComment menyematkan ![file.png](.../ATT1/file.png) ke comment;
+        // action addAttachmentToCard bisa melaporkan URL preview (.../ATT1/preview.png).
+        // String beda, attachment sama → jangan dobel.
+        var comments = new List<TrelloComment> { Comment("c1",
+            "cek hasil\n\n![file.png](https://trello.com/1/cards/abc/attachments/ATT1/file.png)", T0, "M1") };
+        var attachments = Attachments((T0.AddSeconds(-30), "M1",
+            "https://trello.com/1/cards/abc/attachments/ATT1/preview.png"));
+
+        BaseTrelloListViewModel.LinkAttachmentsToComments(comments, attachments);
+
+        Assert.DoesNotContain("![attachment]", comments[0].Text);
+        Assert.Equal(2, comments[0].Text.Split("![").Length); // persis satu gambar
+    }
+
+    [Fact]
+    public void AppendImageMarkdown_pakai_nama_file_sebagai_alt_supaya_selamat_saat_edit()
+    {
+        var url = "https://trello.com/1/cards/abc/attachments/ATT1/foto.png";
+
+        Assert.Equal($"![foto.png]({url})",
+            BaseTrelloListViewModel.AppendImageMarkdown("", url, "foto.png"));
+        Assert.Equal($"hasil\n\n![foto.png]({url})",
+            BaseTrelloListViewModel.AppendImageMarkdown("hasil", url, "foto.png"));
+        Assert.Equal($"![image]({url})",
+            BaseTrelloListViewModel.AppendImageMarkdown("  ", url, ""));
+    }
 }

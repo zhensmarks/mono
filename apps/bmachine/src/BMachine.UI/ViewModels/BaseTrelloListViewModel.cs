@@ -601,7 +601,10 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
 
             using var client = BMachine.UI.Services.TrelloRequestSecurity.CreateApiClient(apiKey, token);
 
-            // 1. Upload pending attachments first
+            // 1. Upload pending attachments first; URL hasil upload disisipkan ke teks comment
+            //    sebagai markdown ![nama](url) → gambar tampil DI DALAM comment (di Trello + app).
+            //    Upload memang selalu jadi attachment (satu-satunya jalur API Trello), tapi
+            //    gambarnya juga muncul inline di comment, bukan cuma di panel attachment.
             if (HasPendingAttachments)
             {
                 foreach (var att in PendingAttachments.ToList())
@@ -615,14 +618,19 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
                             GetMimeType(att.FilePath));
                         form.Add(fileContent, "file", System.IO.Path.GetFileName(att.FilePath));
-                        await client.PostAsync(attUrl, form);
+                        using var uploadResponse = await client.PostAsync(attUrl, form);
+                        if (!uploadResponse.IsSuccessStatusCode) continue;
+
+                        var uploadedUrl = await ReadUploadedAttachmentUrlAsync(uploadResponse);
+                        if (IsImageUrl(uploadedUrl))
+                            text = AppendImageMarkdown(text, uploadedUrl, System.IO.Path.GetFileName(att.FilePath));
                     }
                     catch { /* Skip failed attachments */ }
                 }
                 ClearPendingAttachments();
             }
 
-            // 2. Post comment text (if any)
+            // 2. Post comment text — termasuk saat teks asli kosong (comment berisi gambar saja)
             if (!string.IsNullOrWhiteSpace(text))
             {
                 var url = $"https://api.trello.com/1/cards/{SelectedCard.Id}/actions/comments?text={Uri.EscapeDataString(text)}";
@@ -684,6 +692,33 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                            clean.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
                 }
 
+    /// <summary>Ambil URL file dari respons upload attachment Trello (field `url`).</summary>
+    private static async Task<string> ReadUploadedAttachmentUrlAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("url", out var urlProp) &&
+                urlProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                return urlProp.GetString() ?? "";
+        }
+        catch { }
+        return "";
+    }
+
+    /// <summary>
+    /// Sisipkan markdown gambar ke teks comment. Alt = nama file (bukan "attachment") supaya
+    /// TIDAK kena StripAttachmentMarkdown saat edit — strip hanya untuk sisipan loader lokal
+    /// yang tidak tersimpan ke Trello; markdown hasil upload ini MEMANG ada di Trello.
+    /// </summary>
+    internal static string AppendImageMarkdown(string text, string url, string fileName)
+    {
+        var alt = string.IsNullOrWhiteSpace(fileName) ? "image" : fileName;
+        var md = $"![{alt}]({url})";
+        return string.IsNullOrWhiteSpace(text) ? md : text.TrimEnd() + "\n\n" + md;
+    }
+
             
     /// <summary>
     /// Pasangkan foto (action addAttachmentToCard) ke comment yang dikirim bersamanya:
@@ -710,11 +745,34 @@ public abstract partial class BaseTrelloListViewModel : ObservableObject
                     att.MemberId != c.MemberCreatorId) continue;  // uploader harus penulis comment
                 if (Math.Abs(gap) < bestGap) { bestGap = Math.Abs(gap); target = c; }
             }
-            if (target == null || target.Text.Contains(att.Url)) continue;
+            if (target == null || ContainsAttachmentUrl(target.Text, att.Url)) continue;
             if (!BMachine.UI.Services.TrelloRequestSecurity.TryNormalizeMediaUri(att.Url, out var safeUrl)) continue;
             var md = "\n\n![attachment](" + safeUrl.AbsoluteUri + ")";
             target.Text = string.IsNullOrWhiteSpace(target.Text) ? md.TrimStart('\n') : target.Text + md;
         }
+    }
+
+    /// <summary>
+    /// True kalau teks comment sudah menampilkan attachment itu: URL persis, atau id
+    /// attachment sama (respons upload memakai `url`, action bisa memakai `previewUrl` →
+    /// string beda tapi attachment yang sama — jangan dobel).
+    /// </summary>
+    internal static bool ContainsAttachmentUrl(string text, string url)
+    {
+        if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(url)) return false;
+        if (text.Contains(url, StringComparison.Ordinal)) return true;
+        var id = GetAttachmentId(url);
+        return id.Length > 0 && text.Contains("/attachments/" + id + "/", StringComparison.Ordinal);
+    }
+
+    private static string GetAttachmentId(string url)
+    {
+        const string marker = "/attachments/";
+        var i = url.IndexOf(marker, StringComparison.Ordinal);
+        if (i < 0) return "";
+        var rest = url[(i + marker.Length)..];
+        var slash = rest.IndexOf('/');
+        return slash <= 0 ? "" : rest[..slash];
     }
 
     protected async Task LoadComments(string cardId)
