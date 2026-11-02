@@ -461,8 +461,15 @@ disimpan di memori (`UpdateInfo`). Hasil itu dipakai dua tempat, tidak pernah di
 
 **Struktur dialog (atas ke bawah):** Border card `RadiusMd` + border `SeparatorBrush` → header
 (ikon unduh 42x42 `RadiusPill` di atas `AccentColorBrush`, label "PEMBARUAN TERSEDIA" 11 bold +
-badge versi `RadiusPill`, baris "Versi saat ini: 11") → badan scroll (teks keterangan 12.5 +
-`ItemsControl` butir catatan `UpdateNoteItems` maks 4) → baris aksi.
+badge versi `RadiusPill`, baris "Versi saat ini: 11") → badan scroll (teks keterangan 12 +
+`ItemsControl` `UpdateNoteItems`: poin 11.5 berbutir, atau header versi `------- vX -------` 11 bold
+kalau user tertinggal >1 versi) → baris aksi.
+
+**Ukuran compact (jangan dinaikkan lagi):** `Width="380"` + `SizeToContent="Height"` +
+`MinHeight="200"` `MaxHeight="520"` + `ScrollViewer MaxHeight="200"` untuk badan. Dialog HANYA
+setinggi isinya, jadi tidak lagi 460x540: terukur 380x200 (satu versi tertinggal), 380x266 (2 versi),
+380x324 (9 versi → badan scroll, tinggi terkunci). Struktur Grid `Auto,Auto,Auto` (bukan `Auto,*,Auto`,
+yang memaksa baris badan mengisi sisa tinggi window).
 
 **Angka baris aksi (§4):** kedua tombol `MinHeight="36"` `Padding="16,8"` `Radius 6` — pakai
 `MinHeight`, BUKAN `Height`. Tombol primary memakai `BorderThickness="1"` dengan
