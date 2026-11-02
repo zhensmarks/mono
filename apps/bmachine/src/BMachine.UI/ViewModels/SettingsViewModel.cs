@@ -3294,12 +3294,31 @@ public partial class ScriptItem : ObservableObject
         {
             if (!string.IsNullOrEmpty(EditIconKey) && Application.Current!.TryGetResource(EditIconKey, null, out var res) && res is StreamGeometry geom)
                 return geom;
-            return null;
+            return null; 
+        }
+    }
+
+    /// <summary>
+    /// Kode untuk pratinjau radial menu (preview). Singkatan auto-jadi kalau
+    /// ShortCode kosong (logika sama dengan GenerateShortName di RadialMenuItem),
+    /// supaya tombol preview tidak pernah terlihat kosong/transparan.
+    /// </summary>
+    public string DisplayCode
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(ShortCode))
+                return ShortCode;
+            return string.IsNullOrWhiteSpace(Name) ? "" : RadialMenuItem.GenerateShortName(Name);
         }
     }
 
     partial void OnIconKeyChanged(string value) => OnPropertyChanged(nameof(IconGeometry));
     partial void OnEditIconKeyChanged(string value) => OnPropertyChanged(nameof(EditIconGeometry));
+
+    // Preview radial menu harus ikut berubah saat nama/kode edit (DisplayCode)
+    partial void OnNameChanged(string value) => OnPropertyChanged(nameof(DisplayCode));
+    partial void OnShortCodeChanged(string value) => OnPropertyChanged(nameof(DisplayCode));
 
     [RelayCommand]
     private void ToggleEdit()
