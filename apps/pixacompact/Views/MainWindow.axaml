@@ -26,6 +26,7 @@
         <cv:BooleanToStatusBrushConverter x:Key="BooleanToStatusBrushConverter"/>
         <cv:BooleanToActiveAccountBrushConverter x:Key="BooleanToActiveAccountBrushConverter"/>
         <cv:PathToBitmapConverter x:Key="PathToBitmapConverter"/>
+        <cv:StringEqualsConverter x:Key="StringEqualsConverter"/>
 
         <!-- Icons -->
         <StreamGeometry x:Key="IconCheck">M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z</StreamGeometry>
@@ -1037,21 +1038,65 @@
                                          CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                          Padding="22,18"
                                          BoxShadow="0 10 40 0 #55000000">
-                                     <Grid RowDefinitions="Auto, *, Auto">
+                                     <Grid RowDefinitions="Auto, Auto, *, Auto">
                                          <!-- Header -->
-                                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,15">
+                                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10">
                                              <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                              <TextBlock Text="Pengaturan" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                          </StackPanel>
 
-                                         <!-- Content (Scrollable) -->
-                                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" Padding="0,0,16,0">
+                                         <!-- Tab kategori: kelompokkan pengaturan supaya tidak menyampah -->
+                                         <ListBox Grid.Row="1"
+                                                  ItemsSource="{Binding SettingsSections}"
+                                                  SelectedItem="{Binding SettingsSection}"
+                                                  Background="Transparent" BorderThickness="0" Padding="0"
+                                                  Margin="0,0,0,12"
+                                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                  ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                                             <ListBox.ItemsPanel>
+                                                 <ItemsPanelTemplate>
+                                                     <StackPanel Orientation="Horizontal" Spacing="6"/>
+                                                 </ItemsPanelTemplate>
+                                             </ListBox.ItemsPanel>
+                                             <ListBox.Styles>
+                                                 <Style Selector="ListBoxItem">
+                                                     <Setter Property="Padding" Value="12,6"/>
+                                                     <Setter Property="MinHeight" Value="0"/>
+                                                     <Setter Property="CornerRadius" Value="6"/>
+                                                     <Setter Property="FontSize" Value="11"/>
+                                                     <Setter Property="Background" Value="Transparent"/>
+                                                     <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                                 </Style>
+                                                 <Style Selector="ListBoxItem:pointerover">
+                                                     <Setter Property="Background" Value="#15FFFFFF"/>
+                                                 </Style>
+                                                 <Style Selector="ListBoxItem:selected">
+                                                     <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+                                                     <Setter Property="Foreground" Value="White"/>
+                                                     <Setter Property="FontWeight" Value="SemiBold"/>
+                                                 </Style>
+                                             </ListBox.Styles>
+                                         </ListBox>
+
+                                         <!-- Content (Scrollable):5 section sesuai tab aktif -->
+                                         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden" Padding="0,0,16,0">
                                              <StackPanel Spacing="14">
-                                                <TextBlock Text="Model Remove BG"
-                                                           FontSize="12"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                                           IsVisible="False"/>
+                                                 <StackPanel Spacing="14"
+                                                             IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Engine}">
+                                                 <TextBlock Text="Model Remove BG"
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Foreground="{DynamicResource TextSecondaryBrush}"
+                                                            IsVisible="False"/>
+                                                 <!-- Info engine aktif: tampil kalau BUKAN REMBG (section kosong tanpa ini) -->
+                                                 <Border Background="#10000000" BorderBrush="{DynamicResource CardBorderBrush}"
+                                                         BorderThickness="1" CornerRadius="4" Padding="12"
+                                                         IsVisible="{Binding !IsRembgSelected}">
+                                                     <TextBlock FontSize="11" TextWrapping="Wrap"
+                                                                Foreground="{DynamicResource TextSecondaryBrush}">
+                                                         <Run Text="Engine aktif: "/><Run Text="{Binding SelectedEngineDisplayName}" FontWeight="SemiBold"/><Run Text=". Pengaturan REMBG (model, GPU, alpha matting, resource) tampil di sini saat engine REMBG dipilih dari judul aplikasi."/>
+                                                     </TextBlock>
+                                                 </Border>
                                                 <!-- Remove BG Engine -->
                                                 <Grid ColumnDefinitions="160, *" IsVisible="False">
                                                     <TextBlock Grid.Column="0" Text="Model Remove BG" VerticalAlignment="Center"
@@ -1163,7 +1208,8 @@
                                                              AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="120" Padding="8,6"/>
                                                 </Grid>
 
-                                                <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,4,0,4"/>
+                                                </StackPanel>
+                                                <StackPanel Spacing="14" IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Browser}">
                                                 <TextBlock Text="Browser"
                                                            FontSize="12"
                                                            FontWeight="SemiBold"
@@ -1236,7 +1282,8 @@
                                                 </Grid>
 
 
-                                                <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2,0,2"/>
+                                                </StackPanel>
+                                                <StackPanel Spacing="14" IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Akun}">
                                                 <TextBlock Text="Daftar Akun (Round-Robin)"
                                                            FontSize="12" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -1315,7 +1362,8 @@
                                                         </StackPanel>
                                                     </StackPanel>
                                                 </Border>
-                                                <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,2,0,2"/>
+                                                </StackPanel>
+                                                <StackPanel Spacing="14" IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Tampilan}">
                                                 <TextBlock Text="Tampilan Warna"
                                                            FontSize="12"
                                                            FontWeight="SemiBold"
@@ -1366,8 +1414,8 @@
                                                     </StackPanel>
                                                  </Grid>
 
-                                                <!-- Pembaruan (kanal LAN ala BMachine) -->
-                                                <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,4,0,4"/>
+                                                </StackPanel>
+                                                <StackPanel Spacing="14" IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Pembaruan}">
                                                 <TextBlock Text="Pembaruan"
                                                            FontSize="12"
                                                            FontWeight="SemiBold"
@@ -1403,11 +1451,12 @@
                                                             Background="{DynamicResource AccentBlueBrush}"
                                                             Foreground="White"/>
                                                 </StackPanel>
+                                                </StackPanel>
                                              </StackPanel>
                                          </ScrollViewer>
 
                                          <!-- Footer -->
-                                         <Grid Grid.Row="2" ColumnDefinitions="*, *" Margin="0,14,0,0">
+                                         <Grid Grid.Row="3" ColumnDefinitions="*, *" Margin="0,14,0,0">
                                              <Button Grid.Column="0"
                                                      Command="{Binding SaveSettingsAndCloseCommand}"
                                                      IsEnabled="{Binding IsSettingsDirty}"

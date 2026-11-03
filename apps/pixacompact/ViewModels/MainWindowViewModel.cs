@@ -668,6 +668,12 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>Versi app yang sedang berjalan (ditampilkan di Pengaturan).</summary>
     public string CurrentVersionText => "v" + LocalUpdateService.GetCurrentVersion();
 
+    // ── Pengaturan berkelompok (tab kategori) ──
+    /// <summary>Tab kategori aktif di overlay Pengaturan.</summary>
+    [ObservableProperty] private string _settingsSection = "Engine";
+    /// <summary>Daftar tab kategori Pengaturan (urutan tampil).</summary>
+    public string[] SettingsSections { get; } = { "Engine", "Browser", "Akun", "Tampilan", "Pembaruan" };
+
     /// <summary>Cek update sekali saat startup; kalau ada -> toast + status di Pengaturan.</summary>
     private async Task CheckAppUpdateBackgroundAsync()
     {

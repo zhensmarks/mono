@@ -125,3 +125,22 @@ public class PathToBitmapConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// True kalau string sama dengan ConverterParameter (case-insensitive).
+/// Dipakai untuk menampilkan section konten Pengaturan sesuai tab kategori
+/// (SettingsSection: Engine/Browser/Akun/Tampilan/Pembaruan).
+/// </summary>
+public class StringEqualsConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not string current || parameter is not string expected) return false;
+        return string.Equals(current, expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
