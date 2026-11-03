@@ -10,7 +10,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>appicon.ico</ApplicationIcon>
     <PlaywrightPlatform>win-x64</PlaywrightPlatform>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
   </PropertyGroup>
 
   <!-- Publishing Settings -->
