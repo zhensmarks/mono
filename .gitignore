@@ -130,3 +130,7 @@ verify_shots/
 /updates/manifest.json
 /updates/notes.txt
 /updates/changelog.json
+# Artefak publish PixaCompact (sama polanya)
+/updates/payload-pixacompact/
+/updates/manifest-pixacompact.json
+/updates/changelog-pixacompact.json

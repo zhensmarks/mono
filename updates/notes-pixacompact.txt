@@ -1,0 +1,4 @@
+Fix input beda output: guard stale-canvas & jumlah elemen batch
+Skip diganti bukti output-index.json; output lama diproses ulang sekali
+Kanal update LAN: cek & perbarui dari Pengaturan
+DESIGN_SYSTEM.md: aturan design/layout terpusat PixaCompact

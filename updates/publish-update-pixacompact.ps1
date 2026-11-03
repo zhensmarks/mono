@@ -221,8 +221,9 @@ if ($OutDir) {
 
 # Bersihkan artefak newline ekstra di csproj (pola Get-Content -Raw + Set-Content
 # selalu menambah SATU blank line EOF; trim supaya working tree bersih pasca-publish).
+# Pertahankan tepat SATU newline di akhir file.
 $raw = [System.IO.File]::ReadAllText($Csproj)
-$trimmed = $raw -replace "(\s*)$", ""
+$trimmed = $raw -replace "(\r?\n)+$", "`r`n"
 if ($trimmed -ne $raw) { [System.IO.File]::WriteAllText($Csproj, $trimmed, (New-Object System.Text.UTF8Encoding($false))) }
 
 Write-Host ""
