@@ -593,6 +593,7 @@ public partial class MainWindowViewModel : ObservableObject
                     item.Status = "Selesai";
                     item.IsDone = true;
                     item.IsFailed = false;
+                    OutputProvenance.Record(item.FilePath, resultPath); // bukti output milik input ini
                 }
                 else if (!item.IsDone) // jangan timpa Selesai dengan Gagal
                 {
@@ -651,8 +652,84 @@ public partial class MainWindowViewModel : ObservableObject
         _ = CheckRembgUpdatesAsync();
         _ = LoadAvailableRembgModelsAsync();
 
+        // Cek update aplikasi via kanal LAN (fire & forget, tidak menampilkan apa-apa
+        // kalau sudah terbaru; kalau ada versi baru -> toast + tombol di Pengaturan).
+        _ = CheckAppUpdateBackgroundAsync();
+
         // BUG FIX: gallery ikut tab aktif. Subscription tidak lagi dicantolkan ke tab
         // pertama saja; lihat RebuildGalleryForTab yang dipanggil saat ganti tab.
+    }
+
+    // ── Update aplikasi (kanal LAN, ala BMachine) ──
+    private UpdateInfo? _pendingUpdate;
+    [ObservableProperty] private string _updateStatusText = "Belum diperiksa";
+    [ObservableProperty] private bool _hasPendingUpdate;
+    [ObservableProperty] private bool _isCheckingUpdate;
+    /// <summary>Versi app yang sedang berjalan (ditampilkan di Pengaturan).</summary>
+    public string CurrentVersionText => "v" + LocalUpdateService.GetCurrentVersion();
+
+    /// <summary>Cek update sekali saat startup; kalau ada -> toast + status di Pengaturan.</summary>
+    private async Task CheckAppUpdateBackgroundAsync()
+    {
+        try
+        {
+            var (info, status) = await LocalUpdateService.CheckAsync(null);
+            Dispatcher.UIThread.Post(() =>
+            {
+                UpdateStatusText = status;
+                if (info.IsUpdateAvailable)
+                {
+                    _pendingUpdate = info;
+                    HasPendingUpdate = true;
+                    ShowToast($"Update v{info.LatestVersion} tersedia — buka Pengaturan", "🔄");
+                }
+            });
+        }
+        catch
+        {
+            // Kanal update tidak wajib; gagal cek = diam (lihat status di Pengaturan).
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckUpdate()
+    {
+        if (IsCheckingUpdate) return;
+        IsCheckingUpdate = true;
+        try
+        {
+            var (info, status) = await LocalUpdateService.CheckAsync(null);
+            UpdateStatusText = status;
+            _pendingUpdate = info.IsUpdateAvailable ? info : null;
+            HasPendingUpdate = info.IsUpdateAvailable;
+            if (!info.IsUpdateAvailable) ShowToast("Sudah versi terbaru ✓", "✅");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText = $"Gagal cek: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ApplyUpdate()
+    {
+        if (_pendingUpdate == null) { ShowToast("Tidak ada update menunggu", "⚠️"); return; }
+        var (ok, message) = await LocalUpdateService.ApplyAsync(_pendingUpdate);
+        ShowToast(message, ok ? "🔄" : "❌");
+        if (ok)
+        {
+            // Helper PowerShell menunggu proses ini keluar lalu membuka app lagi.
+            await Task.Delay(800);
+            if (Avalonia.Application.Current?.ApplicationLifetime is
+                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+        }
     }
 
     /// <summary>BUG FIX: isi gallery mengikuti tab aktif. Lepas handler tab lama,
@@ -1839,19 +1916,20 @@ public partial class MainWindowViewModel : ObservableObject
                         ? bi.ExpectedResultPath
                         : GetResultPath(bi.FilePath, job);
                     bool isSameFile = string.Equals(bi.FilePath, expectedPath, StringComparison.OrdinalIgnoreCase);
-                    if (!isSameFile && File.Exists(expectedPath))
+                    // Skip HANYA kalau output-index.json membuktikan output ini memang
+                    // berasal dari input ini (path+size+mtime cocok). Tanpa record /
+                    // input berubah = tidak dipercaya -> diproses ulang (membersihkan
+                    // output salah dari run lama; bug "input beda output").
+                    if (!isSameFile && OutputProvenance.ShouldSkip(bi.FilePath, expectedPath))
                     {
                         var info = new FileInfo(expectedPath);
-                        if (info.Length >= 1024)
-                        {
-                            bi.ResultPath = expectedPath;
-                            bi.ResultSize = info.Length;
-                            bi.Status = "Selesai (Skipped)";
-                            bi.IsDone = true;
-                            bi.Progress = 100;
-                            bi.IsProcessing = false;
-                            continue;
-                        }
+                        bi.ResultPath = expectedPath;
+                        bi.ResultSize = info.Length;
+                        bi.Status = "Selesai (Skipped)";
+                        bi.IsDone = true;
+                        bi.Progress = 100;
+                        bi.IsProcessing = false;
+                        continue;
                     }
                     toProcess.Add(bi);
                 }
@@ -1904,6 +1982,7 @@ public partial class MainWindowViewModel : ObservableObject
                                 bi.Progress = 100;
                                 bi.Status = "Selesai";
                                 bi.IsDone = true;
+                                OutputProvenance.Record(bi.FilePath, rp);
                             }
                             else
                             {
@@ -1961,6 +2040,9 @@ public partial class MainWindowViewModel : ObservableObject
             _cts?.Dispose();
             _cts = null;
 
+            // Simpan indeks bukti output (skip valid / input berubah) ke disk.
+            OutputProvenance.SaveIfDirty();
+
             // BUG FIX: saat di-Stop, flag tab (spinner "memproses") harus ikut direset,
             // kalau tidak tab terlihat seperti masih memproses selamanya.
             foreach (var t in Tabs)
@@ -2006,7 +2088,7 @@ public partial class MainWindowViewModel : ObservableObject
         item.IsFailed = false;
 
         // --- SKIP LOGIC ---
-        // BUG FIX: pakai nama output yang sudah di-resolve saat scan (anti tabrakan nama sama).
+        // Pakai output-index.json: skip hanya kalau output terbukti milik input ini.
         var expectedPath = !string.IsNullOrEmpty(item.ExpectedResultPath)
             ? item.ExpectedResultPath
             : GetResultPath(item.FilePath, job);
@@ -2014,21 +2096,16 @@ public partial class MainWindowViewModel : ObservableObject
         // Ensure we are not skipping if input is same as output (e.g. PNG input)
         bool isSameFile = string.Equals(item.FilePath, expectedPath, StringComparison.OrdinalIgnoreCase);
 
-        if (!isSameFile && File.Exists(expectedPath))
+        if (!isSameFile && OutputProvenance.ShouldSkip(item.FilePath, expectedPath))
         {
             var info = new FileInfo(expectedPath);
-            // Only skip if file is valid/large enough (> 1KB)
-            // If < 1KB, we assume it's corrupt or failed, so we re-process.
-            if (info.Length >= 1024)
-            {
-                item.ResultPath = expectedPath;
-                item.ResultSize = info.Length;
-                item.Status = "Selesai (Skipped)";
-                item.IsDone = true;
-                item.Progress = 100;
-                item.IsProcessing = false;
-                return;
-            }
+            item.ResultPath = expectedPath;
+            item.ResultSize = info.Length;
+            item.Status = "Selesai (Skipped)";
+            item.IsDone = true;
+            item.Progress = 100;
+            item.IsProcessing = false;
+            return;
         }
         // ------------------
 
@@ -2081,6 +2158,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 item.ResultPath = resultPath;
                 item.ResultSize = new FileInfo(resultPath).Length;
+                OutputProvenance.Record(item.FilePath, resultPath);
             }
         }
         catch (OperationCanceledException)
@@ -2467,6 +2545,7 @@ public partial class MainWindowViewModel : ObservableObject
             IsProcessing = false;
             _cts?.Dispose();
             _cts = null;
+            OutputProvenance.SaveIfDirty();
             CheckRetryVisibility();
         }
     }

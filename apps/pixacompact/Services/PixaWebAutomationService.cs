@@ -458,42 +458,27 @@ public class PixaWebAutomationService : IDisposable
                     .filter(Boolean)
         ");
 
-        if (elementIds == null || elementIds.Length == 0)
+        // GUARD JUMLAH: DOM editor harus berisi TEPAT sebanyak file yang diupload.
+        // Kalau site menolak/menambah elemen (format tak didukung, sesi lama, dsb),
+        // pemetaan per-indeks akan GESER dan tiap file menerima hasil milik file
+        // lain (input beda output). Daripada menulis salah, kembalikan semua null
+        // -> pemroses jatuh ke jalur per-file yang identitasnya jelas.
+        if (elementIds == null || elementIds.Length != filePaths.Count)
         {
-            // Fallback: struktur berubah, pakai thumbnail grid berurutan seperti semula.
-            var fallbackSrcs = await page.EvaluateAsync<string[]>(@"
-                () => {
-                    const imgs = [...document.images];
-                    const out = [];
-                    const seen = new Set();
-                    for (const img of imgs) {
-                        if (!img || !img.src) continue;
-                        const s = String(img.src).toLowerCase();
-                        if (!s.includes('pixelcut') && !s.includes('pixa')) continue;
-                        if (seen.has(img.src)) continue;
-                        seen.add(img.src);
-                        out.push(img.src);
-                    }
-                    return out;
-                }
-            ");
-
-            var fb = new List<byte[]?>();
-            foreach (var src in fallbackSrcs)
-                fb.Add(await DownloadSrcAsBytes(page, src));
-
-            for (int i = 0; i < filePaths.Count && i < fb.Count; i++)
-                result[i] = fb[i];
-            return result;
+            int found = elementIds?.Length ?? 0;
+            Console.WriteLine($"[PixaWebAutomation] Jumlah elemen ({found}) != jumlah file ({filePaths.Count}) -> batalkan pemetaan batch, proses per-file.");
+            return result; // semua null -> fallback per-file
         }
 
-        int itemCount = Math.Min(elementIds.Length, filePaths.Count);
-        for (int i = 0; i < itemCount; i++)
+        // Set src yang SUDAH diambil per sub-batch: canvas yang menampilkan ulang
+        // gambar elemen lain (dblclick gagal / race) terdeteksi dan tidak di-fetch.
+        var fetchedSrcs = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < elementIds.Length; i++)
         {
             ct.ThrowIfCancellationRequested();
             try
             {
-                result[i] = await LoadFullResolutionForElementAsync(page, elementIds[i]);
+                result[i] = await LoadFullResolutionForElementAsync(page, elementIds[i], fetchedSrcs);
             }
             catch { /* biarkan null, ditandai gagal di atas */ }
         }
@@ -581,8 +566,12 @@ public class PixaWebAutomationService : IDisposable
     /// Ambil gambar hasil RESOLUSI PENUH untuk satu item batch.
     /// Item di-double-click di grid supaya gambar full-res dimuat ke canvas utama,
     /// lalu bytes diambil dari &lt;img.object-contain&gt;.
+    /// <paramref name="fetchedSrcs"/> berisi src yang sudah diambil untuk elemen lain
+    /// pada sub-batch ini: kalau dblclick gagal mengganti canvas (timeout), canvas
+    /// masih menampilkan hasil elemen SEBELUMNYA -> jangan fetch (itu input beda
+    /// output), kembalikan null supaya item diproses ulang per-file.
     /// </summary>
-    private static async Task<byte[]?> LoadFullResolutionForElementAsync(IPage page, string elementId)
+    private static async Task<byte[]?> LoadFullResolutionForElementAsync(IPage page, string elementId, HashSet<string> fetchedSrcs)
     {
         // Catat src canvas sebelum dipilih, supaya bisa deteksi perubahan.
         var beforeSrc = await page.EvaluateAsync<string?>(@"
@@ -610,6 +599,7 @@ public class PixaWebAutomationService : IDisposable
         if (!changed) return null;
 
         // Tunggu canvas memuat gambar (src berubah atau minimal naturalWidth besar).
+        bool srcChanged = true; // beforeSrc null = canvas kosong -> src baru pasti perubahan
         try
         {
             await page.WaitForFunctionAsync(@"
@@ -621,9 +611,29 @@ public class PixaWebAutomationService : IDisposable
                 }
             ", beforeSrc, new PageWaitForFunctionOptions { Timeout = 15000 });
         }
-        catch { /* best effort; tetap coba ambil */ }
+        catch { srcChanged = false; /* diperiksa di bawah: boleh lanjut HANYA kalau src baru & belum pernah diambil */ }
 
         await Task.Delay(600);
+
+        // GUARD STALE CANVAS: baca src canvas saat ini.
+        var currentSrc = await page.EvaluateAsync<string?>(@"
+            () => { const im = document.querySelector('img.object-contain'); return im ? im.src : null; }
+        ");
+        if (string.IsNullOrEmpty(currentSrc)) return null;
+        if (!srcChanged && !string.IsNullOrEmpty(beforeSrc) && currentSrc == beforeSrc)
+        {
+            // Dblclick tidak mengganti canvas. Aman hanya kalau canvas menampilkan
+            // gambar yang BELUM pernah diambil (mis. elemen pertama yang sudah
+            // terpilih otomatis sebelum loop). Kalau sudah pernah diambil = hasil
+            // elemen lain -> jangan fetch (bug input beda output).
+            if (fetchedSrcs.Contains(currentSrc)) return null;
+        }
+        if (fetchedSrcs.Contains(currentSrc))
+        {
+            // Src yang sama sudah dipakai elemen lain di sub-batch ini = canvas
+            // tidak berpindah ke elemen ini. Tolak.
+            return null;
+        }
 
         // Ambil bytes dari canvas utama (full-res), validasi PNG.
         var base64 = await page.EvaluateAsync<string?>(@"
@@ -648,6 +658,7 @@ public class PixaWebAutomationService : IDisposable
 
         var bytes = Convert.FromBase64String(parts[1]);
         if (!IsPngSignature(bytes)) return null;
+        fetchedSrcs.Add(currentSrc); // tandai: src ini sudah dipakai satu elemen
         return bytes;
     }
 

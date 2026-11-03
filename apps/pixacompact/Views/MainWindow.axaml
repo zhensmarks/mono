@@ -1365,6 +1365,44 @@
                                                                  VerticalAlignment="Center" FontSize="12" Height="28" Padding="8,4"/>
                                                     </StackPanel>
                                                  </Grid>
+
+                                                <!-- Pembaruan (kanal LAN ala BMachine) -->
+                                                <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,4,0,4"/>
+                                                <TextBlock Text="Pembaruan"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <Grid ColumnDefinitions="160, *">
+                                                    <TextBlock Grid.Column="0" Text="Versi saat ini" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding CurrentVersionText}"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </Grid>
+                                                <Grid ColumnDefinitions="160, *">
+                                                    <TextBlock Grid.Column="0" Text="Status" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding UpdateStatusText}"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                               FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="240"
+                                                               ToolTip.Tip="{Binding UpdateStatusText}"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </Grid>
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <Button Content="Periksa Update"
+                                                            Command="{Binding CheckUpdateCommand}"
+                                                            IsEnabled="{Binding !IsCheckingUpdate}"
+                                                            Height="28" FontSize="11"
+                                                            Background="Transparent"
+                                                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                    <Button Content="Perbarui Sekarang"
+                                                            Command="{Binding ApplyUpdateCommand}"
+                                                            IsVisible="{Binding HasPendingUpdate}"
+                                                            Height="28" FontSize="11" FontWeight="SemiBold"
+                                                            Background="{DynamicResource AccentBlueBrush}"
+                                                            Foreground="White"/>
+                                                </StackPanel>
                                              </StackPanel>
                                          </ScrollViewer>
 
