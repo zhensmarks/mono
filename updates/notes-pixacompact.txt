@@ -1,2 +1,3 @@
-Pengaturan dikelompokkan jadi 5 tab: Engine, Browser, Akun, Tampilan, Pembaruan
-Tab Engine menampilkan info engine aktif saat REMBG tidak dipilih
+Pengaturan jadi halaman penuh seperti BMachine, bukan popup melayang
+Semua menu pengaturan tampil sekaligus; tab jadi lompatan scroll ke bagiannya
+Kontrol pengaturan menyesuaikan lebar (tidak terpotong di window kecil)

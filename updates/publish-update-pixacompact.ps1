@@ -197,6 +197,9 @@ if ($OutDir) {
             Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
         } catch {
             Write-Host "[5/5] Folder NAS terkunci - membuka sementara..." -ForegroundColor Yellow
+            # /T: ACE explicit M ke semua file anak SEBELUM lock — tanpa ini, /inheritance:r
+            # di langkah kunci membuang ACE turunan anak (anak jadi tanpa izin = denied).
+            & icacls $OutDir /grant "Everyone:(OI)(CI)M" /T /C | Out-Null
             & icacls $OutDir /grant "Everyone:(OI)(CI)M" | Out-Null
             $relock = $true
         }

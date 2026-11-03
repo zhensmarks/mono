@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -10,7 +10,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>appicon.ico</ApplicationIcon>
     <PlaywrightPlatform>win-x64</PlaywrightPlatform>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
   </PropertyGroup>
 
   <!-- Publishing Settings -->
@@ -53,3 +53,4 @@
   </ItemGroup>
 
 </Project>
+
