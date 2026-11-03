@@ -200,12 +200,27 @@ public partial class MainWindow : Window
     }
 
     private void CloseSettings(object? sender, PointerPressedEventArgs e)
-    {
-        if (DataContext is MainWindowViewModel vm)
         {
-            vm.CloseSettingsCommand.Execute(null);
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.CloseSettingsCommand.Execute(null);
+            }
         }
-    }
+
+        // Tab pengaturan = anchor: semua section selalu tampil, klik tab scroll ke bagiannya
+        private void OnSettingsTabChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (DataContext is not MainWindowViewModel vm) return;
+            var section = vm.SettingsSection switch
+            {
+                "Browser" => this.FindControl<StackPanel>("SecBrowser"),
+                "Akun" => this.FindControl<StackPanel>("SecAkun"),
+                "Tampilan" => this.FindControl<StackPanel>("SecTampilan"),
+                "Pembaruan" => this.FindControl<StackPanel>("SecPembaruan"),
+                _ => this.FindControl<StackPanel>("SecEngine"),
+            };
+            section?.BringIntoView();
+        }
 
     private void CloseAlert(object? sender, PointerPressedEventArgs e)
     {

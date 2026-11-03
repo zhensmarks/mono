@@ -16,6 +16,7 @@
         ExtendClientAreaTitleBarHeightHint="-1"
         WindowStartupLocation="CenterScreen"
         CanResize="True"
+        MinWidth="380" MinHeight="350"
         CornerRadius="0"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent">
@@ -1022,22 +1023,11 @@
 
 
 <!-- Overlay: Settings -->
-                            <Grid Grid.Column="0" Grid.ColumnSpan="3" IsVisible="{Binding IsSettingsOpen}" ZIndex="100">
-                                 <!-- Background Dimmer (Button for Click-to-Close) -->
-                                 <Button Background="#AA000000" Command="{Binding CloseSettingsCommand}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                         CornerRadius="0" BorderThickness="0">
-                                     <Button.Styles>
-                                         <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                             <Setter Property="Background" Value="#AA000000"/>
-                                         </Style>
-                                     </Button.Styles>
-                                 </Button>
-
-                                 <Border Width="460" MaxHeight="500" VerticalAlignment="Center" HorizontalAlignment="Center"
-                                         Background="{DynamicResource CardBackgroundBrush}"
-                                         CornerRadius="12" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                         Padding="22,18"
-                                         BoxShadow="0 10 40 0 #55000000">
+                            <!-- Pengaturan = halaman penuh (seperti BMachine), bukan popup melayang -->
+                            <Grid Grid.Column="0" Grid.ColumnSpan="3" IsVisible="{Binding IsSettingsOpen}" ZIndex="100"
+                                  Background="{DynamicResource AppBackgroundBrush}">
+                                <Border Background="{DynamicResource AppBackgroundBrush}"
+                                        Padding="20,14,20,10">
                                      <Grid RowDefinitions="Auto, Auto, *, Auto">
                                          <!-- Header -->
                                          <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10">
@@ -1046,7 +1036,8 @@
                                          </StackPanel>
 
                                          <!-- Tab kategori: kelompokkan pengaturan supaya tidak menyampah -->
-                                         <ListBox Grid.Row="1"
+                                         <ListBox Grid.Row="1" x:Name="TabSettings"
+                                                  SelectionChanged="OnSettingsTabChanged"
                                                   ItemsSource="{Binding SettingsSections}"
                                                   SelectedItem="{Binding SettingsSection}"
                                                   Background="Transparent" BorderThickness="0" Padding="0"
@@ -1055,7 +1046,8 @@
                                                   ScrollViewer.VerticalScrollBarVisibility="Disabled">
                                              <ListBox.ItemsPanel>
                                                  <ItemsPanelTemplate>
-                                                     <StackPanel Orientation="Horizontal" Spacing="6"/>
+                                                     <!-- Wrap: tab turun baris kalau tidak muat, tidak terpotong di window sempit -->
+                                                    <WrapPanel Orientation="Horizontal"/>
                                                  </ItemsPanelTemplate>
                                              </ListBox.ItemsPanel>
                                              <ListBox.Styles>
@@ -1081,8 +1073,7 @@
                                          <!-- Content (Scrollable):5 section sesuai tab aktif -->
                                          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden" Padding="0,0,16,0">
                                              <StackPanel Spacing="14">
-                                                 <StackPanel Spacing="14"
-                                                             IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Engine}">
+                                                 <StackPanel Spacing="14" x:Name="SecEngine">
                                                  <TextBlock Text="Model Remove BG"
                                                             FontSize="12"
                                                             FontWeight="SemiBold"
@@ -1101,7 +1092,7 @@
                                                 <Grid ColumnDefinitions="160, *" IsVisible="False">
                                                     <TextBlock Grid.Column="0" Text="Model Remove BG" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
-                                                    <ComboBox Grid.Column="1" Width="154" HorizontalAlignment="Right" Height="28"
+                                                    <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Height="28"
                                                               SelectedItem="{Binding SelectedRemoveBgEngineOption}"
                                                               ItemsSource="{Binding RemoveBgEngineOptions}">
                                                         <ComboBox.ItemTemplate>
@@ -1116,7 +1107,7 @@
                                                 <Grid ColumnDefinitions="160, *" IsVisible="{Binding IsRembgSelected}">
                                                     <TextBlock Grid.Column="0" Text="REMBG Model" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
-                                                    <ComboBox Grid.Column="1" Width="154" HorizontalAlignment="Right" Height="28"
+                                                    <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" Height="28"
                                                               SelectedItem="{Binding RembgModel}"
                                                               ItemsSource="{Binding RembgModels}"/>
                                                 </Grid>
@@ -1125,7 +1116,7 @@
                                                 <Grid ColumnDefinitions="160, *" IsVisible="{Binding IsRembgSelected}">
                                                     <TextBlock Grid.Column="0" Text="Path rembg (opsional)" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
-                                                    <TextBox Grid.Column="1" Text="{Binding RembgExecutablePath}" Width="154" HorizontalAlignment="Right"
+                                                    <TextBox Grid.Column="1" Text="{Binding RembgExecutablePath}" HorizontalAlignment="Stretch"
                                                              Watermark="contoh: C:\Python312\Scripts\rembg.exe" Height="28" Padding="8,4"/>
                                                 </Grid>
 
@@ -1203,13 +1194,13 @@
                                                 <Grid ColumnDefinitions="160, *" IsVisible="False">
                                                     <TextBlock Grid.Column="0" Text="Daftar Proxy" VerticalAlignment="Top"
                                                                Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Margin="0,4,0,0"/>
-                                                    <TextBox Grid.Column="1" Text="{Binding MixProxyList}" Width="220" HorizontalAlignment="Right"
+                                                    <TextBox Grid.Column="1" Text="{Binding MixProxyList}" HorizontalAlignment="Stretch"
                                                              Watermark="opsional: kosongkan untuk mode proxy otomatis"
                                                              AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="120" Padding="8,6"/>
                                                 </Grid>
 
                                                 </StackPanel>
-                                                <StackPanel Spacing="14" IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Browser}">
+                                                <StackPanel Spacing="14" x:Name="SecBrowser">
                                                 <TextBlock Text="Browser"
                                                            FontSize="12"
                                                            FontWeight="SemiBold"
@@ -1223,7 +1214,7 @@
                                                     <TextBlock Grid.Column="0" Text="Reset Sesi Browser" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
                                                     <Button Grid.Column="1" Command="{Binding ResetBrowserCommand}"
-                                                            Width="220" HorizontalAlignment="Right" Height="28"
+                                                            HorizontalAlignment="Stretch" Height="28"
                                                             Content="🔄 Reset Browser Session"
                                                             ToolTip.Tip="Tutup browser Playwright yang idle. Browser fresh akan dibuat saat proses berikutnya."/>
                                                 </Grid>
@@ -1276,14 +1267,14 @@
                                                     <TextBlock Grid.Column="0" Text="Login Akun Pixelcut" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
                                                     <Button Grid.Column="1" Command="{Binding OpenBrowserForLoginCommand}"
-                                                            Width="220" HorizontalAlignment="Right" Height="28"
+                                                            HorizontalAlignment="Stretch" Height="28"
                                                             Content="🌐 Buka Browser (Login Akun)"
                                                             ToolTip.Tip="Buka browser untuk login akun pixelcut. Sesi login tersimpan di profil, jadi proses otomatis berikutnya sudah login."/>
                                                 </Grid>
 
 
                                                 </StackPanel>
-                                                <StackPanel Spacing="14" IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Akun}">
+                                                <StackPanel Spacing="14" x:Name="SecAkun">
                                                 <TextBlock Text="Daftar Akun (Round-Robin)"
                                                            FontSize="12" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -1363,7 +1354,7 @@
                                                     </StackPanel>
                                                 </Border>
                                                 </StackPanel>
-                                                <StackPanel Spacing="14" IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Tampilan}">
+                                                <StackPanel Spacing="14" x:Name="SecTampilan">
                                                 <TextBlock Text="Tampilan Warna"
                                                            FontSize="12"
                                                            FontWeight="SemiBold"
@@ -1390,7 +1381,7 @@
                                                             <Button Classes="swatch" Background="#ef4444" Command="{Binding SetAccentColorCommand}" CommandParameter="#ef4444" ToolTip.Tip="Merah"/>
                                                             <Button Classes="swatch" Background="#ec4899" Command="{Binding SetAccentColorCommand}" CommandParameter="#ec4899" ToolTip.Tip="Pink"/>
                                                         </StackPanel>
-                                                        <TextBox Text="{Binding AccentColorHex}" Width="154" HorizontalAlignment="Right" Watermark="#HEX"
+                                                        <TextBox Text="{Binding AccentColorHex}" HorizontalAlignment="Stretch" Watermark="#HEX"
                                                                  VerticalAlignment="Center" FontSize="12" Height="28" Padding="8,4"/>
                                                     </StackPanel>
                                                  </Grid>
@@ -1409,13 +1400,13 @@
                                                             <Button Content="⟲" FontSize="12" Padding="0" Width="24" Height="24"
                                                                     Command="{Binding ResetBackgroundColorCommand}" ToolTip.Tip="Reset ke default tema"/>
                                                         </StackPanel>
-                                                        <TextBox Text="{Binding CurrentBackgroundColorHex}" Width="154" HorizontalAlignment="Right" Watermark="Default tema"
+                                                        <TextBox Text="{Binding CurrentBackgroundColorHex}" HorizontalAlignment="Stretch" Watermark="Default tema"
                                                                  VerticalAlignment="Center" FontSize="12" Height="28" Padding="8,4"/>
                                                     </StackPanel>
                                                  </Grid>
 
                                                 </StackPanel>
-                                                <StackPanel Spacing="14" IsVisible="{Binding SettingsSection, Converter={StaticResource StringEqualsConverter}, ConverterParameter=Pembaruan}">
+                                                <StackPanel Spacing="14" x:Name="SecPembaruan">
                                                 <TextBlock Text="Pembaruan"
                                                            FontSize="12"
                                                            FontWeight="SemiBold"
