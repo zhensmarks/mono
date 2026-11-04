@@ -159,6 +159,8 @@ public partial class MantraGandaViewModel : ObservableObject
                         
                         string? fallbackPsd = masterFiles.FirstOrDefault();
 
+                        bool usedParentMatch = false;
+
                         for (int i = 0; i < dataFiles.Length; i++)
                         {
                             if (_isCancelled) break;
@@ -166,9 +168,24 @@ public partial class MantraGandaViewModel : ObservableObject
                             var df = dataFiles[i];
                             var relPath = Path.GetRelativePath(DataFolder, df);
                             var relDir = Path.GetDirectoryName(relPath)?.Replace('\\', '/').Trim() ?? "";
-                            
-                            string? selectedMaster = psdMap.TryGetValue(relDir, out var mapped) ? mapped : fallbackPsd;
-                            
+
+                            // Master dicari di folder yang sama dulu; kalau tidak ada, naik ke folder induk
+                            // (mis. data di "KELAS B1/LAYER KE 1", master di "KELAS B1").
+                            string? selectedMaster = null;
+                            var probe = relDir;
+                            while (true)
+                            {
+                                if (psdMap.TryGetValue(probe, out var mapped))
+                                {
+                                    selectedMaster = mapped;
+                                    if (!string.Equals(probe, relDir, StringComparison.OrdinalIgnoreCase)) usedParentMatch = true;
+                                    break;
+                                }
+                                if (probe.Length == 0) break;
+                                probe = Path.GetDirectoryName(probe)?.Replace('\\', '/').Trim() ?? "";
+                            }
+                            selectedMaster ??= fallbackPsd;
+
                             if (selectedMaster == null)
                             {
                                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
@@ -205,6 +222,10 @@ public partial class MantraGandaViewModel : ObservableObject
                                 });
                             }
                         }
+
+                        if (usedParentMatch)
+                            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                                Logs.Add("[INFO] Sebagian master PSD diambil dari folder induk (data lebih dalam dari master)"));
                     }
                     else
                     {
