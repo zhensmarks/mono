@@ -5,6 +5,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,6 +14,18 @@ using System.Linq;
 using ImageMagick;
 using NaturalSort.Extension;
 namespace BMachine.UI.ViewModels;
+
+public class MantraNamaSettings
+{
+    [JsonPropertyName("useRegex")]
+    public bool UseRegex { get; set; } = false;
+    [JsonPropertyName("caseSensitive")]
+    public bool CaseSensitive { get; set; } = false;
+    [JsonPropertyName("matchAllOccurrences")]
+    public bool MatchAllOccurrences { get; set; } = true;
+    [JsonPropertyName("excludeExtension")]
+    public bool ExcludeExtension { get; set; } = true;
+}
 public class RenamePreviewItem : ObservableObject
 {
     public string OriginalName { get; set; } = "";
@@ -101,6 +115,44 @@ public record AdvancedRenameUndo(string OldPath, string NewPath);
 
 public partial class MantraNamaViewModel : ObservableObject
 {
+    private static readonly string SettingsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "BMachine", "mantra-nama-settings.json");
+
+    private static void SaveSettings(MantraNamaSettings settings)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(SettingsPath);
+            if (dir != null) Directory.CreateDirectory(dir);
+            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(SettingsPath, json);
+        }
+        catch { }
+    }
+
+    private static MantraNamaSettings LoadSettings()
+    {
+        try
+        {
+            if (File.Exists(SettingsPath))
+            {
+                var json = File.ReadAllText(SettingsPath);
+                return JsonSerializer.Deserialize<MantraNamaSettings>(json) ?? new();
+            }
+        }
+        catch { }
+        return new();
+    }
+
+    public MantraNamaViewModel()
+    {
+        var loaded = LoadSettings();
+        UseRegex = loaded.UseRegex;
+        CaseSensitive = loaded.CaseSensitive;
+        MatchAllOccurrences = loaded.MatchAllOccurrences;
+        ExcludeExtension = loaded.ExcludeExtension;
+    }
     [ObservableProperty] private bool _isAdvancedMode;
     [ObservableProperty] private bool _isThumbnailMode;
     [ObservableProperty] private bool _autoPairEnabled = true;
@@ -907,12 +959,31 @@ public partial class MantraNamaViewModel : ObservableObject
     private List<RenamePreviewItem> _masterList = new();
     public ObservableCollection<RenamePreviewItem> PreviewList { get; } = new();
 
-    partial void OnFindTextChanged(string value) => RefreshPreview();
+    partial void OnUseRegexChanged(bool value) { RefreshPreview(); SaveCurrentSettings(); }
     partial void OnReplaceTextChanged(string value) => RefreshPreview();
-    partial void OnUseRegexChanged(bool value) => RefreshPreview();
-    partial void OnCaseSensitiveChanged(bool value) => RefreshPreview();
-    partial void OnMatchAllOccurrencesChanged(bool value) => RefreshPreview();
-    partial void OnExcludeExtensionChanged(bool value) => RefreshPreview();
+    partial void OnCaseSensitiveChanged(bool value) { RefreshPreview(); SaveCurrentSettings(); }
+    partial void OnMatchAllOccurrencesChanged(bool value) { RefreshPreview(); SaveCurrentSettings(); }
+    partial void OnExcludeExtensionChanged(bool value) { RefreshPreview(); SaveCurrentSettings(); }
+
+    private void SaveCurrentSettings()
+    {
+        SaveSettings(new MantraNamaSettings
+        {
+            UseRegex = UseRegex,
+            CaseSensitive = CaseSensitive,
+            MatchAllOccurrences = MatchAllOccurrences,
+            ExcludeExtension = ExcludeExtension
+        });
+    }
+
+    [RelayCommand]
+    public void RemoveParentheses()
+    {
+        FindText = @"\(\s*\)|\([^)]*\)";
+        ReplaceText = "";
+        UseRegex = true;
+        StatusText = "Siap hapus semua kurung (1) → 1 | (teks) → kosong";
+    }
 
     public void AddFromDirectory(string directory)
     {
@@ -1052,7 +1123,7 @@ public partial class MantraNamaViewModel : ObservableObject
             {
                 int count = 0;
                 var itemsToProcess = PreviewList.ToList();
-                var successfulItems = new System.Collections.Generic.List<RenamePreviewItem>();
+                var renamedItems = new System.Collections.Generic.List<(RenamePreviewItem item, string newPath)>();
 
                 foreach (var item in itemsToProcess)
                 {
@@ -1064,17 +1135,17 @@ public partial class MantraNamaViewModel : ObservableObject
                     if (!File.Exists(newPath))
                     {
                         File.Move(oldPath, newPath);
-                        successfulItems.Add(item);
+                        renamedItems.Add((item, newPath));
                         count++;
                     }
                 }
                 
                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
                 {
-                    foreach (var item in successfulItems)
+                    foreach (var (item, newPath) in renamedItems)
                     {
-                        _masterList.Remove(item);
-                        PreviewList.Remove(item);
+                        item.OriginalPath = newPath;
+                        item.OriginalName = item.NewName;
                     }
                     StatusText = $"Selesai. {count} file berhasil direname.";
                     RefreshPreview();

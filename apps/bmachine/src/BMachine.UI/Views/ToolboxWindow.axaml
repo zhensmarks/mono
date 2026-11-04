@@ -135,9 +135,17 @@
             <Setter Property="FontSize" Value="12.5"/>
         </Style>
 
-        <!-- PRIMARY BUTTON — always visible, explicitly targets Avalonia template border -->
+        <!-- PRIMARY BUTTON — always visible, explicitly targets Avalonia template border -->
 
-        <!-- SECONDARY / OUTLINED BUTTON -->
+
+
+
+
+
+        <!-- SECONDARY / OUTLINED BUTTON -->
+
+
+
 
         <!-- DANGER -->
         <Style Selector="Button.Warn">
@@ -315,7 +323,11 @@
             <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 
-        <!-- ADVANCED MODE ENTRY BUTTON (accent gradient pill) -->
+        <!-- ADVANCED MODE ENTRY BUTTON (accent gradient pill) -->
+
+
+
+
 
     </Window.Styles>
 
@@ -762,7 +774,7 @@
 
                     <!-- Konfigurasi & Action (Bawah - Fixed Height) -->
                     <Border Grid.Row="2" Classes="Card">
-                        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
                                 <!-- Find / Replace row -->
                                 <Grid Grid.Row="0" ColumnDefinitions="*,10,*" Margin="0,0,0,12">
@@ -806,8 +818,15 @@
                                     </Grid>
                                 </Button>
 
+                                <!-- Quick Presets Row -->
+                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,6,0,12">
+                                    <TextBlock Grid.Column="0" Text="Preset Cepat:" FontSize="11" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Hapus Kurung" Padding="10,4" FontSize="11" Margin="8,0,0,0"
+                                            Command="{Binding MantraNamaVM.RemoveParenthesesCommand}" ToolTip.Tip="Ubah (1) -> 1 dan hapus teks dalam kurung"/>
+                                </Grid>
+
                                 <!-- Action row -->
-                                <Grid Grid.Row="3" ColumnDefinitions="*,10,Auto,8,Auto">
+                                <Grid Grid.Row="4" ColumnDefinitions="*,10,Auto,8,Auto">
                                     <TextBlock Grid.Column="0" Classes="Body"
                                                Text="{Binding MantraNamaVM.StatusText}"
                                                VerticalAlignment="Center"

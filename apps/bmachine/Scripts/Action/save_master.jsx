@@ -113,7 +113,16 @@ function runAdvancedMode(c){
       if(!/\.psd$/i.test(sf.name))sf=new File(sf.fsName+".psd");
       var so=new PhotoshopSaveOptions();so.embedColorProfile=true;so.layers=true;so.maximizeCompatibility=true;
       d.saveAs(sf,so,true,Extension.LOWERCASE);
-     }else d.save();
+     }else{
+      // PSD/PSB source: respect export folder when set; otherwise save in place.
+      if(exportFolder&&exportFolder.fsName!==new Folder(srcPath).fsName){
+       var pf=new File(exportFolder.fsName+"/"+base+".psd"),po=new PhotoshopSaveOptions();
+       po.embedColorProfile=true;po.layers=true;po.maximizeCompatibility=true;
+       d.saveAs(pf,po,true,Extension.LOWERCASE);
+      }else{
+       d.save();
+      }
+     }
     }
 
     // EXPORT JPG/PNG
