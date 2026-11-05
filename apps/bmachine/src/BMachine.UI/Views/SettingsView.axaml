@@ -1118,17 +1118,22 @@
                                                             BorderThickness="1"
                                                             IsVisible="True">
                                                         <StackPanel Spacing="4">
-                                                            <Grid ColumnDefinitions="*, Auto, Auto, Auto">
+                                                            <Grid ColumnDefinitions="*, Auto, Auto, Auto, Auto">
                                                                 <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
                                                                            Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                                                 <TextBlock Grid.Column="1" Text="{Binding Members.Count, StringFormat='{}{0} file'}"
                                                                            FontSize="11" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                                <Button Grid.Column="2" Content="Kosongkan" FontSize="10" Width="64" Height="22" Padding="0"
+                                                                <Button Grid.Column="2" Content="Impor" FontSize="10" Width="48" Height="22" Padding="0"
+                                                                        Classes="primary"
+                                                                        Command="{Binding DataContext.ImportGroupMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        ToolTip.Tip="Impor file script dari komputer ke grup ini (disalin ke Scripts/Action)"/>
+                                                                <Button Grid.Column="3" Content="Kosongkan" FontSize="10" Width="64" Height="22" Padding="0" Margin="6,0,0,0"
                                                                         Classes="ghost"
                                                                         Command="{Binding DataContext.ClearGroupMembersCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}"
                                                                         ToolTip.Tip="Hapus semua anggota grup ini"/>
-                                                                <Button Grid.Column="3" Content="Hapus" FontSize="10" Width="44" Height="22" Padding="0"
+                                                                <Button Grid.Column="4" Content="Hapus" FontSize="10" Width="44" Height="22" Padding="0" Margin="6,0,0,0"
                                                                         Classes="danger"
                                                                         Command="{Binding DataContext.RemoveRadialGroupByKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding Key}"

@@ -2486,6 +2486,7 @@ public partial class SettingsViewModel : ObservableObject
     private void RebuildAllRadialGroupItems()
     {
         AllRadialGroupItems.Clear();
+        LoadGroupMemberCandidates();   // isi ComboBox "pilih file anggota" dengan isi Scripts/Action
         // TOOLBOX bawaan selalu ada di posisi pertama bila enabled
         var tbConfig = _scriptAliases.TryGetValue("__tb_group__", out var c) ? c : new ScriptConfig();
         if (tbConfig.Enabled)
@@ -2565,6 +2566,48 @@ public partial class SettingsViewModel : ObservableObject
         {
             AddGroupMemberToSelected(groupConfig);
         }
+    }
+
+    /// <summary>
+    /// Impor file script dari luar ke grup terpilih: salin ke Scripts/Action lalu
+    /// jadikan anggota grup. File anggota hanya muncul di cincin luar grup —
+    /// tidak ikut tampil di roda utama (diliput grup), jadi "khusus grup" itu.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImportGroupMember(object? parameter)
+    {
+        var g = parameter as BMachine.UI.Models.RadialGroupConfig ?? SelectedRadialGroup;
+        if (g == null || PickScriptFileFunc == null) return;
+
+        var sourceFile = await PickScriptFileFunc();
+        if (string.IsNullOrEmpty(sourceFile)) return;
+
+        var targetDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action");
+        if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
+
+        var name = Path.GetFileName(sourceFile);
+        var dest = Path.Combine(targetDir, name);
+        try
+        {
+            if (!string.Equals(sourceFile, dest, StringComparison.OrdinalIgnoreCase))
+                File.Copy(sourceFile, dest, true);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Gagal impor: {ex.Message}";
+            IsStatusVisible = true;
+            return;
+        }
+
+        if (!g.Members.Any(m => string.Equals(m, name, StringComparison.OrdinalIgnoreCase)))
+            g.Members.Add(name);
+
+        SaveRadialGroups();
+        await LoadAllScriptsAsync();
+        RebuildRadialSlots();
+
+        StatusMessage = $"Script '{name}' ditambahkan ke grup {g.Name}";
+        IsStatusVisible = true;
     }
 
 

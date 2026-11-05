@@ -803,13 +803,33 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             for (int i = 0; i < n; i++)
             {
                 var path = files[i];
+                var fn = Path.GetFileName(path);
                 var display = labels != null && labels.Count == n ? labels[i] : GetGroupFileDisplay(path);
-                var shortName = RadialMenuItem.GenerateShortName(display);
+                string shortName;
+                Avalonia.Media.StreamGeometry? icon = null;
+
+                // Nama/kode/ikon anggota grup ikut metadata (scripts.json) supaya
+                // cincin luar identik dengan yang diatur di Pengaturan.
+                if (_scriptAliases.TryGetValue(fn, out var cfg))
+                {
+                    if (!string.IsNullOrWhiteSpace(cfg.Name)) display = cfg.Name;
+                    shortName = !string.IsNullOrWhiteSpace(cfg.Code)
+                        ? cfg.Code
+                        : RadialMenuItem.GenerateShortName(display);
+                    if (!string.IsNullOrWhiteSpace(cfg.IconKey))
+                        icon = ResolveIcon(cfg.IconKey);
+                }
+                else
+                {
+                    shortName = RadialMenuItem.GenerateShortName(display);
+                }
+
                 var item = new RadialMenuItem
                 {
                     FullName = display,
                     ShortName = shortName,
                     ScriptPath = path,
+                    Icon = icon,
                     TabId = "",
                     Angle = ((start + i * 45.0) % 360.0 + 360.0) % 360.0
                 };
