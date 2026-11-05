@@ -572,7 +572,7 @@ public partial class SettingsView : UserControl
         }
 
         Grid.SetRow(wheel, 0);
-        wheel.Margin = new Thickness(0, 0, gap, 16);
+        wheel.Margin = open ? new Thickness(0, 0, gap, 16) : new Thickness(0, 0, 0, 16);
         details.Margin = new Thickness(0, 0, 0, 16);
     }
 

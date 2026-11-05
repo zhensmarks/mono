@@ -191,6 +191,10 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         if (Directory.Exists(actionPath))
             allActionJsx = Directory.GetFiles(actionPath, "*.jsx").ToList();
 
+        var customGroups = LoadRadialGroups();
+        var groupMemberNames = new HashSet<string>(
+            customGroups.SelectMany(g => g.Members), StringComparer.OrdinalIgnoreCase);
+
         if (Directory.Exists(actionPath))
         {
             foreach (var f in Directory.GetFiles(actionPath, "*.jsx"))
@@ -198,9 +202,15 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                 var fn = Path.GetFileName(f);
                 if (fn.StartsWith("_")) continue;                       // _tb_*: diliput grup TOOLBOX
                 if (fn.Equals("TOOLBOX.jsx", StringComparison.OrdinalIgnoreCase)) continue; // grup radial menggantikan file toolbox
+                if (groupMemberNames.Contains(fn)) continue;            // anggota grup diliput grup terkait
                 AddItem(ActionItems, f, false);
             }
-            foreach (var f in Directory.GetFiles(actionPath, "*.pyw")) AddItem(ActionItems, f, false);
+            foreach (var f in Directory.GetFiles(actionPath, "*.pyw"))
+            {
+                var fn = Path.GetFileName(f);
+                if (groupMemberNames.Contains(fn)) continue;
+                AddItem(ActionItems, f, false);
+            }
 
             // Group by TOOLBOX: gather all "_tb_"-marked .jsx files into a
             // single group item on the inner ring; dwell-hover opens an
@@ -213,7 +223,8 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                 .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            if (tbFiles.Count > 0)
+            var tbConfig = _scriptAliases.TryGetValue("__tb_group__", out var c) ? c : new ScriptConfig();
+            if (tbFiles.Count > 0 && tbConfig.Enabled)
             {
                 var fullNames = tbFiles
                     .Select(f => Path.GetFileName(f).Replace(".jsx", "", StringComparison.OrdinalIgnoreCase))
@@ -221,7 +232,6 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                     .Where(s => s.Length > 0)
                     .ToList();
 
-                var tbConfig = _scriptAliases.TryGetValue("__tb_group__", out var c) ? c : new ScriptConfig();
                 ActionItems.Add(new RadialMenuItem
                 {
                     FullName = string.IsNullOrWhiteSpace(tbConfig.Name) ? "TOOLBOX" : tbConfig.Name,
@@ -246,7 +256,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             // luar berisi file anggotanya. File anggota boleh sama dengan
             // file biasa (bukan wajib prefix) — tidak ada file yang hilang,
             // cuma dapat akses cepat kedua lewat grup.
-            foreach (var group in LoadRadialGroups())
+            foreach (var group in customGroups)
             {
                 var memberPaths = group.Members
                     .Select(name => Path.Combine(actionPath, name))
@@ -260,16 +270,28 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                     .Where(s => s.Length > 0)
                     .ToList();
 
+                int groupOrder = group.Order;
+                string groupName = group.Name;
+                string groupCode = group.Code;
+                string groupIcon = group.IconKey;
+                if (_scriptAliases.TryGetValue(group.Key, out var grpAlias))
+                {
+                    groupOrder = grpAlias.Order;
+                    if (!string.IsNullOrWhiteSpace(grpAlias.Name)) groupName = grpAlias.Name;
+                    if (!string.IsNullOrWhiteSpace(grpAlias.Code)) groupCode = grpAlias.Code;
+                    if (!string.IsNullOrWhiteSpace(grpAlias.IconKey)) groupIcon = grpAlias.IconKey;
+                }
+
                 ActionItems.Add(new RadialMenuItem
                 {
-                    FullName = group.Name,
-                    ShortName = string.IsNullOrWhiteSpace(group.Code)
-                        ? RadialMenuItem.GenerateShortName(group.Name)
-                        : group.Code,
+                    FullName = groupName,
+                    ShortName = string.IsNullOrWhiteSpace(groupCode)
+                        ? RadialMenuItem.GenerateShortName(groupName)
+                        : groupCode,
                     ScriptPath = string.Empty,
                     IsMaster = false,
-                    Order = group.Order,
-                    Icon = ResolveIcon(string.IsNullOrWhiteSpace(group.IconKey) ? "IconGrid" : group.IconKey),
+                    Order = groupOrder,
+                    Icon = ResolveIcon(string.IsNullOrWhiteSpace(groupIcon) ? "IconGrid" : groupIcon),
                     HasSubmenu = false,
                     IsGroupSubmenu = true,
                     GroupSubmenuLabels = labels,
@@ -279,7 +301,12 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         }
         if (Directory.Exists(baseDir))
         {
-            foreach (var f in Directory.GetFiles(baseDir, "*.pyw")) AddItem(ActionItems, f, false);
+            foreach (var f in Directory.GetFiles(baseDir, "*.pyw"))
+            {
+                var fn = Path.GetFileName(f);
+                if (groupMemberNames.Contains(fn)) continue;
+                AddItem(ActionItems, f, false);
+            }
         }
 
         // Sort ActionItems
@@ -872,6 +899,9 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     {
         var fileName = Path.GetFileName(path);
         if (fileName.StartsWith("_")) return;
+
+        if (_scriptAliases.TryGetValue(fileName, out var cfg) && !cfg.Enabled)
+            return;
 
         string displayName;
         string shortName;

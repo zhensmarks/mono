@@ -2430,21 +2430,18 @@ public partial class SettingsViewModel : ObservableObject
 
         if (k == "__tb_group__")
         {
-            // TOOLBOX bawaan: cari di RadialGroups dan hapus
-            var tb = RadialGroups.FirstOrDefault(g => g.Key == "__tb_group__");
-            if (tb != null)
-            {
-                RadialGroups.Remove(tb);
-                if (SelectedRadialGroup == tb) SelectedRadialGroup = null;
-                SaveRadialGroups();
-                RebuildRadialSlots();
-            }
+            SetTbGroupEnabled(false);
             return;
         }
 
         var group = RadialGroups.FirstOrDefault(g => string.Equals(g.Key, k, StringComparison.OrdinalIgnoreCase));
         if (group == null) return;
         RadialGroups.Remove(group);
+        if (_scriptAliases.ContainsKey(group.Key))
+        {
+            _scriptAliases.Remove(group.Key);
+            SaveMetadata();
+        }
         if (SelectedRadialGroup == group) SelectedRadialGroup = null;
         SaveRadialGroups();
         RebuildRadialSlots();
@@ -2489,27 +2486,31 @@ public partial class SettingsViewModel : ObservableObject
     private void RebuildAllRadialGroupItems()
     {
         AllRadialGroupItems.Clear();
-        // TOOLBOX bawaan selalu ada di posisi pertama
-        var tb = RadialGroups.FirstOrDefault(g => g.Key == "__tb_group__");
-        if (tb == null)
+        // TOOLBOX bawaan selalu ada di posisi pertama bila enabled
+        var tbConfig = _scriptAliases.TryGetValue("__tb_group__", out var c) ? c : new ScriptConfig();
+        if (tbConfig.Enabled)
         {
-            var tbConfig = _scriptAliases.TryGetValue("__tb_group__", out var c) ? c : new ScriptConfig();
-            var tbFiles = ActionScripts
-                .Where(s => s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase))
-                .Select(s => s.OriginalName)
-                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            tb = new BMachine.UI.Models.RadialGroupConfig
+            var tb = RadialGroups.FirstOrDefault(g => g.Key == "__tb_group__");
+            if (tb == null)
             {
-                Key = "__tb_group__",
-                Name = string.IsNullOrWhiteSpace(tbConfig.Name) ? "TOOLBOX" : tbConfig.Name,
-                Code = string.IsNullOrWhiteSpace(tbConfig.Code) ? "TB" : tbConfig.Code,
-                IconKey = string.IsNullOrWhiteSpace(tbConfig.IconKey) ? "IconGrid" : tbConfig.IconKey,
-                Order = tbConfig.Order,
-                Members = tbFiles
-            };
+                var tbFiles = ActionScripts
+                    .Where(s => s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase))
+                    .Select(s => s.OriginalName)
+                    .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                tb = new BMachine.UI.Models.RadialGroupConfig
+                {
+                    Key = "__tb_group__",
+                    Name = string.IsNullOrWhiteSpace(tbConfig.Name) ? "TOOLBOX" : tbConfig.Name,
+                    Code = string.IsNullOrWhiteSpace(tbConfig.Code) ? "TB" : tbConfig.Code,
+                    IconKey = string.IsNullOrWhiteSpace(tbConfig.IconKey) ? "IconGrid" : tbConfig.IconKey,
+                    Order = tbConfig.Order,
+                    Members = tbFiles
+                };
+            }
+            AllRadialGroupItems.Add(tb);
         }
-        AllRadialGroupItems.Add(tb);
+
         foreach (var g in RadialGroups)
             AllRadialGroupItems.Add(g);
     }
@@ -2533,10 +2534,11 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void AddGroupMemberToSelected()
+    private void AddGroupMemberToSelected(object? parameter = null)
     {
-        if (SelectedRadialGroup == null || string.IsNullOrWhiteSpace(GroupMemberPick)) return;
-        var g = SelectedRadialGroup;
+        if (string.IsNullOrWhiteSpace(GroupMemberPick)) return;
+        var g = parameter as BMachine.UI.Models.RadialGroupConfig ?? SelectedRadialGroup;
+        if (g == null) return;
         if (g.Members.Any(m => string.Equals(m, GroupMemberPick, StringComparison.OrdinalIgnoreCase)))
         {
             GroupMemberPick = "";
@@ -2558,6 +2560,10 @@ public partial class SettingsViewModel : ObservableObject
             g.Members.Add(f);
             SaveRadialGroups();
             RebuildRadialSlots();
+        }
+        else if (parameter is BMachine.UI.Models.RadialGroupConfig groupConfig)
+        {
+            AddGroupMemberToSelected(groupConfig);
         }
     }
 
@@ -2729,9 +2735,10 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RemoveFromRadialSlot(RadialSlotViewModel slot)
+    private void RemoveFromRadialSlot(RadialSlotViewModel? slot = null)
     {
-        if (slot.Script == null) return;
+        slot ??= SelectedRadialSlot;
+        if (slot?.Script == null) return;
         var original = slot.Script.OriginalName;
 
         // Grup custom (key "grp_..."): hapus dari daftar grup, bukan metadata alias.
@@ -2743,18 +2750,39 @@ public partial class SettingsViewModel : ObservableObject
                 RadialGroups.Remove(group);
                 SaveRadialGroups();
             }
-        }
-        else
-        {
-            // Item biasa / grup TOOLBOX bawaan: hapus dari metadata alias.
             if (_scriptAliases.ContainsKey(original))
             {
                 _scriptAliases.Remove(original);
                 SaveMetadata();
             }
         }
+        else if (original == "__tb_group__")
+        {
+            SetTbGroupEnabled(false);
+        }
+        else
+        {
+            // Item biasa: nonaktifkan (sembunyikan dari radial menu)
+            if (_scriptAliases.TryGetValue(original, out var cfg))
+            {
+                cfg.Enabled = false;
+            }
+            else
+            {
+                _scriptAliases[original] = new ScriptConfig
+                {
+                    Name = slot.Script.Name,
+                    Code = slot.Script.ShortCode,
+                    IconKey = slot.Script.IconKey,
+                    Order = 9999,
+                    Enabled = false
+                };
+            }
+            SaveMetadata();
+        }
 
         SelectedRadialSlot = null;
+        IsSlotDetailsOpen = false;
         RebuildRadialSlots();
     }
 
@@ -2860,7 +2888,8 @@ public partial class SettingsViewModel : ObservableObject
         var filtered = raw
             .Where(s => !s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase)
                  && !s.OriginalName.Equals("TOOLBOX.jsx", StringComparison.OrdinalIgnoreCase)
-                 && !groupMemberNames.Contains(s.OriginalName))
+                 && !groupMemberNames.Contains(s.OriginalName)
+                 && (!_scriptAliases.TryGetValue(s.OriginalName, out var c) || c.Enabled))
             .ToList();
 
         var combined = new List<ScriptItem>();

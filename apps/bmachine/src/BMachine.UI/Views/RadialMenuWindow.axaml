@@ -25,23 +25,24 @@
              supaya item cincin luar menyiapkan doc_info.json tab dulu. -->
         <DataTemplate x:Key="RadialItemTemplate" x:DataType="models:RadialMenuItem">
             <Grid Width="36" Height="36" ClipToBounds="False">
-                <!-- Regular script button -->
+                <!-- Regular script button (identik dengan tombol di Settings) -->
                 <Button Classes="MenuButton"
                         Classes.highlighted="{Binding IsHighlighted}"
                         IsVisible="{Binding !IsNavigation}"
                         Command="{Binding DataContext.ExecuteItemCommand, ElementName=RadialRoot}"
                         CommandParameter="{Binding}">
                     <Grid>
+                        <!-- Ring seleksi putih saat di-hover/highlight -->
+                        <Border IsVisible="{Binding IsHighlighted}" Width="44" Height="44" CornerRadius="22" BorderBrush="White" BorderThickness="2" Margin="-4"/>
                         <!-- Ikon (jika ada) -->
-                        <PathIcon Data="{Binding Icon}" Width="18" Height="18"
-                                  VerticalAlignment="Center" HorizontalAlignment="Center"
-                                  IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                        <!-- Singkatan: HANYA kalau tidak ada ikon. Auto-generated (GenerateShortName),
-                             jadi tidak akan kosong — aturan "jangan dua-duanya". -->
+                        <Viewbox Width="18" Height="18" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path Data="{Binding Icon}" Fill="Transparent" Stroke="White" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
+                        </Viewbox>
+                        <!-- Singkatan: HANYA kalau tidak ada ikon -->
                         <TextBlock Text="{Binding ShortName}"
-                                   FontSize="13" FontWeight="SemiBold"
+                                   FontSize="10" FontWeight="Bold"
                                    VerticalAlignment="Center" HorizontalAlignment="Center"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   Foreground="White"
                                    IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
                     </Grid>
                 </Button>
@@ -51,22 +52,14 @@
                         IsVisible="{Binding IsNavigation}"
                         IsHitTestVisible="False">
                     <Grid>
-                        <!-- Tiga titik digambar manual: geometri PathIcon yang pipih ditempel ke atas kotak -->
-                        <StackPanel Orientation="Horizontal" Spacing="3"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    IsVisible="{Binding IsMoreDots}">
-                            <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
-                            <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
-                            <Ellipse Width="3.5" Height="3.5" Fill="{DynamicResource TextSecondaryBrush}"/>
-                        </StackPanel>
+                        <Border IsVisible="{Binding IsHighlighted}" Width="44" Height="44" CornerRadius="22" BorderBrush="White" BorderThickness="2" Margin="-4"/>
                         <!-- Ikon (jika ada) -->
-                        <PathIcon Data="{Binding Icon}" Width="16" Height="16"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                                  Foreground="{DynamicResource TextSecondaryBrush}"
-                                  IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        <Viewbox Width="16" Height="16" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path Data="{Binding Icon}" Fill="Transparent" Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
+                        </Viewbox>
                         <!-- Singkatan: HANYA kalau tidak ada ikon -->
                         <TextBlock Text="{Binding ShortName}"
-                                   FontSize="10" FontWeight="Bold"
+                                   FontSize="8" FontWeight="Bold"
                                    VerticalAlignment="Center" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
@@ -77,19 +70,21 @@
     </Window.Resources>
 
     <Window.Styles>
-        <!-- Item Button Style -->
+        <!-- Item Button Style (identik dengan Settings: bulat 36x36 berlatar tema AccentBlueBrush) -->
         <Style Selector="Button.MenuButton">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="CornerRadius" Value="18"/>
             <Setter Property="ClipToBounds" Value="False"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="10"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Transitions">
                 <Transitions>
                     <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
@@ -123,58 +118,55 @@
         
         <Style Selector="Button.MenuButton:pointerover">
              <Setter Property="Cursor" Value="Hand"/>
-             <Setter Property="RenderTransform" Value="scale(1.15)"/>
+             <Setter Property="RenderTransform" Value="scale(1.1)"/>
              <Setter Property="Foreground" Value="{DynamicResource RadialMenuHoverForegroundBrush}"/>
         </Style>
 
-        <!-- The pointer selects a wedge in the view model, so lift the icon with a theme-aware foreground. -->
         <Style Selector="Button.MenuButton.highlighted">
-             <Setter Property="Foreground" Value="{DynamicResource RadialMenuHoverForegroundBrush}"/>
-             <Setter Property="RenderTransform" Value="scale(1.15)"/>
+             <Setter Property="RenderTransform" Value="scale(1.1)"/>
              <Setter Property="Opacity" Value="1"/>
+             <Setter Property="Foreground" Value="{DynamicResource RadialMenuHoverForegroundBrush}"/>
         </Style>
 
-        <!-- Navigation Button (More/Back) — theme-aware, minimal, compact.
-                     Geometri disamakan dengan MenuButton (32x32, CornerRadius 16) dan pakai template
-                     yang sama supaya lingkaran = kotak tombol dan ikon pasti center di dalamnya. -->
-                <Style Selector="Button.NavButton">
-                    <Setter Property="Width" Value="32"/>
-                    <Setter Property="Height" Value="32"/>
-                    <Setter Property="CornerRadius" Value="16"/>
-                    <Setter Property="ClipToBounds" Value="False"/>
-                    <Setter Property="BorderThickness" Value="1"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
-                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-                    <Setter Property="Padding" Value="0"/>
-                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                    <Setter Property="FontWeight" Value="Bold"/>
-                    <Setter Property="FontSize" Value="12"/>
-                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                    <Setter Property="VerticalContentAlignment" Value="Center"/>
-                    <Setter Property="Template">
-                        <ControlTemplate>
-                            <Grid>
-                                <Border Name="PART_Bg"
-                                        Width="{TemplateBinding Width}"
-                                        Height="{TemplateBinding Height}"
-                                        CornerRadius="{TemplateBinding CornerRadius}"
-                                        Background="{TemplateBinding Background}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="1">
-                                    <Border.Transitions>
-                                        <Transitions>
-                                            <BrushTransition Property="Background" Duration="0:0:0.15"/>
-                                        </Transitions>
-                                    </Border.Transitions>
-                                </Border>
-                                <ContentPresenter Name="PART_Content"
-                                                  Content="{TemplateBinding Content}"
-                                                  HorizontalContentAlignment="Center"
-                                                  VerticalContentAlignment="Center"/>
-                            </Grid>
-                        </ControlTemplate>
-                    </Setter>
-                </Style>
+        <!-- Navigation Button (More/Back) -->
+        <Style Selector="Button.NavButton">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="ClipToBounds" Value="False"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <Border Name="PART_Bg"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                        <ContentPresenter Name="PART_Content"
+                                          Content="{TemplateBinding Content}"
+                                          HorizontalContentAlignment="Center"
+                                          VerticalContentAlignment="Center"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
         
         <Style Selector="Button.NavButton:pointerover">
              <Setter Property="Background" Value="{DynamicResource AccentLowOpacityBrush}"/>

@@ -940,15 +940,16 @@
                                 </Border>
                             </Grid>
                             <!-- ACTION SCRIPTS (RADIAL) -->
-                            <!-- Kolom baris ini diatur dari code-behind (UpdateRadialRowLayout):
-                                 tidak ada panel -> roda center; panel buka & lebar cukup -> roda kiri + panel kanan;
-                                 panel buka tapi sempit -> panel turun ke baris bawah (tidak terpotong). -->
-                            <Grid x:Name="RadialRowGrid" IsVisible="{Binding IsScriptActionSelected}" ColumnDefinitions="*, Auto, *" RowDefinitions="Auto">
+                            <StackPanel IsVisible="{Binding IsScriptActionSelected}" Spacing="16">
+                                <!-- Kolom baris ini diatur dari code-behind (UpdateRadialRowLayout):
+                                     tidak ada panel -> roda center; panel buka & lebar cukup -> roda kiri + panel kanan;
+                                     panel buka tapi sempit -> panel turun ke baris bawah (tidak terpotong). -->
+                                <Grid x:Name="RadialRowGrid" ColumnDefinitions="*, Auto, *" RowDefinitions="Auto">
                                 <Border x:Name="RadialWheelCard" Grid.Column="1" Margin="0,0,16,16" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
                                     <Grid RowDefinitions="Auto">
-                                        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                        <StackPanel Grid.Row="0" HorizontalAlignment="Center">
                                             <!-- Chevron < > DIHAPUS: pindah halaman lewat slot MORE/BACK di roda sendiri. -->
-                                            <Grid ColumnDefinitions="*" Margin="0,0,0,16">
+                                            <Grid ColumnDefinitions="*">
                                                 <Border Width="200" Height="200" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource AppBackgroundBrush}" ClipToBounds="True">
                                                 <Grid>
                                                     <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.35">
@@ -1082,7 +1083,7 @@
                                                     </Grid>
                                                     <!-- Aksi: Hapus + Simpan -->
                                                     <WrapPanel Grid.Row="3" Orientation="Horizontal">
-                                                        <Button Classes="danger" Content="Hapus" FontSize="12" Command="{Binding DataContext.RemoveFromRadialSlotCommand, RelativeSource={RelativeSource AncestorType=Grid, AncestorLevel=6}}" CommandParameter="{Binding DataContext.SelectedRadialSlot, RelativeSource={RelativeSource AncestorType=Grid, AncestorLevel=6}}" Height="32" Padding="10,0" FontWeight="SemiBold" Margin="0,0,6,8"/>
+                                                        <Button Classes="danger" Content="Hapus" FontSize="12" Command="{Binding DataContext.RemoveFromRadialSlotCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding SelectedRadialSlot}" Height="32" Padding="10,0" FontWeight="SemiBold" Margin="0,0,6,8"/>
                                                         <Button Classes="primary" Content="Simpan" FontSize="12" Command="{Binding SelectedRadialSlot.Script.SaveRenameCommand}" Height="32" Padding="12,0" FontWeight="SemiBold" Margin="0,0,0,8"/>
                                                     </WrapPanel>
                                                 </Grid>
@@ -1090,7 +1091,9 @@
                                             </Grid>
                                         </Border>
                                 </Border>
-                                <!-- PANEL KELOLA GRUP RADIAL -->
+                                </Grid>
+
+                                <!-- PANEL KELOLA GRUP RADIAL (Full Width di bawah Roda, Lega & Rapi) -->
                                 <Border Margin="0,0,0,16" Background="{DynamicResource CardBackgroundBrush}"
                                         CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}"
                                         BorderThickness="1" Padding="14">
@@ -1122,12 +1125,12 @@
                                                                            FontSize="11" Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                                 <Button Grid.Column="2" Content="Kosongkan" FontSize="10" Width="64" Height="22" Padding="0"
                                                                         Classes="ghost"
-                                                                        Command="{Binding DataContext.ClearGroupMembersCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                        Command="{Binding DataContext.ClearGroupMembersCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}"
                                                                         ToolTip.Tip="Hapus semua anggota grup ini"/>
                                                                 <Button Grid.Column="3" Content="Hapus" FontSize="10" Width="44" Height="22" Padding="0"
                                                                         Classes="danger"
-                                                                        Command="{Binding DataContext.RemoveRadialGroupByKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}}"
+                                                                        Command="{Binding DataContext.RemoveRadialGroupByKeyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding Key}"
                                                                         ToolTip.Tip="Hapus grup ini dari radial menu (file anggota tidak ikut terhapus)"/>
                                                             </Grid>
@@ -1140,13 +1143,14 @@
                                                                 </ItemsControl.ItemTemplate>
                                                             </ItemsControl>
                                                             <Grid ColumnDefinitions="*, Auto">
-                                                                <ComboBox Grid.Column="0" ItemsSource="{Binding DataContext.AllActionScriptNames, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                          SelectedItem="{Binding DataContext.GroupMemberPick, Mode=TwoWay}"
+                                                                <ComboBox Grid.Column="0" ItemsSource="{Binding DataContext.AllActionScriptNames, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                          SelectedItem="{Binding DataContext.GroupMemberPick, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                           FontSize="11" Padding="6"/>
                                                                 <Button Grid.Column="1" Content="+" Width="28" Height="28" Padding="0" Margin="6,0,0,0"
                                                                         Classes="primary"
-                                                                        Command="{Binding DataContext.AddGroupMemberToSelectedCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                        ToolTip.Tip="Tambah file terpilih (ComboBox) ke grup yang dipilih"/>
+                                                                        Command="{Binding DataContext.AddGroupMemberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        ToolTip.Tip="Tambah file terpilih (ComboBox) ke grup ini"/>
                                                             </Grid>
                                                         </StackPanel>
                                                     </Border>
@@ -1155,7 +1159,7 @@
                                         </ItemsControl>
                                     </StackPanel>
                                 </Border>
-                            </Grid>
+                            </StackPanel>
                         </Grid>
                     </ScrollViewer>
                 </Grid>
