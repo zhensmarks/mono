@@ -52,7 +52,7 @@ if (-not $Notes -or $Notes.Count -eq 0) {
     $autoNotes = Join-Path $Here "notes.txt"
     if ($NotesFile -and (Test-Path $NotesFile)) { $autoNotes = $NotesFile }
     if (Test-Path $autoNotes) {
-        $Notes = Get-Content -LiteralPath $autoNotes | Where-Object { $_.Trim() -ne "" }
+        $Notes = Get-Content -LiteralPath $autoNotes -Encoding UTF8 | Where-Object { $_.Trim() -ne "" }
     }
 }
 
@@ -211,7 +211,7 @@ if (Test-Path $actionPayload) {
 $actionComponents = @{
     name     = "Action"
     changed  = $actionChanged
-    included = $true
+    included = $false   # default: centang Aplikasi + Master saja; Action opsional (modifikasi user sering di sini)
     paths    = @("Scripts\Action")
 }
 [void]$componentsArray.Add([pscustomobject]$actionComponents)
