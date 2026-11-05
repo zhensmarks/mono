@@ -25,4 +25,13 @@ public class RadialGroupConfig
     /// <summary>Nama file anggota (tanpa path, mis. "_tb_C-REDAKSI.jsx"). Path dibangun ulang
     /// dari folder Scripts/Action saat LoadScripts di RadialMenuViewModel.</summary>
     public List<string> Members { get; set; } = new();
+
+    /// <summary>
+    /// Baris edit untuk kartu grup di Pengaturan (nama/kode/ikon per anggota).
+    /// Tidak diserialisasi — dibangun ulang oleh RebuildAllRadialGroupItems dari
+    /// <see cref="Members"/> + metadata scripts.json. Dibuat di sini supaya XAML
+    /// bisa bind langsung ke item kartu grup tanpa lookup tambahan.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public System.Collections.ObjectModel.ObservableCollection<ViewModels.ScriptItem> MemberItems { get; } = new();
 }

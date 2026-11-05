@@ -310,11 +310,19 @@
                                  <StackPanel.RenderTransform>
                                      <RotateTransform Angle="{Binding TextRotation}"/>
                                  </StackPanel.RenderTransform>
+                                 <!-- Ikon anggota grup (segmen tab DOC tidak punya ikon, jadi baris ini hilang sendiri) -->
+                                 <Viewbox Width="12" Height="12" HorizontalAlignment="Center"
+                                            IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Path Data="{Binding Icon}" Fill="Transparent"
+                                                  Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.8"
+                                                  StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
+                                 </Viewbox>
                                  <TextBlock Text="{Binding ShortName}"
                                             FontSize="13" FontWeight="Bold"
                                             Foreground="{DynamicResource TextPrimaryBrush}"
                                             HorizontalAlignment="Center"
-                                            TextAlignment="Center"/>
+                                            TextAlignment="Center"
+                                            IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}"/>
                                  <TextBlock Text="{Binding FullName}"
                                             FontSize="8.5"
                                             Foreground="{DynamicResource TextSecondaryBrush}"

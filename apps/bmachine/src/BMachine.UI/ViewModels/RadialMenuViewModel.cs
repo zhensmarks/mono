@@ -79,7 +79,10 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     }
 
     /// <summary>Script induk submenu; "" = tidak sedang di submenu.</summary>
-    private string _submenuScriptPath = "";
+        private string _submenuScriptPath = "";
+
+        /// <summary>Item induk yang cincin luarnya sedang terbuka (null = tidak ada).</summary>
+        private RadialMenuItem? _submenuOwner;
 
     /// <summary>Batas dalam band luar (px dari pusat jendela 320x320).</summary>
     private const double OuterBandMin = 102.0;
@@ -227,8 +230,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             if (tbFiles.Count > 0 && tbConfig.Enabled)
             {
                 var fullNames = tbFiles
-                    .Select(f => Path.GetFileName(f).Replace(".jsx", "", StringComparison.OrdinalIgnoreCase))
-                    .Select(s => s.TrimStart('_').Replace("_", " ").Trim())
+                    .Select(MemberDisplay)
                     .Where(s => s.Length > 0)
                     .ToList();
 
@@ -266,7 +268,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                 if (memberPaths.Count == 0) continue;
 
                 var labels = memberPaths
-                    .Select(GetGroupFileDisplay)
+                    .Select(MemberDisplay)
                     .Where(s => s.Length > 0)
                     .ToList();
 
@@ -464,12 +466,35 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         /// <summary>Tutup cincin luar (dipanggil saat menu dibuka ulang / reload).</summary>
         private void ClearSubmenu()
         {
+            // Item yang sedang di-highlight bisa berasal dari cincin luar; setelah
+            // cincinnya hilang, highlight-nya juga harus dilepas supaya wedge/label
+            // tidak tertinggal menunjuk item yang sudah tidak ada.
+            bool highlightedWasOuter = _currentHighlightedItem != null
+                && SubmenuItems.Contains(_currentHighlightedItem);
+
             _submenuScriptPath = "";
             _submenuTabs = null;
             _outerIsToolboxGroup = false;
+            _submenuOwner = null;
             SubmenuItems.Clear();
 
+            if (highlightedWasOuter) HighlightItem(null);
+
             StopSubmenuDwell();
+        }
+
+        /// <summary>
+        /// Tutup cincin luar kalau pointer sudah tidak di item induknya.
+        /// <paramref name="innerUnderPointer"/> = item menu utama di bawah pointer
+        /// (null kalau pointer di ruang kosong). Cincin luar tidak ditutup selama
+        /// pointer masih di induk yang sama, sehingga jalan keluar dari item ke
+        /// cincin luar (jarak 72 → 102 px) tetap mulus.
+        /// </summary>
+        private void CloseOrphanSubmenu(RadialMenuItem? innerUnderPointer)
+        {
+            if (_submenuOwner == null) return;
+            if (ReferenceEquals(_submenuOwner, innerUnderPointer)) return;
+            ClearSubmenu();
         }
 
         /// <summary>
@@ -561,6 +586,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         {
             HighlightItem(null);
             UpdateSubmenuDwell(null);
+            CloseOrphanSubmenu(null);
             return;
         }
 
@@ -584,6 +610,11 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         var closest = ClosestByAngle(VisibleItems, angle, out var minDiff);
         double angleStep = VisibleItems.Count > 0 ? Math.Min(360.0 / VisibleItems.Count, 45.0) : 45.0;
         double threshold = angleStep / 2.0;
+
+        // Cincin luar hanya hidup selama pointer masih di item induknya (atau di
+        // band luar). Begitu pointer pindah ke item lain / ke ruang kosong, cincin
+        // itu langsung ditutup — bukan menempel terus sampai menu ditutup.
+        CloseOrphanSubmenu(closest != null && minDiff < threshold ? closest : null);
 
         if (closest != null && minDiff < threshold)
         {
@@ -760,6 +791,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                     ClearSubmenu();
                     return;
                 }
+                _submenuOwner = item;
                 BuildOuterToolboxSubmenu(item.Angle, files, item.GroupSubmenuLabels);
                 return;
             }
@@ -779,6 +811,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
 
             _submenuTabs = tabs;
             _submenuScriptPath = item.ScriptPath;
+            _submenuOwner = item;
             _outerIsToolboxGroup = false;
             BuildOuterSubmenu(item.Angle);
         }
@@ -803,13 +836,27 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             for (int i = 0; i < n; i++)
             {
                 var path = files[i];
-                var display = labels != null && labels.Count == n ? labels[i] : GetGroupFileDisplay(path);
-                var shortName = RadialMenuItem.GenerateShortName(display);
+                var fn = Path.GetFileName(path);
+                var display = labels != null && labels.Count == n ? labels[i] : MemberDisplay(path);
+                string shortName = RadialMenuItem.GenerateShortName(display);
+                Avalonia.Media.StreamGeometry? icon = null;
+
+                // Kode + ikon anggota grup ikut metadata scripts.json (nama sudah
+                // diresolusi lewat MemberDisplay) supaya sama dengan panel grup.
+                if (_scriptAliases.TryGetValue(fn, out var cfg))
+                {
+                    if (!string.IsNullOrWhiteSpace(cfg.Code))
+                        shortName = cfg.Code;
+                    if (!string.IsNullOrWhiteSpace(cfg.IconKey))
+                        icon = ResolveIcon(cfg.IconKey);
+                }
+
                 var item = new RadialMenuItem
                 {
                     FullName = display,
                     ShortName = shortName,
                     ScriptPath = path,
+                    Icon = icon,
                     TabId = "",
                     Angle = ((start + i * 45.0) % 360.0 + 360.0) % 360.0
                 };
@@ -822,8 +869,20 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         private static string GetGroupFileDisplay(string path)
         {
             var display = Path.GetFileNameWithoutExtension(path);
-            display = display.TrimStart('_').Replace("_", " ").Trim();
+            display = display.TrimStart('_').Replace('_', ' ').Trim();
             return display.Length > 0 ? display : display;
+        }
+
+        /// <summary>
+        /// Nama tampil anggota grup: nama dari scripts.json kalau sudah diatur,
+        /// kalau belum pakai nama file (prefix "_" dibuang).
+        /// </summary>
+        private string MemberDisplay(string path)
+        {
+            var fn = Path.GetFileName(path);
+            if (_scriptAliases.TryGetValue(fn, out var cfg) && !string.IsNullOrWhiteSpace(cfg.Name))
+                return cfg.Name;
+            return GetGroupFileDisplay(path);
         }
 
         /// <summary>

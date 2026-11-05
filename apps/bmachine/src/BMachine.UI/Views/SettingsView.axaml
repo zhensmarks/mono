@@ -1139,11 +1139,72 @@
                                                                         CommandParameter="{Binding Key}"
                                                                         ToolTip.Tip="Hapus grup ini dari radial menu (file anggota tidak ikut terhapus)"/>
                                                             </Grid>
-                                                            <ItemsControl ItemsSource="{Binding Members}" FontSize="11">
+                                                            <ItemsControl ItemsSource="{Binding MemberItems}" Margin="0,4,0,0">
                                                                 <ItemsControl.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <TextBlock Text="{Binding}" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                                   TextTrimming="CharacterEllipsis" Margin="8,0,0,0"/>
+                                                                    <DataTemplate x:DataType="vm:ScriptItem">
+                                                                        <Border Margin="8,0,0,4" Padding="6" CornerRadius="{DynamicResource RadiusSm}"
+                                                                                Background="{DynamicResource AppBackgroundBrush}"
+                                                                                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                                                                            <Grid>
+                                                                                <!-- Mode lihat: ikon/kode + nama + tombol ubah -->
+                                                                                <Grid ColumnDefinitions="Auto, *, Auto" IsVisible="{Binding !IsEditing}">
+                                                                                    <Border Grid.Column="0" Width="22" Height="22" CornerRadius="{DynamicResource RadiusXs}"
+                                                                                            Background="{DynamicResource CardBackgroundBrush}"
+                                                                                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1">
+                                                                                        <Panel>
+                                                                                            <Viewbox Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                                     IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                                                                <Path Data="{Binding IconGeometry}" Fill="Transparent" Stroke="{DynamicResource TextPrimaryBrush}"
+                                                                                                      StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform"/>
+                                                                                            </Viewbox>
+                                                                                            <TextBlock Text="{Binding DisplayCode}" FontSize="8" FontWeight="Bold"
+                                                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                                       IsVisible="{Binding IconGeometry, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                                                        </Panel>
+                                                                                    </Border>
+                                                                                    <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                                        <TextBlock Text="{Binding Name}" FontSize="11"
+                                                                                                   Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                                                                        <TextBlock Text="{Binding OriginalName}" FontSize="9"
+                                                                                                   Foreground="{DynamicResource TextFaintBrush}" TextTrimming="CharacterEllipsis"/>
+                                                                                    </StackPanel>
+                                                                                    <Button Grid.Column="2" Command="{Binding ToggleEditCommand}" Classes="ghostIcon"
+                                                                                            Width="24" Height="24" Padding="0" VerticalAlignment="Center"
+                                                                                            ToolTip.Tip="Ubah nama / kode / ikon anggota">
+                                                                                        <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12"
+                                                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                                    </Button>
+                                                                                </Grid>
+
+                                                                                <!-- Mode ubah: nama + kode + ikon + simpan -->
+                                                                                <Grid ColumnDefinitions="*, 52, Auto, Auto" ColumnSpacing="6" IsVisible="{Binding IsEditing}">
+                                                                                    <TextBox Grid.Column="0" Text="{Binding EditName}" Watermark="Nama"
+                                                                                             FontSize="11" MinHeight="28" Padding="8,0">
+                                                                                        <TextBox.KeyBindings>
+                                                                                            <KeyBinding Gesture="Enter" Command="{Binding SaveRenameCommand}"/>
+                                                                                        </TextBox.KeyBindings>
+                                                                                    </TextBox>
+                                                                                    <TextBox Grid.Column="1" Text="{Binding EditShortCode}" Watermark="KODE" MaxLength="4"
+                                                                                             FontSize="11" MinHeight="28" Padding="8,0" HorizontalContentAlignment="Center">
+                                                                                        <TextBox.KeyBindings>
+                                                                                            <KeyBinding Gesture="Enter" Command="{Binding SaveRenameCommand}"/>
+                                                                                        </TextBox.KeyBindings>
+                                                                                    </TextBox>
+                                                                                    <Button Grid.Column="2" Command="{Binding PickIconCommand}" Classes="ghost"
+                                                                                            Width="28" Height="28" Padding="0" ToolTip.Tip="Pilih ikon anggota">
+                                                                                        <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"
+                                                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                                                    </Button>
+                                                                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4">
+                                                                                        <Button Content="Simpan" Command="{Binding SaveRenameCommand}" Classes="primary"
+                                                                                                FontSize="10" Height="28" Padding="8,0"/>
+                                                                                        <Button Content="Batal" Command="{Binding ToggleEditCommand}" Classes="ghost"
+                                                                                                FontSize="10" Height="28" Padding="8,0"/>
+                                                                                    </StackPanel>
+                                                                                </Grid>
+                                                                            </Grid>
+                                                                        </Border>
                                                                     </DataTemplate>
                                                                 </ItemsControl.ItemTemplate>
                                                             </ItemsControl>

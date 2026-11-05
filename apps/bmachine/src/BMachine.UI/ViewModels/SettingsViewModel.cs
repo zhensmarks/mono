@@ -2482,6 +2482,61 @@ public partial class SettingsViewModel : ObservableObject
 
         foreach (var g in RadialGroups)
             AllRadialGroupItems.Add(g);
+
+        // Baris edit anggota (nama/kode/ikon) untuk tiap kartu grup.
+        foreach (var g in AllRadialGroupItems)
+            BuildMemberItems(g);
+    }
+
+    /// <summary>
+    /// Bangun ulang baris edit anggota satu grup: satu ScriptItem per file anggota,
+    /// nilainya dari metadata scripts.json (fallback: nama file tanpa prefix "_").
+    /// Simpan dari panel memakai jalur yang sama dengan daftar Action — jadi nama/ikon
+    /// anggota grup bisa diubah walaupun file-nya berprefix "_" (tidak masuk ActionScripts).
+    /// </summary>
+    private void BuildMemberItems(BMachine.UI.Models.RadialGroupConfig group)
+    {
+        group.MemberItems.Clear();
+
+        foreach (var fn in group.Members)
+        {
+            _scriptAliases.TryGetValue(fn, out var cfg);
+            var fallback = System.IO.Path.GetFileNameWithoutExtension(fn).TrimStart('_').Replace('_', ' ').Trim();
+
+            var item = new ScriptItem
+            {
+                OriginalName = fn,
+                Name = string.IsNullOrWhiteSpace(cfg?.Name) ? fallback : cfg!.Name,
+                ShortCode = cfg?.Code ?? "",
+                IconKey = cfg?.IconKey ?? "",
+                Type = "MEMBER",
+                PickIconFunc = PickIconAsync
+            };
+
+            item.OnSaveRequested += (newName, newCode, newIcon) =>
+            {
+                if (string.IsNullOrWhiteSpace(newName)) return;
+
+                var order = _scriptAliases.TryGetValue(item.OriginalName, out var existing) ? existing.Order : 9999;
+                var enabled = existing?.Enabled ?? true;
+                _scriptAliases[item.OriginalName] = new ScriptConfig
+                {
+                    Name = newName,
+                    Code = newCode,
+                    IconKey = newIcon,
+                    Order = order,
+                    Enabled = enabled
+                };
+                item.Name = newName;
+                item.ShortCode = newCode;
+                item.IconKey = newIcon;
+
+                SaveMetadata();
+                RebuildRadialSlots();
+            };
+
+            group.MemberItems.Add(item);
+        }
     }
 
     [RelayCommand]

@@ -548,6 +548,18 @@ membuat ulang entri tanpa `Enabled=false`, jadi tombolnya kembali muncul.
 Akses hanya lewat cincin luar: tahan pointer 300 ms di item grup → cincin luar berisi anggota →
 klik segmen menjalankan script. Grup tanpa anggota valid tidak ditampilkan sama sekali.
 
+**Baris anggota bisa diedit:** tiap baris anggota punya tombol pensil → nama + kode + ikon
+inline (Enter = simpan, `Batal` = keluar). Nilainya disimpan ke `scripts.json` per **nama file**,
+jadi perubahan ikut terbaca oleh roda (cincin luar memakai `MemberDisplay` + `Code`/`IconKey` dari
+alias, bukan nama file mentah). Ini satu-satunya jalan mengubah nama/ikon script berprefix `_`
+(mis. `_tb_SELEKSI.jsx`) karena file berprefix `_` tidak pernah masuk daftar `ActionScripts`.
+
+**Cincin luar menutup sendiri:** `RadialMenuViewModel` menyimpan `_submenuOwner` (item induk yang
+cincinnya terbuka). Begitu pointer pindah ke item lain, ke ruang kosong, ke deadzone tengah, atau
+keluar roda, `CloseOrphanSubmenu` menutup cincin itu. Cincin TIDAK ditutup selama pointer masih di
+item induknya, supaya jalur keluar dari tombol (radius 72) ke cincin (radius 102–154) tetap mulus.
+Aturan ini berlaku sama untuk cincin grup maupun cincin pilihan tab DOC.
+
 `Impor` menyalin file `.jsx`/`.pyw` pilihan user ke `Scripts/Action` lalu menambahkannya sebagai
 anggota — satu-satunya jalur untuk script yang belum ada di folder Action.
 

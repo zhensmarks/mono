@@ -323,4 +323,35 @@ public class NavigationVisualRegressionTests
             Assert.Contains($"\"{key}\"", picker);
         }
     }
+    [Fact]
+    public void RadialSubmenuClosesWhenPointerLeavesItsParentItem()
+    {
+        var vm = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/RadialMenuViewModel.cs");
+
+        // Cincin luar harus tahu siapa induknya, dan ditutup saat pointer keluar dari induk itu.
+        Assert.Contains("private RadialMenuItem? _submenuOwner;", vm);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(vm, @"_submenuOwner = item;").Count);
+        Assert.Contains("CloseOrphanSubmenu(closest != null && minDiff < threshold ? closest : null);", vm);
+        Assert.Contains("CloseOrphanSubmenu(null);", vm);
+        Assert.Contains("_submenuOwner = null;", vm);
+    }
+
+    [Fact]
+    public void RadialGroupMembersAreEditableAndFollowMetadata()
+    {
+        var view = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/SettingsView.axaml");
+        var vm = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/RadialMenuViewModel.cs");
+        var settings = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/SettingsViewModel.cs");
+
+        // Baris anggota grup bisa diubah nama/kode/ikonnya.
+        Assert.Contains("ItemsSource=\"{Binding MemberItems}\"", view);
+        Assert.Contains("ToggleEditCommand", view);
+        Assert.Contains("PickIconCommand", view);
+        Assert.Contains("SaveRenameCommand", view);
+        Assert.Contains("BuildMemberItems", settings);
+
+        // Nama/kode/ikon anggota grup di roda diambil dari metadata, bukan nama file mentah.
+        Assert.Contains("MemberDisplay", vm);
+        Assert.Contains(".Select(MemberDisplay)", vm);
+    }
 }
