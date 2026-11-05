@@ -26,37 +26,38 @@
     <Border Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource SeparatorBrush}"
             BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="14,12" HorizontalAlignment="Center">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="14,12">
 
-            <!-- Header: drag region. Judul + chip versi + ukuran + versi lama = rata tengah;
-                 garis aksen selebar isi (bukan penuh lebar dialog) di bawahnya. -->
-            <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,4">
-                <Grid ColumnDefinitions="*,Auto,*">
-                    <StackPanel Grid.Column="1" Spacing="3">
-                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                            <TextBlock Text="PEMBARUAN TERSEDIA" FontSize="11" FontWeight="Bold" LetterSpacing="1.2"
-                                       Foreground="{DynamicResource AccentColorBrush}" VerticalAlignment="Center"/>
-                            <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusPill}" Padding="8,2">
-                                <TextBlock Text="{Binding LatestVersion, StringFormat='v{0}'}" FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource TextOnPrimaryBrush}"/>
-                            </Border>
-                            <Border Background="{DynamicResource MenuHoverBrush}" CornerRadius="{DynamicResource RadiusPill}" Padding="8,2"
-                                    IsVisible="{Binding UpdateSizeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                <TextBlock Text="{Binding UpdateSizeText}" FontSize="10.5" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </Border>
-                        </StackPanel>
-                        <TextBlock Text="{Binding CurrentVersion, StringFormat='Versi saat ini: {0}'}"
-                                   HorizontalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <!-- Header: rata tengah. Judul + chip versi + ukuran + versi lama satu baris
+                 di tengah; garis aksen selebar konten (bukan penuh dialog) di bawahnya. -->
+            <StackPanel Grid.Row="0" HorizontalAlignment="Center" Spacing="8" Margin="0,0,0,4">
+                <StackPanel Spacing="3">
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                        <TextBlock Text="PEMBARUAN TERSEDIA" FontSize="11" FontWeight="Bold" LetterSpacing="1.2"
+                                   Foreground="{DynamicResource AccentColorBrush}" VerticalAlignment="Center"/>
+                        <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusPill}" Padding="8,2">
+                            <TextBlock Text="{Binding LatestVersion, StringFormat='v{0}'}" FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource TextOnPrimaryBrush}"/>
+                        </Border>
+                        <Border Background="{DynamicResource MenuHoverBrush}" CornerRadius="{DynamicResource RadiusPill}" Padding="8,2"
+                                IsVisible="{Binding UpdateSizeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding UpdateSizeText}" FontSize="10.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </Border>
                     </StackPanel>
-                    <Button Grid.Column="2" Classes="ghost" Click="OnCloseClick" Width="28" Height="28" VerticalAlignment="Top" HorizontalAlignment="Right"
-                            ToolTip.Tip="Tutup" Cursor="Hand" Background="Transparent" BorderThickness="0">
-                        <PathIcon Data="{StaticResource IconX}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </Button>
-                </Grid>
-                <!-- Garis aksen selebar teks di atasnya (wrap StackPanel, bukan Grid penuh lebar). -->
+                    <TextBlock Text="{Binding CurrentVersion, StringFormat='Versi saat ini: {0}'}"
+                               HorizontalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <!-- Garis aksen selebar isi (wrap StackPanel center), bukan lebar penuh dialog -->
                 <Border Height="2" Background="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusXxs}"
-                        HorizontalAlignment="Center" MaxWidth="340"/>
+                        HorizontalAlignment="Stretch"/>
             </StackPanel>
+
+            <!-- Tutup: pojok kanan atas, terpisah dari header center supaya tidak geser -->
+            <Button Grid.Row="0" Click="OnCloseClick" Width="28" Height="28"
+                    ToolTip.Tip="Tutup" Cursor="Hand" Background="Transparent" BorderThickness="0"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-24,0,0">
+                <PathIcon Data="{StaticResource IconX}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </Button>
 
             <!-- Badan: catatan rilis. MaxHeight + scroll supaya dialog tetap pendek walau
                  changelog gabungan beberapa versi (SizeToContent=Height hanya setinggi isi). -->
