@@ -119,6 +119,17 @@ public partial class RadialMenuItem : ObservableObject
         /// </summary>
         public bool IsMoreDots => IsNavigation && NavigationType == "more";
 
+        /// <summary>
+        /// Daftar label item submenu grup TOOLBOX (nama display script _tb_*.jsx tanpa
+        /// prefix). Dipakai RadialMenuViewModel saat membangun cincin luar grup.
+        /// </summary>
+        [ObservableProperty] private List<string>? _groupSubmenuLabels = null;
+
+        /// <summary>
+        /// True = item ini MENYATAKAN grup TOOLBOX bisa dibuka (item induk di cincin dalam).
+        /// </summary>
+        [ObservableProperty] private bool _isGroupSubmenu;
+
     /// <summary>
     /// Generate short name from full name automatically.
     /// "PROFESI" → "P"

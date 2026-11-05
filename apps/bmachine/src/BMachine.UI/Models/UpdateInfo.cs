@@ -15,6 +15,23 @@ public class UpdateNoteItem
 {
     public bool IsHeader { get; init; }
     public string Text { get; init; } = "";
+
+    /// <summary>
+    /// Kata depan (sebelum ":" di catatan, mis. "Pasfoto" / "Update"). Dipakai XAML
+    /// untuk menyorotnya (bold + warna aksen) supaya apa yang di-update terbaca sekilas.
+    /// null = tidak ada bagian yang disorot (tampilan teks biasa).
+    /// </summary>
+    public string? Highlight { get; init; }
+
+    /// <summary>Isi catatan setelah kata depan (mis. " PFM/PFB tanpa PSD spesifik → ...").</summary>
+    public string Rest { get; init; } = "";
+
+    /// <summary>True kalau catatan punya bagian yang disorot ("sasaran: perubahan").</summary>
+    public bool HasHighlight => !string.IsNullOrEmpty(Highlight);
+
+    /// <summary>True kalau catatan polos (tanpa prefix "sasaran:"). Dipakai XAML:
+    /// fallback teks biasa hanya tampil kalau <see cref="HasHighlight"/> false.</summary>
+    public bool HasPlain => string.IsNullOrEmpty(Highlight);
 }
 
 public class ManifestComponentInfo
@@ -115,10 +132,20 @@ public class UpdateInfo
     /// Baris dialog update. Kalau user tertinggal LEBIH DARI SATU versi, catatan digabung
     /// per versi: header <c>------- vX -------</c> lalu poin-poinnya (urut naik, tanpa
     /// pemotongan). Kalau hanya satu versi, tampil seperti sebelumnya (poin biasa, maks 4).
+    /// Catatan format "<sasaran>: <perubahan>" — kata depannya disorot (Highlight),
+    /// sisanya di Rest; catatan tanpa ":" tampil polos.
     /// </summary>
     public List<UpdateNoteItem> BuildNoteItems(int singleSectionLimit = 4)
     {
         var items = new List<UpdateNoteItem>();
+
+        static (string highlight, string rest) SplitNote(string note)
+        {
+            var idx = note.IndexOf(':');
+            if (idx > 0 && idx < note.Length - 1)
+                return (note.Substring(0, idx).Trim(), note.Substring(idx + 1).Trim());
+            return (string.Empty, note.Trim());
+        }
 
         if (Changelog.Count > 1)
         {
@@ -126,13 +153,19 @@ public class UpdateInfo
             {
                 items.Add(new UpdateNoteItem { IsHeader = true, Text = $"------- v{section.Version} -------" });
                 foreach (var note in section.Notes)
-                    items.Add(new UpdateNoteItem { Text = note });
+                {
+                    var (hl, rest) = SplitNote(note);
+                    items.Add(new UpdateNoteItem { Text = note, Highlight = hl, Rest = rest });
+                }
             }
             return items;
         }
 
         foreach (var note in Notes.Take(singleSectionLimit))
-            items.Add(new UpdateNoteItem { Text = note });
+        {
+            var (hl, rest) = SplitNote(note);
+            items.Add(new UpdateNoteItem { Text = note, Highlight = hl, Rest = rest });
+        }
 
         return items;
     }

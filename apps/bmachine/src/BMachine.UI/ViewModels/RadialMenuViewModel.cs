@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -89,6 +89,16 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
     private List<Messages.DocTabSnapshot>? _submenuTabs;
     /// <summary>True kalau busur luar tab DOC sedang tampil.</summary>
     public bool HasOuterRing => SubmenuItems.Count > 0;
+
+    /// <summary>Daerah TOOLBOX (nama display tanpa prefix _tb_) dipakai saat
+    /// membangun cincin luar grup, supaya label yang tampil bersih. Urutannya
+    /// sama dengan _toolboxGroupFiles.</summary>
+    private List<string>? _toolboxGroupLabels;
+    /// <summary>Daerah file _tb_*.jsx hasil pindai terakhir (folder Action).</summary>
+    private List<string>? _toolboxGroupFiles;
+    /// <summary>True kalau cincin luar saat ini berasal dari grup TOOLBOX
+    /// (bukan submenu tab DOC). Dipakai ExecuteItem untuk lewati PrepareDocSend.</summary>
+    private bool _outerIsToolboxGroup;
 
     /// <summary>Item yang sedang didwell untuk membuka submenu.</summary>
     private RadialMenuItem? _dwellCandidate;
@@ -185,6 +195,50 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         if (Directory.Exists(baseDir))
         {
             foreach (var f in Directory.GetFiles(baseDir, "*.pyw")) AddItem(ActionItems, f, false);
+        }
+
+        // Grup TOOLBOX: semua .jsx ber-mark "_tb_" di folder Action menjadi
+        // satu item grup di cincin dalam; dwell hover-nya membuka cincin luar
+        // berisi skrip-skrpit _tb_ (nama display = tanpa prefix _tb_).
+        if (Directory.Exists(actionPath))
+        {
+            var tbFiles = Directory
+                .GetFiles(actionPath, "*.jsx")
+                .Where(f => Path.GetFileName(f).StartsWith("_tb_", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (tbFiles.Count > 0)
+            {
+                var labels = tbFiles
+                    .Select(f => Path.GetFileName(f).Replace(".jsx", "", StringComparison.OrdinalIgnoreCase)
+                        .TrimStart('_').TrimStart('t', 'b').Replace("_", " "))
+                    .Select(s => s.Trim())
+                    .Where(s => s.Length > 0)
+                    .Select(s => s.Length > 4 ? s.Substring(0, 4).ToUpper() : s.ToUpper())
+                    .ToList();
+                var fullNames = tbFiles
+                    .Select(f => Path.GetFileName(f).Replace(".jsx", "", StringComparison.OrdinalIgnoreCase))
+                    .Select(s => s.TrimStart('_').Replace("_", " ").Trim())
+                    .Where(s => s.Length > 0)
+                    .ToList();
+
+                ActionItems.Add(new RadialMenuItem
+                {
+                    FullName = "TOOLBOX",
+                    ShortName = "TB",
+                    ScriptPath = string.Empty,
+                    IsMaster = false,
+                    Order = -1, // masuk pertama, posisi paling dekat Utara
+                    Icon = ResolveIcon("IconGrid"),
+                    HasSubmenu = false,
+                    IsGroupSubmenu = true,
+                    GroupSubmenuLabels = fullNames
+                });
+
+                // Simpan mapping label -> path untuk saat cincin luar dibangun
+                _toolboxGroupFiles = tbFiles;
+            }
         }
 
         // Sort ActionItems
@@ -324,6 +378,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         {
             _submenuScriptPath = "";
             _submenuTabs = null;
+            _outerIsToolboxGroup = false;
             SubmenuItems.Clear();
 
             StopSubmenuDwell();
@@ -538,13 +593,14 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         // ============================================================
 
         /// <summary>
-        /// Kelola timer dwell: hover item ber-HasSubmenu (di luar submenu)
-        /// selama SubmenuDwellMs membuka submenu pilihan tab DOC.
+        /// Kelola timer dwell: hover item ber-HasSubmenu ATAU ber-IsGroupSubmenu
+        /// (di luar submenu) selama SubmenuDwellMs membuka submenu (tab DOC atau
+        /// grup TOOLBOX _tb_*.jsx).
         /// </summary>
         private void UpdateSubmenuDwell(RadialMenuItem? item)
         {
             bool canDwell = item != null
-                && item.HasSubmenu
+                && (item.HasSubmenu || item.IsGroupSubmenu)
                 && !item.IsNavigation;
 
             if (!canDwell)
@@ -605,7 +661,21 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
 
         private void TryEnterSubmenu(RadialMenuItem item)
         {
-            if (!item.HasSubmenu || item.IsNavigation) return;
+            if (item.IsNavigation) return;
+
+            // GRUP TOOLBOX: buka cincin luar berisi daftar _tb_*.jsx
+            if (item.IsGroupSubmenu)
+            {
+                if (_toolboxGroupFiles == null || _toolboxGroupFiles.Count == 0)
+                {
+                    ClearSubmenu();
+                    return;
+                }
+                BuildOuterToolboxSubmenu(item.Angle);
+                return;
+            }
+
+            if (!item.HasSubmenu) return;
 
             // Sudah terbuka untuk item ini -> tidak perlu query ulang.
             if (SubmenuItems.Count > 0 && item.ScriptPath == _submenuScriptPath) return;
@@ -620,7 +690,43 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
 
             _submenuTabs = tabs;
             _submenuScriptPath = item.ScriptPath;
+            _outerIsToolboxGroup = false;
             BuildOuterSubmenu(item.Angle);
+        }
+
+        /// <summary>
+        /// Bangun cincin luar untuk grup TOOLBOX: satu segmen per file _tb_*.jsx
+        /// (nama display = tanpa prefix). Jalur eksekusi berbeda dari submenu tab DOC:
+        /// klik segmen langsung ExecuteScript(path file) tanpa PrepareDocSend.
+        /// </summary>
+        private void BuildOuterToolboxSubmenu(double parentAngle)
+        {
+            SubmenuItems.Clear();
+            var files = _toolboxGroupFiles;
+            if (files == null || files.Count == 0) return;
+
+            int n = files.Count;
+            double start = parentAngle - 45.0 * (n - 1) / 2.0;
+            _outerIsToolboxGroup = true;
+            _submenuScriptPath = "";
+
+            for (int i = 0; i < n; i++)
+            {
+                var path = files[i];
+                var display = Path.GetFileName(path).Replace(".jsx", "").TrimStart('_');
+                display = display.Replace("_", " ").Trim();
+                var shortName = RadialMenuItem.GenerateShortName(display);
+                var item = new RadialMenuItem
+                {
+                    FullName = display,
+                    ShortName = shortName,
+                    ScriptPath = path,
+                    TabId = "",
+                    Angle = ((start + i * 45.0) % 360.0 + 360.0) % 360.0
+                };
+                PlaceOuterItem(item, 128.0);
+                SubmenuItems.Add(item);
+            }
         }
 
         /// <summary>
@@ -663,12 +769,22 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         /// <summary>
         /// Jalankan satu item menu — dipakai juga hook lepas-tombol dan klik
         /// langsung tombol XAML. Item cincin luar (TabId terisi) menyiapkan
-        /// doc_info.json milik tab tsb lebih dulu.
+        /// doc_info.json milik tab tsb lebih dulu. Item induk grup TOOLBOX
+        /// (IsGroupSubmenu) tidak bisa dieksekusi: hanya dipakai membuka
+        /// cincin luar berisi _tb_*.jsx.
         /// </summary>
         [RelayCommand]
         private void ExecuteItem(RadialMenuItem? item)
         {
             if (item == null || item.IsNavigation) return;
+            if (item.IsGroupSubmenu) return; // induk grup tidak eksekusi apa-apa; pilih cincin luar dulu
+            if (_outerIsToolboxGroup)
+            {
+                // Cincin luar grup TOOLBOX: langsung jalankan script tanpa menyiapkan DOC.
+                ClearSubmenu();
+                _ = ExecuteScript(item.ScriptPath);
+                return;
+            }
             if (!string.IsNullOrEmpty(item.TabId) && !PrepareDocSend(item.TabId))
             {
                 _logService?.AddLog("[WARNING] Data tab DOC tidak siap; script jalan dengan doc_info.json saat ini.");

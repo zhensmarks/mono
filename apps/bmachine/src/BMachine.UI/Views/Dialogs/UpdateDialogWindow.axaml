@@ -26,36 +26,37 @@
     <Border Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource SeparatorBrush}"
             BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="14,12">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="14,12" HorizontalAlignment="Center">
 
-            <!-- Header: drag region -->
-            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
-                <Border Grid.Column="0" Width="42" Height="42" CornerRadius="{DynamicResource RadiusPill}" VerticalAlignment="Top"
-                        Background="{DynamicResource AccentColorBrush}">
-                    <PathIcon Data="{StaticResource IconDownload}" Width="20" Height="20" Foreground="{DynamicResource TextOnPrimaryBrush}"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="3">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="PEMBARUAN TERSEDIA" FontSize="11" FontWeight="Bold" LetterSpacing="1.2"
-                                   Foreground="{DynamicResource AccentColorBrush}"/>
-                        <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusPill}" Padding="8,2">
-                            <TextBlock Text="{Binding LatestVersion, StringFormat='v{0}'}" FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource TextOnPrimaryBrush}"/>
-                        </Border>
-                        <Border Background="{DynamicResource MenuHoverBrush}" CornerRadius="{DynamicResource RadiusPill}" Padding="8,2"
-                                IsVisible="{Binding UpdateSizeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <TextBlock Text="{Binding UpdateSizeText}" FontSize="10.5" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        </Border>
+            <!-- Header: drag region. Judul + chip versi + ukuran + versi lama = rata tengah;
+                 garis aksen selebar isi (bukan penuh lebar dialog) di bawahnya. -->
+            <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,4">
+                <Grid ColumnDefinitions="*,Auto,*">
+                    <StackPanel Grid.Column="1" Spacing="3">
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                            <TextBlock Text="PEMBARUAN TERSEDIA" FontSize="11" FontWeight="Bold" LetterSpacing="1.2"
+                                       Foreground="{DynamicResource AccentColorBrush}" VerticalAlignment="Center"/>
+                            <Border Background="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusPill}" Padding="8,2">
+                                <TextBlock Text="{Binding LatestVersion, StringFormat='v{0}'}" FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource TextOnPrimaryBrush}"/>
+                            </Border>
+                            <Border Background="{DynamicResource MenuHoverBrush}" CornerRadius="{DynamicResource RadiusPill}" Padding="8,2"
+                                    IsVisible="{Binding UpdateSizeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <TextBlock Text="{Binding UpdateSizeText}" FontSize="10.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding CurrentVersion, StringFormat='Versi saat ini: {0}'}"
+                                   HorizontalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding CurrentVersion, StringFormat='Versi saat ini: {0}'}"
-                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                </StackPanel>
-                <Button Grid.Column="2" Classes="ghost" Click="OnCloseClick" Width="28" Height="28"
-                        ToolTip.Tip="Tutup" Cursor="Hand" Background="Transparent" BorderThickness="0">
-                    <PathIcon Data="{StaticResource IconX}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                </Button>
-            </Grid>
+                    <Button Grid.Column="2" Classes="ghost" Click="OnCloseClick" Width="28" Height="28" VerticalAlignment="Top" HorizontalAlignment="Right"
+                            ToolTip.Tip="Tutup" Cursor="Hand" Background="Transparent" BorderThickness="0">
+                        <PathIcon Data="{StaticResource IconX}" Width="13" Height="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </Grid>
+                <!-- Garis aksen selebar teks di atasnya (wrap StackPanel, bukan Grid penuh lebar). -->
+                <Border Height="2" Background="{DynamicResource AccentColorBrush}" CornerRadius="{DynamicResource RadiusXxs}"
+                        HorizontalAlignment="Center" MaxWidth="340"/>
+            </StackPanel>
 
             <!-- Badan: catatan rilis. MaxHeight + scroll supaya dialog tetap pendek walau
                  changelog gabungan beberapa versi (SizeToContent=Height hanya setinggi isi). -->
@@ -69,9 +70,18 @@
                                 <Grid ColumnDefinitions="Auto,*" Margin="0,1">
                                     <Border Grid.Column="0" Width="4" Height="4" CornerRadius="{DynamicResource RadiusXxs}" VerticalAlignment="Center"
                                             Background="{DynamicResource AccentColorBrush}" IsVisible="{Binding !IsHeader}"/>
-                                    <!-- Poin catatan -->
+                                    <!-- Poin catatan: kata depan (mis. "Pasfoto") disorot, sisanya biasa -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                IsVisible="{Binding HasHighlight}">
+                                        <TextBlock Text="{Binding Highlight}" FontSize="11.5" FontWeight="Bold" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource AccentColorBrush}" VerticalAlignment="Top"/>
+                                        <TextBlock Text="{Binding Rest}" FontSize="11.5" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Top" Margin="5,0,0,0"/>
+                                    </StackPanel>
+                                    <!-- Fallback: catatan tanpa prefix ("sasaran: perubahan") tampil polos -->
                                     <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="11.5" TextWrapping="Wrap" MaxWidth="300"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding !IsHeader}"/>
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               IsVisible="{Binding HasPlain}"/>
                                     <!-- Pemisah versi: baris "vX" dari changelog gabungan -->
                                     <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="11" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="300"
                                                Margin="0,6,0,2" Foreground="{DynamicResource AccentColorBrush}" IsVisible="{Binding IsHeader}"/>
