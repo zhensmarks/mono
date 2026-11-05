@@ -492,6 +492,12 @@ DILARANG:
   (§8) yang menurunkan warna dari tombolnya; foreground lokal mematikan adaptivitas palet.
 - `WindowStartupLocation="CenterOwner"` tanpa clamp: owner kecil bisa melempar dialog ke luar layar.
 
+**Satu sumber update saja.** Pemilih channel (stable/experimental) sudah dihapus — tidak ada lagi
+RadioButton channel di Settings → About, dan tidak ada folder `...\BMachine\experimental`. Urutan
+folder yang dipakai `LocalUpdateService.ResolveCandidates` tetap:
+`BMACHINE_UPDATE_DIR` → `Update.LocalPath` user → `DefaultFolder` (NAS) → `DriveLetterFolder` (drive U:).
+Key DB `Update.Channel` sudah tidak dibaca; nilainya dibiarkan di DB (tidak berbahaya).
+
 ---
 
 ## 27. Panel Kelola Grup Radial (Settings → Script Manager → RADIAL MENU)

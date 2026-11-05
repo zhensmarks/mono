@@ -27,32 +27,19 @@ namespace BMachine.UI.Services;
 /// </summary>
 public static class LocalUpdateService
 {
-    /// <summary>Folder update default (channel STABLE): server NAS kantor.</summary>
+    /// <summary>Folder update: server NAS kantor.</summary>
     public const string DefaultFolder = @"\\delapanmataair\Editor\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
 
-    /// <summary>Folder update channel EXPERIMENTAL: saudara dari DefaultFolder.</summary>
-    public const string ExperimentalFolder = @"\\delapanmataair\Editor\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine\experimental";
-
-    /// <summary>Cadangan channel stable kalau UNC tidak resolve tapi drive U: sudah dimapping.</summary>
+    /// <summary>Cadangan kalau UNC tidak resolve tapi drive U: sudah dimapping.</summary>
     public const string DriveLetterFolder = @"U:\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
-
-    /// <summary>Cadangan channel experimental (drive U:).</summary>
-    public const string DriveLetterExperimentalFolder = @"U:\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine\experimental";
 
     public const string ManifestFileName = "manifest.json";
 
-    /// <summary>Channel update: "stable" (default) atau "experimental".</summary>
-    public const string ChannelStable = "stable";
-    public const string ChannelExperimental = "experimental";
-
     /// <summary>
-    /// Folder update yang dicoba untuk sebuah channel (urutan: env var override →
-    /// UNC default channel → drive U: cadangan channel). Isian user (configured)
-    /// tetap paling dulu dicoba kalau tidak kosong.
+    /// Folder update yang dicoba (urutan: env var override → isian user → NAS UNC → drive U:).
     /// </summary>
-    public static IReadOnlyList<string> ResolveChannelCandidates(string channel, string? configured)
+    public static IReadOnlyList<string> ResolveCandidates(string? configured)
     {
-        var isExp = string.Equals(channel, ChannelExperimental, StringComparison.OrdinalIgnoreCase);
         var list = new List<string>();
 
         void Add(string? path)
@@ -66,15 +53,15 @@ public static class LocalUpdateService
 
         Add(Environment.GetEnvironmentVariable("BMACHINE_UPDATE_DIR"));
         Add(configured);
-        Add(isExp ? ExperimentalFolder : DefaultFolder);
-        Add(isExp ? DriveLetterExperimentalFolder : DriveLetterFolder);
+        Add(DefaultFolder);
+        Add(DriveLetterFolder);
         return list;
     }
 
-    /// <summary>Folder yang ditampilkan di Settings: env var (opsional) → isian user → folder channel default.</summary>
-    public static string ResolveFolder(string? configured, string channel = ChannelStable)
+    /// <summary>Folder yang ditampilkan di Settings: env var (opsional) → isian user → folder default.</summary>
+    public static string ResolveFolder(string? configured)
     {
-        var candidates = ResolveChannelCandidates(channel, configured);
+        var candidates = ResolveCandidates(configured);
         return candidates.Count > 0 ? candidates[0] : DefaultFolder;
     }
 
@@ -92,33 +79,25 @@ public static class LocalUpdateService
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
     }
 
-    /// <summary>Cara cek update (channel stable, backward-compat): env → user → NAS UNC → drive U:.</summary>
-    public static IReadOnlyList<string> ResolveCandidates(string? configured)
-    {
-        return ResolveChannelCandidates(ChannelStable, configured);
-    }
-
     /// <summary>
     /// Baca manifest dari folder update dan bandingkan dengan versi aplikasi.
     /// Tidak pernah melempar exception: kegagalan akses dikembalikan sebagai status.
-    /// Parameter <c>channel</c> menentukan folder mana yang dicoba (stable/experimental).
     /// </summary>
-    public static async Task<(UpdateInfo Info, string Status)> CheckAsync(string? folder, bool allowFallback = true, string channel = ChannelStable)
+    public static async Task<(UpdateInfo Info, string Status)> CheckAsync(string? folder, bool allowFallback = true)
     {
         var info = new UpdateInfo
         {
             CurrentVersion = GetCurrentVersion(),
             LatestVersion = GetCurrentVersion(),
-            IsLocalSource = true,
-            Channel = channel
+            IsLocalSource = true
         };
 
         var errors = new List<string>();
 
-        // Coba berurutan sesuai channel: env var → setting user → folder channel (UNC) → drive U:.
+        // Coba berurutan: env var → setting user → folder default (UNC) → drive U:.
         var candidates = allowFallback
-            ? ResolveChannelCandidates(channel, folder)
-            : new[] { ResolveFolder(folder, channel) };
+            ? ResolveCandidates(folder)
+            : new[] { ResolveFolder(folder) };
 
         foreach (var candidate in candidates)
         {
@@ -180,7 +159,7 @@ public static class LocalUpdateService
             return (info, status);
         }
 
-        info.SourceFolder = ResolveFolder(folder, channel);
+        info.SourceFolder = ResolveFolder(folder);
         var detail = errors.Count > 0 ? string.Join(" | ", errors) : "manifest.json tidak ditemukan";
         return (info, $"Folder update tidak bisa dibaca ({detail})");
     }

@@ -1135,9 +1135,6 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>Folder share tempat manifest.json + payload update diletakkan.</summary>
     [ObservableProperty] private string _updateFolderPath = LocalUpdateService.DefaultFolder;
 
-    /// <summary>Channel update: "stable" (aman, resmi) atau "experimental" (sering berubah, boleh buggy).</summary>
-    [ObservableProperty] private string _updateChannel = LocalUpdateService.ChannelStable;
-
     /// <summary>Catatan rilis versi pendek (satu baris = satu poin).</summary>
     [ObservableProperty] private string _updateNotesText = "";
 
@@ -1163,36 +1160,11 @@ public partial class SettingsViewModel : ObservableObject
         _ = _database.SetAsync("Update.LocalPath", clean);
     }
 
-    partial void OnUpdateChannelChanged(string value)
-    {
-        if (_isInitializing || _database == null) return;
-
-        var clean = (value ?? "").Trim();
-        var target = string.Equals(clean, "experimental", StringComparison.OrdinalIgnoreCase)
-            ? LocalUpdateService.ChannelExperimental
-            : LocalUpdateService.ChannelStable;
-        if (string.Equals(target, UpdateChannel, StringComparison.OrdinalIgnoreCase)) return;
-
-        UpdateChannel = target;
-
-        // Auto-pindah folder ke default channel terpilih, lalu cek ulang.
-        UpdateFolderPath = LocalUpdateService.ResolveFolder(null, target);
-        _ = _database.SetAsync("Update.Channel", target);
-        _ = _database.SetAsync("Update.LocalPath", UpdateFolderPath);
-        _ = CheckForUpdates();
-    }
-
-    [RelayCommand]
-    private void SetStableChannel() => UpdateChannel = LocalUpdateService.ChannelStable;
-
-    [RelayCommand]
-    private void SetExperimentalChannel() => UpdateChannel = LocalUpdateService.ChannelExperimental;
-
     /// <summary>Kembalikan folder update ke default server NAS (mis. setelah isinya diubah user).</summary>
     [RelayCommand]
     private async Task ResetUpdateFolderPath()
     {
-        UpdateFolderPath = LocalUpdateService.ResolveFolder(null, UpdateChannel);
+        UpdateFolderPath = LocalUpdateService.ResolveFolder(null);
 
         if (_database != null)
             await _database.SetAsync("Update.LocalPath", UpdateFolderPath);
@@ -1208,7 +1180,7 @@ public partial class SettingsViewModel : ObservableObject
 
         try
         {
-            var (info, status) = await LocalUpdateService.CheckAsync(UpdateFolderPath, true, UpdateChannel);
+            var (info, status) = await LocalUpdateService.CheckAsync(UpdateFolderPath, true);
 
             _lastUpdateInfo = info;
             CurrentVersion = info.CurrentVersion;
@@ -1410,12 +1382,8 @@ public partial class SettingsViewModel : ObservableObject
             UserName = name ?? "USER";
 
             // --- Mode update lokal (LAN) ---
-            CurrentVersion = LocalUpdateService.GetCurrentVersion();
-            var channelRaw = await _database.GetAsync<string>("Update.Channel");
-            UpdateChannel = string.Equals((channelRaw ?? "").Trim(), "experimental", StringComparison.OrdinalIgnoreCase)
-                ? LocalUpdateService.ChannelExperimental
-                : LocalUpdateService.ChannelStable;
-            UpdateFolderPath = LocalUpdateService.ResolveFolder(await _database.GetAsync<string>("Update.LocalPath"), UpdateChannel);
+                        CurrentVersion = LocalUpdateService.GetCurrentVersion();
+                        UpdateFolderPath = LocalUpdateService.ResolveFolder(await _database.GetAsync<string>("Update.LocalPath"));
             
             // Load Animation Setting
             var animStr = await _database.GetAsync<string>("Settings.StartupAnim");

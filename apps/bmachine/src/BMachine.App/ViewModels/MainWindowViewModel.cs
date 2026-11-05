@@ -224,16 +224,11 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     {
         try
         {
-            var channel = (await _database.GetAsync<string>("Update.Channel"))
-                .Trim().Equals("experimental", StringComparison.OrdinalIgnoreCase)
-                ? BMachine.UI.Services.LocalUpdateService.ChannelExperimental
-                : BMachine.UI.Services.LocalUpdateService.ChannelStable;
-
             var folder = BMachine.UI.Services.LocalUpdateService.ResolveFolder(
-                await _database.GetAsync<string>("Update.LocalPath"), channel);
+                await _database.GetAsync<string>("Update.LocalPath"));
 
-            var (info, status) = await BMachine.UI.Services.LocalUpdateService.CheckAsync(folder, true, channel);
-            Console.WriteLine($"[Update] Channel='{channel}' Folder='{folder}' Local='{info.CurrentVersion}' Remote='{info.LatestVersion}' Available={info.IsUpdateAvailable} ({status})");
+            var (info, status) = await BMachine.UI.Services.LocalUpdateService.CheckAsync(folder);
+            Console.WriteLine($"[Update] Folder='{folder}' Local='{info.CurrentVersion}' Remote='{info.LatestVersion}' Available={info.IsUpdateAvailable} ({status})");
             if (!info.IsUpdateAvailable) return;
 
             // Bagikan hasilnya SEBELUM cek "Nanti": badge di popup akun memang

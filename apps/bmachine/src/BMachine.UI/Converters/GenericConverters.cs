@@ -31,7 +31,7 @@ public class IndexToBoolConverter : IValueConverter
 
 /// <summary>
 /// Bandingkan string value dengan parameter: true kalau sama (ordinal, case-insensitive).
-/// Dipakai RadioButton channel update (mis. UpdateChannel == "experimental").
+/// Membandingkan string binding dengan ConverterParameter (mis. filter tipe/kategori).
 /// ConvertBack: kalau checked, kembalikan parameter sebagai value baru.
 /// </summary>
 public class StringToBoolConverter : IValueConverter

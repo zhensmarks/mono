@@ -1214,18 +1214,6 @@
                                     <TextBlock Text="Installed" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentColorBrush}"/>
                                 </Border>
                             </Grid>
-                            <!-- Channel update: stable / experimental -->
-                            <StackPanel Spacing="5">
-                                <TextBlock Text="Channel update" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <RadioButton Content="Stable — sudah teruji, aman untuk dipakai orang" GroupName="UpdateChannel"
-                                             IsChecked="{Binding UpdateChannel, Converter={x:Static converters:StringToBoolConverter.Instance}, ConverterParameter=stable, Mode=OneWay}"
-                                             Click="OnStableChannelClick"
-                                             FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                <RadioButton Content="Experimental — fitur terbaru, mungkin banyak bug" GroupName="UpdateChannel"
-                                             IsChecked="{Binding UpdateChannel, Converter={x:Static converters:StringToBoolConverter.Instance}, ConverterParameter=experimental, Mode=OneWay}"
-                                             Click="OnExperimentalChannelClick"
-                                             FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                            </StackPanel>
                             <Button Command="{Binding CheckForUpdatesCommand}" IsEnabled="{Binding !IsCheckingUpdate}"
                                     HorizontalAlignment="Left" Height="34" Padding="14,0"
                                     Background="{DynamicResource AccentColorBrush}" Foreground="White" BorderThickness="0" CornerRadius="{DynamicResource RadiusSm}">

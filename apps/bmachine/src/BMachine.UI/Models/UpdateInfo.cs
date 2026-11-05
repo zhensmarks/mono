@@ -109,13 +109,6 @@ public class UpdateInfo
     /// </summary>
     public List<ManifestComponentInfo> Components { get; set; } = new();
 
-    /// <summary>Channel update yang sedang dipakai ("stable"/"experimental"). Default "stable".</summary>
-    public string Channel { get; set; } = "stable";
-
-    /// <summary>Label channel untuk tampilan (mis. badge kecil di dialog update).</summary>
-    public string ChannelLabel => string.Equals(Channel, "experimental", StringComparison.OrdinalIgnoreCase)
-        ? "EXPERIMENTAL" : "STABLE";
-
     /// <summary>Daftar nama komponen yang tersedia di dialog (yang CHANGED di manifest).</summary>
     public List<ManifestComponentInfo> ChangedComponents =>
         Components.Where(c => c != null && c.Changed && c.Included).ToList();

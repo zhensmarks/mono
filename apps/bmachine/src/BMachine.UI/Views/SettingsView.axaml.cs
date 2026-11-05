@@ -49,18 +49,6 @@ public partial class SettingsView : UserControl
         this.AddHandler(PointerReleasedEvent, OnRadialRootPointerReleased, Avalonia.Interactivity.RoutingStrategies.Bubble, true);
     }
 
-    private void OnStableChannelClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is SettingsViewModel vm)
-            vm.SetStableChannelCommand.Execute(null);
-    }
-
-    private void OnExperimentalChannelClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is SettingsViewModel vm)
-            vm.SetExperimentalChannelCommand.Execute(null);
-    }
-
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         if (DataContext is SettingsViewModel vm)
