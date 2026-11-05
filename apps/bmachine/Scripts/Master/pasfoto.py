@@ -176,11 +176,49 @@ def load_paths_from_config():
 # PSD Template Finder
 # ============================================
 
-def find_psd_for_code(master_pasfoto_path: str, layer_code: str):
+def _find_universal_master(master_pasfoto_path: str, files: Optional[List[str]] = None) -> Optional[str]:
     """
-    Cari PSD sesuai kode (mis. PFM-06, PFM 06, PFM06) di folder master_pasfoto_path.
+    Cari file PSD universal "#master pas foto.psd" di folder master.
+    Dipakai sebagai fallback kalau user pakai 1 file PSD saja (tanpa PFM/PFB
+    terstruktur). Nama file fleksibel: case-insensitive + boleh ada spasi
+    ekstra.
+    """
+    if files is None:
+        try:
+            files = os.listdir(master_pasfoto_path)
+        except Exception:
+            return None
+
+    # Nama target: "#master pas foto.psd" — fleksibel spasi/karakter khusus
+    target_normalized = "#MASTER PAS FOTO.PSD".replace(" ", "")
+    for f in files:
+        if not f.lower().endswith(".psd"):
+            continue
+        fname_normalized = f.upper().replace(" ", "")
+        # Cocok kalau: persis "#MASTER PAS FOTO" atau mulai dengan "#MASTER PAS FOTO"
+        if fname_normalized == target_normalized or fname_normalized.startswith(target_normalized):
+            return os.path.join(master_pasfoto_path, f)
+
+    # Fallback terakhir: kalau ada "master pas foto" tanpa tanda #
+    target_fallback = "MASTER PAS FOTO.PSD"
+    for f in files:
+        if not f.lower().endswith(".psd"):
+            continue
+        if f.upper().replace(" ", "") == target_fallback:
+            return os.path.join(master_pasfoto_path, f)
+
+    return None
+
+
+def find_psd_for_code(master_pasfoto_path: str, layer_code: str, universal_fallback: bool = True):
+    """
+    Cari PSD sesuai kode (mis. PFM-06, PFB-07) di folder master_pasfoto_path.
     Normalisasi angka: 06 = 006 = 6 (integer comparison).
-    File PSD: PFM-001.psd, PFM-002.psd, ..., PFM-010.psd
+    File PSD: PFM-001.psd, PFM-002.psd, ...
+
+    Kalau tidak ketemu DAN universal_fallback=True, cari file universal
+    "#master pas foto.psd" di folder yang sama (fallback untuk user yang
+    pakai 1 file PSD saja).
     """
     if not os.path.isdir(master_pasfoto_path):
         return None
@@ -191,10 +229,11 @@ def find_psd_for_code(master_pasfoto_path: str, layer_code: str):
         return None
 
     # Ekstrak prefix dan angka dari kode: "PFM 06" / "PFM_06" → prefix="PFM", num_int=6
-    # Underscore '_' juga diterima sebagai pemisah (mis. PFM_005 / PFB_005).
     code_clean = re.sub(r'[\s\-_]+', '', layer_code).upper()
     code_match = re.match(r'(PF[MB])_?(\d+)', code_clean, re.IGNORECASE)
     if not code_match:
+        if universal_fallback:
+            return _find_universal_master(master_pasfoto_path, files)
         return None
     
     target_prefix = code_match.group(1).upper()  # "PFM" atau "PFB"
@@ -224,6 +263,9 @@ def find_psd_for_code(master_pasfoto_path: str, layer_code: str):
         # Jika ada multiple match, ambil yang nama terpendek (paling bersih)
         candidates.sort(key=len)
         return os.path.join(master_pasfoto_path, candidates[0])
+
+    if universal_fallback:
+        return _find_universal_master(master_pasfoto_path, files)
 
     return None
 
@@ -425,9 +467,9 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
             continue
 
         # Temukan PSD template
-        psd_template_path = find_psd_for_code(master_pasfoto_path, layer_code)
+        psd_template_path = find_psd_for_code(master_pasfoto_path, layer_code, universal_fallback=True)
         if not psd_template_path:
-            print(f"[ERROR] PSD untuk kode '{layer_code}' tidak ditemukan di '{master_pasfoto_path}'. Dilewati.", file=sys.stderr)
+            print(f"[ERROR] PSD untuk kode '{layer_code}' tidak ditemukan di '{master_pasfoto_path}' (termasuk universal '#master pas foto.psd'). Dilewati.", file=sys.stderr)
             continue
 
         print(f"  - Template PSD: {os.path.basename(psd_template_path)}")

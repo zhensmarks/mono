@@ -494,8 +494,10 @@ public static class LocalUpdateService
         sb.Append("if ($copyMaster) {\n");
         sb.Append("    $masterDir = Join-Path $payload 'Scripts\\Master'\n");
         sb.Append("    if (Test-Path $masterDir) {\n");
+        sb.Append("        $masterDst = Join-Path $install 'Scripts\\Master'\n");
+        sb.Append("        if (-not (Test-Path $masterDst)) { New-Item -ItemType Directory -Path $masterDst -Force | Out-Null }\n");
         sb.Append("        try {\n");
-        sb.Append("            Copy-Item -Path $masterDir -Destination (Join-Path $install 'Scripts\\Master') -Recurse -Force\n");
+        sb.Append("            Copy-Item -Path $masterDir -Destination $masterDst -Recurse -Force\n");
         sb.Append("            Write-Log 'komponen Master tersalin'\n");
         sb.Append("        } catch { Write-Log ('gagal salin Master: ' + $_.Exception.Message) }\n");
         sb.Append("    }\n");
@@ -508,8 +510,10 @@ public static class LocalUpdateService
         sb.Append("if ($copyAction) {\n");
         sb.Append("    $actionDir = Join-Path $payload 'Scripts\\Action'\n");
         sb.Append("    if (Test-Path $actionDir) {\n");
+        sb.Append("        $actionDst = Join-Path $install 'Scripts\\Action'\n");
+        sb.Append("        if (-not (Test-Path $actionDst)) { New-Item -ItemType Directory -Path $actionDst -Force | Out-Null }\n");
         sb.Append("        try {\n");
-        sb.Append("            Copy-Item -Path $actionDir -Destination (Join-Path $install 'Scripts\\Action') -Recurse -Force\n");
+        sb.Append("            Copy-Item -Path $actionDir -Destination $actionDst -Recurse -Force\n");
         sb.Append("            Write-Log 'komponen Action tersalin'\n");
         sb.Append("        } catch { Write-Log ('gagal salin Action: ' + $_.Exception.Message) }\n");
         sb.Append("    }\n");
