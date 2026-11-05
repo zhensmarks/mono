@@ -26,7 +26,7 @@
     <Border Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource SeparatorBrush}"
             BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}">
-        <Grid RowDefinitions="Auto,Auto,Auto" Margin="14,12">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="14,12">
 
             <!-- Header: drag region -->
             <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
@@ -91,7 +91,37 @@
 
             <!-- Aksi: kedua tombol dipaksa Height/Padding sama supaya sejajar.
                  Tanpa ini tombol "Nanti" (tanpa ikon) lebih pendek dari "Perbarui sekarang". -->
-            <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto" Margin="0,12,0,0">
+            <!-- Panel pemilih komponen (hanya tampil kalau manifest punya field "components"):
+                 user bisa centang mana yang mau di-update (Aplikasi / Master / Action / Opsi). -->
+            <Border Grid.Row="2" IsVisible="{Binding SelectComponentsVisible}" Margin="0,0,0,10"
+                    Background="{DynamicResource BgInputBrush}" CornerRadius="6" Padding="10,8"
+                    BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Pembaruan komponen" FontSize="10.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="Pilih mana yang mau di-update. Modifikasi kamu di komponen yang tidak dicentang TIDAK akan disentuh."
+                               FontSize="10" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                    <ItemsControl ItemsSource="{Binding UpdateComponents}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:CompileBindings="False">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,1"
+                                      IsVisible="{Binding Changed}">
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding Included, Mode=TwoWay}"
+                                              VerticalAlignment="Center" Margin="0,0,6,0"
+                                              ToolTip.Tip="Centang untuk meng-update komponen ini"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="11.5"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding PathsDisplay}" FontSize="10"
+                                               Foreground="{DynamicResource TextFaintBrush}" VerticalAlignment="Center"
+                                               IsVisible="{Binding HasMultiplePaths}" MaxWidth="90" TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Row="3" ColumnDefinitions="Auto,Auto" Margin="0,12,0,0">
                 <Button Grid.Column="0" Command="{Binding ApplyUpdateCommand}" IsEnabled="{Binding !IsApplyingUpdate}"
                         Classes="Action" Cursor="Hand" HorizontalAlignment="Left"
                         MinHeight="36" Padding="16,8" MinWidth="150"

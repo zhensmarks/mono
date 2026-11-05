@@ -17,6 +17,41 @@ public class UpdateNoteItem
     public string Text { get; init; } = "";
 }
 
+public class ManifestComponentInfo
+{
+    public string Name { get; set; } = "";
+    public bool Changed { get; set; }
+    public bool Included { get; set; } = true;
+    public List<string> Paths { get; set; } = new();
+
+    /// <summary>
+    /// Untuk binding UI: gabungan path yang relevan (tampil di panel komponen,
+    /// tooltip). Kosong = path tidak diketahui.
+    /// </summary>
+    public string PathsDisplay => Paths == null || Paths.Count == 0
+        ? ""
+        : Paths.Count == 1 ? Paths[0] : string.Join(", ", Paths.Take(2)) + (Paths.Count > 2 ? ", …" : "");
+    public bool HasMultiplePaths => Paths != null && Paths.Count > 1;
+}
+
+public class ManifestCategories
+{
+    public string Version { get; set; } = "";
+    public ManifestComponentInfo[] Components { get; set; } =
+        Array.Empty<ManifestComponentInfo>();
+
+    public bool AnyChanged() => Components.Any(c => c != null && c.Changed);
+
+    /// <summary>Kategori default: semua komponen yang diikutkan dicentang.</summary>
+    public static string[] DefaultSelected(IEnumerable<ManifestComponentInfo> changed)
+    {
+        var names = new List<string>();
+        foreach (var c in changed)
+            if (c != null && c.Changed && c.Included) names.Add(c.Name);
+        return names.ToArray();
+    }
+}
+
 public class UpdateInfo
 {
     public bool IsUpdateAvailable { get; set; }
@@ -50,6 +85,16 @@ public class UpdateInfo
 
     /// <summary>Ukuran payload dari manifest dalam byte (0 = tidak diketahui).</summary>
     public long SizeBytes { get; set; }
+
+    /// <summary>
+    /// Komponen update (Aplikasi / Master / Action / Opsi). Kosong untuk manifest lama
+    /// tanpa field ini — app tetap menjalankan update apa adanya (perilaku lama).
+    /// </summary>
+    public List<ManifestComponentInfo> Components { get; set; } = new();
+
+    /// <summary>Daftar nama komponen yang tersedia di dialog (yang CHANGED di manifest).</summary>
+    public List<ManifestComponentInfo> ChangedComponents =>
+        Components.Where(c => c != null && c.Changed && c.Included).ToList();
 
     /// <summary>Ukuran payload siap tampil di banner (mis. "147 MB").</summary>
     public string SizeText => SizeBytes > 0

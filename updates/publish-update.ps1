@@ -139,6 +139,83 @@ Write-Host "[4/5] Tulis manifest.json..." -ForegroundColor Cyan
 $exeInfo = Get-Item -LiteralPath (Join-Path $PayloadDir "BMachine.App.exe")
 $hash = (Get-FileHash -LiteralPath $exeInfo.FullName -Algorithm SHA256).Hash
 
+# --- Komponen update (aplikasi / master / action) -----------------------------
+# Flag "changed" dipakai dialog update untuk menampilkan checkbox per komponen.
+# File di payload yang tidak terdaftar di komponen = ikut salinan apa adanya
+# (perilaku lama), jadi tidak ada komponen penting yang hilang.
+function Get-SimpleFileHash([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    try { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash } catch { return $null }
+}
+
+$baseDir = $PublishDir                       # hasil publish terakhir (baseline)
+$componentsArray = New-Object System.Collections.ArrayList
+
+# Komponen APLIKASI: exe + Assets
+$appChanged = $false
+$appPaths = @("BMachine.App.exe", "Assets")
+# Bandingkan hash exe baseline vs payload untuk deteksi perubahan
+$baseExe = Join-Path $baseDir "BMachine.App.exe"
+if (Test-Path $baseExe) {
+    $h1 = Get-SimpleFileHash $baseExe
+    if ($h1 -and $h1 -ne $hash) { $appChanged = $true }
+}
+$appComponents = @{
+    name     = "Aplikasi"
+    changed  = $appChanged
+    included = $true
+    paths    = $appPaths
+}
+[void]$componentsArray.Add([pscustomobject]$appComponents)
+
+# Komponen MASTER: Scripts\Master
+$masterPayload = Join-Path $PayloadDir "Scripts\Master"
+$masterBase    = Join-Path $baseDir    "Scripts\Master"
+$masterChanged = $false
+$masterFiles   = @()
+if (Test-Path $masterPayload) {
+    $masterFiles = @(Get-ChildItem -Path $masterPayload -Recurse -File | Where-Object { $_.FullName -notlike "*\.git*" })
+    if ($masterFiles.Count -gt 0) {
+        foreach ($f in $masterFiles) {
+            $rel = $f.FullName.Substring($masterPayload.Length).TrimStart("\","/")
+            $baseFile = Join-Path $masterBase $rel
+            if ((-not (Test-Path $baseFile)) -or ((Get-SimpleFileHash $f.FullName) -ne (Get-SimpleFileHash $baseFile))) {
+                $masterChanged = $true; break
+            }
+        }
+    }
+}
+$masterComponents = @{
+    name     = "Master"
+    changed  = $masterChanged
+    included = $true
+    paths    = @("Scripts\Master")
+}
+[void]$componentsArray.Add([pscustomobject]$masterComponents)
+
+# Komponen ACTION: Scripts\Action
+$actionPayload = Join-Path $PayloadDir "Scripts\Action"
+$actionBase    = Join-Path $baseDir    "Scripts\Action"
+$actionChanged = $false
+$actionFiles   = @()
+if (Test-Path $actionPayload) {
+    $actionFiles = @(Get-ChildItem -Path $actionPayload -Recurse -File | Where-Object { $_.FullName -notlike "*\.git*" })
+    foreach ($f in $actionFiles) {
+        $rel = $f.FullName.Substring($actionPayload.Length).TrimStart("\","/")
+        $baseFile = Join-Path $actionBase $rel
+        if ((-not (Test-Path $baseFile)) -or ((Get-SimpleFileHash $f.FullName) -ne (Get-SimpleFileHash $baseFile))) {
+            $actionChanged = $true; break
+        }
+    }
+}
+$actionComponents = @{
+    name     = "Action"
+    changed  = $actionChanged
+    included = $true
+    paths    = @("Scripts\Action")
+}
+[void]$componentsArray.Add([pscustomobject]$actionComponents)
+
 $manifestObj = [ordered]@{
     version    = $Version
     releasedAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:sszzz")
@@ -147,7 +224,11 @@ $manifestObj = [ordered]@{
     exe        = "BMachine.App.exe"
     sha256     = $hash
     sizeBytes  = $exeInfo.Length
+    components = @($componentsArray)
 }
+
+# Tampilkan status komponen untuk catatan rilis opsional
+Write-Host "      Komponen: Aplikasi=$($appChanged) Master=$($masterChanged) Action=$($actionChanged)" -ForegroundColor DarkGray
 
 $json = $manifestObj | ConvertTo-Json -Depth 4
 # Tulis tanpa BOM supaya bisa dibaca tool lain (C#/JsonDocument tetap aman, tapi lebih bersih).

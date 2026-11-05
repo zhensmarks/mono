@@ -341,6 +341,19 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     [ObservableProperty] private bool _isApplyingUpdate;
     [ObservableProperty] private string _updateActionStatus = "";
 
+    // Komponen update (Aplikasi / Master / Action / Opsi) — hanya di dialog kalau
+    // manifest punya field "components". Kalau kosong, tombolnya disembunyikan.
+    [ObservableProperty] private System.Collections.Generic.List<BMachine.UI.Models.ManifestComponentInfo> _updateComponents = new();
+    [ObservableProperty] private bool _selectComponentsVisible = false;
+
+    [RelayCommand]
+    private void ToggleComponent(BMachine.UI.Models.ManifestComponentInfo component)
+    {
+        if (component == null) return;
+        component.Included = !component.Included;
+        OnPropertyChanged(nameof(UpdateComponents));
+    }
+
     /// <summary>Versi yang sedang dipakai app (untuk perbandingan di banner).</summary>
     [ObservableProperty] private string _currentVersion = "";
 
@@ -366,6 +379,11 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         UpdateNoteItems = new ObservableCollection<BMachine.UI.Models.UpdateNoteItem>(info.BuildNoteItems());
         UpdateActionStatus = "";
         IsUpdateAvailable = true;
+
+        // Komponen update: hanya tampilkan kalau manifest punya field "components".
+        // User bisa centang mana saja (Aplikasi / Master / Action / Opsi) yang mau di-update.
+        UpdateComponents = info.Components != null ? info.Components.ToList() : new();
+        SelectComponentsVisible = UpdateComponents.Count > 0;
     }
 
     partial void OnIsUpdateAvailableChanged(bool value)
@@ -380,7 +398,12 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
         UpdateActionStatus = "Menyiapkan update...";
         try
         {
-            var (ok, message) = await BMachine.UI.Services.LocalUpdateService.ApplyAsync(_lastUpdateInfo);
+            // Ambil komponen yang user centang (name list). Kosong = salin semua (perilaku lama).
+            var selected = UpdateComponents != null
+                ? UpdateComponents.Where(c => c.Included && c.Changed).Select(c => c.Name).ToList()
+                : null;
+
+            var (ok, message) = await BMachine.UI.Services.LocalUpdateService.ApplyAsync(_lastUpdateInfo, selected);
             UpdateActionStatus = message;
 
             if (ok)

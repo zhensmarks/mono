@@ -211,6 +211,10 @@ public static class LocalUpdateService
                 result.SizeBytes = sizeEl.TryGetInt64(out var size) ? size : 0;
             }
 
+            // Komponen update (opsional). Manifest lama tanpa field ini = Components kosong
+            // → helper menjalankan update apa adanya (perilaku lama).
+            result.Components = ReadComponents(root);
+
             // Changelog versi yang belum dipasang (opsional): dipakai dialog update untuk
             // menggabungkan catatan rilis kalau user tertinggal beberapa versi.
             result.Changelog = ReadChangelog(folder, result.LatestVersion);
@@ -305,6 +309,33 @@ public static class LocalUpdateService
         return sections;
     }
 
+    private static List<ManifestComponentInfo> ReadComponents(JsonElement root)
+    {
+        var list = new List<ManifestComponentInfo>();
+        if (!root.TryGetProperty("components", out var compEl) || compEl.ValueKind != JsonValueKind.Array)
+            return list;
+
+        foreach (var el in compEl.EnumerateArray())
+        {
+            if (el.ValueKind != JsonValueKind.Object) continue;
+            var comp = new ManifestComponentInfo();
+            if (el.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String) comp.Name = n.GetString() ?? "";
+            if (el.TryGetProperty("changed", out var c) && c.ValueKind == JsonValueKind.True) comp.Changed = true;
+            if (el.TryGetProperty("included", out var i) && i.ValueKind == JsonValueKind.False) comp.Included = false;
+            if (el.TryGetProperty("paths", out var p) && p.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var pathEl in p.EnumerateArray())
+                    if (pathEl.ValueKind == JsonValueKind.String)
+                    {
+                        var v = pathEl.GetString();
+                        if (!string.IsNullOrWhiteSpace(v)) comp.Paths.Add(v);
+                    }
+            }
+            if (!string.IsNullOrWhiteSpace(comp.Name)) list.Add(comp);
+        }
+        return list;
+    }
+
     private static Version? ParseVersion(string value)
     {
         var clean = (value ?? "").Trim().TrimStart('v', 'V');
@@ -314,9 +345,12 @@ public static class LocalUpdateService
     /// <summary>
     /// Terapkan update: tulis helper PowerShell yang menunggu proses ini keluar,
     /// menyalin payload ke folder instalasi, lalu membuka aplikasi lagi.
+    /// Parameter <c>selectedComponents</c> = daftar nama komponen yang di-check user
+    /// di dialog update (mis. ["Aplikasi","Master","Action"]). Kalau kosong / null
+    /// (manifest lama tanpa components), helper menyalin payload apa adanya.
     /// Pemanggil bertanggung jawab menutup aplikasi setelah method ini sukses.
     /// </summary>
-    public static async Task<(bool Ok, string Message)> ApplyAsync(UpdateInfo info)
+    public static async Task<(bool Ok, string Message)> ApplyAsync(UpdateInfo info, IEnumerable<string>? selectedComponents = null)
     {
         if (info == null || !info.IsLocalSource || string.IsNullOrWhiteSpace(info.PayloadFolder))
             return (false, "Sumber update tidak valid.");
@@ -339,7 +373,7 @@ public static class LocalUpdateService
         }
 
         var installDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        var script = BuildApplyScript(payload, installDir, Environment.ProcessId);
+        var script = BuildApplyScript(payload, installDir, Environment.ProcessId, selectedComponents, info.Components);
         var scriptPath = Path.Combine(Path.GetTempPath(), $"bmachine-update-{Guid.NewGuid():N}.ps1");
 
         try
@@ -371,63 +405,133 @@ public static class LocalUpdateService
         return Convert.ToHexString(hash);
     }
 
-    private static string BuildApplyScript(string payload, string installDir, int processId)
+    private static string BuildApplyScript(
+        string payload,
+        string installDir,
+        int processId,
+        IEnumerable<string>? selectedComponents,
+        List<BMachine.UI.Models.ManifestComponentInfo> manifestComponents)
     {
         static string Q(string value) => "'" + (value ?? "").Replace("'", "''") + "'";
 
         var log = Path.Combine(Path.GetTempPath(), "bmachine-update.log");
 
-        return $$"""
-$ErrorActionPreference = 'Continue'
-$log = {{Q(log)}}
-function Write-Log([string]$m) {
-    try { Add-Content -LiteralPath $log -Value ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m) } catch { }
-}
+        // Filter komponen: kalau user memilih subset, hanya salin komponen itu.
+        // Kalau manifest tidak punya field components, salin semua (perilaku lama).
+        var selectedNames = selectedComponents?.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+        bool useFilter = manifestComponents != null && manifestComponents.Count > 0 && selectedNames != null && selectedNames.Count > 0;
 
-$install = {{Q(installDir)}}
-$payload = {{Q(payload)}}
-$exe     = Join-Path $install 'BMachine.App.exe'
-
-Write-Log '--- mulai update ---'
-try { Wait-Process -Id {{processId}} -Timeout 180 -ErrorAction SilentlyContinue } catch { }
-Start-Sleep -Milliseconds 800
-
-if (Test-Path -LiteralPath $exe) {
-    try { Copy-Item -LiteralPath $exe -Destination ($exe + '.bak') -Force }
-    catch { Write-Log ('backup gagal: ' + $_.Exception.Message) }
-}
-
-# Hapus file lama yang terdaftar di remove-on-update.txt (SEBELUM copy payload,
-# supaya rename/restrukturisasi tidak meninggalkan orphan di install user).
-$removeList = Join-Path $payload 'remove-on-update.txt'
-if (Test-Path -LiteralPath $removeList) {
-    foreach ($rel in (Get-Content -LiteralPath $removeList)) {
-        $rel = $rel.Trim()
-        if ($rel -eq '' -or $rel.StartsWith('#')) { continue }
-        $target = [IO.Path]::Combine($install, $rel.Replace('/', [IO.Path]::DirectorySeparatorChar))
-        if (Test-Path -LiteralPath $target) {
-            try { Remove-Item -LiteralPath $target -Force -ErrorAction Stop; Write-Log ('dihapus: ' + $rel) }
-            catch { Write-Log ('gagal hapus ' + $rel + ': ' + $_.Exception.Message) }
+        string filterBlock;
+        if (useFilter)
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                selected = selectedNames,
+                components = manifestComponents.Select(c => new { name = c.Name, changed = c.Changed, included = c.Included, paths = c.Paths })
+            });
+            filterBlock =
+                "$componentsJson = " + Q(json) + "\n" +
+                "$components = ($componentsJson | ConvertFrom-Json).components\n" +
+                "$selectedSet = @(($componentsJson | ConvertFrom-Json).selected)\n" +
+                "function Get-SelectedComp([string]$name) {\n" +
+                "    $c = $components | Where-Object { $_.name -eq $name } | Select-Object -First 1\n" +
+                "    if ($c -and $selectedSet -contains $c.name) { return $c }\n" +
+                "    return $null\n" +
+                "}\n";
         }
-    }
-}
+        else filterBlock = "$componentsJson = $null\n";
 
-$copied = $true
-try {
-    Copy-Item -Path (Join-Path $payload '*') -Destination $install -Recurse -Force -ErrorAction Stop
-    Write-Log 'payload tersalin'
-} catch {
-    $copied = $false
-    Write-Log ('salin payload gagal: ' + $_.Exception.Message)
-}
+        var sb = new System.Text.StringBuilder();
+        sb.Append("$ErrorActionPreference = 'Continue'\n");
+        sb.Append($"$log = {Q(log)}\n");
+        sb.Append("function Write-Log([string]$m) {\n");
+        sb.Append("    try { Add-Content -LiteralPath $log -Value ('[{0}] {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m) } catch { }\n");
+        sb.Append("}\n\n");
+        sb.Append($"$install = {Q(installDir)}\n");
+        sb.Append($"$payload = {Q(payload)}\n");
+        sb.Append("$exe     = Join-Path $install 'BMachine.App.exe'\n\n");
+        sb.Append(filterBlock);
+        sb.Append("\n");
 
-if (-not $copied -and (Test-Path -LiteralPath ($exe + '.bak'))) {
-    try { Copy-Item -LiteralPath ($exe + '.bak') -Destination $exe -Force; Write-Log 'exe lama dipulihkan' } catch { }
-}
+        sb.Append("Write-Log '--- mulai update ---'\n");
+        sb.Append($"try {{ Wait-Process -Id {processId} -Timeout 180 -ErrorAction SilentlyContinue }} catch {{ }}\n");
+        sb.Append("Start-Sleep -Milliseconds 800\n\n");
 
-Write-Log 'membuka aplikasi'
-Start-Process -FilePath $exe
-Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-""";
+        // Komponen APLIKASI
+        sb.Append("# === Komponen APLIKASI (BMachine.App.exe + Assets) ===\n");
+        sb.Append("$appComp = Get-SelectedComp 'Aplikasi'\n");
+        sb.Append("$copyApp = if ($componentsJson) { $appComp -ne $null } else { $true }\n");
+        sb.Append("if ($copyApp) {\n");
+        sb.Append("    if (Test-Path -LiteralPath $exe) {\n");
+        sb.Append("        try { Copy-Item -LiteralPath $exe -Destination ($exe + '.bak') -Force } catch { Write-Log ('backup gagal: ' + $_.Exception.Message) }\n");
+        sb.Append("    }\n");
+        sb.Append("    $removeList = Join-Path $payload 'remove-on-update.txt'\n");
+        sb.Append("    if (Test-Path -LiteralPath $removeList) {\n");
+        sb.Append("        foreach ($rel in (Get-Content -LiteralPath $removeList)) {\n");
+        sb.Append("            $rel = $rel.Trim()\n");
+        sb.Append("            if ($rel -eq '' -or $rel.StartsWith('#')) { continue }\n");
+        sb.Append("            $target = [IO.Path]::Combine($install, $rel.Replace('/', [IO.Path]::DirectorySeparatorChar))\n");
+        sb.Append("            if (Test-Path -LiteralPath $target) {\n");
+        sb.Append("                try { Remove-Item -LiteralPath $target -Force -ErrorAction Stop; Write-Log ('dihapus: ' + $rel) }\n");
+        sb.Append("                catch { Write-Log ('gagal hapus ' + $rel + ': ' + $_.Exception.Message) }\n");
+        sb.Append("            }\n");
+        sb.Append("        }\n");
+        sb.Append("    }\n");
+        sb.Append("    try {\n");
+        sb.Append("        Copy-Item -Path (Join-Path $payload 'BMachine.App.exe') -Destination $install -Force\n");
+        sb.Append("        $assetsDir = Join-Path $payload 'Assets'\n");
+        sb.Append("        if (Test-Path $assetsDir) {\n");
+        sb.Append("            Copy-Item -Path $assetsDir -Destination (Join-Path $install 'Assets') -Recurse -Force\n");
+        sb.Append("        }\n");
+        sb.Append("        Write-Log 'komponen Aplikasi tersalin'\n");
+        sb.Append("    } catch { Write-Log ('gagal salin Aplikasi: ' + $_.Exception.Message) }\n");
+        sb.Append("} else { Write-Log 'komponen Aplikasi dilewati (user tidak pilih; file lama di-skip, tidak dihapus)'; if (Test-Path -LiteralPath $exe) { try { Remove-Item -LiteralPath ($exe + '.bak') -Force -ErrorAction SilentlyContinue } catch { } } }\n\n");
+
+        // Komponen MASTER
+        sb.Append("# === Komponen MASTER (Scripts\\Master) ===\n");
+        sb.Append("$masterComp = Get-SelectedComp 'Master'\n");
+        sb.Append("$copyMaster = if ($componentsJson) { $masterComp -ne $null } else { $true }\n");
+        sb.Append("if ($copyMaster) {\n");
+        sb.Append("    $masterDir = Join-Path $payload 'Scripts\\Master'\n");
+        sb.Append("    if (Test-Path $masterDir) {\n");
+        sb.Append("        try {\n");
+        sb.Append("            Copy-Item -Path $masterDir -Destination (Join-Path $install 'Scripts\\Master') -Recurse -Force\n");
+        sb.Append("            Write-Log 'komponen Master tersalin'\n");
+        sb.Append("        } catch { Write-Log ('gagal salin Master: ' + $_.Exception.Message) }\n");
+        sb.Append("    }\n");
+        sb.Append("} else { Write-Log 'komponen Master dilewati (user tidak pilih; modifikasi user aman, folder lama tetap)' }\n\n");
+
+        // Komponen ACTION
+        sb.Append("# === Komponen ACTION (Scripts\\Action) ===\n");
+        sb.Append("$actionComp = Get-SelectedComp 'Action'\n");
+        sb.Append("$copyAction = if ($componentsJson) { $actionComp -ne $null } else { $true }\n");
+        sb.Append("if ($copyAction) {\n");
+        sb.Append("    $actionDir = Join-Path $payload 'Scripts\\Action'\n");
+        sb.Append("    if (Test-Path $actionDir) {\n");
+        sb.Append("        try {\n");
+        sb.Append("            Copy-Item -Path $actionDir -Destination (Join-Path $install 'Scripts\\Action') -Recurse -Force\n");
+        sb.Append("            Write-Log 'komponen Action tersalin'\n");
+        sb.Append("        } catch { Write-Log ('gagal salin Action: ' + $_.Exception.Message) }\n");
+        sb.Append("    }\n");
+        sb.Append("} else { Write-Log 'komponen Action dilewati (user tidak pilih; modifikasi user aman, folder lama tetap)' }\n\n");
+
+        // Perilaku lama: salin payload apa adanya
+        sb.Append("if (-not $componentsJson) {\n");
+        sb.Append("    # Mode lama: tanpa filter komponen, salin seluruh payload\n");
+        sb.Append("    try {\n");
+        sb.Append("        Copy-Item -Path (Join-Path $payload '*') -Destination $install -Recurse -Force -ErrorAction Stop\n");
+        sb.Append("        Write-Log 'payload tersalin (mode lama)'\n");
+        sb.Append("    } catch {\n");
+        sb.Append("        if (Test-Path -LiteralPath ($exe + '.bak')) {\n");
+        sb.Append("            try { Copy-Item -LiteralPath ($exe + '.bak') -Destination $exe -Force; Write-Log 'exe lama dipulihkan' } catch { }\n");
+        sb.Append("        }\n");
+        sb.Append("    }\n");
+        sb.Append("}\n\n");
+
+        sb.Append("Write-Log 'membuka aplikasi'\n");
+        sb.Append("Start-Process -FilePath $exe\n");
+        sb.Append("Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue\n");
+
+        return sb.ToString();
     }
 }
