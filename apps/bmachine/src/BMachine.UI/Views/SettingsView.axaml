@@ -947,9 +947,9 @@
                                 <Grid x:Name="RadialRowGrid" ColumnDefinitions="*, Auto, *" RowDefinitions="Auto">
                                 <Border x:Name="RadialWheelCard" Grid.Column="1" Margin="0,0,16,16" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16" VerticalAlignment="Top">
                                     <Grid RowDefinitions="Auto">
-                                        <StackPanel Grid.Row="0" HorizontalAlignment="Center">
+                                        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,16">
                                             <!-- Chevron < > DIHAPUS: pindah halaman lewat slot MORE/BACK di roda sendiri. -->
-                                            <Grid ColumnDefinitions="*">
+                                            <Grid ColumnDefinitions="*" Margin="0,0,0,16">
                                                 <Border Width="200" Height="200" CornerRadius="{DynamicResource RadiusPill}" Background="{DynamicResource AppBackgroundBrush}" ClipToBounds="True">
                                                 <Grid>
                                                     <Canvas Width="200" Height="200" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.35">

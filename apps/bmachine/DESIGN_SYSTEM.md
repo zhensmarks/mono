@@ -491,3 +491,64 @@ DILARANG:
 - `Foreground` lokal pada label/tombol aksi dialog — biarkan style `Button.<variant> TextBlock`
   (§8) yang menurunkan warna dari tombolnya; foreground lokal mematikan adaptivitas palet.
 - `WindowStartupLocation="CenterOwner"` tanpa clamp: owner kecil bisa melempar dialog ke luar layar.
+
+---
+
+## 27. Panel Kelola Grup Radial (Settings → Script Manager → RADIAL MENU)
+
+**Kapan dipakai:** mengelola grup custom radial (selain grup bawaan TOOLBOX) — membuat grup,
+memasukkan script ke grup, mengosongkan, dan menghapus grup.
+
+**Posisi (jangan dipindah lagi):** panel berada **di bawah roda**, satu kolom penuh, di dalam
+`StackPanel` pembungkus — **BUKAN** anak keempat `RadialRowGrid`.
+
+Alasannya konkret: `RadialRowGrid` dikelola `UpdateRadialRowLayout()` (§23) yang hanya mengenal dua
+anak (roda + panel SLOT DETAILS) dan menulis ulang `ColumnDefinitions`/`RowDefinitions` saat resize.
+Anak lain di grid itu tidak pernah diposisikan, jadi jatuh ke baris 1 kolom 0 (kolom `Auto` sempit di
+kiri roda) dan terpotong di jendela kecil — gejalanya judul terpangkas jadi "KELOLA GR" dan tombol
+`Tambah Grup` menonjol keluar border kartu.
+
+**Struktur kartu grup (atas ke bawah):** judul 11 bold `TextSecondaryBrush` → baris
+TextBox nama grup + tombol `Tambah Grup` (primary, tinggi 32) → teks bantuan 10 `TextFaintBrush` →
+daftar kartu grup.
+
+**Baris aksi tiap kartu grup** (Grid `*, Auto, Auto, Auto, Auto`, tinggi tombol **seragam 22 px**,
+font 10, padding 0):
+
+| Kolom | Isi | Classes | Lebar |
+|-------|-----|---------|-------|
+| 0 | nama grup 12 SemiBold | — | `*` |
+| 1 | jumlah anggota, `"{0} file"` 11 `TextFaintBrush` | — | Auto |
+| 2 | `Impor` | `primary` | 48 |
+| 3 | `Kosongkan` | `ghost` | 64 |
+| 4 | `Hapus` | `danger` | 44 |
+
+Di bawahnya: daftar nama anggota 11 `TextSecondaryBrush` + `CharacterEllipsis`, lalu baris
+`ComboBox` (isi = file `Scripts/Action`) + tombol `+` 28x28 `primary`.
+
+**Semantik hapus (beda per jenis, jangan disamakan):**
+
+| Target | Aksi |
+|--------|------|
+| Grup custom (`grp_*`) | hapus entri `__groups__.json` **dan** alias di `scripts.json` |
+| Grup TOOLBOX (`__tb_group__`) | `Enabled = false` pada alias — grup tetap ada, disembunyikan dari roda |
+| Item biasa di roda | `Enabled = false` pada alias; **jangan** hapus entri alias |
+
+Menghapus entri alias untuk item biasa tidak permanen: pemindaian `Scripts/Action` berikutnya
+membuat ulang entri tanpa `Enabled=false`, jadi tombolnya kembali muncul.
+
+**Anggota grup = script khusus grup:** file anggota otomatis dikeluarkan dari roda utama (filter
+`groupMemberNames` di `SettingsViewModel` dan `RadialMenuViewModel`), jadi tidak muncul dobel.
+Akses hanya lewat cincin luar: tahan pointer 300 ms di item grup → cincin luar berisi anggota →
+klik segmen menjalankan script. Grup tanpa anggota valid tidak ditampilkan sama sekali.
+
+`Impor` menyalin file `.jsx`/`.pyw` pilihan user ke `Scripts/Action` lalu menambahkannya sebagai
+anggota — satu-satunya jalur untuk script yang belum ada di folder Action.
+
+DILARANG:
+- Menaruh panel ini di dalam `RadialRowGrid` (terpotong di jendela kecil, lihat alasan di atas).
+- Binding command di dalam `DataTemplate` memakai `AncestorType=ItemsControl` atau
+  `AncestorLevel=N` — DataContext-nya milik item, command jadi null dan tombol diam saja.
+  Pakai `RelativeSource={RelativeSource AncestorType=UserControl}` + `CommandParameter="{Binding}"`.
+- Tinggi tombol berbeda antar tombol di satu baris kartu.
+- Menambah warna/radius hardcode; pakai token (§3) dan Classes tombol (§4).
