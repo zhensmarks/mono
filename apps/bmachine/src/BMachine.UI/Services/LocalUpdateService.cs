@@ -78,31 +78,6 @@ public static class LocalUpdateService
         return candidates.Count > 0 ? candidates[0] : DefaultFolder;
     }
 
-    /// <summary>
-    /// Urutan folder yang dicoba saat cek update (backward-compat, channel stable):
-    /// env var → isian user di Settings → share NAS (UNC) → drive U: (kalau dimapping).
-    /// </summary>
-    public static IReadOnlyList<string> ResolveCandidates(string? configured)
-    {
-        var list = new List<string>();
-
-        void Add(string? path)
-        {
-            var value = (path ?? "").Trim().Trim('"');
-            if (string.IsNullOrWhiteSpace(value)) return;
-            // Tolak path relatif/sampah: user tidak boleh bikin app kehilangan sumber update.
-            if (!Path.IsPathRooted(value)) return;
-            if (list.Any(p => string.Equals(p, value, StringComparison.OrdinalIgnoreCase))) return;
-            list.Add(value);
-        }
-
-        Add(Environment.GetEnvironmentVariable("BMACHINE_UPDATE_DIR"));
-        Add(configured);
-        Add(DefaultFolder);
-        Add(DriveLetterFolder);
-
-        return list;
-    }
 
     /// <summary>Riwayat catatan rilis semua versi (opsional; dipakai saat user tertinggal beberapa versi).</summary>
     public const string ChangelogFileName = "changelog.json";
@@ -117,37 +92,10 @@ public static class LocalUpdateService
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
     }
 
-    /// <summary>Folder yang ditampilkan di Settings: env var (opsional) → isian user → default NAS.</summary>
-    public static string ResolveFolder(string? configured)
-    {
-        var candidates = ResolveCandidates(configured);
-        return candidates.Count > 0 ? candidates[0] : DefaultFolder;
-    }
-
-    /// <summary>
-    /// Urutan folder yang dicoba saat cek update:
-    /// env var → isian user di Settings → share NAS (UNC) → drive U: (kalau dimapping).
-    /// </summary>
+    /// <summary>Cara cek update (channel stable, backward-compat): env → user → NAS UNC → drive U:.</summary>
     public static IReadOnlyList<string> ResolveCandidates(string? configured)
     {
-        var list = new List<string>();
-
-        void Add(string? path)
-        {
-            var value = (path ?? "").Trim().Trim('"');
-            if (string.IsNullOrWhiteSpace(value)) return;
-            // Tolak path relatif/sampah: user tidak boleh bikin app kehilangan sumber update.
-            if (!Path.IsPathRooted(value)) return;
-            if (list.Any(p => string.Equals(p, value, StringComparison.OrdinalIgnoreCase))) return;
-            list.Add(value);
-        }
-
-        Add(Environment.GetEnvironmentVariable("BMACHINE_UPDATE_DIR"));
-        Add(configured);
-        Add(DefaultFolder);
-        Add(DriveLetterFolder);
-
-        return list;
+        return ResolveChannelCandidates(ChannelStable, configured);
     }
 
     /// <summary>
@@ -568,7 +516,16 @@ public static class LocalUpdateService
         sb.Append("        $masterDst = Join-Path $install 'Scripts\\Master'\n");
         sb.Append("        if (-not (Test-Path $masterDst)) { New-Item -ItemType Directory -Path $masterDst -Force | Out-Null }\n");
         sb.Append("        try {\n");
-        sb.Append("            Copy-Item -Path $masterDir -Destination $masterDst -Recurse -Force\n");
+        sb.Append("            Get-ChildItem -Path $masterDir -Recurse -Force | ForEach-Object {\n");
+        sb.Append("                $rel = $_.FullName.Substring($masterDir.Length).TrimStart('\\')\n");
+        sb.Append("                $target = Join-Path $masterDst $rel\n");
+        sb.Append("                if ($_.PSIsContainer) {\n");
+        sb.Append("                    if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }\n");
+        sb.Append("                } else {\n");
+        sb.Append("                    if (-not (Test-Path (Split-Path $target))) { New-Item -ItemType Directory -Path (Split-Path $target) -Force | Out-Null }\n");
+        sb.Append("                    Copy-Item -LiteralPath $_.FullName -Destination $target -Force\n");
+        sb.Append("                }\n");
+        sb.Append("            }\n");
         sb.Append("            Write-Log 'komponen Master tersalin'\n");
         sb.Append("        } catch { Write-Log ('gagal salin Master: ' + $_.Exception.Message) }\n");
         sb.Append("    }\n");
@@ -584,7 +541,16 @@ public static class LocalUpdateService
         sb.Append("        $actionDst = Join-Path $install 'Scripts\\Action'\n");
         sb.Append("        if (-not (Test-Path $actionDst)) { New-Item -ItemType Directory -Path $actionDst -Force | Out-Null }\n");
         sb.Append("        try {\n");
-        sb.Append("            Copy-Item -Path $actionDir -Destination $actionDst -Recurse -Force\n");
+        sb.Append("            Get-ChildItem -Path $actionDir -Recurse -Force | ForEach-Object {\n");
+        sb.Append("                $rel = $_.FullName.Substring($actionDir.Length).TrimStart('\\')\n");
+        sb.Append("                $target = Join-Path $actionDst $rel\n");
+        sb.Append("                if ($_.PSIsContainer) {\n");
+        sb.Append("                    if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }\n");
+        sb.Append("                } else {\n");
+        sb.Append("                    if (-not (Test-Path (Split-Path $target))) { New-Item -ItemType Directory -Path (Split-Path $target) -Force | Out-Null }\n");
+        sb.Append("                    Copy-Item -LiteralPath $_.FullName -Destination $target -Force\n");
+        sb.Append("                }\n");
+        sb.Append("            }\n");
         sb.Append("            Write-Log 'komponen Action tersalin'\n");
         sb.Append("        } catch { Write-Log ('gagal salin Action: ' + $_.Exception.Message) }\n");
         sb.Append("    }\n");
@@ -594,7 +560,7 @@ public static class LocalUpdateService
         sb.Append("if (-not $componentsJson) {\n");
         sb.Append("    # Mode lama: tanpa filter komponen, salin seluruh payload\n");
         sb.Append("    try {\n");
-        sb.Append("        Copy-Item -Path (Join-Path $payload '*') -Destination $install -Recurse -Force -ErrorAction Stop\n");
+        sb.Append("        Copy-Item -Path (Join-Path $payload '*') -Destination $install -Force\n");
         sb.Append("        Write-Log 'payload tersalin (mode lama)'\n");
         sb.Append("    } catch {\n");
         sb.Append("        if (Test-Path -LiteralPath ($exe + '.bak')) {\n");

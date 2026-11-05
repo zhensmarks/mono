@@ -6,4 +6,7 @@ public class ScriptConfig
     public string Code { get; set; } = ""; // Short Code
     public string IconKey { get; set; } = ""; // Icon Resource Key
     public int Order { get; set; } = 0;    // Sort Order
+    /// <summary>False = grup dinonaktifkan user lewat tombol "Hapus" di panel kelola grup.
+    /// File fisik tidak dihapus — hanya disembunyikan dari radial menu.</summary>
+    public bool Enabled { get; set; } = true;
 }

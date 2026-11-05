@@ -516,8 +516,11 @@ public partial class SettingsViewModel : ObservableObject
     }
     partial void OnSelectedThemeIndexChanged(int value)
     {
-         if (value == 2) UpdateTheme(false, true); // System
-         else UpdateTheme(value == 1, false); // 0=Light, 1=Dark
+        // Sync legacy IsDarkMode dari index (tanpa efek samping saat load).
+        IsDarkMode = value == 1;
+        if (_isInitializing) return;
+        if (value == 2) UpdateTheme(false, true); // System
+        else UpdateTheme(value == 1, false); // 0=Light, 1=Dark
     }
     
     [ObservableProperty]
@@ -525,9 +528,16 @@ public partial class SettingsViewModel : ObservableObject
     
     partial void OnIsDarkModeChanged(bool value)
     {
-        // Legacy support or binding update
-        if (value && SelectedThemeIndex != 1) SelectedThemeIndex = 1;
-        if (!value && SelectedThemeIndex != 0) SelectedThemeIndex = 0;
+        // Sync radio "Light/Dark" dengan SelectedThemeIndex.
+        // _isInitializing aktif → tidak panggil UpdateTheme, hanya set state.
+        if (value)
+        {
+            if (SelectedThemeIndex != 1) SelectedThemeIndex = 1;
+        }
+        else
+        {
+            if (SelectedThemeIndex != 0) SelectedThemeIndex = 0;
+        }
     }
     
     private void UpdateTheme(bool isDark, bool isSystem = false)
@@ -1158,16 +1168,25 @@ public partial class SettingsViewModel : ObservableObject
         if (_isInitializing || _database == null) return;
 
         var clean = (value ?? "").Trim();
-        UpdateChannel = string.Equals(clean, "experimental", StringComparison.OrdinalIgnoreCase)
+        var target = string.Equals(clean, "experimental", StringComparison.OrdinalIgnoreCase)
             ? LocalUpdateService.ChannelExperimental
             : LocalUpdateService.ChannelStable;
+        if (string.Equals(target, UpdateChannel, StringComparison.OrdinalIgnoreCase)) return;
+
+        UpdateChannel = target;
 
         // Auto-pindah folder ke default channel terpilih, lalu cek ulang.
-        UpdateFolderPath = LocalUpdateService.ResolveFolder(null, UpdateChannel);
-        _ = _database.SetAsync("Update.Channel", UpdateChannel);
+        UpdateFolderPath = LocalUpdateService.ResolveFolder(null, target);
+        _ = _database.SetAsync("Update.Channel", target);
         _ = _database.SetAsync("Update.LocalPath", UpdateFolderPath);
         _ = CheckForUpdates();
     }
+
+    [RelayCommand]
+    private void SetStableChannel() => UpdateChannel = LocalUpdateService.ChannelStable;
+
+    [RelayCommand]
+    private void SetExperimentalChannel() => UpdateChannel = LocalUpdateService.ChannelExperimental;
 
     /// <summary>Kembalikan folder update ke default server NAS (mis. setelah isinya diubah user).</summary>
     [RelayCommand]
@@ -1392,7 +1411,8 @@ public partial class SettingsViewModel : ObservableObject
 
             // --- Mode update lokal (LAN) ---
             CurrentVersion = LocalUpdateService.GetCurrentVersion();
-            UpdateChannel = string.Equals((await _database.GetAsync<string>("Update.Channel")).Trim(), "experimental", StringComparison.OrdinalIgnoreCase)
+            var channelRaw = await _database.GetAsync<string>("Update.Channel");
+            UpdateChannel = string.Equals((channelRaw ?? "").Trim(), "experimental", StringComparison.OrdinalIgnoreCase)
                 ? LocalUpdateService.ChannelExperimental
                 : LocalUpdateService.ChannelStable;
             UpdateFolderPath = LocalUpdateService.ResolveFolder(await _database.GetAsync<string>("Update.LocalPath"), UpdateChannel);
@@ -1411,12 +1431,19 @@ public partial class SettingsViewModel : ObservableObject
             SelectedAppearancePalette = AppearancePalette.Find(await _database.GetAsync<string>(AppearancePaletteService.SettingKey));
 
             // Load Theme
-            var themeStr = await _database.GetAsync<string>("Settings.Theme"); 
+            var themeStr = await _database.GetAsync<string>("Settings.Theme");
             // "Light", "Dark", "System"
-            if (themeStr == "System") SelectedThemeIndex = 2;
-            else if (themeStr == "Light") SelectedThemeIndex = 0; // Revised: 0=Light
-            else SelectedThemeIndex = 1; // Revised: 1=Dark (Default or explicit)
-            // IsDarkMode = SelectedThemeIndex == 1; // Sync legacy (Not critical if using index)
+            var themeIdx = themeStr switch
+            {
+                "Light" => 0,
+                "System" => 2,
+                _ => 1
+            };
+            // Set IsDarkMode DULU (tanpa trigger UpdateTheme karena _isInitializing masih true),
+            // lalu SelectedThemeIndex. IsDarkMode = index==1, jadi radio "Light" tidak
+            // muncul tercentang saat tema tersimpan Dark (bug sinkron lama).
+            IsDarkMode = themeIdx == 1;
+            SelectedThemeIndex = themeIdx;
             
             // Load Interval Removed (Granular Seconds used now)
             
@@ -2322,7 +2349,237 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<RadialSlotViewModel> _radialSlots = new();
     [ObservableProperty] private RadialSlotViewModel? _selectedRadialSlot;
 
+    /// <summary>Daftar grup custom radial (disimpan di __groups__.json, folder AppData).</summary>
+
     public bool HasItemsOnPage2 => ActionScripts.Any(x => _scriptAliases.ContainsKey(x.OriginalName) && _scriptAliases[x.OriginalName].Order >= 8);
+
+    private string _groupsPath => System.IO.Path.Combine(
+        BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(), "__groups__.json");
+
+    private void LoadRadialGroups()
+    {
+        RadialGroups.Clear();
+        try
+        {
+            var path = _groupsPath;
+            if (System.IO.File.Exists(path))
+            {
+                var json = System.IO.File.ReadAllText(path);
+                var list = System.Text.Json.JsonSerializer.Deserialize<List<BMachine.UI.Models.RadialGroupConfig>>(json);
+                if (list != null)
+                    foreach (var g in list) RadialGroups.Add(g);
+            }
+        }
+        catch { }
+    }
+
+    private void SaveRadialGroups()
+    {
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(RadialGroups.ToList(),
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            System.IO.File.WriteAllText(_groupsPath, json);
+            WeakReferenceMessenger.Default.Send(new BMachine.UI.Messages.ScriptOrderChangedMessage());
+        }
+        catch { }
+    }
+
+    // --- Grup custom: property binding untuk panel XAML ---
+    [ObservableProperty] private ObservableCollection<BMachine.UI.Models.RadialGroupConfig> _radialGroups = new();
+    [ObservableProperty] private BMachine.UI.Models.RadialGroupConfig? _selectedRadialGroup;
+    [ObservableProperty] private string _newGroupName = "";
+    [ObservableProperty] private ObservableCollection<string> _allActionScriptNames = new();
+    [ObservableProperty] private string _groupMemberPick = "";
+
+    [RelayCommand]
+    private void AddRadialGroup()
+    {
+        var name = (NewGroupName ?? "").Trim().ToUpper();
+        if (string.IsNullOrWhiteSpace(name)) name = "GRUP";
+        var nextOrder = RadialGroups.Count == 0 ? 100 : RadialGroups.Max(g => g.Order) + 1;
+        var key = $"grp_{DateTime.Now:yyyyMMdd_HHmmss}";
+        var group = new BMachine.UI.Models.RadialGroupConfig
+        {
+            Key = key,
+            Name = name,
+            Order = nextOrder
+        };
+        RadialGroups.Add(group);
+        SelectedRadialGroup = group;
+        NewGroupName = "";
+        SaveRadialGroups();
+        RebuildRadialSlots();
+    }
+
+    [RelayCommand]
+    private void RemoveRadialGroup()
+    {
+        if (SelectedRadialGroup == null) return;
+        RadialGroups.Remove(SelectedRadialGroup);
+        SelectedRadialGroup = null;
+        SaveRadialGroups();
+        RebuildRadialSlots();
+    }
+
+    /// <summary>Hapus grup custom berdasarkan key (dipanggil tombol "Hapus" di kartu grup panel XAML).</summary>
+    [RelayCommand]
+    private void RemoveRadialGroupByKey(object? key)
+    {
+        if (key is not string k || string.IsNullOrWhiteSpace(k)) return;
+
+        if (k == "__tb_group__")
+        {
+            // TOOLBOX bawaan: cari di RadialGroups dan hapus
+            var tb = RadialGroups.FirstOrDefault(g => g.Key == "__tb_group__");
+            if (tb != null)
+            {
+                RadialGroups.Remove(tb);
+                if (SelectedRadialGroup == tb) SelectedRadialGroup = null;
+                SaveRadialGroups();
+                RebuildRadialSlots();
+            }
+            return;
+        }
+
+        var group = RadialGroups.FirstOrDefault(g => string.Equals(g.Key, k, StringComparison.OrdinalIgnoreCase));
+        if (group == null) return;
+        RadialGroups.Remove(group);
+        if (SelectedRadialGroup == group) SelectedRadialGroup = null;
+        SaveRadialGroups();
+        RebuildRadialSlots();
+    }
+
+    [RelayCommand]
+    private void ClearGroupMembers(object? group)
+    {
+        if (group is not BMachine.UI.Models.RadialGroupConfig g) return;
+        g.Members.Clear();
+        SaveRadialGroups();
+        RebuildRadialSlots();
+    }
+
+    [RelayCommand]
+    private void RemoveGroupMember(object? parameter)
+    {
+        if (parameter is not (BMachine.UI.Models.RadialGroupConfig g, string f)) return;
+        g.Members.RemoveAll(m => string.Equals(m, f, StringComparison.OrdinalIgnoreCase));
+        SaveRadialGroups();
+        RebuildRadialSlots();
+    }
+
+    public void SetTbGroupEnabled(bool enabled)
+    {
+        if (_scriptAliases.TryGetValue("__tb_group__", out var c))
+            c.Enabled = enabled;
+        else
+            _scriptAliases["__tb_group__"] = new ScriptConfig { Enabled = enabled };
+        SaveMetadata();
+        RebuildRadialSlots();
+    }
+
+    /// <summary>
+    /// Semua grup yang bisa dikelola dari panel XAML: grup custom + grup bawaan TOOLBOX.
+    /// Item TOOLBOX dibuat sebagai RadialGroupConfig khusus (Key="__tb_group__") supaya
+    /// tombol Kosongkan/Hapus di kartu grup bekerja untuknya juga (hapus = dinonaktifkan).
+    /// </summary>
+    [ObservableProperty] private ObservableCollection<BMachine.UI.Models.RadialGroupConfig> _allRadialGroupItems = new();
+
+    /// <summary>Ulangi isi AllRadialGroupItems setiap kali RadialGroups berubah atau RebuildRadialSlots dipanggil.</summary>
+    private void RebuildAllRadialGroupItems()
+    {
+        AllRadialGroupItems.Clear();
+        // TOOLBOX bawaan selalu ada di posisi pertama
+        var tb = RadialGroups.FirstOrDefault(g => g.Key == "__tb_group__");
+        if (tb == null)
+        {
+            var tbConfig = _scriptAliases.TryGetValue("__tb_group__", out var c) ? c : new ScriptConfig();
+            var tbFiles = ActionScripts
+                .Where(s => s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase))
+                .Select(s => s.OriginalName)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            tb = new BMachine.UI.Models.RadialGroupConfig
+            {
+                Key = "__tb_group__",
+                Name = string.IsNullOrWhiteSpace(tbConfig.Name) ? "TOOLBOX" : tbConfig.Name,
+                Code = string.IsNullOrWhiteSpace(tbConfig.Code) ? "TB" : tbConfig.Code,
+                IconKey = string.IsNullOrWhiteSpace(tbConfig.IconKey) ? "IconGrid" : tbConfig.IconKey,
+                Order = tbConfig.Order,
+                Members = tbFiles
+            };
+        }
+        AllRadialGroupItems.Add(tb);
+        foreach (var g in RadialGroups)
+            AllRadialGroupItems.Add(g);
+    }
+
+    [RelayCommand]
+    private void LoadGroupMemberCandidates()
+    {
+        AllActionScriptNames.Clear();
+        try
+        {
+            var actionDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action");
+            if (System.IO.Directory.Exists(actionDir))
+            {
+                foreach (var f in System.IO.Directory.GetFiles(actionDir, "*.jsx"))
+                    AllActionScriptNames.Add(System.IO.Path.GetFileName(f));
+                foreach (var f in System.IO.Directory.GetFiles(actionDir, "*.pyw"))
+                    AllActionScriptNames.Add(System.IO.Path.GetFileName(f));
+            }
+        }
+        catch { }
+    }
+
+    [RelayCommand]
+    private void AddGroupMemberToSelected()
+    {
+        if (SelectedRadialGroup == null || string.IsNullOrWhiteSpace(GroupMemberPick)) return;
+        var g = SelectedRadialGroup;
+        if (g.Members.Any(m => string.Equals(m, GroupMemberPick, StringComparison.OrdinalIgnoreCase)))
+        {
+            GroupMemberPick = "";
+            return;
+        }
+        g.Members.Add(GroupMemberPick);
+        GroupMemberPick = "";
+        SaveRadialGroups();
+        RebuildRadialSlots();
+    }
+
+    /// <summary>Pasang/dicopot anggota grup custom lewat XAML (CommandParameter = (grup, namaFile)).</summary>
+    public void AddGroupMember(object? parameter)
+    {
+        if (parameter is (BMachine.UI.Models.RadialGroupConfig g, string f))
+        {
+            if (string.IsNullOrWhiteSpace(f)) return;
+            if (g.Members.Any(m => string.Equals(m, f, StringComparison.OrdinalIgnoreCase))) return;
+            g.Members.Add(f);
+            SaveRadialGroups();
+            RebuildRadialSlots();
+        }
+    }
+
+
+    /// <summary>Isi daftar untuk ComboBox "Pilih file anggota grup": semua skrip Action yang ada.</summary>
+    public ObservableCollection<string> GetGroupMemberCandidates()
+    {
+        var list = new ObservableCollection<string>();
+        try
+        {
+            var actionDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Action");
+            if (System.IO.Directory.Exists(actionDir))
+            {
+                foreach (var f in System.IO.Directory.GetFiles(actionDir, "*.jsx"))
+                    list.Add(System.IO.Path.GetFileName(f));
+                foreach (var f in System.IO.Directory.GetFiles(actionDir, "*.pyw"))
+                    list.Add(System.IO.Path.GetFileName(f));
+            }
+        }
+        catch { }
+        return list;
+    }
 
     [RelayCommand]
     public void SwitchToScriptMaster()
@@ -2431,7 +2688,7 @@ public partial class SettingsViewModel : ObservableObject
         // Normalize first so all orders are unique
         NormalizeAllOrders();
         
-        var scripts = ActionScripts.OrderBy(s => _scriptAliases[s.OriginalName].Order).ToList();
+        var scripts = BuildMergedRadialOrder();
         int index = scripts.IndexOf(slot.Script);
         if (index > 0)
         {
@@ -2455,7 +2712,7 @@ public partial class SettingsViewModel : ObservableObject
         // Normalize first so all orders are unique
         NormalizeAllOrders();
         
-        var scripts = ActionScripts.OrderBy(s => _scriptAliases[s.OriginalName].Order).ToList();
+        var scripts = BuildMergedRadialOrder();
         int index = scripts.IndexOf(slot.Script);
         if (index >= 0 && index < scripts.Count - 1)
         {
@@ -2475,18 +2732,32 @@ public partial class SettingsViewModel : ObservableObject
     private void RemoveFromRadialSlot(RadialSlotViewModel slot)
     {
         if (slot.Script == null) return;
-        
-        // Remove the script from _scriptAliases so it won't appear in radial menu
-        if (_scriptAliases.ContainsKey(slot.Script.OriginalName))
+        var original = slot.Script.OriginalName;
+
+        // Grup custom (key "grp_..."): hapus dari daftar grup, bukan metadata alias.
+        if (original.StartsWith("grp_", StringComparison.OrdinalIgnoreCase))
         {
-            _scriptAliases.Remove(slot.Script.OriginalName);
-            SaveMetadata();
+            var group = RadialGroups.FirstOrDefault(g => string.Equals(g.Key, original, StringComparison.OrdinalIgnoreCase));
+            if (group != null)
+            {
+                RadialGroups.Remove(group);
+                SaveRadialGroups();
+            }
         }
-        
-        // Clear selection and rebuild
+        else
+        {
+            // Item biasa / grup TOOLBOX bawaan: hapus dari metadata alias.
+            if (_scriptAliases.ContainsKey(original))
+            {
+                _scriptAliases.Remove(original);
+                SaveMetadata();
+            }
+        }
+
         SelectedRadialSlot = null;
         RebuildRadialSlots();
     }
+
 
     /// <summary>Normalize all Action script orders to unique sequential integers, then swap two slots.</summary>
     public void SwapRadialSlots(RadialSlotViewModel slotA, RadialSlotViewModel slotB)
@@ -2496,9 +2767,10 @@ public partial class SettingsViewModel : ObservableObject
         // Step 1: Normalize all scripts to unique sequential orders first
         NormalizeAllOrders();
 
-        // Step 2: Swap A and B order values
-        int orderA = _scriptAliases[slotA.Script.OriginalName].Order;
-        int orderB = _scriptAliases[slotB.Script.OriginalName].Order;
+        // Step 2: Swap A and B order values (menggunakan Order, tidak bergantung
+        //         posisi di list gabungan, jadi aman untuk slot grup/normal).
+        var orderA = _scriptAliases[slotA.Script.OriginalName].Order;
+        var orderB = _scriptAliases[slotB.Script.OriginalName].Order;
         _scriptAliases[slotA.Script.OriginalName].Order = orderB;
         _scriptAliases[slotB.Script.OriginalName].Order = orderA;
 
@@ -2529,10 +2801,7 @@ public partial class SettingsViewModel : ObservableObject
 
     private void UpdateRadialPositions()
     {
-        var sorted = ActionScripts
-            .OrderBy(s => _scriptAliases.ContainsKey(s.OriginalName) ? _scriptAliases[s.OriginalName].Order : 9999)
-            .ThenBy(s => s.Name)
-            .ToList();
+        var sorted = BuildMergedRadialOrder();
         int startIndex = RadialEditorPage * 7;
         foreach (var slot in RadialSlots)
         {
@@ -2560,27 +2829,85 @@ public partial class SettingsViewModel : ObservableObject
 
     private void ApplyRadialMove(ScriptItem script, int targetIndex)
     {
-        var ordered = ActionScripts
-            .OrderBy(s => _scriptAliases[s.OriginalName].Order)
-            .ToList();
+        var ordered = BuildMergedRadialOrder();
         ordered.Remove(script);
         ordered.Insert(Math.Clamp(targetIndex, 0, ordered.Count), script);
         for (int i = 0; i < ordered.Count; i++)
-            _scriptAliases[ordered[i].OriginalName].Order = i;
+        {
+            var o = ordered[i].OriginalName;
+            if (_scriptAliases.TryGetValue(o, out var c)) c.Order = i;
+            else _scriptAliases[o] = new ScriptConfig { Name = ordered[i].Name, Code = ordered[i].ShortCode, IconKey = ordered[i].IconKey, Order = i };
+        }
     }
-    /// <summary>Assign explicit unique sequential order values to all action scripts based on current sort order.</summary>
-    private void NormalizeAllOrders()
+
+    /// <summary>Urutan "skrip biasa + grup" yang sama persis dipakai RebuildRadialSlots,
+    /// dipakai drag/preview supaya indeks slot cocok dengan item yang tampil di roda.</summary>
+    private List<ScriptItem> BuildMergedRadialOrder()
     {
-        var sorted = ActionScripts
-            .OrderBy(s => _scriptAliases.ContainsKey(s.OriginalName) ? _scriptAliases[s.OriginalName].Order : 9999)
-            .ThenBy(s => s.Name)
+        var raw = ActionScripts.ToList();
+        var virtualItems = new List<ScriptItem>();
+        LoadRadialGroups();
+        foreach (var g in RadialGroups)
+            virtualItems.Add(BuildCustomGroupItem(g));
+
+        // Grup bawaan TOOLBOX selalu jadi item virtual (bisa di-pindah via
+        // metadata "__tb_group__", atau dinonaktifkan lewat panel kelola grup).
+        virtualItems.Add(BuildTbGroupItem());
+
+        var groupMemberNames = new HashSet<string>(
+            RadialGroups.SelectMany(g => g.Members), StringComparer.OrdinalIgnoreCase);
+
+        var filtered = raw
+            .Where(s => !s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase)
+                 && !s.OriginalName.Equals("TOOLBOX.jsx", StringComparison.OrdinalIgnoreCase)
+                 && !groupMemberNames.Contains(s.OriginalName))
             .ToList();
 
-        for (int i = 0; i < sorted.Count; i++)
+        var combined = new List<ScriptItem>();
+        combined.AddRange(filtered);
+        combined.AddRange(virtualItems);
+        combined = combined.Where(s => s.Type != "GRP_DISABLED").ToList();
+        int Ord(ScriptItem s) => _scriptAliases.TryGetValue(s.OriginalName, out var c) ? c.Order : 9999;
+        return combined.OrderBy(Ord).ThenBy(s => s.Name).ToList();
+    }
+
+    private ScriptItem BuildTbGroupItem()
+    {
+        var tbConfig = _scriptAliases.TryGetValue("__tb_group__", out var c) ? c : new ScriptConfig();
+        // Kalau user menonaktifkan grup TOOLBOX lewat panel kelola (Enabled=false),
+        // item tetap dibuat (supaya metadata alias-nya ada untuk NormalizeAllOrders)
+        // tapi ditandai sehingga RebuildRadialSlots bisa menyaringnya keluar roda.
+        return new ScriptItem
         {
-            var s = sorted[i];
-            if (_scriptAliases.ContainsKey(s.OriginalName))
-                _scriptAliases[s.OriginalName].Order = i;
+            Name = string.IsNullOrWhiteSpace(tbConfig.Name) ? "TOOLBOX" : tbConfig.Name,
+            ShortCode = string.IsNullOrWhiteSpace(tbConfig.Code) ? "TB" : tbConfig.Code,
+            IconKey = string.IsNullOrWhiteSpace(tbConfig.IconKey) ? "IconGrid" : tbConfig.IconKey,
+            OriginalName = "__tb_group__",
+            FullPath = "",
+            Type = tbConfig.Enabled ? "GRP" : "GRP_DISABLED"
+        };
+    }
+
+    private static ScriptItem BuildCustomGroupItem(BMachine.UI.Models.RadialGroupConfig g) => new()
+    {
+        Name = g.Name,
+        ShortCode = string.IsNullOrWhiteSpace(g.Code) ? BMachine.UI.Models.RadialMenuItem.GenerateShortName(g.Name) : g.Code,
+        IconKey = string.IsNullOrWhiteSpace(g.IconKey) ? "IconGrid" : g.IconKey,
+        OriginalName = g.Key,
+        FullPath = "",
+        Type = "GRP"
+    };
+    /// <summary>Assign explicit unique sequential order values to all action items (script biasa +
+    /// grup TOOLBOX + grup custom) based on current merged sort order.</summary>
+    private void NormalizeAllOrders()
+    {
+        var merged = BuildMergedRadialOrder();
+
+        for (int i = 0; i < merged.Count; i++)
+        {
+            var s = merged[i];
+            if (_scriptAliases.TryGetValue(s.OriginalName, out var existing))
+                existing.Order = i;
             else
                 _scriptAliases[s.OriginalName] = new ScriptConfig { Name = s.Name, Code = s.ShortCode, IconKey = s.IconKey, Order = i };
         }
@@ -2590,30 +2917,59 @@ public partial class SettingsViewModel : ObservableObject
     {
         RadialSlots.Clear();
         
-        var sortedScripts = ActionScripts
-            .OrderBy(s => _scriptAliases.ContainsKey(s.OriginalName) ? _scriptAliases[s.OriginalName].Order : 9999)
-            .ThenBy(s => s.Name)
-            .ToList();
-        
-        // Grup TOOLBOX selalu muncul paling atas (Order=-1 di roda live);
-        // filterkan entri toolbox lama supaya preview Settings == roda live.
-        var hasTbGroup = sortedScripts.Any(s => s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase));
-        if (hasTbGroup)
-            sortedScripts = sortedScripts
-                .Where(s => !s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase)
-                     && !s.OriginalName.Equals("TOOLBOX.jsx", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        if (hasTbGroup)
-            sortedScripts = new List<ScriptItem> { new ScriptItem
+        var rawScripts = ActionScripts.ToList();
+
+        // Grup TOOLBOX (auto dari _tb_*.jsx) + grup custom buatan user:
+        // sama-sama "item virtual" dengan Order sendiri dari metadata, bukan
+        // dipaksa paling atas. Order grup TOOLBOX dibaca dari key "__tb_group__".
+        // Item TOOLBOX selalu ada di roda/preview — kalau user menandainya
+        // dinonaktifkan lewat key "__tb_group__.enabled" = false di metadata,
+        // item tetap dibuat tapi tidak ikut tampil.
+        var virtualItems = new List<ScriptItem>();
+        virtualItems.Add(BuildTbGroupItem());
+
+        // Muat daftar grup custom (dari __groups__.json) — dipanggil ulang tiap
+        // rebuild supaya item virtual grup ikut tersusun ulang saat reorder.
+        LoadRadialGroups();
+        foreach (var g in RadialGroups)
+        {
+            virtualItems.Add(new ScriptItem
             {
-                Name = "TOOLBOX",
-                ShortCode = "TB",
-                IconKey = "IconGrid",
-                OriginalName = "INTERNAL_TOOLBOX_GROUP",
+                Name = g.Name,
+                ShortCode = string.IsNullOrWhiteSpace(g.Code) ? BMachine.UI.Models.RadialMenuItem.GenerateShortName(g.Name) : g.Code,
+                IconKey = string.IsNullOrWhiteSpace(g.IconKey) ? "IconGrid" : g.IconKey,
+                OriginalName = g.Key,
                 FullPath = "",
                 Type = "GRP"
-            } }.Concat(sortedScripts).ToList();
-            
+            });
+        }
+
+        // Hapus file yang sudah jadi anggota salah satu grup (TIDAK dihapus dari
+        // daftar file di disk — hanya dari roda, agar tidak tampil dua kali).
+        var groupMemberNames = new HashSet<string>(
+            RadialGroups.SelectMany(g => g.Members), StringComparer.OrdinalIgnoreCase);
+
+        // Filter entri toolbox lama (_tb_* / TOOLBOX.jsx) supaya tidak tampil
+        // terpisah di preview — roda live juga skip file-file ini (diliput
+        // oleh item grup di atas).
+        var sortedScripts = rawScripts
+            .Where(s => !s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase)
+                 && !s.OriginalName.Equals("TOOLBOX.jsx", StringComparison.OrdinalIgnoreCase)
+                 && !groupMemberNames.Contains(s.OriginalName))
+            .ToList();
+
+        // Gabungkan: urut semua (skrip biasa + grup) berdasarkan Order di
+        // metadata. Grup/skrip tanpa metadata (baru, belum pernah disimpan)
+        // dapat Order = 9999 sampai user menyetel lewat drag di roda.
+        int Ord(ScriptItem s) => _scriptAliases.TryGetValue(s.OriginalName, out var c) ? c.Order : 9999;
+        var combined = new List<ScriptItem>();
+        combined.AddRange(sortedScripts);
+        combined.AddRange(virtualItems);
+        combined = combined.Where(s => s.Type != "GRP_DISABLED").ToList();
+        sortedScripts = combined.OrderBy(Ord).ThenBy(s => s.Name).ToList();
+
+        RebuildAllRadialGroupItems();
+
         bool hasPage2 = sortedScripts.Count > 7;
         
         // =========================================================

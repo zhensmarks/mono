@@ -26,6 +26,10 @@
     <Border Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource SeparatorBrush}"
             BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}">
+        <!-- MaxWidth dialog dikunci: teks catatan rilis TIDAK boleh terpotong di
+             tepi kanan lagi. ScrollViewer badan + TextWrapping Wrap = semua poin
+             terbaca utuh, dialog tumbuh ke bawah (SizeToContent=Height), tidak
+             melebar. -->
         <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="14,12">
 
             <!-- Header: rata tengah. Judul + chip versi + ukuran + versi lama satu baris
@@ -61,7 +65,7 @@
 
             <!-- Badan: catatan rilis. MaxHeight + scroll supaya dialog tetap pendek walau
                  changelog gabungan beberapa versi (SizeToContent=Height hanya setinggi isi). -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="200">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="200" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="6">
                     <TextBlock Text="Aplikasi menutup dan membuka ulang sendiri saat update dipasang. Pekerjaanmu tetap aman."
                                FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -69,23 +73,22 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:CompileBindings="False">
                                 <Grid ColumnDefinitions="Auto,*" Margin="0,1">
-                                    <Border Grid.Column="0" Width="4" Height="4" CornerRadius="{DynamicResource RadiusXxs}" VerticalAlignment="Center"
-                                            Background="{DynamicResource AccentColorBrush}" IsVisible="{Binding !IsHeader}"/>
-                                    <!-- Poin catatan: kata depan (mis. "Pasfoto") disorot, sisanya biasa -->
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                IsVisible="{Binding HasHighlight}">
-                                        <TextBlock Text="{Binding Highlight}" FontSize="11.5" FontWeight="Bold" TextWrapping="Wrap"
-                                                   Foreground="{DynamicResource AccentColorBrush}" VerticalAlignment="Top"/>
-                                        <TextBlock Text="{Binding Rest}" FontSize="11.5" TextWrapping="Wrap"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Top" Margin="5,0,0,0"/>
-                                    </StackPanel>
-                                    <!-- Fallback: catatan tanpa prefix ("sasaran: perubahan") tampil polos -->
-                                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="11.5" TextWrapping="Wrap" MaxWidth="300"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                               IsVisible="{Binding HasPlain}"/>
-                                    <!-- Pemisah versi: baris "vX" dari changelog gabungan -->
-                                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="11" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="300"
-                                               Margin="0,6,0,2" Foreground="{DynamicResource AccentColorBrush}" IsVisible="{Binding IsHeader}"/>
+                                    <!-- Bullet / header marker -->
+                                    <Border Grid.Column="0" Width="4" Height="4" CornerRadius="{DynamicResource RadiusXxs}"
+                                            VerticalAlignment="Center" Background="{DynamicResource AccentColorBrush}"
+                                            IsVisible="{Binding !IsHeader}"/>
+                                    <!-- Catatan: highlight + rest dalam satu alur teks (tidak double) -->
+                                    <TextBlock Grid.Column="1" Margin="6,0,0,0" FontSize="11.5" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextPrimaryBrush}">
+                                        <Run Text="{Binding Highlight}" FontWeight="Bold"
+                                             Foreground="{DynamicResource AccentColorBrush}"/>
+                                        <Run Text="{Binding Rest}"/>
+                                    </TextBlock>
+                                    <!-- Header versi: separator full lebar -->
+                                    <TextBlock Grid.Column="1" Text="{Binding Text}" FontSize="11" FontWeight="Bold"
+                                               Foreground="{DynamicResource AccentColorBrush}"
+                                               Margin="0,6,0,2" TextWrapping="Wrap"
+                                               IsVisible="{Binding IsHeader}"/>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

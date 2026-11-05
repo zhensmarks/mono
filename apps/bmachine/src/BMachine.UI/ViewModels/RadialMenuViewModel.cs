@@ -187,6 +187,10 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         
         // Action Scripts Only (.jsx and .pyw)
         var actionPath = Path.Combine(baseDir, "Action");
+        var allActionJsx = new List<string>();
+        if (Directory.Exists(actionPath))
+            allActionJsx = Directory.GetFiles(actionPath, "*.jsx").ToList();
+
         if (Directory.Exists(actionPath))
         {
             foreach (var f in Directory.GetFiles(actionPath, "*.jsx"))
@@ -201,9 +205,10 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             // Group by TOOLBOX: gather all "_tb_"-marked .jsx files into a
             // single group item on the inner ring; dwell-hover opens an
             // outer ring listing the _tb_ scripts (display names without
-            // the prefix).
-            var tbFiles = Directory
-                .GetFiles(actionPath, "*.jsx")
+            // the prefix). Urutan grup ikut metadata (scripts.json, key
+            // "__tb_group__") sehingga bisa di-pindah posisinya lewat
+            // Settings; tidak lagi dipaksa paling atas (Order=-1).
+            var tbFiles = allActionJsx
                 .Where(f => Path.GetFileName(f).StartsWith("_tb_", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -216,21 +221,60 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                     .Where(s => s.Length > 0)
                     .ToList();
 
+                var tbConfig = _scriptAliases.TryGetValue("__tb_group__", out var c) ? c : new ScriptConfig();
                 ActionItems.Add(new RadialMenuItem
                 {
-                    FullName = "TOOLBOX",
-                    ShortName = "TB",
+                    FullName = string.IsNullOrWhiteSpace(tbConfig.Name) ? "TOOLBOX" : tbConfig.Name,
+                    ShortName = string.IsNullOrWhiteSpace(tbConfig.Code) ? "TB" : tbConfig.Code,
                     ScriptPath = string.Empty,
                     IsMaster = false,
-                    Order = -1, // Always comes first, closest to North
-                    Icon = ResolveIcon("IconGrid"),
+                    Order = tbConfig.Order,
+                    Icon = ResolveIcon(string.IsNullOrWhiteSpace(tbConfig.IconKey) ? "IconGrid" : tbConfig.IconKey),
                     HasSubmenu = false,
                     IsGroupSubmenu = true,
-                    GroupSubmenuLabels = fullNames
+                    GroupSubmenuLabels = fullNames,
+                    GroupMembers = tbFiles
                 });
 
-                // Store the label -> path mapping for the outer ring
+                // Kompabilitas jalur lama (submenu tab DOC masih pakai field ini).
                 _toolboxGroupFiles = tbFiles;
+                _toolboxGroupLabels = fullNames;
+            }
+
+            // Grup custom buatan user (file __groups__.json di AppData):
+            // tiap grup jadi SATU item di cincin dalam, dwell membuka cincin
+            // luar berisi file anggotanya. File anggota boleh sama dengan
+            // file biasa (bukan wajib prefix) — tidak ada file yang hilang,
+            // cuma dapat akses cepat kedua lewat grup.
+            foreach (var group in LoadRadialGroups())
+            {
+                var memberPaths = group.Members
+                    .Select(name => Path.Combine(actionPath, name))
+                    .Where(File.Exists)
+                    .OrderBy(p => Path.GetFileName(p), StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (memberPaths.Count == 0) continue;
+
+                var labels = memberPaths
+                    .Select(GetGroupFileDisplay)
+                    .Where(s => s.Length > 0)
+                    .ToList();
+
+                ActionItems.Add(new RadialMenuItem
+                {
+                    FullName = group.Name,
+                    ShortName = string.IsNullOrWhiteSpace(group.Code)
+                        ? RadialMenuItem.GenerateShortName(group.Name)
+                        : group.Code,
+                    ScriptPath = string.Empty,
+                    IsMaster = false,
+                    Order = group.Order,
+                    Icon = ResolveIcon(string.IsNullOrWhiteSpace(group.IconKey) ? "IconGrid" : group.IconKey),
+                    HasSubmenu = false,
+                    IsGroupSubmenu = true,
+                    GroupSubmenuLabels = labels,
+                    GroupMembers = memberPaths
+                });
             }
         }
         if (Directory.Exists(baseDir))
@@ -246,6 +290,26 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         HasMoreItems = ActionItems.Count > MaxVisibleItems;
         CurrentPage = 0;
         BuildVisibleItems();
+    }
+
+    /// <summary>
+    /// Baca daftar grup custom radial dari __groups__.json (folder AppData,
+    /// bersebelahan dengan scripts.json). File tidak ada / rusak = daftar kosong,
+    /// radial menu tetap jalan seperti biasa.
+    /// </summary>
+    private static List<BMachine.UI.Models.RadialGroupConfig> LoadRadialGroups()
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(
+                BMachine.Core.Platform.PlatformServiceFactory.Get().GetAppDataDirectory(),
+                "__groups__.json");
+            if (!System.IO.File.Exists(path)) return new List<BMachine.UI.Models.RadialGroupConfig>();
+            var json = System.IO.File.ReadAllText(path);
+            return System.Text.Json.JsonSerializer.Deserialize<List<BMachine.UI.Models.RadialGroupConfig>>(json)
+                   ?? new List<BMachine.UI.Models.RadialGroupConfig>();
+        }
+        catch { return new List<BMachine.UI.Models.RadialGroupConfig>(); }
     }
 
     /// <summary>
@@ -660,15 +724,16 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         {
             if (item.IsNavigation) return;
 
-            // GRUP TOOLBOX: buka cincin luar berisi daftar _tb_*.jsx
+            // GRUP TOOLBOX / grup custom: buka cincin luar berisi file anggota grup.
             if (item.IsGroupSubmenu)
             {
-                if (_toolboxGroupFiles == null || _toolboxGroupFiles.Count == 0)
+                var files = item.GroupMembers;
+                if (files == null || files.Count == 0)
                 {
                     ClearSubmenu();
                     return;
                 }
-                BuildOuterToolboxSubmenu(item.Angle);
+                BuildOuterToolboxSubmenu(item.Angle, files, item.GroupSubmenuLabels);
                 return;
             }
 
@@ -692,14 +757,15 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         }
 
         /// <summary>
-        /// Bangun cincin luar untuk grup TOOLBOX: satu segmen per file _tb_*.jsx
-        /// (nama display = tanpa prefix). Jalur eksekusi berbeda dari submenu tab DOC:
+        /// Bangun cincin luar untuk grup TOOLBOX / grup custom: satu segmen per
+        /// file anggota grup. Jalur eksekusi berbeda dari submenu tab DOC:
         /// klik segmen langsung ExecuteScript(path file) tanpa PrepareDocSend.
         /// </summary>
-        private void BuildOuterToolboxSubmenu(double parentAngle)
+        private void BuildOuterToolboxSubmenu(double parentAngle, List<string>? files, List<string>? labels)
         {
             SubmenuItems.Clear();
-            var files = _toolboxGroupFiles;
+            files ??= _toolboxGroupFiles;
+            labels ??= _toolboxGroupLabels;
             if (files == null || files.Count == 0) return;
 
             int n = files.Count;
@@ -710,8 +776,7 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             for (int i = 0; i < n; i++)
             {
                 var path = files[i];
-                var display = Path.GetFileName(path).Replace(".jsx", "").TrimStart('_');
-                display = display.Replace("_", " ").Trim();
+                var display = labels != null && labels.Count == n ? labels[i] : GetGroupFileDisplay(path);
                 var shortName = RadialMenuItem.GenerateShortName(display);
                 var item = new RadialMenuItem
                 {
@@ -724,6 +789,14 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                 PlaceOuterItem(item, 128.0);
                 SubmenuItems.Add(item);
             }
+        }
+
+        /// <summary>Nama display file anggota grup: buang prefix "_" + ekstensi, underscore jadi spasi.</summary>
+        private static string GetGroupFileDisplay(string path)
+        {
+            var display = Path.GetFileNameWithoutExtension(path);
+            display = display.TrimStart('_').Replace("_", " ").Trim();
+            return display.Length > 0 ? display : display;
         }
 
         /// <summary>

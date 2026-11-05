@@ -128,7 +128,13 @@ public partial class RadialMenuItem : ObservableObject
         /// <summary>
         /// True = item ini MENYATAKAN grup TOOLBOX bisa dibuka (item induk di cincin dalam).
         /// </summary>
-        [ObservableProperty] private bool _isGroupSubmenu;
+            [ObservableProperty] private bool _isGroupSubmenu;
+
+        /// <summary>
+        /// Daftar PATH file anggota grup TOOLBOX / grup custom. Diisi RadialMenuViewModel
+        /// saat LoadScripts; dipakai membangun cincin luar (BuildOuterToolboxSubmenu).
+        /// </summary>
+        [ObservableProperty] private List<string>? _groupMembers = null;
 
     /// <summary>
     /// Generate short name from full name automatically.
