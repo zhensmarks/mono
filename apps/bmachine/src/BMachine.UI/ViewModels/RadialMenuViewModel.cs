@@ -189,19 +189,19 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
         var actionPath = Path.Combine(baseDir, "Action");
         if (Directory.Exists(actionPath))
         {
-            foreach (var f in Directory.GetFiles(actionPath, "*.jsx")) AddItem(ActionItems, f, false);
+            foreach (var f in Directory.GetFiles(actionPath, "*.jsx"))
+            {
+                var fn = Path.GetFileName(f);
+                if (fn.StartsWith("_")) continue;                       // _tb_*: diliput grup TOOLBOX
+                if (fn.Equals("TOOLBOX.jsx", StringComparison.OrdinalIgnoreCase)) continue; // grup radial menggantikan file toolbox
+                AddItem(ActionItems, f, false);
+            }
             foreach (var f in Directory.GetFiles(actionPath, "*.pyw")) AddItem(ActionItems, f, false);
-        }
-        if (Directory.Exists(baseDir))
-        {
-            foreach (var f in Directory.GetFiles(baseDir, "*.pyw")) AddItem(ActionItems, f, false);
-        }
 
-        // Grup TOOLBOX: semua .jsx ber-mark "_tb_" di folder Action menjadi
-        // satu item grup di cincin dalam; dwell hover-nya membuka cincin luar
-        // berisi skrip-skrpit _tb_ (nama display = tanpa prefix _tb_).
-        if (Directory.Exists(actionPath))
-        {
+            // Group by TOOLBOX: gather all "_tb_"-marked .jsx files into a
+            // single group item on the inner ring; dwell-hover opens an
+            // outer ring listing the _tb_ scripts (display names without
+            // the prefix).
             var tbFiles = Directory
                 .GetFiles(actionPath, "*.jsx")
                 .Where(f => Path.GetFileName(f).StartsWith("_tb_", StringComparison.OrdinalIgnoreCase))
@@ -210,13 +210,6 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
 
             if (tbFiles.Count > 0)
             {
-                var labels = tbFiles
-                    .Select(f => Path.GetFileName(f).Replace(".jsx", "", StringComparison.OrdinalIgnoreCase)
-                        .TrimStart('_').TrimStart('t', 'b').Replace("_", " "))
-                    .Select(s => s.Trim())
-                    .Where(s => s.Length > 0)
-                    .Select(s => s.Length > 4 ? s.Substring(0, 4).ToUpper() : s.ToUpper())
-                    .ToList();
                 var fullNames = tbFiles
                     .Select(f => Path.GetFileName(f).Replace(".jsx", "", StringComparison.OrdinalIgnoreCase))
                     .Select(s => s.TrimStart('_').Replace("_", " ").Trim())
@@ -229,16 +222,20 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
                     ShortName = "TB",
                     ScriptPath = string.Empty,
                     IsMaster = false,
-                    Order = -1, // masuk pertama, posisi paling dekat Utara
+                    Order = -1, // Always comes first, closest to North
                     Icon = ResolveIcon("IconGrid"),
                     HasSubmenu = false,
                     IsGroupSubmenu = true,
                     GroupSubmenuLabels = fullNames
                 });
 
-                // Simpan mapping label -> path untuk saat cincin luar dibangun
+                // Store the label -> path mapping for the outer ring
                 _toolboxGroupFiles = tbFiles;
             }
+        }
+        if (Directory.Exists(baseDir))
+        {
+            foreach (var f in Directory.GetFiles(baseDir, "*.pyw")) AddItem(ActionItems, f, false);
         }
 
         // Sort ActionItems

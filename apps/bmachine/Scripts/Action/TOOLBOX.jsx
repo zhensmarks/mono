@@ -1,5 +1,4 @@
 #target photoshop
-
 /*
     TOOLBOX.jsx
     Dispatcher JSX: memindai folder Scripts/Action, menampilkan daftar .jsx
@@ -27,14 +26,14 @@
               f.close();
           }
           // pakai: var loc = loadWindowLocation();
-          //       if (loc) w.location = [loc.x, loc.y]; else w.center();
-          //       var res = w.show(); if (res != 0) saveWindowLocation(w.location);
+          //        if (loc) w.location = [loc.x, loc.y]; else w.center();
+          //        var res = w.show(); if (res != 0) saveWindowLocation(w.location);
       • Tampilan dialog: w.spacing = 10; w.margins = 16 (standar BMachine)
 
     KONVENSI PENAMAAN FOLDER SCRIPTS/ACTION (tanpa edit kode toolbox):
-      • awalan "_tb_"       → TAMPIL DI TOOLBOX SAJA (di-skip radial menu)
-      • tanpa awalan        → tampil di radial menu biasa, TIDAK di toolbox
-      • awalan "_" lainnya → tersembunyi dari keduanya (internal helper)
+      • awalan "_tb_"       → TAMPIL DI TOOLBOX SAJA (di-skip radial menu biasa)
+      • tanpa awalan         → tampil di radial menu biasa, TIDAK di toolbox
+      • awalan "_" lainnya  → tersembunyi dari keduanya (internal helper)
 
     Cara pakai:
     - Mau script masuk toolbox? rename: seleksi_alam.jsx → _tb_seleksi_alam.jsx

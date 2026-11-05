@@ -27,13 +27,82 @@ namespace BMachine.UI.Services;
 /// </summary>
 public static class LocalUpdateService
 {
-    /// <summary>Folder update default: server NAS kantor (bisa diakses semua PC tanpa share lokal).</summary>
+    /// <summary>Folder update default (channel STABLE): server NAS kantor.</summary>
     public const string DefaultFolder = @"\\delapanmataair\Editor\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
 
-    /// <summary>Cadangan kalau UNC tidak resolve tapi drive U: sudah dimapping.</summary>
+    /// <summary>Folder update channel EXPERIMENTAL: saudara dari DefaultFolder.</summary>
+    public const string ExperimentalFolder = @"\\delapanmataair\Editor\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine\experimental";
+
+    /// <summary>Cadangan channel stable kalau UNC tidak resolve tapi drive U: sudah dimapping.</summary>
     public const string DriveLetterFolder = @"U:\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
 
+    /// <summary>Cadangan channel experimental (drive U:).</summary>
+    public const string DriveLetterExperimentalFolder = @"U:\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine\experimental";
+
     public const string ManifestFileName = "manifest.json";
+
+    /// <summary>Channel update: "stable" (default) atau "experimental".</summary>
+    public const string ChannelStable = "stable";
+    public const string ChannelExperimental = "experimental";
+
+    /// <summary>
+    /// Folder update yang dicoba untuk sebuah channel (urutan: env var override →
+    /// UNC default channel → drive U: cadangan channel). Isian user (configured)
+    /// tetap paling dulu dicoba kalau tidak kosong.
+    /// </summary>
+    public static IReadOnlyList<string> ResolveChannelCandidates(string channel, string? configured)
+    {
+        var isExp = string.Equals(channel, ChannelExperimental, StringComparison.OrdinalIgnoreCase);
+        var list = new List<string>();
+
+        void Add(string? path)
+        {
+            var value = (path ?? "").Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(value)) return;
+            if (!Path.IsPathRooted(value)) return;
+            if (list.Any(p => string.Equals(p, value, StringComparison.OrdinalIgnoreCase))) return;
+            list.Add(value);
+        }
+
+        Add(Environment.GetEnvironmentVariable("BMACHINE_UPDATE_DIR"));
+        Add(configured);
+        Add(isExp ? ExperimentalFolder : DefaultFolder);
+        Add(isExp ? DriveLetterExperimentalFolder : DriveLetterFolder);
+        return list;
+    }
+
+    /// <summary>Folder yang ditampilkan di Settings: env var (opsional) → isian user → folder channel default.</summary>
+    public static string ResolveFolder(string? configured, string channel = ChannelStable)
+    {
+        var candidates = ResolveChannelCandidates(channel, configured);
+        return candidates.Count > 0 ? candidates[0] : DefaultFolder;
+    }
+
+    /// <summary>
+    /// Urutan folder yang dicoba saat cek update (backward-compat, channel stable):
+    /// env var → isian user di Settings → share NAS (UNC) → drive U: (kalau dimapping).
+    /// </summary>
+    public static IReadOnlyList<string> ResolveCandidates(string? configured)
+    {
+        var list = new List<string>();
+
+        void Add(string? path)
+        {
+            var value = (path ?? "").Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(value)) return;
+            // Tolak path relatif/sampah: user tidak boleh bikin app kehilangan sumber update.
+            if (!Path.IsPathRooted(value)) return;
+            if (list.Any(p => string.Equals(p, value, StringComparison.OrdinalIgnoreCase))) return;
+            list.Add(value);
+        }
+
+        Add(Environment.GetEnvironmentVariable("BMACHINE_UPDATE_DIR"));
+        Add(configured);
+        Add(DefaultFolder);
+        Add(DriveLetterFolder);
+
+        return list;
+    }
 
     /// <summary>Riwayat catatan rilis semua versi (opsional; dipakai saat user tertinggal beberapa versi).</summary>
     public const string ChangelogFileName = "changelog.json";
@@ -84,22 +153,24 @@ public static class LocalUpdateService
     /// <summary>
     /// Baca manifest dari folder update dan bandingkan dengan versi aplikasi.
     /// Tidak pernah melempar exception: kegagalan akses dikembalikan sebagai status.
+    /// Parameter <c>channel</c> menentukan folder mana yang dicoba (stable/experimental).
     /// </summary>
-    public static async Task<(UpdateInfo Info, string Status)> CheckAsync(string? folder, bool allowFallback = true)
+    public static async Task<(UpdateInfo Info, string Status)> CheckAsync(string? folder, bool allowFallback = true, string channel = ChannelStable)
     {
         var info = new UpdateInfo
         {
             CurrentVersion = GetCurrentVersion(),
             LatestVersion = GetCurrentVersion(),
-            IsLocalSource = true
+            IsLocalSource = true,
+            Channel = channel
         };
 
         var errors = new List<string>();
 
-        // Coba berurutan: setting/env → share NAS (UNC) → drive U:.
+        // Coba berurutan sesuai channel: env var → setting user → folder channel (UNC) → drive U:.
         var candidates = allowFallback
-            ? ResolveCandidates(folder)
-            : new[] { ResolveFolder(folder) };
+            ? ResolveChannelCandidates(channel, folder)
+            : new[] { ResolveFolder(folder, channel) };
 
         foreach (var candidate in candidates)
         {
@@ -161,7 +232,7 @@ public static class LocalUpdateService
             return (info, status);
         }
 
-        info.SourceFolder = ResolveFolder(folder);
+        info.SourceFolder = ResolveFolder(folder, channel);
         var detail = errors.Count > 0 ? string.Join(" | ", errors) : "manifest.json tidak ditemukan";
         return (info, $"Folder update tidak bisa dibaca ({detail})");
     }

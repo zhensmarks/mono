@@ -1125,6 +1125,9 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>Folder share tempat manifest.json + payload update diletakkan.</summary>
     [ObservableProperty] private string _updateFolderPath = LocalUpdateService.DefaultFolder;
 
+    /// <summary>Channel update: "stable" (aman, resmi) atau "experimental" (sering berubah, boleh buggy).</summary>
+    [ObservableProperty] private string _updateChannel = LocalUpdateService.ChannelStable;
+
     /// <summary>Catatan rilis versi pendek (satu baris = satu poin).</summary>
     [ObservableProperty] private string _updateNotesText = "";
 
@@ -1150,14 +1153,30 @@ public partial class SettingsViewModel : ObservableObject
         _ = _database.SetAsync("Update.LocalPath", clean);
     }
 
+    partial void OnUpdateChannelChanged(string value)
+    {
+        if (_isInitializing || _database == null) return;
+
+        var clean = (value ?? "").Trim();
+        UpdateChannel = string.Equals(clean, "experimental", StringComparison.OrdinalIgnoreCase)
+            ? LocalUpdateService.ChannelExperimental
+            : LocalUpdateService.ChannelStable;
+
+        // Auto-pindah folder ke default channel terpilih, lalu cek ulang.
+        UpdateFolderPath = LocalUpdateService.ResolveFolder(null, UpdateChannel);
+        _ = _database.SetAsync("Update.Channel", UpdateChannel);
+        _ = _database.SetAsync("Update.LocalPath", UpdateFolderPath);
+        _ = CheckForUpdates();
+    }
+
     /// <summary>Kembalikan folder update ke default server NAS (mis. setelah isinya diubah user).</summary>
     [RelayCommand]
     private async Task ResetUpdateFolderPath()
     {
-        UpdateFolderPath = LocalUpdateService.DefaultFolder;
+        UpdateFolderPath = LocalUpdateService.ResolveFolder(null, UpdateChannel);
 
         if (_database != null)
-            await _database.SetAsync("Update.LocalPath", LocalUpdateService.DefaultFolder);
+            await _database.SetAsync("Update.LocalPath", UpdateFolderPath);
 
         UpdateStatusText = "Folder update dikembalikan ke default server NAS.";
     }
@@ -1170,7 +1189,7 @@ public partial class SettingsViewModel : ObservableObject
 
         try
         {
-            var (info, status) = await LocalUpdateService.CheckAsync(UpdateFolderPath);
+            var (info, status) = await LocalUpdateService.CheckAsync(UpdateFolderPath, true, UpdateChannel);
 
             _lastUpdateInfo = info;
             CurrentVersion = info.CurrentVersion;
@@ -1373,7 +1392,10 @@ public partial class SettingsViewModel : ObservableObject
 
             // --- Mode update lokal (LAN) ---
             CurrentVersion = LocalUpdateService.GetCurrentVersion();
-            UpdateFolderPath = LocalUpdateService.ResolveFolder(await _database.GetAsync<string>("Update.LocalPath"));
+            UpdateChannel = string.Equals((await _database.GetAsync<string>("Update.Channel")).Trim(), "experimental", StringComparison.OrdinalIgnoreCase)
+                ? LocalUpdateService.ChannelExperimental
+                : LocalUpdateService.ChannelStable;
+            UpdateFolderPath = LocalUpdateService.ResolveFolder(await _database.GetAsync<string>("Update.LocalPath"), UpdateChannel);
             
             // Load Animation Setting
             var animStr = await _database.GetAsync<string>("Settings.StartupAnim");
@@ -2572,6 +2594,25 @@ public partial class SettingsViewModel : ObservableObject
             .OrderBy(s => _scriptAliases.ContainsKey(s.OriginalName) ? _scriptAliases[s.OriginalName].Order : 9999)
             .ThenBy(s => s.Name)
             .ToList();
+        
+        // Grup TOOLBOX selalu muncul paling atas (Order=-1 di roda live);
+        // filterkan entri toolbox lama supaya preview Settings == roda live.
+        var hasTbGroup = sortedScripts.Any(s => s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase));
+        if (hasTbGroup)
+            sortedScripts = sortedScripts
+                .Where(s => !s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase)
+                     && !s.OriginalName.Equals("TOOLBOX.jsx", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        if (hasTbGroup)
+            sortedScripts = new List<ScriptItem> { new ScriptItem
+            {
+                Name = "TOOLBOX",
+                ShortCode = "TB",
+                IconKey = "IconGrid",
+                OriginalName = "INTERNAL_TOOLBOX_GROUP",
+                FullPath = "",
+                Type = "GRP"
+            } }.Concat(sortedScripts).ToList();
             
         bool hasPage2 = sortedScripts.Count > 7;
         

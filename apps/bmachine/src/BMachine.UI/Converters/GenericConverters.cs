@@ -29,6 +29,29 @@ public class IndexToBoolConverter : IValueConverter
     }
 }
 
+/// <summary>
+/// Bandingkan string value dengan parameter: true kalau sama (ordinal, case-insensitive).
+/// Dipakai RadioButton channel update (mis. UpdateChannel == "experimental").
+/// ConvertBack: kalau checked, kembalikan parameter sebagai value baru.
+/// </summary>
+public class StringToBoolConverter : IValueConverter
+{
+    public static readonly StringToBoolConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string s && parameter is string target)
+            return string.Equals(s.Trim(), target, StringComparison.OrdinalIgnoreCase);
+        return false;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is true && parameter is string p) return p;
+        return AvaloniaProperty.UnsetValue;
+    }
+}
+
 
 
 public class BoolInverter : IValueConverter
