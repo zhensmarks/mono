@@ -40,6 +40,73 @@ public class GranularUpdateTests
     }
 
     [Fact]
+    public void WithoutExplicitSelectionEveryComponentStillUsesPerFileCopy()
+    {
+        var script = LocalUpdateService.BuildApplyScript(
+            @"C:\payload", @"C:\install", 12345, null,
+            new List<ManifestComponentInfo>
+            {
+                Comp("Aplikasi", false, ("BMachine.App.exe", "exe")),
+                Comp("Master", true, ("Scripts/Master/m1.py", "# m1")),
+                Comp("Action", false, ("Scripts/Action/x.jsx", "A"))
+            });
+
+        // Tanpa pilihan user, jangan jatuh ke mode "salin seluruh payload".
+        Assert.Contains("$hasFiles = $false", script);
+        Assert.Contains("$selNames", script);
+        Assert.Contains("Scripts/Action/x.jsx", script);
+        Assert.Contains("komponen", script);
+    }
+
+    [Fact]
+    public void ExplicitSelectionSkipsOtherComponents()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "bmachine-upd_" + Guid.NewGuid().ToString("N"));
+        var payload = Path.Combine(root, "payload");
+        var install = Path.Combine(root, "install");
+        Directory.CreateDirectory(payload);
+        Directory.CreateDirectory(install);
+
+        try
+        {
+            WritePayloadFile(payload, "Scripts/Action/x.jsx", "baru");
+            WritePayloadFile(payload, "Scripts/Master/m1.py", "# master baru");
+            WritePayloadFile(install, "Scripts/Action/x.jsx", "lama");
+            WritePayloadFile(install, "Scripts/Master/m1.py", "# master lama");
+
+            var action = Comp("Action", false, ("Scripts/Action/x.jsx", "baru"));
+            var master = Comp("Master", true, ("Scripts/Master/m1.py", "# master baru"));
+
+            var script = LocalUpdateService.BuildApplyScript(
+                payload, install, 999999, new[] { "Master" },
+                new List<ManifestComponentInfo> { action, master });
+
+            script = string.Join("\n", script.Split('\n')
+                .Where(l => !l.Contains("Start-Process -FilePath $exe") && !l.Contains("Remove-Item -LiteralPath $MyInvocation")));
+            var scriptPath = Path.Combine(root, "apply2.ps1");
+            File.WriteAllText(scriptPath, script, new UTF8Encoding(false));
+
+            using (var p = Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            })!)
+            {
+                Assert.True(p.WaitForExit(120000), "applier tidak selesai");
+            }
+
+            Assert.Equal("# master baru", File.ReadAllText(Path.Combine(install, "Scripts/Master/m1.py")));
+            Assert.Equal("lama", File.ReadAllText(Path.Combine(install, "Scripts/Action/x.jsx")));  // tidak dipilih
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { }
+        }
+    }
+
+    [Fact]
     public void ApplyScriptContainsPerFileMachinery()
     {
         var script = LocalUpdateService.BuildApplyScript(

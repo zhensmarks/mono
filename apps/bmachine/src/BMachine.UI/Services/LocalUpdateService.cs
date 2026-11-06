@@ -416,8 +416,21 @@ public static class LocalUpdateService
 
         // Filter komponen: kalau user memilih subset, hanya salin komponen itu.
         // Kalau manifest tidak punya field components, salin semua (perilaku lama).
-        var selectedNames = selectedComponents?.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-        bool useFilter = manifestComponents != null && manifestComponents.Count > 0 && selectedNames != null && selectedNames.Count > 0;
+        var comps = (manifestComponents ?? new List<BMachine.UI.Models.ManifestComponentInfo>())
+            .Where(c => c != null).ToList();
+        bool hasFileMaps = comps.Any(c => c.Files is { Count: > 0 });
+        var selectedNames = selectedComponents?.Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
+                            ?? new List<string>();
+
+        // Tanpa pilihan eksplisit (jalur lama: ApplyAsync dipanggil tanpa daftar komponen),
+        // perlakukan seperti mode lama — semua komponen ikut — tapi tetap per-file supaya
+        // update kecil tidak menimpa seluruh folder.
+        if (hasFileMaps && selectedNames.Count == 0)
+        {
+            selectedNames = comps.Select(c => c.Name).ToList();
+        }
+
+        bool useFilter = comps.Count > 0 && selectedNames.Count > 0;
 
         string filterBlock;
         if (useFilter)
@@ -425,7 +438,7 @@ public static class LocalUpdateService
             var json = System.Text.Json.JsonSerializer.Serialize(new
             {
                 selected = selectedNames,
-                components = manifestComponents.Select(c => new { name = c.Name, changed = c.Changed, included = c.Included, paths = c.Paths, atomic = c.Atomic, files = c.Files })
+                components = comps.Select(c => new { name = c.Name, changed = c.Changed, included = c.Included, paths = c.Paths, atomic = c.Atomic, files = c.Files })
             });
             filterBlock =
                 "$componentsJson = " + Q(json) + "\n" +
