@@ -857,9 +857,6 @@
                             <RadioButton Classes="TrelloBoardTab CompactTab" IsChecked="{Binding IsScriptActionSelected}" Command="{Binding SwitchToScriptActionCommand}">
                                 <TextBlock Classes="navLabel" Text="RADIAL MENU" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </RadioButton>
-                            <RadioButton Classes="TrelloBoardTab CompactTab" IsChecked="{Binding IsSaveMasterSelected}" Command="{Binding SwitchToSaveMasterCommand}">
-                                <TextBlock Classes="navLabel" Text="SAVE MASTER" TextWrapping="NoWrap" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </RadioButton>
                         </StackPanel>
                     </Border>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -1240,120 +1237,6 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                            <!-- SAVE MASTER: langkah otomatis saat save_master.jsx berjalan -->
-                            <StackPanel IsVisible="{Binding IsSaveMasterSelected}" Spacing="14" Margin="0,0,0,20">
-                                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}"
-                                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="LANGKAH OTOMATIS SAAT SAVE" FontSize="14" FontWeight="Bold"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Classes="caption" TextWrapping="Wrap" Margin="0,0,0,14"
-                                                   Text="Berlaku untuk save_master.jsx di Photoshop. Pilihan output per-save (PSD, JPG, PNG, pas foto) tetap dipilih di dialog Photoshop."/>
-                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,14">
-                                                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                                            <TextBlock Text="Action 'anti ramijud'" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                                            <TextBlock Text="Action Photoshop (starter pack) yang dijalankan otomatis saat export JPG/PNG." Classes="caption" TextWrapping="Wrap" MaxWidth="520"
-                                                                       HorizontalAlignment="Left"/>
-                                                        </StackPanel>
-                                                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
-                                                                      IsChecked="{Binding SaveMasterSettings.AntiRamijud}"
-                                                                      ToolTip.Tip="Aktif / nonaktifkan langkah ini saat save"/>
-                                                    </Grid>
-
-                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,14">
-                                                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                                            <TextBlock Text="Cek redaksi sebelum save" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                                            <TextBlock Text="Periksa layer teks terhadap daftar kalimat terlarang. Kalau ada yang sama persis, layer ditandai merah dan proses save dibatalkan." Classes="caption" TextWrapping="Wrap" MaxWidth="520"
-                                                                       HorizontalAlignment="Left"/>
-                                                        </StackPanel>
-                                                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
-                                                                      IsChecked="{Binding SaveMasterSettings.RedaksiCheck}"
-                                                                      ToolTip.Tip="Aktif / nonaktifkan langkah ini saat save"/>
-                                                    </Grid>
-
-                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,14">
-                                                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                                            <TextBlock Text="Tutup dokumen otomatis" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                                            <TextBlock Text="Tutup dokumen sumber setelah selesai disave (tanpa menyimpan perubahan tambahan)." Classes="caption" TextWrapping="Wrap" MaxWidth="520"
-                                                                       HorizontalAlignment="Left"/>
-                                                        </StackPanel>
-                                                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
-                                                                      IsChecked="{Binding SaveMasterSettings.CloseAfterSave}"
-                                                                      ToolTip.Tip="Aktif / nonaktifkan langkah ini saat save"/>
-                                                    </Grid>
-
-                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,14">
-                                                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                                            <TextBlock Text="Crop pas foto 2x3" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                                            <TextBlock Text="Buat versi crop 2x3 di subfolder 2x3 saat mode pas foto." Classes="caption" TextWrapping="Wrap" MaxWidth="520"
-                                                                       HorizontalAlignment="Left"/>
-                                                        </StackPanel>
-                                                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
-                                                                      IsChecked="{Binding SaveMasterSettings.Crop2x3}"
-                                                                      ToolTip.Tip="Aktif / nonaktifkan langkah ini saat save"/>
-                                                    </Grid>
-
-                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,14">
-                                                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                                            <TextBlock Text="Crop pas foto 4x6" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                                            <TextBlock Text="Buat versi crop 4x6 di subfolder 4x6 saat mode pas foto." Classes="caption" TextWrapping="Wrap" MaxWidth="520"
-                                                                       HorizontalAlignment="Left"/>
-                                                        </StackPanel>
-                                                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
-                                                                      IsChecked="{Binding SaveMasterSettings.Crop4x6}"
-                                                                      ToolTip.Tip="Aktif / nonaktifkan langkah ini saat save"/>
-                                                    </Grid>
-
-                                                    <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,14">
-                                                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                                            <TextBlock Text="Izinkan proses batch" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                                            <TextBlock Text="Kalau dimatikan, 'Batch: all open documents' selalu off dan hanya dokumen aktif yang diproses." Classes="caption" TextWrapping="Wrap" MaxWidth="520"
-                                                                       HorizontalAlignment="Left"/>
-                                                        </StackPanel>
-                                                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
-                                                                      IsChecked="{Binding SaveMasterSettings.BatchAllDocs}"
-                                                                      ToolTip.Tip="Aktif / nonaktifkan langkah ini saat save"/>
-                                                    </Grid>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="{DynamicResource RadiusSm}"
-                                        BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" Padding="16">
-                                    <StackPanel Spacing="6">
-                                        <Grid ColumnDefinitions="*, Auto">
-                                            <StackPanel Grid.Column="0" Spacing="2">
-                                                <TextBlock Text="REDAKSI (KALIMAT TERLARANG)" FontSize="14" FontWeight="Bold"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                <TextBlock Classes="caption" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left"
-                                                           Text="Satu kalimat per baris. Layer TEKS yang isinya sama persis dengan salah satu baris di sini akan ditandai MERAH dan proses save dibatalkan."/>
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center"
-                                                       Text="{Binding SaveMasterSettings.RedaksiSummary}"/>
-                                        </Grid>
-                                        <TextBox AcceptsReturn="True" TextWrapping="NoWrap" Height="170" FontSize="12"
-                                                 AcceptsTab="False"
-                                                 Text="{Binding SaveMasterSettings.RedaksiText}"
-                                                 Watermark="TK DELAPAN MATA AIR"/>
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
-                                            <Button Classes="Muted" Content="Kembalikan Bawaan"
-                                                    Command="{Binding SaveMasterSettings.ResetRedaksiCommand}"/>
-                                            <Button Classes="primary" Content="Simpan Pengaturan"
-                                                    Command="{Binding SaveMasterSettings.SaveCommand}"/>
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding SaveMasterSettings.StatusMessage}" Classes="caption"
-                                                   TextWrapping="Wrap"
-                                                   IsVisible="{Binding SaveMasterSettings.IsStatusVisible}"/>
-                                        <TextBlock Classes="caption" TextWrapping="Wrap" Opacity="0.7"
-                                                   Text="{Binding SaveMasterSettings.ConfigPathLabel, StringFormat='File: {0}'}"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>

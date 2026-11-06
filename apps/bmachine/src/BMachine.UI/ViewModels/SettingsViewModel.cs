@@ -2307,10 +2307,6 @@ public partial class SettingsViewModel : ObservableObject
     // Script Tab Selection (Master vs Action)
     [ObservableProperty] private bool _isScriptMasterSelected = true;
     [ObservableProperty] private bool _isScriptActionSelected = false;
-    [ObservableProperty] private bool _isSaveMasterSelected = false;
-
-    /// <summary>Pengaturan save_master.jsx (Script Manager -> tab SAVE MASTER).</summary>
-    public SaveMasterSettingsViewModel SaveMasterSettings { get; } = new();
     // Mode edit radial: true = panel SLOT DETAILS terbuka (layout kiri-kanan).
     // false = radial menu tampil di TENGAH (tampilan awal). Esc / tombol tutup
     // memanggil CloseSlotDetails untuk kembali ke tengah.
@@ -2662,7 +2658,6 @@ public partial class SettingsViewModel : ObservableObject
     {
         IsScriptMasterSelected = true;
         IsScriptActionSelected = false;
-        IsSaveMasterSelected = false;
     }
 
     [RelayCommand]
@@ -2670,18 +2665,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         IsScriptMasterSelected = false;
         IsScriptActionSelected = true;
-        IsSaveMasterSelected = false;
         RebuildRadialSlots();
-    }
-
-    [RelayCommand]
-    public void SwitchToSaveMaster()
-    {
-        IsScriptMasterSelected = false;
-        IsScriptActionSelected = false;
-        IsSaveMasterSelected = true;
-        SaveMasterSettings.Load();   // baca ulang file config tiap tab dibuka
-        SaveMasterSettings.IsStatusVisible = false;
     }
     
     [RelayCommand]

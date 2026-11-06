@@ -33,39 +33,38 @@ function saveSettingsData(settings) {
 
 
 // ==== SAVE MASTER CONFIG ====
-// Sumber: %APPDATA%\BMachine.v2\save_master_config.json (jalur yang sama dipakai BMachine),
-// fallback %APPDATA%\BMachine\ lalu Folder.userData. Diatur dari
-// BMachine -> Pengaturan -> Script Manager -> SAVE MASTER.
-function masterConfigCandidates() {
-    var out = [];
-    try {
-        var ad = $.getenv("APPDATA");
-        if (ad) {
-            out.push(ad + "/BMachine.v2/save_master_config.json");
-            out.push(ad + "/BMachine/save_master_config.json");
-        }
-    } catch (e) { }
-    try { out.push(Folder.userData + "/save_master_config.json"); } catch (e2) { }
-    return out;
+// Pengaturan disimpan di sebelah file settings Photoshop:
+// Folder.userData/save_master_config.json. Diatur dari tombol "Pengaturan" di dialog ini.
+var MASTER_CFG_DEFAULT_REDAKSI = "TK DELAPAN MATA AIR\nTAAM AISYAH MIFTAHUL KHAER\nJL. BIMA NO. 10 RT. 04 RW. 04  KEL. ARJUNA KEC. CICENDO\nJl. Sari Endah No. 7A Gegerkalong Hilir Bandung\nJl. Sari Endah No.7A, Sukarasa, Kec. Sukasari Kota Bandung, Jaw";
+
+function masterConfigFile() {
+    try { return new File(Folder.userData + "/save_master_config.json"); } catch (e) { return null; }
+}
+function masterJsonEscape(s) {
+    return String(s)
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, "\\\"")
+        .replace(/\r/g, "")
+        .replace(/\n/g, "\\n")
+        .replace(/\t/g, "\\t");
 }
 function loadMasterConfig() {
-    var paths = masterConfigCandidates();
-    for (var i = 0; i < paths.length; i++) {
-        var f = new File(paths[i]);
-        if (!f.exists) continue;
-        try {
-            f.open("r");
-            var txt = f.read();
-            f.close();
-            var obj = eval("(" + txt + ")");
-            if (obj && typeof obj === "object") return obj;
-        } catch (e) { try { f.close(); } catch (x) { } }
-    }
+    var f = masterConfigFile();
+    if (!f || !f.exists) return null;
+    try {
+        f.open("r");
+        var txt = f.read();
+        f.close();
+        var obj = eval("(" + txt + ")");
+        if (obj && typeof obj === "object") return obj;
+    } catch (e) { try { f.close(); } catch (x) { } }
     return null;
 }
 var MASTER_CFG = loadMasterConfig();
-// Langkah otomatis AKTIF kalau key tidak ada, supaya perilaku lama tidak berubah.
-function stepOn(name) {
+
+// Status langkah otomatis. Key yang tidak ada = AKTIF, supaya config lama/rusak
+// tidak pernah memblokir kerja orang.
+function masterStepValue(name) {
     try {
         if (!MASTER_CFG || !MASTER_CFG.steps) return true;
         var v = MASTER_CFG.steps[name];
@@ -75,13 +74,45 @@ function stepOn(name) {
         return !(s === "false" || s === "0" || s === "off" || s === "no");
     } catch (e) { return true; }
 }
-function masterRedaksiFromConfig() {
+function stepOn(name) { return masterStepValue(name); }
+
+function masterRedaksiArray() {
     try {
-        if (MASTER_CFG && MASTER_CFG.redaksi && MASTER_CFG.redaksi.constructor === Array && MASTER_CFG.redaksi.length > 0) {
-            return MASTER_CFG.redaksi.join("\n");
+        if (MASTER_CFG && MASTER_CFG.redaksi && MASTER_CFG.redaksi.constructor === Array) {
+            return MASTER_CFG.redaksi;
         }
     } catch (e) { }
     return null;
+}
+function masterRedaksiFromConfig() {
+    var lines = masterRedaksiArray();
+    if (!lines || lines.length === 0) return null;
+    return lines.join("\n");
+}
+// Tulis config (langkah + kalimat terlarang). Return objek config baru, atau null kalau gagal.
+function saveMasterConfig(stepsObj, redaksiLines) {
+    var f = masterConfigFile();
+    if (!f) return null;
+    var keys = ["antiRamijud", "redaksiCheck", "closeAfterSave", "crop2x3", "crop4x6", "batchAllDocs"];
+    var out = "{\n  \"version\": 1,\n  \"steps\": {\n";
+    for (var i = 0; i < keys.length; i++) {
+        out += "    \"" + keys[i] + "\": " + (stepsObj[keys[i]] === false ? "false" : "true");
+        out += (i < keys.length - 1 ? "," : "") + "\n";
+    }
+    out += "  },\n  \"redaksi\": [";
+    for (var r = 0; r < redaksiLines.length; r++) {
+        out += (r === 0 ? "\n    " : ",\n    ") + "\"" + masterJsonEscape(redaksiLines[r]) + "\"";
+    }
+    out += (redaksiLines.length ? "\n  ]" : "]") + "\n}\n";
+    try {
+        f.open("w");
+        f.write(out);
+        f.close();
+        return { version: 1, steps: stepsObj, redaksi: redaksiLines };
+    } catch (e) {
+        try { f.close(); } catch (x) { }
+        return null;
+    }
 }
 // ==== /SAVE MASTER CONFIG ====
 
@@ -242,7 +273,7 @@ function main() {
     // Sumber utama: save_master_config.json dari BMachine -> SAVE MASTER.
     // File lama bmachine_fendi_redaksi.txt tetap dipakai kalau config belum punya daftar.
     var settingFile = new File(Folder.userData + "/bmachine_fendi_redaksi.txt");
-    var defaultText = "TK DELAPAN MATA AIR\nTAAM AISYAH MIFTAHUL KHAER\nJL. BIMA NO. 10 RT. 04 RW. 04  KEL. ARJUNA KEC. CICENDO\nJl. Sari Endah No. 7A Gegerkalong Hilir Bandung\nJl. Sari Endah No.7A, Sukarasa, Kec. Sukasari Kota Bandung, Jaw";
+    var defaultText = MASTER_CFG_DEFAULT_REDAKSI;
     var configRedaksi = masterRedaksiFromConfig();
     var currentRedaksi = configRedaksi !== null ? configRedaksi : defaultText;
     if (configRedaksi === null) {
@@ -349,39 +380,92 @@ function main() {
     grpBottom.alignChildren = ["center", "center"];
     grpBottom.alignment = "center";
     
-    var btnSettingRedaksi = grpBottom.add("button", undefined, "Pengaturan Redaksi");
+    var btnSetting = grpBottom.add("button", undefined, "Pengaturan");
     var btnAdvanced = grpBottom.add("button", undefined, "Advanced");
     var btnCancel = grpBottom.add("button", undefined, "Cancel");
 
-    btnSettingRedaksi.onClick = function() {
-        var redaksiDlg = new Window("dialog", "Pengaturan Redaksi");
-        redaksiDlg.orientation = "column";
-        redaksiDlg.alignChildren = ["fill", "top"];
-        redaksiDlg.spacing = 10;
-        redaksiDlg.margins = 15;
-        
-        redaksiDlg.add("statictext", undefined, "Daftar Teks Terlarang (Otomatis Aktif):");
-        var wordsEdit = redaksiDlg.add("edittext", [0,0,400,150], currentRedaksi, {multiline:true, wantReturn:true});
-        
-        var grpRedaksiBtn = redaksiDlg.add("group");
-        grpRedaksiBtn.alignment = "center";
-        var btnSaveRedaksi = grpRedaksiBtn.add("button", undefined, "Simpan");
-        var btnCloseRedaksi = grpRedaksiBtn.add("button", undefined, "Batal");
-        
-        btnSaveRedaksi.onClick = function() {
-            try {
-                settingFile.open("w");
-                settingFile.write(wordsEdit.text);
-                settingFile.close();
-                currentRedaksi = wordsEdit.text;
-                alert("Teks redaksi berhasil disimpan!");
-                redaksiDlg.close();
-            } catch(e) {
-                alert("Gagal menyimpan teks redaksi: " + e.message);
-            }
+    // ========== PENGATURAN (langkah otomatis + kalimat terlarang) ==========
+    btnSetting.onClick = function() {
+        var settingDlg = new Window("dialog", "Pengaturan Save Master");
+        settingDlg.orientation = "column";
+        settingDlg.alignChildren = ["fill", "top"];
+        settingDlg.spacing = 10;
+        settingDlg.margins = 15;
+
+        var pnlSteps = settingDlg.add("panel", undefined, "Langkah otomatis saat save");
+        pnlSteps.orientation = "column";
+        pnlSteps.alignChildren = ["left", "top"];
+        pnlSteps.margins = 12;
+        pnlSteps.spacing = 3;
+
+        var cbAction = pnlSteps.add("checkbox", undefined, "Jalankan action 'anti ramijud' (export JPG/PNG)");
+        var cbRedaksi = pnlSteps.add("checkbox", undefined, "Cek redaksi sebelum save (blokir kalau ada teks terlarang)");
+        var cbClose = pnlSteps.add("checkbox", undefined, "Tutup dokumen setelah save");
+        var cbCrop23 = pnlSteps.add("checkbox", undefined, "Crop pas foto 2x3");
+        var cbCrop46 = pnlSteps.add("checkbox", undefined, "Crop pas foto 4x6");
+        var cbBatch = pnlSteps.add("checkbox", undefined, "Izinkan proses batch (semua dokumen terbuka)");
+
+        cbAction.value = masterStepValue("antiRamijud");
+        cbRedaksi.value = masterStepValue("redaksiCheck");
+        cbClose.value = masterStepValue("closeAfterSave");
+        cbCrop23.value = masterStepValue("crop2x3");
+        cbCrop46.value = masterStepValue("crop4x6");
+        cbBatch.value = masterStepValue("batchAllDocs");
+
+        var pnlRedaksi = settingDlg.add("panel", undefined, "Kalimat terlarang (satu kalimat per baris)");
+        pnlRedaksi.orientation = "column";
+        pnlRedaksi.alignChildren = ["fill", "top"];
+        pnlRedaksi.margins = 12;
+        pnlRedaksi.spacing = 6;
+        pnlRedaksi.add("statictext", undefined, "Layer TEKS yang isinya sama persis akan ditandai merah dan save dibatalkan.");
+        var wordsEdit = pnlRedaksi.add("edittext", [0,0,420,140], currentRedaksi, {multiline:true, wantReturn:true});
+
+        var grpSettingBtn = settingDlg.add("group");
+        grpSettingBtn.alignment = "center";
+        var btnSaveSetting = grpSettingBtn.add("button", undefined, "Simpan");
+        var btnDefaultSetting = grpSettingBtn.add("button", undefined, "Kembalikan Bawaan");
+        var btnCloseSetting = grpSettingBtn.add("button", undefined, "Batal");
+
+        btnDefaultSetting.onClick = function() {
+            wordsEdit.text = MASTER_CFG_DEFAULT_REDAKSI;
         };
-        btnCloseRedaksi.onClick = function() { redaksiDlg.close(); };
-        redaksiDlg.show();
+
+        btnSaveSetting.onClick = function() {
+            var rawLines = String(wordsEdit.text).split("\n");
+            var lines = [];
+            for (var i = 0; i < rawLines.length; i++) {
+                var s = rawLines[i].replace(/\r/g, "").replace(/^\s+|\s+$/g, "");
+                if (s) lines.push(s);
+            }
+            if (cbRedaksi.value && lines.length === 0) {
+                alert("Cek redaksi aktif tapi daftar kalimat terlarang kosong.\nIsi minimal satu kalimat atau matikan cek redaksi.");
+                return;
+            }
+            var steps = {
+                antiRamijud: cbAction.value,
+                redaksiCheck: cbRedaksi.value,
+                closeAfterSave: cbClose.value,
+                crop2x3: cbCrop23.value,
+                crop4x6: cbCrop46.value,
+                batchAllDocs: cbBatch.value
+            };
+            var saved = saveMasterConfig(steps, lines);
+            if (!saved) {
+                alert("Gagal menyimpan pengaturan.\nCek izin tulis di: " + Folder.userData);
+                return;
+            }
+            MASTER_CFG = saved;                       // langsung berlaku di sesi ini
+            currentRedaksi = lines.join("\n");
+            try {                                     // file lama tetap diisi (kompatibilitas)
+                settingFile.open("w");
+                settingFile.write(currentRedaksi);
+                settingFile.close();
+            } catch(eWrite) { }
+            alert("Pengaturan disimpan.");
+            settingDlg.close();
+        };
+        btnCloseSetting.onClick = function() { settingDlg.close(); };
+        settingDlg.show();
     };
 
     // --- EVENTS ---
