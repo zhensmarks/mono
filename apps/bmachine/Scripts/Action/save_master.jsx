@@ -93,7 +93,7 @@ function masterRedaksiFromConfig() {
 function saveMasterConfig(stepsObj, redaksiLines) {
     var f = masterConfigFile();
     if (!f) return null;
-    var keys = ["antiRamijud", "redaksiCheck", "closeAfterSave", "crop2x3", "crop4x6", "batchAllDocs"];
+    var keys = ["antiRamijud", "redaksiCheck", "closeAfterSave", "crop2x3", "crop4x6"];
     var out = "{\n  \"version\": 1,\n  \"steps\": {\n";
     for (var i = 0; i < keys.length; i++) {
         out += "    \"" + keys[i] + "\": " + (stepsObj[keys[i]] === false ? "false" : "true");
@@ -125,12 +125,12 @@ function showAdvancedMode(){
  var name=dlg.add("edittext",undefined,"");var row=dlg.add("group");row.orientation="row";var master=row.add("checkbox",undefined,"Save PSD");master.value=true;var jpg=row.add("checkbox",undefined,"JPG");var png=row.add("checkbox",undefined,"PNG");var action=dlg.add("checkbox",undefined,"Run anti ramijud action");action.value=true;var keep=dlg.add("checkbox",undefined,"Keep source open");keep.value=true;var batch=dlg.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
  var pr=dlg.add("group");pr.orientation="row";pr.add("statictext",undefined,"Export folder (blank = source)");var path=pr.add("edittext",undefined,"");path.preferredSize.width=145;var browse=pr.add("button",undefined,"Browse");var buttons=dlg.add("group");buttons.orientation="row";buttons.alignment="center";var save=buttons.add("button",undefined,"Save / Edit");var run=buttons.add("button",undefined,"Run Current");var cancel=buttons.add("button",undefined,"Cancel");
  function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,path:path.text};}
- function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng){alert("Aktifkan minimal satu proses.");return;}var f=(c.path?String(c.path):"").replace(/^\s+|\s+$/g,"");var isAbs=f.indexOf(":")>=0||f.charAt(0)==="/";if(f&&isAbs&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:stepOn("batchAllDocs")&&isBatchEnabled(c.batch),path:f});}
+ function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng){alert("Aktifkan minimal satu proses.");return;}var f=(c.path?String(c.path):"").replace(/^\s+|\s+$/g,"");var isAbs=f.indexOf(":")>=0||f.charAt(0)==="/";if(f&&isAbs&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:f});}
  function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
  populate();browse.onClick=function(){var f=Folder.selectDialog("Pilih folder export");if(f)path.text=decodeURI(f.fsName);};function savePreset(){var c=conf(),n=c.name.replace(/^\s+|\s+$/g,"");if(!n){alert("Isi nama preset.");return;}c.name=n;var i=-1;for(var j=0;j<presets.length;j++)if(presets[j].name===n)i=j;if(i<0)presets.push(c);else presets[i]=c;if(!saveAdvancedPresets(presets)){alert("Gagal menyimpan preset.");return;}populate();area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.layout.resize();dlg.update();}save.onClick=savePreset; run.onClick=function(){execute(conf());};cancel.onClick=function(){dlg.close(0);};dlg.onClose=function(){var s=loadSettings();s.advancedX=dlg.location.x;s.advancedY=dlg.location.y;saveSettingsData(s);return true;};if(pos.advancedX>0&&pos.advancedY>0)dlg.location=[pos.advancedX,pos.advancedY];else dlg.center();dlg.show();
 }
 function runAdvancedMode(c){
- var docNames=[];var batchMode=stepOn("batchAllDocs")&&isBatchEnabled(c.batch);
+ var docNames=[];var batchMode=isBatchEnabled(c.batch);
  if(batchMode){for(var i=0;i<app.documents.length;i++)docNames.push(app.documents[i].name);}
  else if(app.activeDocument)docNames.push(app.activeDocument.name);
  var ok=[],fail=[],stop=false,requested=false;
@@ -227,7 +227,7 @@ function runAdvancedMode(c){
       dup=d.duplicate(base+"_advanced_png");app.activeDocument=dup;
       try{dup.artLayers.add();}catch(exAdd){}
       try{executeAction(stringIDToTypeID("mergeVisible"),undefined,DialogModes.NO);}catch(exMerge){}
-      if(!requested&&c.processAction&&stepOn("antiRamijud"))try{app.doAction("anti ramijud","starter pack");}catch(ex){}
+      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
       if(!requested)savePNG(dup,exportFolder.fsName+"/"+base+".png");
       dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
      }
@@ -235,7 +235,7 @@ function runAdvancedMode(c){
      // --- JPG: tidak mendukung alpha, flatten tetap dipakai (sama seperti mode JPG) ---
      if(c.exportJpg){
       dup=d.duplicate(base+"_advanced_jpg");app.activeDocument=dup;dup.flatten();
-      if(!requested&&c.processAction&&stepOn("antiRamijud"))try{app.doAction("anti ramijud","starter pack");}catch(ex){}
+      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
       if(!requested)saveJPG(dup,exportFolder.fsName+"/"+base+".jpg",12);
       dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
      }
@@ -374,6 +374,18 @@ function main() {
         btnArtJpg.helpTip = "Export Artboard ke JPG untuk semua file (Batch)";
     }
 
+    // --- INFO: langkah yang dimatikan lewat Pengaturan (Advanced punya pengaturannya sendiri) ---
+    var masterOffLabels = [];
+    if (!stepOn("antiRamijud")) masterOffLabels.push("action anti ramijud");
+    if (!stepOn("redaksiCheck")) masterOffLabels.push("cek redaksi");
+    if (!stepOn("closeAfterSave")) masterOffLabels.push("tutup dokumen otomatis");
+    if (!stepOn("crop2x3")) masterOffLabels.push("crop 2x3");
+    if (!stepOn("crop4x6")) masterOffLabels.push("crop 4x6");
+    if (masterOffLabels.length > 0) {
+        var lblOff = dlg.add("statictext", undefined, "Nonaktif di Pengaturan: " + masterOffLabels.join(", "));
+        lblOff.alignment = "center";
+    }
+
     // --- BOTTOM ---
     var grpBottom = dlg.add("group");
     grpBottom.orientation = "row";
@@ -403,14 +415,15 @@ function main() {
         var cbClose = pnlSteps.add("checkbox", undefined, "Tutup dokumen setelah save");
         var cbCrop23 = pnlSteps.add("checkbox", undefined, "Crop pas foto 2x3");
         var cbCrop46 = pnlSteps.add("checkbox", undefined, "Crop pas foto 4x6");
-        var cbBatch = pnlSteps.add("checkbox", undefined, "Izinkan proses batch (semua dokumen terbuka)");
 
         cbAction.value = masterStepValue("antiRamijud");
         cbRedaksi.value = masterStepValue("redaksiCheck");
         cbClose.value = masterStepValue("closeAfterSave");
         cbCrop23.value = masterStepValue("crop2x3");
         cbCrop46.value = masterStepValue("crop4x6");
-        cbBatch.value = masterStepValue("batchAllDocs");
+
+        var lblAdvNote = settingDlg.add("statictext", undefined, "Tombol Advanced punya pengaturannya sendiri (Save PSD / JPG / PNG / Action / Keep open / Batch).");
+        lblAdvNote.enabled = false;
 
         var pnlRedaksi = settingDlg.add("panel", undefined, "Kalimat terlarang (satu kalimat per baris)");
         pnlRedaksi.orientation = "column";
@@ -446,8 +459,7 @@ function main() {
                 redaksiCheck: cbRedaksi.value,
                 closeAfterSave: cbClose.value,
                 crop2x3: cbCrop23.value,
-                crop4x6: cbCrop46.value,
-                batchAllDocs: cbBatch.value
+                crop4x6: cbCrop46.value
             };
             var saved = saveMasterConfig(steps, lines);
             if (!saved) {
@@ -475,9 +487,24 @@ function main() {
     btnPng.onClick = function () { dlg.close(2); };
 
     // Pas Foto (Kode 301 dihapus karena redundant dengan JPG Biasa)
-    btnPas2x3.onClick = function () { dlg.close(302); };
-    btnPas4x6.onClick = function () { dlg.close(303); };
-    btnPasKombi.onClick = function () { dlg.close(304); };
+    btnPas2x3.onClick = function () {
+        if (!stepOn("crop2x3")) { alert("Crop pas foto 2x3 sedang dinonaktifkan di Pengaturan.\nAktifkan dulu lewat tombol Pengaturan."); return; }
+        dlg.close(302);
+    };
+    btnPas4x6.onClick = function () {
+        if (!stepOn("crop4x6")) { alert("Crop pas foto 4x6 sedang dinonaktifkan di Pengaturan.\nAktifkan dulu lewat tombol Pengaturan."); return; }
+        dlg.close(303);
+    };
+    btnPasKombi.onClick = function () {
+        if (!stepOn("crop2x3") || !stepOn("crop4x6")) {
+            var kurang = [];
+            if (!stepOn("crop2x3")) kurang.push("crop 2x3");
+            if (!stepOn("crop4x6")) kurang.push("crop 4x6");
+            alert("PAS FOTO (KOMBI) butuh crop 2x3 dan 4x6.\nDinonaktifkan di Pengaturan: " + kurang.join(" dan "));
+            return;
+        }
+        dlg.close(304);
+    };
     
     if (btnArtJpg) {
         btnArtJpg.onClick = function () { dlg.close(401); };
@@ -584,6 +611,11 @@ function main() {
         var btnMethodPas2x3 = leftCol.add("button", undefined, "PAS FOTO (2x3)");
         var btnMethodPas4x6 = leftCol.add("button", undefined, "PAS FOTO (4x6)");
         var btnMethodPasKombi = leftCol.add("button", undefined, "PAS FOTO (KOMBI)");
+
+        // Tombol mengikuti Pengaturan: crop yang dimatikan tidak bisa dipilih di sini.
+        if (!stepOn("crop2x3")) { btnMethodPas2x3.enabled = false; btnMethodPas2x3.helpTip = "Crop 2x3 dinonaktifkan di Pengaturan Save Master."; }
+        if (!stepOn("crop4x6")) { btnMethodPas4x6.enabled = false; btnMethodPas4x6.helpTip = "Crop 4x6 dinonaktifkan di Pengaturan Save Master."; }
+        if (!stepOn("crop2x3") || !stepOn("crop4x6")) { btnMethodPasKombi.enabled = false; btnMethodPasKombi.helpTip = "Butuh crop 2x3 dan 4x6; salah satunya dinonaktifkan di Pengaturan Save Master."; }
 
         var leftBtnW = 150;
         btnMethodJpg.preferredSize.width = leftBtnW;
