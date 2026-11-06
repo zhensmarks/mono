@@ -403,7 +403,7 @@ public static class LocalUpdateService
         return Convert.ToHexString(hash);
     }
 
-    private static string BuildApplyScript(
+    internal static string BuildApplyScript(
         string payload,
         string installDir,
         int processId,
@@ -425,7 +425,7 @@ public static class LocalUpdateService
             var json = System.Text.Json.JsonSerializer.Serialize(new
             {
                 selected = selectedNames,
-                components = manifestComponents.Select(c => new { name = c.Name, changed = c.Changed, included = c.Included, paths = c.Paths })
+                components = manifestComponents.Select(c => new { name = c.Name, changed = c.Changed, included = c.Included, paths = c.Paths, atomic = c.Atomic, files = c.Files })
             });
             filterBlock =
                 "$componentsJson = " + Q(json) + "\n" +
@@ -454,6 +454,67 @@ public static class LocalUpdateService
         sb.Append("Write-Log '--- mulai update ---'\n");
         sb.Append($"try {{ Wait-Process -Id {processId} -Timeout 180 -ErrorAction SilentlyContinue }} catch {{ }}\n");
         sb.Append("Start-Sleep -Milliseconds 800\n\n");
+
+        // === MODE PER-FILE: manifest membawa daftar file + hash ===
+        // Hanya file yang benar-benar berbeda yang disalin. Komponen atomic (Scripts\Master)
+        // disalin utuh kalau ada satu file yang berubah, supaya isi folder tetap satu kesatuan.
+        sb.Append("$hasFiles = $false\n");
+        sb.Append("if ($components) { foreach ($c in $components) { if ($c.files) { $hasFiles = $true } } }\n");
+        sb.Append("if ($hasFiles) {\n");
+        sb.Append("    $selNames = @($components | Where-Object { $selectedSet -contains $_.name } | ForEach-Object { $_.name })\n");
+        sb.Append("    $appSelected = ($selNames -contains 'Aplikasi')\n");
+        sb.Append("    if ($appSelected -and (Test-Path -LiteralPath $exe)) {\n");
+        sb.Append("        try { Copy-Item -LiteralPath $exe -Destination ($exe + '.bak') -Force } catch { Write-Log ('backup gagal: ' + $_.Exception.Message) }\n");
+        sb.Append("    }\n");
+        sb.Append("    if ($appSelected) {\n");
+        sb.Append("        $removeList = Join-Path $payload 'remove-on-update.txt'\n");
+        sb.Append("        if (Test-Path -LiteralPath $removeList) {\n");
+        sb.Append("            foreach ($rel in (Get-Content -LiteralPath $removeList)) {\n");
+        sb.Append("                $rel = $rel.Trim()\n");
+        sb.Append("                if ($rel -eq '' -or $rel.StartsWith('#')) { continue }\n");
+        sb.Append("                $t = [IO.Path]::Combine($install, $rel.Replace('/', [IO.Path]::DirectorySeparatorChar))\n");
+        sb.Append("                if (Test-Path -LiteralPath $t) {\n");
+        sb.Append("                    try { Remove-Item -LiteralPath $t -Force -ErrorAction Stop; Write-Log ('dihapus: ' + $rel) }\n");
+        sb.Append("                    catch { Write-Log ('gagal hapus ' + $rel + ': ' + $_.Exception.Message) }\n");
+        sb.Append("                }\n");
+        sb.Append("            }\n");
+        sb.Append("        }\n");
+        sb.Append("    }\n");
+        sb.Append("    function Copy-One([string]$rel) {\n");
+        sb.Append("        $dst = [IO.Path]::Combine($install, ($rel -replace '/', [IO.Path]::DirectorySeparatorChar))\n");
+        sb.Append("        $dir = [IO.Path]::GetDirectoryName($dst)\n");
+        sb.Append("        if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }\n");
+        sb.Append("        Copy-Item -LiteralPath (Join-Path $payload ($rel -replace '/', [IO.Path]::DirectorySeparatorChar)) -Destination $dst -Force\n");
+        sb.Append("    }\n");
+        sb.Append("    function Get-InstalledHash([string]$rel) {\n");
+        sb.Append("        $dst = [IO.Path]::Combine($install, ($rel -replace '/', [IO.Path]::DirectorySeparatorChar))\n");
+        sb.Append("        if (-not (Test-Path -LiteralPath $dst)) { return '' }\n");
+        sb.Append("        try { return (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash } catch { return '' }\n");
+        sb.Append("    }\n");
+        sb.Append("    try {\n");
+        sb.Append("        foreach ($comp in $components) {\n");
+        sb.Append("            if (-not ($selNames -contains $comp.name)) { Write-Log ('komponen ' + $comp.name + ' dilewati (tidak dipilih)'); continue }\n");
+        sb.Append("            if (-not $comp.files) { Write-Log ('komponen ' + $comp.name + ': manifest tanpa daftar file, dilewati'); continue }\n");
+        sb.Append("            $props = @($comp.files.PSObject.Properties)\n");
+        sb.Append("            $copyAll = $false\n");
+        sb.Append("            if ($comp.atomic) {\n");
+        sb.Append("                foreach ($p in $props) { if ((Get-InstalledHash $p.Name) -ne $p.Value) { $copyAll = $true; break } }\n");
+        sb.Append("                if (-not $copyAll) { Write-Log ('komponen ' + $comp.name + ' sudah sama, dilewati'); continue }\n");
+        sb.Append("            }\n");
+        sb.Append("            $n = 0\n");
+        sb.Append("            foreach ($p in $props) {\n");
+        sb.Append("                if (-not $copyAll -and (Get-InstalledHash $p.Name) -eq $p.Value) { continue }\n");
+        sb.Append("                Copy-One $p.Name; $n++\n");
+        sb.Append("            }\n");
+        sb.Append("            Write-Log ('komponen ' + $comp.name + ': ' + $n + ' dari ' + $props.Count + ' file disalin')\n");
+        sb.Append("        }\n");
+        sb.Append("        if (Test-Path -LiteralPath ($exe + '.bak')) { try { Remove-Item -LiteralPath ($exe + '.bak') -Force } catch { } }\n");
+        sb.Append("    } catch {\n");
+        sb.Append("        Write-Log ('gagal update: ' + $_.Exception.Message)\n");
+        sb.Append("        if (Test-Path -LiteralPath ($exe + '.bak')) { try { Copy-Item -LiteralPath ($exe + '.bak') -Destination $exe -Force; Write-Log 'exe lama dipulihkan' } catch { } }\n");
+        sb.Append("    }\n");
+        sb.Append("} else {\n");
+
 
         // Komponen APLIKASI
         sb.Append("# === Komponen APLIKASI (BMachine.App.exe + Assets) ===\n");
@@ -534,6 +595,7 @@ public static class LocalUpdateService
         sb.Append("        } catch { Write-Log ('gagal salin Action: ' + $_.Exception.Message) }\n");
         sb.Append("    }\n");
         sb.Append("} else { Write-Log 'komponen Action dilewati (user tidak pilih; modifikasi user aman, folder lama tetap)' }\n\n");
+        sb.Append("}\n\n");   // tutup cabang fallback (manifest lama)
 
         // Perilaku lama: salin payload apa adanya
         sb.Append("if (-not $componentsJson) {\n");

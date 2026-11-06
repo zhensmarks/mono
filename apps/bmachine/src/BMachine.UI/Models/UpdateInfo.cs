@@ -42,6 +42,21 @@ public class ManifestComponentInfo
     public List<string> Paths { get; set; } = new();
 
     /// <summary>
+    /// Daftar file komponen: path relatif ke root install ("Scripts/Action/save_master.jsx")
+    /// -> SHA256 isi file. Kalau terisi, helper update menyalin HANYA file yang berbeda,
+    /// jadi update JSX kecil tidak lagi menimpa seluruh folder Action.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("files")]
+    public Dictionary<string, string>? Files { get; set; }
+
+    /// <summary>
+    /// True = komponen wajib diperbarui sebagai satu kesatuan (Scripts\Master): kalau satu
+    /// file berubah, semua file komponen ini disalin supaya konsisten.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("atomic")]
+    public bool Atomic { get; set; }
+
+    /// <summary>
     /// Untuk binding UI: gabungan path yang relevan (tampil di panel komponen,
     /// tooltip). Kosong = path tidak diketahui.
     /// </summary>

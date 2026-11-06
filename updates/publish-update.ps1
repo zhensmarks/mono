@@ -148,6 +148,27 @@ function Get-SimpleFileHash([string]$Path) {
     try { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash } catch { return $null }
 }
 
+# Peta file -> hash untuk satu komponen: path relatif ke root payload (pakai "/"),
+# supaya applier bisa menyalin HANYA file yang berbeda (update per-file).
+function Get-PayloadFileMap([string[]]$Paths) {
+    $map = [ordered]@{}
+    foreach ($rel in $Paths) {
+        $full = Join-Path $PayloadDir $rel
+        if (-not (Test-Path -LiteralPath $full)) { continue }
+        $item = Get-Item -LiteralPath $full
+        if ($item.PSIsContainer) {
+            $files = @(Get-ChildItem -LiteralPath $full -Recurse -File | Where-Object { $_.FullName -notlike "*\.git*" })
+        } else {
+            $files = @($item)
+        }
+        foreach ($f in $files) {
+            $key = $f.FullName.Substring($PayloadDir.Length).TrimStart("\", "/") -replace '\\', '/'
+            $map[$key] = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash
+        }
+    }
+    return $map
+}
+
 $baseDir = $PublishDir                       # hasil publish terakhir (baseline)
 $componentsArray = New-Object System.Collections.ArrayList
 
@@ -164,7 +185,9 @@ $appComponents = @{
     name     = "Aplikasi"
     changed  = $appChanged
     included = $true
+    atomic   = $false
     paths    = $appPaths
+    files    = (Get-PayloadFileMap $appPaths)
 }
 [void]$componentsArray.Add([pscustomobject]$appComponents)
 
@@ -189,7 +212,9 @@ $masterComponents = @{
     name     = "Master"
     changed  = $masterChanged
     included = $true
+    atomic   = $true          # satu kesatuan: kalau satu file berubah, semua disalin
     paths    = @("Scripts\Master")
+    files    = (Get-PayloadFileMap @("Scripts\Master"))
 }
 [void]$componentsArray.Add([pscustomobject]$masterComponents)
 
@@ -212,7 +237,9 @@ $actionComponents = @{
     name     = "Action"
     changed  = $actionChanged
     included = $false   # default: centang Aplikasi + Master saja; Action opsional (modifikasi user sering di sini)
+    atomic   = $false         # per-file: JSX yang berubah saja
     paths    = @("Scripts\Action")
+    files    = (Get-PayloadFileMap @("Scripts\Action"))
 }
 [void]$componentsArray.Add([pscustomobject]$actionComponents)
 
@@ -230,7 +257,7 @@ $manifestObj = [ordered]@{
 # Tampilkan status komponen untuk catatan rilis opsional
 Write-Host "      Komponen: Aplikasi=$($appChanged) Master=$($masterChanged) Action=$($actionChanged)" -ForegroundColor DarkGray
 
-$json = $manifestObj | ConvertTo-Json -Depth 4
+$json = $manifestObj | ConvertTo-Json -Depth 6
 # Tulis tanpa BOM supaya bisa dibaca tool lain (C#/JsonDocument tetap aman, tapi lebih bersih).
 [System.IO.File]::WriteAllText($Manifest, $json, (New-Object System.Text.UTF8Encoding($false)))
 

@@ -114,7 +114,9 @@
                     <TextBlock Text="Pembaruan komponen" FontSize="10.5" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <TextBlock Text="Pilih mana yang mau di-update. Modifikasi kamu di komponen yang tidak dicentang TIDAK akan disentuh."
-                               FontSize="10" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                                   FontSize="10" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                                        <TextBlock Text="Hanya file yang berubah yang disalin — kecuali MASTER: satu kesatuan, jadi disalin utuh saat ada perubahan."
+                                                   FontSize="10" Foreground="{DynamicResource TextFaintBrush}" TextWrapping="Wrap" Margin="0,0,0,4"/>
                     <ItemsControl ItemsSource="{Binding UpdateComponents}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:CompileBindings="False">
