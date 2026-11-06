@@ -152,9 +152,23 @@ public static class LocalUpdateService
                     StringComparison.OrdinalIgnoreCase);
             }
 
-            var status = info.IsUpdateAvailable
-                ? $"Versi baru v{parsedManifest.LatestVersion} tersedia."
-                : $"Sudah versi terbaru (v{info.CurrentVersion}).";
+            // Update yang isinya sudah masuk lewat jalur tanpa-restart tidak perlu ditawarkan lagi
+            // sampai aplikasi dibuka ulang (versi exe-nya memang belum berubah).
+            var appliedHot = ReadAppliedHotVersion();
+            if (info.IsUpdateAvailable && appliedHot != null &&
+                string.Equals(appliedHot,
+                    parsedManifest.LatestVersion.TrimStart('v', 'V'),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                info.IsUpdateAvailable = false;
+                info.AlreadyAppliedWithoutRestart = true;
+            }
+
+            var status = info.AlreadyAppliedWithoutRestart
+                ? $"v{info.CurrentVersion}: pembaruan skrip sudah diterapkan tanpa restart (versi program baru terpasang setelah aplikasi dibuka ulang)."
+                : info.IsUpdateAvailable
+                    ? $"Versi baru v{parsedManifest.LatestVersion} tersedia."
+                    : $"Sudah versi terbaru (v{info.CurrentVersion}).";
 
             return (info, status);
         }
@@ -340,26 +354,127 @@ public static class LocalUpdateService
         return Version.TryParse(clean, out var parsed) ? parsed : null;
     }
 
+    /// <summary>Hasil penyiapan update. <c>RestartRequired</c> = aplikasi harus ditutup dulu.</summary>
+    public sealed record ApplyResult(bool Ok, string Message, bool RestartRequired);
+
     /// <summary>
-    /// Terapkan update: tulis helper PowerShell yang menunggu proses ini keluar,
-    /// menyalin payload ke folder instalasi, lalu membuka aplikasi lagi.
-    /// Parameter <c>selectedComponents</c> = daftar nama komponen yang di-check user
-    /// di dialog update (mis. ["Aplikasi","Master","Action"]). Kalau kosong / null
-    /// (manifest lama tanpa components), helper menyalin payload apa adanya.
-    /// Pemanggil bertanggung jawab menutup aplikasi setelah method ini sukses.
+    /// Versi yang sudah diterapkan lewat update tanpa restart. Aplikasi masih berjalan dengan
+    /// versi lama, jadi tanpa penanda ini banner/notif update akan terus muncul walaupun isinya
+    /// sudah masuk. Bisa diarahkan ke file lain saat pengujian.
     /// </summary>
-    public static async Task<(bool Ok, string Message)> ApplyAsync(UpdateInfo info, IEnumerable<string>? selectedComponents = null)
+    internal static string AppliedHotVersionFile { get; set; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "BMachine", "applied_hot_version.txt");
+
+    internal static string? ReadAppliedHotVersion()
+    {
+        try
+        {
+            return File.Exists(AppliedHotVersionFile)
+                ? File.ReadAllText(AppliedHotVersionFile).Trim().TrimStart('v', 'V')
+                : null;
+        }
+        catch { return null; }
+    }
+
+    internal static void SaveAppliedHotVersion(string? version)
+    {
+        try
+        {
+            var v = (version ?? "").Trim().TrimStart('v', 'V');
+            if (v.Length == 0) return;
+            var dir = Path.GetDirectoryName(AppliedHotVersionFile);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            File.WriteAllText(AppliedHotVersionFile, v, new UTF8Encoding(false));
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Perlu restart atau tidak. Restart WAJIB kalau:
+    /// - komponen Aplikasi ikut dipilih dan ada file-nya yang berbeda (exe / Assets), atau
+    /// - ada file skrip BARU atau HILANG pada komponen skrip yang dipilih (daftar tombol
+    ///   dibangun saat aplikasi start, jadi penambahan/penghapusan file baru terlihat
+    ///   setelah restart).
+    /// Kalau hanya ISI file skrip yang berubah (mis. satu .jsx), cukup copy di tempat:
+    /// JSX dibaca Photoshop tiap tombol ditekan, jadi langsung berlaku tanpa restart.
+    /// </summary>
+    internal static (bool NeedRestart, string Reason) EvaluateRestart(
+        UpdateInfo info, IEnumerable<string>? selectedComponents, string installDir)
+    {
+        var comps = (info?.Components ?? new List<BMachine.UI.Models.ManifestComponentInfo>())
+            .Where(c => c != null && c.Files is { Count: > 0 }).ToList();
+        if (comps.Count == 0) return (true, "Manifest lama tanpa daftar file: pakai jalur salin penuh.");
+
+        var selected = selectedComponents?.Where(s => !string.IsNullOrWhiteSpace(s)).ToList() ?? new List<string>();
+        bool allSelected = selected.Count == 0;
+        var chosen = comps.Where(c => allSelected || selected.Contains(c.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+
+        foreach (var comp in chosen)
+        {
+            bool isApp = string.Equals(comp.Name, "Aplikasi", StringComparison.OrdinalIgnoreCase);
+
+            foreach (var rel in comp.Files!.Keys)
+            {
+                var target = Path.Combine(installDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                if (!File.Exists(target))
+                {
+                    if (isApp) return (true, "EXE/Assets belum lengkap di folder instalasi.");
+                    return (true, $"Ada file skrip baru ({rel}); daftar tombol dibangun saat start.");
+                }
+
+                if (isApp)
+                {
+                    try
+                    {
+                        var have = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(target)));
+                        if (!string.Equals(have, comp.Files[rel], StringComparison.OrdinalIgnoreCase))
+                            return (true, "Program (exe/Assets) berubah.");
+                    }
+                    catch { return (true, "Gagal memeriksa file program."); }
+                }
+            }
+
+            // File yang ADA di install tapi tidak ada lagi di payload = dihapus di versi baru.
+            if (!isApp && comp.Paths is { Count: > 0 })
+            {
+                var wanted = new HashSet<string>(comp.Files.Keys.Select(k => k.Replace('\\', '/')),
+                    StringComparer.OrdinalIgnoreCase);
+                foreach (var p in comp.Paths)
+                {
+                    var dir = Path.Combine(installDir, p.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar));
+                    if (!Directory.Exists(dir)) continue;
+                    foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                    {
+                        var rel = Path.GetRelativePath(installDir, file).Replace('\\', '/');
+                        if (!wanted.Contains(rel)) return (true, $"Ada file skrip yang dihapus ({rel}).");
+                    }
+                }
+            }
+        }
+
+        return (false, "Hanya isi file skrip yang berubah: cukup disalin tanpa menutup aplikasi.");
+    }
+
+    /// <summary>
+    /// Terapkan update: tulis helper PowerShell yang menyalin payload ke folder instalasi.
+    /// Kalau <c>RestartRequired</c> true, helper menunggu proses ini keluar lalu membuka
+    /// aplikasi lagi; kalau false, file disalin saat aplikasi tetap jalan (JSX terpakai
+    /// langsung karena dibaca tiap tombol ditekan).
+    /// Parameter <c>selectedComponents</c> = nama komponen yang dipilih user; kosong = semua.
+    /// </summary>
+    public static async Task<ApplyResult> ApplyAsync(UpdateInfo info, IEnumerable<string>? selectedComponents = null)
     {
         if (info == null || !info.IsLocalSource || string.IsNullOrWhiteSpace(info.PayloadFolder))
-            return (false, "Sumber update tidak valid.");
+            return new ApplyResult(false, "Sumber update tidak valid.", false);
 
         var payload = info.PayloadFolder;
         if (!Directory.Exists(payload))
-            return (false, $"Folder payload tidak ditemukan: {payload}");
+            return new ApplyResult(false, $"Folder payload tidak ditemukan: {payload}", false);
 
         var payloadExe = Path.Combine(payload, "BMachine.App.exe");
         if (!File.Exists(payloadExe))
-            return (false, "Payload tidak berisi BMachine.App.exe.");
+            return new ApplyResult(false, "Payload tidak berisi BMachine.App.exe.", false);
 
         // Verifikasi isi payload: kalau hash tidak cocok dengan manifest, update dibatalkan.
         // Ini yang bikin folder update aman walau ada yang mencoba menaruh exe lain.
@@ -367,11 +482,12 @@ public static class LocalUpdateService
         {
             var actual = await ComputeSha256Async(payloadExe);
             if (!string.Equals(actual, info.Sha256, StringComparison.OrdinalIgnoreCase))
-                return (false, "Payload tidak cocok dengan manifest (SHA256 beda). Update dibatalkan.");
+                return new ApplyResult(false, "Payload tidak cocok dengan manifest (SHA256 beda). Update dibatalkan.", false);
         }
 
         var installDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        var script = BuildApplyScript(payload, installDir, Environment.ProcessId, selectedComponents, info.Components);
+        var (needRestart, reason) = EvaluateRestart(info, selectedComponents, installDir);
+        var script = BuildApplyScript(payload, installDir, Environment.ProcessId, selectedComponents, info.Components, needRestart);
         var scriptPath = Path.Combine(Path.GetTempPath(), $"bmachine-update-{Guid.NewGuid():N}.ps1");
 
         try
@@ -386,12 +502,17 @@ public static class LocalUpdateService
                 CreateNoWindow = true
             };
 
+            if (!needRestart) SaveAppliedHotVersion(info.LatestVersion);
+
             Process.Start(psi);
-            return (true, "Update disiapkan. Aplikasi akan menutup lalu terbuka lagi dengan versi baru.");
+            var message = needRestart
+                ? $"Update disiapkan ({reason}) Aplikasi akan menutup lalu terbuka lagi dengan versi baru."
+                : "Update skrip diterapkan tanpa menutup aplikasi (langsung berlaku saat tombol dipakai).";
+            return new ApplyResult(true, message, needRestart);
         }
         catch (Exception ex)
         {
-            return (false, $"Gagal menyiapkan update: {ex.Message}");
+            return new ApplyResult(false, $"Gagal menyiapkan update: {ex.Message}", false);
         }
     }
 
@@ -408,7 +529,8 @@ public static class LocalUpdateService
         string installDir,
         int processId,
         IEnumerable<string>? selectedComponents,
-        List<BMachine.UI.Models.ManifestComponentInfo> manifestComponents)
+        List<BMachine.UI.Models.ManifestComponentInfo> manifestComponents,
+        bool restartApp = true)
     {
         static string Q(string value) => "'" + (value ?? "").Replace("'", "''") + "'";
 
@@ -465,7 +587,15 @@ public static class LocalUpdateService
         sb.Append("\n");
 
         sb.Append("Write-Log '--- mulai update ---'\n");
-        sb.Append($"try {{ Wait-Process -Id {processId} -Timeout 180 -ErrorAction SilentlyContinue }} catch {{ }}\n");
+        if (restartApp)
+        {
+            // Tunggu aplikasi lama benar-benar keluar sebelum menimpa file program.
+            sb.Append($"try {{ Wait-Process -Id {processId} -Timeout 180 -ErrorAction SilentlyContinue }} catch {{ }}\n");
+        }
+        else
+        {
+            sb.Append("Write-Log 'update tanpa restart: aplikasi tetap jalan'\n");
+        }
         sb.Append("Start-Sleep -Milliseconds 800\n\n");
 
         // === MODE PER-FILE: manifest membawa daftar file + hash ===
@@ -623,8 +753,16 @@ public static class LocalUpdateService
         sb.Append("    }\n");
         sb.Append("}\n\n");
 
-        sb.Append("Write-Log 'membuka aplikasi'\n");
-        sb.Append("Start-Process -FilePath $exe\n");
+        if (restartApp)
+        {
+            sb.Append("Write-Log 'membuka aplikasi'\n");
+            sb.Append("Start-Process -FilePath $exe\n");
+        }
+        else
+        {
+            sb.Append("Write-Log 'selesai tanpa restart'\n");
+        }
+
         sb.Append("Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue\n");
 
         return sb.ToString();

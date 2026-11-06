@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using BMachine.UI.Services;
 using Xunit;
 
@@ -122,10 +122,10 @@ public class LocalUpdateTests : IDisposable
         WriteManifest(new { version = "99.4.0", notes = new[] { "x" }, payload = "payload" });
         var (info, _) = await LocalUpdateService.CheckAsync(_folder, allowFallback: false);
 
-        var (ok, message) = await LocalUpdateService.ApplyAsync(info);
+        var result = await LocalUpdateService.ApplyAsync(info);
 
-        Assert.False(ok);
-        Assert.Contains("payload", message);
+        Assert.False(result.Ok);
+        Assert.Contains("payload", result.Message);
     }
 
     [Fact]
@@ -137,10 +137,10 @@ public class LocalUpdateTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(payloadDir, "BMachine.App.exe"), "bukan exe asli");
 
         var (info, _) = await LocalUpdateService.CheckAsync(_folder, allowFallback: false);
-        var (ok, message) = await LocalUpdateService.ApplyAsync(info);
+        var result = await LocalUpdateService.ApplyAsync(info);
 
-        Assert.False(ok);
-        Assert.Contains("SHA256", message);
+        Assert.False(result.Ok);
+        Assert.Contains("SHA256", result.Message);
     }
 
     // --- Changelog gabungan (user tertinggal beberapa versi) ---

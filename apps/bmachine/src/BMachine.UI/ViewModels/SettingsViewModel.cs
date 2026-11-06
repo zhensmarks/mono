@@ -1218,8 +1218,8 @@ public partial class SettingsViewModel : ObservableObject
         IsApplyingUpdate = true;
         try
         {
-            var (ok, message) = await LocalUpdateService.ApplyAsync(_lastUpdateInfo);
-            UpdateStatusText = message;
+            var result = await LocalUpdateService.ApplyAsync(_lastUpdateInfo);
+            UpdateStatusText = result.Message;
         }
         finally
         {

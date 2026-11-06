@@ -87,6 +87,13 @@ public class ManifestCategories
 public class UpdateInfo
 {
     public bool IsUpdateAvailable { get; set; }
+
+    /// <summary>
+    /// True kalau versi ini isinya SUDAH diterapkan lewat update tanpa restart (aplikasi masih
+    /// jalan dengan versi lama). Dipakai supaya banner/notif update berhenti menawarkan versi
+    /// yang sama, tapi tetap muncul lagi kalau ada rilis berikutnya.
+    /// </summary>
+    public bool AlreadyAppliedWithoutRestart { get; set; }
     public string LatestVersion { get; set; } = "";
     public string CurrentVersion { get; set; } = "";
     public string DownloadUrl { get; set; } = "";

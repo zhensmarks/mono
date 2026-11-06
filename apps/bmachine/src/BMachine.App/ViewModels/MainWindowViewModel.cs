@@ -389,6 +389,21 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
     partial void OnIsUpdateAvailableChanged(bool value)
         => Console.WriteLine($"[Update] banner {(value ? "tampil" : "disembunyikan")}");
 
+    /// <summary>
+    /// Dipanggil setelah update yang TIDAK perlu restart (hanya isi file skrip berubah).
+    /// Kirim pesan supaya daftar skrip/nama/ikon dibaca ulang tanpa menutup aplikasi.
+    /// </summary>
+    private void RefreshAfterHotUpdate()
+    {
+        try
+        {
+            WeakReferenceMessenger.Default.Send(new RefreshScriptsMessage());
+            WeakReferenceMessenger.Default.Send(new ScriptOrderChangedMessage());
+        }
+        catch { }
+        UpdateActionStatus = "Update skrip diterapkan tanpa menutup aplikasi. Perubahan langsung berlaku saat tombol dipakai.";
+    }
+
     [RelayCommand]
     private async Task ApplyUpdate()
     {
@@ -403,10 +418,16 @@ public partial class MainWindowViewModel : ObservableObject, IRecipient<ThemeSet
                 ? UpdateComponents.Where(c => c.Included && c.Changed).Select(c => c.Name).ToList()
                 : null;
 
-            var (ok, message) = await BMachine.UI.Services.LocalUpdateService.ApplyAsync(_lastUpdateInfo, selected);
-            UpdateActionStatus = message;
+            var result = await BMachine.UI.Services.LocalUpdateService.ApplyAsync(_lastUpdateInfo, selected);
+            UpdateActionStatus = result.Message;
 
-            if (ok)
+            if (result.Ok && !result.RestartRequired)
+            {
+                // Hanya isi file skrip yang berubah: jangan tutup aplikasi.
+                RefreshAfterHotUpdate();
+            }
+
+            if (result.Ok && result.RestartRequired)
             {
                 // Helper PowerShell menunggu proses ini keluar, lalu menyalin payload + membuka app lagi.
                 await Task.Delay(1200);
