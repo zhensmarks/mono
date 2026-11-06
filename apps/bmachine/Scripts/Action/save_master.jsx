@@ -309,12 +309,13 @@ function main() {
     // Col 1: JPG
     var col1 = pnlStd.add("group");
     col1.orientation = "column";
-    col1.add("statictext", undefined, "--- JPG ---");
-    var btnJpg = col1.add("button", undefined, "JPG - TUTUP");
+    col1.add("statictext", undefined, "--- JPG & PNG ---");
+    var btnJpg = col1.add("button", undefined, "JPG");
     btnJpg.preferredSize.width = 140;
 
-    var btnJpgOpen = col1.add("button", undefined, "JPG - TETAP");
-    btnJpgOpen.preferredSize.width = 140;
+    // PNG menggantikan tombol "JPG - TETAP" (tutup/keep-open sekarang diatur di Pengaturan)
+    var btnPng = col1.add("button", undefined, "PNG");
+    btnPng.preferredSize.width = 140;
 
     var btnSelectedJpg = col1.add("button", undefined, "TERPILIH");
     btnSelectedJpg.preferredSize.width = 140;
@@ -332,7 +333,7 @@ function main() {
     // Col 2: PNG & PAS FOTO (Merged)
     var col2 = pnlStd.add("group");
     col2.orientation = "column";
-    col2.add("statictext", undefined, "--- PNG & PAS FOTO ---");
+    col2.add("statictext", undefined, "--- PAS FOTO ---");
 
     // Pas Foto
     var btnPas2x3 = col2.add("button", undefined, "PAS FOTO (2x3)");
@@ -347,9 +348,9 @@ function main() {
     sep.alignment = "fill";
     sep.preferredSize.height = 1;
 
-    // PNG
-    var btnPng = col2.add("button", undefined, "PNG Standard");
-    btnPng.preferredSize.width = 140;
+    // Advanced (dulu tombol "PNG Standard", sekarang ikut kolom biar baris bawah ringkas)
+    var btnAdvanced = col2.add("button", undefined, "Advanced");
+    btnAdvanced.preferredSize.width = 140;
 
     var artboardsInfoCurrent = getArtboardsData();
     var artboardCheckboxes = [];
@@ -393,7 +394,6 @@ function main() {
     grpBottom.alignment = "center";
     
     var btnSetting = grpBottom.add("button", undefined, "Pengaturan");
-    var btnAdvanced = grpBottom.add("button", undefined, "Advanced");
     var btnCancel = grpBottom.add("button", undefined, "Cancel");
 
     // ========== PENGATURAN (langkah otomatis + kalimat terlarang) ==========
@@ -482,7 +482,6 @@ function main() {
 
     // --- EVENTS ---
     btnJpg.onClick = function () { dlg.close(1); };
-    btnJpgOpen.onClick = function () { dlg.close(5); };
     btnSelectedJpg.onClick = function () { dlg.close(100); }; // Code 100 for Selected JPG
     btnPng.onClick = function () { dlg.close(2); };
 

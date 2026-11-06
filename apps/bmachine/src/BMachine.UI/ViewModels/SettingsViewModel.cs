@@ -3570,9 +3570,26 @@ public partial class SettingsViewModel : ObservableObject
     {
         try
         {
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+            // Baca dari AppData (sumber yang sama dengan alias/metadata). File di folder
+            // instalasi hanya dipakai sekali untuk menanam bawaan: folder itu ditimpa
+            // payload update, jadi urutan/nama hasil atur user TIDAK boleh disimpan di sana.
+            var path = _metadataPath;
+            if (!File.Exists(path))
+            {
+                var seed = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+                if (File.Exists(seed))
+                {
+                    var folder = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                    File.Copy(seed, path);
+                }
+            }
+
             var masterList = new List<ScriptOrderItem>();
             var actionList = new List<ScriptOrderItem>();
+            // Key yang sudah dikenal di scripts.json (AppData). Skrip yang datang lewat update
+            // belum tentu ada di situ, jadi harus ditambahkan supaya tetap bisa diatur urutannya.
+            var knownKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             
             // Files check helper
             bool IsMaster(string key) => File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "Master", key));
@@ -3604,11 +3621,37 @@ public partial class SettingsViewModel : ObservableObject
                         Key = key, 
                         DisplayName = config.Name 
                     };
+                    knownKeys.Add(key);
                     
                     if (IsMaster(key)) masterList.Add(item);
                     else actionList.Add(item); 
                 }
             }
+
+            // Lengkapi dengan file yang ada di disk tapi belum tercatat (skrip baru dari update).
+            void AppendMissing(string dir, string pattern, List<ScriptOrderItem> target)
+            {
+                try
+                {
+                    if (!Directory.Exists(dir)) return;
+                    foreach (var file in Directory.GetFiles(dir, pattern).OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+                    {
+                        var fileName = Path.GetFileName(file);
+                        if (fileName.StartsWith("_")) continue;      // helper internal, sama seperti baris tombol
+                        if (!knownKeys.Add(fileName)) continue;
+                        target.Add(new ScriptOrderItem
+                        {
+                            Key = fileName,
+                            DisplayName = Path.GetFileNameWithoutExtension(fileName)
+                        });
+                    }
+                }
+                catch { }
+            }
+
+            var scriptsRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
+            AppendMissing(Path.Combine(scriptsRoot, "Master"), "*.py", masterList);
+            AppendMissing(Path.Combine(scriptsRoot, "Action"), "*.*", actionList);
             
             MasterScriptOrderList = new ObservableCollection<ScriptOrderItem>(masterList);
             ActionScriptOrderList = new ObservableCollection<ScriptOrderItem>(actionList);
@@ -3668,7 +3711,9 @@ public partial class SettingsViewModel : ObservableObject
     {
         try
         {
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "scripts.json");
+            // WAJIB AppData, bukan folder instalasi: payload update menimpa Scripts\scripts.json
+            // dan itu yang dulu bikin urutan/tata letak user balik ke bawaan setiap update.
+            var path = _metadataPath;
             
             // Reconstruct Dictionary while preserving order
             // We need to merge Master and Action lists, AND preserve any existing config (ShortCodes)

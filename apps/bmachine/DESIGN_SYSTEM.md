@@ -430,6 +430,13 @@ Baris tombol master di bawah panel SOURCE/OUTPUT dibangun dari isi `Scripts/Mast
   (mis. `ONE FOR ALL (buat_master.py)`). Jangan mengulang nama yang sama dua kali
   (`MANASIK (manasik.py)` salah).
 - **Skrip baru muncul setelah app dijalankan ulang**; daftar tombol dibangun sekali saat start.
+- **`scripts.json` (nama, urutan, ikon, enabled tombol) adalah DATA USER dan WAJIB hidup di
+  `%APPDATA%\BMachine\`**, bukan di folder instalasi. Payload update menimpa seluruh `Scripts\**`,
+  jadi menyimpannya di sana membuat pengaturan user balik ke bawaan setiap update (keluhan nyata:
+  tata letak radial berubah setelah update). `Scripts\scripts.json` di folder instalasi hanya boleh
+  dipakai sebagai **benih sekali pakai** (`File.Copy` saat file AppData belum ada). File AppData yang
+  sama juga menyimpan urutan radial, alias, dan status ikon mata — satu sumber untuk semuanya.
+  Karena itu `LoadScriptOrder()` juga harus melengkapi entri untuk skrip baru yang dikirim update.
 - **Isi tombol sekunder WAJIB beda dari permukaan di belakangnya.** Token
   `ButtonSecondaryBackgroundBrush` tidak boleh dipetakan sama dengan `CardBackgroundBrush`/surface
   (di tema terang keduanya menjadi putih — terukur isi tombol 255,255,255 dengan latar 255,255,255):
